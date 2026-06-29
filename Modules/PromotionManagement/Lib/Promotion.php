@@ -80,6 +80,7 @@ if (!function_exists('push_notification_sound_for_type')) {
         return match ($type) {
             'booking', 'booking_ignored', 'offline-payment' => 'booking.wav',
             'chatting' => 'chat.wav',
+            'incoming_call', 'call_accepted', 'call_declined', 'call_ended', 'call_cancelled', 'call_missed' => 'notification.wav',
             'wallet', 'loyalty_point', 'admin_pay', 'withdraw', 'refund' => 'wallet.wav',
             'bidding', 'bid-withdraw' => 'bidding.wav',
             default => 'notification.wav',
@@ -368,6 +369,61 @@ if (!function_exists('device_notification_for_chatting')) {
                     "notification" => []
                 ],
             ]
+        ];
+
+        finalize_fcm_push_payload($postData, (string) $title, (string) $description, $type);
+
+        return sendNotificationToHttp($postData);
+    }
+}
+
+if (!function_exists('device_notification_for_in_app_call')) {
+    function device_notification_for_in_app_call(
+        $fcm_token,
+        $title,
+        $description,
+        $call_id,
+        $channel_id,
+        $agora_channel_name,
+        $user_name,
+        $user_image,
+        $user_phone,
+        $user_type,
+        $type = 'incoming_call'
+    ) {
+        $image = $user_image
+            ? asset('storage/app/public/user/profile_image').'/'.$user_image
+            : '';
+
+        $postData = [
+            'message' => [
+                'token' => $fcm_token,
+                'data' => [
+                    'title' => (string) $title,
+                    'body' => (string) $description,
+                    'image' => (string) $image,
+                    'type' => (string) $type,
+                    'call_id' => (string) $call_id,
+                    'channel_id' => (string) $channel_id,
+                    'agora_channel_name' => (string) $agora_channel_name,
+                    'user_name' => (string) $user_name,
+                    'user_image' => (string) $image,
+                    'user_phone' => (string) ($user_phone ?? ''),
+                    'user_type' => (string) ($user_type ?? ''),
+                ],
+                'notification' => [
+                    'title' => (string) $title,
+                    'body' => (string) $description,
+                ],
+                'apns' => [
+                    'payload' => [
+                        'aps' => [],
+                    ],
+                ],
+                'android' => [
+                    'notification' => [],
+                ],
+            ],
         ];
 
         finalize_fcm_push_payload($postData, (string) $title, (string) $description, $type);

@@ -437,22 +437,13 @@ if (! function_exists('sync_review_notification_default_messages')) {
                 continue;
             }
 
-            $record = \Modules\BusinessSettingsModule\Entities\BusinessSettings::query()
-                ->where(['key_name' => $keyName, 'settings_type' => $settingsType])
-                ->first();
-
+            // Always enable all four review keys — each approval sends two distinct alerts
+            // (recipient: new review received, author: your review is published).
             $liveValues = [
                 $keyName . '_status' => '1',
                 $keyName . '_message' => $template['title'],
                 $keyName . '_description' => $template['description'],
             ];
-
-            if ($record) {
-                $existing = is_array($record->live_values)
-                    ? $record->live_values
-                    : (array) json_decode((string) $record->live_values, true);
-                $liveValues[$keyName . '_status'] = $existing[$keyName . '_status'] ?? '1';
-            }
 
             \Modules\BusinessSettingsModule\Entities\BusinessSettings::updateOrCreate(
                 ['key_name' => $keyName, 'settings_type' => $settingsType],
@@ -3400,7 +3391,7 @@ if (! function_exists('send_review_approved_to_provider_notification')) {
         $data = [
             'user_name' => trim(($review->customer?->first_name ?? '') . ' ' . ($review->customer?->last_name ?? '')),
             'provider_name' => $provider?->company_name ?? '',
-            'booking_id' => $review->booking?->readable_id ?? $review->booking_id ?? '',
+            'booking_id' => notification_readable_booking_id((string) $review->booking_id),
         ];
 
         scenario_push_notification(
@@ -3445,7 +3436,7 @@ if (! function_exists('send_review_approved_to_customer_notification')) {
         $data = [
             'user_name' => trim(($customer->first_name ?? '') . ' ' . ($customer->last_name ?? '')),
             'provider_name' => $review->provider?->company_name ?? '',
-            'booking_id' => $review->booking?->readable_id ?? $review->booking_id ?? '',
+            'booking_id' => notification_readable_booking_id((string) $review->booking_id),
         ];
 
         scenario_push_notification(
@@ -3490,7 +3481,7 @@ if (! function_exists('send_review_published_to_customer_notification')) {
         $data = [
             'user_name' => trim(($customer->first_name ?? '') . ' ' . ($customer->last_name ?? '')),
             'provider_name' => $review->provider?->company_name ?? '',
-            'booking_id' => $review->booking?->readable_id ?? $review->booking_id ?? '',
+            'booking_id' => notification_readable_booking_id((string) $review->booking_id),
         ];
 
         scenario_push_notification(
@@ -3536,7 +3527,7 @@ if (! function_exists('send_provider_review_published_notification')) {
         $data = [
             'user_name' => trim(($review->customer?->first_name ?? '') . ' ' . ($review->customer?->last_name ?? '')),
             'provider_name' => $provider?->company_name ?? '',
-            'booking_id' => $review->booking?->readable_id ?? $review->booking_id ?? '',
+            'booking_id' => notification_readable_booking_id((string) $review->booking_id),
         ];
 
         scenario_push_notification(
@@ -3973,6 +3964,71 @@ if (! function_exists('send_advertisement_push_notification')) {
             null,
             'provider-admin',
             $provider?->zone_id
+        );
+    }
+}
+
+if (! function_exists('send_in_app_call_push_notification')) {
+    function send_in_app_call_push_notification(
+        \Modules\UserManagement\Entities\User $toUser,
+        \Modules\InAppCallModule\Entities\InAppCall $call,
+        \Modules\UserManagement\Entities\User $caller,
+    ): void {
+        if (! $toUser->fcm_token) {
+            return;
+        }
+
+        $callerName = trim(($caller->first_name ?? '').' '.($caller->last_name ?? ''));
+        $title = translate('Incoming_call');
+        $description = $callerName !== '' ? $callerName : translate('Someone_is_calling_you');
+
+        device_notification_for_in_app_call(
+            $toUser->fcm_token,
+            $title,
+            $description,
+            $call->id,
+            $call->channel_id,
+            $call->agora_channel_name,
+            $callerName,
+            $caller->profile_image,
+            $caller->phone,
+            $caller->user_type,
+            'incoming_call'
+        );
+    }
+}
+
+if (! function_exists('send_in_app_call_status_push_notification')) {
+    function send_in_app_call_status_push_notification(
+        \Modules\UserManagement\Entities\User $toUser,
+        \Modules\InAppCallModule\Entities\InAppCall $call,
+        string $eventType,
+    ): void {
+        if (! $toUser->fcm_token) {
+            return;
+        }
+
+        $title = match ($eventType) {
+            'call_accepted' => translate('Call_accepted'),
+            'call_declined' => translate('Call_declined'),
+            'call_ended' => translate('Call_ended'),
+            'call_cancelled' => translate('Call_cancelled'),
+            'call_missed' => translate('Missed_call'),
+            default => translate('Call_update'),
+        };
+
+        device_notification_for_in_app_call(
+            $toUser->fcm_token,
+            $title,
+            '',
+            $call->id,
+            $call->channel_id,
+            $call->agora_channel_name,
+            '',
+            null,
+            null,
+            null,
+            $eventType
         );
     }
 }

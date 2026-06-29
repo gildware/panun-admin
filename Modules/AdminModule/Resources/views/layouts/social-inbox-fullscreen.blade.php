@@ -78,6 +78,8 @@
     @yield('content')
 
     @include('adminmodule::layouts.partials._status-modal')
+
+    @include('adminmodule::layouts.partials._notification-detail-modal')
 </main>
 
 <script src="{{ asset('assets/admin-module') }}/js/jquery-3.6.0.min.js"></script>

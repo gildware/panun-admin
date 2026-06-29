@@ -9490,4 +9490,6 @@ _Message' => 'Customer notification for provider bid offer
   'Provider Suspension Removed_Message' => 'Provider Suspension Removed Message',
   'Advertisement Created by Admin_Message' => 'Advertisement Created by Admin Message',
   'New_message_from_customer' => 'New message from customer',
+  'failed_to_load' => 'Failed to load',
+  'Notification_not_found' => 'Notification not found',
 );

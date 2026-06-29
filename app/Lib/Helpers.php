@@ -919,7 +919,6 @@ if (!function_exists('text_variable_data_format')) {
         ];
 
         if ($type == 'booking' || $type == 'offline-payment') {
-            $booking = null;
 
             if ($bookingType == 'repeat') {
                 $booking = \Modules\BookingModule\Entities\BookingRepeat::find($booking_id) ?? \Modules\BookingModule\Entities\Booking::find($booking_id);
@@ -974,6 +973,12 @@ if (!function_exists('text_variable_data_format')) {
                 trim(($booking?->serviceman?->user?->first_name ?? '') . ' ' . ($booking?->serviceman?->user?->last_name ?? ''))
             );
 
+        } elseif ($type === 'review' && filled($booking_id)) {
+            $readableBookingId = notification_readable_booking_id((string) $booking_id);
+            $currentBookingId = trim((string) ($replaceMap['{{bookingId}}'] ?? ''));
+            if ($readableBookingId !== '' && ($currentBookingId === '' || str_contains($currentBookingId, '-'))) {
+                $replaceMap['{{bookingId}}'] = $readableBookingId;
+            }
         }
 
         return str_replace(array_keys($replaceMap), array_values($replaceMap), $title);

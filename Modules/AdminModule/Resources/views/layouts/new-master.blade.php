@@ -122,6 +122,8 @@
 
     @include('adminmodule::layouts.partials._status-modal')
 
+    @include('adminmodule::layouts.partials._notification-detail-modal')
+
     @include('adminmodule::layouts.partials.image-view-modal')
 
     @include('adminmodule::layouts.partials._delete-modal')

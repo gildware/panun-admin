@@ -24,5 +24,6 @@
     "AI": true,
     "WhatsAppModule": true,
     "LeadManagement": true,
-    "CallCenterModule": true
+    "CallCenterModule": true,
+    "InAppCallModule": true
 }

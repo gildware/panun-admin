@@ -27,10 +27,9 @@
     </div>
 @else
     @foreach($notifications as $notification)
-        <a href="{{ route('admin.notifications.show', $notification->id) }}"
-           class="dropdown-item-text media gap-3 js-admin-notification-item {{ $notification->isUnread() ? 'bg-light' : '' }}"
-           data-notification-id="{{ $notification->id }}"
-           @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
+        <button type="button"
+                class="dropdown-item-text media gap-3 js-admin-notification-item border-0 bg-transparent w-100 text-start {{ $notification->isUnread() ? 'bg-light' : '' }}"
+                data-notification-id="{{ $notification->id }}">
             <div class="avatar title-color hover-color-c2 flex-shrink-0">
                 <span class="material-symbols-outlined">{{ $notification->iconName() }}</span>
             </div>
@@ -46,7 +45,7 @@
                 @endif
                 @include('adminmodule::admin.partials._notification-time', ['notification' => $notification])
             </div>
-        </a>
+        </button>
         <div class="dropdown-divider mb-0"></div>
     @endforeach
 @endif

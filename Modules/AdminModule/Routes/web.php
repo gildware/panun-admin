@@ -48,6 +48,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
     Route::post('profile-update', [AdminController::class, 'updateProfile']);
     Route::get('get-updated-data', [AdminController::class, 'getUpdatedData'])->name('get_updated_data');
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('notifications/{id}/detail', [NotificationController::class, 'detail'])->name('notifications.detail');
     Route::get('notifications/{id}', [NotificationController::class, 'show'])->name('notifications.show');
     Route::post('notifications/mark-all-read', [AdminController::class, 'markAllNotificationsRead'])->name('notifications.mark_all_read');
     Route::post('notifications/mark-all-read-page', [NotificationController::class, 'markAllRead'])->name('notifications.mark_all_read_page');

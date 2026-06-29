@@ -371,10 +371,23 @@ class SmokeTestNotificationScenarios extends Command
             return ['status' => 'fail', 'detail' => 'No review record found'];
         }
 
-        return $this->dispatchHelper(
+        $providerResult = $this->dispatchHelper(
             'send_review_approved_to_provider_notification',
             fn () => send_review_approved_to_provider_notification($review),
             [$review->provider?->owner?->id]
+        );
+
+        $customerResult = $this->dispatchHelper(
+            'send_review_published_to_customer_notification',
+            fn () => send_review_published_to_customer_notification($review),
+            [$review->customer_id]
+        );
+
+        return $this->combineScenarioResults(
+            'Customer review approved',
+            $providerResult,
+            $customerResult,
+            'provider new review + customer published'
         );
     }
 
@@ -388,11 +401,41 @@ class SmokeTestNotificationScenarios extends Command
             return ['status' => 'fail', 'detail' => 'No provider-to-customer review found'];
         }
 
-        return $this->dispatchHelper(
+        $customerResult = $this->dispatchHelper(
             'send_review_approved_to_customer_notification',
             fn () => send_review_approved_to_customer_notification($review),
             [$review->customer_id]
         );
+
+        $providerResult = $this->dispatchHelper(
+            'send_provider_review_published_notification',
+            fn () => send_provider_review_published_notification($review),
+            [$review->provider?->owner?->id]
+        );
+
+        return $this->combineScenarioResults(
+            'Provider review approved',
+            $customerResult,
+            $providerResult,
+            'customer new review + provider published'
+        );
+    }
+
+    /**
+     * @param  array{status: string, detail: string}  $first
+     * @param  array{status: string, detail: string}  $second
+     * @return array{status: string, detail: string}
+     */
+    private function combineScenarioResults(string $label, array $first, array $second, string $summary): array
+    {
+        if ($first['status'] === 'pass' && $second['status'] === 'pass') {
+            return ['status' => 'pass', 'detail' => "{$label}: {$summary} — {$first['detail']}; {$second['detail']}"];
+        }
+
+        return [
+            'status' => 'fail',
+            'detail' => "{$label}: {$first['detail']}; {$second['detail']}",
+        ];
     }
 
     /**

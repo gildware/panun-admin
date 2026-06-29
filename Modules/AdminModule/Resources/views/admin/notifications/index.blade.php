@@ -66,9 +66,9 @@
                             @else
                                 <div class="list-group list-group-flush">
                                     @foreach($notifications as $notification)
-                                        <a href="{{ route('admin.notifications.show', $notification->id) }}"
-                                           class="list-group-item list-group-item-action px-3 py-3 {{ $notification->isUnread() ? 'bg-light' : '' }}"
-                                           @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
+                                        <button type="button"
+                                                class="list-group-item list-group-item-action px-3 py-3 border-0 js-admin-notification-list-item {{ $notification->isUnread() ? 'bg-light' : '' }}"
+                                                data-notification-id="{{ $notification->id }}">
                                             <div class="d-flex gap-3 align-items-start">
                                                 <div class="avatar title-color flex-shrink-0">
                                                     <span class="material-symbols-outlined">{{ $notification->iconName() }}</span>
@@ -90,7 +90,7 @@
                                                 </div>
                                                 <span class="material-symbols-outlined text-muted flex-shrink-0">chevron_right</span>
                                             </div>
-                                        </a>
+                                        </button>
                                     @endforeach
                                 </div>
 

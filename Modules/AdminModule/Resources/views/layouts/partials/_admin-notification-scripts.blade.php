@@ -34,6 +34,8 @@
                     return { icon: 'info' };
                 case 'withdraw_request':
                     return { icon: 'warning' };
+                case 'advertisement':
+                    return { icon: 'info' };
                 default:
                     return { icon: 'info' };
             }
@@ -50,6 +52,60 @@
                 headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
             });
         }
+
+        function hideNotificationDropdown(el) {
+            var dropdown = el && el.closest ? el.closest('.dropdown') : null;
+            if (dropdown) {
+                var toggle = dropdown.querySelector('[data-bs-toggle="dropdown"]');
+                if (toggle && typeof bootstrap !== 'undefined') {
+                    bootstrap.Dropdown.getOrCreateInstance(toggle).hide();
+                }
+            }
+        }
+
+        function refreshNotificationUi() {
+            if (typeof window.pkAdminRefreshWhatsAppUnread === 'function') {
+                window.pkAdminRefreshWhatsAppUnread({ skipSound: true });
+            }
+        }
+
+        window.pkOpenAdminNotificationModal = function (notificationId) {
+            if (!notificationId) {
+                return;
+            }
+
+            var modalEl = document.getElementById('adminNotificationDetailModal');
+            if (!modalEl || typeof bootstrap === 'undefined') {
+                return;
+            }
+
+            var bodyEl = modalEl.querySelector('.js-notification-detail-body');
+            if (bodyEl) {
+                bodyEl.innerHTML = '<div class="text-center py-4 text-muted"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">{{ translate('Loading') }}...</span></div></div>';
+            }
+
+            var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+
+            $.ajax({
+                url: '{{ url('admin/notifications') }}/' + notificationId + '/detail',
+                type: 'GET',
+                dataType: 'json',
+                success: function (res) {
+                    if (res.status === 1 && bodyEl) {
+                        bodyEl.innerHTML = res.html;
+                    }
+                    if (res.was_unread) {
+                        refreshNotificationUi();
+                    }
+                },
+                error: function () {
+                    if (bodyEl) {
+                        bodyEl.innerHTML = '<div class="text-center text-danger py-4">{{ translate('failed_to_load') }}</div>';
+                    }
+                },
+            });
+        };
 
         window.pkHandleAdminInboxNotifications = function (data, opts) {
             opts = opts || {};
@@ -101,43 +157,34 @@
                     text: alert.body || '',
                     icon: cfg.icon,
                     showCloseButton: true,
-                    showCancelButton: !!alert.action_url,
+                    showCancelButton: true,
                     cancelButtonText: '{{ translate('Dismiss') }}',
                     focusConfirm: false,
-                    confirmButtonText: alert.action_url
-                        ? (alert.action_label || '{{ translate('View_Details') }}')
-                        : '{{ translate('View_Details') }}',
+                    confirmButtonText: '{{ translate('View_Details') }}',
                 }).then(function (result) {
-                    if (result.value) {
-                        if (alert.action_url) {
-                            markNotificationRead(alert.id);
-                            window.location.href = alert.action_url;
-                        } else if (alert.id) {
-                            window.location.href = '{{ url('admin/notifications') }}/' + alert.id;
-                        }
+                    if (result.value && alert.id) {
+                        window.pkOpenAdminNotificationModal(alert.id);
                     }
                 });
             });
         };
 
-        $(document).on('click', '.js-admin-notification-item', function () {
-            var dropdown = this.closest('.dropdown');
-            if (dropdown) {
-                var toggle = dropdown.querySelector('[data-bs-toggle="dropdown"]');
-                if (toggle && typeof bootstrap !== 'undefined') {
-                    bootstrap.Dropdown.getOrCreateInstance(toggle).hide();
-                }
-            }
+        $(document).on('click', '.js-admin-notification-item', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            hideNotificationDropdown(this);
+            var notificationId = $(this).data('notification-id');
+            window.pkOpenAdminNotificationModal(notificationId);
+        });
+
+        $(document).on('click', '.js-admin-notification-list-item', function (e) {
+            e.preventDefault();
+            var notificationId = $(this).data('notification-id');
+            window.pkOpenAdminNotificationModal(notificationId);
         });
 
         $(document).on('click', '.js-view-all-notifications', function () {
-            var dropdown = this.closest('.dropdown');
-            if (dropdown) {
-                var toggle = dropdown.querySelector('[data-bs-toggle="dropdown"]');
-                if (toggle && typeof bootstrap !== 'undefined') {
-                    bootstrap.Dropdown.getOrCreateInstance(toggle).hide();
-                }
-            }
+            hideNotificationDropdown(this);
         });
 
         $(document).on('click', '.js-mark-all-notifications-read', function (e) {
@@ -149,9 +196,7 @@
                 dataType: 'json',
                 headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
                 success: function () {
-                    if (typeof window.pkAdminRefreshWhatsAppUnread === 'function') {
-                        window.pkAdminRefreshWhatsAppUnread({ skipSound: true });
-                    }
+                    refreshNotificationUi();
                 },
             });
         });

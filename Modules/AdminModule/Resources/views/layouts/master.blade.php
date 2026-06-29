@@ -119,6 +119,8 @@
 
     @include('adminmodule::layouts.partials._status-modal')
 
+    @include('adminmodule::layouts.partials._notification-detail-modal')
+
     @if($adminUsesPartialNav)
             {{-- Page scripts in the turbo frame need jQuery and Select2; the global bundle loads after </main>. --}}
             <script src="{{asset('assets/admin-module')}}/js/jquery-3.6.0.min.js"></script>

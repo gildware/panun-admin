@@ -33,6 +33,9 @@ class SeedDevNotifications extends Command
             $result = sync_notification_default_messages(true);
             $this->info("  Updated {$result['updated']} template row(s), skipped {$result['skipped']}.");
 
+            $reviewResult = sync_review_notification_default_messages();
+            $this->info("  Review templates: updated {$reviewResult['updated']}, skipped {$reviewResult['skipped']}.");
+
             $issues = validate_notification_scenario_messages();
             if ($issues !== []) {
                 $this->warn(count($issues) . ' template key(s) still have issues:');
