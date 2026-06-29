@@ -23,9 +23,15 @@ class InAppCallController extends Controller
 
     public function pending(Request $request): JsonResponse
     {
-        $result = $this->inAppCallService->pendingIncoming($request->user());
+        try {
+            $result = $this->inAppCallService->pendingIncoming($request->user());
 
-        return response()->json(response_formatter(DEFAULT_200, $result['data']), 200);
+            return response()->json(response_formatter(DEFAULT_200, $result['data']), 200);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json(response_formatter(DEFAULT_200, null), 200);
+        }
     }
 
     public function history(Request $request): JsonResponse

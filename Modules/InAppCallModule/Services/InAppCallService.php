@@ -293,38 +293,43 @@ class InAppCallService
      */
     public function pendingIncoming(User $user): array
     {
-        $ringTimeout = max(30, (int) config('inappcallmodule.ring_timeout_seconds', 60));
-        $since = now()->subSeconds($ringTimeout + 15);
-        $userId = (string) $user->id;
-        $calleeIds = $this->ringingCalleeUserIdsFor($user);
+        try {
+            $ringTimeout = max(30, (int) config('inappcallmodule.ring_timeout_seconds', 60));
+            $since = now()->subSeconds($ringTimeout + 15);
+            $userId = (string) $user->id;
 
-        $channelIds = ChannelUser::query()
-            ->where('user_id', $userId)
-            ->pluck('channel_id');
+            $channelIds = ChannelUser::query()
+                ->where('user_id', $userId)
+                ->pluck('channel_id')
+                ->filter()
+                ->values()
+                ->all();
 
-        $call = InAppCall::query()
-            ->with(['caller.provider', 'callee.provider'])
-            ->where('status', InAppCall::STATUS_RINGING)
-            ->where('started_at', '>=', $since)
-            ->where(function ($query) use ($userId, $calleeIds, $channelIds) {
-                $query->whereIn('callee_user_id', $calleeIds);
+            $query = InAppCall::query()
+                ->with(['caller.provider', 'callee.provider'])
+                ->where('status', InAppCall::STATUS_RINGING)
+                ->where('started_at', '>=', $since)
+                ->where('caller_user_id', '!=', $userId);
 
-                if ($channelIds->isNotEmpty()) {
-                    $query->orWhere(function ($nested) use ($userId, $channelIds) {
-                        $nested->whereIn('channel_id', $channelIds)
-                            ->where('caller_user_id', '!=', $userId);
-                    });
-                }
-            })
-            ->latest('started_at')
-            ->first();
+            if (! empty($channelIds)) {
+                $query->whereIn('channel_id', $channelIds);
+            } else {
+                $query->whereIn('callee_user_id', $this->ringingCalleeUserIdsFor($user));
+            }
 
-        return [
-            'ok' => true,
-            'data' => $call
-                ? $this->safeSerializeCall($call, $user)
-                : null,
-        ];
+            $call = $query->latest('started_at')->first();
+
+            return [
+                'ok' => true,
+                'data' => $call
+                    ? $this->safeSerializeCall($call, $user)
+                    : null,
+            ];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return ['ok' => true, 'data' => null];
+        }
     }
 
     /**
