@@ -72,6 +72,8 @@ class InAppCallService
             return ['ok' => false, 'message' => translate('Call_is_not_allowed_for_this_conversation')];
         }
 
+        $this->expireStaleActiveCalls($channelId);
+
         $activeCall = InAppCall::query()
             ->where('channel_id', $channelId)
             ->whereIn('status', [InAppCall::STATUS_RINGING, InAppCall::STATUS_ACCEPTED])
@@ -128,6 +130,8 @@ class InAppCallService
             'status' => InAppCall::STATUS_ACCEPTED,
             'answered_at' => now(),
         ]);
+
+        InAppCallSignal::query()->where('call_id', $call->id)->delete();
 
         if (function_exists('send_in_app_call_status_push_notification')) {
             send_in_app_call_status_push_notification($call->caller, $call, 'call_accepted');
@@ -519,6 +523,30 @@ class InAppCallService
     protected function isProviderParty(User $user): bool
     {
         return in_array($user->user_type, PROVIDER_USER_TYPES, true);
+    }
+
+    protected function expireStaleActiveCalls(string $channelId): void
+    {
+        $ringTimeout = max(30, (int) config('inappcallmodule.ring_timeout_seconds', 60));
+        $staleBefore = now()->subSeconds($ringTimeout + 15);
+
+        $staleCalls = InAppCall::query()
+            ->where('channel_id', $channelId)
+            ->whereIn('status', [InAppCall::STATUS_RINGING, InAppCall::STATUS_ACCEPTED])
+            ->where('started_at', '<', $staleBefore)
+            ->get();
+
+        foreach ($staleCalls as $staleCall) {
+            $status = $staleCall->status === InAppCall::STATUS_ACCEPTED
+                ? InAppCall::STATUS_ENDED
+                : InAppCall::STATUS_MISSED;
+
+            $staleCall->update([
+                'status' => $status,
+                'ended_at' => now(),
+                'end_reason' => 'timeout',
+            ]);
+        }
     }
 
     /**

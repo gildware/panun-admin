@@ -9519,4 +9519,10 @@ _Message' => 'Customer notification for provider bid offer
   'Name_or_phone' => 'Name or phone',
   'Live' => 'Live',
   'Updated' => 'Updated',
+  'Invalid_channel' => 'This chat channel is invalid for calling',
+  'Call_is_only_available_for_direct_conversations' => 'Calls are only available in one-to-one chats',
+  'Call_is_not_allowed_for_this_conversation' => 'Calls are not allowed in this conversation',
+  'In_app_calling_is_not_configured' => 'In-app calling is not enabled on the server',
+  'A_call_is_already_in_progress' => 'A call is already in progress in this chat',
+  'Failed_to_start_call' => 'Could not start the call. Please try again',
 );
