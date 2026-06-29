@@ -3968,6 +3968,21 @@ if (! function_exists('send_advertisement_push_notification')) {
     }
 }
 
+if (! function_exists('resolve_in_app_call_caller_name')) {
+    function resolve_in_app_call_caller_name(\Modules\UserManagement\Entities\User $caller): string
+    {
+        $caller->loadMissing('provider');
+
+        if ($caller->user_type === 'provider-admin' && ! empty($caller->provider?->company_name)) {
+            return (string) $caller->provider->company_name;
+        }
+
+        $name = trim(($caller->first_name ?? '').' '.($caller->last_name ?? ''));
+
+        return $name !== '' ? $name : translate('Someone_is_calling_you');
+    }
+}
+
 if (! function_exists('send_in_app_call_push_notification')) {
     function send_in_app_call_push_notification(
         \Modules\UserManagement\Entities\User $toUser,
@@ -3978,9 +3993,9 @@ if (! function_exists('send_in_app_call_push_notification')) {
             return;
         }
 
-        $callerName = trim(($caller->first_name ?? '').' '.($caller->last_name ?? ''));
+        $callerName = resolve_in_app_call_caller_name($caller);
         $title = translate('Incoming_call');
-        $description = $callerName !== '' ? $callerName : translate('Someone_is_calling_you');
+        $description = $callerName;
 
         device_notification_for_in_app_call(
             $toUser->fcm_token,

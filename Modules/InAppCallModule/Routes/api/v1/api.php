@@ -13,6 +13,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admi
 Route::group(['prefix' => 'customer', 'as' => 'customer.', 'middleware' => ['auth:api']], function () {
     Route::group(['prefix' => 'in-app-call'], function () {
         Route::get('config', [InAppCallController::class, 'config']);
+        Route::get('history', [InAppCallController::class, 'history']);
         Route::post('initiate', [InAppCallController::class, 'initiate']);
         Route::get('{callId}', [InAppCallController::class, 'show']);
         Route::post('{callId}/accept', [InAppCallController::class, 'accept']);
@@ -28,6 +29,7 @@ Route::group(['prefix' => 'customer', 'as' => 'customer.', 'middleware' => ['aut
 Route::group(['prefix' => 'provider', 'as' => 'provider.', 'middleware' => ['auth:api']], function () {
     Route::group(['prefix' => 'in-app-call'], function () {
         Route::get('config', [InAppCallController::class, 'config']);
+        Route::get('history', [InAppCallController::class, 'history']);
         Route::post('initiate', [InAppCallController::class, 'initiate']);
         Route::get('{callId}', [InAppCallController::class, 'show']);
         Route::post('{callId}/accept', [InAppCallController::class, 'accept']);

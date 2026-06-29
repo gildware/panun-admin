@@ -245,6 +245,34 @@ class InAppCallService
     }
 
     /**
+     * @return array{ok: bool, data: array<string, mixed>}
+     */
+    public function history(User $user, int $limit, int $offset, ?string $channelId = null): array
+    {
+        $query = InAppCall::query()
+            ->where(function ($query) use ($user) {
+                $query->where('caller_user_id', $user->id)
+                    ->orWhere('callee_user_id', $user->id);
+            })
+            ->with(['caller', 'callee'])
+            ->orderByDesc('created_at');
+
+        if ($channelId) {
+            $query->where('channel_id', $channelId);
+        }
+
+        $paginator = $query->paginate($limit, ['*'], 'offset', $offset)->withPath('');
+
+        $paginator->setCollection(
+            $paginator->getCollection()->map(
+                fn (InAppCall $call) => $this->serializeCall($call, $user),
+            ),
+        );
+
+        return ['ok' => true, 'data' => $paginator];
+    }
+
+    /**
      * @return array{ok: bool, message?: string, data?: array<string, mixed>}
      */
     public function show(User $user, string $callId): array
@@ -343,6 +371,38 @@ class InAppCallService
         return ['ok' => true, 'data' => $signals];
     }
 
+    /**
+     * @return array{ok: bool, data: array<string, mixed>}
+     */
+    public function listHistory(User $user, int $limit, int $offset): array
+    {
+        $paginator = InAppCall::query()
+            ->with(['caller.provider', 'callee.provider'])
+            ->where(function ($query) use ($user) {
+                $query->where('caller_user_id', $user->id)
+                    ->orWhere('callee_user_id', $user->id);
+            })
+            ->orderByDesc('started_at')
+            ->orderByDesc('created_at')
+            ->paginate($limit, ['*'], 'offset', $offset)
+            ->withPath('');
+
+        $items = collect($paginator->items())
+            ->map(fn (InAppCall $call) => $this->serializeHistoryItem($call, $user))
+            ->values()
+            ->all();
+
+        return [
+            'ok' => true,
+            'data' => [
+                'data' => $items,
+                'total_size' => $paginator->total(),
+                'limit' => $paginator->perPage(),
+                'offset' => $paginator->currentPage(),
+            ],
+        ];
+    }
+
     protected function findParticipantCall(User $user, string $callId): ?InAppCall
     {
         return InAppCall::query()
@@ -409,5 +469,59 @@ class InAppCallService
                 'user_type' => $callee->user_type,
             ] : null,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function serializeHistoryItem(InAppCall $call, User $viewer): array
+    {
+        $isOutbound = $call->caller_user_id === $viewer->id;
+        $peer = $isOutbound ? $call->callee : $call->caller;
+
+        return [
+            'call_id' => $call->id,
+            'channel_id' => $call->channel_id,
+            'status' => $call->status,
+            'direction' => $isOutbound ? 'outbound' : 'inbound',
+            'duration_seconds' => $call->duration_seconds,
+            'started_at' => optional($call->started_at)?->toIso8601String(),
+            'answered_at' => optional($call->answered_at)?->toIso8601String(),
+            'ended_at' => optional($call->ended_at)?->toIso8601String(),
+            'end_reason' => $call->end_reason,
+            'peer' => $peer ? [
+                'id' => $peer->id,
+                'name' => $this->resolveUserDisplayName($peer),
+                'image' => $this->resolveUserImagePath($peer),
+                'phone' => $peer->phone,
+                'user_type' => $peer->user_type,
+            ] : null,
+        ];
+    }
+
+    protected function resolveUserDisplayName(User $user): string
+    {
+        $user->loadMissing('provider');
+
+        if ($user->user_type === 'provider-admin' && ! empty($user->provider?->company_name)) {
+            return (string) $user->provider->company_name;
+        }
+
+        return trim(($user->first_name ?? '').' '.($user->last_name ?? ''));
+    }
+
+    protected function resolveUserImagePath(User $user): ?string
+    {
+        $user->loadMissing('provider');
+
+        if ($user->user_type === 'provider-admin' && ! empty($user->provider?->logo)) {
+            return asset('storage/app/public/provider/logo').'/'.$user->provider->logo;
+        }
+
+        if (! empty($user->profile_image)) {
+            return asset('storage/app/public/user/profile_image').'/'.$user->profile_image;
+        }
+
+        return null;
     }
 }
