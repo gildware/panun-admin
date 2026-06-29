@@ -6,6 +6,7 @@ use Illuminate\Support\Str;
 use Modules\ChattingModule\Entities\ChannelUser;
 use Modules\InAppCallModule\Entities\InAppCall;
 use Modules\InAppCallModule\Entities\InAppCallSignal;
+use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
 use Ramsey\Uuid\Uuid;
 
@@ -115,7 +116,7 @@ class InAppCallService
             return ['ok' => false, 'message' => translate('Call_not_found')];
         }
 
-        if ($call->callee_user_id !== $user->id) {
+        if ((string) $call->callee_user_id !== (string) $user->id) {
             return ['ok' => false, 'message' => translate('Only_the_callee_can_accept_this_call')];
         }
 
@@ -148,7 +149,7 @@ class InAppCallService
             return ['ok' => false, 'message' => translate('Call_not_found')];
         }
 
-        if ($call->callee_user_id !== $user->id) {
+        if ((string) $call->callee_user_id !== (string) $user->id) {
             return ['ok' => false, 'message' => translate('Only_the_callee_can_decline_this_call')];
         }
 
@@ -182,7 +183,7 @@ class InAppCallService
             return ['ok' => false, 'message' => translate('Call_not_found')];
         }
 
-        if ($call->caller_user_id !== $user->id) {
+        if ((string) $call->caller_user_id !== (string) $user->id) {
             return ['ok' => false, 'message' => translate('Only_the_caller_can_cancel_this_call')];
         }
 
@@ -238,7 +239,7 @@ class InAppCallService
             'end_reason' => 'ended',
         ]);
 
-        $otherUser = $call->caller_user_id === $user->id ? $call->callee : $call->caller;
+        $otherUser = (string) $call->caller_user_id === (string) $user->id ? $call->callee : $call->caller;
         if ($otherUser && function_exists('send_in_app_call_status_push_notification')) {
             send_in_app_call_status_push_notification($otherUser, $call->fresh(), 'call_ended');
         }
@@ -293,19 +294,35 @@ class InAppCallService
     public function pendingIncoming(User $user): array
     {
         $ringTimeout = max(30, (int) config('inappcallmodule.ring_timeout_seconds', 60));
+        $since = now()->subSeconds($ringTimeout + 15);
+        $userId = (string) $user->id;
+        $calleeIds = $this->ringingCalleeUserIdsFor($user);
+
+        $channelIds = ChannelUser::query()
+            ->where('user_id', $userId)
+            ->pluck('channel_id');
 
         $call = InAppCall::query()
             ->with(['caller.provider', 'callee.provider'])
-            ->where('callee_user_id', $user->id)
             ->where('status', InAppCall::STATUS_RINGING)
-            ->where('started_at', '>=', now()->subSeconds($ringTimeout + 15))
+            ->where('started_at', '>=', $since)
+            ->where(function ($query) use ($userId, $calleeIds, $channelIds) {
+                $query->whereIn('callee_user_id', $calleeIds);
+
+                if ($channelIds->isNotEmpty()) {
+                    $query->orWhere(function ($nested) use ($userId, $channelIds) {
+                        $nested->whereIn('channel_id', $channelIds)
+                            ->where('caller_user_id', '!=', $userId);
+                    });
+                }
+            })
             ->latest('started_at')
             ->first();
 
         return [
             'ok' => true,
             'data' => $call
-                ? $this->serializeCall($call, $user)
+                ? $this->safeSerializeCall($call, $user)
                 : null,
         ];
     }
@@ -346,7 +363,12 @@ class InAppCallService
             send_in_app_call_status_push_notification($call->caller, $call->fresh(), 'call_missed');
         }
 
-        return ['ok' => true, 'data' => $this->serializeCall($call->fresh(['caller.provider', 'callee.provider']), $call->caller)];
+        $viewer = $call->caller ?? $call->callee;
+        if (! $viewer instanceof User) {
+            return ['ok' => true, 'data' => ['call_id' => (string) $call->id, 'status' => (string) $call->status]];
+        }
+
+        return ['ok' => true, 'data' => $this->safeSerializeCall($call->fresh(['caller.provider', 'callee.provider']), $viewer)];
     }
 
     /**
@@ -411,13 +433,37 @@ class InAppCallService
 
     protected function findParticipantCall(User $user, string $callId): ?InAppCall
     {
+        $userId = (string) $user->id;
+
         return InAppCall::query()
             ->where('id', $callId)
-            ->where(function ($query) use ($user) {
-                $query->where('caller_user_id', $user->id)
-                    ->orWhere('callee_user_id', $user->id);
+            ->where(function ($query) use ($userId) {
+                $query->where('caller_user_id', $userId)
+                    ->orWhere('callee_user_id', $userId);
             })
             ->first();
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function ringingCalleeUserIdsFor(User $user): array
+    {
+        $ids = [(string) $user->id];
+
+        if ($user->user_type === 'provider-admin') {
+            $user->loadMissing('provider');
+            if ($user->provider) {
+                $servicemanIds = Serviceman::query()
+                    ->where('provider_id', $user->provider->id)
+                    ->pluck('user_id')
+                    ->map(static fn ($id) => (string) $id)
+                    ->all();
+                $ids = array_merge($ids, $servicemanIds);
+            }
+        }
+
+        return array_values(array_unique($ids));
     }
 
     protected function isBlockedCallChannel(?\Modules\ChattingModule\Entities\ChannelList $channel): bool
@@ -477,7 +523,7 @@ class InAppCallService
     {
         $caller = $call->caller;
         $callee = $call->callee;
-        $peer = $call->caller_user_id === $viewer->id ? $callee : $caller;
+        $peer = (string) $call->caller_user_id === (string) $viewer->id ? $callee : $caller;
 
         return [
             'call_id' => $call->id,
@@ -545,13 +591,53 @@ class InAppCallService
 
     protected function resolveUserDisplayName(User $user): string
     {
-        $user->loadMissing('provider');
+        try {
+            $user->loadMissing('provider');
 
-        if ($user->user_type === 'provider-admin' && ! empty($user->provider?->company_name)) {
-            return (string) $user->provider->company_name;
+            if ($user->user_type === 'provider-admin' && ! empty($user->provider?->company_name)) {
+                return (string) $user->provider->company_name;
+            }
+
+            $name = trim(($user->first_name ?? '').' '.($user->last_name ?? ''));
+
+            return $name !== '' ? $name : translate('Someone_is_calling_you');
+        } catch (\Throwable) {
+            return translate('Someone_is_calling_you');
         }
+    }
 
-        return trim(($user->first_name ?? '').' '.($user->last_name ?? ''));
+    /**
+     * @return array<string, mixed>
+     */
+    protected function safeSerializeCall(InAppCall $call, User $viewer): array
+    {
+        try {
+            return $this->serializeCall($call, $viewer);
+        } catch (\Throwable $e) {
+            report($e);
+
+            $peerUser = (string) $call->caller_user_id === (string) $viewer->id
+                ? $call->callee
+                : $call->caller;
+
+            return [
+                'call_id' => (string) $call->id,
+                'channel_id' => (string) $call->channel_id,
+                'status' => (string) $call->status,
+                'is_caller' => (string) $call->caller_user_id === (string) $viewer->id,
+                'ice_servers' => config('inappcallmodule.ice_servers', []),
+                'reference_id' => $call->reference_id,
+                'reference_type' => $call->reference_type,
+                'started_at' => optional($call->started_at)?->toIso8601String(),
+                'peer' => $peerUser instanceof User ? [
+                    'id' => (string) $peerUser->id,
+                    'name' => $this->resolveUserDisplayName($peerUser),
+                    'image' => $this->resolveUserImagePath($peerUser),
+                    'phone' => $peerUser->phone,
+                    'user_type' => $peerUser->user_type,
+                ] : null,
+            ];
+        }
     }
 
     protected function resolveUserImagePath(User $user): ?string
