@@ -21,6 +21,13 @@ class InAppCallController extends Controller
         return response()->json(response_formatter(DEFAULT_200, $this->inAppCallService->publicConfig()), 200);
     }
 
+    public function pending(Request $request): JsonResponse
+    {
+        $result = $this->inAppCallService->pendingIncoming($request->user());
+
+        return response()->json(response_formatter(DEFAULT_200, $result['data']), 200);
+    }
+
     public function history(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [

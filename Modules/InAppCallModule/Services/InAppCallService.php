@@ -61,6 +61,12 @@ class InAppCallService
             return ['ok' => false, 'message' => translate('Callee_not_found')];
         }
 
+        $channel = \Modules\ChattingModule\Entities\ChannelList::query()->find($channelId);
+
+        if ($this->isBlockedCallChannel($channel)) {
+            return ['ok' => false, 'message' => translate('Call_is_not_allowed_for_this_conversation')];
+        }
+
         if (! $this->isAllowedParticipantPair($caller, $callee)) {
             return ['ok' => false, 'message' => translate('Call_is_not_allowed_for_this_conversation')];
         }
@@ -76,7 +82,6 @@ class InAppCallService
         }
 
         $callId = (string) Uuid::uuid4();
-        $channel = \Modules\ChattingModule\Entities\ChannelList::query()->find($channelId);
 
         $call = InAppCall::query()->create([
             'id' => $callId,
@@ -283,6 +288,29 @@ class InAppCallService
     }
 
     /**
+     * @return array{ok: bool, data: array<string, mixed>|null}
+     */
+    public function pendingIncoming(User $user): array
+    {
+        $ringTimeout = max(30, (int) config('inappcallmodule.ring_timeout_seconds', 60));
+
+        $call = InAppCall::query()
+            ->with(['caller.provider', 'callee.provider'])
+            ->where('callee_user_id', $user->id)
+            ->where('status', InAppCall::STATUS_RINGING)
+            ->where('started_at', '>=', now()->subSeconds($ringTimeout + 15))
+            ->latest('started_at')
+            ->first();
+
+        return [
+            'ok' => true,
+            'data' => $call
+                ? $this->serializeCall($call, $user)
+                : null,
+        ];
+    }
+
+    /**
      * @return array{ok: bool, message?: string, data?: array<string, mixed>}
      */
     public function show(User $user, string $callId): array
@@ -392,17 +420,54 @@ class InAppCallService
             ->first();
     }
 
+    protected function isBlockedCallChannel(?\Modules\ChattingModule\Entities\ChannelList $channel): bool
+    {
+        if ($channel === null) {
+            return false;
+        }
+
+        $blockedReferenceTypes = ['support', 'staff_group'];
+
+        return in_array((string) $channel->reference_type, $blockedReferenceTypes, true);
+    }
+
     protected function isAllowedParticipantPair(User $a, User $b): bool
     {
         if ($a->id === $b->id) {
             return false;
         }
 
-        $types = [$a->user_type, $b->user_type];
-        $hasCustomer = in_array('customer', $types, true);
-        $hasProvider = count(array_intersect($types, PROVIDER_USER_TYPES)) > 0;
+        if ($this->isAdminChatUser($a) || $this->isAdminChatUser($b)) {
+            return false;
+        }
 
-        return $hasCustomer && $hasProvider;
+        $aCustomerParty = $this->isCustomerParty($a);
+        $bCustomerParty = $this->isCustomerParty($b);
+        $aProviderParty = $this->isProviderParty($a);
+        $bProviderParty = $this->isProviderParty($b);
+
+        return ($aCustomerParty && $bProviderParty) || ($bCustomerParty && $aProviderParty);
+    }
+
+    protected function isAdminChatUser(User $user): bool
+    {
+        return in_array($user->user_type, ADMIN_USER_TYPES, true);
+    }
+
+    protected function isCustomerParty(User $user): bool
+    {
+        if (in_array($user->user_type, CUSTOMER_USER_TYPES, true)) {
+            return true;
+        }
+
+        return function_exists('user_can_use_customer_app')
+            ? user_can_use_customer_app($user)
+            : false;
+    }
+
+    protected function isProviderParty(User $user): bool
+    {
+        return in_array($user->user_type, PROVIDER_USER_TYPES, true);
     }
 
     /**
