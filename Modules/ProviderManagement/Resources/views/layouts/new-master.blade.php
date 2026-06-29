@@ -273,7 +273,7 @@ $serviceLocations = getProviderSettings(providerId: auth()->user()->provider->id
         })
     }
 
-    $('.route-alert-reload').on('click', function (){
+    $(document).on('click', '.route-alert-reload', function (){
         let route = $(this).data('route');
         let message = $(this).data('message');
         route_alert_reload(route, message, true);

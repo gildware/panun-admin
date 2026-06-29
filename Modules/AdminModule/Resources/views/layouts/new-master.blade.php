@@ -207,7 +207,7 @@
     checkDemoResetTime();
     setInterval(checkDemoResetTime, 60000);
 
-    $('.form-alert').on('click', function (){
+    $(document).on('click', '.form-alert', function (){
         let id = $(this).data('id');
         let message = $(this).data('message');
         form_alert(id, message)
@@ -232,7 +232,7 @@
         })
     }
 
-    $('.route-alert').on('change', function (event){
+    $(document).on('change', '.route-alert', function (event){
         event.preventDefault();
         let $this = $(this);
         let initialState = $this.prop('checked'); // Save initial state
@@ -272,7 +272,7 @@
         })
     }
 
-    $('.route-alert-reload').on('click', function (){
+    $(document).on('click', '.route-alert-reload', function (){
         let route = $(this).data('route');
         let message = $(this).data('message');
         route_alert_reload(route, message, true);
