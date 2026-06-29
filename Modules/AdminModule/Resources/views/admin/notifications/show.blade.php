@@ -54,7 +54,7 @@
                                     <a href="{{ $notification->action_url }}"
                                        class="btn btn--primary"
                                        @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
-                                        {{ translate('View_Details') }}
+                                        {{ $notification->actionButtonLabel() }}
                                     </a>
                                 @endif
                                 <a href="{{ route('admin.notifications.index') }}"

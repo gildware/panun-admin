@@ -31,12 +31,12 @@ class NotificationScenarioMessagesTest extends TestCase
         $this->assertCount(5, $grouped['loyalty_points']);
         $this->assertCount(2, $grouped['wallet']);
         $this->assertCount(2, $grouped['refund']);
-        $this->assertCount(1, $grouped['communication']);
+        $this->assertCount(3, $grouped['communication']);
         $this->assertCount(2, $grouped['service_requests']);
         $this->assertCount(2, $grouped['provider_account']);
         $this->assertCount(7, $grouped['advertisement']);
         $this->assertCount(5, $grouped['admin_alerts']);
-        $this->assertCount(59, notification_scenario_registry());
+        $this->assertCount(61, notification_scenario_registry());
     }
 
     public function test_all_config_keys_are_covered_by_scenarios(): void
@@ -60,6 +60,8 @@ class NotificationScenarioMessagesTest extends TestCase
             'provider_suspended',
             'advertisement_approved',
             'admin_alert_provider_registration',
+            'chat_admin_customer_message',
+            'chat_admin_provider_message',
         ] as $scenarioId) {
             $this->assertContains($scenarioId, $ids, "Missing scenario: {$scenarioId}");
         }
@@ -117,7 +119,9 @@ class NotificationScenarioMessagesTest extends TestCase
             'send_customer_refund_notification',
             'send_customer_loyalty_point_notification',
             'send_review_approved_to_provider_notification',
+            'send_review_published_to_customer_notification',
             'send_review_approved_to_customer_notification',
+            'send_provider_review_published_notification',
             'send_provider_withdraw_request_submitted_notification',
             'send_provider_withdraw_settled_notification',
             'send_provider_removed_from_booking_notification',

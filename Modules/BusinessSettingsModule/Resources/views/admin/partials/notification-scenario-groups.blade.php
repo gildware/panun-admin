@@ -93,16 +93,21 @@
     @endpush
 @endonce
 
+@php
+    $activeModuleTab = $activeModuleTab ?? array_key_first($groupedScenarios);
+@endphp
+
 <div class="notification-scenario-tabs-root">
+    <input type="hidden" id="notificationScenarioActiveTab" value="{{ $activeModuleTab }}">
     <div class="notification-scenario-tabs-wrap">
         <ul class="nav nav--tabs nav--tabs__style2 nav--tabs__booking-tally flex-wrap gap-2 align-items-center notification-scenario-module-tabs" role="tablist">
             @foreach($groupedScenarios as $moduleKey => $moduleScenarios)
                 <li class="nav-item">
                     <button type="button"
-                            class="nav-link notification-scenario-module-tab {{ $loop->first ? 'active' : '' }}"
+                            class="nav-link notification-scenario-module-tab {{ $moduleKey === $activeModuleTab ? 'active' : '' }}"
                             data-module-tab="{{ $moduleKey }}"
                             role="tab"
-                            aria-selected="{{ $loop->first ? 'true' : 'false' }}">
+                            aria-selected="{{ $moduleKey === $activeModuleTab ? 'true' : 'false' }}">
                         {{ translate(NOTIFICATION_SCENARIO_MODULE_LABELS[$moduleKey] ?? str_replace('_', ' ', $moduleKey)) }}
                         <span class="count">{{ count($moduleScenarios) }}</span>
                     </button>
@@ -112,7 +117,7 @@
     </div>
 
     @foreach($groupedScenarios as $moduleKey => $moduleScenarios)
-        <div class="notification-scenario-module-panel {{ $loop->first ? 'is-active' : '' }}"
+        <div class="notification-scenario-module-panel {{ $moduleKey === $activeModuleTab ? 'is-active' : '' }}"
              data-module-panel="{{ $moduleKey }}"
              role="tabpanel">
 
@@ -261,7 +266,13 @@
             }
             window.__notificationScenarioTabsBound = true;
 
-            function activateModuleTab(moduleKey) {
+            function updateModuleTabUrl(moduleKey) {
+                var url = new URL(window.location.href);
+                url.searchParams.set('tab', moduleKey);
+                window.history.replaceState({}, '', url);
+            }
+
+            function activateModuleTab(moduleKey, updateUrl) {
                 document.querySelectorAll('.notification-scenario-module-tab').forEach(function (btn) {
                     var isActive = btn.getAttribute('data-module-tab') === moduleKey;
                     btn.classList.toggle('active', isActive);
@@ -278,6 +289,27 @@
                         }
                     }
                 });
+
+                var activeTabInput = document.getElementById('notificationScenarioActiveTab');
+                if (activeTabInput) {
+                    activeTabInput.value = moduleKey;
+                }
+
+                if (updateUrl) {
+                    updateModuleTabUrl(moduleKey);
+                }
+            }
+
+            function initModuleTabFromPage() {
+                var activeTabInput = document.getElementById('notificationScenarioActiveTab');
+                var moduleKey = activeTabInput ? activeTabInput.value : null;
+                if (!moduleKey) {
+                    var urlTab = new URL(window.location.href).searchParams.get('tab');
+                    moduleKey = urlTab;
+                }
+                if (moduleKey && document.querySelector('[data-module-tab="' + moduleKey + '"]')) {
+                    activateModuleTab(moduleKey, false);
+                }
             }
 
             function toggleScenarioAccordion(header) {
@@ -295,7 +327,7 @@
                 var moduleBtn = e.target.closest('.notification-scenario-module-tab');
                 if (moduleBtn) {
                     e.preventDefault();
-                    activateModuleTab(moduleBtn.getAttribute('data-module-tab'));
+                    activateModuleTab(moduleBtn.getAttribute('data-module-tab'), true);
                     return;
                 }
 
@@ -305,6 +337,9 @@
                     toggleScenarioAccordion(scenarioHeader);
                 }
             });
+
+            document.addEventListener('DOMContentLoaded', initModuleTabFromPage);
+            document.addEventListener('admin:page-loaded', initModuleTabFromPage);
        })();
     </script>
 @endpush

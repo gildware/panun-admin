@@ -68,4 +68,20 @@ class UserNotification extends Model
             default => translate('Notification'),
         };
     }
+
+    public function actionButtonLabel(): string
+    {
+        if (! $this->action_url) {
+            return translate('View_Details');
+        }
+
+        return match ($this->type) {
+            self::TYPE_BOOKING, self::TYPE_PROVIDER_WITHDRAWAL => translate('Go_to_booking'),
+            self::TYPE_ADVERTISEMENT => translate('View_advertisement'),
+            self::TYPE_CHAT_MESSAGE => translate('Go_to_message'),
+            self::TYPE_PROVIDER_REQUEST => translate('View_provider'),
+            self::TYPE_WITHDRAW_REQUEST => translate('View_Requests'),
+            default => translate('View_Details'),
+        };
+    }
 }

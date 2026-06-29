@@ -28,6 +28,7 @@ class ServiceReviewController extends Controller
             $this->providerReviewRatingService->syncForReviewTargets($review->service_id, $review->provider_id);
             $review->refresh();
             send_review_approved_to_provider_notification($review);
+            send_review_published_to_customer_notification($review);
         }
 
         return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);

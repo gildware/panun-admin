@@ -21,7 +21,7 @@ class NotificationMessageConfigTest extends TestCase
         $this->assertCount(2, $grouped['service_updates']);
         $this->assertCount(5, $grouped['payments']);
         $this->assertCount(6, $grouped['wallet_and_loyalty']);
-        $this->assertCount(1, $grouped['review']);
+        $this->assertCount(2, $grouped['review']);
     }
 
     public function test_provider_notifications_exclude_bidding(): void

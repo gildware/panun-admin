@@ -74,11 +74,16 @@ class ConfigurationController extends Controller
         $dataSettingsValue = $this->businessSetting->whereIn('settings_type', ['notification_settings'])->get();
         $dataValues = $this->businessSetting->whereIn('settings_type', ['customer_notification', 'provider_notification', 'serviceman_notification'])->with('translations')->get();
         $groupedScenarios = group_notification_scenarios_by_module();
+        $activeModuleTab = $request->query('tab');
+        if (! is_string($activeModuleTab) || ! isset($groupedScenarios[$activeModuleTab])) {
+            $activeModuleTab = array_key_first($groupedScenarios);
+        }
 
         return view('businesssettingsmodule::admin.notification', compact(
             'dataValues',
             'dataSettingsValue',
-            'groupedScenarios'
+            'groupedScenarios',
+            'activeModuleTab'
         ));
     }
 

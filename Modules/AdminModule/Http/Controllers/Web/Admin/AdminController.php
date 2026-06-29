@@ -523,6 +523,7 @@ class AdminController extends Controller
                     'title' => $n->title,
                     'body' => $n->body,
                     'action_url' => $n->action_url,
+                    'action_label' => $n->actionButtonLabel(),
                 ])
                 ->values()
                 ->all();

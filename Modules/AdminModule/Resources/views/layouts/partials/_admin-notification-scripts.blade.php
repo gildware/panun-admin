@@ -105,7 +105,7 @@
                     cancelButtonText: '{{ translate('Dismiss') }}',
                     focusConfirm: false,
                     confirmButtonText: alert.action_url
-                        ? '{{ translate('Go_to_booking') }}'
+                        ? (alert.action_label || '{{ translate('View_Details') }}')
                         : '{{ translate('View_Details') }}',
                 }).then(function (result) {
                     if (result.value) {

@@ -20,6 +20,7 @@
                         'groupedScenarios' => $groupedScenarios,
                         'dataValues' => $dataValues,
                         'language' => null,
+                        'activeModuleTab' => $activeModuleTab,
                     ])
                 </div>
             </div>

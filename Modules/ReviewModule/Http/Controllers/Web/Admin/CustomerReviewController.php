@@ -42,6 +42,7 @@ class CustomerReviewController extends Controller
             $this->customerRatingService->syncReceivedRatings((string) $review->customer_id);
             $review->refresh();
             send_review_approved_to_customer_notification($review);
+            send_provider_review_published_notification($review);
         }
 
         return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);

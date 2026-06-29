@@ -3785,7 +3785,8 @@ const NOTIFICATION_FOR_USER = [
     ['key' => 'loyalty_point', 'value' => 'Loyalty Point', 'category' => 'wallet_and_loyalty'],
     ['key' => 'loyalty_point_convert', 'value' => 'Loyalty Point Converted', 'category' => 'wallet_and_loyalty'],
     ['key' => 'refund_bank_transfer', 'value' => 'Bank Transfer Refund', 'category' => 'payments'],
-    ['key' => 'customer_review_approved', 'value' => 'Customer Review Approved', 'category' => 'review'],
+    ['key' => 'customer_review_approved', 'value' => 'New Review Received', 'category' => 'review'],
+    ['key' => 'review_published', 'value' => 'Your Review Approved', 'category' => 'review'],
 ];
 
 const NOTIFICATION_FOR_PROVIDER = [
@@ -3816,7 +3817,8 @@ const NOTIFICATION_FOR_PROVIDER = [
     ['key' => 'advertisement_denied', 'value' => 'Advertisement Denied', 'category' => 'service_updates'],
     ['key' => 'advertisement_paused', 'value' => 'Advertisement Paused', 'category' => 'service_updates'],
     ['key' => 'advertisement_resumed', 'value' => 'Advertisement Resumed', 'category' => 'service_updates'],
-    ['key' => 'review_approved', 'value' => 'Review Approved', 'category' => 'review'],
+    ['key' => 'review_approved', 'value' => 'New Review Received', 'category' => 'review'],
+    ['key' => 'provider_review_published', 'value' => 'Your Review Approved', 'category' => 'review'],
 ];
 
 const NOTIFICATION_FOR_SERVICEMAN = [

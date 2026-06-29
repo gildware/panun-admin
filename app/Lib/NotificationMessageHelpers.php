@@ -21,8 +21,8 @@ if (! function_exists('notification_message_variables_for_key')) {
             'add_fund_wallet', 'referral_earning', 'referral_code_used', 'wallet_deducted' => ['{{amount}}', '{{userName}}', '{{bookingId}}'],
             'loyalty_point', 'loyalty_point_convert' => ['{{amount}}', '{{userName}}', '{{bookingId}}'],
             'refund_bank_transfer' => array_merge($common, ['{{amount}}', '{{bookingStatus}}']),
-            'customer_review_approved' => ['{{userName}}', '{{providerName}}', '{{bookingId}}'],
-            'review_approved' => ['{{userName}}', '{{providerName}}', '{{bookingId}}'],
+            'customer_review_approved', 'review_published' => ['{{userName}}', '{{providerName}}', '{{bookingId}}'],
+            'review_approved', 'provider_review_published' => ['{{userName}}', '{{providerName}}', '{{bookingId}}'],
             'withdraw_request_submitted' => ['{{amount}}', '{{providerName}}'],
             'provider_removed_from_booking' => array_merge($common, $bookingExtras),
             'new_service_request_arrived', 'admin_booking_assigned', 'booking_assigned_to_provider' => array_merge($common, $bookingExtras),
@@ -194,8 +194,12 @@ if (! function_exists('notification_default_message_templates')) {
                     'description' => 'Hi {{userName}}, {{amount}} loyalty points were converted to your wallet balance.',
                 ],
                 'customer_review_approved' => [
-                    'title' => 'Your Review Is Live',
-                    'description' => 'Hi {{userName}}, your review for {{providerName}} on booking {{bookingId}} is now published.',
+                    'title' => 'You Have a New Review',
+                    'description' => 'Hi {{userName}}, you have got a new review from {{providerName}} on booking {{bookingId}}.',
+                ],
+                'review_published' => [
+                    'title' => 'Your Review Is Approved',
+                    'description' => 'Hi {{userName}}, your review for {{providerName}} on booking {{bookingId}} is approved and published.',
                 ],
             ],
             'provider_notification' => [
@@ -280,8 +284,12 @@ if (! function_exists('notification_default_message_templates')) {
                     'description' => 'Hi {{providerName}}, you have been removed from booking {{bookingId}}. Admin may assign another provider.',
                 ],
                 'review_approved' => [
-                    'title' => 'Review Approved',
-                    'description' => 'Hi {{providerName}}, a customer review for booking {{bookingId}} is now published.',
+                    'title' => 'You Have a New Review',
+                    'description' => 'Hi {{providerName}}, you have got a new review from {{userName}} on booking {{bookingId}}.',
+                ],
+                'provider_review_published' => [
+                    'title' => 'Your Review Is Approved',
+                    'description' => 'Hi {{providerName}}, your review for {{userName}} on booking {{bookingId}} is approved and published.',
                 ],
                 'provider_suspend' => [
                     'title' => 'Account Suspended',
@@ -394,6 +402,74 @@ if (! function_exists('sync_notification_default_messages')) {
 
             $updated++;
         }
+
+        return ['updated' => $updated, 'skipped' => $skipped];
+    }
+}
+
+if (! function_exists('sync_review_notification_default_messages')) {
+    /**
+     * Refresh review notification templates in business_settings.
+     *
+     * @return array{updated: int, skipped: int}
+     */
+    function sync_review_notification_default_messages(): array
+    {
+        $reviewKeys = [
+            ['key' => 'review_published', 'settings_type' => 'customer_notification'],
+            ['key' => 'customer_review_approved', 'settings_type' => 'customer_notification'],
+            ['key' => 'review_approved', 'settings_type' => 'provider_notification'],
+            ['key' => 'provider_review_published', 'settings_type' => 'provider_notification'],
+        ];
+
+        $updated = 0;
+        $skipped = 0;
+        $templates = notification_default_message_templates();
+
+        foreach ($reviewKeys as $pair) {
+            $keyName = $pair['key'];
+            $settingsType = $pair['settings_type'];
+            $template = $templates[$settingsType][$keyName] ?? null;
+
+            if (! $template) {
+                $skipped++;
+
+                continue;
+            }
+
+            $record = \Modules\BusinessSettingsModule\Entities\BusinessSettings::query()
+                ->where(['key_name' => $keyName, 'settings_type' => $settingsType])
+                ->first();
+
+            $liveValues = [
+                $keyName . '_status' => '1',
+                $keyName . '_message' => $template['title'],
+                $keyName . '_description' => $template['description'],
+            ];
+
+            if ($record) {
+                $existing = is_array($record->live_values)
+                    ? $record->live_values
+                    : (array) json_decode((string) $record->live_values, true);
+                $liveValues[$keyName . '_status'] = $existing[$keyName . '_status'] ?? '1';
+            }
+
+            \Modules\BusinessSettingsModule\Entities\BusinessSettings::updateOrCreate(
+                ['key_name' => $keyName, 'settings_type' => $settingsType],
+                [
+                    'key_name' => $keyName,
+                    'live_values' => $liveValues,
+                    'test_values' => $liveValues,
+                    'settings_type' => $settingsType,
+                    'mode' => 'live',
+                    'is_active' => 1,
+                ]
+            );
+
+            $updated++;
+        }
+
+        ensure_notification_channel_setups();
 
         return ['updated' => $updated, 'skipped' => $skipped];
     }
@@ -544,14 +620,14 @@ if (! function_exists('ensure_notification_channel_setups')) {
                 'user_type' => 'provider',
                 'key' => 'rating_review',
                 'title' => 'Review',
-                'sub_title' => 'Choose how the provider will get notified when a customer review is approved',
+                'sub_title' => 'Choose how the provider will get notified about customer reviews (new review received or review published)',
                 'value' => ['email' => null, 'notification' => 1, 'sms' => null],
             ],
             [
                 'user_type' => 'user',
                 'key' => 'rating_review',
                 'title' => 'Review',
-                'sub_title' => 'Choose how the customer will get notified when a provider review is approved',
+                'sub_title' => 'Choose how the customer will get notified about provider reviews (new review received or review published)',
                 'value' => ['email' => null, 'notification' => 1, 'sms' => null],
             ],
             [
@@ -793,13 +869,15 @@ if (! function_exists('notification_scenario_trigger_map')) {
             'review_customer_to_provider_approved' => [
                 'module' => 'review',
                 'checks' => [
-                    ['label' => 'Provider review approved', 'needles' => ['send_review_approved_to_provider_notification', "'review_approved'"]],
+                    ['label' => 'Provider new review received', 'needles' => ['send_review_approved_to_provider_notification', "'review_approved'"]],
+                    ['label' => 'Customer review published', 'needles' => ['send_review_published_to_customer_notification', "'review_published'"]],
                 ],
             ],
             'review_provider_to_customer_approved' => [
                 'module' => 'review',
                 'checks' => [
-                    ['label' => 'Customer review approved', 'needles' => ['send_review_approved_to_customer_notification', "'customer_review_approved'"]],
+                    ['label' => 'Customer new review received', 'needles' => ['send_review_approved_to_customer_notification', "'customer_review_approved'"]],
+                    ['label' => 'Provider review published', 'needles' => ['send_provider_review_published_notification', "'provider_review_published'"]],
                 ],
             ],
 
@@ -863,11 +941,25 @@ if (! function_exists('notification_scenario_trigger_map')) {
                 ],
             ],
 
-            // Communication (1)
+            // Communication (3)
             'chat_new_message' => [
                 'module' => 'communication',
                 'checks' => [
-                    ['label' => 'Chat push sender', 'needles' => ['send_chat_message_push_notification', "'chat_message'"]],
+                    ['label' => 'Booking chat push sender', 'needles' => ['send_chat_message_push_notification', "'chat_message'"]],
+                ],
+            ],
+            'chat_admin_customer_message' => [
+                'module' => 'communication',
+                'checks' => [
+                    ['label' => 'Admin to customer chat push', 'needles' => ['send_chat_message_push_notification', "'chat_message'"]],
+                    ['label' => 'Customer to admin inbox', 'needles' => ['admin_inbox_notify_chat_message']],
+                ],
+            ],
+            'chat_admin_provider_message' => [
+                'module' => 'communication',
+                'checks' => [
+                    ['label' => 'Admin to provider chat push', 'needles' => ['send_chat_message_push_notification', "'chat_message'"]],
+                    ['label' => 'Provider to admin inbox', 'needles' => ['admin_inbox_notify_chat_message']],
                 ],
             ],
 
@@ -1441,21 +1533,41 @@ if (! function_exists('notification_trigger_scenarios_for_key')) {
             ] : null,
 
             'customer_review_approved' => $isCustomer ? [
-                'summary' => 'Sent when admin approves a provider review of the customer.',
+                'summary' => 'Sent to the customer when they receive a new review from a provider.',
                 'scenarios' => [
-                    'Admin approves a provider-submitted customer review.',
+                    'Admin approves a provider-submitted review of the customer.',
                 ],
-                'recipient' => 'Customer',
+                'recipient' => 'Customer (received review)',
+                'module' => 'Review',
+                'wired' => true,
+            ] : null,
+
+            'review_published' => $isCustomer ? [
+                'summary' => 'Sent to the customer when their review of a provider is approved.',
+                'scenarios' => [
+                    'Admin approves a customer-submitted service review.',
+                ],
+                'recipient' => 'Customer (wrote review)',
                 'module' => 'Review',
                 'wired' => true,
             ] : null,
 
             'review_approved' => ! $isCustomer ? [
-                'summary' => 'Sent when admin approves a customer review of the provider.',
+                'summary' => 'Sent to the provider when they receive a new review from a customer.',
                 'scenarios' => [
                     'Admin approves a customer-submitted service review.',
                 ],
-                'recipient' => 'Provider',
+                'recipient' => 'Provider (received review)',
+                'module' => 'Review',
+                'wired' => true,
+            ] : null,
+
+            'provider_review_published' => ! $isCustomer ? [
+                'summary' => 'Sent to the provider when their review of a customer is approved.',
+                'scenarios' => [
+                    'Admin approves a provider-submitted review of the customer.',
+                ],
+                'recipient' => 'Provider (wrote review)',
                 'module' => 'Review',
                 'wired' => true,
             ] : null,
@@ -1537,14 +1649,16 @@ if (! function_exists('notification_trigger_scenarios_for_key')) {
             'chat_message' => [
                 'summary' => 'Sent when a new in-app chat message arrives.',
                 'scenarios' => $isCustomer ? [
-                    'Provider or admin sends a message in the booking chat.',
-                    'Customer receives a reply in the conversation channel.',
+                    'Provider sends a message in the booking chat.',
+                    'Admin sends a message in the direct support conversation.',
+                    'Customer receives a reply in any conversation channel.',
                 ] : [
-                    'Customer or admin sends a message in the booking chat.',
-                    'Provider receives a reply in the conversation channel.',
+                    'Customer sends a message in the booking chat.',
+                    'Admin sends a message in the direct support conversation.',
+                    'Provider receives a reply in any conversation channel.',
                 ],
                 'recipient' => $recipient,
-                'module' => 'Bookings',
+                'module' => 'Communication',
                 'wired' => true,
             ],
 
@@ -2059,7 +2173,8 @@ if (! function_exists('notification_scenario_registry')) {
                 'trigger_actor' => 'admin',
                 'trigger_action' => 'Approves service review submitted by customer',
                 'audiences' => [
-                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'review_approved', 'settings_type' => 'provider_notification', 'wired' => true],
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'review_approved', 'settings_type' => 'provider_notification', 'wired' => true, 'note' => 'Provider: you have got a new review from customer'],
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'review_published', 'settings_type' => 'customer_notification', 'wired' => true, 'note' => 'Customer: your review is approved'],
                 ],
             ],
             [
@@ -2069,7 +2184,8 @@ if (! function_exists('notification_scenario_registry')) {
                 'trigger_actor' => 'admin',
                 'trigger_action' => 'Approves customer review submitted by provider',
                 'audiences' => [
-                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'customer_review_approved', 'settings_type' => 'customer_notification', 'wired' => true],
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'customer_review_approved', 'settings_type' => 'customer_notification', 'wired' => true, 'note' => 'Customer: you have got a new review from provider'],
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'provider_review_published', 'settings_type' => 'provider_notification', 'wired' => true, 'note' => 'Provider: your review is approved'],
                 ],
             ],
 
@@ -2179,6 +2295,28 @@ if (! function_exists('notification_scenario_registry')) {
                 'audiences' => [
                     ['audience' => 'customer', 'channel' => 'push', 'key' => 'chat_message', 'settings_type' => 'customer_notification', 'wired' => true],
                     ['audience' => 'provider', 'channel' => 'push', 'key' => 'chat_message', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'chat_admin_customer_message',
+                'module' => 'communication',
+                'title' => 'New chat message between admin and customer',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Admin or customer sends a message in the direct support conversation',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'chat_message', 'settings_type' => 'customer_notification', 'wired' => true],
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'chat_admin_provider_message',
+                'module' => 'communication',
+                'title' => 'New chat message between admin and provider',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Admin or provider sends a message in the direct support conversation',
+                'audiences' => [
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'chat_message', 'settings_type' => 'provider_notification', 'wired' => true],
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
                 ],
             ],
 
@@ -3322,6 +3460,97 @@ if (! function_exists('send_review_approved_to_customer_notification')) {
             null,
             'customer',
             $review->booking?->zone_id ?? config('zone_id')
+        );
+    }
+}
+
+if (! function_exists('send_review_published_to_customer_notification')) {
+    function send_review_published_to_customer_notification(\Modules\ReviewModule\Entities\Review $review): void
+    {
+        if (! review_push_notifications_enabled()) {
+            return;
+        }
+
+        $review->loadMissing(['provider', 'customer', 'booking']);
+        $customer = $review->customer;
+        if (! $customer || ! $customer->is_active) {
+            return;
+        }
+
+        if (! isNotificationActive(null, 'rating_review', 'notification', 'user')) {
+            return;
+        }
+
+        $title = get_push_notification_message('review_published', 'customer_notification', $customer->current_language_key);
+        $description = get_push_notification_description('review_published', 'customer_notification', $customer->current_language_key);
+        if (! $title) {
+            return;
+        }
+
+        $data = [
+            'user_name' => trim(($customer->first_name ?? '') . ' ' . ($customer->last_name ?? '')),
+            'provider_name' => $review->provider?->company_name ?? '',
+            'booking_id' => $review->booking?->readable_id ?? $review->booking_id ?? '',
+        ];
+
+        scenario_push_notification(
+            $customer->fcm_token,
+            $title,
+            $description,
+            $review->booking_id,
+            'review',
+            $customer->id,
+            $data,
+            null,
+            null,
+            'customer',
+            $review->booking?->zone_id ?? config('zone_id')
+        );
+    }
+}
+
+if (! function_exists('send_provider_review_published_notification')) {
+    function send_provider_review_published_notification(\Modules\ReviewModule\Entities\ProviderCustomerReview $review): void
+    {
+        if (! review_push_notifications_enabled()) {
+            return;
+        }
+
+        $review->loadMissing(['customer', 'provider.owner', 'booking']);
+        $provider = $review->provider;
+        $owner = $provider?->owner;
+        if (! $owner || ! $owner->is_active) {
+            return;
+        }
+
+        if (! isNotificationActive($provider?->id, 'rating_review', 'notification', 'provider')) {
+            return;
+        }
+
+        $title = get_push_notification_message('provider_review_published', 'provider_notification', $owner->current_language_key);
+        $description = get_push_notification_description('provider_review_published', 'provider_notification', $owner->current_language_key);
+        if (! $title) {
+            return;
+        }
+
+        $data = [
+            'user_name' => trim(($review->customer?->first_name ?? '') . ' ' . ($review->customer?->last_name ?? '')),
+            'provider_name' => $provider?->company_name ?? '',
+            'booking_id' => $review->booking?->readable_id ?? $review->booking_id ?? '',
+        ];
+
+        scenario_push_notification(
+            $owner->fcm_token,
+            $title,
+            $description,
+            $review->booking_id,
+            'review',
+            $owner->id,
+            $data,
+            null,
+            null,
+            'provider-admin',
+            $provider?->zone_id
         );
     }
 }
