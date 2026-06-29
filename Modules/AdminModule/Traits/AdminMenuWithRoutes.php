@@ -982,6 +982,14 @@ trait AdminMenuWithRoutes
                 'type' => 'menu',
             ],
             [
+                'route_name' => 'In_App_Call_Monitor',
+                'uri' => 'admin/in-app-calls',
+                'full_route' => url('admin/in-app-calls'),
+                'page_title' => 'In_App_Call_Monitor',
+                'keywords' => 'In-app calls, customer provider calls, live calls, call monitor, WebRTC',
+                'type' => 'menu',
+            ],
+            [
                 'route_name' => 'profile',
                 'uri' => 'admin/profile-update',
                 'full_route' => url('admin/profile-update'),

@@ -335,6 +335,7 @@ class AdminNavRegistry
             self::entry('operations', $group, translate('booking_management'), translate('Booking_Review'), route('admin.booking.reviews.list'), ['admin/booking/reviews/list*']),
             self::entry('operations', $group, null, translate('Talk_With_AI'), route('admin.business-ai.index'), ['admin/business-ai*']),
             self::entry('operations', $group, null, translate('Staff_Conversation'), route('admin.chat.index', ['user_type' => 'staff']), ['admin/chat*']),
+            self::entry('operations', $group, null, translate('In_App_Call_Monitor'), route('admin.in-app-calls.index'), ['admin/in-app-calls*'], ['admin.in-app-calls.index']),
         ];
     }
 

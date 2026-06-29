@@ -659,4 +659,185 @@ class InAppCallService
 
         return null;
     }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function adminActiveCalls(): array
+    {
+        return InAppCall::query()
+            ->with(['caller.provider', 'callee.provider'])
+            ->whereIn('status', [InAppCall::STATUS_RINGING, InAppCall::STATUS_ACCEPTED])
+            ->orderByDesc('started_at')
+            ->get()
+            ->map(fn (InAppCall $call) => $this->serializeAdminCall($call))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    public function adminCallLogsQuery(array $filters = [])
+    {
+        $search = trim((string) ($filters['search'] ?? ''));
+
+        return InAppCall::query()
+            ->with(['caller.provider', 'callee.provider'])
+            ->when(! empty($filters['status']), fn ($q) => $q->where('status', $filters['status']))
+            ->when($search !== '', function ($q) use ($search) {
+                $like = '%'.$search.'%';
+                $q->where(function ($query) use ($like) {
+                    $query->whereHas('caller', function ($userQuery) use ($like) {
+                        $userQuery->where('first_name', 'like', $like)
+                            ->orWhere('last_name', 'like', $like)
+                            ->orWhere('phone', 'like', $like);
+                    })->orWhereHas('callee', function ($userQuery) use ($like) {
+                        $userQuery->where('first_name', 'like', $like)
+                            ->orWhere('last_name', 'like', $like)
+                            ->orWhere('phone', 'like', $like);
+                    });
+                });
+            })
+            ->when(! empty($filters['date_from']), fn ($q) => $q->whereDate('created_at', '>=', $filters['date_from']))
+            ->when(! empty($filters['date_to']), fn ($q) => $q->whereDate('created_at', '<=', $filters['date_to']))
+            ->orderByDesc('created_at');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function serializeAdminCall(InAppCall $call): array
+    {
+        $caller = $call->caller;
+        $callee = $call->callee;
+
+        return [
+            'call_id' => $call->id,
+            'channel_id' => $call->channel_id,
+            'status' => $call->status,
+            'status_label' => $this->adminStatusLabel($call->status),
+            'status_badge' => $this->adminStatusBadge($call->status),
+            'connection_label' => $this->adminConnectionLabel($call),
+            'reference_id' => $call->reference_id,
+            'reference_type' => $call->reference_type,
+            'started_at' => optional($call->started_at)?->format('Y-m-d H:i:s'),
+            'started_at_human' => optional($call->started_at)?->diffForHumans(),
+            'answered_at' => optional($call->answered_at)?->format('Y-m-d H:i:s'),
+            'ended_at' => optional($call->ended_at)?->format('Y-m-d H:i:s'),
+            'duration_seconds' => $call->duration_seconds,
+            'duration_label' => $this->formatDurationLabel($call->duration_seconds),
+            'elapsed_seconds' => $call->started_at ? max(0, now()->diffInSeconds($call->started_at)) : 0,
+            'elapsed_label' => $call->started_at ? $this->formatDurationLabel(max(0, now()->diffInSeconds($call->started_at))) : '—',
+            'end_reason' => $call->end_reason,
+            'caller' => $caller ? $this->serializeAdminUser($caller) : null,
+            'callee' => $callee ? $this->serializeAdminUser($callee) : null,
+            'booking_url' => $this->adminBookingUrl($call),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function serializeAdminUser(User $user): array
+    {
+        return [
+            'id' => $user->id,
+            'name' => $this->resolveUserDisplayName($user),
+            'phone' => $user->phone,
+            'user_type' => $user->user_type,
+            'user_type_label' => $this->adminUserTypeLabel($user->user_type),
+            'profile_url' => $this->adminUserProfileUrl($user),
+        ];
+    }
+
+    protected function adminStatusLabel(string $status): string
+    {
+        return match ($status) {
+            InAppCall::STATUS_RINGING => translate('Ringing'),
+            InAppCall::STATUS_ACCEPTED => translate('Connected'),
+            InAppCall::STATUS_DECLINED => translate('Declined'),
+            InAppCall::STATUS_MISSED => translate('Missed'),
+            InAppCall::STATUS_ENDED => translate('Ended'),
+            InAppCall::STATUS_CANCELLED => translate('Cancelled'),
+            default => ucfirst($status),
+        };
+    }
+
+    protected function adminStatusBadge(string $status): string
+    {
+        return match ($status) {
+            InAppCall::STATUS_RINGING => 'warning',
+            InAppCall::STATUS_ACCEPTED => 'success',
+            InAppCall::STATUS_DECLINED => 'danger',
+            InAppCall::STATUS_MISSED => 'secondary',
+            InAppCall::STATUS_ENDED => 'info',
+            InAppCall::STATUS_CANCELLED => 'secondary',
+            default => 'light',
+        };
+    }
+
+    protected function adminConnectionLabel(InAppCall $call): string
+    {
+        return match ($call->status) {
+            InAppCall::STATUS_RINGING => translate('Waiting_for_answer'),
+            InAppCall::STATUS_ACCEPTED => translate('Call_reached_other_party'),
+            InAppCall::STATUS_ENDED => translate('Call_reached_other_party'),
+            InAppCall::STATUS_DECLINED => translate('Callee_declined'),
+            InAppCall::STATUS_MISSED => translate('No_answer'),
+            InAppCall::STATUS_CANCELLED => translate('Cancelled_before_answer'),
+            default => '—',
+        };
+    }
+
+    protected function adminUserTypeLabel(?string $userType): string
+    {
+        return match ($userType) {
+            'customer' => translate('customer'),
+            'provider-admin' => translate('provider'),
+            'provider-serviceman' => translate('serviceman'),
+            default => (string) $userType,
+        };
+    }
+
+    protected function adminUserProfileUrl(User $user): ?string
+    {
+        $user->loadMissing('provider');
+
+        if ($user->user_type === 'customer') {
+            return route('admin.customer.detail', [$user->id, 'web_page' => 'overview']);
+        }
+
+        if (in_array($user->user_type, PROVIDER_USER_TYPES, true) && $user->provider?->id) {
+            return route('admin.provider.details', [$user->provider->id, 'web_page' => 'overview']);
+        }
+
+        return null;
+    }
+
+    protected function adminBookingUrl(InAppCall $call): ?string
+    {
+        if ($call->reference_type === 'booking' && ! empty($call->reference_id)) {
+            return route('admin.booking.details', [$call->reference_id]);
+        }
+
+        return null;
+    }
+
+    protected function formatDurationLabel(?int $seconds): string
+    {
+        $seconds = max(0, (int) $seconds);
+        if ($seconds === 0) {
+            return '0s';
+        }
+
+        if ($seconds < 60) {
+            return $seconds.'s';
+        }
+
+        $minutes = intdiv($seconds, 60);
+        $remaining = $seconds % 60;
+
+        return $minutes.'m '.$remaining.'s';
+    }
 }

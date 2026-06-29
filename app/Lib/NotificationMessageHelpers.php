@@ -3402,7 +3402,7 @@ if (! function_exists('send_review_approved_to_provider_notification')) {
             'review',
             $owner->id,
             $data,
-            null,
+            'review_approved',
             null,
             'provider-admin',
             $provider?->zone_id
@@ -3447,7 +3447,7 @@ if (! function_exists('send_review_approved_to_customer_notification')) {
             'review',
             $customer->id,
             $data,
-            null,
+            'customer_review_approved',
             null,
             'customer',
             $review->booking?->zone_id ?? config('zone_id')
@@ -3492,7 +3492,7 @@ if (! function_exists('send_review_published_to_customer_notification')) {
             'review',
             $customer->id,
             $data,
-            null,
+            'review_published',
             null,
             'customer',
             $review->booking?->zone_id ?? config('zone_id')
@@ -3538,7 +3538,7 @@ if (! function_exists('send_provider_review_published_notification')) {
             'review',
             $owner->id,
             $data,
-            null,
+            'provider_review_published',
             null,
             'provider-admin',
             $provider?->zone_id
