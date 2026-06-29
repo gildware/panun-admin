@@ -26,6 +26,7 @@ class InAppCallController extends Controller
         $validator = Validator::make($request->all(), [
             'limit' => 'required|numeric|min:1|max:50',
             'offset' => 'required|numeric|min:1|max:100000',
+            'channel_id' => 'nullable|uuid',
         ]);
 
         if ($validator->fails()) {
@@ -36,6 +37,7 @@ class InAppCallController extends Controller
             $request->user(),
             (int) $request->input('limit'),
             (int) $request->input('offset'),
+            $request->input('channel_id'),
         );
 
         return response()->json(response_formatter(DEFAULT_200, $result['data']), 200);
@@ -59,28 +61,6 @@ class InAppCallController extends Controller
         if (! ($result['ok'] ?? false)) {
             return response()->json(response_formatter(DEFAULT_400, null, [['message' => $result['message'] ?? translate('Failed_to_start_call')]]), 400);
         }
-
-        return response()->json(response_formatter(DEFAULT_200, $result['data']), 200);
-    }
-
-    public function history(Request $request): JsonResponse
-    {
-        $validator = Validator::make($request->all(), [
-            'limit' => 'required|numeric|min:1|max:200',
-            'offset' => 'required|numeric|min:1|max:100000',
-            'channel_id' => 'nullable|uuid',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
-        }
-
-        $result = $this->inAppCallService->history(
-            $request->user(),
-            (int) $request->input('limit'),
-            (int) $request->input('offset'),
-            $request->input('channel_id'),
-        );
 
         return response()->json(response_formatter(DEFAULT_200, $result['data']), 200);
     }

@@ -96,7 +96,7 @@ class InAppCallService
 
         return [
             'ok' => true,
-            'data' => $this->serializeCall($call->fresh(['caller', 'callee']), $caller),
+            'data' => $this->serializeCall($call->fresh(['caller.provider', 'callee.provider']), $caller),
         ];
     }
 
@@ -247,29 +247,39 @@ class InAppCallService
     /**
      * @return array{ok: bool, data: array<string, mixed>}
      */
-    public function history(User $user, int $limit, int $offset, ?string $channelId = null): array
+    public function listHistory(User $user, int $limit, int $offset, ?string $channelId = null): array
     {
         $query = InAppCall::query()
+            ->with(['caller.provider', 'callee.provider'])
             ->where(function ($query) use ($user) {
                 $query->where('caller_user_id', $user->id)
                     ->orWhere('callee_user_id', $user->id);
             })
-            ->with(['caller', 'callee'])
+            ->orderByDesc('started_at')
             ->orderByDesc('created_at');
 
         if ($channelId) {
             $query->where('channel_id', $channelId);
         }
 
-        $paginator = $query->paginate($limit, ['*'], 'offset', $offset)->withPath('');
+        $paginator = $query
+            ->paginate($limit, ['*'], 'offset', $offset)
+            ->withPath('');
 
-        $paginator->setCollection(
-            $paginator->getCollection()->map(
-                fn (InAppCall $call) => $this->serializeCall($call, $user),
-            ),
-        );
+        $items = collect($paginator->items())
+            ->map(fn (InAppCall $call) => $this->serializeHistoryItem($call, $user))
+            ->values()
+            ->all();
 
-        return ['ok' => true, 'data' => $paginator];
+        return [
+            'ok' => true,
+            'data' => [
+                'data' => $items,
+                'total_size' => $paginator->total(),
+                'limit' => $paginator->perPage(),
+                'offset' => $paginator->currentPage(),
+            ],
+        ];
     }
 
     /**
@@ -284,7 +294,7 @@ class InAppCallService
 
         return [
             'ok' => true,
-            'data' => $this->serializeCall($call->loadMissing(['caller', 'callee']), $user),
+            'data' => $this->serializeCall($call->loadMissing(['caller.provider', 'callee.provider']), $user),
         ];
     }
 
@@ -308,7 +318,7 @@ class InAppCallService
             send_in_app_call_status_push_notification($call->caller, $call->fresh(), 'call_missed');
         }
 
-        return ['ok' => true, 'data' => $this->serializeCall($call->fresh(['caller', 'callee']), $call->caller)];
+        return ['ok' => true, 'data' => $this->serializeCall($call->fresh(['caller.provider', 'callee.provider']), $call->caller)];
     }
 
     /**
@@ -371,38 +381,6 @@ class InAppCallService
         return ['ok' => true, 'data' => $signals];
     }
 
-    /**
-     * @return array{ok: bool, data: array<string, mixed>}
-     */
-    public function listHistory(User $user, int $limit, int $offset): array
-    {
-        $paginator = InAppCall::query()
-            ->with(['caller.provider', 'callee.provider'])
-            ->where(function ($query) use ($user) {
-                $query->where('caller_user_id', $user->id)
-                    ->orWhere('callee_user_id', $user->id);
-            })
-            ->orderByDesc('started_at')
-            ->orderByDesc('created_at')
-            ->paginate($limit, ['*'], 'offset', $offset)
-            ->withPath('');
-
-        $items = collect($paginator->items())
-            ->map(fn (InAppCall $call) => $this->serializeHistoryItem($call, $user))
-            ->values()
-            ->all();
-
-        return [
-            'ok' => true,
-            'data' => [
-                'data' => $items,
-                'total_size' => $paginator->total(),
-                'limit' => $paginator->perPage(),
-                'offset' => $paginator->currentPage(),
-            ],
-        ];
-    }
-
     protected function findParticipantCall(User $user, string $callId): ?InAppCall
     {
         return InAppCall::query()
@@ -451,21 +429,21 @@ class InAppCallService
             'end_reason' => $call->end_reason,
             'peer' => $peer ? [
                 'id' => $peer->id,
-                'name' => trim(($peer->first_name ?? '').' '.($peer->last_name ?? '')),
-                'image' => $peer->profile_image,
+                'name' => $this->resolveUserDisplayName($peer),
+                'image' => $this->resolveUserImagePath($peer),
                 'phone' => $peer->phone,
                 'user_type' => $peer->user_type,
             ] : null,
             'caller' => $caller ? [
                 'id' => $caller->id,
-                'name' => trim(($caller->first_name ?? '').' '.($caller->last_name ?? '')),
-                'image' => $caller->profile_image,
+                'name' => $this->resolveUserDisplayName($caller),
+                'image' => $this->resolveUserImagePath($caller),
                 'user_type' => $caller->user_type,
             ] : null,
             'callee' => $callee ? [
                 'id' => $callee->id,
-                'name' => trim(($callee->first_name ?? '').' '.($callee->last_name ?? '')),
-                'image' => $callee->profile_image,
+                'name' => $this->resolveUserDisplayName($callee),
+                'image' => $this->resolveUserImagePath($callee),
                 'user_type' => $callee->user_type,
             ] : null,
         ];
