@@ -80,6 +80,15 @@ class NotificationMessageConfigTest extends TestCase
         $this->assertStringContainsString('Ongoing', $preview);
     }
 
+    public function test_preview_chat_message_replaces_sender_name(): void
+    {
+        $text = 'New Message from {{senderName}}';
+        $preview = preview_notification_message_text($text, 'chat_message');
+
+        $this->assertStringNotContainsString('{{senderName}}', $preview);
+        $this->assertStringContainsString('Acme Services', $preview);
+    }
+
     public function test_notification_variables_per_key(): void
     {
         $otpVars = notification_message_variables_for_key('otp');

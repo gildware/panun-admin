@@ -304,6 +304,10 @@ class BookingRepeat extends Model
 
 
                 if (isset($booking_notification_status) && $booking_notification_status['push_notification_booking']) {
+                    $pushBookingStatus = $model->isDirty('booking_status')
+                        ? (string) $model->booking_status
+                        : null;
+
                     foreach ($notifications ?? [] as $notification) {
                         $key = $notification['key'];
                         $settingsType = $notification['settings_type'];
@@ -315,7 +319,7 @@ class BookingRepeat extends Model
                             $description = get_push_notification_description($key, $settingsType, $user?->current_language_key);
                             $permission = isNotificationActive(null, 'booking', 'notification', 'user');
                             if ($user?->fcm_token && $user?->is_active && $title && $permission) {
-                                device_notification($user?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular, 'single');
+                                device_notification($user?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular, 'single', null, null, $pushBookingStatus);
                             }
                         }
 
@@ -327,7 +331,7 @@ class BookingRepeat extends Model
                                 $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
                                 $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
                                 if ($provider?->fcm_token && $title && sendDeviceNotificationPermission($model?->provider_id)) {
-                                    device_notification($provider?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular, 'single');
+                                    device_notification($provider?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular, 'single', null, null, $pushBookingStatus);
                                 }
                             } else {
                                 $provider = $model?->provider?->owner;
@@ -335,7 +339,7 @@ class BookingRepeat extends Model
                                 $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
                                 $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
                                 if ($provider?->fcm_token && $title  && sendDeviceNotificationPermission($model?->provider_id)) {
-                                    device_notification($provider?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular, 'single');
+                                    device_notification($provider?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular, 'single', null, null, $pushBookingStatus);
                                 }
                             }
                         }
@@ -346,7 +350,7 @@ class BookingRepeat extends Model
                             $title = get_push_notification_message($key, $settingsType, $serviceman?->current_language_key);
                             $description = get_push_notification_description($key, $settingsType, $serviceman?->current_language_key);
                             if ($serviceman?->fcm_token && $title) {
-                                device_notification($serviceman?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular, 'single');
+                                device_notification($serviceman?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular, 'single', null, null, $pushBookingStatus);
                             }
                         }
                     }

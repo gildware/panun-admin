@@ -2448,6 +2448,11 @@ if (! function_exists('scenario_push_notification')) {
 
         $description = (string) ($description ?? '');
 
+        if ($bookingStatusOverride !== null && $bookingStatusOverride !== '') {
+            $data = is_object($data) ? (array) $data : (is_array($data) ? $data : []);
+            $data['booking_status'] = ucfirst(str_replace('_', ' ', $bookingStatusOverride));
+        }
+
         $formattedTitle = text_variable_data_format($title, $bookingId, $type, $data, $bookingType);
         if (is_array($formattedTitle)) {
             $formattedTitle = $title;
@@ -2979,6 +2984,27 @@ if (! function_exists('send_chat_message_push_notification')) {
             $title = translate('New message has been arrived');
         }
 
+        $channel = \Modules\ChattingModule\Entities\ChannelList::query()->find($channelId);
+        $bookingUuid = null;
+        if ($channel && (string) ($channel->reference_type ?? '') === 'booking_id' && filled($channel->reference_id)) {
+            $bookingUuid = (string) $channel->reference_id;
+        }
+
+        $bookingReadableId = '';
+        if ($bookingUuid) {
+            $booking = Booking::query()->find($bookingUuid);
+            $bookingReadableId = (string) ($booking?->readable_id ?? $bookingUuid);
+        }
+
+        $templateData = [
+            'sender_name' => trim((string) ($senderName ?? '')),
+            'user_name' => trim(($toUser->first_name ?? '') . ' ' . ($toUser->last_name ?? '')),
+            'booking_id' => $bookingReadableId,
+        ];
+
+        $title = text_variable_data_format($title, $bookingUuid, 'booking', $templateData);
+        $description = text_variable_data_format((string) $description, $bookingUuid, 'booking', $templateData);
+
         device_notification_for_chatting(
             $toUser->fcm_token,
             $title,
@@ -3033,10 +3059,16 @@ if (! function_exists('send_customer_loyalty_point_notification')) {
             return;
         }
 
+        $bookingReadableId = '';
+        if (filled($bookingId)) {
+            $booking = Booking::query()->find($bookingId);
+            $bookingReadableId = (string) ($booking?->readable_id ?? $bookingId);
+        }
+
         $data = [
             'amount' => with_decimal_point($points),
             'user_name' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')),
-            'booking_id' => $bookingId ?? '',
+            'booking_id' => $bookingReadableId,
         ];
 
         scenario_push_notification(

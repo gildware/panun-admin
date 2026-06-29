@@ -205,6 +205,11 @@ if (!function_exists('apply_push_notification_urgent_delivery')) {
 if (!function_exists('device_notification')) {
     function device_notification($fcm_token, $title, $description, $image, $booking_id, $type='status', $channel_id = null, $user_id = null, $data=null, $advertisement_id=null, $bookingType=null, $repeat_type=null, $service_slug=null, $service_id=null, $booking_status_override = null, $push_notification_id = null)
     {
+        if ($booking_status_override !== null && $booking_status_override !== '') {
+            $data = is_object($data) ? (array) $data : (is_array($data) ? $data : []);
+            $data['booking_status'] = ucfirst(str_replace('_', ' ', (string) $booking_status_override));
+        }
+
         $title = text_variable_data_format($title, $booking_id, $type, $data, $bookingType);
         $body = format_push_notification_body($description, $booking_id, $type, $data, $bookingType);
         $bookingStatus = resolve_push_notification_booking_status($booking_id, $type, $booking_status_override);

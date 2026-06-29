@@ -902,6 +902,8 @@ if (!function_exists('text_variable_data_format')) {
     {
         $dataArray = is_object($data) ? (array) $data : (is_array($data) ? $data : []);
 
+        $bookingStatusFromData = trim((string) ($dataArray['booking_status'] ?? ''));
+
         $replaceMap = [
             '{{providerName}}' => (string) ($dataArray['provider_name'] ?? ''),
             '{{scheduleTime}}' => (string) ($dataArray['schedule_time'] ?? ''),
@@ -909,10 +911,11 @@ if (!function_exists('text_variable_data_format')) {
             '{{zoneName}}' => (string) ($dataArray['zone_name'] ?? ''),
             '{{serviceManName}}' => (string) ($dataArray['service_man_name'] ?? ''),
             '{{bookingId}}' => (string) ($dataArray['booking_id'] ?? ''),
-            '{{bookingStatus}}' => (string) ($dataArray['booking_status'] ?? ''),
+            '{{bookingStatus}}' => $bookingStatusFromData,
             '{{amount}}' => (string) ($dataArray['amount'] ?? ''),
             '{{serviceName}}' => (string) ($dataArray['service_name'] ?? ''),
             '{{otp}}' => (string) ($dataArray['otp'] ?? ''),
+            '{{senderName}}' => (string) ($dataArray['sender_name'] ?? ''),
         ];
 
         if ($type == 'booking' || $type == 'offline-payment') {
@@ -931,7 +934,9 @@ if (!function_exists('text_variable_data_format')) {
             $replaceMap['{{providerName}}'] = $booking?->provider?->company_name ?? $replaceMap['{{providerName}}'];
             $replaceMap['{{bookingId}}'] = $booking->readable_id ?? $replaceMap['{{bookingId}}'];
             $replaceMap['{{scheduleTime}}'] = (string) ($booking->service_schedule ?? $replaceMap['{{scheduleTime}}']);
-            $replaceMap['{{bookingStatus}}'] = ucfirst(str_replace('_', ' ', (string) ($booking->booking_status ?? $replaceMap['{{bookingStatus}}'])));
+            if ($bookingStatusFromData === '') {
+                $replaceMap['{{bookingStatus}}'] = ucfirst(str_replace('_', ' ', (string) ($booking->booking_status ?? '')));
+            }
             $replaceMap['{{otp}}'] = (string) ($booking->booking_otp ?? $replaceMap['{{otp}}']);
 
             if ($bookingType == 'repeat') {
