@@ -51,6 +51,6 @@ class NotificationScenarioRegistryTest extends TestCase
             $this->assertArrayHasKey($module, NOTIFICATION_SCENARIO_MODULE_LABELS, "Missing module label: {$module}");
         }
 
-        $this->assertCount(57, notification_scenario_registry());
+        $this->assertCount(59, notification_scenario_registry());
     }
 }

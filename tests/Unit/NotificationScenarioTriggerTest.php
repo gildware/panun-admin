@@ -35,7 +35,7 @@ class NotificationScenarioTriggerTest extends TestCase
         $this->assertCount(1, $byModule['communication']);
         $this->assertCount(2, $byModule['service_requests']);
         $this->assertCount(2, $byModule['provider_account']);
-        $this->assertCount(5, $byModule['advertisement']);
+        $this->assertCount(7, $byModule['advertisement']);
         $this->assertCount(5, $byModule['admin_alerts']);
     }
 

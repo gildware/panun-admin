@@ -170,3 +170,39 @@ if (! function_exists('admin_inbox_notify_booking_customer_canceled')) {
         );
     }
 }
+
+if (! function_exists('admin_inbox_notify_advertisement_paused_by_provider')) {
+    function admin_inbox_notify_advertisement_paused_by_provider(\Modules\PromotionManagement\Entities\Advertisement $advertisement): void
+    {
+        $advertisement->loadMissing('provider');
+        $providerName = $advertisement->provider?->company_name ?? translate('Provider');
+        $adLabel = $advertisement->title ?? (string) ($advertisement->readable_id ?? $advertisement->id);
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_ADVERTISEMENT,
+            translate('Advertisement_paused_by_provider'),
+            $providerName . ' — ' . $adLabel,
+            route('admin.advertisements.details', [$advertisement->id]),
+            'advertisement_paused_by_provider',
+            (string) $advertisement->id,
+        );
+    }
+}
+
+if (! function_exists('admin_inbox_notify_advertisement_resumed_by_provider')) {
+    function admin_inbox_notify_advertisement_resumed_by_provider(\Modules\PromotionManagement\Entities\Advertisement $advertisement): void
+    {
+        $advertisement->loadMissing('provider');
+        $providerName = $advertisement->provider?->company_name ?? translate('Provider');
+        $adLabel = $advertisement->title ?? (string) ($advertisement->readable_id ?? $advertisement->id);
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_ADVERTISEMENT,
+            translate('Advertisement_resumed_by_provider'),
+            $providerName . ' — ' . $adLabel,
+            route('admin.advertisements.details', [$advertisement->id]),
+            'advertisement_resumed_by_provider',
+            (string) $advertisement->id,
+        );
+    }
+}

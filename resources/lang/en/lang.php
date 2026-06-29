@@ -9471,6 +9471,8 @@ _Message' => 'Customer notification for provider bid offer
   'New_Provider_Registration' => 'New Provider Registration',
   'A_new_provider_has_registered' => 'A new provider has registered',
   'New_Withdraw_Request' => 'New Withdraw Request',
+  'Advertisement_paused_by_provider' => 'Advertisement paused by provider',
+  'Advertisement_resumed_by_provider' => 'Advertisement resumed by provider',
   'Booking_canceled_by_customer' => 'Booking canceled by customer',
   'canceled_the_booking' => 'Canceled the booking',
 );

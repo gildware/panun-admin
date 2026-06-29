@@ -773,7 +773,7 @@ if (! function_exists('notification_scenario_trigger_map')) {
             'provider_withdraw_settled' => [
                 'module' => 'provider_payments',
                 'checks' => [
-                    ['label' => 'Settlement received push', 'needles' => ['send_provider_settlement_received_notification', "'settlement_received'"]],
+                    ['label' => 'Withdraw settled push', 'needles' => ['send_provider_withdraw_settled_notification', "'settlement_received'"]],
                 ],
             ],
             'admin_collect_from_provider' => [
@@ -899,7 +899,7 @@ if (! function_exists('notification_scenario_trigger_map')) {
                 ],
             ],
 
-            // Advertisement (5)
+            // Advertisement (7)
             'advertisement_created_by_admin' => [
                 'module' => 'advertisement',
                 'checks' => [
@@ -928,6 +928,18 @@ if (! function_exists('notification_scenario_trigger_map')) {
                 'module' => 'advertisement',
                 'checks' => [
                     ['label' => 'Ad resumed push', 'needles' => ['send_advertisement_push_notification', "'advertisement_resumed'"]],
+                ],
+            ],
+            'advertisement_paused_by_provider' => [
+                'module' => 'advertisement',
+                'checks' => [
+                    ['label' => 'Provider ad paused inbox', 'needles' => ['admin_inbox_notify_advertisement_paused_by_provider']],
+                ],
+            ],
+            'advertisement_resumed_by_provider' => [
+                'module' => 'advertisement',
+                'checks' => [
+                    ['label' => 'Provider ad resumed inbox', 'needles' => ['admin_inbox_notify_advertisement_resumed_by_provider']],
                 ],
             ],
 
@@ -2248,9 +2260,9 @@ if (! function_exists('notification_scenario_registry')) {
             [
                 'id' => 'advertisement_paused',
                 'module' => 'advertisement',
-                'title' => 'Advertisement is paused',
+                'title' => 'Admin pauses advertisement',
                 'trigger_actor' => 'admin',
-                'trigger_action' => 'Pauses an active provider advertisement',
+                'trigger_action' => 'Admin pauses an active provider advertisement',
                 'audiences' => [
                     ['audience' => 'provider', 'channel' => 'push', 'key' => 'advertisement_paused', 'settings_type' => 'provider_notification', 'wired' => true],
                 ],
@@ -2258,11 +2270,31 @@ if (! function_exists('notification_scenario_registry')) {
             [
                 'id' => 'advertisement_resumed',
                 'module' => 'advertisement',
-                'title' => 'Advertisement is resumed',
+                'title' => 'Admin resumes advertisement',
                 'trigger_actor' => 'admin',
-                'trigger_action' => 'Resumes a paused provider advertisement',
+                'trigger_action' => 'Admin resumes a paused provider advertisement',
                 'audiences' => [
                     ['audience' => 'provider', 'channel' => 'push', 'key' => 'advertisement_resumed', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'advertisement_paused_by_provider',
+                'module' => 'advertisement',
+                'title' => 'Provider pauses their advertisement',
+                'trigger_actor' => 'provider',
+                'trigger_action' => 'Provider pauses an active advertisement from app or panel',
+                'audiences' => [
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'advertisement_resumed_by_provider',
+                'module' => 'advertisement',
+                'title' => 'Provider resumes their advertisement',
+                'trigger_actor' => 'provider',
+                'trigger_action' => 'Provider resumes a paused advertisement from app or panel',
+                'audiences' => [
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
                 ],
             ],
 
@@ -3325,6 +3357,50 @@ if (! function_exists('send_provider_withdraw_request_submitted_notification')) 
                 'amount' => with_currency_symbol($withdrawRequest->amount),
                 'provider_name' => $provider?->company_name ?? '',
             ],
+            null,
+            null,
+            'provider-admin',
+            $provider?->zone_id
+        );
+    }
+}
+
+if (! function_exists('send_provider_withdraw_settled_notification')) {
+    function send_provider_withdraw_settled_notification(\Modules\ProviderManagement\Entities\WithdrawRequest $withdrawRequest): void
+    {
+        $withdrawRequest->loadMissing('user.provider');
+        $provider = $withdrawRequest->user?->provider;
+        $owner = $provider?->owner ?? $withdrawRequest->user;
+        if (! $owner || ! $owner->is_active) {
+            return;
+        }
+
+        if (! isNotificationActive($provider?->id, 'wallet', 'notification', 'provider')) {
+            return;
+        }
+
+        $title = get_push_notification_message('settlement_received', 'provider_notification', $owner->current_language_key);
+        $description = get_push_notification_description('settlement_received', 'provider_notification', $owner->current_language_key);
+        if (! $title) {
+            return;
+        }
+
+        $data = [
+            'amount' => with_currency_symbol($withdrawRequest->amount),
+            'provider_name' => $provider?->company_name ?? '',
+        ];
+        if (trim((string) ($withdrawRequest->transaction_id ?? '')) !== '') {
+            $data['transaction_id'] = (string) $withdrawRequest->transaction_id;
+        }
+
+        scenario_push_notification(
+            $owner->fcm_token,
+            with_currency_symbol($withdrawRequest->amount) . ' ' . $title,
+            $description,
+            null,
+            'withdraw',
+            $owner->id,
+            $data,
             null,
             null,
             'provider-admin',

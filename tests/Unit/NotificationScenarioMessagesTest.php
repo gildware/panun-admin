@@ -34,9 +34,9 @@ class NotificationScenarioMessagesTest extends TestCase
         $this->assertCount(1, $grouped['communication']);
         $this->assertCount(2, $grouped['service_requests']);
         $this->assertCount(2, $grouped['provider_account']);
-        $this->assertCount(5, $grouped['advertisement']);
+        $this->assertCount(7, $grouped['advertisement']);
         $this->assertCount(5, $grouped['admin_alerts']);
-        $this->assertCount(57, notification_scenario_registry());
+        $this->assertCount(59, notification_scenario_registry());
     }
 
     public function test_all_config_keys_are_covered_by_scenarios(): void
@@ -119,6 +119,7 @@ class NotificationScenarioMessagesTest extends TestCase
             'send_review_approved_to_provider_notification',
             'send_review_approved_to_customer_notification',
             'send_provider_withdraw_request_submitted_notification',
+            'send_provider_withdraw_settled_notification',
             'send_provider_removed_from_booking_notification',
             'send_provider_settlement_received_notification',
             'send_booking_reminder_notification',

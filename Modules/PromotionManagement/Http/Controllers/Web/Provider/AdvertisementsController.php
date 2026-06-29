@@ -772,6 +772,12 @@ class AdvertisementsController extends Controller
         if ($advertisement) {
             $advertisement->status = $status;
             $advertisement->save();
+
+            if ($status === 'paused') {
+                admin_inbox_notify_advertisement_paused_by_provider($advertisement);
+            } elseif ($status === 'resumed') {
+                admin_inbox_notify_advertisement_resumed_by_provider($advertisement);
+            }
         }
 
         if ($request->has('note')) {

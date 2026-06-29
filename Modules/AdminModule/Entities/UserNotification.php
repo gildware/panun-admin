@@ -16,6 +16,7 @@ class UserNotification extends Model
     public const TYPE_PROVIDER_REQUEST = 'provider_request';
     public const TYPE_WITHDRAW_REQUEST = 'withdraw_request';
     public const TYPE_PROVIDER_WITHDRAWAL = 'provider_withdrawal';
+    public const TYPE_ADVERTISEMENT = 'advertisement';
 
     protected $fillable = [
         'user_id',
@@ -50,6 +51,7 @@ class UserNotification extends Model
             self::TYPE_PROVIDER_REQUEST => 'person_add',
             self::TYPE_WITHDRAW_REQUEST => 'payments',
             self::TYPE_PROVIDER_WITHDRAWAL => 'person_off',
+            self::TYPE_ADVERTISEMENT => 'campaign',
             default => 'notifications',
         };
     }
@@ -62,6 +64,7 @@ class UserNotification extends Model
             self::TYPE_PROVIDER_REQUEST => translate('Provider_Request'),
             self::TYPE_WITHDRAW_REQUEST => translate('Withdraw_Request'),
             self::TYPE_PROVIDER_WITHDRAWAL => translate('Provider_withdrawal'),
+            self::TYPE_ADVERTISEMENT => translate('Advertisement'),
             default => translate('Notification'),
         };
     }

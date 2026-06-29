@@ -229,11 +229,7 @@ class SmokeTestNotificationScenarios extends Command
             'provider_withdraw_request' => $this->testWithdrawSubmitted($booking),
             'provider_withdraw_approved' => $this->dispatchInboxPushForProvider($booking, 'widthdraw_request_approve', 'withdraw', 'Withdraw approved'),
             'provider_withdraw_denied' => $this->dispatchInboxPushForProvider($booking, 'widthdraw_request_deny', 'withdraw', 'Withdraw denied'),
-            'provider_withdraw_settled' => $this->dispatchHelper(
-                'send_provider_settlement_received_notification',
-                fn () => send_provider_settlement_received_notification($booking->provider, 75),
-                [$booking->provider?->owner?->id]
-            ),
+            'provider_withdraw_settled' => $this->testWithdrawSettled($booking),
             'admin_collect_from_provider' => $this->dispatchInboxPushForProvider($booking, 'admin_payable', 'admin_pay', 'Admin payable', true),
             'admin_pay_provider' => $this->dispatchHelper(
                 'send_provider_settlement_received_notification (payout)',
@@ -255,6 +251,8 @@ class SmokeTestNotificationScenarios extends Command
             'advertisement_denied' => $this->testAdvertisementPush('advertisement_denied'),
             'advertisement_paused' => $this->testAdvertisementPush('advertisement_paused'),
             'advertisement_resumed' => $this->testAdvertisementPush('advertisement_resumed'),
+            'advertisement_paused_by_provider' => $this->testAdvertisementPausedByProviderInbox(),
+            'advertisement_resumed_by_provider' => $this->testAdvertisementResumedByProviderInbox(),
             'admin_alert_provider_registration' => $this->testAdminInbox(
                 'admin_inbox_notify_provider_request',
                 fn () => admin_inbox_notify_provider_request($this->sampleProvider()),
@@ -309,6 +307,35 @@ class SmokeTestNotificationScenarios extends Command
             return $this->dispatchHelper(
                 'send_provider_withdraw_request_submitted_notification',
                 fn () => send_provider_withdraw_request_submitted_notification($withdraw),
+                [$owner->id]
+            );
+        } finally {
+            $withdraw->delete();
+        }
+    }
+
+    /**
+     * @return array{status: string, detail: string}
+     */
+    private function testWithdrawSettled(Booking $booking): array
+    {
+        $owner = $booking->provider?->owner;
+        if (! $owner) {
+            return ['status' => 'fail', 'detail' => 'No provider owner for withdraw settled test'];
+        }
+
+        $withdraw = WithdrawRequest::create([
+            'user_id' => $owner->id,
+            'amount' => 75,
+            'request_status' => 'settled',
+            'is_paid' => 1,
+            'transaction_id' => 'SMOKE-'.uniqid(),
+        ]);
+
+        try {
+            return $this->dispatchHelper(
+                'send_provider_withdraw_settled_notification',
+                fn () => send_provider_withdraw_settled_notification($withdraw),
                 [$owner->id]
             );
         } finally {
@@ -701,6 +728,46 @@ class SmokeTestNotificationScenarios extends Command
             "send_advertisement_push_notification ({$messageKey})",
             fn () => send_advertisement_push_notification($messageKey, $advertisement),
             [$ownerId]
+        );
+    }
+
+    /**
+     * @return array{status: string, detail: string}
+     */
+    private function testAdvertisementPausedByProviderInbox(): array
+    {
+        $advertisement = Advertisement::with('provider')->whereNotNull('provider_id')->latest()->first();
+        if (! $advertisement) {
+            return ['status' => 'skip', 'detail' => 'No advertisement record found'];
+        }
+
+        return $this->testAdminInbox(
+            'admin_inbox_notify_advertisement_paused_by_provider',
+            fn () => admin_inbox_notify_advertisement_paused_by_provider($advertisement),
+            fn () => UserNotification::query()
+                ->where('reference_type', 'advertisement_paused_by_provider')
+                ->where('reference_id', (string) $advertisement->id)
+                ->delete()
+        );
+    }
+
+    /**
+     * @return array{status: string, detail: string}
+     */
+    private function testAdvertisementResumedByProviderInbox(): array
+    {
+        $advertisement = Advertisement::with('provider')->whereNotNull('provider_id')->latest()->first();
+        if (! $advertisement) {
+            return ['status' => 'skip', 'detail' => 'No advertisement record found'];
+        }
+
+        return $this->testAdminInbox(
+            'admin_inbox_notify_advertisement_resumed_by_provider',
+            fn () => admin_inbox_notify_advertisement_resumed_by_provider($advertisement),
+            fn () => UserNotification::query()
+                ->where('reference_type', 'advertisement_resumed_by_provider')
+                ->where('reference_id', (string) $advertisement->id)
+                ->delete()
         );
     }
 
