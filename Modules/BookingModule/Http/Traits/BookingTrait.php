@@ -271,19 +271,6 @@ trait BookingTrait
                 $statusHistory->save();
 
                 finalize_booking_checkout_transactions($booking, $cartData, $request, $totalBookingAmount);
-
-                //firebaseTopic
-                $bookingNotification = (int) (business_config('booking_notification', 'business_information'))?->live_values;
-                $bookingNotificationType = (business_config('booking_notification_type', 'business_information'))?->live_values;
-
-                if ($bookingNotification && $bookingNotificationType == 'firebase' && isset($booking->provider_id)) {
-                    try {
-                        $zoneId = $booking->zone_id;
-                        $topic = "demandium_provider_{$zoneId}_{$booking->provider_id}_booking_message";
-                        topic_notification($topic, 'new booking', '', 'def.png', null);
-                    } catch (Exception $e) {
-                    }
-                }
             });
             } catch (\RuntimeException $e) {
                 if ($e->getMessage() === 'wallet_max_spend_per_transaction') {
@@ -525,18 +512,6 @@ trait BookingTrait
                 }
 
                 sync_repeat_series_additional_charges((string) $booking->id);
-
-                //firebaseTopic
-                $bookingNotification = (int) (business_config('booking_notification', 'business_information'))?->live_values;
-                $bookingNotificationType = (business_config('booking_notification_type', 'business_information'))?->live_values;
-                if ($bookingNotification && $bookingNotificationType == 'firebase' && isset($booking->provider_id)) {
-                    try {
-                        $zoneId = $booking->zone_id;
-                        $topic = "demandium_provider_{$zoneId}_{$booking->provider_id}_booking_message";
-                        topic_notification($topic, 'new booking', '', 'def.png', null);
-                    } catch (Exception $e) {
-                    }
-                }
             });
             try {
                 $fresh = Booking::query()

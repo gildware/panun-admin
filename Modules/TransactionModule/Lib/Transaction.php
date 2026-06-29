@@ -2132,6 +2132,11 @@ if (!function_exists('settleWithdrawRequestPayout')) {
                 $withdrawRequest->id
             );
         }
+
+        if (function_exists('send_provider_withdraw_settled_notification')) {
+            $withdrawRequest->refresh();
+            send_provider_withdraw_settled_notification($withdrawRequest);
+        }
     }
 }
 
