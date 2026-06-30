@@ -69,6 +69,12 @@ body.nav-top.open-aside-folded .main-area {
     text-decoration: none;
 }
 
+.top-utility-brand:hover,
+.top-utility-brand:focus {
+    color: #fff;
+    text-decoration: none;
+}
+
 .top-utility-brand img,
 .top-utility-brand-logo {
     height: 1.5rem;
