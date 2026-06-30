@@ -43,6 +43,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
     Route::post('data-transfer/import', [DataTransferController::class, 'import'])->name('data-transfer.import');
     Route::get('system-maintenance/data-reset', [SystemMaintenanceController::class, 'index'])->name('system-maintenance.data-reset.index');
     Route::post('system-maintenance/data-reset', [SystemMaintenanceController::class, 'reset'])->name('system-maintenance.data-reset.run');
+    Route::post('system-maintenance/data-reset/progress/init', [SystemMaintenanceController::class, 'progressInit'])->name('system-maintenance.data-reset.progress.init');
+    Route::post('system-maintenance/data-reset/progress/step', [SystemMaintenanceController::class, 'progressStep'])->name('system-maintenance.data-reset.progress.step');
     Route::get('update-dashboard-earning-graph', [AdminController::class, 'updateDashboardEarningGraph'])->name('update-dashboard-earning-graph');
     Route::get('profile-update', [AdminController::class, 'profileInfo'])->name('profile_update');
     Route::post('profile-update', [AdminController::class, 'updateProfile']);
