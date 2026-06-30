@@ -452,78 +452,95 @@ class OTPVerificationController extends Controller
         $validator = Validator::make($request->all(), [
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
-            'email' => 'nullable',
-            'phone' => 'required|string|max:15',
+            'email' => 'nullable|email|max:255',
+            'phone' => 'required|string|max:20',
         ]);
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $existingUser = $this->user->where('phone', $request['phone'])->first();
-        if ($existingUser) {
-            if ($existingUser->user_type === 'provider-serviceman') {
-                return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
-            }
+        try {
+            $phone = $this->canonicalPhoneIdentity(
+                $this->normalizeOtpIdentity($request['phone'], 'phone')
+            );
 
-            $existingUser = grant_customer_app_access_for_provider($existingUser);
+            $existingUser = User::findByContactPhone($phone);
+            if ($existingUser) {
+                if ($existingUser->user_type === 'provider-serviceman') {
+                    return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
+                }
 
-            if (! user_can_use_customer_app($existingUser)) {
-                return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
+                $existingUser = grant_customer_app_access_for_provider($existingUser);
+
+                if (! user_can_use_customer_app($existingUser)) {
+                    return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
+                }
+
+                if ($request['email']) {
+                    $emailTaken = $this->user->where('email', $request['email'])
+                        ->where('id', '!=', $existingUser->id)
+                        ->exists();
+                    if ($emailTaken) {
+                        return response()->json(response_formatter(ALREADY_USE_EMAIL_ANOTHER_ACCOUNT), 403);
+                    }
+                }
+
+                $existingUser->first_name = $request->first_name;
+                $existingUser->last_name = $request->last_name;
+                if ($request['email']) {
+                    $existingUser->email = $request['email'];
+                }
+                $existingUser->is_phone_verified = 1;
+                $existingUser->is_active = 1;
+                $existingUser->save();
+
+                if ($request['guest_id']) {
+                    $this->updateAddressAndCartUser($existingUser->id, $request['guest_id']);
+                }
+
+                return response()->json(
+                    response_formatter(AUTH_LOGIN_200, $this->authenticateCustomer($existingUser)),
+                    200
+                );
             }
 
             if ($request['email']) {
-                $emailTaken = $this->user->where('email', $request['email'])
-                    ->where('id', '!=', $existingUser->id)
-                    ->exists();
-                if ($emailTaken) {
+                $isEmailExist = $this->user->where(['email' => $request['email']])->first();
+
+                if ($isEmailExist) {
                     return response()->json(response_formatter(ALREADY_USE_EMAIL_ANOTHER_ACCOUNT), 403);
                 }
             }
 
-            $existingUser->first_name = $request->first_name;
-            $existingUser->last_name = $request->last_name;
-            if ($request['email']) {
-                $existingUser->email = $request['email'];
-            }
-            $existingUser->language_code = $request->header('X-localization') ?? 'en';
-            $existingUser->is_phone_verified = 1;
-            $existingUser->is_active = 1;
-            $existingUser->save();
+            $user = $this->user->create([
+                'first_name' => $request->first_name,
+                'last_name' => $request->last_name,
+                'email' => $request['email'],
+                'phone' => $phone,
+                'password' => bcrypt(rand(11111111, 99999999)),
+                'user_type' => 'customer',
+                'is_phone_verified' => 1,
+                'is_active' => 1,
+                'customer_app_access' => true,
+            ]);
 
             if ($request['guest_id']) {
-                $this->updateAddressAndCartUser($existingUser->id, $request['guest_id']);
+                $this->updateAddressAndCartUser($user->id, $request['guest_id']);
             }
 
-            return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($existingUser, CUSTOMER_PANEL_ACCESS)), 200);
+            return response()->json(
+                response_formatter(AUTH_LOGIN_200, $this->authenticateCustomer($user)),
+                200
+            );
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json(response_formatter([
+                'response_code' => 'default_500',
+                'message' => translate('Something went wrong'),
+            ]), 500);
         }
-
-        if ($request['email']){
-            $isEmailExist = $this->user->where(['email' => $request['email']])->first();
-
-            if ($isEmailExist){
-                return response()->json(response_formatter(ALREADY_USE_EMAIL_ANOTHER_ACCOUNT), 403);
-            }
-        }
-
-        $user = $this->user->create([
-            'first_name' => $request->first_name,
-            'last_name' => $request->last_name,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'password' => bcrypt(rand(11111111, 99999999)),
-            'language_code' => $request->header('X-localization') ?? 'en',
-            'is_phone_verified' => 1,
-            'is_active' => 1,
-            'customer_app_access' => true,
-        ]);
-
-        if ($request['guest_id']){
-            $this->updateAddressAndCartUser($user->id, $request['guest_id']);
-        }
-
-        return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($user, CUSTOMER_PANEL_ACCESS)), 200);
-
     }
 
     public function firebaseAuthVerify(Request $request): JsonResponse
@@ -594,6 +611,17 @@ class OTPVerificationController extends Controller
     protected function authenticate($user, $access_type): array
     {
         return ['token' => $user->createToken($access_type)->accessToken, 'is_active' => $user['is_active']];
+    }
+
+    private function authenticateCustomer(User $user): array
+    {
+        try {
+            return self::authenticate($user, CUSTOMER_PANEL_ACCESS);
+        } catch (\Throwable $e) {
+            report($e);
+
+            throw $e;
+        }
     }
 
     private function findUserVerification(string $identity, string $identityType = 'phone'): ?UserVerification

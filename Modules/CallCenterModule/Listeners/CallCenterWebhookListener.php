@@ -23,11 +23,15 @@ class CallCenterWebhookListener
             return;
         }
 
-        $profile = $this->profiles->getProfileForUser($user);
-        $this->webhooks->dispatch('customer.created', $profile->id, [
-            'customer_ref' => $profile->customer_ref,
-            'phone' => $user->phone,
-        ]);
+        try {
+            $profile = $this->profiles->getProfileForUser($user);
+            $this->webhooks->dispatch('customer.created', $profile->id, [
+                'customer_ref' => $profile->customer_ref,
+                'phone' => $user->phone,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     public function handleUserUpdated(User $user): void
