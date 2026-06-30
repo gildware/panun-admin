@@ -172,19 +172,10 @@
                                                         <h5 class="mb-1">
                                                             <a href="{{route('admin.provider.details',[$provider->id, 'web_page'=>'overview'])}}&provider={{ $provider->id}}">
                                                                 {{$provider->company_name}}
-                                                                @if($provider?->is_suspended && business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)
-                                                                    <span
-                                                                        class="text-danger fz-12">{{('(' . translate('Suspended') . ')')}}</span>
-                                                                @elseif(\Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement::isPerformanceSuspended($provider))
-                                                                    <span class="text-danger fz-12">
-                                                                        ({{ translate('Suspended') }}
-                                                                        @if($provider->performance_suspended_until)
-                                                                            {{ translate('Until') }} {{ \Illuminate\Support\Carbon::parse($provider->performance_suspended_until)->format('Y-m-d H:i') }}
-                                                                        @endif
-                                                                        )
-                                                                    </span>
+                                                                @php($restrictionLabel = \Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement::primaryRestrictionLabel($provider))
+                                                                @if($restrictionLabel)
+                                                                    <span class="text-danger fz-12">({{ $restrictionLabel }})</span>
                                                                 @endif
-
                                                             </a>
                                                         </h5>
                                                         <span
@@ -209,21 +200,37 @@
                                             </td>
                                             <td>{{$provider->bookings_count}}</td>
                                             @php
+                                                $suspensionSummary = \Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement::summarize($provider);
+                                                $suspensionItems = $suspensionSummary['items'] ?? [];
                                                 $perfStatus = $provider->manual_performance_status ?? 'active';
                                                 $perfBadge = match($perfStatus) {
                                                     'warning' => 'bg-warning',
-                                                    'active' => 'bg-success',
-                                                    default => 'bg-danger', // suspended/blacklisted
+                                                    'active' => empty($suspensionItems) ? 'bg-success' : 'bg-warning',
+                                                    default => 'bg-danger',
                                                 };
                                                 $perfLabel = match($perfStatus) {
                                                     'warning' => translate('Warning'),
                                                     'suspended' => translate('Suspended'),
                                                     'blacklisted' => translate('Blacklisted'),
-                                                    default => translate('Active'),
+                                                    default => empty($suspensionItems) ? translate('Active') : translate('Restricted'),
                                                 };
                                             @endphp
                                             <td>{{ (int)($provider->performance_score ?? 0) }}</td>
-                                            <td><span class="badge {{ $perfBadge }}">{{ $perfLabel }}</span></td>
+                                            <td>
+                                                <span class="badge {{ $perfBadge }}">{{ $perfLabel }}</span>
+                                                @if(!empty($suspensionItems))
+                                                    <div class="fz-12 text-danger mt-1">
+                                                        {{ $suspensionItems[0]['label'] }}
+                                                        @if(!empty($suspensionItems[0]['until']))
+                                                            · {{ translate('Until') }} {{ $suspensionItems[0]['until'] }}
+                                                        @endif
+                                                    </div>
+                                                    <a class="fz-12 text-primary text-decoration-underline"
+                                                       href="{{ route('admin.provider.details', [$provider->id, 'web_page' => 'overview']) }}">
+                                                        {{ translate('View details') }}
+                                                    </a>
+                                                @endif
+                                            </td>
                                             <td>{{ (float)($provider->complaints_percent ?? 0) }}%</td>
                                             <td>{{ (float)($provider->no_show_percent ?? 0) }}%</td>
                                             @can('provider_manage_status')

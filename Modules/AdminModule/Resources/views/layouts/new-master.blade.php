@@ -186,7 +186,16 @@
 <script>
     "use strict";
     $(document).ready(function () {
-        $('.js-select').select2();
+        if (typeof window.initAdminPageSelect2 === 'function') {
+            window.initAdminPageSelect2(document);
+        } else if ($.fn.select2) {
+            $('.js-select').each(function () {
+                var $el = $(this);
+                if (!$el.hasClass('select2-hidden-accessible')) {
+                    $el.select2();
+                }
+            });
+        }
     });
 
     @if ($errors->any())

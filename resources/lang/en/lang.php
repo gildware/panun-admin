@@ -9702,4 +9702,6 @@ _Message' => 'Customer notification for provider bid offer
   'platform' => 'Platform',
   'last_seen' => 'Last seen',
   'clear' => 'Clear',
+  'Get started by using the left menu to manage your tasks and tools.' => 'Get started by using the left menu to manage your tasks and tools.',
+  'Happy working' => 'Happy working',
 );

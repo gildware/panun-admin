@@ -61,26 +61,18 @@
 
         <div class="d-flex flex-wrap align-items-center gap-2">
             @php
-                $perfStatus = (string) ($provider->manual_performance_status ?? 'active');
-                $perfSuspendedUntil = $provider->performance_suspended_until
-                    ? \Illuminate\Support\Carbon::parse($provider->performance_suspended_until)
-                    : null;
-                $isPerfSuspended = $perfStatus === 'suspended'
-                    && ($perfSuspendedUntil === null || $perfSuspendedUntil->isFuture());
+                $suspensionSummary = \Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement::summarize($provider);
+                $suspensionItems = $suspensionSummary['items'] ?? [];
             @endphp
 
-            @if($isPerfSuspended)
-                <span class="status-pill status-pill--off">
-                    {{ translate('Suspended') }}
-                    @if($perfSuspendedUntil)
-                        {{ translate('Until') }} {{ $perfSuspendedUntil->format('Y-m-d H:i') }}
+            @foreach($suspensionItems as $item)
+                <span class="status-pill status-pill--off" title="{{ $item['reason'] }}">
+                    {{ $item['label'] }}
+                    @if(!empty($item['until']))
+                        · {{ translate('Until') }} {{ $item['until'] }}
                     @endif
                 </span>
-            @elseif($perfStatus === 'blacklisted')
-                <span class="status-pill status-pill--off">
-                    {{ translate('Blacklisted') }}
-                </span>
-            @endif
+            @endforeach
 
             <span class="status-pill {{ !empty($provider->service_availability) ? 'status-pill--on' : 'status-pill--off' }}">
                 Service Availability {{ !empty($provider->service_availability) ? 'ON' : 'OFF' }}
@@ -97,3 +89,5 @@
         </div>
     </div>
 </div>
+
+@include('providermanagement::admin.provider.partials._suspension-alert', ['provider' => $provider])

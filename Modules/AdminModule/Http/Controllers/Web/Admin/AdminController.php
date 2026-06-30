@@ -48,6 +48,7 @@ use Modules\AdminModule\Entities\UserNotification;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Entities\BookingCompensation;
+use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 
@@ -228,59 +229,13 @@ class AdminController extends Controller
             'todays_pending_lead_followups_total' => $todaysPendingLeadFollowupsTotal,
         ];
 
-        $year = session()->has('dashboard_earning_graph_year') ? session('dashboard_earning_graph_year') : date('Y');
-        $amounts = $this->booking_details_amount
-            ->whereYear('created_at', '=', $year)
-            ->where(function ($q) {
-                $q->whereHas('booking', function ($query) {
-                    $query->forRevenueReporting();
-                })->orWhereHas('repeat', function ($subQuery) {
-                    $subQuery->ofBookingStatus('completed');
-                });
-            })
-            ->select(
-                DB::raw('sum(admin_commission) as admin_commission'),
-                DB::raw('sum(discount_by_admin) as discount_by_admin'),
-                DB::raw('sum(coupon_discount_by_admin) as coupon_discount_by_admin'),
-                DB::raw('sum(campaign_discount_by_admin) as campaign_discount_by_admin'),
-                DB::raw('MONTH(created_at) month')
-            )
-            ->groupby('month')
-            ->get()
-            ->toArray();
-
-        // Admin commission per month (net of discounts), matching dashboard tile logic.
-        $adminEarningByMonth = [];
-        foreach ($amounts as $item) {
-            $month = (int) ($item['month'] ?? 0);
-            if ($month < 1 || $month > 12) {
-                continue;
-            }
-
-            $adminCommission = (float) ($item['admin_commission'] ?? 0);
-            $discountByAdmin = (float) ($item['discount_by_admin'] ?? 0);
-            $couponDiscountByAdmin = (float) ($item['coupon_discount_by_admin'] ?? 0);
-            $campaignDiscountByAdmin = (float) ($item['campaign_discount_by_admin'] ?? 0);
-
-            $adminEarningByMonth[$month] = $adminCommission - $discountByAdmin - $couponDiscountByAdmin - $campaignDiscountByAdmin;
+        $year = (int) (session('dashboard_earning_graph_year') ?: date('Y'));
+        $month = session()->has('dashboard_earning_graph_month') ? (int) session('dashboard_earning_graph_month') : null;
+        if ($month !== null && ($month < 1 || $month > 12)) {
+            $month = null;
         }
 
-        $scaledCommissionAdjYear = admin_dashboard_scaled_admin_commission_adjustments((int) $year);
-        foreach (range(1, 12) as $m) {
-            $adminEarningByMonth[$m] = ($adminEarningByMonth[$m] ?? 0) + (float) (($scaledCommissionAdjYear['by_month'] ?? [])[$m] ?? 0);
-        }
-
-        // Total revenue per month: same basis as top cards (special settlements use overridden preview amounts).
-        $revenueByMonth = $this->dashboardReportedRevenueByMonth((int) $year, $repeatLineTotalByParentId);
-
-        $months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-        foreach ($months as $month) {
-            $monthTotalRevenue = (float) ($revenueByMonth[$month] ?? 0);
-            $monthAdminEarning = (float) ($adminEarningByMonth[$month] ?? 0);
-
-            $chart_data['total_earning'][] = with_decimal_point($monthTotalRevenue);
-            $chart_data['commission_earning'][] = with_decimal_point($monthAdminEarning);
-        }
+        $chart_data = $this->buildDashboardEarningChartData($year, $month, $repeatLineTotalByParentId);
 
         return view('adminmodule::dashboard', compact('data', 'chart_data'));
     }
@@ -299,60 +254,21 @@ class AdminController extends Controller
      */
     public function updateDashboardEarningGraph(Request $request): JsonResponse
     {
-        $year = $request['year'];
-        $amounts = $this->booking_details_amount
-            ->whereYear('created_at', '=', $year)
-            ->where(function ($q) {
-                $q->whereHas('booking', function ($query) {
-                    $query->forRevenueReporting();
-                })->orWhereHas('repeat', function ($subQuery) {
-                    $subQuery->ofBookingStatus('completed');
-                });
-            })
-            ->select(
-                DB::raw('sum(admin_commission) as admin_commission'),
-                DB::raw('sum(discount_by_admin) as discount_by_admin'),
-                DB::raw('sum(coupon_discount_by_admin) as coupon_discount_by_admin'),
-                DB::raw('sum(campaign_discount_by_admin) as campaign_discount_by_admin'),
-                DB::raw('MONTH(created_at) month')
-            )
-            ->groupby('month')
-            ->get()
-            ->toArray();
-
-        $adminEarningByMonth = [];
-        foreach ($amounts as $item) {
-            $month = (int) ($item['month'] ?? 0);
-            if ($month < 1 || $month > 12) {
-                continue;
-            }
-
-            $adminCommission = (float) ($item['admin_commission'] ?? 0);
-            $discountByAdmin = (float) ($item['discount_by_admin'] ?? 0);
-            $couponDiscountByAdmin = (float) ($item['coupon_discount_by_admin'] ?? 0);
-            $campaignDiscountByAdmin = (float) ($item['campaign_discount_by_admin'] ?? 0);
-
-            $adminEarningByMonth[$month] = $adminCommission - $discountByAdmin - $couponDiscountByAdmin - $campaignDiscountByAdmin;
-        }
-
-        $scaledCommissionAdjYear = admin_dashboard_scaled_admin_commission_adjustments((int) $year);
-        foreach (range(1, 12) as $m) {
-            $adminEarningByMonth[$m] = ($adminEarningByMonth[$m] ?? 0) + (float) (($scaledCommissionAdjYear['by_month'] ?? [])[$m] ?? 0);
+        $year = (int) $request->input('year', date('Y'));
+        $month = $request->filled('month') ? (int) $request->input('month') : null;
+        if ($month !== null && ($month < 1 || $month > 12)) {
+            $month = null;
         }
 
         $repeatLineTotalByParentId = $this->cachedRepeatLineTotalByParentId();
-        $revenueByMonth = $this->dashboardReportedRevenueByMonth((int) $year, $repeatLineTotalByParentId);
+        $chart_data = $this->buildDashboardEarningChartData($year, $month, $repeatLineTotalByParentId);
 
-        $months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-        foreach ($months as $month) {
-            $monthTotalRevenue = (float) ($revenueByMonth[$month] ?? 0);
-            $monthAdminEarning = (float) ($adminEarningByMonth[$month] ?? 0);
-
-            $chart_data['total_earning'][] = with_decimal_point($monthTotalRevenue);
-            $chart_data['commission_earning'][] = with_decimal_point($monthAdminEarning);
+        session()->put('dashboard_earning_graph_year', $year);
+        if ($month !== null) {
+            session()->put('dashboard_earning_graph_month', $month);
+        } else {
+            session()->forget('dashboard_earning_graph_month');
         }
-
-        session()->put('dashboard_earning_graph_year', $request['year']);
 
         return response()->json($chart_data);
     }
@@ -798,6 +714,228 @@ class AdminController extends Controller
         return is_array($revenueTotals['repeatLineTotalByParentId'] ?? null)
             ? $revenueTotals['repeatLineTotalByParentId']
             : [];
+    }
+
+    /**
+     * @param  array<string, float>  $repeatLineTotalByParentId
+     * @return array{total_earning: array<int, string|float>, commission_earning: array<int, string|float>, categories: array<int, string>, granularity: string}
+     */
+    private function buildDashboardEarningChartData(int $year, ?int $month, array $repeatLineTotalByParentId): array
+    {
+        if ($month !== null) {
+            return $this->buildDashboardEarningChartDataForMonth($year, $month, $repeatLineTotalByParentId);
+        }
+
+        return $this->buildDashboardEarningChartDataForYear($year, $repeatLineTotalByParentId);
+    }
+
+    /**
+     * @param  array<string, float>  $repeatLineTotalByParentId
+     * @return array{total_earning: array<int, string|float>, commission_earning: array<int, string|float>, categories: array<int, string>, granularity: string}
+     */
+    private function buildDashboardEarningChartDataForYear(int $year, array $repeatLineTotalByParentId): array
+    {
+        $amounts = $this->booking_details_amount
+            ->whereYear('created_at', '=', $year)
+            ->where(function ($q) {
+                $q->whereHas('booking', function ($query) {
+                    $query->forRevenueReporting();
+                })->orWhereHas('repeat', function ($subQuery) {
+                    $subQuery->ofBookingStatus('completed');
+                });
+            })
+            ->select(
+                DB::raw('sum(admin_commission) as admin_commission'),
+                DB::raw('sum(discount_by_admin) as discount_by_admin'),
+                DB::raw('sum(coupon_discount_by_admin) as coupon_discount_by_admin'),
+                DB::raw('sum(campaign_discount_by_admin) as campaign_discount_by_admin'),
+                DB::raw('MONTH(created_at) month')
+            )
+            ->groupby('month')
+            ->get()
+            ->toArray();
+
+        $adminEarningByMonth = [];
+        foreach ($amounts as $item) {
+            $bucketMonth = (int) ($item['month'] ?? 0);
+            if ($bucketMonth < 1 || $bucketMonth > 12) {
+                continue;
+            }
+
+            $adminCommission = (float) ($item['admin_commission'] ?? 0);
+            $discountByAdmin = (float) ($item['discount_by_admin'] ?? 0);
+            $couponDiscountByAdmin = (float) ($item['coupon_discount_by_admin'] ?? 0);
+            $campaignDiscountByAdmin = (float) ($item['campaign_discount_by_admin'] ?? 0);
+
+            $adminEarningByMonth[$bucketMonth] = $adminCommission - $discountByAdmin - $couponDiscountByAdmin - $campaignDiscountByAdmin;
+        }
+
+        $scaledCommissionAdjYear = admin_dashboard_scaled_admin_commission_adjustments($year);
+        foreach (range(1, 12) as $m) {
+            $adminEarningByMonth[$m] = ($adminEarningByMonth[$m] ?? 0) + (float) (($scaledCommissionAdjYear['by_month'] ?? [])[$m] ?? 0);
+        }
+
+        $revenueByMonth = $this->dashboardReportedRevenueByMonth($year, $repeatLineTotalByParentId);
+
+        $chart_data = [
+            'total_earning' => [],
+            'commission_earning' => [],
+            'categories' => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            'granularity' => 'year',
+        ];
+
+        foreach (range(1, 12) as $bucketMonth) {
+            $chart_data['total_earning'][] = with_decimal_point((float) ($revenueByMonth[$bucketMonth] ?? 0));
+            $chart_data['commission_earning'][] = with_decimal_point((float) ($adminEarningByMonth[$bucketMonth] ?? 0));
+        }
+
+        return $chart_data;
+    }
+
+    /**
+     * @param  array<string, float>  $repeatLineTotalByParentId
+     * @return array{total_earning: array<int, string|float>, commission_earning: array<int, string|float>, categories: array<int, string>, granularity: string}
+     */
+    private function buildDashboardEarningChartDataForMonth(int $year, int $month, array $repeatLineTotalByParentId): array
+    {
+        $daysInMonth = Carbon::create($year, $month, 1)->daysInMonth;
+
+        $amounts = $this->booking_details_amount
+            ->whereYear('created_at', '=', $year)
+            ->whereMonth('created_at', '=', $month)
+            ->where(function ($q) {
+                $q->whereHas('booking', function ($query) {
+                    $query->forRevenueReporting();
+                })->orWhereHas('repeat', function ($subQuery) {
+                    $subQuery->ofBookingStatus('completed');
+                });
+            })
+            ->select(
+                DB::raw('sum(admin_commission) as admin_commission'),
+                DB::raw('sum(discount_by_admin) as discount_by_admin'),
+                DB::raw('sum(coupon_discount_by_admin) as coupon_discount_by_admin'),
+                DB::raw('sum(campaign_discount_by_admin) as campaign_discount_by_admin'),
+                DB::raw('DAY(created_at) day')
+            )
+            ->groupby('day')
+            ->get()
+            ->toArray();
+
+        $adminEarningByDay = array_fill(1, $daysInMonth, 0.0);
+        foreach ($amounts as $item) {
+            $day = (int) ($item['day'] ?? 0);
+            if ($day < 1 || $day > $daysInMonth) {
+                continue;
+            }
+
+            $adminCommission = (float) ($item['admin_commission'] ?? 0);
+            $discountByAdmin = (float) ($item['discount_by_admin'] ?? 0);
+            $couponDiscountByAdmin = (float) ($item['coupon_discount_by_admin'] ?? 0);
+            $campaignDiscountByAdmin = (float) ($item['campaign_discount_by_admin'] ?? 0);
+
+            $adminEarningByDay[$day] = $adminCommission - $discountByAdmin - $couponDiscountByAdmin - $campaignDiscountByAdmin;
+        }
+
+        $scaledCommissionByDay = $this->scaledAdminCommissionAdjustmentsByDay($year, $month, $daysInMonth);
+        foreach (range(1, $daysInMonth) as $day) {
+            $adminEarningByDay[$day] += (float) ($scaledCommissionByDay[$day] ?? 0);
+        }
+
+        $revenueByDay = $this->computeDashboardReportedRevenueByDay($year, $month, $daysInMonth, $repeatLineTotalByParentId);
+
+        $chart_data = [
+            'total_earning' => [],
+            'commission_earning' => [],
+            'categories' => [],
+            'granularity' => 'month',
+        ];
+
+        foreach (range(1, $daysInMonth) as $day) {
+            $chart_data['categories'][] = (string) $day;
+            $chart_data['total_earning'][] = with_decimal_point((float) ($revenueByDay[$day] ?? 0));
+            $chart_data['commission_earning'][] = with_decimal_point((float) ($adminEarningByDay[$day] ?? 0));
+        }
+
+        return $chart_data;
+    }
+
+    /**
+     * @return array<int, float>
+     */
+    private function scaledAdminCommissionAdjustmentsByDay(int $year, int $month, int $daysInMonth): array
+    {
+        $byDay = array_fill(1, $daysInMonth, 0.0);
+
+        $query = Booking::query()
+            ->forRevenueReporting()
+            ->where('settlement_outcome', BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS)
+            ->whereYear('created_at', $year)
+            ->whereMonth('created_at', $month);
+
+        foreach ($query->cursor() as $main) {
+            if (! $main instanceof Booking) {
+                continue;
+            }
+
+            $delta = booking_scaled_admin_commission_delta_for_main($main);
+            if (abs($delta) < 0.00001) {
+                continue;
+            }
+
+            $day = (int) $main->created_at->format('j');
+            if ($day >= 1 && $day <= $daysInMonth) {
+                $byDay[$day] += $delta;
+            }
+        }
+
+        foreach ($byDay as $day => $value) {
+            $byDay[$day] = round((float) $value, 2);
+        }
+
+        return $byDay;
+    }
+
+    /**
+     * @param  array<string, float>  $repeatLineTotalByParentId
+     * @return array<int, float>
+     */
+    private function computeDashboardReportedRevenueByDay(int $year, int $month, int $daysInMonth, array $repeatLineTotalByParentId): array
+    {
+        $byDay = array_fill(1, $daysInMonth, 0.0);
+
+        $oneTimeInMonth = $this->booking->newQuery()
+            ->forRevenueReporting()
+            ->whereYear('created_at', $year)
+            ->whereMonth('created_at', $month)
+            ->with('extra_services')
+            ->get();
+
+        foreach ($oneTimeInMonth as $b) {
+            $day = (int) $b->created_at->format('j');
+            $slice = get_admin_dashboard_reporting_total_and_spare_for_booking($b);
+            $byDay[$day] += $slice['reported_total'];
+        }
+
+        $repeatsInMonth = BookingRepeat::query()
+            ->ofBookingStatus('completed')
+            ->whereYear('created_at', $year)
+            ->whereMonth('created_at', $month)
+            ->with('booking.extra_services')
+            ->get();
+
+        foreach ($repeatsInMonth as $r) {
+            $day = (int) $r->created_at->format('j');
+            $parentKey = (string) $r->booking_id;
+            $den = (float) ($repeatLineTotalByParentId[$parentKey] ?? get_booking_total_amount($r));
+            $slice = get_admin_dashboard_reporting_total_and_spare_for_repeat($r, $den);
+            $byDay[$day] += $slice['reported_total'];
+        }
+
+        foreach ($byDay as $day => $value) {
+            $byDay[$day] = round((float) $value, 2);
+        }
+
+        return $byDay;
     }
 
     /**

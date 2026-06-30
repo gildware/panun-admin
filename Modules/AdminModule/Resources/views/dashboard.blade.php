@@ -312,6 +312,37 @@
         .dashboard-collapsible-widget > .dashboard-widget-collapse-header .select2-container {
             cursor: default;
         }
+        .earning-statistics .dashboard-earning-filter-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+        }
+        .earning-statistics .dashboard-earning-filter-wrap .select-wrap {
+            flex: 0 0 auto;
+        }
+        .earning-statistics .dashboard-earning-filter-wrap .select2-container {
+            min-width: 4.75rem !important;
+            max-width: 5.5rem;
+        }
+        .earning-statistics .dashboard-earning-filter-wrap .select2-container .select2-selection--single {
+            min-height: 1.75rem;
+            height: 1.75rem;
+        }
+        .earning-statistics .dashboard-earning-filter-wrap .select2-container .select2-selection__rendered {
+            font-size: 0.75rem;
+            line-height: 1.65rem;
+            padding-left: 0.45rem;
+            padding-right: 1.25rem;
+        }
+        .earning-statistics .dashboard-earning-filter-wrap .select2-container .select2-selection__arrow {
+            height: 1.65rem;
+            right: 0.2rem;
+        }
+        .earning-statistics .dashboard-earning-filter-wrap .update-chart-month + .select2-container {
+            min-width: 5.25rem !important;
+            max-width: 6rem;
+        }
 
     </style>
 @endpush
@@ -626,18 +657,35 @@
                                     <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">show_chart</span>
                                     {{translate('earning_statistics')}}
                                 </h4>
-                                <div class="select-wrap d-flex flex-wrap gap-10">
-                                    <select class="js-select update-chart">
-                                        @php($from_year=date('Y'))
-                                        @php($to_year=$from_year-10)
-                                        @while($from_year!=$to_year)
-                                            <option
-                                                value="{{$from_year}}" {{session()->has('dashboard_earning_graph_year') && session('dashboard_earning_graph_year') == $from_year?'selected':''}}>
-                                                {{$from_year}}
-                                            </option>
-                                            @php($from_year--)
-                                        @endwhile
-                                    </select>
+                                <div class="dashboard-earning-filter-wrap">
+                                    @php($earningGraphYear = session('dashboard_earning_graph_year', date('Y')))
+                                    @php($earningGraphMonth = session('dashboard_earning_graph_month'))
+                                    <div class="select-wrap">
+                                        <select class="js-select update-chart update-chart-year">
+                                            @php($from_year=date('Y'))
+                                            @php($to_year=$from_year-10)
+                                            @while($from_year!=$to_year)
+                                                <option
+                                                    value="{{$from_year}}" {{(string) $earningGraphYear === (string) $from_year ? 'selected' : ''}}>
+                                                    {{$from_year}}
+                                                </option>
+                                                @php($from_year--)
+                                            @endwhile
+                                        </select>
+                                    </div>
+                                    <div class="select-wrap">
+                                        <select class="js-select update-chart update-chart-month"
+                                                data-placeholder="{{translate('month')}}"
+                                                data-allow-clear="true">
+                                            <option value=""></option>
+                                            @foreach(range(1, 12) as $monthNumber)
+                                                <option value="{{ $monthNumber }}"
+                                                    {{ (string) $earningGraphMonth === (string) $monthNumber ? 'selected' : '' }}>
+                                                    {{ date('M', mktime(0, 0, 0, $monthNumber, 1)) }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                             <div class="card-body ps-0 pt-0">
@@ -1069,23 +1117,102 @@
                         chart.resize();
                     }, 100);
                 }
+
+                if ($card.hasClass('earning-statistics')) {
+                    $card.find('select.js-select.update-chart').each(function () {
+                        var $select = $(this);
+                        if ($select.data('select2')) {
+                            $select.select2('destroy');
+                        }
+                    });
+                    $card.find('.dashboard-widget-header-actions .select2-container').remove();
+                }
             });
         }
 
-        $('.js-select.update-chart').on('change', function() {
-            var selectedYear = $(this).val();
-            localStorage.setItem('selectedYear', selectedYear); // Store the selected year in local storage
-            update_chart(selectedYear);
-        });
+        // Restructure widget headers before Select2 runs (avoids duplicate year dropdowns).
+        initDashboardCollapsibleWidgets();
 
-        // On page load, check if a year is stored in local storage
+        var earningChartMonthCategories = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+        function applyEarningChartResponse(response) {
+            chart.updateOptions({
+                xaxis: {
+                    categories: response.categories || earningChartMonthCategories
+                }
+            });
+            chart.updateSeries([{
+                name: "{{translate('Total_Revenue')}}",
+                data: response.total_earning
+            }, {
+                name: "{{translate('Our_Earning')}}",
+                data: response.commission_earning
+            }]);
+        }
+
+        function update_chart(year, month) {
+            var url = '{{route('admin.update-dashboard-earning-graph')}}?year=' + encodeURIComponent(year);
+            if (month) {
+                url += '&month=' + encodeURIComponent(month);
+            }
+
+            $.getJSON(url, function (response) {
+                applyEarningChartResponse(response);
+            });
+        }
+
+        $(document).off('change.dashboardEarningYear', '.js-select.update-chart-year')
+            .on('change.dashboardEarningYear', '.js-select.update-chart-year', function () {
+                var selectedYear = $(this).val();
+                var $monthSelect = $('.js-select.update-chart-month');
+
+                localStorage.setItem('selectedYear', selectedYear);
+                localStorage.removeItem('selectedMonth');
+                $monthSelect.val(null);
+                if ($monthSelect.data('select2')) {
+                    $monthSelect.trigger('change.select2');
+                }
+
+                update_chart(selectedYear);
+            });
+
+        $(document).off('change.dashboardEarningMonth', '.js-select.update-chart-month')
+            .on('change.dashboardEarningMonth', '.js-select.update-chart-month', function () {
+                var selectedMonth = $(this).val();
+                var selectedYear = $('.js-select.update-chart-year').val();
+
+                if (selectedMonth) {
+                    localStorage.setItem('selectedMonth', selectedMonth);
+                } else {
+                    localStorage.removeItem('selectedMonth');
+                }
+
+                update_chart(selectedYear, selectedMonth || null);
+            });
+
         $(document).ready(function() {
-            initDashboardCollapsibleWidgets();
-
             var storedYear = localStorage.getItem('selectedYear');
+            var storedMonth = localStorage.getItem('selectedMonth');
+
             if (storedYear) {
-                $('.js-select.update-chart').val(storedYear); // Set the select to the stored year
-                update_chart(storedYear); // Update the chart with the stored year
+                $('.js-select.update-chart-year').val(storedYear);
+            }
+            if (storedMonth) {
+                $('.js-select.update-chart-month').val(storedMonth);
+            }
+
+            if (storedYear || storedMonth) {
+                if ($('.js-select.update-chart-year').data('select2')) {
+                    $('.js-select.update-chart-year').trigger('change.select2');
+                }
+                if ($('.js-select.update-chart-month').data('select2')) {
+                    $('.js-select.update-chart-month').trigger('change.select2');
+                }
+
+                update_chart(
+                    storedYear || $('.js-select.update-chart-year').val(),
+                    storedMonth || null
+                );
             }
         });
 
@@ -1151,7 +1278,7 @@
                 mode: 'light',
             },
             xaxis: {
-                categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                categories: @json($chart_data['categories'])
             },
             legend: {
                 position: 'bottom',
@@ -1186,21 +1313,6 @@
                 }, 150);
             }
         } catch (e) {}
-
-        function update_chart(year) {
-            var url = '{{route('admin.update-dashboard-earning-graph')}}?year=' + year;
-
-            $.getJSON(url, function (response) {
-                chart.updateSeries([{
-                    name: "{{translate('Total_Revenue')}}",
-                    data: response.total_earning
-                }, {
-                    name: "{{translate('Our_Earning')}}",
-                    data: response.commission_earning
-                }])
-            });
-        }
-
 
         $(".provider-redirect").on('click', function(){
             location.href = $(this).data('route');
@@ -1332,7 +1444,7 @@
                 setStaffPresenceHistoryState('table');
                 var title = document.getElementById('staffPresenceHistoryModalLabel');
                 if (title && response.data.date_label) {
-                    title.textContent = '{{ translate('Employee_Status_History') }} — ' + response.data.date_label;
+                    title.textContent = @json(translate('Employee_Status_History')) + ' — ' + response.data.date_label;
                 }
             }).fail(function () {
                 setStaffPresenceHistoryState('empty');
@@ -1343,26 +1455,26 @@
             var select = document.getElementById('staff-presence-history-date');
             if (!select) return;
             select.disabled = true;
-            select.innerHTML = '<option value="">{{ translate('Loading') }}...</option>';
+            select.innerHTML = '<option value="">' + @json(translate('Loading')) + '...</option>';
             setStaffPresenceHistoryState('loading');
 
             $.getJSON('{{ route('admin.staff-presence.history-dates') }}', function (response) {
                 var dates = (response.data && response.data.dates) ? response.data.dates : [];
                 if (!dates.length) {
-                    select.innerHTML = '<option value="">{{ translate('No_presence_history_available') }}</option>';
+                    select.innerHTML = '<option value="">' + @json(translate('No_presence_history_available')) + '</option>';
                     select.disabled = true;
                     setStaffPresenceHistoryState('empty');
                     return;
                 }
 
                 select.innerHTML = dates.map(function (item) {
-                    return '<option value="' + item.value + '">' + item.label + (item.is_today ? ' ({{ translate('Today') }})' : '') + '</option>';
+                    return '<option value="' + item.value + '">' + item.label + (item.is_today ? ' (' + @json(translate('Today')) + ')' : '') + '</option>';
                 }).join('');
                 select.disabled = false;
                 staffPresenceHistoryDatesLoaded = true;
                 loadStaffPresenceHistory(dates[0].value);
             }).fail(function () {
-                select.innerHTML = '<option value="">{{ translate('No_presence_history_available') }}</option>';
+                select.innerHTML = '<option value="">' + @json(translate('No_presence_history_available')) + '</option>';
                 setStaffPresenceHistoryState('empty');
             });
         }
