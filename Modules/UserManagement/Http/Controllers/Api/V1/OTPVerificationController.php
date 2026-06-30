@@ -183,12 +183,24 @@ class OTPVerificationController extends Controller
                 $user->save();
             }
 
-            $this->userVerification->where(['identity' => $request['identity']])->delete();
-
             if (user_can_use_customer_app($user)) {
-                $loginData = ['token' => $user->createToken(CUSTOMER_PANEL_ACCESS)->accessToken, 'is_active' => $user['is_active']];
+                try {
+                    $loginData = ['token' => $user->createToken(CUSTOMER_PANEL_ACCESS)->accessToken, 'is_active' => $user['is_active']];
+                } catch (\Throwable $e) {
+                    report($e);
+
+                    return response()->json(response_formatter([
+                        'response_code' => 'default_500',
+                        'message' => translate('Something went wrong'),
+                    ]), 500);
+                }
+
+                $this->userVerification->where(['identity' => $request['identity']])->delete();
+
                 return response()->json(response_formatter(OTP_VERIFICATION_SUCCESS_200, $loginData), 200);
             }
+
+            $this->userVerification->where(['identity' => $request['identity']])->delete();
 
             return response()->json(response_formatter(OTP_VERIFICATION_SUCCESS_200), 200);
         }
@@ -265,19 +277,21 @@ class OTPVerificationController extends Controller
 
             }
 
-            $verify->delete();
-
             $temporaryToken = Str::random(40);
 
             $isUserExist = $this->user->where('phone', $request['phone'])->first();
             if ($isUserExist) {
                 if ($isUserExist->user_type === 'provider-serviceman') {
+                    $verify->delete();
+
                     return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
                 }
 
                 $isUserExist = grant_customer_app_access_for_provider($isUserExist);
 
                 if (! user_can_use_customer_app($isUserExist)) {
+                    $verify->delete();
+
                     return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
                 }
 
@@ -285,11 +299,28 @@ class OTPVerificationController extends Controller
                 $isUserExist->save();
 
                 if ($isUserExist->is_active != 1) {
+                    $verify->delete();
+
                     return response()->json(response_formatter(USER_INACTIVE_400), 400);
                 }
 
-                return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($isUserExist, CUSTOMER_PANEL_ACCESS)), 200);
+                try {
+                    $authData = self::authenticate($isUserExist, CUSTOMER_PANEL_ACCESS);
+                } catch (\Throwable $e) {
+                    report($e);
+
+                    return response()->json(response_formatter([
+                        'response_code' => 'default_500',
+                        'message' => translate('Something went wrong'),
+                    ]), 500);
+                }
+
+                $verify->delete();
+
+                return response()->json(response_formatter(AUTH_LOGIN_200, $authData), 200);
             } else {
+                $verify->delete();
+
                 return response()->json(response_formatter(AUTH_LOGIN_200, ['temporary_token' => $temporaryToken, 'status' => false], 200));
             }
 

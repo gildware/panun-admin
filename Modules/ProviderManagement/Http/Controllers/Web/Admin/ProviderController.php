@@ -985,6 +985,7 @@ class ProviderController extends Controller
             }
 
             $pendingShowcaseItems = ProviderShowcaseItem::where('provider_id', $id)
+                ->with('storage')
                 ->where('is_approved', ProviderShowcaseItem::STATUS_PENDING)
                 ->orderByDesc('created_at')
                 ->get();
@@ -3126,6 +3127,7 @@ class ProviderController extends Controller
             ->values();
 
         $pendingShowcaseItems = ProviderShowcaseItem::where('provider_id', $id)
+            ->with('storage')
             ->where('is_approved', ProviderShowcaseItem::STATUS_PENDING)
             ->orderByDesc('created_at')
             ->get();
@@ -3146,7 +3148,7 @@ class ProviderController extends Controller
         $search = $request['search'];
         $queryParam = ['status' => $status, 'search' => $request['search']];
 
-        $query = ProviderShowcaseItem::with('provider.owner')
+        $query = ProviderShowcaseItem::with(['provider.owner', 'storage'])
             ->when($request->has('search'), function ($q) use ($request) {
                 $keys = explode(' ', $request['search']);
                 $q->whereHas('provider', function ($pq) use ($keys) {

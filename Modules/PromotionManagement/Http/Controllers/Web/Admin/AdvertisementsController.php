@@ -90,8 +90,8 @@ class AdvertisementsController extends Controller
             ->when($request->has('status') && $request['status'] == 'all', function ($query) use ($request) {
                 return $query->where('status', "!=", 'pending');
             })
-            ->orderByRaw('ISNULL(priority), priority ASC')
-            ->orderBy('created_at')
+            ->orderByDesc('updated_at')
+            ->orderByDesc('created_at')
             ->paginate(pagination_limit())->appends($queryParams);
 
         return view('promotionmanagement::admin.advertisements.ads-list', compact('advertisements', 'queryParams'));
@@ -320,7 +320,8 @@ class AdvertisementsController extends Controller
                 return $query->ofExpired();
             })
             ->where(['status' => 'pending'])
-            ->orderBy('priority', 'ASC')
+            ->orderByDesc('updated_at')
+            ->orderByDesc('created_at')
             ->paginate(pagination_limit())->appends($queryParams);
 
         $advertisementsUpdateCount = $this->advertisement
@@ -1141,7 +1142,8 @@ class AdvertisementsController extends Controller
             ->when($request->has('status') && $request['status'] == 'all', function ($query) use ($request) {
                 return $query->where('status', "!=", 'pending');
             })
-            ->orderBy('priority', 'ASC')
+            ->orderByDesc('updated_at')
+            ->orderByDesc('created_at')
             ->get();
 
         return (new FastExcel($advertisements))->download(time() . '-file.xlsx');

@@ -510,24 +510,6 @@ class AdminController extends Controller
                 'readCount' => $notificationReadCount,
             ])->render();
 
-            $newNotificationAlerts = UserNotification::query()
-                ->where('user_id', $userId)
-                ->whereNull('read_at')
-                ->where('created_at', '>=', now()->subMinutes(2))
-                ->latest()
-                ->take(5)
-                ->get(['id', 'type', 'title', 'body', 'action_url'])
-                ->map(fn ($n) => [
-                    'id' => $n->id,
-                    'type' => $n->type,
-                    'title' => $n->title,
-                    'body' => $n->body,
-                    'action_url' => $n->action_url,
-                    'action_label' => $n->actionButtonLabel(),
-                ])
-                ->values()
-                ->all();
-
             return [
                 'message' => $message,
                 'staff_message' => $staffMessage,
@@ -538,9 +520,26 @@ class AdminController extends Controller
                 'notification_unread_count' => $notificationUnreadCount,
                 'notification_read_count' => $notificationReadCount,
                 'notification_template' => $notificationTemplate,
-                'new_notification_alerts' => $newNotificationAlerts,
             ];
         });
+
+        $newNotificationAlerts = UserNotification::query()
+            ->where('user_id', $userId)
+            ->whereNull('read_at')
+            ->where('created_at', '>=', now()->subMinutes(2))
+            ->latest()
+            ->take(5)
+            ->get(['id', 'type', 'title', 'body', 'action_url'])
+            ->map(fn ($n) => [
+                'id' => $n->id,
+                'type' => $n->type,
+                'title' => $n->title,
+                'body' => $n->body,
+                'action_url' => $n->action_url,
+                'action_label' => $n->actionButtonLabel(),
+            ])
+            ->values()
+            ->all();
 
         $presenceStatus = $staffPresenceService->resolveDisplayStatus($request->user());
         $presenceLabel = $staffPresenceService->statusLabel($presenceStatus);
@@ -548,6 +547,7 @@ class AdminController extends Controller
         return response()->json([
             'status' => 1,
             'data' => array_merge($counts, [
+                'new_notification_alerts' => $newNotificationAlerts,
                 'presence_status' => $presenceStatus,
                 'presence_label' => $presenceLabel,
             ]),

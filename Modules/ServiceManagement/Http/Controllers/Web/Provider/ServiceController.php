@@ -145,13 +145,21 @@ class ServiceController extends Controller
             'service_description' => 'required',
         ])->validate();
 
-        ServiceRequest::create([
+        $serviceRequest = ServiceRequest::create([
             'category_id' => strtolower($request['category_id']) == 'null' || $request['category_id'] == '' ? null : $request['category_id'],
             'service_name' => $request['service_name'],
             'service_description' => $request['service_description'],
             'status' => 'pending',
             'user_id' => $request->user()->id,
         ]);
+
+        admin_inbox_notify_service_request_submitted($serviceRequest);
+        send_service_request_provider_notification(
+            $serviceRequest,
+            '',
+            translate('Service_request_submitted'),
+            translate('Your_service_request_has_been_submitted_and_is_pending_review'),
+        );
 
         Toastr::success(translate(SERVICE_REQUEST_STORE_200['message']));
         return back();

@@ -1454,11 +1454,26 @@ if (!function_exists('resolve_media_storage_url')) {
             }
 
             if (str_starts_with($candidate, 'provider/')) {
-                return public_storage_asset_url($candidate);
+                $disk = $preferredStorage ?? (function_exists('getDisk') ? getDisk() : 'public');
+                if ($disk === 's3') {
+                    return cloud_storage_public_url($candidate);
+                }
+
+                return public_storage_asset_url(
+                    \App\Support\StoragePathPrefix::apply(\App\Support\StoragePathPrefix::strip($candidate))
+                );
             }
         }
 
-        return $defaultPath;
+        $logicalPath = $candidates[0] ?? $image;
+        $disk = $preferredStorage ?? (function_exists('getDisk') ? getDisk() : 'public');
+        if ($disk === 's3') {
+            return cloud_storage_public_url($logicalPath);
+        }
+
+        return public_storage_asset_url(
+            \App\Support\StoragePathPrefix::apply(\App\Support\StoragePathPrefix::strip($logicalPath))
+        );
     }
 }
 
@@ -2003,6 +2018,31 @@ if (!function_exists('sendDeviceNotificationPermission')) {
         }
 
         return true;
+    }
+}
+
+if (! function_exists('resolve_provider_org_id_for_user')) {
+    function resolve_provider_org_id_for_user(?\Modules\UserManagement\Entities\User $user): ?string
+    {
+        if (! $user) {
+            return null;
+        }
+
+        return match ($user->user_type) {
+            PROVIDER_USER_TYPES[0] => $user->provider?->id,
+            PROVIDER_USER_TYPES[1] => filled($user->provider_id ?? null)
+                ? (string) $user->provider_id
+                : $user->provider?->id,
+            PROVIDER_USER_TYPES[2] => $user->serviceman?->provider_id,
+            default => null,
+        };
+    }
+}
+
+if (! function_exists('is_provider_org_chat_user')) {
+    function is_provider_org_chat_user(?\Modules\UserManagement\Entities\User $user): bool
+    {
+        return $user && in_array($user->user_type, [PROVIDER_USER_TYPES[0], PROVIDER_USER_TYPES[1]], true);
     }
 }
 

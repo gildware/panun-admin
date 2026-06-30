@@ -54,7 +54,6 @@ class AdvertisementsController extends Controller
                 });
             })
             ->where('provider_id', auth('api')->user()->provider->id)
-            ->latest()
             ->when($request->has('status') && $request['status'] !== 'all', function ($query) use ($request) {
                 return $query->when($request['status'] === 'running', function ($query) {
                     return $query->ofRunning();
@@ -71,8 +70,7 @@ class AdvertisementsController extends Controller
                 });
             })
             ->withoutGlobalScope('translate')
-            ->orderByRaw('ISNULL(priority), priority ASC')
-            ->orderBy('created_at')
+            ->latest('updated_at')
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
         foreach($advertisements as $advertisement){

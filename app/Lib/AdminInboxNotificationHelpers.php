@@ -184,7 +184,7 @@ if (! function_exists('admin_inbox_notify_advertisement_paused_by_provider')) {
             $providerName . ' — ' . $adLabel,
             route('admin.advertisements.details', [$advertisement->id]),
             'advertisement_paused_by_provider',
-            (string) $advertisement->id,
+            (string) $advertisement->id . ':paused',
         );
     }
 }
@@ -202,7 +202,43 @@ if (! function_exists('admin_inbox_notify_advertisement_resumed_by_provider')) {
             $providerName . ' — ' . $adLabel,
             route('admin.advertisements.details', [$advertisement->id]),
             'advertisement_resumed_by_provider',
-            (string) $advertisement->id,
+            (string) $advertisement->id . ':resumed',
+        );
+    }
+}
+
+if (! function_exists('admin_inbox_notify_service_request_submitted')) {
+    function admin_inbox_notify_service_request_submitted(\Modules\ServiceManagement\Entities\ServiceRequest $serviceRequest): void
+    {
+        $serviceRequest->loadMissing(['user.provider']);
+        $providerName = $serviceRequest->user?->provider?->company_name ?? translate('Provider');
+        $serviceLabel = $serviceRequest->service_name ?? translate('Service');
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_SERVICE_REQUEST,
+            translate('New_service_request'),
+            $providerName . ' — ' . $serviceLabel,
+            route('admin.service.request.list'),
+            'service_request_submitted',
+            (string) $serviceRequest->id,
+        );
+    }
+}
+
+if (! function_exists('admin_inbox_notify_showcase_submitted')) {
+    function admin_inbox_notify_showcase_submitted(\Modules\ProviderManagement\Entities\ProviderShowcaseItem $item): void
+    {
+        $item->loadMissing('provider');
+        $providerName = $item->provider?->company_name ?? translate('Provider');
+        $label = $item->title ?: translate('Work_showcase');
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_SHOWCASE,
+            translate('New_showcase_submission'),
+            $providerName . ' — ' . $label,
+            route('admin.provider.showcase_approval', ['status' => 'pending']),
+            'showcase_submission',
+            (string) $item->id,
         );
     }
 }

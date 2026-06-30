@@ -59,26 +59,10 @@ class ServiceRequestController extends Controller
         $serviceRequest->save();
 
         if ($serviceRequest->user && $serviceRequest->user->provider) {
-            $userInfo = $serviceRequest?->user?->provider;
-            $languageKey = $userInfo->owner?->current_language_key;
-            $owner = $userInfo->owner;
-            if ($owner && user_has_fcm_devices($owner)) {
-                if ($serviceRequest->status == 'approved') {
-                    $dataInfo = [
-                        'provider_name' => $userInfo?->company_name
-                    ];
-                    $title = get_push_notification_message('service_request_approve', 'provider_notification', $languageKey);
-                    $description = get_push_notification_description('service_request_approve', 'provider_notification', $languageKey);
-                    device_notification_for_user($owner, $title, $description, null, null, 'service_request', null,null, $dataInfo);
-                } elseif ($serviceRequest->status == 'denied') {
-                    $dataInfo = [
-                        'provider_name' => $userInfo?->company_name
-                    ];
-                    $title = get_push_notification_message('service_request_deny', 'provider_notification', $languageKey);
-                    $description = get_push_notification_description('service_request_deny', 'provider_notification', $languageKey);
-                    device_notification_for_user($owner, $title, $description, null, null, 'service_request', null, null, $dataInfo);
-                }
-            }
+            $messageKey = $serviceRequest->status === 'approved'
+                ? 'service_request_approve'
+                : 'service_request_deny';
+            send_service_request_provider_notification($serviceRequest, $messageKey);
         }
 
         Toastr::success(translate(DEFAULT_STORE_200['message']));

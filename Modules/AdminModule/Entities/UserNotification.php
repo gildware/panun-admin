@@ -17,6 +17,8 @@ class UserNotification extends Model
     public const TYPE_WITHDRAW_REQUEST = 'withdraw_request';
     public const TYPE_PROVIDER_WITHDRAWAL = 'provider_withdrawal';
     public const TYPE_ADVERTISEMENT = 'advertisement';
+    public const TYPE_SERVICE_REQUEST = 'service_request';
+    public const TYPE_SHOWCASE = 'showcase';
 
     protected $fillable = [
         'user_id',
@@ -52,6 +54,8 @@ class UserNotification extends Model
             self::TYPE_WITHDRAW_REQUEST => 'payments',
             self::TYPE_PROVIDER_WITHDRAWAL => 'person_off',
             self::TYPE_ADVERTISEMENT => 'campaign',
+            self::TYPE_SERVICE_REQUEST => 'design_services',
+            self::TYPE_SHOWCASE => 'photo_library',
             default => 'notifications',
         };
     }
@@ -65,6 +69,8 @@ class UserNotification extends Model
             self::TYPE_WITHDRAW_REQUEST => translate('Withdraw_Request'),
             self::TYPE_PROVIDER_WITHDRAWAL => translate('Provider_withdrawal'),
             self::TYPE_ADVERTISEMENT => translate('Advertisement'),
+            self::TYPE_SERVICE_REQUEST => translate('service_requests'),
+            self::TYPE_SHOWCASE => translate('Work_Showcase_Approvals'),
             default => translate('Notification'),
         };
     }
@@ -81,6 +87,8 @@ class UserNotification extends Model
             self::TYPE_CHAT_MESSAGE => translate('Go_to_message'),
             self::TYPE_PROVIDER_REQUEST => translate('View_provider'),
             self::TYPE_WITHDRAW_REQUEST => translate('View_Requests'),
+            self::TYPE_SERVICE_REQUEST => translate('View_Requests'),
+            self::TYPE_SHOWCASE => translate('View_Details'),
             default => translate('View_Details'),
         };
     }

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Modules\ProviderManagement\Entities\Provider;
 use Modules\UserManagement\Entities\User;
 
 class ChannelConversation extends Model
@@ -83,15 +84,14 @@ class ChannelConversation extends Model
                 ->where('user_id', '!=', $model->user_id)
                 ->pluck('user_id')
                 ->each(function ($item) use ($model) {
-                    $to_user = User::find($item);
-                    $user = User::with(['provider'])->find($model->user_id);
+                    $to_user = User::with(['provider', 'serviceman'])->find($item);
+                    $user = User::with(['provider', 'serviceman'])->find($model->user_id);
                     if (!$to_user || !$user) return;
 
                     $user_name = null;
                     $user_phone = null;
                     $user_image = null;
                     $user_type = null;
-                    $userNotification = false;
 
                     if ($user->user_type == USER_TYPES[0]['value']) {
                         //if admin
@@ -99,93 +99,39 @@ class ChannelConversation extends Model
                         $user_phone = business_config('business_phone', 'business_information')?->live_values;
                         $user_image = asset('storage/app/public/business') . '/' . business_config('business_favicon', 'business_information')?->live_values;
                         $user_type = USER_TYPES[0]['value'];
-                        if ($to_user->user_type == USER_TYPES[2]['value']){
-                            $servicemanNotification = isNotificationActive($user?->provider?->id, 'chatting', 'notification', 'provider');
-                            $userNotification = $servicemanNotification;
-                        }
-                        if ($to_user->user_type == USER_TYPES[3]['value']){
-                            $servicemanNotification = isNotificationActive($user?->provider?->id, 'chatting', 'notification', 'serviceman');
-                            $userNotification = $servicemanNotification;
-                        }
-                        if ($to_user->user_type == USER_TYPES[4]['value']){
-                            $servicemanNotification = isNotificationActive(null, 'chatting', 'notification', 'user');
-                            $userNotification = $servicemanNotification;
-                        }
                     } else if ($user->user_type == USER_TYPES[1]['value']) {
-                        //if admin
+                        //if admin employee
                         $user_name = business_config('business_name', 'business_information')?->live_values;
                         $user_phone = business_config('business_phone', 'business_information')?->live_values;
                         $user_image = asset('storage/app/public/business') . '/' . business_config('business_favicon', 'business_information')?->live_values;
                         $user_type = USER_TYPES[1]['value'];
-                        if ($to_user->user_type == USER_TYPES[2]['value']){
-                            $servicemanNotification = isNotificationActive($user?->provider?->id, 'chatting', 'notification', 'provider');
-                            $userNotification = $servicemanNotification;
-                        }
-                        if ($to_user->user_type == USER_TYPES[3]['value']){
-                            $servicemanNotification = isNotificationActive($user?->provider?->id, 'chatting', 'notification', 'serviceman');
-                            $userNotification = $servicemanNotification;
-                        }
-                        if ($to_user->user_type == USER_TYPES[4]['value']){
-                            $servicemanNotification = isNotificationActive(null, 'chatting', 'notification', 'user');
-                            $userNotification = $servicemanNotification;
-                        }
-                    }
-                    elseif ($user->user_type == USER_TYPES[2]['value'] && $user->provider) {
-                        $providerNotification = isNotificationActive($user?->provider?->id, 'chatting', 'notification', 'provider');
-                        if ($providerNotification) {
-                            //if provider
-                            $user_name = $user->provider->company_name;
-                            $user_phone = $user->provider->company_phone;
-                            $user_image = asset('storage/app/public/provider/logo') . '/' . $user->provider->logo;
-                            $user_type = USER_TYPES[2]['value'];
+                    } elseif (is_provider_org_chat_user($user)) {
+                        $providerOrg = Provider::query()->find(resolve_provider_org_id_for_user($user));
+                        if (! $providerOrg) {
+                            return;
                         }
 
-                        $customerNotification = isNotificationActive(null, 'chatting', 'notification', 'user');
-                        $userNotification = $customerNotification;
-                        if ($to_user->user_type == USER_TYPES[3]['value']){
-                            $servicemanNotification = isNotificationActive($user?->provider?->id, 'chatting', 'notification', 'serviceman');
-                            $userNotification = $servicemanNotification;
-                        }
-
+                        $user_name = $providerOrg->company_name;
+                        $user_phone = $providerOrg->company_phone;
+                        $user_image = asset('storage/app/public/provider/logo') . '/' . $providerOrg->logo;
+                        $user_type = $user->user_type;
                     } else if ($user->user_type == USER_TYPES[3]['value']) {
-                        $servicemanNotification = isNotificationActive($user?->provider?->id, 'chatting', 'notification', 'serviceman');
-                        if ($servicemanNotification) {
-                            //if serviceman
-                            $user_name = $user->first_name . ' ' . $user->last_name;
-                            $user_phone = $user->phone;
-                            $user_image = asset('storage/app/public/serviceman/profile') . '/' . $user->profile_image;
-                            $user_type = USER_TYPES[3]['value'];
-                            if ($to_user->user_type == USER_TYPES[2]['value']){
-                                $servicemanNotification = isNotificationActive($user?->provider?->id, 'chatting', 'notification', 'provider');
-                                $userNotification = $servicemanNotification;
-                            }
-                            if ($to_user->user_type == USER_TYPES[4]['value']){
-                                $servicemanNotification = isNotificationActive(null, 'chatting', 'notification', 'user');
-                                $userNotification = $servicemanNotification;
-                            }
-                        }
-
+                        //if serviceman
+                        $user_name = $user->first_name . ' ' . $user->last_name;
+                        $user_phone = $user->phone;
+                        $user_image = asset('storage/app/public/serviceman/profile') . '/' . $user->profile_image;
+                        $user_type = USER_TYPES[3]['value'];
                     } else if ($user->user_type == USER_TYPES[4]['value']) {
-                        $customerNotification = isNotificationActive(null, 'chatting', 'notification', 'user');
-                        if ($customerNotification) {
-                            //if customer
-                            $user_name = $user->first_name . ' ' . $user->last_name;
-                            $user_phone = $user->phone;
-                            $user_image = asset('storage/app/public/user/profile_image') . '/' . $user->profile_image;
-                            $user_type = USER_TYPES[4]['value'];
-                            $providerNotification = isNotificationActive($user?->provider?->id, 'chatting', 'notification', 'provider');
-                            $userNotification = $providerNotification;
-                            if ($to_user->user_type == USER_TYPES[3]['value']){
-                                $servicemanNotification = isNotificationActive($user?->provider?->id, 'chatting', 'notification', 'serviceman');
-                                $userNotification = $servicemanNotification;
-                            }
-                        }
-
+                        //if customer
+                        $user_name = $user->first_name . ' ' . $user->last_name;
+                        $user_phone = $user->phone;
+                        $user_image = asset('storage/app/public/user/profile_image') . '/' . $user->profile_image;
+                        $user_type = USER_TYPES[4]['value'];
                     } else {
                         return;
                     }
 
-                    if ($userNotification) {
+                    if ($user_type) {
                         send_chat_message_push_notification(
                             $to_user,
                             (string) $model->channel_id,

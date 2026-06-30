@@ -10,7 +10,9 @@ use Modules\ChattingModule\Entities\ChannelList;
 use Modules\PromotionManagement\Entities\Advertisement;
 use Modules\PromotionManagement\Entities\PushNotificationUser;
 use Modules\ProviderManagement\Entities\Provider;
+use Modules\ProviderManagement\Entities\ProviderShowcaseItem;
 use Modules\ProviderManagement\Entities\WithdrawRequest;
+use Modules\ServiceManagement\Entities\ServiceRequest;
 use Modules\ReviewModule\Entities\ProviderCustomerReview;
 use Modules\ReviewModule\Entities\Review;
 use Modules\UserManagement\Entities\User;
@@ -260,8 +262,9 @@ class SmokeTestNotificationScenarios extends Command
             'chat_new_message' => $this->testChatMessage($booking),
             'chat_admin_customer_message' => $this->testAdminCustomerChat($booking),
             'chat_admin_provider_message' => $this->testAdminProviderChat($booking),
-            'service_request_approved' => $this->dispatchInboxPushForProvider($booking, 'service_request_approve', 'service_request', 'Service approved'),
-            'service_request_denied' => $this->dispatchInboxPushForProvider($booking, 'service_request_deny', 'service_request', 'Service denied'),
+            'service_request_approved' => $this->testServiceRequestStatusNotification('service_request_approve', 'approved'),
+            'service_request_denied' => $this->testServiceRequestStatusNotification('service_request_deny', 'denied'),
+            'service_request_submitted' => $this->testServiceRequestSubmitted(),
             'provider_suspended' => $this->testProviderSuspended($booking),
             'provider_suspension_removed' => $this->testProviderSuspensionRemoved($booking),
             'advertisement_created_by_admin' => $this->testAdvertisementPush('advertisement_created_by_admin'),
@@ -300,6 +303,7 @@ class SmokeTestNotificationScenarios extends Command
                     ->where('reference_id', (string) $booking->id)
                     ->delete()
             ),
+            'admin_alert_showcase_submitted' => $this->testShowcaseSubmittedAdminInbox(),
             default => ['status' => 'fail', 'detail' => 'No smoke test handler defined'],
         };
     }
@@ -941,7 +945,7 @@ class SmokeTestNotificationScenarios extends Command
             fn () => admin_inbox_notify_advertisement_paused_by_provider($advertisement),
             fn () => UserNotification::query()
                 ->where('reference_type', 'advertisement_paused_by_provider')
-                ->where('reference_id', (string) $advertisement->id)
+                ->where('reference_id', (string) $advertisement->id . ':paused')
                 ->delete()
         );
     }
@@ -961,9 +965,153 @@ class SmokeTestNotificationScenarios extends Command
             fn () => admin_inbox_notify_advertisement_resumed_by_provider($advertisement),
             fn () => UserNotification::query()
                 ->where('reference_type', 'advertisement_resumed_by_provider')
-                ->where('reference_id', (string) $advertisement->id)
+                ->where('reference_id', (string) $advertisement->id . ':resumed')
                 ->delete()
         );
+    }
+
+    /**
+     * @return array{status: string, detail: string}
+     */
+    private function testServiceRequestSubmitted(): array
+    {
+        $provider = $this->sampleProvider();
+        $owner = $provider->owner;
+        if (! $owner) {
+            return ['status' => 'fail', 'detail' => 'No provider owner for service request test'];
+        }
+
+        $serviceRequest = ServiceRequest::create([
+            'category_id' => null,
+            'service_name' => 'Smoke Test Service ' . now()->format('His'),
+            'service_description' => 'Smoke test service request submission',
+            'status' => 'pending',
+            'user_id' => $owner->id,
+        ]);
+
+        try {
+            $adminBefore = UserNotification::where('created_at', '>=', $this->testStartedAt ?? now()->subMinute())->count();
+            $providerBefore = $this->inboxCountForUsers([$owner->id]);
+
+            admin_inbox_notify_service_request_submitted($serviceRequest);
+            send_service_request_provider_notification(
+                $serviceRequest,
+                '',
+                translate('Service_request_submitted'),
+                translate('Your_service_request_has_been_submitted_and_is_pending_review'),
+            );
+
+            $adminDelta = UserNotification::where('created_at', '>=', $this->testStartedAt ?? now()->subMinute())->count() - $adminBefore;
+            $providerDelta = $this->inboxCountForUsers([$owner->id]) - $providerBefore;
+
+            if ($adminDelta > 0 && $providerDelta > 0) {
+                return ['status' => 'pass', 'detail' => "Admin inbox: {$adminDelta} row(s); provider inbox: {$providerDelta} row(s)"];
+            }
+
+            return ['status' => 'fail', 'detail' => "Admin inbox delta: {$adminDelta}; provider inbox delta: {$providerDelta}"];
+        } finally {
+            UserNotification::query()
+                ->where('reference_type', 'service_request_submitted')
+                ->where('reference_id', (string) $serviceRequest->id)
+                ->delete();
+            $serviceRequest->delete();
+        }
+    }
+
+    /**
+     * @return array{status: string, detail: string}
+     */
+    private function testServiceRequestSubmittedAdminInbox(): array
+    {
+        $provider = $this->sampleProvider();
+        $owner = $provider->owner;
+        if (! $owner) {
+            return ['status' => 'fail', 'detail' => 'No provider owner for service request inbox test'];
+        }
+
+        $serviceRequest = ServiceRequest::create([
+            'category_id' => null,
+            'service_name' => 'Smoke Test Service Inbox ' . now()->format('His'),
+            'service_description' => 'Smoke test admin inbox',
+            'status' => 'pending',
+            'user_id' => $owner->id,
+        ]);
+
+        try {
+            return $this->testAdminInbox(
+                'admin_inbox_notify_service_request_submitted',
+                fn () => admin_inbox_notify_service_request_submitted($serviceRequest),
+                fn () => UserNotification::query()
+                    ->where('reference_type', 'service_request_submitted')
+                    ->where('reference_id', (string) $serviceRequest->id)
+                    ->delete()
+            );
+        } finally {
+            $serviceRequest->delete();
+        }
+    }
+
+    /**
+     * @return array{status: string, detail: string}
+     */
+    private function testServiceRequestStatusNotification(string $messageKey, string $status): array
+    {
+        $provider = $this->sampleProvider();
+        $owner = $provider->owner;
+        if (! $owner) {
+            return ['status' => 'fail', 'detail' => 'No provider owner for service request status test'];
+        }
+
+        $serviceRequest = ServiceRequest::create([
+            'category_id' => null,
+            'service_name' => 'Smoke Test ' . ucfirst($status) . ' ' . now()->format('His'),
+            'service_description' => 'Smoke test service request ' . $status,
+            'status' => $status,
+            'user_id' => $owner->id,
+        ]);
+
+        try {
+            $before = $this->inboxCountForUsers([$owner->id]);
+            send_service_request_provider_notification($serviceRequest, $messageKey);
+            $delta = $this->inboxCountForUsers([$owner->id]) - $before;
+
+            return $delta > 0
+                ? ['status' => 'pass', 'detail' => ucfirst($status) . ": {$delta} provider inbox row(s)"]
+                : ['status' => 'fail', 'detail' => ucfirst($status) . ': provider inbox row not created'];
+        } finally {
+            $serviceRequest->delete();
+        }
+    }
+
+    /**
+     * @return array{status: string, detail: string}
+     */
+    private function testShowcaseSubmittedAdminInbox(): array
+    {
+        $provider = $this->sampleProvider();
+        $item = ProviderShowcaseItem::create([
+            'provider_id' => $provider->id,
+            'title' => 'Smoke Test Showcase',
+            'description' => 'Smoke test showcase submission',
+            'media_type' => 'image',
+            'file_name' => 'provider/' . \App\Support\MediaStoragePath::providerSlug($provider) . '/showcase/smoke-test.webp',
+            'sort_order' => 0,
+            'is_active' => 1,
+            'is_approved' => ProviderShowcaseItem::STATUS_PENDING,
+        ]);
+
+        try {
+            return $this->testAdminInbox(
+                'admin_inbox_notify_showcase_submitted',
+                fn () => admin_inbox_notify_showcase_submitted($item),
+                fn () => UserNotification::query()
+                    ->where('reference_type', 'showcase_submission')
+                    ->where('reference_id', (string) $item->id)
+                    ->delete()
+            );
+        } finally {
+            $item->delete();
+        }
     }
 
     /**

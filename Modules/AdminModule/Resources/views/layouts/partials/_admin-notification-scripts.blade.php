@@ -36,6 +36,10 @@
                     return { icon: 'warning' };
                 case 'advertisement':
                     return { icon: 'info' };
+                case 'service_request':
+                    return { icon: 'info' };
+                case 'showcase':
+                    return { icon: 'info' };
                 default:
                     return { icon: 'info' };
             }

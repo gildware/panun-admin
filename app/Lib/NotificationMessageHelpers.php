@@ -954,17 +954,24 @@ if (! function_exists('notification_scenario_trigger_map')) {
                 ],
             ],
 
-            // Service Requests (2)
+            // Service Requests (3)
             'service_request_approved' => [
                 'module' => 'service_requests',
                 'checks' => [
-                    ['label' => 'Service approved push', 'needles' => ["get_push_notification_message('service_request_approve'", 'ServiceRequestController.php']],
+                    ['label' => 'Service approved push', 'needles' => ['send_service_request_provider_notification', "'service_request_approve'"]],
                 ],
             ],
             'service_request_denied' => [
                 'module' => 'service_requests',
                 'checks' => [
-                    ['label' => 'Service denied push', 'needles' => ["get_push_notification_message('service_request_deny'", 'ServiceRequestController.php']],
+                    ['label' => 'Service denied push', 'needles' => ['send_service_request_provider_notification', "'service_request_deny'"]],
+                ],
+            ],
+            'service_request_submitted' => [
+                'module' => 'service_requests',
+                'checks' => [
+                    ['label' => 'Service submitted admin inbox', 'needles' => ['admin_inbox_notify_service_request_submitted']],
+                    ['label' => 'Service submitted provider push', 'needles' => ['send_service_request_provider_notification', 'ServiceRequestController.php']],
                 ],
             ],
 
@@ -1055,6 +1062,12 @@ if (! function_exists('notification_scenario_trigger_map')) {
                 'module' => 'admin_alerts',
                 'checks' => [
                     ['label' => 'Customer cancel inbox', 'needles' => ['admin_inbox_notify_booking_customer_canceled']],
+                ],
+            ],
+            'admin_alert_showcase_submitted' => [
+                'module' => 'admin_alerts',
+                'checks' => [
+                    ['label' => 'Showcase submission inbox', 'needles' => ['admin_inbox_notify_showcase_submitted']],
                 ],
             ],
         ];
@@ -2332,6 +2345,17 @@ if (! function_exists('notification_scenario_registry')) {
                     ['audience' => 'provider', 'channel' => 'push', 'key' => 'service_request_deny', 'settings_type' => 'provider_notification', 'wired' => true],
                 ],
             ],
+            [
+                'id' => 'service_request_submitted',
+                'module' => 'service_requests',
+                'title' => 'Provider submits a new service request',
+                'trigger_actor' => 'provider',
+                'trigger_action' => 'Provider submits a new catalog service request for admin review',
+                'audiences' => [
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => null, 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
 
             // --- Provider Account ---
             [
@@ -2474,6 +2498,16 @@ if (! function_exists('notification_scenario_registry')) {
                 'title' => 'Customer cancelled booking',
                 'trigger_actor' => 'customer',
                 'trigger_action' => 'Customer cancels booking from the app',
+                'audiences' => [
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'admin_alert_showcase_submitted',
+                'module' => 'admin_alerts',
+                'title' => 'Provider submits showcase item for approval',
+                'trigger_actor' => 'provider',
+                'trigger_action' => 'Provider uploads a new work showcase photo or video',
                 'audiences' => [
                     ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
                 ],
@@ -3213,7 +3247,7 @@ if (! function_exists('send_chat_message_push_notification')) {
         }
 
         $audience = $settingsType === 'customer_notification' ? 'user' : 'provider';
-        $providerId = $toUser->provider?->id ?? null;
+        $providerId = resolve_provider_org_id_for_user($toUser);
         if (! isNotificationActive($providerId, 'chatting', 'notification', $audience)) {
             return;
         }
@@ -3960,6 +3994,61 @@ if (! function_exists('send_advertisement_push_notification')) {
             'advertisement',
             $owner->id,
             ['provider_name' => $provider?->company_name ?? ''],
+            null,
+            null,
+            'provider-admin',
+            $provider?->zone_id,
+            null,
+            $advertisement->id
+        );
+    }
+}
+
+if (! function_exists('send_service_request_provider_notification')) {
+    function send_service_request_provider_notification(
+        \Modules\ServiceManagement\Entities\ServiceRequest $serviceRequest,
+        string $messageKey,
+        ?string $fallbackTitle = null,
+        ?string $fallbackDescription = null,
+    ): void {
+        $serviceRequest->loadMissing(['user.provider']);
+        $provider = $serviceRequest->user?->provider;
+        $owner = $provider?->owner;
+        if (! $owner || ! $owner->is_active) {
+            return;
+        }
+
+        $languageKey = $owner->current_language_key;
+        $title = $messageKey !== ''
+            ? get_push_notification_message($messageKey, 'provider_notification', $languageKey)
+            : null;
+        $description = $messageKey !== ''
+            ? get_push_notification_description($messageKey, 'provider_notification', $languageKey)
+            : null;
+
+        if (! $title && $fallbackTitle) {
+            $title = $fallbackTitle;
+            $description = (string) ($fallbackDescription ?? '');
+        }
+
+        if (! $title) {
+            return;
+        }
+
+        $data = [
+            'provider_name' => $provider?->company_name ?? '',
+            'serviceName' => $serviceRequest->service_name ?? '',
+            'service_name' => $serviceRequest->service_name ?? '',
+        ];
+
+        scenario_push_notification(
+            $owner,
+            $title,
+            $description,
+            null,
+            'service_request',
+            $owner->id,
+            $data,
             null,
             null,
             'provider-admin',

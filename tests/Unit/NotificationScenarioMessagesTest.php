@@ -32,11 +32,11 @@ class NotificationScenarioMessagesTest extends TestCase
         $this->assertCount(2, $grouped['wallet']);
         $this->assertCount(2, $grouped['refund']);
         $this->assertCount(3, $grouped['communication']);
-        $this->assertCount(2, $grouped['service_requests']);
+        $this->assertCount(3, $grouped['service_requests']);
         $this->assertCount(2, $grouped['provider_account']);
         $this->assertCount(7, $grouped['advertisement']);
-        $this->assertCount(5, $grouped['admin_alerts']);
-        $this->assertCount(61, notification_scenario_registry());
+        $this->assertCount(6, $grouped['admin_alerts']);
+        $this->assertCount(63, notification_scenario_registry());
     }
 
     public function test_all_config_keys_are_covered_by_scenarios(): void

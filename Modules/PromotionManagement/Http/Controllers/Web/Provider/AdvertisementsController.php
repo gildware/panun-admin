@@ -75,7 +75,7 @@ class AdvertisementsController extends Controller
                     }
                 });
             })
-            ->latest()
+            ->latest('updated_at')
             ->paginate(pagination_limit())->appends($queryParam);
 
         return view('promotionmanagement::provider.advertisements.ads-list', compact('advertisements', 'queryParam'));
@@ -839,7 +839,7 @@ class AdvertisementsController extends Controller
                     }
                 });
             })
-            ->latest()->get();
+            ->latest('updated_at')->get();
 
         return (new FastExcel($items))->download(time() . '-file.xlsx');
     }
