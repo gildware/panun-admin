@@ -199,30 +199,15 @@
                                                 <p>{{$provider->subscribed_services_count}}</p>
                                             </td>
                                             <td>{{$provider->bookings_count}}</td>
-                                            @php
-                                                $suspensionSummary = \Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement::summarize($provider);
-                                                $suspensionItems = $suspensionSummary['items'] ?? [];
-                                                $perfStatus = $provider->manual_performance_status ?? 'active';
-                                                $perfBadge = match($perfStatus) {
-                                                    'warning' => 'bg-warning',
-                                                    'active' => empty($suspensionItems) ? 'bg-success' : 'bg-warning',
-                                                    default => 'bg-danger',
-                                                };
-                                                $perfLabel = match($perfStatus) {
-                                                    'warning' => translate('Warning'),
-                                                    'suspended' => translate('Suspended'),
-                                                    'blacklisted' => translate('Blacklisted'),
-                                                    default => empty($suspensionItems) ? translate('Active') : translate('Restricted'),
-                                                };
-                                            @endphp
+                                            @php($providerListPerformance = \Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement::providerListPerformance($provider))
                                             <td>{{ (int)($provider->performance_score ?? 0) }}</td>
                                             <td>
-                                                <span class="badge {{ $perfBadge }}">{{ $perfLabel }}</span>
-                                                @if(!empty($suspensionItems))
+                                                <span class="badge {{ $providerListPerformance['badge'] }}">{{ $providerListPerformance['label'] }}</span>
+                                                @if(!empty($providerListPerformance['items']))
                                                     <div class="fz-12 text-danger mt-1">
-                                                        {{ $suspensionItems[0]['label'] }}
-                                                        @if(!empty($suspensionItems[0]['until']))
-                                                            · {{ translate('Until') }} {{ $suspensionItems[0]['until'] }}
+                                                        {{ $providerListPerformance['items'][0]['label'] }}
+                                                        @if(!empty($providerListPerformance['items'][0]['until']))
+                                                            · {{ translate('Until') }} {{ $providerListPerformance['items'][0]['until'] }}
                                                         @endif
                                                     </div>
                                                     <a class="fz-12 text-primary text-decoration-underline"

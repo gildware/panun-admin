@@ -33,7 +33,7 @@ class ProviderManualPerformanceEnforcement
             return false;
         }
 
-        if (! business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values) {
+        if (! self::isCashLimitSuspensionConfigEnabled()) {
             return false;
         }
 
@@ -46,11 +46,55 @@ class ProviderManualPerformanceEnforcement
             return false;
         }
 
-        if (business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values) {
+        if (self::isCashLimitSuspensionConfigEnabled()) {
             return false;
         }
 
         return ! self::isPerformanceSuspended($provider) && ! self::isPerformanceBlacklisted($provider);
+    }
+
+    private static function isCashLimitSuspensionConfigEnabled(): bool
+    {
+        $config = business_config('suspend_on_exceed_cash_limit_provider', 'provider_config');
+
+        return (bool) ($config?->live_values ?? false);
+    }
+
+    /**
+     * @return array{
+     *     badge: string,
+     *     label: string,
+     *     items: list<array{
+     *         type: string,
+     *         label: string,
+     *         reason: string,
+     *         blocks_login: bool,
+     *         blocks_bookings: bool,
+     *         until: string|null,
+     *         unsuspend_method: string|null
+     *     }>
+     * }
+     */
+    public static function providerListPerformance(Provider $provider): array
+    {
+        $summary = self::summarize($provider);
+        $items = $summary['items'];
+        $perfStatus = (string) ($provider->manual_performance_status ?? 'active');
+
+        return [
+            'badge' => match ($perfStatus) {
+                'warning' => 'bg-warning',
+                'active' => empty($items) ? 'bg-success' : 'bg-warning',
+                default => 'bg-danger',
+            },
+            'label' => match ($perfStatus) {
+                'warning' => translate('Warning'),
+                'suspended' => translate('Suspended'),
+                'blacklisted' => translate('Blacklisted'),
+                default => empty($items) ? translate('Active') : translate('Restricted'),
+            },
+            'items' => $items,
+        ];
     }
 
     /**
