@@ -109,6 +109,24 @@ class NotificationMessageConfigTest extends TestCase
         );
     }
 
+    public function test_text_variable_data_format_replaces_showcase_variables(): void
+    {
+        $result = text_variable_data_format(
+            'Hi {{providerName}}, your work showcase "{{showcaseTitle}}" has been approved.',
+            null,
+            'showcase',
+            [
+                'provider_name' => 'Acme Services',
+                'showcase_title' => 'Kitchen Renovation',
+            ]
+        );
+
+        $this->assertSame(
+            'Hi Acme Services, your work showcase "Kitchen Renovation" has been approved.',
+            $result
+        );
+    }
+
     public function test_notification_variables_per_key(): void
     {
         $otpVars = notification_message_variables_for_key('otp');

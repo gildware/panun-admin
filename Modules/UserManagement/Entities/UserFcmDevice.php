@@ -15,6 +15,9 @@ class UserFcmDevice extends Model
         'device_id',
         'fcm_token',
         'platform',
+        'device_model',
+        'device_manufacturer',
+        'os_version',
         'last_seen_at',
     ];
 

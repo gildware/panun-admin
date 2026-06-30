@@ -30,7 +30,10 @@ if (! function_exists('register_user_fcm_device')) {
         string $userId,
         string $fcmToken,
         ?string $deviceId = null,
-        ?string $platform = null
+        ?string $platform = null,
+        ?string $deviceModel = null,
+        ?string $deviceManufacturer = null,
+        ?string $osVersion = null,
     ): void {
         if (! is_valid_fcm_token($fcmToken)) {
             return;
@@ -40,19 +43,29 @@ if (! function_exists('register_user_fcm_device')) {
             ? $deviceId
             : 'legacy:'.substr(hash('sha256', $fcmToken), 0, 32);
 
+        // An FCM token belongs to one app install. Key by token (not device_id) so
+        // multiple physical devices that share a synced device_id still register separately.
+        UserFcmDevice::query()
+            ->where('fcm_token', $fcmToken)
+            ->where('user_id', '!=', $userId)
+            ->delete();
+
         UserFcmDevice::query()->updateOrCreate(
             [
                 'user_id' => $userId,
-                'device_id' => $deviceId,
+                'fcm_token' => $fcmToken,
             ],
             [
-                'fcm_token' => $fcmToken,
+                'device_id' => $deviceId,
                 'platform' => $platform,
+                'device_model' => $deviceModel,
+                'device_manufacturer' => $deviceManufacturer,
+                'os_version' => $osVersion,
                 'last_seen_at' => now(),
             ]
         );
 
-        User::query()->where('id', $userId)->update(['fcm_token' => $fcmToken]);
+        sync_user_legacy_fcm_token($userId);
     }
 }
 
@@ -289,8 +302,51 @@ if (! function_exists('handle_user_fcm_token_request')) {
             $userId,
             (string) $request->input('fcm_token'),
             $request->input('device_id'),
-            $request->input('platform')
+            $request->input('platform'),
+            $request->input('device_model'),
+            $request->input('device_manufacturer'),
+            $request->input('os_version'),
         );
+    }
+}
+
+if (! function_exists('admin_deregister_user_notification_device')) {
+    function admin_deregister_user_notification_device(string $userId, string $deviceId): bool
+    {
+        if ($deviceId === 'legacy') {
+            User::query()->where('id', $userId)->update(['fcm_token' => null]);
+
+            return true;
+        }
+
+        $deleted = UserFcmDevice::query()
+            ->where('user_id', $userId)
+            ->where('device_id', $deviceId)
+            ->delete();
+
+        if ($deleted > 0) {
+            sync_user_legacy_fcm_token($userId);
+
+            return true;
+        }
+
+        return false;
+    }
+}
+
+if (! function_exists('notification_device_display_name')) {
+    function notification_device_display_name(?\Modules\UserManagement\Entities\UserFcmDevice $device): string
+    {
+        if ($device === null) {
+            return '—';
+        }
+
+        $parts = array_filter([
+            $device->device_manufacturer,
+            $device->device_model,
+        ]);
+
+        return $parts !== [] ? implode(' ', $parts) : '—';
     }
 }
 
@@ -299,10 +355,91 @@ if (! function_exists('notification_logs_user_type_label')) {
     {
         return match ($userType) {
             'customer' => translate('customer'),
-            'provider-admin' => translate('provider'),
+            'provider-admin', 'provider-employee' => translate('provider'),
             'provider-serviceman' => translate('serviceman'),
             default => ucfirst(str_replace('-', ' ', (string) $userType)),
         };
+    }
+}
+
+if (! function_exists('notification_user_account_kind')) {
+    function notification_user_account_kind(\Modules\UserManagement\Entities\User $user): string
+    {
+        return match ($user->user_type) {
+            'customer' => 'customer',
+            'provider-serviceman' => 'serviceman',
+            'provider-admin', 'provider-employee' => 'provider',
+            default => 'other',
+        };
+    }
+}
+
+if (! function_exists('notification_user_account_badge_class')) {
+    function notification_user_account_badge_class(\Modules\UserManagement\Entities\User $user): string
+    {
+        return match (notification_user_account_kind($user)) {
+            'provider' => 'notification-device-badge-provider',
+            'serviceman' => 'notification-device-badge-serviceman',
+            default => 'notification-device-badge-customer',
+        };
+    }
+}
+
+if (! function_exists('notification_user_account_subtitle')) {
+    function notification_user_account_subtitle(\Modules\UserManagement\Entities\User $user): ?string
+    {
+        if (in_array($user->user_type, ['provider-admin', 'provider-employee'], true)) {
+            $company = $user->provider?->company_name ?: $user->provider?->contact_person_name;
+
+            return filled($company) ? (string) $company : null;
+        }
+
+        if ($user->user_type === 'provider-serviceman') {
+            $company = $user->serviceman?->provider?->company_name;
+
+            return filled($company) ? (string) $company : null;
+        }
+
+        if ($user->user_type === 'customer') {
+            return translate('customer_account');
+        }
+
+        return null;
+    }
+}
+
+if (! function_exists('notification_user_shares_phone_on_page')) {
+    /**
+     * @param  \Illuminate\Support\Collection<int, \Modules\UserManagement\Entities\User>|\Illuminate\Contracts\Pagination\LengthAwarePaginator|null  $users
+     */
+    function notification_user_shares_phone_on_page(
+        \Modules\UserManagement\Entities\User $user,
+        $users
+    ): bool {
+        if (! filled($user->phone) || $users === null) {
+            return false;
+        }
+
+        $digits = preg_replace('/\D+/', '', (string) $user->phone) ?? '';
+        if ($digits === '') {
+            return false;
+        }
+
+        $collection = $users instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator
+            ? $users->getCollection()
+            : collect($users);
+
+        $matches = $collection->filter(function ($row) use ($digits) {
+            if (! $row instanceof \Modules\UserManagement\Entities\User || ! filled($row->phone)) {
+                return false;
+            }
+
+            $rowDigits = preg_replace('/\D+/', '', (string) $row->phone) ?? '';
+
+            return $rowDigits !== '' && $rowDigits === $digits;
+        });
+
+        return $matches->count() > 1;
     }
 }
 

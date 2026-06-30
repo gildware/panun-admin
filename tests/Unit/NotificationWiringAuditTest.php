@@ -122,4 +122,51 @@ class NotificationWiringAuditTest extends TestCase
             }
         }
     }
+
+    public function test_device_push_notifications_fan_out_through_multi_device_helpers(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $allowedSingleTokenFiles = [
+            $root.'/app/Lib/UserFcmDeviceHelpers.php',
+            $root.'/Modules/PromotionManagement/Lib/Promotion.php',
+        ];
+
+        $forbiddenPatterns = [
+            '/device_notification\(\s*\$[a-zA-Z_]+->fcm_token/',
+            '/device_notification_for_bidding\(\s*\$[a-zA-Z_]+->fcm_token/',
+            '/device_notification_for_chatting\(\s*\$[a-zA-Z_]+->fcm_token/',
+            '/device_notification_for_in_app_call\(\s*\$[a-zA-Z_]+->fcm_token/',
+        ];
+
+        foreach (['app', 'Modules'] as $dir) {
+            $path = $root.'/'.$dir;
+            if (! is_dir($path)) {
+                continue;
+            }
+
+            $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path));
+            $php = new RegexIterator($iterator, '/\.php$/');
+
+            foreach ($php as $file) {
+                $pathname = $file->getPathname();
+                if (in_array($pathname, $allowedSingleTokenFiles, true)) {
+                    continue;
+                }
+
+                $contents = (string) file_get_contents($pathname);
+                foreach ($forbiddenPatterns as $pattern) {
+                    $this->assertDoesNotMatchRegularExpression(
+                        $pattern,
+                        $contents,
+                        "Legacy single-device push call found in {$pathname}. Use device_notification_for_*_user() or scenario_push_notification() instead."
+                    );
+                }
+            }
+        }
+
+        $scenarioPush = file_get_contents($root.'/app/Lib/NotificationMessageHelpers.php');
+        $this->assertStringContainsString('resolve_fcm_tokens_for_recipient', $scenarioPush);
+        $this->assertStringContainsString('device_notification_for_chatting_user', $scenarioPush);
+        $this->assertStringContainsString('device_notification_for_in_app_call_user', $scenarioPush);
+    }
 }

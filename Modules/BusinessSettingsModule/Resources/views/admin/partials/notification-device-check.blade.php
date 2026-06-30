@@ -1,6 +1,8 @@
 @php
     $userSearch = request('user_search', '');
     $userTypeFilter = request('user_type', 'all');
+    $showCustomerSection = $customerUsersWithDevices !== null;
+    $showProviderSection = $providerUsersWithDevices !== null;
 @endphp
 
 <div class="notification-device-check-panel">
@@ -51,12 +53,12 @@
                    placeholder="{{ translate('search_user_by_name_phone_email') }}">
         </div>
         <div class="col-md-4">
-            <label class="form-label fz-12">{{ translate('user_type') }}</label>
+            <label class="form-label fz-12">{{ translate('account_filter') }}</label>
             <select name="user_type" class="form-control js-select">
-                <option value="all" {{ $userTypeFilter === 'all' ? 'selected' : '' }}>{{ translate('all') }}</option>
-                <option value="customer" {{ $userTypeFilter === 'customer' ? 'selected' : '' }}>{{ translate('customer') }}</option>
-                <option value="provider-admin" {{ $userTypeFilter === 'provider-admin' ? 'selected' : '' }}>{{ translate('provider') }}</option>
-                <option value="provider-serviceman" {{ $userTypeFilter === 'provider-serviceman' ? 'selected' : '' }}>{{ translate('serviceman') }}</option>
+                <option value="all" {{ $userTypeFilter === 'all' ? 'selected' : '' }}>{{ translate('customer_and_provider_accounts') }}</option>
+                <option value="customer" {{ $userTypeFilter === 'customer' ? 'selected' : '' }}>{{ translate('customer_accounts_only') }}</option>
+                <option value="provider-admin" {{ $userTypeFilter === 'provider-admin' ? 'selected' : '' }}>{{ translate('provider_accounts_only') }}</option>
+                <option value="provider-serviceman" {{ $userTypeFilter === 'provider-serviceman' ? 'selected' : '' }}>{{ translate('serviceman_accounts_only') }}</option>
             </select>
         </div>
         <div class="col-md-3 d-flex gap-2">
@@ -68,11 +70,60 @@
         </div>
     </form>
 
-    @if($userSearch === '')
-        <p class="text-muted fz-12 mb-3">{{ translate('recently_logged_in_users') }}</p>
+    @if($userSearch === '' && $userTypeFilter === 'all')
+        <p class="text-muted fz-12 mb-4">{{ translate('device_check_separate_accounts_hint') }}</p>
     @endif
 
-    @include('businesssettingsmodule::admin.partials.notification-user-device-accordions', [
-        'usersWithDevices' => $usersWithDevices,
-    ])
+    @if($showCustomerSection)
+        <div class="mb-5">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <h6 class="fw-semibold mb-0">{{ translate('customer_accounts') }}</h6>
+                <span class="badge notification-device-badge-customer rounded-pill px-2 py-1">{{ translate('customer') }}</span>
+                @if($userSearch === '' && $userTypeFilter === 'all')
+                    <span class="text-muted fz-12">{{ translate('recently_logged_in_users') }}</span>
+                @endif
+            </div>
+            @if(($customerUsersWithDevices ?? null) && $customerUsersWithDevices->count() > 0)
+                @include('businesssettingsmodule::admin.partials.notification-user-device-accordions', [
+                    'usersWithDevices' => $customerUsersWithDevices,
+                    'accountKind' => 'customer',
+                ])
+            @else
+                <div class="border rounded bg-light text-center text-muted py-4 px-3 fz-12">
+                    {{ translate('no_customer_accounts_with_devices') }}
+                </div>
+            @endif
+        </div>
+    @endif
+
+    @if($showProviderSection)
+        <div class="mb-2">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <h6 class="fw-semibold mb-0">{{ translate('provider_accounts') }}</h6>
+                <span class="badge notification-device-badge-provider rounded-pill px-2 py-1">{{ translate('provider') }}</span>
+                @if($userTypeFilter === 'provider-serviceman')
+                    <span class="badge notification-device-badge-serviceman rounded-pill px-2 py-1">{{ translate('serviceman') }}</span>
+                @endif
+                @if($userSearch === '' && $userTypeFilter === 'all')
+                    <span class="text-muted fz-12">{{ translate('recently_logged_in_users') }}</span>
+                @endif
+            </div>
+            @if(($providerUsersWithDevices ?? null) && $providerUsersWithDevices->count() > 0)
+                @include('businesssettingsmodule::admin.partials.notification-user-device-accordions', [
+                    'usersWithDevices' => $providerUsersWithDevices,
+                    'accountKind' => 'provider',
+                ])
+            @else
+                <div class="border rounded bg-light text-center text-muted py-4 px-3 fz-12">
+                    {{ translate('no_provider_accounts_with_devices') }}
+                </div>
+            @endif
+        </div>
+    @endif
+
+    @if(!$showCustomerSection && !$showProviderSection)
+        <div class="border rounded bg-light text-center text-muted py-5 px-3">
+            {{ translate('no_users_found_for_device_search') }}
+        </div>
+    @endif
 </div>

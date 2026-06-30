@@ -136,8 +136,29 @@ class ConfigurationController extends Controller
             $userSearch = trim((string) $request->query('user_search', ''));
             $userTypeFilter = (string) $request->query('user_type', 'all');
 
-            $usersWithDevices = $this->paginateUsersWithNotificationDevices($userSearch, $userTypeFilter)
-                ->appends($request->only(['section', 'user_search', 'user_type']));
+            $appendQuery = $request->only(['section', 'user_search', 'user_type']);
+
+            $customerUsersWithDevices = null;
+            $providerUsersWithDevices = null;
+
+            if ($userTypeFilter === 'all' || $userTypeFilter === 'customer') {
+                $customerUsersWithDevices = $this->paginateUsersWithNotificationDevices($userSearch, ['customer'], 'customers_page')
+                    ->appends($appendQuery);
+            }
+
+            if (in_array($userTypeFilter, ['all', 'provider-admin', 'provider-serviceman'], true)) {
+                $providerTypes = match ($userTypeFilter) {
+                    'provider-serviceman' => ['provider-serviceman'],
+                    'provider-admin' => ['provider-admin', 'provider-employee'],
+                    default => ['provider-admin', 'provider-employee', 'provider-serviceman'],
+                };
+
+                $providerUsersWithDevices = $this->paginateUsersWithNotificationDevices(
+                    $userSearch,
+                    $providerTypes,
+                    'providers_page'
+                )->appends($appendQuery);
+            }
 
             $deviceStats = $this->notificationDeviceStats();
         }
@@ -149,9 +170,36 @@ class ConfigurationController extends Controller
             'activeSection',
             'activeModuleTab',
             'notificationDeliveryLogs',
-            'usersWithDevices',
+            'customerUsersWithDevices',
+            'providerUsersWithDevices',
             'deviceStats'
         ));
+    }
+
+    public function deregisterNotificationDevice(Request $request): RedirectResponse
+    {
+        $this->authorize('notification_message_update');
+
+        $validated = $request->validate([
+            'user_id' => 'required|uuid|exists:users,id',
+            'device_id' => 'required|string|max:64',
+        ]);
+
+        if (! admin_deregister_user_notification_device($validated['user_id'], $validated['device_id'])) {
+            Toastr::error(translate('device_deregister_failed'));
+
+            return back();
+        }
+
+        Toastr::success(translate('device_deregistered_successfully'));
+
+        return redirect()->route('admin.configuration.get-notification-setting', array_filter([
+            'section' => $request->input('section', 'device_check'),
+            'user_search' => $request->input('user_search'),
+            'user_type' => $request->input('user_type') !== 'all' ? $request->input('user_type') : null,
+            'customers_page' => $request->input('customers_page'),
+            'providers_page' => $request->input('providers_page'),
+        ]));
     }
 
     /**
@@ -1483,20 +1531,25 @@ class ConfigurationController extends Controller
         ];
     }
 
-    private function paginateUsersWithNotificationDevices(string $userSearch, string $userTypeFilter): \Illuminate\Contracts\Pagination\LengthAwarePaginator
+    private function notificationDevicesUsersQuery(string $userSearch): \Illuminate\Database\Eloquent\Builder
     {
+        $phoneDigits = preg_replace('/\D+/', '', $userSearch) ?? '';
+
         return User::query()
             ->select('users.*')
-            ->with(['fcmDevices' => function ($query) {
-                $query->orderByDesc('last_seen_at')->orderByDesc('updated_at');
-            }])
+            ->with([
+                'fcmDevices' => function ($query) {
+                    $query->orderByDesc('last_seen_at')->orderByDesc('updated_at');
+                },
+                'provider:id,user_id,company_name,contact_person_name',
+                'serviceman.provider:id,company_name,contact_person_name',
+            ])
             ->withCount('fcmDevices')
             ->addSelect([
                 'latest_device_seen' => UserFcmDevice::query()
                     ->selectRaw('MAX(last_seen_at)')
                     ->whereColumn('user_fcm_devices.user_id', 'users.id'),
             ])
-            ->whereIn('user_type', ['customer', 'provider-admin', 'provider-serviceman'])
             ->where(function ($query) {
                 $query->whereHas('fcmDevices')
                     ->orWhere(function ($legacy) {
@@ -1505,19 +1558,41 @@ class ConfigurationController extends Controller
                             ->where('fcm_token', '!=', '');
                     });
             })
-            ->when($userSearch !== '', function ($query) use ($userSearch) {
-                $query->where(function ($inner) use ($userSearch) {
+            ->when($userSearch !== '', function ($query) use ($userSearch, $phoneDigits) {
+                $query->where(function ($inner) use ($userSearch, $phoneDigits) {
                     $inner->where('first_name', 'like', '%'.$userSearch.'%')
                         ->orWhere('last_name', 'like', '%'.$userSearch.'%')
                         ->orWhere('phone', 'like', '%'.$userSearch.'%')
                         ->orWhere('email', 'like', '%'.$userSearch.'%')
                         ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ['%'.$userSearch.'%']);
+
+                    if ($phoneDigits !== '') {
+                        $inner->orWhere('phone', 'like', '%'.$phoneDigits.'%');
+
+                        if (\Illuminate\Support\Facades\DB::connection()->getDriverName() === 'mysql') {
+                            $inner->orWhereRaw(
+                                'REGEXP_REPLACE(COALESCE(phone, \'\'), \'[^0-9]\', \'\') LIKE ?',
+                                ['%'.$phoneDigits.'%']
+                            );
+                        }
+                    }
                 });
             })
-            ->when($userTypeFilter !== 'all', fn ($query) => $query->where('user_type', $userTypeFilter))
             ->orderByDesc('latest_device_seen')
             ->orderByDesc('last_seen_at')
-            ->orderBy('first_name')
-            ->paginate(pagination_limit());
+            ->orderBy('first_name');
+    }
+
+    /**
+     * @param  list<string>  $userTypes
+     */
+    private function paginateUsersWithNotificationDevices(
+        string $userSearch,
+        array $userTypes,
+        string $pageName = 'users_page'
+    ): \Illuminate\Contracts\Pagination\LengthAwarePaginator {
+        return $this->notificationDevicesUsersQuery($userSearch)
+            ->whereIn('user_type', $userTypes)
+            ->paginate(pagination_limit(), ['*'], $pageName);
     }
 }

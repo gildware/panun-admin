@@ -916,6 +916,7 @@ if (!function_exists('text_variable_data_format')) {
             '{{serviceName}}' => (string) ($dataArray['service_name'] ?? ''),
             '{{otp}}' => (string) ($dataArray['otp'] ?? ''),
             '{{senderName}}' => (string) ($dataArray['sender_name'] ?? ''),
+            '{{showcaseTitle}}' => (string) ($dataArray['showcase_title'] ?? $dataArray['showcaseTitle'] ?? ''),
         ];
 
         if ($type == 'booking' || $type == 'offline-payment') {

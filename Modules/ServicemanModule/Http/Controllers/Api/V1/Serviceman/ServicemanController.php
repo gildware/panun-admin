@@ -460,6 +460,9 @@ class ServicemanController extends Controller
             'fcm_token' => 'required',
             'device_id' => 'nullable|string|max:64',
             'platform' => 'nullable|string|in:android,ios,web',
+            'device_model' => 'nullable|string|max:128',
+            'device_manufacturer' => 'nullable|string|max:128',
+            'os_version' => 'nullable|string|max:64',
             'unregister' => 'nullable|boolean',
         ]);
 

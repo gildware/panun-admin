@@ -44,6 +44,21 @@
             color: #ef6c00;
             border: 1px solid #ffe0b2;
         }
+        .notification-device-badge-customer {
+            background: #e8f5e9;
+            color: #1b5e20;
+            border: 1px solid #a5d6a7;
+        }
+        .notification-device-badge-provider {
+            background: #fff3e0;
+            color: #e65100;
+            border: 1px solid #ffcc80;
+        }
+        .notification-device-badge-serviceman {
+            background: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #90caf9;
+        }
     </style>
 @endpush
 
@@ -97,7 +112,8 @@
                         ])
                     @elseif($activeSection === 'device_check')
                         @include('businesssettingsmodule::admin.partials.notification-device-check', [
-                            'usersWithDevices' => $usersWithDevices ?? null,
+                            'customerUsersWithDevices' => $customerUsersWithDevices ?? null,
+                            'providerUsersWithDevices' => $providerUsersWithDevices ?? null,
                             'deviceStats' => $deviceStats ?? null,
                         ])
                     @endif
