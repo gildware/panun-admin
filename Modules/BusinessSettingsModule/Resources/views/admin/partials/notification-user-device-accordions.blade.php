@@ -9,6 +9,11 @@
                 $accountSubtitle = notification_user_account_subtitle($user);
                 $accountKind = $accountKind ?? notification_user_account_kind($user);
                 $hasLegacyOnly = $user->fcmDevices->isEmpty() && is_valid_fcm_token($user->fcm_token);
+                $hasNoDevices = notification_logs_user_device_count($user) === 0;
+                $linkedCustomer = $accountKind === 'provider'
+                    ? notification_linked_customer_account($user)
+                    : null;
+                $usesCustomerApp = user_can_use_customer_app($user) && $user->user_type === 'provider-admin';
                 $subtitleLabel = $accountKind === 'provider'
                     ? translate('provider')
                     : ($accountKind === 'serviceman' ? translate('serviceman') : translate('customer'));
@@ -27,6 +32,11 @@
                             <span class="badge bg-light text-dark border rounded-pill px-2 py-1">
                                 {{ $deviceCount }} {{ translate('devices') }}
                             </span>
+                            @if($usesCustomerApp)
+                                <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill px-2 py-1">
+                                    {{ translate('customer_app_access') }}
+                                </span>
+                            @endif
                         </div>
                         <div class="d-flex flex-wrap align-items-center gap-2 fz-12 text-muted">
                             @if($accountSubtitle && $accountKind !== 'customer')
@@ -53,6 +63,18 @@
                         @endif
                         · <strong>{{ translate('account_id') }}:</strong> <code>{{ $user->id }}</code>
                     </div>
+                    @if($usesCustomerApp)
+                        <div class="alert alert-info border py-2 px-3 mb-3 fz-12">
+                            {{ translate('device_check_customer_via_provider_hint') }}
+                        </div>
+                    @endif
+                    @if($linkedCustomer)
+                        <div class="alert alert-light border py-2 px-3 mb-3 fz-12">
+                            {{ translate('device_check_linked_customer_account_hint') }}
+                            <strong>{{ trim(($linkedCustomer->first_name ?? '') . ' ' . ($linkedCustomer->last_name ?? '')) }}</strong>
+                            · <code class="fz-11">{{ Str::limit($linkedCustomer->id, 13, '…') }}</code>
+                        </div>
+                    @endif
                     <div class="table-responsive">
                         <table class="table table-sm table-bordered mb-0 notification-scenario-audience-table">
                             <thead>
@@ -145,6 +167,12 @@
                                                 </form>
                                             </td>
                                         @endcan
+                                    </tr>
+                                @elseif($hasNoDevices)
+                                    <tr>
+                                        <td colspan="{{ auth()->user()->can('notification_message_update') ? 10 : 9 }}" class="text-center text-muted py-3">
+                                            {{ translate('no_devices_registered_on_account') }}
+                                        </td>
                                     </tr>
                                 @endif
                             @endforelse

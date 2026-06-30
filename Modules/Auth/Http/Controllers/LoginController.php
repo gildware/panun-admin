@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 use Modules\AdminModule\Services\StaffPresenceService;
+use Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement;
 use Modules\UserManagement\Entities\User;
 
 class LoginController extends Controller
@@ -229,7 +230,7 @@ class LoginController extends Controller
             return redirect(route('provider.auth.login'));
         }
 
-        if ($manualBlock = $this->resolveManualPerformanceBlockForProvider($user)) {
+        if ($manualBlock = ProviderManualPerformanceEnforcement::resolveLoginBlockMessage($user)) {
             self::update_user_hit_count($user);
             Toastr::error($manualBlock);
             return redirect(route('provider.auth.login'));
@@ -450,39 +451,6 @@ class LoginController extends Controller
                 return translate('Your account is suspended until') . ' ' . $until->format('Y-m-d H:i');
             }
 
-            $user->manual_performance_status = 'active';
-            $user->performance_suspended_until = null;
-            $user->save();
-        }
-
-        return null;
-    }
-
-    private function resolveManualPerformanceBlockForProvider(User $user): ?string
-    {
-        $provider = $user->provider;
-        $status = (string) ($provider?->manual_performance_status ?? $user->manual_performance_status ?? '');
-
-        if ($status === 'blacklisted') {
-            return translate('Provider account is blacklisted. Please contact with admin');
-        }
-
-        if ($status === 'suspended') {
-            $untilValue = $provider?->performance_suspended_until ?? $user->performance_suspended_until;
-            $until = $untilValue ? Carbon::parse($untilValue) : null;
-
-            if ($until && $until->isFuture()) {
-                return translate('Provider account is suspended until') . ' ' . $until->format('Y-m-d H:i');
-            }
-
-            if ($provider) {
-                $provider->manual_performance_status = 'active';
-                $provider->performance_suspended_until = null;
-                if ((int) $provider->is_active !== 0) {
-                    $provider->is_suspended = 0;
-                }
-                $provider->save();
-            }
             $user->manual_performance_status = 'active';
             $user->performance_suspended_until = null;
             $user->save();

@@ -1531,7 +1531,7 @@ class ConfigurationController extends Controller
         ];
     }
 
-    private function notificationDevicesUsersQuery(string $userSearch): \Illuminate\Database\Eloquent\Builder
+    private function notificationDevicesUsersQuery(string $userSearch, bool $requireDevices = true): \Illuminate\Database\Eloquent\Builder
     {
         $phoneDigits = preg_replace('/\D+/', '', $userSearch) ?? '';
 
@@ -1550,13 +1550,15 @@ class ConfigurationController extends Controller
                     ->selectRaw('MAX(last_seen_at)')
                     ->whereColumn('user_fcm_devices.user_id', 'users.id'),
             ])
-            ->where(function ($query) {
-                $query->whereHas('fcmDevices')
-                    ->orWhere(function ($legacy) {
-                        $legacy->whereNotNull('fcm_token')
-                            ->where('fcm_token', '!=', '@')
-                            ->where('fcm_token', '!=', '');
-                    });
+            ->when($requireDevices, function ($query) {
+                $query->where(function ($deviceQuery) {
+                    $deviceQuery->whereHas('fcmDevices')
+                        ->orWhere(function ($legacy) {
+                            $legacy->whereNotNull('fcm_token')
+                                ->where('fcm_token', '!=', '@')
+                                ->where('fcm_token', '!=', '');
+                        });
+                });
             })
             ->when($userSearch !== '', function ($query) use ($userSearch, $phoneDigits) {
                 $query->where(function ($inner) use ($userSearch, $phoneDigits) {
@@ -1567,10 +1569,14 @@ class ConfigurationController extends Controller
                         ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ['%'.$userSearch.'%']);
 
                     if ($phoneDigits !== '') {
-                        $inner->orWhere('phone', 'like', '%'.$phoneDigits.'%');
+                        $inner->orWhere('phone', $phoneDigits)
+                            ->orWhere('phone', 'like', '%'.$phoneDigits.'%');
 
                         if (\Illuminate\Support\Facades\DB::connection()->getDriverName() === 'mysql') {
                             $inner->orWhereRaw(
+                                'REGEXP_REPLACE(COALESCE(phone, \'\'), \'[^0-9]\', \'\') = ?',
+                                [$phoneDigits]
+                            )->orWhereRaw(
                                 'REGEXP_REPLACE(COALESCE(phone, \'\'), \'[^0-9]\', \'\') LIKE ?',
                                 ['%'.$phoneDigits.'%']
                             );
@@ -1591,7 +1597,9 @@ class ConfigurationController extends Controller
         array $userTypes,
         string $pageName = 'users_page'
     ): \Illuminate\Contracts\Pagination\LengthAwarePaginator {
-        return $this->notificationDevicesUsersQuery($userSearch)
+        $requireDevices = $userSearch === '';
+
+        return $this->notificationDevicesUsersQuery($userSearch, $requireDevices)
             ->whereIn('user_type', $userTypes)
             ->paginate(pagination_limit(), ['*'], $pageName);
     }

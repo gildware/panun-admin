@@ -90,7 +90,18 @@
                 ])
             @else
                 <div class="border rounded bg-light text-center text-muted py-4 px-3 fz-12">
-                    {{ translate('no_customer_accounts_with_devices') }}
+                    @if($userSearch !== '')
+                        {{ translate('no_customer_accounts_match_search') }}
+                        @php
+                            $providersUsingCustomerApp = collect($providerUsersWithDevices ?? [])
+                                ->filter(fn ($u) => $u->user_type === 'provider-admin' && user_can_use_customer_app($u));
+                        @endphp
+                        @if($providersUsingCustomerApp->isNotEmpty())
+                            <p class="mb-0 mt-2 text-start">{{ translate('device_check_customer_via_provider_hint') }}</p>
+                        @endif
+                    @else
+                        {{ translate('no_customer_accounts_with_devices') }}
+                    @endif
                 </div>
             @endif
         </div>

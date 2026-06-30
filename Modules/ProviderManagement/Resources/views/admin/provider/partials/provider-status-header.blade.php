@@ -60,6 +60,28 @@
         </div>
 
         <div class="d-flex flex-wrap align-items-center gap-2">
+            @php
+                $perfStatus = (string) ($provider->manual_performance_status ?? 'active');
+                $perfSuspendedUntil = $provider->performance_suspended_until
+                    ? \Illuminate\Support\Carbon::parse($provider->performance_suspended_until)
+                    : null;
+                $isPerfSuspended = $perfStatus === 'suspended'
+                    && ($perfSuspendedUntil === null || $perfSuspendedUntil->isFuture());
+            @endphp
+
+            @if($isPerfSuspended)
+                <span class="status-pill status-pill--off">
+                    {{ translate('Suspended') }}
+                    @if($perfSuspendedUntil)
+                        {{ translate('Until') }} {{ $perfSuspendedUntil->format('Y-m-d H:i') }}
+                    @endif
+                </span>
+            @elseif($perfStatus === 'blacklisted')
+                <span class="status-pill status-pill--off">
+                    {{ translate('Blacklisted') }}
+                </span>
+            @endif
+
             <span class="status-pill {{ !empty($provider->service_availability) ? 'status-pill--on' : 'status-pill--off' }}">
                 Service Availability {{ !empty($provider->service_availability) ? 'ON' : 'OFF' }}
             </span>

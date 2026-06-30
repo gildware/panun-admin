@@ -39,6 +39,7 @@ use Modules\BusinessSettingsModule\Entities\PackageSubscriberLimit;
 use Modules\BusinessSettingsModule\Entities\SubscriptionPackage;
 use Modules\PaymentModule\Entities\PaymentRequest;
 use Modules\PaymentModule\Traits\SubscriptionTrait;
+use Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement;
 use Modules\ProviderManagement\Emails\AccountSuspendMail;
 use Modules\ProviderManagement\Emails\AccountUnsuspendMail;
 use Modules\ProviderManagement\Emails\NewJoiningRequestMail;
@@ -2918,8 +2919,14 @@ class ProviderController extends Controller
         $this->authorize('provider_manage_status');
 
         $provider = $this->provider->where('id', $id)->first();
+        $wasSuspended = (int) ($provider->is_suspended ?? 0) === 1;
         $this->provider->where('id', $id)->update(['is_suspended' => !$provider->is_suspended]);
         $provider_info = $this->provider->where('id', $id)->first();
+
+        if ($wasSuspended && (int) ($provider_info?->is_suspended ?? 0) === 0) {
+            ProviderManualPerformanceEnforcement::clearActiveSuspension($provider_info);
+            $provider_info->refresh();
+        }
 
         if ($provider_info?->is_suspended == '1') {
             send_provider_suspended_notification($provider_info);

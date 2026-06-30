@@ -536,3 +536,43 @@ if (! function_exists('log_push_notification_delivery')) {
         }
     }
 }
+
+if (! function_exists('notification_linked_customer_account')) {
+    /**
+     * Separate customer user row for the same phone (dual-account setup).
+     */
+    function notification_linked_customer_account(\Modules\UserManagement\Entities\User $user): ?\Modules\UserManagement\Entities\User
+    {
+        if (! filled($user->phone)) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D+/', '', (string) $user->phone) ?? '';
+        if ($digits === '') {
+            return null;
+        }
+
+        return \Modules\UserManagement\Entities\User::query()
+            ->whereIn('user_type', CUSTOMER_USER_TYPES)
+            ->where('id', '!=', $user->id)
+            ->where(function ($query) use ($user, $digits) {
+                $query->where('phone', $user->phone)
+                    ->orWhere('phone', $digits);
+
+                if (\Illuminate\Support\Facades\DB::connection()->getDriverName() === 'mysql') {
+                    $query->orWhereRaw(
+                        'REGEXP_REPLACE(COALESCE(phone, \'\'), \'[^0-9]\', \'\') = ?',
+                        [$digits]
+                    );
+                }
+            })
+            ->first();
+    }
+}
+
+if (! function_exists('notification_user_has_registered_devices')) {
+    function notification_user_has_registered_devices(\Modules\UserManagement\Entities\User $user): bool
+    {
+        return notification_logs_user_device_count($user) > 0;
+    }
+}

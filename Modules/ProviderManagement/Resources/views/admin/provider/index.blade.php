@@ -175,6 +175,14 @@
                                                                 @if($provider?->is_suspended && business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)
                                                                     <span
                                                                         class="text-danger fz-12">{{('(' . translate('Suspended') . ')')}}</span>
+                                                                @elseif(\Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement::isPerformanceSuspended($provider))
+                                                                    <span class="text-danger fz-12">
+                                                                        ({{ translate('Suspended') }}
+                                                                        @if($provider->performance_suspended_until)
+                                                                            {{ translate('Until') }} {{ \Illuminate\Support\Carbon::parse($provider->performance_suspended_until)->format('Y-m-d H:i') }}
+                                                                        @endif
+                                                                        )
+                                                                    </span>
                                                                 @endif
 
                                                             </a>
@@ -202,9 +210,6 @@
                                             <td>{{$provider->bookings_count}}</td>
                                             @php
                                                 $perfStatus = $provider->manual_performance_status ?? 'active';
-                                                if ($perfStatus === 'suspended' && !empty($provider->performance_suspended_until) && \Illuminate\Support\Carbon::parse($provider->performance_suspended_until)->isPast()) {
-                                                    $perfStatus = 'active';
-                                                }
                                                 $perfBadge = match($perfStatus) {
                                                     'warning' => 'bg-warning',
                                                     'active' => 'bg-success',
