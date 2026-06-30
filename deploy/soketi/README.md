@@ -15,6 +15,11 @@ PUSHER_APP_CLUSTER=mt1
 PUSHER_HOST=127.0.0.1
 PUSHER_PORT=6001
 PUSHER_SCHEME=http
+
+# Mobile apps (API config) — public domain on 443 via reverse proxy; PHP keeps 127.0.0.1 above.
+PUSHER_PUBLIC_HOST=dev.panunkaergar.com
+PUSHER_PUBLIC_PORT=443
+PUSHER_PUBLIC_SCHEME=https
 ```
 
 Use the **same** `PUSHER_APP_*` values in `deploy/soketi/soketi.env`.
@@ -75,13 +80,42 @@ docker compose up -d
 
 Apps read WebSocket settings from `GET /api/v1/.../in-app-call/config`.
 
-- On the **same server** as Laravel: `PUSHER_HOST=127.0.0.1` in Laravel `.env` is fine for broadcasting from PHP.
-- For **phones on the internet**, the config API must expose a host phones can reach (your API domain or a `ws.` subdomain), and port **6001** must be open or proxied.
+- **Laravel → Soketi (PHP broadcast):** keep `PUSHER_HOST=127.0.0.1`, `PUSHER_PORT=6001`, `PUSHER_SCHEME=http`.
+- **Phones on the internet:** set `PUSHER_PUBLIC_HOST`, `PUSHER_PUBLIC_PORT`, `PUSHER_PUBLIC_SCHEME` so the config API returns your public domain (not `127.0.0.1`). Port 6001 is usually blocked on shared hosting; proxy WebSocket on **443** instead.
 
-Example with Nginx WebSocket proxy on `wss://your-domain.com` (port 443):
+### Apache / LiteSpeed `.htaccess` proxy
+
+Insert the rules from `htaccess-websocket-snippet.txt` into `public/.htaccess` **before** the `RewriteRule ^ index.php` line.
+
+Then in `.env`:
+
+```env
+PUSHER_PUBLIC_HOST=dev.panunkaergar.com
+PUSHER_PUBLIC_PORT=443
+PUSHER_PUBLIC_SCHEME=https
+```
+
+```bash
+php artisan config:clear
+```
+
+Verify (expect `101 Switching Protocols` if proxy works, or `500` if mod_proxy is disabled):
+
+```bash
+curl -i -N --max-time 5 \
+  -H "Connection: Upgrade" \
+  -H "Upgrade: websocket" \
+  -H "Sec-WebSocket-Version: 13" \
+  -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+  https://dev.panunkaergar.com/app/panun-key
+```
+
+If `.htaccess` proxy returns 500, shared hosting likely blocks `mod_proxy` — contact Hostinger support or use HTTP polling fallback until VPS.
+
+Example with Nginx (VPS):
 
 - Proxy `/app` to `127.0.0.1:6001`
-- Set in Laravel `.env`: `PUSHER_HOST=your-domain.com`, `PUSHER_PORT=443`, `PUSHER_SCHEME=https`
+- Set `PUSHER_PUBLIC_HOST`, `PUSHER_PUBLIC_PORT=443`, `PUSHER_PUBLIC_SCHEME=https`
 
 ## 6. Verify
 

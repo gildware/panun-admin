@@ -27,11 +27,12 @@ return [
     'enabled' => env('IN_APP_CALL_ENABLED', true),
     'ring_timeout_seconds' => (int) env('IN_APP_CALL_RING_TIMEOUT_SECONDS', 60),
     'ice_servers' => $iceServers,
+    // Mobile apps use PUSHER_PUBLIC_* when set; Laravel broadcasting keeps PUSHER_HOST=127.0.0.1.
     'websocket' => [
         'enabled' => env('IN_APP_CALL_WEBSOCKET_ENABLED', false),
-        'host' => env('PUSHER_HOST', '127.0.0.1'),
-        'port' => (int) env('PUSHER_PORT', 6001),
-        'scheme' => env('PUSHER_SCHEME', 'http'),
+        'host' => env('PUSHER_PUBLIC_HOST', env('PUSHER_HOST', '127.0.0.1')),
+        'port' => (int) env('PUSHER_PUBLIC_PORT', env('PUSHER_PORT', 6001)),
+        'scheme' => env('PUSHER_PUBLIC_SCHEME', env('PUSHER_SCHEME', 'http')),
         'cluster' => env('PUSHER_APP_CLUSTER', 'mt1'),
     ],
 ];
