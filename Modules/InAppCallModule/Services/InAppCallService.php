@@ -16,7 +16,11 @@ class InAppCallService
 {
     public function isEnabled(): bool
     {
-        return (bool) config('inappcallmodule.enabled', true);
+        if (! (bool) config('inappcallmodule.enabled', true)) {
+            return false;
+        }
+
+        return (int) ((business_config('in_app_call_status', 'in_app_call_system'))?->live_values ?? 1) === 1;
     }
 
     /**

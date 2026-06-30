@@ -34,6 +34,7 @@ use Illuminate\Routing\Middleware\ValidateSignature;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Modules\BidModule\Http\Middleware\EnsureBiddingIsActive;
+use Modules\InAppCallModule\Http\Middleware\EnsureInAppCallIsActive;
 use Modules\ProviderManagement\Http\Middleware\ProviderMiddleware;
 use Modules\UserManagement\Http\Middleware\AdminModulePermission;
 use Modules\UserManagement\Http\Middleware\DetectUser;
@@ -94,6 +95,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
             'admin.api' => EnsureAdminApiUser::class,
             'provider' => ProviderMiddleware::class,
             'ensureBiddingIsActive' => EnsureBiddingIsActive::class,
+            'ensureInAppCallIsActive' => EnsureInAppCallIsActive::class,
             'subscription' => Subscription::class,
             'callcenter.service' => \Modules\CallCenterModule\Http\Middleware\EnsureCallCenterServiceToken::class,
         ]);

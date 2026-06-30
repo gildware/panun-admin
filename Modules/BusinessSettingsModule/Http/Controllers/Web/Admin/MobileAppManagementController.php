@@ -389,6 +389,7 @@ class MobileAppManagementController extends Controller
             'biddingStatus' => (int) ((business_config('bidding_status', 'bidding_system'))?->live_values ?? 0),
             'biddingPostValidity' => (int) ((business_config('bidding_post_validity', 'bidding_system'))?->live_values ?? 7),
             'bidOffersVisibility' => (int) ((business_config('bid_offers_visibility_for_providers', 'bidding_system'))?->live_values ?? 0),
+            'inAppCallStatus' => (int) ((business_config('in_app_call_status', 'in_app_call_system'))?->live_values ?? 1),
         ]);
     }
 
@@ -400,6 +401,7 @@ class MobileAppManagementController extends Controller
             'bidding_status' => 'required|in:0,1',
             'bidding_post_validity' => 'required_if:bidding_status,1|nullable|integer|min:1|max:365',
             'bid_offers_visibility_for_providers' => 'required|in:0,1',
+            'in_app_call_status' => 'required|in:0,1',
         ]);
 
         if ($validator->fails()) {
@@ -428,6 +430,18 @@ class MobileAppManagementController extends Controller
                 ],
             );
         }
+
+        BusinessSettings::query()->updateOrCreate(
+            ['key_name' => 'in_app_call_status'],
+            [
+                'key_name' => 'in_app_call_status',
+                'live_values' => $validated['in_app_call_status'],
+                'test_values' => $validated['in_app_call_status'],
+                'settings_type' => 'in_app_call_system',
+                'mode' => 'live',
+                'is_active' => 1,
+            ],
+        );
 
         CustomerApiResponseCache::forgetConfigCaches();
         Toastr::success(translate('settings_updated'));

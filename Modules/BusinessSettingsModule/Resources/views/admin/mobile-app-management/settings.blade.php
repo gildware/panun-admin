@@ -55,6 +55,25 @@
                     </div>
                 </div>
 
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+                            <div class="flex-grow-1">
+                                <h5 class="mb-1">{{ translate('Calling_System_Customer_Provider') }}</h5>
+                                <p class="fz-12 text-muted mb-0">
+                                    {{ translate('When_disabled_customers_and_providers_cannot_make_calls_or_view_call_history') }}
+                                </p>
+                            </div>
+                            <label class="form-check form-switch mb-0">
+                                <input type="hidden" name="in_app_call_status" value="0">
+                                <input class="form-check-input" type="checkbox" name="in_app_call_status" value="1"
+                                       {{ $inAppCallStatus ? 'checked' : '' }}>
+                                <span class="form-check-label fw-semibold">{{ translate('Enable') }}</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="d-flex justify-content-end">
                     <button type="submit" class="btn btn--primary">{{ translate('Save') }}</button>
                 </div>
