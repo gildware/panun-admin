@@ -364,7 +364,7 @@ class InAppCallHealthService
             );
         }
 
-        [$host, $port] = $hostPort;
+        ['host' => $host, 'port' => $port] = $hostPort;
         $reachable = $this->canConnectTcp($host, $port, 3);
 
         if (! $reachable) {
