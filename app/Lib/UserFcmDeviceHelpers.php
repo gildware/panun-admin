@@ -293,3 +293,84 @@ if (! function_exists('handle_user_fcm_token_request')) {
         );
     }
 }
+
+if (! function_exists('mask_fcm_token')) {
+    function mask_fcm_token(?string $token): ?string
+    {
+        if (! is_valid_fcm_token($token)) {
+            return null;
+        }
+
+        $token = (string) $token;
+        if (strlen($token) <= 16) {
+            return substr($token, 0, 4).'…';
+        }
+
+        return substr($token, 0, 8).'…'.substr($token, -4);
+    }
+}
+
+if (! function_exists('resolve_fcm_device_context')) {
+    /**
+     * @return array{user_id: ?string, device_id: ?string}
+     */
+    function resolve_fcm_device_context(?string $fcmToken): array
+    {
+        if (! is_valid_fcm_token($fcmToken)) {
+            return ['user_id' => null, 'device_id' => null];
+        }
+
+        $device = UserFcmDevice::query()
+            ->where('fcm_token', $fcmToken)
+            ->orderByDesc('last_seen_at')
+            ->first(['user_id', 'device_id']);
+
+        if ($device) {
+            return [
+                'user_id' => (string) $device->user_id,
+                'device_id' => (string) $device->device_id,
+            ];
+        }
+
+        $legacyUserId = User::query()->where('fcm_token', $fcmToken)->value('id');
+
+        return [
+            'user_id' => $legacyUserId ? (string) $legacyUserId : null,
+            'device_id' => 'legacy',
+        ];
+    }
+}
+
+if (! function_exists('log_push_notification_delivery')) {
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    function log_push_notification_delivery(array $context): void
+    {
+        try {
+            $fcmToken = isset($context['fcm_token']) ? (string) $context['fcm_token'] : null;
+
+            \Modules\PromotionManagement\Entities\PushNotificationDeliveryLog::query()->create([
+                'user_id' => $context['user_id'] ?? resolve_fcm_device_context($fcmToken)['user_id'],
+                'device_id' => $context['device_id'] ?? resolve_fcm_device_context($fcmToken)['device_id'],
+                'fcm_token_hash' => is_valid_fcm_token($fcmToken) ? hash('sha256', $fcmToken) : null,
+                'fcm_token_preview' => mask_fcm_token($fcmToken),
+                'delivery_target' => filled($context['topic'] ?? null) ? 'topic' : 'device',
+                'topic' => $context['topic'] ?? null,
+                'notification_type' => $context['notification_type'] ?? null,
+                'title' => isset($context['title']) ? mb_substr((string) $context['title'], 0, 255) : null,
+                'status' => $context['status'] ?? 'failed',
+                'http_status' => $context['http_status'] ?? null,
+                'error_message' => isset($context['error_message'])
+                    ? mb_substr((string) $context['error_message'], 0, 2000)
+                    : null,
+                'push_notification_id' => $context['push_notification_id'] ?? null,
+                'booking_id' => $context['booking_id'] ?? null,
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed to persist push notification delivery log', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+}

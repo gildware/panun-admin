@@ -36,7 +36,7 @@ class NotificationTriggerAuditTest extends TestCase
 
     public function test_provider_only_keys_return_null_for_customer(): void
     {
-        $providerOnly = ['new_service_request_arrived', 'admin_booking_assigned', 'booking_assigned_to_provider', 'service_request_approve', 'service_request_deny', 'widthdraw_request_approve', 'widthdraw_request_deny', 'withdraw_request_submitted', 'admin_payable', 'settlement_received', 'review_approved', 'provider_review_published', 'provider_removed_from_booking'];
+        $providerOnly = ['new_service_request_arrived', 'admin_booking_assigned', 'booking_assigned_to_provider', 'service_request_approve', 'service_request_deny', 'showcase_submitted', 'showcase_approve', 'showcase_deny', 'widthdraw_request_approve', 'widthdraw_request_deny', 'withdraw_request_submitted', 'admin_payable', 'settlement_received', 'review_approved', 'provider_review_published', 'provider_removed_from_booking'];
         foreach ($providerOnly as $key) {
             $this->assertNull(notification_trigger_scenarios_for_key($key, 'customer_notification'));
         }

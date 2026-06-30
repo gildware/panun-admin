@@ -21,6 +21,9 @@
                         'dataValues' => $dataValues,
                         'language' => null,
                         'activeModuleTab' => $activeModuleTab,
+                        'notificationDeliveryLogs' => $notificationDeliveryLogs ?? null,
+                        'userFcmDevices' => $userFcmDevices ?? null,
+                        'deviceStats' => $deviceStats ?? null,
                     ])
                 </div>
             </div>

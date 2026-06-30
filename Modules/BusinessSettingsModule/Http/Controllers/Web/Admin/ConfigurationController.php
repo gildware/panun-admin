@@ -25,6 +25,8 @@ use Modules\BusinessSettingsModule\Http\Requests\ThirdPartyDataStoreOrUpdateRequ
 use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\PaymentModule\Entities\OfflinePayment;
 use Modules\PaymentModule\Entities\Setting;
+use Modules\PromotionManagement\Entities\PushNotificationDeliveryLog;
+use Modules\UserManagement\Entities\UserFcmDevice;
 use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
@@ -75,15 +77,99 @@ class ConfigurationController extends Controller
         $dataValues = $this->businessSetting->whereIn('settings_type', ['customer_notification', 'provider_notification', 'serviceman_notification'])->with('translations')->get();
         $groupedScenarios = group_notification_scenarios_by_module();
         $activeModuleTab = $request->query('tab');
-        if (! is_string($activeModuleTab) || ! isset($groupedScenarios[$activeModuleTab])) {
+        if (! is_string($activeModuleTab) || (! isset($groupedScenarios[$activeModuleTab]) && $activeModuleTab !== 'logs_and_status')) {
             $activeModuleTab = array_key_first($groupedScenarios);
+        }
+
+        $notificationDeliveryLogs = null;
+        $userFcmDevices = null;
+        $deviceStats = null;
+
+        if ($activeModuleTab === 'logs_and_status') {
+            $search = trim((string) $request->query('search', ''));
+            $statusFilter = (string) $request->query('status', 'all');
+            $userTypeFilter = (string) $request->query('user_type', 'all');
+
+            $notificationDeliveryLogs = PushNotificationDeliveryLog::query()
+                ->with(['user:id,first_name,last_name,phone,email,user_type'])
+                ->when($search !== '', function ($query) use ($search) {
+                    $query->where(function ($inner) use ($search) {
+                        $inner->where('title', 'like', '%'.$search.'%')
+                            ->orWhere('notification_type', 'like', '%'.$search.'%')
+                            ->orWhere('topic', 'like', '%'.$search.'%')
+                            ->orWhere('device_id', 'like', '%'.$search.'%')
+                            ->orWhereHas('user', function ($userQuery) use ($search) {
+                                $userQuery->where('first_name', 'like', '%'.$search.'%')
+                                    ->orWhere('last_name', 'like', '%'.$search.'%')
+                                    ->orWhere('phone', 'like', '%'.$search.'%')
+                                    ->orWhere('email', 'like', '%'.$search.'%');
+                            });
+                    });
+                })
+                ->when($statusFilter !== 'all', fn ($query) => $query->where('status', $statusFilter))
+                ->orderByDesc('created_at')
+                ->paginate(pagination_limit())
+                ->appends($request->only(['tab', 'search', 'status', 'user_type']));
+
+            $userFcmDevices = UserFcmDevice::query()
+                ->with(['user:id,first_name,last_name,phone,email,user_type,is_active'])
+                ->when($search !== '', function ($query) use ($search) {
+                    $query->where(function ($inner) use ($search) {
+                        $inner->where('device_id', 'like', '%'.$search.'%')
+                            ->orWhere('platform', 'like', '%'.$search.'%')
+                            ->orWhereHas('user', function ($userQuery) use ($search) {
+                                $userQuery->where('first_name', 'like', '%'.$search.'%')
+                                    ->orWhere('last_name', 'like', '%'.$search.'%')
+                                    ->orWhere('phone', 'like', '%'.$search.'%')
+                                    ->orWhere('email', 'like', '%'.$search.'%');
+                            });
+                    });
+                })
+                ->when($userTypeFilter !== 'all', function ($query) use ($userTypeFilter) {
+                    $query->whereHas('user', fn ($userQuery) => $userQuery->where('user_type', $userTypeFilter));
+                })
+                ->orderByDesc('last_seen_at')
+                ->orderByDesc('updated_at')
+                ->paginate(pagination_limit(), ['*'], 'devices_page')
+                ->appends($request->only(['tab', 'search', 'status', 'user_type']));
+
+            $configuredDevices = UserFcmDevice::query()
+                ->whereNotNull('fcm_token')
+                ->where('fcm_token', '!=', '@')
+                ->where('fcm_token', '!=', '')
+                ->count();
+            $totalDevices = UserFcmDevice::query()->count();
+            $legacyOnlyUsers = \Modules\UserManagement\Entities\User::query()
+                ->whereNotNull('fcm_token')
+                ->where('fcm_token', '!=', '@')
+                ->where('fcm_token', '!=', '')
+                ->whereDoesntHave('fcmDevices')
+                ->count();
+
+            $deviceStats = [
+                'total_devices' => $totalDevices,
+                'configured_devices' => $configuredDevices,
+                'not_configured_devices' => max(0, $totalDevices - $configuredDevices),
+                'legacy_only_users' => $legacyOnlyUsers,
+                'sent_last_24h' => PushNotificationDeliveryLog::query()
+                    ->where('status', 'sent')
+                    ->where('created_at', '>=', now()->subDay())
+                    ->count(),
+                'failed_last_24h' => PushNotificationDeliveryLog::query()
+                    ->where('status', 'failed')
+                    ->where('created_at', '>=', now()->subDay())
+                    ->count(),
+            ];
         }
 
         return view('businesssettingsmodule::admin.notification', compact(
             'dataValues',
             'dataSettingsValue',
             'groupedScenarios',
-            'activeModuleTab'
+            'activeModuleTab',
+            'notificationDeliveryLogs',
+            'userFcmDevices',
+            'deviceStats'
         ));
     }
 

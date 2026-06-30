@@ -14,6 +14,15 @@ class UserFcmDeviceHelpersTest extends TestCase
         $this->assertTrue(function_exists('user_has_fcm_devices'));
         $this->assertTrue(function_exists('device_notification_for_user'));
         $this->assertTrue(function_exists('handle_user_fcm_token_request'));
+        $this->assertTrue(function_exists('mask_fcm_token'));
+        $this->assertTrue(function_exists('log_push_notification_delivery'));
+    }
+
+    public function test_mask_fcm_token_masks_long_tokens(): void
+    {
+        $masked = mask_fcm_token('abcdefghijklmnopqrstuvwxyz');
+        $this->assertStringContainsString('…', $masked);
+        $this->assertNull(mask_fcm_token('@'));
     }
 
     public function test_is_valid_fcm_token_rejects_logout_placeholder(): void

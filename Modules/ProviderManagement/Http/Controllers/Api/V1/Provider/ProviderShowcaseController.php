@@ -111,6 +111,7 @@ class ProviderShowcaseController extends Controller
         ]);
 
         admin_inbox_notify_showcase_submitted($item);
+        send_showcase_provider_notification($item, 'showcase_submitted');
 
         return response()->json(response_formatter(DEFAULT_STORE_200, $item->load('storage')), 200);
     }
@@ -148,6 +149,8 @@ class ProviderShowcaseController extends Controller
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
+
+        $wasApproved = $item->is_approved === ProviderShowcaseItem::STATUS_APPROVED;
 
         DB::transaction(function () use ($request, $item, $provider) {
             if ($request->has('title')) {
@@ -188,7 +191,13 @@ class ProviderShowcaseController extends Controller
             $item->save();
         });
 
-        return response()->json(response_formatter(DEFAULT_UPDATE_200, $item->fresh()->load('storage')), 200);
+        $item = $item->fresh()->load('storage');
+        if ($wasApproved && $item->is_approved === ProviderShowcaseItem::STATUS_PENDING) {
+            admin_inbox_notify_showcase_submitted($item);
+            send_showcase_provider_notification($item, 'showcase_submitted');
+        }
+
+        return response()->json(response_formatter(DEFAULT_UPDATE_200, $item), 200);
     }
 
     public function destroy(string $id): JsonResponse

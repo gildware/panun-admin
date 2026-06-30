@@ -681,8 +681,10 @@ class AdvertisementsController extends Controller
 
             if ($status === 'paused') {
                 admin_inbox_notify_advertisement_paused_by_provider($advertisement);
+                send_advertisement_push_notification('advertisement_paused_by_provider', $advertisement);
             } elseif ($status === 'resumed') {
                 admin_inbox_notify_advertisement_resumed_by_provider($advertisement);
+                send_advertisement_push_notification('advertisement_resumed_by_provider', $advertisement);
             }
         }
 

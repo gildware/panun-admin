@@ -3723,6 +3723,7 @@ const NOTIFICATION_MESSAGE_CATEGORY_LABELS = [
     'payments' => 'Payments',
     'wallet_and_loyalty' => 'Wallet and Loyalty',
     'review' => 'Review',
+    'provider_work_showcase' => 'Provider Work Showcase',
 ];
 
 const NOTIFICATION_SCENARIO_MODULE_LABELS = [
@@ -3738,6 +3739,7 @@ const NOTIFICATION_SCENARIO_MODULE_LABELS = [
     'service_requests' => 'Service Requests',
     'provider_account' => 'Provider Account',
     'advertisement' => 'Advertisement',
+    'provider_work_showcase' => 'Provider Work Showcase',
     'admin_alerts' => 'Admin Alerts',
 ];
 
@@ -3817,6 +3819,11 @@ const NOTIFICATION_FOR_PROVIDER = [
     ['key' => 'advertisement_denied', 'value' => 'Advertisement Denied', 'category' => 'service_updates'],
     ['key' => 'advertisement_paused', 'value' => 'Advertisement Paused', 'category' => 'service_updates'],
     ['key' => 'advertisement_resumed', 'value' => 'Advertisement Resumed', 'category' => 'service_updates'],
+    ['key' => 'advertisement_paused_by_provider', 'value' => 'Advertisement Paused by Provider', 'category' => 'service_updates'],
+    ['key' => 'advertisement_resumed_by_provider', 'value' => 'Advertisement Resumed by Provider', 'category' => 'service_updates'],
+    ['key' => 'showcase_submitted', 'value' => 'Showcase Submitted', 'category' => 'provider_work_showcase'],
+    ['key' => 'showcase_approve', 'value' => 'Showcase Approved', 'category' => 'provider_work_showcase'],
+    ['key' => 'showcase_deny', 'value' => 'Showcase Not Approved', 'category' => 'provider_work_showcase'],
     ['key' => 'review_approved', 'value' => 'New Review Received', 'category' => 'review'],
     ['key' => 'provider_review_published', 'value' => 'Your Review Approved', 'category' => 'review'],
 ];

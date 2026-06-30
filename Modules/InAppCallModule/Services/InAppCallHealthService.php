@@ -645,14 +645,19 @@ class InAppCallHealthService
     {
         try {
             $last24h = InAppCall::query()->where('created_at', '>=', now()->subDay())->count();
-            $accepted24h = InAppCall::query()
+            $answered24h = InAppCall::query()
+                ->where('created_at', '>=', now()->subDay())
+                ->whereIn('status', [InAppCall::STATUS_ACCEPTED, InAppCall::STATUS_ENDED])
+                ->count();
+            $active24h = InAppCall::query()
                 ->where('created_at', '>=', now()->subDay())
                 ->where('status', InAppCall::STATUS_ACCEPTED)
                 ->count();
             $signals24h = InAppCallSignal::query()->where('created_at', '>=', now()->subDay())->count();
 
             $detail = translate('Last_24_hours') . ": {$last24h} " . translate('calls')
-                . ', ' . $accepted24h . ' ' . translate('connected')
+                . ', ' . $answered24h . ' ' . translate('answered')
+                . ($active24h > 0 ? ' (' . $active24h . ' ' . translate('in_progress') . ')' : '')
                 . ', ' . $signals24h . ' ' . translate('WebRTC_signals');
 
             return $this->item(

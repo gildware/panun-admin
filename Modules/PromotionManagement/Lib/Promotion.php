@@ -19,10 +19,33 @@ use Illuminate\Support\Facades\Http;
         'Authorization' => 'Bearer ' . getAccessToken($clientEmail, $privateKey),
         'Content-Type' => 'application/json',
     ];
+
+    $logContext = [
+        'fcm_token' => data_get($data, 'message.token'),
+        'topic' => data_get($data, 'message.topic'),
+        'notification_type' => data_get($data, 'message.data.type'),
+        'title' => data_get($data, 'message.data.title'),
+        'push_notification_id' => data_get($data, 'message.data.push_notification_id') ?: null,
+        'booking_id' => data_get($data, 'message.data.booking_id') ?: null,
+    ];
+
     try {
-        Http::withHeaders($headers)->post($url, $data);
-        return true;
-    }catch (\Exception){
+        $response = Http::withHeaders($headers)->post($url, $data);
+        $success = $response->successful();
+
+        log_push_notification_delivery(array_merge($logContext, [
+            'status' => $success ? 'sent' : 'failed',
+            'http_status' => $response->status(),
+            'error_message' => $success ? null : $response->body(),
+        ]));
+
+        return $success;
+    } catch (\Exception $exception) {
+        log_push_notification_delivery(array_merge($logContext, [
+            'status' => 'failed',
+            'error_message' => $exception->getMessage(),
+        ]));
+
         return false;
     }
 }

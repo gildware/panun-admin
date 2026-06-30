@@ -3189,6 +3189,9 @@ class ProviderController extends Controller
         }
         $item->save();
 
+        $messageKey = $status === 'approve' ? 'showcase_approve' : 'showcase_deny';
+        send_showcase_provider_notification($item, $messageKey);
+
         return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
     }
 

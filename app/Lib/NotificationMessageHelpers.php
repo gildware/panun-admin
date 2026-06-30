@@ -27,8 +27,9 @@ if (! function_exists('notification_message_variables_for_key')) {
             'provider_removed_from_booking' => array_merge($common, $bookingExtras),
             'new_service_request_arrived', 'admin_booking_assigned', 'booking_assigned_to_provider' => array_merge($common, $bookingExtras),
             'service_request_approve', 'service_request_deny' => ['{{serviceName}}', '{{providerName}}'],
+            'showcase_submitted', 'showcase_approve', 'showcase_deny' => ['{{showcaseTitle}}', '{{providerName}}'],
             'widthdraw_request_approve', 'widthdraw_request_deny', 'admin_payable', 'settlement_received', 'provider_suspend', 'provider_suspension_remove' => ['{{amount}}', '{{providerName}}'],
-            'advertisement_created_by_admin', 'advertisement_approved', 'advertisement_denied', 'advertisement_paused', 'advertisement_resumed' => ['{{providerName}}'],
+            'advertisement_created_by_admin', 'advertisement_approved', 'advertisement_denied', 'advertisement_paused', 'advertisement_resumed', 'advertisement_paused_by_provider', 'advertisement_resumed_by_provider' => ['{{providerName}}'],
             default => $common,
         };
     }
@@ -52,6 +53,7 @@ if (! function_exists('notification_message_preview_samples')) {
             'amount' => '$150.00',
             'otp' => '482910',
             'senderName' => 'Acme Services',
+            'showcaseTitle' => 'Kitchen Renovation',
         ];
     }
 }
@@ -318,6 +320,26 @@ if (! function_exists('notification_default_message_templates')) {
                 'advertisement_resumed' => [
                     'title' => 'Advertisement Resumed',
                     'description' => 'Hi {{providerName}}, your advertisement is active again.',
+                ],
+                'advertisement_paused_by_provider' => [
+                    'title' => 'Advertisement Paused',
+                    'description' => 'Hi {{providerName}}, you paused your advertisement.',
+                ],
+                'advertisement_resumed_by_provider' => [
+                    'title' => 'Advertisement Resumed',
+                    'description' => 'Hi {{providerName}}, you resumed your advertisement and it is active again.',
+                ],
+                'showcase_submitted' => [
+                    'title' => 'Showcase Submitted',
+                    'description' => 'Hi {{providerName}}, your work showcase "{{showcaseTitle}}" has been submitted and is pending admin approval.',
+                ],
+                'showcase_approve' => [
+                    'title' => 'Showcase Approved',
+                    'description' => 'Hi {{providerName}}, your work showcase "{{showcaseTitle}}" has been approved and is now visible on your profile.',
+                ],
+                'showcase_deny' => [
+                    'title' => 'Showcase Not Approved',
+                    'description' => 'Hi {{providerName}}, your work showcase "{{showcaseTitle}}" was not approved. You may edit and resubmit.',
                 ],
             ],
         ];
@@ -975,6 +997,27 @@ if (! function_exists('notification_scenario_trigger_map')) {
                 ],
             ],
 
+            // Provider Work Showcase (3)
+            'showcase_submitted' => [
+                'module' => 'provider_work_showcase',
+                'checks' => [
+                    ['label' => 'Showcase submission admin inbox', 'needles' => ['admin_inbox_notify_showcase_submitted']],
+                    ['label' => 'Showcase submitted provider push', 'needles' => ['send_showcase_provider_notification', 'ProviderShowcaseController.php']],
+                ],
+            ],
+            'showcase_approved' => [
+                'module' => 'provider_work_showcase',
+                'checks' => [
+                    ['label' => 'Showcase approved push', 'needles' => ['send_showcase_provider_notification', "'showcase_approve'"]],
+                ],
+            ],
+            'showcase_denied' => [
+                'module' => 'provider_work_showcase',
+                'checks' => [
+                    ['label' => 'Showcase denied push', 'needles' => ['send_showcase_provider_notification', "'showcase_deny'"]],
+                ],
+            ],
+
             // Provider Account (2)
             'provider_suspended' => [
                 'module' => 'provider_account',
@@ -1024,12 +1067,14 @@ if (! function_exists('notification_scenario_trigger_map')) {
                 'module' => 'advertisement',
                 'checks' => [
                     ['label' => 'Provider ad paused inbox', 'needles' => ['admin_inbox_notify_advertisement_paused_by_provider']],
+                    ['label' => 'Provider ad paused push', 'needles' => ['send_advertisement_push_notification', "'advertisement_paused_by_provider'"]],
                 ],
             ],
             'advertisement_resumed_by_provider' => [
                 'module' => 'advertisement',
                 'checks' => [
                     ['label' => 'Provider ad resumed inbox', 'needles' => ['admin_inbox_notify_advertisement_resumed_by_provider']],
+                    ['label' => 'Provider ad resumed push', 'needles' => ['send_advertisement_push_notification', "'advertisement_resumed_by_provider'"]],
                 ],
             ],
 
@@ -1062,12 +1107,6 @@ if (! function_exists('notification_scenario_trigger_map')) {
                 'module' => 'admin_alerts',
                 'checks' => [
                     ['label' => 'Customer cancel inbox', 'needles' => ['admin_inbox_notify_booking_customer_canceled']],
-                ],
-            ],
-            'admin_alert_showcase_submitted' => [
-                'module' => 'admin_alerts',
-                'checks' => [
-                    ['label' => 'Showcase submission inbox', 'needles' => ['admin_inbox_notify_showcase_submitted']],
                 ],
             ],
         ];
@@ -1425,6 +1464,37 @@ if (! function_exists('notification_trigger_scenarios_for_key')) {
                 'wired' => true,
             ] : null,
 
+            'showcase_submitted' => ! $isCustomer ? [
+                'summary' => 'Sent when a provider submits a work showcase item for admin review.',
+                'scenarios' => [
+                    'Provider uploads a new work showcase photo or video from the app.',
+                    'Provider edits an approved showcase item and it is sent back for review.',
+                ],
+                'recipient' => 'Provider',
+                'module' => 'Provider Work Showcase',
+                'wired' => true,
+            ] : null,
+
+            'showcase_approve' => ! $isCustomer ? [
+                'summary' => 'Sent when admin approves a provider work showcase item.',
+                'scenarios' => [
+                    'Admin accepts a pending showcase submission from the approval screen.',
+                ],
+                'recipient' => 'Provider',
+                'module' => 'Provider Work Showcase',
+                'wired' => true,
+            ] : null,
+
+            'showcase_deny' => ! $isCustomer ? [
+                'summary' => 'Sent when admin denies a provider work showcase item.',
+                'scenarios' => [
+                    'Admin rejects a pending showcase submission from the approval screen.',
+                ],
+                'recipient' => 'Provider',
+                'module' => 'Provider Work Showcase',
+                'wired' => true,
+            ] : null,
+
             'payment_collected_company' => [
                 'summary' => 'Sent when customer payment is recorded as received by the company.',
                 'scenarios' => [
@@ -1763,6 +1833,28 @@ if (! function_exists('notification_trigger_scenarios_for_key')) {
                 'summary' => 'Sent when a paused advertisement is resumed.',
                 'scenarios' => [
                     'Admin resumes provider advertisement.',
+                ],
+                'recipient' => 'Provider',
+                'module' => 'Service Updates',
+                'wired' => true,
+            ] : null,
+
+            'advertisement_paused_by_provider' => ! $isCustomer ? [
+                'summary' => 'Sent when a provider pauses their own active advertisement.',
+                'scenarios' => [
+                    'Provider pauses advertisement from the provider app.',
+                    'Provider pauses advertisement from the provider panel.',
+                ],
+                'recipient' => 'Provider',
+                'module' => 'Service Updates',
+                'wired' => true,
+            ] : null,
+
+            'advertisement_resumed_by_provider' => ! $isCustomer ? [
+                'summary' => 'Sent when a provider resumes their own paused advertisement.',
+                'scenarios' => [
+                    'Provider resumes advertisement from the provider app.',
+                    'Provider resumes advertisement from the provider panel.',
                 ],
                 'recipient' => 'Provider',
                 'module' => 'Service Updates',
@@ -2357,6 +2449,39 @@ if (! function_exists('notification_scenario_registry')) {
                 ],
             ],
 
+            // --- Provider Work Showcase ---
+            [
+                'id' => 'showcase_submitted',
+                'module' => 'provider_work_showcase',
+                'title' => 'Provider submits work showcase item',
+                'trigger_actor' => 'provider',
+                'trigger_action' => 'Provider uploads a new work showcase photo or video',
+                'audiences' => [
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'showcase_submitted', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'showcase_approved',
+                'module' => 'provider_work_showcase',
+                'title' => 'Admin approves provider work showcase',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Admin accepts a pending work showcase submission',
+                'audiences' => [
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'showcase_approve', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'showcase_denied',
+                'module' => 'provider_work_showcase',
+                'title' => 'Admin denies provider work showcase',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Admin rejects a pending work showcase submission',
+                'audiences' => [
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'showcase_deny', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+
             // --- Provider Account ---
             [
                 'id' => 'provider_suspended',
@@ -2438,6 +2563,7 @@ if (! function_exists('notification_scenario_registry')) {
                 'trigger_action' => 'Provider pauses an active advertisement from app or panel',
                 'audiences' => [
                     ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'advertisement_paused_by_provider', 'settings_type' => 'provider_notification', 'wired' => true],
                 ],
             ],
             [
@@ -2448,6 +2574,7 @@ if (! function_exists('notification_scenario_registry')) {
                 'trigger_action' => 'Provider resumes a paused advertisement from app or panel',
                 'audiences' => [
                     ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'advertisement_resumed_by_provider', 'settings_type' => 'provider_notification', 'wired' => true],
                 ],
             ],
 
@@ -2498,16 +2625,6 @@ if (! function_exists('notification_scenario_registry')) {
                 'title' => 'Customer cancelled booking',
                 'trigger_actor' => 'customer',
                 'trigger_action' => 'Customer cancels booking from the app',
-                'audiences' => [
-                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
-                ],
-            ],
-            [
-                'id' => 'admin_alert_showcase_submitted',
-                'module' => 'admin_alerts',
-                'title' => 'Provider submits showcase item for approval',
-                'trigger_actor' => 'provider',
-                'trigger_action' => 'Provider uploads a new work showcase photo or video',
                 'audiences' => [
                     ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
                 ],
@@ -3982,6 +4099,13 @@ if (! function_exists('send_advertisement_push_notification')) {
 
         $title = get_push_notification_message($messageKey, 'provider_notification', $owner->current_language_key);
         $description = get_push_notification_description($messageKey, 'provider_notification', $owner->current_language_key);
+        if ($title === false) {
+            $default = get_notification_default_message($messageKey, 'provider_notification');
+            if ($default) {
+                $title = $default['title'];
+                $description = $default['description'];
+            }
+        }
         if (! $title) {
             return;
         }
@@ -4047,6 +4171,62 @@ if (! function_exists('send_service_request_provider_notification')) {
             $description,
             null,
             'service_request',
+            $owner->id,
+            $data,
+            null,
+            null,
+            'provider-admin',
+            $provider?->zone_id
+        );
+    }
+}
+
+if (! function_exists('send_showcase_provider_notification')) {
+    function send_showcase_provider_notification(
+        \Modules\ProviderManagement\Entities\ProviderShowcaseItem $item,
+        string $messageKey,
+        ?string $fallbackTitle = null,
+        ?string $fallbackDescription = null,
+    ): void {
+        $item->loadMissing(['provider.owner']);
+        $provider = $item->provider;
+        $owner = $provider?->owner;
+        if (! $owner || ! $owner->is_active) {
+            return;
+        }
+
+        $languageKey = $owner->current_language_key;
+        $title = $messageKey !== ''
+            ? get_push_notification_message($messageKey, 'provider_notification', $languageKey)
+            : null;
+        $description = $messageKey !== ''
+            ? get_push_notification_description($messageKey, 'provider_notification', $languageKey)
+            : null;
+
+        if (! $title && $fallbackTitle) {
+            $title = $fallbackTitle;
+            $description = (string) ($fallbackDescription ?? '');
+        }
+
+        if (! $title) {
+            return;
+        }
+
+        $showcaseTitle = $item->title ?: translate('Work_showcase');
+        $data = [
+            'provider_name' => $provider?->company_name ?? '',
+            'providerName' => $provider?->company_name ?? '',
+            'showcaseTitle' => $showcaseTitle,
+            'showcase_title' => $showcaseTitle,
+            'showcase_item_id' => (string) $item->id,
+        ];
+
+        scenario_push_notification(
+            $owner,
+            $title,
+            $description,
+            null,
+            'showcase',
             $owner->id,
             $data,
             null,

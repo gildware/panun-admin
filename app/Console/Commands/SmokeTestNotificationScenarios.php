@@ -265,6 +265,9 @@ class SmokeTestNotificationScenarios extends Command
             'service_request_approved' => $this->testServiceRequestStatusNotification('service_request_approve', 'approved'),
             'service_request_denied' => $this->testServiceRequestStatusNotification('service_request_deny', 'denied'),
             'service_request_submitted' => $this->testServiceRequestSubmitted(),
+            'showcase_submitted' => $this->testShowcaseSubmitted(),
+            'showcase_approved' => $this->testShowcaseStatusNotification('showcase_approve', 'approved'),
+            'showcase_denied' => $this->testShowcaseStatusNotification('showcase_deny', 'denied'),
             'provider_suspended' => $this->testProviderSuspended($booking),
             'provider_suspension_removed' => $this->testProviderSuspensionRemoved($booking),
             'advertisement_created_by_admin' => $this->testAdvertisementPush('advertisement_created_by_admin'),
@@ -303,7 +306,6 @@ class SmokeTestNotificationScenarios extends Command
                     ->where('reference_id', (string) $booking->id)
                     ->delete()
             ),
-            'admin_alert_showcase_submitted' => $this->testShowcaseSubmittedAdminInbox(),
             default => ['status' => 'fail', 'detail' => 'No smoke test handler defined'],
         };
     }
@@ -935,19 +937,42 @@ class SmokeTestNotificationScenarios extends Command
      */
     private function testAdvertisementPausedByProviderInbox(): array
     {
-        $advertisement = Advertisement::with('provider')->whereNotNull('provider_id')->latest()->first();
+        $advertisement = Advertisement::with('provider.owner')->whereNotNull('provider_id')->latest()->first();
         if (! $advertisement) {
             return ['status' => 'skip', 'detail' => 'No advertisement record found'];
         }
 
-        return $this->testAdminInbox(
-            'admin_inbox_notify_advertisement_paused_by_provider',
-            fn () => admin_inbox_notify_advertisement_paused_by_provider($advertisement),
-            fn () => UserNotification::query()
+        $ownerId = $advertisement->provider?->owner?->id;
+        if (! $ownerId) {
+            return ['status' => 'fail', 'detail' => 'Advertisement has no provider owner'];
+        }
+
+        try {
+            UserNotification::query()
                 ->where('reference_type', 'advertisement_paused_by_provider')
                 ->where('reference_id', (string) $advertisement->id . ':paused')
-                ->delete()
-        );
+                ->delete();
+
+            $adminBefore = UserNotification::where('created_at', '>=', $this->testStartedAt ?? now()->subMinute())->count();
+            $providerBefore = $this->inboxCountForUsers([$ownerId]);
+
+            admin_inbox_notify_advertisement_paused_by_provider($advertisement);
+            send_advertisement_push_notification('advertisement_paused_by_provider', $advertisement);
+
+            $adminDelta = UserNotification::where('created_at', '>=', $this->testStartedAt ?? now()->subMinute())->count() - $adminBefore;
+            $providerDelta = $this->inboxCountForUsers([$ownerId]) - $providerBefore;
+
+            if ($adminDelta > 0 && $providerDelta > 0) {
+                return ['status' => 'pass', 'detail' => "Admin inbox: {$adminDelta} row(s); provider inbox: {$providerDelta} row(s)"];
+            }
+
+            return ['status' => 'fail', 'detail' => "Admin inbox delta: {$adminDelta}; provider inbox delta: {$providerDelta}"];
+        } finally {
+            UserNotification::query()
+                ->where('reference_type', 'advertisement_paused_by_provider')
+                ->where('reference_id', (string) $advertisement->id . ':paused')
+                ->delete();
+        }
     }
 
     /**
@@ -955,19 +980,42 @@ class SmokeTestNotificationScenarios extends Command
      */
     private function testAdvertisementResumedByProviderInbox(): array
     {
-        $advertisement = Advertisement::with('provider')->whereNotNull('provider_id')->latest()->first();
+        $advertisement = Advertisement::with('provider.owner')->whereNotNull('provider_id')->latest()->first();
         if (! $advertisement) {
             return ['status' => 'skip', 'detail' => 'No advertisement record found'];
         }
 
-        return $this->testAdminInbox(
-            'admin_inbox_notify_advertisement_resumed_by_provider',
-            fn () => admin_inbox_notify_advertisement_resumed_by_provider($advertisement),
-            fn () => UserNotification::query()
+        $ownerId = $advertisement->provider?->owner?->id;
+        if (! $ownerId) {
+            return ['status' => 'fail', 'detail' => 'Advertisement has no provider owner'];
+        }
+
+        try {
+            UserNotification::query()
                 ->where('reference_type', 'advertisement_resumed_by_provider')
                 ->where('reference_id', (string) $advertisement->id . ':resumed')
-                ->delete()
-        );
+                ->delete();
+
+            $adminBefore = UserNotification::where('created_at', '>=', $this->testStartedAt ?? now()->subMinute())->count();
+            $providerBefore = $this->inboxCountForUsers([$ownerId]);
+
+            admin_inbox_notify_advertisement_resumed_by_provider($advertisement);
+            send_advertisement_push_notification('advertisement_resumed_by_provider', $advertisement);
+
+            $adminDelta = UserNotification::where('created_at', '>=', $this->testStartedAt ?? now()->subMinute())->count() - $adminBefore;
+            $providerDelta = $this->inboxCountForUsers([$ownerId]) - $providerBefore;
+
+            if ($adminDelta > 0 && $providerDelta > 0) {
+                return ['status' => 'pass', 'detail' => "Admin inbox: {$adminDelta} row(s); provider inbox: {$providerDelta} row(s)"];
+            }
+
+            return ['status' => 'fail', 'detail' => "Admin inbox delta: {$adminDelta}; provider inbox delta: {$providerDelta}"];
+        } finally {
+            UserNotification::query()
+                ->where('reference_type', 'advertisement_resumed_by_provider')
+                ->where('reference_id', (string) $advertisement->id . ':resumed')
+                ->delete();
+        }
     }
 
     /**
@@ -1086,9 +1134,14 @@ class SmokeTestNotificationScenarios extends Command
     /**
      * @return array{status: string, detail: string}
      */
-    private function testShowcaseSubmittedAdminInbox(): array
+    private function testShowcaseSubmitted(): array
     {
         $provider = $this->sampleProvider();
+        $owner = $provider->owner;
+        if (! $owner) {
+            return ['status' => 'fail', 'detail' => 'No provider owner for showcase submission test'];
+        }
+
         $item = ProviderShowcaseItem::create([
             'provider_id' => $provider->id,
             'title' => 'Smoke Test Showcase',
@@ -1101,14 +1154,61 @@ class SmokeTestNotificationScenarios extends Command
         ]);
 
         try {
-            return $this->testAdminInbox(
-                'admin_inbox_notify_showcase_submitted',
-                fn () => admin_inbox_notify_showcase_submitted($item),
-                fn () => UserNotification::query()
-                    ->where('reference_type', 'showcase_submission')
-                    ->where('reference_id', (string) $item->id)
-                    ->delete()
-            );
+            $adminBefore = UserNotification::where('created_at', '>=', $this->testStartedAt ?? now()->subMinute())->count();
+            $providerBefore = $this->inboxCountForUsers([$owner->id]);
+
+            admin_inbox_notify_showcase_submitted($item);
+            send_showcase_provider_notification($item, 'showcase_submitted');
+
+            $adminDelta = UserNotification::where('created_at', '>=', $this->testStartedAt ?? now()->subMinute())->count() - $adminBefore;
+            $providerDelta = $this->inboxCountForUsers([$owner->id]) - $providerBefore;
+
+            if ($adminDelta > 0 && $providerDelta > 0) {
+                return ['status' => 'pass', 'detail' => "Admin inbox: {$adminDelta} row(s); provider inbox: {$providerDelta} row(s)"];
+            }
+
+            return ['status' => 'fail', 'detail' => "Admin delta: {$adminDelta}; provider delta: {$providerDelta}"];
+        } finally {
+            UserNotification::query()
+                ->where('reference_type', 'showcase_submission')
+                ->where('reference_id', (string) $item->id)
+                ->delete();
+            $item->delete();
+        }
+    }
+
+    /**
+     * @return array{status: string, detail: string}
+     */
+    private function testShowcaseStatusNotification(string $messageKey, string $status): array
+    {
+        $provider = $this->sampleProvider();
+        $owner = $provider->owner;
+        if (! $owner) {
+            return ['status' => 'fail', 'detail' => 'No provider owner for showcase status test'];
+        }
+
+        $item = ProviderShowcaseItem::create([
+            'provider_id' => $provider->id,
+            'title' => 'Smoke Test ' . ucfirst($status) . ' Showcase',
+            'description' => 'Smoke test showcase ' . $status,
+            'media_type' => 'image',
+            'file_name' => 'provider/' . \App\Support\MediaStoragePath::providerSlug($provider) . '/showcase/smoke-test.webp',
+            'sort_order' => 0,
+            'is_active' => 1,
+            'is_approved' => $status === 'approved'
+                ? ProviderShowcaseItem::STATUS_APPROVED
+                : ProviderShowcaseItem::STATUS_DENIED,
+        ]);
+
+        try {
+            $before = $this->inboxCountForUsers([$owner->id]);
+            send_showcase_provider_notification($item, $messageKey);
+            $delta = $this->inboxCountForUsers([$owner->id]) - $before;
+
+            return $delta > 0
+                ? ['status' => 'pass', 'detail' => ucfirst($status) . ": {$delta} provider inbox row(s)"]
+                : ['status' => 'fail', 'detail' => ucfirst($status) . ': provider inbox row not created'];
         } finally {
             $item->delete();
         }
