@@ -1,7 +1,7 @@
 # Add INSIDE public/.htaccess, AFTER "RewriteEngine On" and BEFORE the Laravel front-controller rule.
-# Requires mod_proxy / mod_proxy_wstunnel (may be disabled on shared hosting).
 
-    # Proxy WebSocket upgrades to local Soketi (Pusher path: /app/...)
-    RewriteCond %{HTTP:Upgrade} websocket [NC]
-    RewriteCond %{HTTP:Connection} upgrade [NC]
+    # Proxy Pusher/Soketi traffic to local Soketi (before Laravel front controller).
+    RewriteCond %{HTTP:Upgrade} =websocket [NC]
     RewriteRule ^app/(.*)$ ws://127.0.0.1:6001/app/$1 [P,L]
+    RewriteCond %{HTTP:Upgrade} !=websocket [NC]
+    RewriteRule ^app/(.*)$ http://127.0.0.1:6001/app/$1 [P,L]
