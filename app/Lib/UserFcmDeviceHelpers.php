@@ -294,6 +294,31 @@ if (! function_exists('handle_user_fcm_token_request')) {
     }
 }
 
+if (! function_exists('notification_logs_user_type_label')) {
+    function notification_logs_user_type_label(?string $userType): string
+    {
+        return match ($userType) {
+            'customer' => translate('customer'),
+            'provider-admin' => translate('provider'),
+            'provider-serviceman' => translate('serviceman'),
+            default => ucfirst(str_replace('-', ' ', (string) $userType)),
+        };
+    }
+}
+
+if (! function_exists('notification_logs_user_device_count')) {
+    function notification_logs_user_device_count(\Modules\UserManagement\Entities\User $user): int
+    {
+        $count = (int) $user->fcm_devices_count;
+
+        if ($count === 0 && is_valid_fcm_token($user->fcm_token)) {
+            return 1;
+        }
+
+        return $count;
+    }
+}
+
 if (! function_exists('mask_fcm_token')) {
     function mask_fcm_token(?string $token): ?string
     {

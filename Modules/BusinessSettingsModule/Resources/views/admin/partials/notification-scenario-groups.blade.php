@@ -113,22 +113,7 @@
                     </button>
                 </li>
             @endforeach
-            <li class="nav-item">
-                <button type="button"
-                        class="nav-link notification-scenario-module-tab {{ $activeModuleTab === 'logs_and_status' ? 'active' : '' }}"
-                        data-module-tab="logs_and_status"
-                        role="tab"
-                        aria-selected="{{ $activeModuleTab === 'logs_and_status' ? 'true' : 'false' }}">
-                    {{ translate('notification_logs_and_status') }}
-                </button>
-            </li>
         </ul>
-    </div>
-
-    <div class="notification-scenario-module-panel {{ $activeModuleTab === 'logs_and_status' ? 'is-active' : '' }}"
-         data-module-panel="logs_and_status"
-         role="tabpanel">
-        @includeWhen($activeModuleTab === 'logs_and_status', 'businesssettingsmodule::admin.partials.notification-logs-status')
     </div>
 
     @foreach($groupedScenarios as $moduleKey => $moduleScenarios)
@@ -283,6 +268,7 @@
 
             function updateModuleTabUrl(moduleKey) {
                 var url = new URL(window.location.href);
+                url.searchParams.set('section', 'message_config');
                 url.searchParams.set('tab', moduleKey);
                 window.history.replaceState({}, '', url);
             }
@@ -342,18 +328,7 @@
                 var moduleBtn = e.target.closest('.notification-scenario-module-tab');
                 if (moduleBtn) {
                     e.preventDefault();
-                    var moduleKey = moduleBtn.getAttribute('data-module-tab');
-                    var currentTabInput = document.getElementById('notificationScenarioActiveTab');
-                    var currentTab = currentTabInput ? currentTabInput.value : null;
-
-                    if (moduleKey === 'logs_and_status' && currentTab !== 'logs_and_status') {
-                        var logsUrl = new URL(window.location.href);
-                        logsUrl.searchParams.set('tab', moduleKey);
-                        window.location.href = logsUrl.toString();
-                        return;
-                    }
-
-                    activateModuleTab(moduleKey, true);
+                    activateModuleTab(moduleBtn.getAttribute('data-module-tab'), true);
                     return;
                 }
 

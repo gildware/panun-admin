@@ -1,0 +1,94 @@
+@if(($usersWithDevices ?? null) && $usersWithDevices->count() > 0)
+    <div class="notification-user-devices-list d-flex flex-column gap-3">
+        @foreach($usersWithDevices as $user)
+            @php
+                $deviceCount = notification_logs_user_device_count($user);
+                $userName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) ?: translate('user');
+                $typeLabel = notification_logs_user_type_label($user->user_type);
+                $typeBadgeClass = match ($user->user_type) {
+                    'provider-admin', 'provider-serviceman' => 'notification-scenario-badge-audience-provider',
+                    default => 'notification-scenario-badge-audience-customer',
+                };
+                $hasLegacyOnly = $user->fcmDevices->isEmpty() && is_valid_fcm_token($user->fcm_token);
+            @endphp
+            <div class="notification-scenario-accordion notification-user-device-accordion" id="user-devices-{{ $user->id }}">
+                <div class="d-flex align-items-center gap-3 p-3 cursor-pointer transition {{ $loop->first ? 'active' : '' }} bg-white border cus-shadow notification-scenario-toggle-header">
+                    <span class="rounded-full bg-light w-28 h-28 fz-14 d-inline-flex align-items-center justify-content-center flex-shrink-0 notification-scenario-toggle-chevron">
+                        <i class="material-symbols-outlined">keyboard_arrow_down</i>
+                    </span>
+                    <div class="flex-grow-1 min-w-0 d-flex flex-wrap align-items-center gap-2">
+                        <h6 class="mb-0 fw-semibold text-dark">{{ $userName }}</h6>
+                        <span class="badge {{ $typeBadgeClass }} rounded-pill px-2 py-1">{{ $typeLabel }}</span>
+                        <span class="badge bg-light text-dark border rounded-pill px-2 py-1">
+                            {{ $deviceCount }} {{ translate('devices') }}
+                        </span>
+                        @if($user->phone)
+                            <span class="text-muted fz-12">{{ $user->phone }}</span>
+                        @elseif($user->email)
+                            <span class="text-muted fz-12">{{ $user->email }}</span>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="table-custom-wrap bg-white border border-top-0 cus-shadow p-3 notification-scenario-toggle-body"
+                     @if(!$loop->first) style="display: none;" @endif>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0 notification-scenario-audience-table">
+                            <thead>
+                            <tr>
+                                <th>{{ translate('device_id') }}</th>
+                                <th>{{ translate('platform') }}</th>
+                                <th>{{ translate('push_configured') }}</th>
+                                <th>{{ translate('last_seen') }}</th>
+                                <th>{{ translate('last_login_at') }}</th>
+                                <th>{{ translate('token_preview') }}</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            @forelse($user->fcmDevices as $device)
+                                @php $isConfigured = is_valid_fcm_token($device->fcm_token); @endphp
+                                <tr>
+                                    <td><code class="fz-11">{{ $device->device_id }}</code></td>
+                                    <td>{{ strtoupper((string) ($device->platform ?? '—')) }}</td>
+                                    <td>
+                                        @if($isConfigured)
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle">{{ translate('configured') }}</span>
+                                        @else
+                                            <span class="badge bg-warning-subtle text-warning border border-warning-subtle">{{ translate('not_configured') }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-nowrap small">{{ $device->last_seen_at?->format('Y-m-d H:i:s') ?? '—' }}</td>
+                                    <td class="text-nowrap small">{{ $device->updated_at?->format('Y-m-d H:i:s') ?? '—' }}</td>
+                                    <td class="small text-muted">{{ mask_fcm_token($device->fcm_token) ?? '—' }}</td>
+                                </tr>
+                            @empty
+                                @if($hasLegacyOnly)
+                                    <tr>
+                                        <td><code class="fz-11">legacy</code></td>
+                                        <td>—</td>
+                                        <td>
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle">{{ translate('configured') }}</span>
+                                        </td>
+                                        <td class="text-nowrap small">{{ $user->last_seen_at?->format('Y-m-d H:i:s') ?? '—' }}</td>
+                                        <td class="text-nowrap small">{{ $user->updated_at?->format('Y-m-d H:i:s') ?? '—' }}</td>
+                                        <td class="small text-muted">{{ mask_fcm_token($user->fcm_token) ?? '—' }}</td>
+                                    </tr>
+                                @endif
+                            @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        @endforeach
+    </div>
+    @if($usersWithDevices->hasPages())
+        <div class="d-flex justify-content-end mt-3">
+            {!! $usersWithDevices->links() !!}
+        </div>
+    @endif
+@else
+    <div class="border rounded bg-light text-center text-muted py-5 px-3">
+        {{ translate('no_users_found_for_device_search') }}
+    </div>
+@endif

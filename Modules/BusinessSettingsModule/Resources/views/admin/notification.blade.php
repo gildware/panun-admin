@@ -7,24 +7,100 @@
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/dataTables/jquery.dataTables.min.css"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/dataTables/select.dataTables.min.css"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/swiper/swiper-bundle.min.css"/>
+    <style>
+        .notification-page-section-tabs {
+            margin-bottom: 1.25rem;
+        }
+        .notification-page-section-tabs .nav-link {
+            white-space: nowrap;
+        }
+        .notification-scenario-accordion + .notification-scenario-accordion {
+            margin-top: 12px;
+        }
+        .notification-scenario-accordion .notification-scenario-toggle-header {
+            border-radius: 8px;
+        }
+        .notification-scenario-accordion .notification-scenario-toggle-header.active {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+        .notification-scenario-accordion .notification-scenario-toggle-header.active .notification-scenario-toggle-chevron {
+            transform: rotate(-180deg);
+            background-color: var(--bs-primary) !important;
+            color: var(--bs-white);
+        }
+        .notification-scenario-audience-table th,
+        .notification-scenario-audience-table td {
+            font-size: 12px;
+            vertical-align: middle;
+        }
+        .notification-scenario-badge-audience-customer {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+        .notification-scenario-badge-audience-provider {
+            background: #fff3e0;
+            color: #ef6c00;
+            border: 1px solid #ffe0b2;
+        }
+    </style>
 @endpush
 
 @section('content')
+    @php
+        $activeSection = $activeSection ?? 'message_config';
+    @endphp
     <div class="main-content">
         <div class="container-fluid">
             <h2 class="page-title mb-3">{{ translate('Push Notification') }}</h2>
 
+            <div class="notification-page-section-tabs">
+                <ul class="nav nav--tabs nav--tabs__style2 flex-wrap gap-2 align-items-center" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link {{ $activeSection === 'message_config' ? 'active' : '' }}"
+                           href="{{ route('admin.configuration.get-notification-setting', array_filter([
+                               'section' => 'message_config',
+                               'tab' => $activeModuleTab ?? null,
+                           ])) }}">
+                            {{ translate('notification_message_config') }}
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ $activeSection === 'logs' ? 'active' : '' }}"
+                           href="{{ route('admin.configuration.get-notification-setting', ['section' => 'logs']) }}">
+                            {{ translate('notification_logs') }}
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ $activeSection === 'device_check' ? 'active' : '' }}"
+                           href="{{ route('admin.configuration.get-notification-setting', ['section' => 'device_check']) }}">
+                            {{ translate('notification_device_check') }}
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
             <div class="card">
                 <div class="card-body p-20">
-                    @include('businesssettingsmodule::admin.partials.notification-scenario-groups', [
-                        'groupedScenarios' => $groupedScenarios,
-                        'dataValues' => $dataValues,
-                        'language' => null,
-                        'activeModuleTab' => $activeModuleTab,
-                        'notificationDeliveryLogs' => $notificationDeliveryLogs ?? null,
-                        'userFcmDevices' => $userFcmDevices ?? null,
-                        'deviceStats' => $deviceStats ?? null,
-                    ])
+                    @if($activeSection === 'message_config')
+                        @include('businesssettingsmodule::admin.partials.notification-scenario-groups', [
+                            'groupedScenarios' => $groupedScenarios,
+                            'dataValues' => $dataValues,
+                            'language' => null,
+                            'activeModuleTab' => $activeModuleTab,
+                        ])
+                    @elseif($activeSection === 'logs')
+                        @include('businesssettingsmodule::admin.partials.notification-delivery-logs', [
+                            'notificationDeliveryLogs' => $notificationDeliveryLogs ?? null,
+                            'deviceStats' => $deviceStats ?? null,
+                        ])
+                    @elseif($activeSection === 'device_check')
+                        @include('businesssettingsmodule::admin.partials.notification-device-check', [
+                            'usersWithDevices' => $usersWithDevices ?? null,
+                            'deviceStats' => $deviceStats ?? null,
+                        ])
+                    @endif
                 </div>
             </div>
         </div>
@@ -461,6 +537,21 @@
 
                 $(document).ready(bootNotificationPage);
                 document.addEventListener('admin:page-loaded', bootNotificationPage);
+
+                document.addEventListener('click', function (e) {
+                    var header = e.target.closest('.notification-user-device-accordion .notification-scenario-toggle-header');
+                    if (!header) {
+                        return;
+                    }
+                    e.preventDefault();
+                    var body = header.nextElementSibling;
+                    if (!body || !body.classList.contains('notification-scenario-toggle-body')) {
+                        return;
+                    }
+                    var isOpen = window.getComputedStyle(body).display !== 'none';
+                    body.style.display = isOpen ? 'none' : 'block';
+                    header.classList.toggle('active', !isOpen);
+                });
             });
         })();
     </script>
