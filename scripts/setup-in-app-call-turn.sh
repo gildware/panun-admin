@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # One-shot: Coturn (TURN) + Laravel in-app call env for real-device WebRTC.
 #
-# Run on the server as root (after git pull on panun-admin dev branch):
-#   cd /path/to/panun-admin   # Laravel root (where artisan lives)
+# Run on the Coturn VPS as root (NOT on shared Laravel hosting):
+#   cd /path/to/panun-admin
 #   sudo bash scripts/setup-in-app-call-turn.sh
+#
+# If Coturn is on another server, use configure-in-app-call-turn-env.sh on Laravel instead:
+#   bash scripts/configure-in-app-call-turn-env.sh turn:IP:3478 panun_turn SECRET
 #
 # Optional: pass Laravel root as first argument.
 

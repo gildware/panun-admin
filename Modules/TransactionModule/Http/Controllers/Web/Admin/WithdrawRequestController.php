@@ -259,11 +259,11 @@ class WithdrawRequestController extends Controller
             $title = get_push_notification_message('widthdraw_request_approve', 'provider_notification', $user?->current_language_key);
 
             $description = get_push_notification_description('widthdraw_request_approve', 'provider_notification', $user?->current_language_key);
-            if ($title && $user && $user->fcm_token && $notification) {
+            if ($title && $user && user_has_fcm_devices($user) && $notification) {
                 $dataInfo = [
                     'provider_name' => $user->provider->company_name,
                 ];
-                device_notification($user->fcm_token, $title, $description, null, null, 'withdraw', null, $user->id, $dataInfo);
+                device_notification_for_user($user, $title, $description, null, null, 'withdraw', null, $user->id, $dataInfo);
             }
 
         } else if ($request['status'] == 'settled') {
@@ -302,8 +302,8 @@ class WithdrawRequestController extends Controller
             ];
             $title = get_push_notification_message('widthdraw_request_deny', 'provider_notification', $user?->current_language_key);
             $description = get_push_notification_description('widthdraw_request_deny', 'provider_notification', $user?->current_language_key);
-            if ($title && $user && $user->fcm_token && $notification) {
-                device_notification($user->fcm_token, $title, $description, null, null, 'withdraw', null, $user->id, $dataInfo);
+            if ($title && $user && user_has_fcm_devices($user) && $notification) {
+                device_notification_for_user($user, $title, $description, null, null, 'withdraw', null, $user->id, $dataInfo);
             }
 
         }

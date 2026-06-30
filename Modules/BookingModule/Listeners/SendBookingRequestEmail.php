@@ -48,7 +48,7 @@ class SendBookingRequestEmail
             $customer = $event->booking->customer;
             if ($customer && $title && $notification && $customer->is_active) {
                 scenario_push_notification(
-                    $customer->fcm_token,
+                    $customer,
                     $title,
                     $description,
                     $event->booking->id,

@@ -21,8 +21,8 @@ if (!function_exists('add_fund_success')) {
         $data_info = [
             'user_name' => $user?->first_name . ' '. $user->last_name
         ];
-        if ($user->fcm_token && $title && $permission) {
-            device_notification($user->fcm_token, $title, $description, null, null, NOTIFICATION_TYPE['wallet'], null, $customer_user_id, $data_info);
+        if (user_has_fcm_devices($user) && $title && $permission) {
+            device_notification_for_user($user, $title, $description, null, null, NOTIFICATION_TYPE['wallet'], null, $customer_user_id, $data_info);
         }
     }
 }

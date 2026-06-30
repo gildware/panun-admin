@@ -42,8 +42,8 @@ if (!function_exists('pay_to_admin_success')) {
         ];
         $title =  with_currency_symbol($amount) . ' ' . get_push_notification_message('admin_payable', 'provider_notification', $user?->owner?->current_language_key);
         $description = get_push_notification_description('admin_payable', 'provider_notification', $user?->owner?->current_language_key);
-        if ($user?->owner?->fcm_token && $title) {
-            device_notification($user->owner->fcm_token, $title, $description, null, null, 'admin_pay', null, $user->id, $data_info);
+        if (user_has_fcm_devices($user?->owner) && $title) {
+            device_notification_for_user($user->owner, $title, $description, null, null, 'admin_pay', null, $user->id, $data_info);
         }
     }
 }

@@ -2673,7 +2673,7 @@ if (! function_exists('scenario_push_notification')) {
      * Send FCM push and persist to the in-app notification inbox for the recipient.
      */
     function scenario_push_notification(
-        ?string $fcmToken,
+        \Modules\UserManagement\Entities\User|string|null $recipientOrToken,
         string $title,
         ?string $description = '',
         mixed $bookingId = null,
@@ -2718,7 +2718,7 @@ if (! function_exists('scenario_push_notification')) {
             );
         }
 
-        if ($fcmToken) {
+        foreach (resolve_fcm_tokens_for_recipient($recipientOrToken) as $fcmToken) {
             device_notification(
                 $fcmToken,
                 $title,
@@ -2770,7 +2770,7 @@ if (! function_exists('send_admin_booking_created_notifications')) {
             $description = get_push_notification_description($key, 'customer_notification', $user?->current_language_key);
             if ($user && $title && $user->is_active) {
                 scenario_push_notification(
-                    $user->fcm_token,
+                    $user,
                     $title,
                     $description,
                     $booking->id,
@@ -2792,7 +2792,7 @@ if (! function_exists('send_admin_booking_created_notifications')) {
             $description = get_push_notification_description($key, 'provider_notification', $providerOwner?->current_language_key);
             if ($providerOwner && $title && sendDeviceNotificationPermission($booking->provider_id)) {
                 scenario_push_notification(
-                    $providerOwner->fcm_token,
+                    $providerOwner,
                     $title,
                     $description,
                     $booking->id,
@@ -2860,7 +2860,7 @@ if (! function_exists('send_booking_new_service_request_to_assigned_provider')) 
         ];
 
         scenario_push_notification(
-            $owner->fcm_token,
+            $owner,
             $title,
             $description,
             $booking->id,
@@ -2895,7 +2895,7 @@ if (! function_exists('send_booking_edit_service_add_notifications')) {
             $description = get_push_notification_description($key, 'customer_notification', $user?->current_language_key);
             if ($user && $title) {
                 scenario_push_notification(
-                    $user->fcm_token,
+                    $user,
                     $title,
                     $description,
                     $booking->id,
@@ -2916,7 +2916,7 @@ if (! function_exists('send_booking_edit_service_add_notifications')) {
             $description = get_push_notification_description($key, 'provider_notification', $providerOwner?->current_language_key);
             if ($providerOwner && $title) {
                 scenario_push_notification(
-                    $providerOwner->fcm_token,
+                    $providerOwner,
                     $title,
                     $description,
                     $booking->id,
@@ -2935,8 +2935,8 @@ if (! function_exists('send_booking_edit_service_add_notifications')) {
             $serviceman = $booking->serviceman?->user;
             $title = get_push_notification_message($key, 'serviceman_notification', $serviceman?->current_language_key);
             $description = get_push_notification_description($key, 'serviceman_notification', $serviceman?->current_language_key);
-            if ($serviceman?->fcm_token && $title) {
-                device_notification($serviceman->fcm_token, $title, $description, null, $booking->id, 'booking', null, null, $data, null, $repeatOrRegular);
+            if (user_has_fcm_devices($serviceman) && $title) {
+                device_notification_for_user($serviceman, $title, $description, null, $booking->id, 'booking', null, null, $data, null, $repeatOrRegular);
             }
         }
     }
@@ -2965,7 +2965,7 @@ if (! function_exists('send_booking_payment_collected_notifications')) {
             $description = get_push_notification_description($key, 'customer_notification', $user?->current_language_key);
             if ($user && $user->is_active && $title) {
                 scenario_push_notification(
-                    $user->fcm_token,
+                    $user,
                     $title,
                     $description,
                     $booking->id,
@@ -2986,7 +2986,7 @@ if (! function_exists('send_booking_payment_collected_notifications')) {
             $description = get_push_notification_description($key, 'provider_notification', $providerOwner?->current_language_key);
             if ($providerOwner && $title && sendDeviceNotificationPermission($booking->provider_id)) {
                 scenario_push_notification(
-                    $providerOwner->fcm_token,
+                    $providerOwner,
                     $title,
                     $description,
                     $booking->id,
@@ -3033,7 +3033,7 @@ if (! function_exists('send_customer_payment_failed_notification')) {
         ];
 
         scenario_push_notification(
-            $user->fcm_token,
+            $user,
             $title,
             $description,
             $bookingId,
@@ -3078,7 +3078,7 @@ if (! function_exists('send_customer_wallet_deducted_notification')) {
         ];
 
         scenario_push_notification(
-            $user->fcm_token,
+            $user,
             with_currency_symbol($amount) . ' ' . $title,
             $description,
             $bookingId,
@@ -3129,7 +3129,7 @@ if (! function_exists('send_provider_settlement_received_notification')) {
         ];
 
         scenario_push_notification(
-            $owner->fcm_token,
+            $owner,
             with_currency_symbol($amount) . ' ' . $title,
             $description,
             null,
@@ -3172,7 +3172,7 @@ if (! function_exists('send_booking_reminder_notification')) {
         ];
 
         scenario_push_notification(
-            $user->fcm_token,
+            $user,
             $title,
             $description,
             $booking->id,
@@ -3218,7 +3218,7 @@ if (! function_exists('send_chat_message_push_notification')) {
             return;
         }
 
-        if (! $toUser->fcm_token) {
+        if (! user_has_fcm_devices($toUser)) {
             return;
         }
 
@@ -3248,8 +3248,8 @@ if (! function_exists('send_chat_message_push_notification')) {
         $title = text_variable_data_format($title, $bookingUuid, 'booking', $templateData);
         $description = text_variable_data_format((string) $description, $bookingUuid, 'booking', $templateData);
 
-        device_notification_for_chatting(
-            $toUser->fcm_token,
+        device_notification_for_chatting_user(
+            $toUser,
             $title,
             $description,
             null,
@@ -3311,7 +3311,7 @@ if (! function_exists('send_customer_loyalty_point_notification')) {
         ];
 
         scenario_push_notification(
-            $user->fcm_token,
+            $user,
             with_decimal_point($points) . ' ' . $title,
             $description,
             $bookingId,
@@ -3346,7 +3346,7 @@ if (! function_exists('send_customer_refund_notification')) {
         }
 
         scenario_push_notification(
-            $user->fcm_token,
+            $user,
             with_currency_symbol($amount) . ' ' . $title,
             $description,
             $booking->id,
@@ -3395,7 +3395,7 @@ if (! function_exists('send_review_approved_to_provider_notification')) {
         ];
 
         scenario_push_notification(
-            $owner->fcm_token,
+            $owner,
             $title,
             $description,
             $review->booking_id,
@@ -3440,7 +3440,7 @@ if (! function_exists('send_review_approved_to_customer_notification')) {
         ];
 
         scenario_push_notification(
-            $customer->fcm_token,
+            $customer,
             $title,
             $description,
             $review->booking_id,
@@ -3485,7 +3485,7 @@ if (! function_exists('send_review_published_to_customer_notification')) {
         ];
 
         scenario_push_notification(
-            $customer->fcm_token,
+            $customer,
             $title,
             $description,
             $review->booking_id,
@@ -3531,7 +3531,7 @@ if (! function_exists('send_provider_review_published_notification')) {
         ];
 
         scenario_push_notification(
-            $owner->fcm_token,
+            $owner,
             $title,
             $description,
             $review->booking_id,
@@ -3567,7 +3567,7 @@ if (! function_exists('send_provider_withdraw_request_submitted_notification')) 
         }
 
         scenario_push_notification(
-            $owner->fcm_token,
+            $owner,
             $title,
             $description,
             null,
@@ -3614,7 +3614,7 @@ if (! function_exists('send_provider_withdraw_settled_notification')) {
         }
 
         scenario_push_notification(
-            $owner->fcm_token,
+            $owner,
             with_currency_symbol($withdrawRequest->amount) . ' ' . $title,
             $description,
             null,
@@ -3657,7 +3657,7 @@ if (! function_exists('send_provider_removed_from_booking_notification')) {
 
         $repeatOrRegular = (int) ($booking->is_repeated ?? 0) ? 'repeat' : 'regular';
         scenario_push_notification(
-            $owner->fcm_token,
+            $owner,
             $title,
             $description,
             $booking->id,
@@ -3708,7 +3708,7 @@ if (! function_exists('send_booking_provider_reassignment_notifications')) {
             $description = get_push_notification_description('provider_assign', 'customer_notification', $user?->current_language_key);
             if ($user && $user->is_active && $title) {
                 scenario_push_notification(
-                    $user->fcm_token,
+                    $user,
                     $title,
                     $description,
                     $booking->id,
@@ -3729,7 +3729,7 @@ if (! function_exists('send_booking_provider_reassignment_notifications')) {
             $description = get_push_notification_description('booking_assigned_to_provider', 'provider_notification', $providerOwner?->current_language_key);
             if ($providerOwner && $title && sendDeviceNotificationPermission($newProviderId)) {
                 scenario_push_notification(
-                    $providerOwner->fcm_token,
+                    $providerOwner,
                     $title,
                     $description,
                     $booking->id,
@@ -3775,7 +3775,7 @@ if (! function_exists('send_booking_ignored_by_provider_notification')) {
         ];
 
         scenario_push_notification(
-            $user->fcm_token,
+            $user,
             $title,
             $description,
             $booking->id,
@@ -3818,7 +3818,7 @@ if (! function_exists('send_booking_service_location_updated_notification')) {
         ];
 
         scenario_push_notification(
-            $user->fcm_token,
+            $user,
             $title,
             $description,
             $booking->id,
@@ -3855,7 +3855,7 @@ if (! function_exists('send_provider_suspended_notification')) {
         }
 
         scenario_push_notification(
-            $owner->fcm_token,
+            $owner,
             $title,
             $description,
             $provider->id,
@@ -3886,7 +3886,7 @@ if (! function_exists('send_provider_suspension_removed_notification')) {
         }
 
         scenario_push_notification(
-            $owner->fcm_token,
+            $owner,
             $title,
             $description,
             $provider->id,
@@ -3915,7 +3915,7 @@ if (! function_exists('send_referral_code_used_notification')) {
         }
 
         scenario_push_notification(
-            $referrer->fcm_token,
+            $referrer,
             $title,
             $description,
             null,
@@ -3953,7 +3953,7 @@ if (! function_exists('send_advertisement_push_notification')) {
         }
 
         scenario_push_notification(
-            $owner->fcm_token,
+            $owner,
             $title,
             $description,
             null,
@@ -3989,7 +3989,7 @@ if (! function_exists('send_in_app_call_push_notification')) {
         \Modules\InAppCallModule\Entities\InAppCall $call,
         \Modules\UserManagement\Entities\User $caller,
     ): void {
-        if (! $toUser->fcm_token) {
+        if (! user_has_fcm_devices($toUser)) {
             return;
         }
 
@@ -3997,8 +3997,8 @@ if (! function_exists('send_in_app_call_push_notification')) {
         $title = translate('Incoming_call');
         $description = $callerName;
 
-        device_notification_for_in_app_call(
-            $toUser->fcm_token,
+        device_notification_for_in_app_call_user(
+            $toUser,
             $title,
             $description,
             $call->id,
@@ -4019,7 +4019,7 @@ if (! function_exists('send_in_app_call_status_push_notification')) {
         \Modules\InAppCallModule\Entities\InAppCall $call,
         string $eventType,
     ): void {
-        if (! $toUser->fcm_token) {
+        if (! user_has_fcm_devices($toUser)) {
             return;
         }
 
@@ -4032,8 +4032,8 @@ if (! function_exists('send_in_app_call_status_push_notification')) {
             default => translate('Call_update'),
         };
 
-        device_notification_for_in_app_call(
-            $toUser->fcm_token,
+        device_notification_for_in_app_call_user(
+            $toUser,
             $title,
             '',
             $call->id,

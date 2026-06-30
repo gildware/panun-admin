@@ -75,6 +75,11 @@ class User extends Authenticatable
         return $this->hasMany(Booking::class, 'customer_id', 'id');
     }
 
+    public function fcmDevices(): HasMany
+    {
+        return $this->hasMany(UserFcmDevice::class);
+    }
+
     public function reviews(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Review::class, 'customer_id');
@@ -436,6 +441,7 @@ class User extends Authenticatable
         self::updating(function ($model) {
             if ($model->isDirty('is_active')) {
                 if ($model->is_active == 0){
+                    UserFcmDevice::query()->where('user_id', $model->id)->delete();
                     $model->fcm_token = '';
                 }
             }
@@ -447,8 +453,8 @@ class User extends Authenticatable
                 if ($model->is_active == 0){
 
                     $title = translate('Your account has been deactivated! Please contact with admin');
-                    if ($model->fcm_token && $title) {
-                        device_notification($model->fcm_token, $title, null, null, null, 'logout', null, $model->id);
+                    if (user_has_fcm_devices($model) && $title) {
+                        device_notification_for_user($model, $title, null, null, null, 'logout', null, $model->id);
                     }
 
                     $model->tokens->each(function ($token, $key) {

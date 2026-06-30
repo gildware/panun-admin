@@ -168,11 +168,11 @@ class PostController extends Controller
 
         $bookingNotificationStatus = business_config('booking', 'notification_settings')->live_values ?? [];
         foreach ($providers as $provider) {
-            $fcmToken = $provider->owner->fcm_token ?? null;
-            $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', $provider->owner?->current_language_key);
-            $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', $provider->owner?->current_language_key);
-            if ($fcmToken && $provider->service_availability && $title && ($bookingNotificationStatus['push_notification_booking'] ?? false)) {
-                device_notification_for_bidding($fcmToken, $title, $description, null, 'bidding', null, $post->id, null, [
+            $owner = $provider->owner;
+            $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', $owner?->current_language_key);
+            $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', $owner?->current_language_key);
+            if ($owner && user_has_fcm_devices($owner) && $provider->service_availability && $title && ($bookingNotificationStatus['push_notification_booking'] ?? false)) {
+                device_notification_for_bidding_user($owner, $title, $description, null, 'bidding', null, $post->id, null, [
                     'user_name' => $post->customer?->first_name . ' ' . $post->customer?->last_name,
                 ]);
             }
@@ -396,13 +396,12 @@ class PostController extends Controller
         $pushNotification->save();
 
         $customer = $post?->customer;
-        $fcmToken = $customer?->fcm_token ?? null;
         $languageKey = $customer?->current_language_key;
         $permission = isNotificationActive(null, 'booking', 'notification', 'user');
-        if (!is_null($fcmToken) && $permission) {
+        if ($customer && user_has_fcm_devices($customer) && $permission) {
             $title = get_push_notification_message('customized_booking_request_delete', 'customer_notification', $languageKey);
             $description = get_push_notification_description('customized_booking_request_delete', 'customer_notification', $languageKey);
-            device_notification($fcmToken, $title, $description, null, null, 'general');
+            device_notification_for_user($customer, $title, $description, null, null, 'general');
         }
 
         $post->delete();
@@ -428,13 +427,12 @@ class PostController extends Controller
 
         foreach ($deletedPosts as $post) {
             $customer = $post?->customer;
-            $fcmToken = $customer?->fcm_token ?? null;
 
-            if (!is_null($fcmToken)) {
+            if ($customer && user_has_fcm_devices($customer)) {
                 $languageKey = $customer?->current_language_key;
                 $title = get_push_notification_message('customized_booking_request_delete', 'customer_notification', $languageKey);
                 $description = get_push_notification_description('customized_booking_request_delete', 'customer_notification', $languageKey);
-                device_notification($fcmToken, $title, $description, null, null, 'bidding');
+                device_notification_for_user($customer, $title, $description, null, null, 'bidding');
             }
         }
 

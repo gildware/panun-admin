@@ -302,8 +302,8 @@ class ProviderBookingWithdrawalService
     private function notifyCustomerProviderWithdrew(Booking $booking): void
     {
         $booking->loadMissing('customer');
-        $fcmToken = $booking->customer?->fcm_token;
-        if (! $fcmToken) {
+        $customer = $booking->customer;
+        if (! $customer || ! user_has_fcm_devices($customer)) {
             return;
         }
 
@@ -313,8 +313,8 @@ class ProviderBookingWithdrawalService
         }
 
         $repeatOrRegular = $booking->is_repeated ? 'repeat' : 'regular';
-        device_notification(
-            $fcmToken,
+        device_notification_for_user(
+            $customer,
             translate('Provider_withdrew_from_booking_title'),
             translate('Provider_withdrew_from_booking_body'),
             null,
@@ -331,8 +331,8 @@ class ProviderBookingWithdrawalService
     private function notifyProviderCancellationRejected(Booking $booking): void
     {
         $booking->loadMissing('provider.owner');
-        $fcmToken = $booking->provider?->owner?->fcm_token;
-        if (! $fcmToken) {
+        $owner = $booking->provider?->owner;
+        if (! $owner || ! user_has_fcm_devices($owner)) {
             return;
         }
 
@@ -341,8 +341,8 @@ class ProviderBookingWithdrawalService
             return;
         }
 
-        device_notification(
-            $fcmToken,
+        device_notification_for_user(
+            $owner,
             translate('Provider_cancellation_request_rejected_title'),
             translate('Provider_cancellation_request_rejected_body'),
             null,

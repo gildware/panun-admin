@@ -3581,14 +3581,14 @@ class ProviderController extends Controller
         $provider = $this->provider->with('owner')->find($providerId);
 
         if ($provider && isset($provider->owner)) {
-            $fcmToken = $provider->owner->fcm_token;
-            $languageKey = $provider->owner->current_language_key;
+            $owner = $provider->owner;
+            $languageKey = $owner->current_language_key;
 
             $bookingNotificationStatus = business_config('booking', 'notification_settings')->live_values;
-            if ($fcmToken && $bookingNotificationStatus['push_notification_booking']) {
+            if (user_has_fcm_devices($owner) && $bookingNotificationStatus['push_notification_booking']) {
                 $readableId = $this->booking->where('id', $bookingId)->value('readable_id');
                 $title = translate('Admin has assigned you booking ID') . ' ' . $readableId;
-                device_notification($fcmToken, $title, null, null, $bookingId, 'booking', '', '', '', '', $type);
+                device_notification_for_user($owner, $title, null, null, $bookingId, 'booking', '', '', '', '', $type);
             }
         }
     }

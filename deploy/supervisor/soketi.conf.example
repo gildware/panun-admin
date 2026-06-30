@@ -1,0 +1,16 @@
+; Supervisor program for Soketi (WebSocket signaling).
+; Copy to your supervisor config dir, e.g. /etc/supervisor/conf.d/soketi.conf
+; Then: supervisorctl reread && supervisorctl update && supervisorctl start panun-soketi
+
+[program:panun-soketi]
+process_name=%(program_name)s
+command=/bin/bash /home/USER/domains/DOMAIN/deploy/soketi/start-soketi.sh
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=USER
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/home/USER/domains/DOMAIN/deploy/soketi/soketi.log
+stopwaitsecs=10

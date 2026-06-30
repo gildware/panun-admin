@@ -27,4 +27,11 @@ return [
     'enabled' => env('IN_APP_CALL_ENABLED', true),
     'ring_timeout_seconds' => (int) env('IN_APP_CALL_RING_TIMEOUT_SECONDS', 60),
     'ice_servers' => $iceServers,
+    'websocket' => [
+        'enabled' => env('IN_APP_CALL_WEBSOCKET_ENABLED', false),
+        'host' => env('PUSHER_HOST', '127.0.0.1'),
+        'port' => (int) env('PUSHER_PORT', 6001),
+        'scheme' => env('PUSHER_SCHEME', 'http'),
+        'cluster' => env('PUSHER_APP_CLUSTER', 'mt1'),
+    ],
 ];

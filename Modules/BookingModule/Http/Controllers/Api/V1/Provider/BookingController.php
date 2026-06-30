@@ -1569,11 +1569,11 @@ class BookingController extends Controller
 
         if (!isset($booking)) {
             if ($bookingRepeat) {
-                $fcmToken = $bookingRepeat?->booking?->customer?->fcm_token;
-                $title = get_push_notification_message('otp', 'customer_notification', $bookingRepeat?->booking?->customer?->current_language_key);
-                $description = get_push_notification_description('otp', 'customer_notification', $bookingRepeat?->booking?->customer?->current_language_key);
-                if ($fcmToken) {
-                    device_notification($fcmToken, $title, $description, null, $bookingRepeat->id, 'booking', null, $bookingRepeat?->booking?->customer?->id, ['otp' => $bookingRepeat->booking_otp], null, 'repeat');
+                $customer = $bookingRepeat?->booking?->customer;
+                $title = get_push_notification_message('otp', 'customer_notification', $customer?->current_language_key);
+                $description = get_push_notification_description('otp', 'customer_notification', $customer?->current_language_key);
+                if ($customer && user_has_fcm_devices($customer)) {
+                    device_notification_for_user($customer, $title, $description, null, $bookingRepeat->id, 'booking', null, $customer->id, ['otp' => $bookingRepeat->booking_otp], null, 'repeat');
                     return response()->json(response_formatter(NOTIFICATION_SEND_SUCCESSFULLY_200), 200);
 
                 } else {
@@ -1583,11 +1583,11 @@ class BookingController extends Controller
             return response()->json(response_formatter(DEFAULT_404), 404);
         }
 
-        $fcmToken = $booking?->customer?->fcm_token;
-        $title = get_push_notification_message('otp', 'customer_notification', $booking?->customer?->current_language_key);
-        $description = get_push_notification_description('otp', 'customer_notification', $booking?->customer?->current_language_key);
-        if ($fcmToken) {
-            device_notification($fcmToken, $title, $description, null, $booking->id, 'booking', null, $booking?->customer?->id, ['otp' => $booking->booking_otp]);
+        $customer = $booking?->customer;
+        $title = get_push_notification_message('otp', 'customer_notification', $customer?->current_language_key);
+        $description = get_push_notification_description('otp', 'customer_notification', $customer?->current_language_key);
+        if ($customer && user_has_fcm_devices($customer)) {
+            device_notification_for_user($customer, $title, $description, null, $booking->id, 'booking', null, $customer->id, ['otp' => $booking->booking_otp]);
             return response()->json(response_formatter(NOTIFICATION_SEND_SUCCESSFULLY_200), 200);
 
         } else {

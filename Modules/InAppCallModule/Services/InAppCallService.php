@@ -6,6 +6,8 @@ use Illuminate\Support\Str;
 use Modules\ChattingModule\Entities\ChannelUser;
 use Modules\InAppCallModule\Entities\InAppCall;
 use Modules\InAppCallModule\Entities\InAppCallSignal;
+use Modules\InAppCallModule\Events\InAppCallSignalBroadcasted;
+use Modules\InAppCallModule\Events\InAppCallStatusBroadcasted;
 use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
 use Ramsey\Uuid\Uuid;
@@ -22,10 +24,22 @@ class InAppCallService
      */
     public function publicConfig(): array
     {
+        $websocketEnabled = (bool) config('inappcallmodule.websocket.enabled', false);
+        $pusherKey = (string) config('broadcasting.connections.pusher.key', '');
+
         return [
             'enabled' => $this->isEnabled(),
             'ice_servers' => config('inappcallmodule.ice_servers', []),
             'ring_timeout_seconds' => (int) config('inappcallmodule.ring_timeout_seconds', 60),
+            'websocket' => [
+                'enabled' => $websocketEnabled && $pusherKey !== '',
+                'key' => $pusherKey,
+                'cluster' => (string) config('inappcallmodule.websocket.cluster', 'mt1'),
+                'host' => (string) config('inappcallmodule.websocket.host', ''),
+                'port' => (int) config('inappcallmodule.websocket.port', 6001),
+                'scheme' => (string) config('inappcallmodule.websocket.scheme', 'http'),
+                'auth_endpoint' => '/broadcasting/auth',
+            ],
         ];
     }
 
@@ -102,6 +116,12 @@ class InAppCallService
             send_in_app_call_push_notification($callee, $call, $caller);
         }
 
+        $this->broadcastStatusToUser(
+            (string) $callee->id,
+            $call->fresh(['caller.provider', 'callee.provider']),
+            'incoming_call',
+        );
+
         return [
             'ok' => true,
             'data' => $this->serializeCall($call->fresh(['caller.provider', 'callee.provider']), $caller),
@@ -131,11 +151,15 @@ class InAppCallService
             'answered_at' => now(),
         ]);
 
-        InAppCallSignal::query()->where('call_id', $call->id)->delete();
-
         if (function_exists('send_in_app_call_status_push_notification')) {
             send_in_app_call_status_push_notification($call->caller, $call, 'call_accepted');
         }
+
+        $this->broadcastStatusToUser(
+            (string) $call->caller_user_id,
+            $call->fresh(['caller.provider', 'callee.provider']),
+            'call_accepted',
+        );
 
         return [
             'ok' => true,
@@ -170,6 +194,12 @@ class InAppCallService
         if (function_exists('send_in_app_call_status_push_notification')) {
             send_in_app_call_status_push_notification($call->caller, $call->fresh(), 'call_declined');
         }
+
+        $this->broadcastStatusToUser(
+            (string) $call->caller_user_id,
+            $call->fresh(['caller.provider', 'callee.provider']),
+            'call_declined',
+        );
 
         return [
             'ok' => true,
@@ -213,6 +243,14 @@ class InAppCallService
             );
         }
 
+        if ($call->callee) {
+            $this->broadcastStatusToUser(
+                (string) $call->callee_user_id,
+                $call->fresh(['caller.provider', 'callee.provider']),
+                $status === InAppCall::STATUS_ENDED ? 'call_ended' : 'call_cancelled',
+            );
+        }
+
         return [
             'ok' => true,
             'data' => $this->serializeCall($call->fresh(['caller', 'callee']), $user),
@@ -246,6 +284,14 @@ class InAppCallService
         $otherUser = (string) $call->caller_user_id === (string) $user->id ? $call->callee : $call->caller;
         if ($otherUser && function_exists('send_in_app_call_status_push_notification')) {
             send_in_app_call_status_push_notification($otherUser, $call->fresh(), 'call_ended');
+        }
+
+        if ($otherUser) {
+            $this->broadcastStatusToUser(
+                (string) $otherUser->id,
+                $call->fresh(['caller.provider', 'callee.provider']),
+                'call_ended',
+            );
         }
 
         return [
@@ -372,6 +418,14 @@ class InAppCallService
             send_in_app_call_status_push_notification($call->caller, $call->fresh(), 'call_missed');
         }
 
+        if ($call->caller) {
+            $this->broadcastStatusToUser(
+                (string) $call->caller_user_id,
+                $call->fresh(['caller.provider', 'callee.provider']),
+                'call_missed',
+            );
+        }
+
         $viewer = $call->caller ?? $call->callee;
         if (! $viewer instanceof User) {
             return ['ok' => true, 'data' => ['call_id' => (string) $call->id, 'status' => (string) $call->status]];
@@ -399,7 +453,36 @@ class InAppCallService
             return ['ok' => false, 'message' => translate('Invalid_signal_type')];
         }
 
-        InAppCallSignal::query()->create([
+        if ($signalType === InAppCallSignal::TYPE_ICE
+            && isset($payload['candidates'])
+            && is_array($payload['candidates'])) {
+            $stored = 0;
+            foreach ($payload['candidates'] as $candidatePayload) {
+                if (! is_array($candidatePayload)) {
+                    continue;
+                }
+                $this->storeAndBroadcastSignal($call, $user, $signalType, $candidatePayload);
+                $stored++;
+            }
+
+            return ['ok' => true, 'data' => ['stored' => $stored]];
+        }
+
+        $this->storeAndBroadcastSignal($call, $user, $signalType, $payload);
+
+        return ['ok' => true, 'data' => ['stored' => true]];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    protected function storeAndBroadcastSignal(
+        InAppCall $call,
+        User $user,
+        string $signalType,
+        array $payload,
+    ): void {
+        $signal = InAppCallSignal::query()->create([
             'id' => (string) Uuid::uuid4(),
             'call_id' => $call->id,
             'sender_user_id' => $user->id,
@@ -407,7 +490,68 @@ class InAppCallService
             'payload' => $payload,
         ]);
 
-        return ['ok' => true, 'data' => ['stored' => true]];
+        $this->broadcastSignal($call->id, $signal);
+    }
+
+    protected function broadcastSignal(string $callId, InAppCallSignal $signal): void
+    {
+        if (! $this->shouldBroadcastRealtime()) {
+            return;
+        }
+
+        event(new InAppCallSignalBroadcasted($callId, [
+            'id' => $signal->id,
+            'signal_type' => $signal->signal_type,
+            'payload' => $signal->payload,
+            'sender_user_id' => $signal->sender_user_id,
+            'created_at' => $signal->created_at?->toIso8601String(),
+        ]));
+    }
+
+    protected function broadcastStatusToUser(string $userId, InAppCall $call, string $type): void
+    {
+        if (! $this->shouldBroadcastRealtime()) {
+            return;
+        }
+
+        $recipient = User::query()->find($userId);
+        if (! $recipient instanceof User) {
+            return;
+        }
+
+        event(new InAppCallStatusBroadcasted($userId, $this->buildStatusBroadcastPayload($call, $recipient, $type)));
+    }
+
+    protected function shouldBroadcastRealtime(): bool
+    {
+        if (! (bool) config('inappcallmodule.websocket.enabled', false)) {
+            return false;
+        }
+
+        $driver = (string) config('broadcasting.default', 'null');
+
+        return in_array($driver, ['pusher', 'ably', 'redis'], true);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function buildStatusBroadcastPayload(InAppCall $call, User $recipient, string $type): array
+    {
+        $peer = (string) $call->caller_user_id === (string) $recipient->id
+            ? $call->callee
+            : $call->caller;
+
+        return [
+            'type' => $type,
+            'call_id' => $call->id,
+            'channel_id' => $call->channel_id,
+            'status' => $call->status,
+            'user_name' => $peer ? $this->resolveUserDisplayName($peer) : null,
+            'user_image' => $peer ? $this->resolveUserImagePath($peer) : null,
+            'user_phone' => $peer?->phone,
+            'user_type' => $peer?->user_type,
+        ];
     }
 
     /**
@@ -426,7 +570,7 @@ class InAppCallService
             ->orderBy('created_at');
 
         if ($after) {
-            $query->where('created_at', '>', $after);
+            $query->where('created_at', '>=', $after);
         }
 
         $signals = $query->get()->map(fn (InAppCallSignal $signal) => [

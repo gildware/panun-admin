@@ -1106,7 +1106,7 @@ class Booking extends Model
                         $permission = isNotificationActive(null, 'booking', 'notification', 'user');
                         if ($user?->is_active && $title && $permission) {
                             scenario_push_notification(
-                                $user?->fcm_token,
+                                $user,
                                 $title,
                                 $description,
                                 $model->id,
@@ -1128,7 +1128,7 @@ class Booking extends Model
                             $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
                             if ($title && sendDeviceNotificationPermission($model?->provider_id)) {
                                 scenario_push_notification(
-                                    $provider?->fcm_token,
+                                    $provider,
                                     $title,
                                     $description,
                                     $model->id,
@@ -1147,7 +1147,7 @@ class Booking extends Model
                             $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
                             if ($title && sendDeviceNotificationPermission($model?->provider_id)) {
                                 scenario_push_notification(
-                                    $provider?->fcm_token,
+                                    $provider,
                                     $title,
                                     $description,
                                     $model->id,
@@ -1167,8 +1167,8 @@ class Booking extends Model
                         $serviceman = $model?->serviceman?->user;
                         $title = get_push_notification_message($key, $settingsType, $serviceman?->current_language_key);
                         $description = get_push_notification_description($key, $settingsType, $serviceman?->current_language_key);
-                        if ($serviceman?->fcm_token && $title) {
-                            device_notification($serviceman?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, $notificationData, null, $repeatOrRegular, null, null, null, $pushBookingStatus);
+                        if (user_has_fcm_devices($serviceman) && $title) {
+                            device_notification_for_user($serviceman, $title, $description, null, $model->id, 'booking', null, null, $notificationData, null, $repeatOrRegular, null, null, null, $pushBookingStatus);
                         }
                     }
                 }
@@ -1308,9 +1308,9 @@ class Booking extends Model
                         $user = $model?->customer;
                         $title = get_push_notification_message($key, $settingsType, $user?->current_language_key);
                         $description = get_push_notification_description($key, $settingsType, $user?->current_language_key);
-                        if ($user?->fcm_token && $title && $user->is_active) {
+                        if (user_has_fcm_devices($user) && $title && $user->is_active) {
                             scenario_push_notification(
-                                $user->fcm_token,
+                                $user,
                                 $title,
                                 $description,
                                 $model->id,
@@ -1330,9 +1330,9 @@ class Booking extends Model
                             $provider = $model?->provider?->owner;
                             $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
                             $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
-                            if ($provider?->fcm_token && $title && sendDeviceNotificationPermission($model?->provider_id)) {
+                            if (user_has_fcm_devices($provider) && $title && sendDeviceNotificationPermission($model?->provider_id)) {
                                 scenario_push_notification(
-                                    $provider->fcm_token,
+                                    $provider,
                                     $title,
                                     $description,
                                     $model->id,
@@ -1349,9 +1349,9 @@ class Booking extends Model
                             $provider = $model?->provider?->owner;
                             $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
                             $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
-                            if ($provider?->fcm_token && $title && sendDeviceNotificationPermission($model?->provider_id)) {
+                            if (user_has_fcm_devices($provider) && $title && sendDeviceNotificationPermission($model?->provider_id)) {
                                 scenario_push_notification(
-                                    $provider->fcm_token,
+                                    $provider,
                                     $title,
                                     $description,
                                     $model->id,
@@ -1371,9 +1371,9 @@ class Booking extends Model
                         $serviceman = $model?->serviceman?->user;
                         $title = get_push_notification_message($key, $settingsType, $serviceman?->current_language_key);
                         $description = get_push_notification_description($key, $settingsType, $serviceman?->current_language_key);
-                        if ($serviceman?->fcm_token && $title) {
+                        if (user_has_fcm_devices($serviceman) && $title) {
                             scenario_push_notification(
-                                $serviceman->fcm_token,
+                                $serviceman,
                                 $title,
                                 $description,
                                 $model->id,

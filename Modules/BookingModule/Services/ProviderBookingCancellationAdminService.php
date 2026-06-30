@@ -226,13 +226,13 @@ class ProviderBookingCancellationAdminService
     private function notifyCustomerProviderCancellationConfirmed(Booking $booking): void
     {
         $booking->loadMissing('customer');
-        $fcmToken = $booking->customer?->fcm_token;
-        if (! $fcmToken || ! isNotificationActive(null, 'booking', 'notification', 'user')) {
+        $customer = $booking->customer;
+        if (! $customer || ! user_has_fcm_devices($customer) || ! isNotificationActive(null, 'booking', 'notification', 'user')) {
             return;
         }
 
-        device_notification(
-            $fcmToken,
+        device_notification_for_user(
+            $customer,
             translate('Booking_cancelled_title'),
             translate('Provider_cancellation_confirmed_customer_body'),
             null,
@@ -244,15 +244,15 @@ class ProviderBookingCancellationAdminService
     private function notifyNewProviderAssigned(Booking $booking): void
     {
         $booking->loadMissing('provider.owner');
-        $fcmToken = $booking->provider?->owner?->fcm_token;
-        if (! $fcmToken || ! isNotificationActive(null, 'booking', 'notification', 'provider')) {
+        $owner = $booking->provider?->owner;
+        if (! $owner || ! user_has_fcm_devices($owner) || ! isNotificationActive(null, 'booking', 'notification', 'provider')) {
             return;
         }
 
-        device_notification(
-            $fcmToken,
+        device_notification_for_user(
+            $owner,
             translate('new_service_request_arrived'),
-            get_push_notification_description('new_service_request_arrived', 'provider_notification', $booking->provider?->owner?->current_language_key) ?: translate('new_service_request_arrived'),
+            get_push_notification_description('new_service_request_arrived', 'provider_notification', $owner->current_language_key) ?: translate('new_service_request_arrived'),
             null,
             $booking->id,
             'booking',
@@ -262,13 +262,13 @@ class ProviderBookingCancellationAdminService
     private function notifyCustomerReplacementBooking(Booking $booking): void
     {
         $booking->loadMissing('customer', 'provider');
-        $fcmToken = $booking->customer?->fcm_token;
-        if (! $fcmToken || ! isNotificationActive(null, 'booking', 'notification', 'user')) {
+        $customer = $booking->customer;
+        if (! $customer || ! user_has_fcm_devices($customer) || ! isNotificationActive(null, 'booking', 'notification', 'user')) {
             return;
         }
 
-        device_notification(
-            $fcmToken,
+        device_notification_for_user(
+            $customer,
             translate('Provider_cancellation_replacement_booking_title'),
             translate('Provider_cancellation_replacement_booking_body'),
             null,

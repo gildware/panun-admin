@@ -549,10 +549,10 @@ class BookingController extends Controller
             if (!empty($booking->provider_id)){
                 $booking->provider_id = null;
 
-                $fcmToken = $booking?->customer?->fcm_token ?? null;
+                $customer = $booking?->customer;
                 $repeatOrRegular = $booking?->is_repeated ? 'repeat' : 'regular';
-                $languageKey = $booking?->customer?->current_language_key;
-                if (!is_null($fcmToken)) {
+                $languageKey = $customer?->current_language_key;
+                if ($customer && user_has_fcm_devices($customer)) {
                     send_booking_ignored_by_provider_notification($booking);
                 }
             }
@@ -873,12 +873,12 @@ class BookingController extends Controller
             $repeat = $this->bookingRepeat->where('id', $request['booking_id'])->where('provider_id', $request->user()->provider->id)->first();
 
             if ($repeat){
-                $fcmToken = $repeat?->booking?->customer?->fcm_token;
+                $customer = $repeat?->booking?->customer;
                 $title = translate('Your booking verification OTP is') . ' ' . $repeat->booking_otp;
-                $description = get_push_notification_description('otp', 'customer_notification', $repeat?->booking?->customer?->current_language_key);
+                $description = get_push_notification_description('otp', 'customer_notification', $customer?->current_language_key);
 
-                if ($fcmToken) {
-                    device_notification($fcmToken, $title, $description, null, $repeat->id, 'booking', null, $repeat?->booking?->customer?->id);
+                if ($customer && user_has_fcm_devices($customer)) {
+                    device_notification_for_user($customer, $title, $description, null, $repeat->id, 'booking', null, $customer->id);
                     return response()->json(response_formatter(NOTIFICATION_SEND_SUCCESSFULLY_200), 200);
 
                 } else {
@@ -889,12 +889,12 @@ class BookingController extends Controller
             return response()->json(response_formatter(DEFAULT_404), 404);
         }
 
-        $fcmToken = $booking?->customer?->fcm_token;
+        $customer = $booking?->customer;
         $title = translate('Your booking verification OTP is') . ' ' . $booking->booking_otp;
-        $description = get_push_notification_description('otp', 'customer_notification', $booking?->customer?->current_language_key);
+        $description = get_push_notification_description('otp', 'customer_notification', $customer?->current_language_key);
 
-        if ($fcmToken) {
-            device_notification($fcmToken, $title, $description, null, $booking->id, 'booking', null, $booking?->customer?->id);
+        if ($customer && user_has_fcm_devices($customer)) {
+            device_notification_for_user($customer, $title, $description, null, $booking->id, 'booking', null, $customer->id);
             return response()->json(response_formatter(NOTIFICATION_SEND_SUCCESSFULLY_200), 200);
 
         } else {
@@ -1815,7 +1815,7 @@ class BookingController extends Controller
 
         $user = $booking?->customer;
         $repeatOrRegular = $booking?->is_repeated ? 'repeat' : 'regular';
-        if (isset($user) && $user?->fcm_token && $user?->is_active) {
+        if (isset($user) && user_has_fcm_devices($user) && $user?->is_active) {
             try {
                 send_booking_service_location_updated_notification($booking);
             }catch (\Exception $exception) {
@@ -1886,7 +1886,7 @@ class BookingController extends Controller
 
         $user = $booking?->customer;
         $repeatOrRegular = $booking?->is_repeated ? 'repeat' : 'regular';
-        if (isset($user) && $user?->fcm_token && $user?->is_active) {
+        if (isset($user) && user_has_fcm_devices($user) && $user?->is_active) {
             try {
                 send_booking_service_location_updated_notification($booking);
             }catch (Exception $exception){
