@@ -41,6 +41,9 @@
             font-weight: 700;
             line-height: 1.1;
         }
+        .in-app-call-monitor-tabs .nav-link {
+            font-weight: 600;
+        }
     </style>
 @endpush
 
@@ -52,6 +55,7 @@
                     <h2 class="page-title mb-1">{{ translate('In_App_Call_Monitor') }}</h2>
                     <p class="text-muted mb-0">{{ translate('In_App_Call_Monitor_help') }}</p>
                 </div>
+                @if(($tab ?? 'monitor') === 'monitor')
                 <div class="d-flex align-items-center gap-2">
                     <span class="in-app-call-live-badge">
                         <span class="in-app-call-live-dot"></span>
@@ -59,8 +63,38 @@
                     </span>
                     <span class="text-muted small" id="in-app-call-last-updated">—</span>
                 </div>
+                @endif
             </div>
 
+            <ul class="nav nav-tabs in-app-call-monitor-tabs mb-3" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link {{ ($tab ?? 'monitor') === 'monitor' ? 'active' : '' }}"
+                       href="{{ route('admin.in-app-calls.index', request()->only(['status', 'search', 'date_from', 'date_to'])) }}">
+                        {{ translate('Call_Monitor') }}
+                    </a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link {{ ($tab ?? 'monitor') === 'status' ? 'active' : '' }}"
+                       href="{{ route('admin.in-app-calls.index', ['tab' => 'status']) }}">
+                        {{ translate('Service_Status') }}
+                    </a>
+                </li>
+            </ul>
+
+            @if(($tab ?? 'monitor') === 'status')
+                <div class="card">
+                    <div class="card-header bg-white d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                        <h5 class="mb-0">{{ translate('In_App_Call_Service_Status') }}</h5>
+                        <button type="button" class="btn btn-sm btn--secondary" id="in-app-call-health-refresh">
+                            <span class="material-icons" style="font-size:18px;vertical-align:middle;">refresh</span>
+                            {{ translate('Refresh_now') }}
+                        </button>
+                    </div>
+                    <div class="card-body" id="in-app-call-health-container">
+                        @include('inappcallmodule::admin.partials._service_status', ['healthReport' => $healthReport])
+                    </div>
+                </div>
+            @else
             @if(! $isEnabled)
                 <div class="alert alert-warning">
                     {{ translate('In_app_calling_is_not_configured') }}
@@ -192,6 +226,7 @@
                     </div>
                 </div>
             </div>
+            @endif
         </div>
     </div>
 @endsection
@@ -199,8 +234,11 @@
 @push('script')
     <script>
         (function () {
+            var currentTab = @json($tab ?? 'monitor');
             var activeUrl = @json(route('admin.in-app-calls.active'));
+            var healthUrl = @json(route('admin.in-app-calls.health'));
             var pollMs = 5000;
+            var healthPollMs = 30000;
             var lastActiveCount = {{ count($activeCalls) }};
 
             function formatDuration(seconds) {
@@ -258,9 +296,28 @@
                 });
             }
 
-            setInterval(tickElapsedTimers, 1000);
-            refreshActiveCalls();
-            setInterval(refreshActiveCalls, pollMs);
+            function refreshServiceHealth() {
+                $.getJSON(healthUrl, function (response) {
+                    var container = document.getElementById('in-app-call-health-container');
+                    if (container && response.html !== undefined) {
+                        container.innerHTML = response.html;
+                    }
+                });
+            }
+
+            if (currentTab === 'monitor') {
+                setInterval(tickElapsedTimers, 1000);
+                refreshActiveCalls();
+                setInterval(refreshActiveCalls, pollMs);
+            }
+
+            if (currentTab === 'status') {
+                var refreshBtn = document.getElementById('in-app-call-health-refresh');
+                if (refreshBtn) {
+                    refreshBtn.addEventListener('click', refreshServiceHealth);
+                }
+                setInterval(refreshServiceHealth, healthPollMs);
+            }
         })();
     </script>
 @endpush

@@ -7,24 +7,28 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Modules\InAppCallModule\Entities\InAppCall;
+use Modules\InAppCallModule\Services\InAppCallHealthService;
 use Modules\InAppCallModule\Services\InAppCallService;
 
 class InAppCallMonitorController extends Controller
 {
     public function __construct(
         private readonly InAppCallService $inAppCallService,
+        private readonly InAppCallHealthService $healthService,
     ) {
     }
 
     public function index(Request $request): View
     {
         $request->validate([
+            'tab' => 'nullable|in:monitor,status',
             'status' => 'nullable|string|max:32',
             'search' => 'nullable|string|max:255',
             'date_from' => 'nullable|date',
             'date_to' => 'nullable|date',
         ]);
 
+        $tab = $request->input('tab', 'monitor');
         $filters = [
             'status' => $request->input('status'),
             'search' => $request->input('search'),
@@ -43,6 +47,8 @@ class InAppCallMonitorController extends Controller
             'filters' => $filters,
             'statusOptions' => $this->statusOptions(),
             'isEnabled' => $this->inAppCallService->isEnabled(),
+            'tab' => $tab,
+            'healthReport' => $this->healthService->run(),
         ]);
     }
 
@@ -54,6 +60,21 @@ class InAppCallMonitorController extends Controller
             'count' => count($activeCalls),
             'html' => view('inappcallmodule::admin.partials._active_calls', [
                 'activeCalls' => $activeCalls,
+            ])->render(),
+        ]);
+    }
+
+    public function serviceHealth(): JsonResponse
+    {
+        $report = $this->healthService->run();
+
+        return response()->json([
+            'overall' => $report['overall'],
+            'checked_at_label' => $report['checked_at_label'],
+            'summary' => $report['summary'],
+            'recommendations' => $report['recommendations'],
+            'html' => view('inappcallmodule::admin.partials._service_status', [
+                'healthReport' => $report,
             ])->render(),
         ]);
     }

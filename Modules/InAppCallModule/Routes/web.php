@@ -11,5 +11,6 @@ Route::group([
     Route::group(['prefix' => 'in-app-calls', 'as' => 'in-app-calls.'], function () {
         Route::get('/', [InAppCallMonitorController::class, 'index'])->name('index');
         Route::get('active', [InAppCallMonitorController::class, 'activeCalls'])->name('active');
+        Route::get('health', [InAppCallMonitorController::class, 'serviceHealth'])->name('health');
     });
 });
