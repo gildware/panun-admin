@@ -93,7 +93,8 @@ class ConfigurationController extends Controller
         }
 
         $notificationDeliveryLogs = null;
-        $usersWithDevices = null;
+        $customerUsersWithDevices = null;
+        $providerUsersWithDevices = null;
         $deviceStats = null;
 
         if ($activeSection === 'logs') {
@@ -137,9 +138,6 @@ class ConfigurationController extends Controller
             $userTypeFilter = (string) $request->query('user_type', 'all');
 
             $appendQuery = $request->only(['section', 'user_search', 'user_type']);
-
-            $customerUsersWithDevices = null;
-            $providerUsersWithDevices = null;
 
             if ($userTypeFilter === 'all' || $userTypeFilter === 'customer') {
                 $customerUsersWithDevices = $this->paginateUsersWithNotificationDevices($userSearch, ['customer'], 'customers_page')
