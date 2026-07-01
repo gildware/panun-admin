@@ -9,6 +9,8 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use App\Http\Middleware\{ApiHitLimitMiddleware,
     Authenticate,
     EncryptCookies,
@@ -101,7 +103,24 @@ $app = Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        // You can customize exception handling here if needed
+        $exceptions->render(function (ValidationException $e, Request $request) {
+            if (!$request->is('api/*')) {
+                return null;
+            }
+
+            $errors = [];
+            foreach ($e->errors() as $field => $messages) {
+                $errors[] = [
+                    'error_code' => $field,
+                    'message' => translate($messages[0]),
+                ];
+            }
+
+            return response()->json(
+                response_formatter(DEFAULT_400, null, $errors),
+                400
+            );
+        });
     })
     ->create();
 

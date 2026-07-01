@@ -12,5 +12,6 @@ Route::group([
         Route::get('/', [InAppCallMonitorController::class, 'index'])->name('index');
         Route::get('active', [InAppCallMonitorController::class, 'activeCalls'])->name('active');
         Route::get('health', [InAppCallMonitorController::class, 'serviceHealth'])->name('health');
+        Route::post('signaling-test', [InAppCallMonitorController::class, 'runSignalingTest'])->name('signaling-test');
     });
 });

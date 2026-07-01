@@ -228,6 +228,10 @@ class CommunicationNotificationTest extends TestCase
     public function test_communication_push_helpers_exist(): void
     {
         $this->assertTrue(function_exists('send_chat_message_push_notification'));
+        $this->assertTrue(function_exists('dispatch_chat_message_push_notifications'));
+        $this->assertTrue(function_exists('build_chat_message_sender_payload'));
+        $this->assertTrue(function_exists('chat_message_push_recipient_users'));
+        $this->assertTrue(function_exists('provider_org_member_user_ids'));
         $this->assertTrue(function_exists('admin_inbox_notify_chat_message'));
         $this->assertTrue(function_exists('device_notification_for_chatting'));
     }

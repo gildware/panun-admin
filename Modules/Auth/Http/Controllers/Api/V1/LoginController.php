@@ -626,7 +626,7 @@ class LoginController extends Controller
         $validator = Validator::make($request->all(), [
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
+            'email' => 'nullable|email|max:255',
             'phone' => 'required|max:15',
         ]);
 
@@ -635,8 +635,10 @@ class LoginController extends Controller
         }
 
         $existingUser = $this->user->where(function ($query) use ($request) {
-            $query->where('phone', $request['phone'])
-                ->orWhere('email', $request['email']);
+            $query->where('phone', $request['phone']);
+            if ($request->filled('email')) {
+                $query->orWhere('email', $request['email']);
+            }
         })->first();
 
         if ($existingUser) {
@@ -667,7 +669,7 @@ class LoginController extends Controller
                 return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
             }
 
-            if ($existingUser->email === $request['email']) {
+            if ($request->filled('email') && $existingUser->email === $request['email']) {
                 return response()->json(response_formatter(ALREADY_USE_EMAIL_ANOTHER_ACCOUNT), 403);
             }
         }
@@ -677,7 +679,7 @@ class LoginController extends Controller
         $user = $this->user->create([
             'first_name' => $request->first_name,
             'last_name' => $request->last_name,
-            'email' => $request->email,
+            'email' => $request->filled('email') ? $request->email : null,
             'phone' => $request->phone,
             'password' => bcrypt(rand(11111111, 99999999)),
             'language_code' => $request->header('X-localization') ?? 'en',

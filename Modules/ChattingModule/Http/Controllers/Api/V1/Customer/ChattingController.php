@@ -251,7 +251,7 @@ class ChattingController extends Controller
                     'is_read' => 0
                 ]);
 
-            $channelConversation = $this->channelConversation;
+            $channelConversation = new ChannelConversation();
             $channelConversation->channel_id = $request->channel_id;
             $channelConversation->message = $request['message'];
             $channelConversation->user_id = $request->user()->id;
@@ -290,16 +290,10 @@ class ChattingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $this->channelUser->where('channel_id', $request['channel_id'])->where('user_id', $request->user()->id)
-            ->update([
-                'is_read' => 1
-            ]);
-
-        $conversation = $this->channelConversation->where(['channel_id' => $request['channel_id']])
-            ->with(['user', 'conversationFiles'])->whereHas('channel.channelUsers', function ($query) use ($request) {
-                $query->where(['user_id' => $request->user()->id]);
-            })->latest()
-            ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
+        $conversation = $this->paginateChannelConversationForUser($request);
+        if ($conversation === null) {
+            return response()->json(response_formatter(DEFAULT_403, null), 403);
+        }
 
         return response()->json(response_formatter(DEFAULT_STORE_200, $conversation), 200);
     }

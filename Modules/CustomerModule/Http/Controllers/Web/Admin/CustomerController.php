@@ -201,7 +201,7 @@ class CustomerController extends Controller
         $request->validate([
             'first_name' => 'required',
             'last_name' => 'required',
-            'email' => 'required|email|unique:users,email',
+            'email' => 'nullable|email|unique:users,email',
             'phone' => [
                 'required',
                 'regex:/^([0-9\s\-\+\(\)]*)$/',
@@ -219,7 +219,7 @@ class CustomerController extends Controller
         $user = $this->user;
         $user->first_name = $request->first_name;
         $user->last_name = $request->last_name;
-        $user->email = $request->email;
+        $user->email = $request->filled('email') ? $request->email : null;
         $user->phone = $request->phone;
         $user->profile_image = $request->has('profile_image')
             ? media_file_uploader(
@@ -240,7 +240,9 @@ class CustomerController extends Controller
             $otp = env('APP_ENV') != 'live' ? '1234' : rand(1000, 9999);
 
             $webUrl = business_config('web_url', 'landing_button_and_links');
-            $token = base64_encode(json_encode(["identity" => $user->email, "identity_type" => "email", "otp" => $otp, "from_url" => 1]));
+            $identity = $user->email ?? $user->phone;
+            $identityType = $user->email ? 'email' : 'phone';
+            $token = base64_encode(json_encode(["identity" => $identity, "identity_type" => $identityType, "otp" => $otp, "from_url" => 1]));
 
             if (str_ends_with($webUrl->live_values, '/')) {
                 $url = $webUrl->live_values . 'change-password?token=' . urlencode($token);
@@ -248,7 +250,7 @@ class CustomerController extends Controller
                 $url = $webUrl->live_values . '/change-password?token=' . urlencode($token);
             }
             $regByAdmin = isNotificationActive(null, 'registration', 'email', 'user');
-            if ($regByAdmin) {
+            if ($regByAdmin && $user->email) {
                 $emailStatus = business_config('email_config_status', 'email_config')->live_values;
 
                 if($emailStatus){
@@ -261,11 +263,11 @@ class CustomerController extends Controller
             }
 
             $this->userVerification->updateOrCreate([
-                'identity' => $user->email,
-                'identity_type' => "email"
+                'identity' => $identity,
+                'identity_type' => $identityType
             ], [
-                'identity' => $user->email,
-                'identity_type' => 'email',
+                'identity' => $identity,
+                'identity_type' => $identityType,
                 'user_id' => null,
                 'otp' => $otp,
                 'expires_at' => now()->addMinute(60),
@@ -314,7 +316,7 @@ class CustomerController extends Controller
         $user = new User();
         $user->first_name = $request->first_name;
         $user->last_name = $request->last_name;
-        $user->email = $request->email;
+        $user->email = $request->filled('email') ? $request->email : null;
         $user->phone = $request->phone;
         $user->profile_image = 'default.png';
         $user->gender = 'male';
@@ -575,7 +577,7 @@ class CustomerController extends Controller
         $request->validate([
             'first_name' => 'required',
             'last_name' => 'required',
-            'email' => 'required|email',
+            'email' => 'nullable|email',
             'phone' => [
                 'required',
                 'regex:/^([0-9\s\-\+\(\)]*)$/',
@@ -587,14 +589,16 @@ class CustomerController extends Controller
             'profile_image' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
         ]);
 
-        if (User::where('email', $request['email'])->where('id', '!=', $customer->id)->exists()) {
+        if ($request->filled('email') && User::where('email', $request['email'])->where('id', '!=', $customer->id)->exists()) {
             Toastr::error(translate('Email already taken'));
             return back();
         }
 
         $customer->first_name = $request->first_name;
         $customer->last_name = $request->last_name;
-        $customer->email = $request->email;
+        if ($request->filled('email')) {
+            $customer->email = $request->email;
+        }
         $customer->phone = $request->phone;
         $customer->profile_image = $request->has('profile_image')
             ? media_file_uploader(

@@ -155,7 +155,10 @@ if (!function_exists('finalize_fcm_push_payload')) {
         $sound = push_notification_sound_for_type($type);
         $postData['message']['apns']['headers'] = array_merge(
             $postData['message']['apns']['headers'] ?? [],
-            ['apns-priority' => '10']
+            [
+                'apns-priority' => '10',
+                'apns-push-type' => 'alert',
+            ]
         );
         $postData['message']['apns']['payload']['aps']['alert'] = [
             'title' => $title,
@@ -361,24 +364,27 @@ if (!function_exists('device_notification_for_bidding')) {
 //chatting notification
 
 if (!function_exists('device_notification_for_chatting')) {
-    function device_notification_for_chatting($fcm_token, $title, $description, $image, $channel_id, $user_name, $user_image, $user_phone, $user_type, $type = 'status')
+    function device_notification_for_chatting($fcm_token, $title, $description, $image, $channel_id, $user_name, $user_image, $user_phone, $user_type, $type = 'status', $conversation_id = null, array $extraData = [])
     {
-        $image = asset('storage/app/public/push-notification') . '/' . $image;
+        $imageUrl = filled($image)
+            ? asset('storage/app/public/push-notification') . '/' . $image
+            : '';
 
         $postData = [
             'message' => [
                 "token" => $fcm_token,
-                "data" => [
+                "data" => array_merge([
                     "title" => (string)$title,
                     "body" => (string)$description,
-                    "image" => (string)$image,
+                    "image" => (string)$imageUrl,
                     "type" => (string)$type,
                     "channel_id" => (string)$channel_id,
+                    "conversation_id" => (string) ($conversation_id ?? ''),
                     "user_name" => (string)$user_name,
                     "user_image"=> (string)$user_image,
                     "user_phone"=> (string)$user_phone,
                     "user_type"=> (string)$user_type,
-                ],
+                ], array_map('strval', $extraData)),
                 "notification" => [
                     "title" => (string)$title,
                     "body" => (string)$description,

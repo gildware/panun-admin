@@ -65,6 +65,13 @@ if (! function_exists('register_user_fcm_device')) {
             ]
         );
 
+        // Token rotation creates a new row; drop stale tokens for this install.
+        UserFcmDevice::query()
+            ->where('user_id', $userId)
+            ->where('device_id', $deviceId)
+            ->where('fcm_token', '!=', $fcmToken)
+            ->delete();
+
         sync_user_legacy_fcm_token($userId);
     }
 }
@@ -122,15 +129,27 @@ if (! function_exists('user_fcm_device_tokens')) {
             return [];
         }
 
-        $tokens = UserFcmDevice::query()
+        $devices = UserFcmDevice::query()
             ->where('user_id', $userId)
             ->orderByDesc('last_seen_at')
             ->orderByDesc('updated_at')
-            ->pluck('fcm_token')
-            ->filter(fn ($token) => is_valid_fcm_token($token))
-            ->unique()
-            ->values()
-            ->all();
+            ->get(['fcm_token', 'device_id']);
+
+        $tokens = [];
+        $seenDevices = [];
+        foreach ($devices as $device) {
+            if (! is_valid_fcm_token($device->fcm_token)) {
+                continue;
+            }
+
+            $deviceKey = filled($device->device_id) ? (string) $device->device_id : $device->fcm_token;
+            if (isset($seenDevices[$deviceKey])) {
+                continue;
+            }
+
+            $seenDevices[$deviceKey] = true;
+            $tokens[] = $device->fcm_token;
+        }
 
         if ($tokens !== []) {
             return $tokens;
@@ -234,7 +253,9 @@ if (! function_exists('device_notification_for_chatting_user')) {
         $user_image,
         $user_phone,
         $user_type,
-        $type = 'status'
+        $type = 'status',
+        $conversation_id = null,
+        array $extraData = []
     ): void {
         foreach (user_fcm_device_tokens($user) as $fcmToken) {
             device_notification_for_chatting(
@@ -247,7 +268,9 @@ if (! function_exists('device_notification_for_chatting_user')) {
                 $user_image,
                 $user_phone,
                 $user_type,
-                $type
+                $type,
+                $conversation_id,
+                $extraData
             );
         }
     }

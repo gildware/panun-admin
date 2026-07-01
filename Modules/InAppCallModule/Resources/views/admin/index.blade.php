@@ -82,7 +82,7 @@
             </ul>
 
             @if(($tab ?? 'monitor') === 'status')
-                <div class="card">
+                <div class="card mb-3">
                     <div class="card-header bg-white d-flex flex-wrap gap-2 align-items-center justify-content-between">
                         <h5 class="mb-0">{{ translate('In_App_Call_Service_Status') }}</h5>
                         <button type="button" class="btn btn-sm btn--secondary" id="in-app-call-health-refresh">
@@ -92,6 +92,25 @@
                     </div>
                     <div class="card-body" id="in-app-call-health-container">
                         @include('inappcallmodule::admin.partials._service_status', ['healthReport' => $healthReport])
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header bg-white d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                        <div>
+                            <h5 class="mb-1">{{ translate('Signaling_test_title') }}</h5>
+                            <p class="text-muted small mb-0">{{ translate('Signaling_test_subtitle') }}</p>
+                        </div>
+                        <button type="button" class="btn btn-sm btn--primary" id="in-app-call-signaling-test-run">
+                            <span class="material-icons" style="font-size:18px;vertical-align:middle;">play_arrow</span>
+                            {{ translate('Run_signaling_test') }}
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="in-app-call-signaling-test-status" class="text-muted small mb-3">
+                            {{ translate('Signaling_test_idle') }}
+                        </div>
+                        <div id="in-app-call-signaling-test-container" class="d-none"></div>
                     </div>
                 </div>
             @else
@@ -237,6 +256,8 @@
             var currentTab = @json($tab ?? 'monitor');
             var activeUrl = @json(route('admin.in-app-calls.active'));
             var healthUrl = @json(route('admin.in-app-calls.health'));
+            var signalingTestUrl = @json(route('admin.in-app-calls.signaling-test'));
+            var csrfToken = @json(csrf_token());
             var pollMs = 5000;
             var healthPollMs = 30000;
             var lastActiveCount = {{ count($activeCalls) }};
@@ -311,10 +332,47 @@
                 setInterval(refreshActiveCalls, pollMs);
             }
 
+            function runSignalingTest() {
+                var runBtn = document.getElementById('in-app-call-signaling-test-run');
+                var statusEl = document.getElementById('in-app-call-signaling-test-status');
+                var container = document.getElementById('in-app-call-signaling-test-container');
+                if (!runBtn || !statusEl || !container) return;
+
+                runBtn.disabled = true;
+                statusEl.textContent = @json(translate('Signaling_test_running'));
+                container.classList.add('d-none');
+                container.innerHTML = '';
+
+                $.ajax({
+                    url: signalingTestUrl,
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': csrfToken },
+                }).done(function (response) {
+                    if (response.html) {
+                        container.innerHTML = response.html;
+                        container.classList.remove('d-none');
+                    }
+                    statusEl.textContent = response.ok
+                        ? @json(translate('Signaling_test_completed_ok'))
+                        : @json(translate('Signaling_test_completed_fail'));
+                }).fail(function (xhr) {
+                    var message = xhr.responseJSON && xhr.responseJSON.message
+                        ? xhr.responseJSON.message
+                        : @json(translate('Signaling_test_request_failed'));
+                    statusEl.textContent = message;
+                }).always(function () {
+                    runBtn.disabled = false;
+                });
+            }
+
             if (currentTab === 'status') {
                 var refreshBtn = document.getElementById('in-app-call-health-refresh');
                 if (refreshBtn) {
                     refreshBtn.addEventListener('click', refreshServiceHealth);
+                }
+                var signalingTestBtn = document.getElementById('in-app-call-signaling-test-run');
+                if (signalingTestBtn) {
+                    signalingTestBtn.addEventListener('click', runSignalingTest);
                 }
                 setInterval(refreshServiceHealth, healthPollMs);
             }

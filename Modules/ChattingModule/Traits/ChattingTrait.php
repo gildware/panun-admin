@@ -65,4 +65,70 @@ trait ChattingTrait
         $channel->last_sent_files_count = (int)$lastConversationFiles?->count();
         unset($channel->channelLastConversation);
     }
+
+    /**
+     * Mark channel read for the current user and paginate messages without a per-row whereHas.
+     *
+     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator|null
+     */
+    protected function paginateChannelConversationForUser($request, ?array $with = null)
+    {
+        $updated = $this->channelUser
+            ->where('channel_id', $request['channel_id'])
+            ->where('user_id', $request->user()->id)
+            ->update(['is_read' => 1]);
+
+        if ($updated === 0) {
+            return null;
+        }
+
+        $paginator = $this->channelConversation
+            ->where('channel_id', $request['channel_id'])
+            ->with($with ?? $this->conversationApiEagerLoads())
+            ->latest()
+            ->paginate(
+                $request['limit'] ?? 30,
+                ['*'],
+                'offset',
+                $request['offset'] ?? 1
+            )
+            ->withPath('');
+
+        $this->prepareConversationMessagesForApi($paginator->getCollection());
+
+        return $paginator;
+    }
+
+    protected function conversationApiEagerLoads(): array
+    {
+        return [
+            'user:id,first_name,last_name,profile_image,user_type',
+            'user.storage',
+            'conversationFiles:id,conversation_id,original_file_name,stored_file_name,file_type,created_at',
+            'conversationFiles.storage',
+        ];
+    }
+
+    /**
+     * Avoid expensive appended accessors (file_size hits disk per attachment).
+     */
+    protected function prepareConversationMessagesForApi($messages): void
+    {
+        $messages->each(function ($message) {
+            if ($message->relationLoaded('user') && $message->user) {
+                $message->user->setAppends(['profile_image_full_path']);
+                $message->user->makeHidden([
+                    'identification_image_full_path',
+                    'identification_image',
+                    'password',
+                ]);
+            }
+
+            if ($message->relationLoaded('conversationFiles')) {
+                $message->conversationFiles->each(function ($file) {
+                    $file->setAppends(['stored_file_name_full_path']);
+                });
+            }
+        });
+    }
 }

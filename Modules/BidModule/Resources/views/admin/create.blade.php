@@ -243,12 +243,6 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label class="form-label">{{ translate('email') }}</label>
-                                    <input type="email" name="email" class="form-control" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
                                     <label class="form-label">{{ translate('phone') }}</label>
                                     <input type="tel" name="phone" class="form-control" required>
                                 </div>

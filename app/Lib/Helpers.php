@@ -2031,12 +2031,46 @@ if (! function_exists('resolve_provider_org_id_for_user')) {
 
         return match ($user->user_type) {
             PROVIDER_USER_TYPES[0] => $user->provider?->id,
-            PROVIDER_USER_TYPES[1] => filled($user->provider_id ?? null)
-                ? (string) $user->provider_id
-                : $user->provider?->id,
+            PROVIDER_USER_TYPES[1] => $user->provider?->id,
             PROVIDER_USER_TYPES[2] => $user->serviceman?->provider_id,
             default => null,
         };
+    }
+}
+
+if (! function_exists('provider_org_member_user_ids')) {
+    /**
+     * User IDs belonging to a provider organization (admin, servicemen, and legacy employees).
+     *
+     * @return list<string>
+     */
+    function provider_org_member_user_ids(string $providerOrgId): array
+    {
+        $userIds = [];
+
+        $adminUserId = \Modules\ProviderManagement\Entities\Provider::query()
+            ->where('id', $providerOrgId)
+            ->value('user_id');
+        if ($adminUserId) {
+            $userIds[] = (string) $adminUserId;
+        }
+
+        $servicemanUserIds = \Modules\UserManagement\Entities\Serviceman::query()
+            ->where('provider_id', $providerOrgId)
+            ->pluck('user_id')
+            ->all();
+        $userIds = array_merge($userIds, array_map('strval', $servicemanUserIds));
+
+        if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'provider_id')) {
+            $employeeUserIds = \Modules\UserManagement\Entities\User::query()
+                ->where('user_type', PROVIDER_USER_TYPES[1])
+                ->where('provider_id', $providerOrgId)
+                ->pluck('id')
+                ->all();
+            $userIds = array_merge($userIds, array_map('strval', $employeeUserIds));
+        }
+
+        return array_values(array_unique(array_filter($userIds)));
     }
 }
 
@@ -2061,7 +2095,7 @@ if (!function_exists('isNotificationActive')) {
                 $providerSettings = $providerSettings ? json_decode($providerSettings->value) : null;
             }
 
-            $settingValue = $providerSettings->$type ?? $adminSettings->$type;
+            $settingValue = $providerSettings?->$type ?? $adminSettings->$type;
 
             if (is_null($settingValue)) {
                 return false;

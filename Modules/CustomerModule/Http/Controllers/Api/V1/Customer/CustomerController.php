@@ -87,7 +87,7 @@ class CustomerController extends Controller
             'first_name' => 'required',
             'last_name' => 'required',
             'phone' => 'required',
-            'email' => 'required',
+            'email' => 'nullable|email',
             'password' => '',
             'profile_image' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
         ]);
@@ -100,14 +100,20 @@ class CustomerController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, [["error_code"=>"phone","message"=>translate('Phone already taken')]]), 400);
         }
 
-        if ($customer->email != $request['email']){
+        if ($request->filled('email') && User::where('email', $request['email'])->where('id', '!=', $customer->id)->exists()) {
+            return response()->json(response_formatter(DEFAULT_400, null, [["error_code"=>"email","message"=>translate('Email already taken')]]), 400);
+        }
+
+        if ($request->filled('email') && $customer->email != $request['email']){
             $customer->is_email_verified = 0;
         }
 
         $customer->first_name = $request->first_name;
         $customer->last_name = $request->last_name;
         $customer->phone = $request->phone;
-        $customer->email = $request->email;
+        if ($request->filled('email')) {
+            $customer->email = $request->email;
+        }
 
         if ($request->has('profile_image')) {
             $customer->profile_image = file_uploader('user/profile_image/', APPLICATION_IMAGE_FORMAT, $request->file('profile_image'), $customer->profile_image);;

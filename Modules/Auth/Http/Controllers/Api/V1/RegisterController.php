@@ -64,7 +64,7 @@ class RegisterController extends Controller
         $validator = Validator::make($request->all(), [
             'first_name' => 'required',
             'last_name' => 'required',
-            'email' => 'required|email',
+            'email' => 'nullable|email',
             'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:10',
             'password' => 'required|min:8',
             'gender' => 'in:male,female,others',
@@ -76,7 +76,7 @@ class RegisterController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 403);
         }
 
-        if (User::where('email', $request['email'])->exists()) {
+        if ($request->filled('email') && User::where('email', $request['email'])->exists()) {
             return response()->json(response_formatter(DEFAULT_400, null, [["error_code" => "email", "message" => translate('Email already taken')]]), 400);
         }
         if (User::where('phone', $request['phone'])->exists()) {
@@ -86,7 +86,7 @@ class RegisterController extends Controller
         $user = $this->user;
         $user->first_name = $request->first_name;
         $user->last_name = $request->last_name;
-        $user->email = $request->email;
+        $user->email = $request->filled('email') ? $request->email : null;
         $user->phone = $request->phone;
         $user->profile_image = $request->has('profile_image') ? file_uploader('user/profile_image/', APPLICATION_IMAGE_FORMAT, $request->profile_image) : 'default.png';
         $user->date_of_birth = $request->date_of_birth;

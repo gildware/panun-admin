@@ -167,7 +167,7 @@ class GlobalChattingController extends Controller
                     'is_read' => 0
                 ]);
 
-            $channelConversation = $this->channelConversation;
+            $channelConversation = new ChannelConversation();
             $channelConversation->channel_id = $request->channel_id;
             $channelConversation->message = $request['message'];
             $channelConversation->user_id = $request->user()->id;

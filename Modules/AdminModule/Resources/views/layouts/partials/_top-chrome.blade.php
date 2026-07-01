@@ -23,7 +23,7 @@
                      data-fallback="{{ $logoPlaceholder }}"
                      onerror="this.onerror=null;this.src=this.dataset.fallback||'{{ $logoPlaceholder }}'"
                      alt="{{ translate('image') }}">
-                <span class="d-none d-sm-inline">Panun Kaergar</span>
+                <span class="d-none d-sm-inline">Panun Kaergar Admin</span>
             </a>
         </div>
         <div class="top-utility-end">

@@ -3349,6 +3349,180 @@ if (! function_exists('chat_message_notification_settings_type')) {
     }
 }
 
+if (! function_exists('build_chat_message_sender_payload')) {
+    /**
+     * @return array{name: ?string, phone: ?string, image: ?string, type: ?string}|null
+     */
+    function build_chat_message_sender_payload(\Modules\UserManagement\Entities\User $user): ?array
+    {
+        $user->loadMissing(['provider', 'serviceman']);
+
+        if ($user->user_type == USER_TYPES[0]['value'] || $user->user_type == USER_TYPES[1]['value']) {
+            return [
+                'name' => business_config('business_name', 'business_information')?->live_values,
+                'phone' => business_config('business_phone', 'business_information')?->live_values,
+                'image' => asset('storage/app/public/business') . '/' . business_config('business_favicon', 'business_information')?->live_values,
+                'type' => $user->user_type,
+            ];
+        }
+
+        if (is_provider_org_chat_user($user)) {
+            $providerOrg = \Modules\ProviderManagement\Entities\Provider::query()
+                ->find(resolve_provider_org_id_for_user($user));
+            if (! $providerOrg) {
+                return null;
+            }
+
+            return [
+                'name' => $providerOrg->company_name,
+                'phone' => $providerOrg->company_phone,
+                'image' => asset('storage/app/public/provider/logo') . '/' . $providerOrg->logo,
+                'type' => $user->user_type,
+            ];
+        }
+
+        if ($user->user_type == USER_TYPES[3]['value']) {
+            return [
+                'name' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')),
+                'phone' => $user->phone,
+                'image' => asset('storage/app/public/serviceman/profile') . '/' . $user->profile_image,
+                'type' => USER_TYPES[3]['value'],
+            ];
+        }
+
+        if ($user->user_type == USER_TYPES[4]['value']) {
+            return [
+                'name' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')),
+                'phone' => $user->phone,
+                'image' => asset('storage/app/public/user/profile_image') . '/' . $user->profile_image,
+                'type' => USER_TYPES[4]['value'],
+            ];
+        }
+
+        return null;
+    }
+}
+
+if (! function_exists('chat_message_push_recipient_users')) {
+    /**
+     * Resolve users who should receive a chat push for a channel member.
+     * Provider org members share booking chat, so fan-out to org users with FCM
+     * when the direct channel member has no registered device.
+     *
+     * @return list<\Modules\UserManagement\Entities\User>
+     */
+    function chat_message_push_recipient_users(\Modules\UserManagement\Entities\User $channelMember): array
+    {
+        if (user_has_fcm_devices($channelMember)) {
+            return [$channelMember];
+        }
+
+        if (! in_array($channelMember->user_type, [PROVIDER_USER_TYPES[0], PROVIDER_USER_TYPES[1]], true)) {
+            return [];
+        }
+
+        $providerOrgId = resolve_provider_org_id_for_user($channelMember);
+        if (! $providerOrgId) {
+            return [];
+        }
+
+        try {
+            $orgUserIds = array_values(array_diff(
+                provider_org_member_user_ids($providerOrgId),
+                [(string) $channelMember->id]
+            ));
+
+            if ($orgUserIds === []) {
+                return [];
+            }
+
+            return \Modules\UserManagement\Entities\User::query()
+                ->whereIn('id', $orgUserIds)
+                ->where('is_active', 1)
+                ->get()
+                ->filter(fn (\Modules\UserManagement\Entities\User $user) => user_has_fcm_devices($user))
+                ->values()
+                ->all();
+        } catch (\Throwable $exception) {
+            \Illuminate\Support\Facades\Log::error('Chat org push fan-out failed', [
+                'channel_member_id' => $channelMember->id,
+                'message' => $exception->getMessage(),
+            ]);
+
+            return [];
+        }
+    }
+}
+
+if (! function_exists('dispatch_chat_message_push_notifications')) {
+    function dispatch_chat_message_push_notifications(
+        \Modules\ChattingModule\Entities\ChannelConversation|string $conversation
+    ): void {
+        try {
+            if (is_string($conversation)) {
+                $conversation = \Modules\ChattingModule\Entities\ChannelConversation::query()->find($conversation);
+            }
+
+            if (! $conversation) {
+                return;
+            }
+
+            $sender = \Modules\UserManagement\Entities\User::query()
+                ->with(['provider', 'serviceman'])
+                ->find($conversation->user_id);
+            if (! $sender) {
+                return;
+            }
+
+            $senderPayload = build_chat_message_sender_payload($sender);
+            if (! $senderPayload || empty($senderPayload['type'])) {
+                return;
+            }
+
+            $recipientUserIds = \Modules\ChattingModule\Entities\ChannelUser::query()
+                ->where('channel_id', $conversation->channel_id)
+                ->where('user_id', '!=', $conversation->user_id)
+                ->pluck('user_id');
+
+            if ($recipientUserIds->isEmpty()) {
+                return;
+            }
+
+            $notifiedUserIds = [];
+            foreach ($recipientUserIds as $recipientUserId) {
+                $channelMember = \Modules\UserManagement\Entities\User::query()
+                    ->with(['provider', 'serviceman'])
+                    ->find($recipientUserId);
+                if (! $channelMember) {
+                    continue;
+                }
+
+                foreach (chat_message_push_recipient_users($channelMember) as $recipient) {
+                    if (isset($notifiedUserIds[$recipient->id])) {
+                        continue;
+                    }
+
+                    $notifiedUserIds[$recipient->id] = true;
+                    send_chat_message_push_notification(
+                        $recipient,
+                        (string) $conversation->channel_id,
+                        $senderPayload['name'],
+                        $senderPayload['image'],
+                        $senderPayload['phone'],
+                        $senderPayload['type'],
+                        (string) $conversation->id
+                    );
+                }
+            }
+        } catch (\Throwable $exception) {
+            \Illuminate\Support\Facades\Log::error('Chat message push dispatch failed', [
+                'conversation_id' => is_string($conversation) ? $conversation : $conversation?->id,
+                'message' => $exception->getMessage(),
+            ]);
+        }
+    }
+}
+
 if (! function_exists('send_chat_message_push_notification')) {
     function send_chat_message_push_notification(
         \Modules\UserManagement\Entities\User $toUser,
@@ -3356,7 +3530,8 @@ if (! function_exists('send_chat_message_push_notification')) {
         ?string $senderName,
         ?string $senderImage,
         ?string $senderPhone,
-        ?string $senderType
+        ?string $senderType,
+        ?string $conversationId = null
     ): void {
         $settingsType = chat_message_notification_settings_type($toUser);
         if (! $settingsType) {
@@ -3396,8 +3571,32 @@ if (! function_exists('send_chat_message_push_notification')) {
             'booking_id' => $bookingReadableId,
         ];
 
+        if ($settingsType === 'provider_notification') {
+            $toUser->loadMissing('provider');
+            $templateData['provider_name'] = trim((string) ($toUser->provider?->company_name ?? ''));
+            $templateData['user_name'] = trim((string) ($senderName ?? ''));
+        } else {
+            $templateData['user_name'] = trim(($toUser->first_name ?? '') . ' ' . ($toUser->last_name ?? ''));
+        }
+
         $title = text_variable_data_format($title, $bookingUuid, 'booking', $templateData);
         $description = text_variable_data_format((string) $description, $bookingUuid, 'booking', $templateData);
+
+        $pushData = [
+            'message' => '',
+            'sender_user_id' => '',
+            'created_at' => '',
+        ];
+        if ($conversationId) {
+            $conversation = \Modules\ChattingModule\Entities\ChannelConversation::query()->find($conversationId);
+            if ($conversation) {
+                $pushData = [
+                    'message' => (string) ($conversation->message ?? ''),
+                    'sender_user_id' => (string) ($conversation->user_id ?? ''),
+                    'created_at' => $conversation->created_at?->toIso8601String() ?? '',
+                ];
+            }
+        }
 
         device_notification_for_chatting_user(
             $toUser,
@@ -3409,7 +3608,9 @@ if (! function_exists('send_chat_message_push_notification')) {
             $senderImage,
             $senderPhone,
             $senderType,
-            'chatting'
+            'chatting',
+            $conversationId,
+            $pushData
         );
     }
 }

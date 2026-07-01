@@ -9,12 +9,14 @@ use Illuminate\Routing\Controller;
 use Modules\InAppCallModule\Entities\InAppCall;
 use Modules\InAppCallModule\Services\InAppCallHealthService;
 use Modules\InAppCallModule\Services\InAppCallService;
+use Modules\InAppCallModule\Services\InAppCallSignalingTestService;
 
 class InAppCallMonitorController extends Controller
 {
     public function __construct(
         private readonly InAppCallService $inAppCallService,
         private readonly InAppCallHealthService $healthService,
+        private readonly InAppCallSignalingTestService $signalingTestService,
     ) {
     }
 
@@ -75,6 +77,29 @@ class InAppCallMonitorController extends Controller
             'recommendations' => $report['recommendations'],
             'html' => view('inappcallmodule::admin.partials._service_status', [
                 'healthReport' => $report,
+            ])->render(),
+        ]);
+    }
+
+    public function runSignalingTest(): JsonResponse
+    {
+        if (! $this->inAppCallService->isEnabled()) {
+            return response()->json([
+                'ok' => false,
+                'message' => translate('In_app_calling_is_not_configured'),
+            ], 400);
+        }
+
+        $result = $this->signalingTestService->run();
+
+        return response()->json([
+            'ok' => $result['ok'],
+            'passed' => $result['passed'],
+            'failed' => $result['failed'],
+            'call_id' => $result['call_id'],
+            'duration_ms' => $result['duration_ms'],
+            'html' => view('inappcallmodule::admin.partials._signaling_test_results', [
+                'result' => $result,
             ])->render(),
         ]);
     }
