@@ -49,6 +49,45 @@ trait ChattingTrait
         return $findChannel;
     }
 
+    protected function findChannelBetweenUsers(string $fromUser, string $toUser, string $referenceType)
+    {
+        $channelIds = $this->channelUser->where(['user_id' => $fromUser])->pluck('channel_id')->toArray();
+
+        return $this->channelList
+            ->whereIn('id', $channelIds)
+            ->where('reference_type', $referenceType)
+            ->whereHas('channelUsers', function ($query) use ($toUser) {
+                $query->where(['user_id' => $toUser]);
+            })
+            ->latest()
+            ->first();
+    }
+
+    /**
+     * Resolve the app-specific support channel, upgrading legacy "support" threads in place.
+     */
+    protected function findOrCreateSupportChannel(string $fromUser, string $toUser, string $app)
+    {
+        $referenceType = support_channel_reference_type_for_app($app);
+
+        $existing = $this->findChannelBetweenUsers($fromUser, $toUser, $referenceType);
+        if ($existing) {
+            return $existing;
+        }
+
+        if ($referenceType !== 'support') {
+            $legacy = $this->findChannelBetweenUsers($fromUser, $toUser, 'support');
+            if ($legacy) {
+                $legacy->reference_type = $referenceType;
+                $legacy->save();
+
+                return $legacy->fresh();
+            }
+        }
+
+        return $this->createNewChannel($fromUser, $toUser, '', $referenceType);
+    }
+
     function formatConversations($channelList): void
     {
         $channelList->each(function ($channel) {

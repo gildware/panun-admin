@@ -110,27 +110,15 @@ class User extends Authenticatable
      */
     public function scopeEligibleCustomerAppUsers(Builder $query): Builder
     {
-        return $query->where(function (Builder $q) {
-            $q->whereIn('user_type', CUSTOMER_USER_TYPES)
-                ->orWhere(function (Builder $q2) {
-                    $q2->where('user_type', 'provider-admin')
-                        ->where('customer_app_access', true);
-                });
-        });
+        return $query->whereIn('user_type', CUSTOMER_USER_TYPES);
     }
 
     /**
-     * Admin lists, booking customer pickers, coupons, marketing: anyone who acts as a customer in the business.
+     * Admin lists, booking customer pickers, coupons, marketing: customer accounts only.
      */
     public function scopeInCustomerDirectory(Builder $query): Builder
     {
-        return $query->where(function (Builder $q) {
-            $q->whereIn('user_type', CUSTOMER_USER_TYPES)
-                ->orWhere(function (Builder $q2) {
-                    $q2->where('user_type', 'provider-admin')
-                        ->where('customer_app_access', true);
-                });
-        });
+        return $query->whereIn('user_type', CUSTOMER_USER_TYPES);
     }
 
     public function qualifiesForCustomerToProviderUpgrade(): bool
@@ -278,21 +266,11 @@ class User extends Authenticatable
 
     /**
      * Existing customer row to attach a new provider to, or null to create a new owner user.
+     *
+     * Provider and customer accounts are always separate rows, even when the phone matches.
      */
     public static function resolveCustomerUserForProviderOnboarding(string $phone, string $email): ?self
     {
-        $byPhone = self::findByContactPhone($phone);
-        $byEmail = self::findByContactEmail($email);
-        if (self::providerContactRegistrationErrors($phone, $email) !== []) {
-            return null;
-        }
-        if ($byPhone && $byPhone->qualifiesForCustomerToProviderUpgrade()) {
-            return $byPhone;
-        }
-        if ($byEmail && $byEmail->qualifiesForCustomerToProviderUpgrade()) {
-            return $byEmail;
-        }
-
         return null;
     }
 

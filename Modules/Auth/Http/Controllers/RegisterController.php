@@ -87,7 +87,7 @@ class RegisterController extends Controller
         if ($request->filled('email') && User::where('email', $request['email'])->exists()) {
             return response()->json(response_formatter(DEFAULT_400, null, [["error_code" => "account_email", "message" => translate('Email already taken')]]), 400);
         }
-        if (User::where('phone', $request['phone'])->exists()) {
+        if (User::findByContactPhoneScoped($request['phone'], CUSTOMER_USER_TYPES)) {
             return response()->json(response_formatter(DEFAULT_400, null, [["error_code" => "account_phone", "message" => translate('Phone already taken')]]), 400);
         }
 
@@ -536,7 +536,7 @@ class RegisterController extends Controller
     public function checkUniqueUser(Request $request)
     {
         $emailExists = $this->user->where('email', $request->email)->exists();
-        $phoneExists = $this->user->where('phone', $request->phone)->exists();
+        $phoneExists = User::findByContactPhoneScoped((string) $request->phone, PROVIDER_USER_TYPES) !== null;
 
         return response()->json([
             'success' => !$emailExists && !$phoneExists,

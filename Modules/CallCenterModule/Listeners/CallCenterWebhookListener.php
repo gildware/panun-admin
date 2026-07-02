@@ -132,7 +132,6 @@ class CallCenterWebhookListener
 
     private function isCustomerUser(User $user): bool
     {
-        return in_array($user->user_type, CUSTOMER_USER_TYPES, true)
-            || ($user->user_type === 'provider-admin' && $user->customer_app_access);
+        return in_array($user->user_type, CUSTOMER_USER_TYPES, true);
     }
 }

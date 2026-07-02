@@ -999,7 +999,7 @@ class BookingController extends Controller
         if ($register_new_customer == 1 && $new_user_phone != null) {
             $alreadyClaimed = ! empty($additional_data['login_token_claimed']);
 
-            $user = User::where('phone', $new_user_phone)->first();
+            $user = User::findByContactPhoneScoped($new_user_phone, CUSTOMER_USER_TYPES);
             if (! $user && ! $alreadyClaimed) {
                 $user = new User();
                 $user->first_name = $additional_data['first_name'] ?? '';

@@ -2966,25 +2966,17 @@ if (!function_exists('user_can_use_customer_app')) {
         if ($user === null) {
             return false;
         }
-        if (in_array($user->user_type, CUSTOMER_USER_TYPES, true)) {
-            return true;
-        }
 
-        return $user->user_type === 'provider-admin' && (bool) $user->customer_app_access;
+        return in_array($user->user_type, CUSTOMER_USER_TYPES, true);
     }
 }
 
 if (!function_exists('grant_customer_app_access_for_provider')) {
     /**
-     * Allow a provider-admin to use the customer app with the same phone (dual role).
+     * @deprecated Provider and customer are separate accounts; kept as a no-op for backward compatibility.
      */
     function grant_customer_app_access_for_provider(User $user): User
     {
-        if ($user->user_type === 'provider-admin' && ! $user->customer_app_access) {
-            $user->customer_app_access = true;
-            $user->save();
-        }
-
         return $user->fresh() ?? $user;
     }
 }

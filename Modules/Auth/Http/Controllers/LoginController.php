@@ -281,7 +281,7 @@ class LoginController extends Controller
         $validator = Validator::make($request->all(), $this->validation_array);
         if ($validator->fails()) return response()->json(response_formatter(AUTH_LOGIN_403, null, error_processor($validator)), 403);
 
-        $user = $this->user->eligibleCustomerAppUsers()
+        $user = $this->user->ofType(CUSTOMER_USER_TYPES)
             ->where(function ($q) use ($request) {
                 $q->where('phone', $request['email_or_phone'])
                     ->orWhere('email', $request['email_or_phone']);

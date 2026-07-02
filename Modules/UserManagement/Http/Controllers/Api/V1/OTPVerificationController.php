@@ -58,8 +58,8 @@ class OTPVerificationController extends Controller
 
         if ($request->check_user){
             $user = $identityType === 'phone'
-                ? User::findByContactPhone($identity)
-                : $this->user->where('email', $identity)->first();
+                ? $this->findCustomerByContactPhone($identity)
+                : $this->user->where('email', $identity)->whereIn('user_type', CUSTOMER_USER_TYPES)->first();
             if (!isset($user)) {
                 return response()->json(response_formatter(DEFAULT_404), 404);
             }
@@ -173,8 +173,8 @@ class OTPVerificationController extends Controller
         }
 
         $user = $identityType === 'phone'
-            ? User::findByContactPhone($identity)
-            : $this->user->where('email', $identity)->first();
+            ? $this->findCustomerByContactPhone($identity)
+            : $this->user->where('email', $identity)->whereIn('user_type', CUSTOMER_USER_TYPES)->first();
         if (!isset($user)) {
             return response()->json(response_formatter(DEFAULT_404), 404);
         }
@@ -307,18 +307,8 @@ class OTPVerificationController extends Controller
 
             $temporaryToken = Str::random(40);
 
-            $isUserExist = User::findByContactPhone($phone);
+            $isUserExist = $this->findCustomerByContactPhone($phone);
             if ($isUserExist) {
-                if ($isUserExist->user_type === 'provider-serviceman') {
-                    return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
-                }
-
-                $isUserExist = grant_customer_app_access_for_provider($isUserExist);
-
-                if (! user_can_use_customer_app($isUserExist)) {
-                    return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
-                }
-
                 $isUserExist->is_phone_verified = 1;
                 $isUserExist->save();
 
@@ -465,18 +455,8 @@ class OTPVerificationController extends Controller
                 $this->normalizeOtpIdentity($request['phone'], 'phone')
             );
 
-            $existingUser = User::findByContactPhone($phone);
+            $existingUser = $this->findCustomerByContactPhone($phone);
             if ($existingUser) {
-                if ($existingUser->user_type === 'provider-serviceman') {
-                    return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
-                }
-
-                $existingUser = grant_customer_app_access_for_provider($existingUser);
-
-                if (! user_can_use_customer_app($existingUser)) {
-                    return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
-                }
-
                 if ($request['email']) {
                     $emailTaken = $this->user->where('email', $request['email'])
                         ->where('id', '!=', $existingUser->id)
@@ -570,23 +550,13 @@ class OTPVerificationController extends Controller
             return response()->json(response_formatter(OTP_VERIFICATION_FAIL_403), 403);
         }
 
-        $user = User::findByContactPhone($responseData['phoneNumber']);
+        $user = $this->findCustomerByContactPhone($responseData['phoneNumber']);
 
         if ($request['guest_id'] && isset($user)){
             $this->updateAddressAndCartUser($user->id, $request['guest_id']);
         }
 
         if (isset($user)) {
-            if ($user->user_type === 'provider-serviceman') {
-                return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
-            }
-
-            $user = grant_customer_app_access_for_provider($user);
-
-            if (! user_can_use_customer_app($user)) {
-                return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
-            }
-
             $user->is_phone_verified = 1;
             $user->save();
 
@@ -697,10 +667,15 @@ class OTPVerificationController extends Controller
         return $verify;
     }
 
+    private function findCustomerByContactPhone(string $phone): ?User
+    {
+        return User::findByContactPhoneScoped($phone, CUSTOMER_USER_TYPES);
+    }
+
     private function canonicalPhoneIdentity(string $phone): string
     {
         $normalized = $this->normalizeOtpIdentity($phone, 'phone');
-        $user = User::findByContactPhone($normalized);
+        $user = $this->findCustomerByContactPhone($normalized);
 
         if ($user && $user->phone) {
             return trim($user->phone);
@@ -760,7 +735,7 @@ class OTPVerificationController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($newUserValidator)), 400);
         }
 
-        if (User::where('phone', $request['phone'])->exists()) {
+        if ($this->findCustomerByContactPhone($request['phone'])) {
             return response()->json(response_formatter(USER_EXIST_400, null, [["error_code" => "phone", "message" => translate('Phone already taken')]]), 400);
         }
         return response()->json(response_formatter(DEFAULT_200, null), 200);

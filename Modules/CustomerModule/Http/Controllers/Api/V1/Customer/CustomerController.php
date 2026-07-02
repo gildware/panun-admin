@@ -96,7 +96,8 @@ class CustomerController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        if (User::where('phone', $request['phone'])->where('id', '!=', $customer->id)->exists()) {
+        $existingCustomerPhone = User::findByContactPhoneScoped($request['phone'], CUSTOMER_USER_TYPES);
+        if ($existingCustomerPhone && $existingCustomerPhone->id !== $customer->id) {
             return response()->json(response_formatter(DEFAULT_400, null, [["error_code"=>"phone","message"=>translate('Phone already taken')]]), 400);
         }
 

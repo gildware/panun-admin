@@ -311,7 +311,7 @@ class LoginController extends Controller
         if ($validator->fails()) return response()->json(response_formatter(AUTH_LOGIN_403, null, error_processor($validator)), 403);
 
         $user = $this->user
-            ->eligibleCustomerAppUsers()
+            ->ofType(CUSTOMER_USER_TYPES)
             ->where(function ($q) use ($request) {
                 $q->where('phone', $request['email_or_phone'])
                     ->orWhere('email', $request['email_or_phone']);
@@ -553,7 +553,7 @@ class LoginController extends Controller
         }
 
         $user = $this->user->where('email', $data['email'])
-            ->eligibleCustomerAppUsers()
+            ->ofType(CUSTOMER_USER_TYPES)
             ->first();
 
         $temporaryToken = Str::random(40);
@@ -596,7 +596,9 @@ class LoginController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $user = $this->user->where('email', $request['email'])->first();
+        $user = $this->user->where('email', $request['email'])
+            ->ofType(CUSTOMER_USER_TYPES)
+            ->first();
 
         $temporaryToken = Str::random(40);
         if (!$user) {
@@ -638,44 +640,27 @@ class LoginController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $existingUser = $this->user->where(function ($query) use ($request) {
-            $query->where('phone', $request['phone']);
-            if ($request->filled('email')) {
-                $query->orWhere('email', $request['email']);
+        $existingCustomer = User::findByContactPhoneScoped($request['phone'], CUSTOMER_USER_TYPES);
+
+        if ($existingCustomer) {
+            $existingCustomer->first_name = $request->first_name;
+            $existingCustomer->last_name = $request->last_name;
+            if ($request['email']) {
+                $existingCustomer->email = $request['email'];
             }
-        })->first();
+            $existingCustomer->is_email_verified = 1;
+            $existingCustomer->is_active = 1;
+            $existingCustomer->save();
 
-        if ($existingUser) {
-            if ($existingUser->phone === $request['phone']) {
-                if ($existingUser->user_type === 'provider-serviceman') {
-                    return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
-                }
-
-                $existingUser = grant_customer_app_access_for_provider($existingUser);
-
-                if (user_can_use_customer_app($existingUser)) {
-                    $existingUser->first_name = $request->first_name;
-                    $existingUser->last_name = $request->last_name;
-                    if ($request['email']) {
-                        $existingUser->email = $request['email'];
-                    }
-                    $existingUser->is_email_verified = 1;
-                    $existingUser->is_active = 1;
-                    $existingUser->save();
-
-                    if ($request['guest_id']) {
-                        $this->updateAddressAndCartUser($existingUser->id, $request['guest_id']);
-                    }
-
-                    return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($existingUser, CUSTOMER_PANEL_ACCESS)), 200);
-                }
-
-                return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
+            if ($request['guest_id']) {
+                $this->updateAddressAndCartUser($existingCustomer->id, $request['guest_id']);
             }
 
-            if ($request->filled('email') && $existingUser->email === $request['email']) {
-                return response()->json(response_formatter(ALREADY_USE_EMAIL_ANOTHER_ACCOUNT), 403);
-            }
+            return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($existingCustomer, CUSTOMER_PANEL_ACCESS)), 200);
+        }
+
+        if ($request->filled('email') && $this->user->where('email', $request['email'])->exists()) {
+            return response()->json(response_formatter(ALREADY_USE_EMAIL_ANOTHER_ACCOUNT), 403);
         }
 
         $temporaryToken = Str::random(40);
@@ -687,6 +672,8 @@ class LoginController extends Controller
             'phone' => $request->phone,
             'password' => bcrypt(rand(11111111, 99999999)),
             'language_code' => $request->header('X-localization') ?? 'en',
+            'user_type' => 'customer',
+            'customer_app_access' => true,
             'is_email_verified' => 1,
             'is_active' => 1,
         ]);

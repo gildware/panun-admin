@@ -60,11 +60,10 @@ class ChattingController extends Controller
             ]]), 500);
         }
 
-        $channel = $this->createNewChannel(
+        $channel = $this->findOrCreateSupportChannel(
             fromUser: $request->user()->id,
             toUser: $superAdminId,
-            referenceId: '',
-            referenceType: support_channel_reference_type_for_app('customer'),
+            app: 'customer',
         );
 
         $adminChannel = $this->channelList

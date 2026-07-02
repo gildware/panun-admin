@@ -25,13 +25,7 @@ class ChannelList extends Model
             return $query->whereHas('channelUsers.user', function ($query) use ($type) {
                 $query->where(function ($query) use ($type) {
                     if ($type == 'customer') {
-                        $query->where(function ($q) {
-                            $q->whereIn('user_type', CUSTOMER_USER_TYPES)
-                                ->orWhere(function ($q2) {
-                                    $q2->where('user_type', 'provider-admin')
-                                        ->where('customer_app_access', 1);
-                                });
-                        });
+                        $query->whereIn('user_type', CUSTOMER_USER_TYPES);
                     } elseif ($type == 'provider') {
                         $query->where('user_type', 'provider-admin');
                     } elseif ($type == 'serviceman') {

@@ -79,7 +79,7 @@ class RegisterController extends Controller
         if ($request->filled('email') && User::where('email', $request['email'])->exists()) {
             return response()->json(response_formatter(DEFAULT_400, null, [["error_code" => "email", "message" => translate('Email already taken')]]), 400);
         }
-        if (User::where('phone', $request['phone'])->exists()) {
+        if (User::findByContactPhoneScoped($request['phone'], CUSTOMER_USER_TYPES)) {
             return response()->json(response_formatter(DEFAULT_400, null, [["error_code" => "phone", "message" => translate('Phone already taken')]]), 400);
         }
 

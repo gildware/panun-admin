@@ -604,9 +604,7 @@ class BookingController extends Controller
         }
 
         // Try to find existing customer by phone; otherwise create one
-        $customer = User::query()->inCustomerDirectory()
-            ->where('phone', $leadModel->phone_number)
-            ->first();
+        $customer = User::findByContactPhoneScoped((string) $leadModel->phone_number, CUSTOMER_USER_TYPES);
 
         if (!$customer) {
             $defaultPassword = config('app.default_customer_password', '12345678');
@@ -737,8 +735,8 @@ class BookingController extends Controller
             return redirect()->route('admin.whatsapp.conversations.index', ['channel' => 'whatsapp', 'tab' => 'bookings']);
         }
 
-        $customer = User::findByContactPhone((string) $wa->phone);
-        if (!$customer || $customer->user_type !== 'customer') {
+        $customer = User::findByContactPhoneScoped((string) $wa->phone, CUSTOMER_USER_TYPES);
+        if (!$customer) {
             $defaultPassword = config('app.default_customer_password', '12345678');
             $customer = new User();
             $name = trim((string) ($wa->name ?? ''));
