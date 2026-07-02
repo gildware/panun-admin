@@ -62,6 +62,18 @@
             margin: .45rem 0;
             border-top: 1px dashed rgba(0,0,0,.08);
         }
+        .overview-service-list {
+            max-height: 7.5rem;
+            overflow-y: auto;
+            padding-right: .25rem;
+        }
+        .overview-service-list::-webkit-scrollbar {
+            width: 4px;
+        }
+        .overview-service-list::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, .15);
+            border-radius: 4px;
+        }
         .booking-status-row {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -287,22 +299,17 @@
                             <div class="overview-widget-card widget-service">
                                 <h4 class="overview-widget-title mb-0">{{ translate('Total_Subscribed_Services') }} ({{ $totalSubscribedServices }})</h4>
                                 <div class="overview-widget-divider"></div>
-                                @php
-                                    $serviceBreakdown = collect($subscribedServiceCategoryCounts)->take(4);
-                                @endphp
-                                @forelse($serviceBreakdown as $catCount)
-                                    <div class="overview-stat-line">
-                                        <span class="text-truncate pe-2">{{ data_get($catCount, 'category_name', translate('Unknown')) }}</span>
-                                        <strong>{{ (int) $catCount->total }}</strong>
+                                @if(collect($subscribedServiceCategoryCounts)->isNotEmpty())
+                                    <div class="overview-service-list">
+                                        @foreach($subscribedServiceCategoryCounts as $catCount)
+                                            <div class="overview-stat-line">
+                                                <span class="text-truncate pe-2">{{ data_get($catCount, 'category_name', translate('Unknown')) }}</span>
+                                                <strong>{{ (int) $catCount->total }}</strong>
+                                            </div>
+                                        @endforeach
                                     </div>
-                                @empty
+                                @else
                                     <p class="mb-0 text-muted fs-12">{{ translate('No_data_found') }}</p>
-                                @endforelse
-                                @if(collect($subscribedServiceCategoryCounts)->count() > 4)
-                                    <div class="overview-stat-line text-muted">
-                                        <span>{{ translate('Others') }}</span>
-                                        <strong>{{ (int) collect($subscribedServiceCategoryCounts)->slice(4)->sum('total') }}</strong>
-                                    </div>
                                 @endif
                             </div>
                         </div>

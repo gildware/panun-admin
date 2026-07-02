@@ -5,6 +5,7 @@ use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingDetail;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingExtraService;
+use Modules\BookingModule\Entities\BookingIgnore;
 use Modules\BookingModule\Entities\BookingPartialPayment;
 use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\BookingModule\Entities\BookingRepeat;
@@ -1216,6 +1217,23 @@ if (! function_exists('booking_admin_can_reassign_provider')) {
             ->where('booking_id', $main->id)
             ->where('booking_status', 'ongoing')
             ->exists();
+    }
+}
+
+if (! function_exists('booking_clear_provider_ignore')) {
+    /**
+     * Remove a provider from a booking's ignore list when admin reassigns them.
+     */
+    function booking_clear_provider_ignore(string $bookingId, string $providerId): void
+    {
+        if ($bookingId === '' || $providerId === '') {
+            return;
+        }
+
+        BookingIgnore::query()
+            ->where('booking_id', $bookingId)
+            ->where('provider_id', $providerId)
+            ->delete();
     }
 }
 

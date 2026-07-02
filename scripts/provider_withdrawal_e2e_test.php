@@ -99,21 +99,15 @@ if (! $booking) {
 $provider = Provider::with('owner')->find($booking->provider_id);
 $reason = BookingProviderCancellationReason::query()->active()->orderBy('id')->first();
 $admin = User::query()->whereIn('user_type', ['super-admin', 'admin-employee'])->first();
-$replacementProvider = Provider::query()
-    ->where('is_active', 1)
-    ->where('id', '!=', $provider?->id)
-    ->orderBy('company_name')
-    ->first();
 
-if (! $provider?->owner || ! $reason || ! $admin || ! $replacementProvider) {
-    echo "Missing test prerequisites (provider owner, cancel reason, admin, replacement provider).\n";
+if (! $provider?->owner || ! $reason || ! $admin) {
+    echo "Missing test prerequisites (provider owner, cancel reason, admin).\n";
     exit(1);
 }
 
 echo "Booking: #{$booking->readable_id} ({$booking->id})\n";
 echo "Provider: {$provider->company_name}\n";
-echo "Cancel reason: {$reason->name} (#{$reason->id})\n";
-echo "Replacement provider: {$replacementProvider->company_name}\n\n";
+echo "Cancel reason: {$reason->name} (#{$reason->id})\n\n";
 
 $token = tokenFor($provider->owner);
 $refundCountBefore = Transaction::query()
@@ -226,28 +220,28 @@ if ($detailsRes['status'] === 200 && ($detailsRes['body']['response_code'] ?? ''
     fail('Provider still has booking access', 'status=' . $detailsRes['status'] . ' code=' . ($detailsRes['body']['response_code'] ?? 'n/a'));
 }
 
-// 5) Admin reassigns a new provider
-echo "5. Admin — reassign provider\n";
+// 5) Admin reassigns the same provider (after withdrawal)
+echo "5. Admin — reassign same provider\n";
 auth()->login($admin);
 $reassignRequest = Request::create(
     '/admin/provider/reassign-provider/' . $booking->id,
     'PUT',
-    ['provider_id' => $replacementProvider->id, 'booking_id' => $booking->id]
+    ['provider_id' => $provider->id, 'booking_id' => $booking->id]
 );
 $reassignRequest->setUserResolver(fn () => $admin);
 $reassignResponse = app(ProviderController::class)->reassignProvider($reassignRequest);
 $booking->refresh();
 
 if ($reassignResponse->getStatusCode() === 200) {
-    ok('Admin reassigned provider successfully');
+    ok('Admin reassigned same provider successfully');
 } else {
-    fail('Admin reassign provider', 'status=' . $reassignResponse->getStatusCode());
+    fail('Admin reassign same provider', 'status=' . $reassignResponse->getStatusCode());
 }
 
-if ((string) $booking->provider_id === (string) $replacementProvider->id) {
-    ok('New provider assigned on booking');
+if ((string) $booking->provider_id === (string) $provider->id) {
+    ok('Same provider assigned on booking');
 } else {
-    fail('New provider not assigned', 'provider_id=' . ($booking->provider_id ?? 'null'));
+    fail('Same provider not assigned', 'provider_id=' . ($booking->provider_id ?? 'null'));
 }
 
 if ($booking->booking_status === 'accepted') {
@@ -262,11 +256,41 @@ if ($booking->provider_cancelled_at === null && $booking->provider_cancelled_by_
     fail('Withdrawal flags not cleared');
 }
 
+$ignoredAfterReassign = BookingIgnore::query()
+    ->where('booking_id', $booking->id)
+    ->where('provider_id', $provider->id)
+    ->exists();
+if (! $ignoredAfterReassign) {
+    ok('Provider removed from booking ignore list after reassignment');
+} else {
+    fail('Provider still in booking ignore list after reassignment');
+}
+
 $listCountAfter = Booking::query()->cancelledByProvider()->where('id', $booking->id)->count();
 if ($listCountAfter === 0) {
     ok('Booking removed from Cancelled by provider list after reassignment');
 } else {
     fail('Booking still in Cancelled by provider list', 'count=' . $listCountAfter);
+}
+
+// 6) Provider sees booking again in app
+echo "6. Provider API — booking visible after same-provider reassignment\n";
+$listRes = api('GET', '/provider/booking', $token, ['booking_status' => 'all']);
+$listBookingIds = collect($listRes['body']['content']['bookings']['data'] ?? [])
+    ->pluck('id')
+    ->map(fn ($id) => (string) $id)
+    ->all();
+if ($listRes['status'] === 200 && in_array((string) $booking->id, $listBookingIds, true)) {
+    ok('Provider booking list includes reassigned booking');
+} else {
+    fail('Provider booking list missing reassigned booking', 'status=' . $listRes['status'] . ' ids=' . implode(',', $listBookingIds));
+}
+
+$detailsResAfter = api('GET', '/provider/booking/' . $booking->id, $token);
+if ($detailsResAfter['status'] === 200 && ($detailsResAfter['body']['response_code'] ?? '') === 'default_200') {
+    ok('Provider can access booking details after reassignment');
+} else {
+    fail('Provider cannot access booking details after reassignment', 'status=' . $detailsResAfter['status'] . ' code=' . ($detailsResAfter['body']['response_code'] ?? 'n/a'));
 }
 
 echo "\n=== Results: {$passed} passed, {$failed} failed ===\n\n";

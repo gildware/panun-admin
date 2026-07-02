@@ -3537,6 +3537,8 @@ class ProviderController extends Controller
 
     private function updateBooking($booking, $providerId, $changedBy): void
     {
+        booking_clear_provider_ignore((string) $booking->id, (string) $providerId);
+
         $booking->update([
             'provider_id' => $providerId,
             'serviceman_id' => null,

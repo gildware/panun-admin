@@ -4588,6 +4588,8 @@ class BookingController extends Controller
             $booking->provider_cancelled_at = null;
             $booking->provider_cancelled_by_provider_id = null;
 
+            booking_clear_provider_ignore((string) $booking->id, (string) $request->provider_id);
+
             if ($booking->isDirty('provider_id') || $booking->isDirty('provider_cancelled_at')) {
                 $booking->booking_status = 'accepted';
                 $booking->serviceman_id = null;

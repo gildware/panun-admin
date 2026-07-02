@@ -970,6 +970,8 @@ class BookingController extends Controller
             $booking->provider_cancelled_at = null;
             $booking->provider_cancelled_by_provider_id = null;
 
+            booking_clear_provider_ignore((string) $booking->id, (string) $provider->id);
+
             $bookingStatusHistory = $this->bookingStatusHistory;
             $bookingStatusHistory->booking_id = $bookingId;
             $bookingStatusHistory->changed_by = $request->user()->id;

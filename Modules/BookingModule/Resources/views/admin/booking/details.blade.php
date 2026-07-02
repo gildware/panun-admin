@@ -4489,6 +4489,13 @@
             $select.select2({ dropdownParent: bookingEditSelect2ModalParent() });
         }
 
+        function bookingEditRefreshVariantSelect(html) {
+            const $variant = $('#service_variation_selector__select');
+            bookingEditDestroySelect2($variant);
+            $variant.html(html);
+            bookingEditInitSelect2($variant);
+        }
+
         function bookingEditLoadSubcategories(categoryId, selectedSubId) {
             const $modal = $(serviceUpdateModalSelector);
             const providerId = $modal.data('booking-provider-id');
@@ -4543,7 +4550,7 @@
             bookingEditDestroySelect2($svc);
             $svc.html('<option value="" selected disabled>{{ translate('Select Service') }}</option>');
             bookingEditInitSelect2($svc);
-            $('#service_variation_selector__select').html(
+            bookingEditRefreshVariantSelect(
                 '<option value="" selected disabled>{{ translate('Select Service Variant') }}</option>');
         });
 
@@ -4561,7 +4568,7 @@
                 bookingEditDestroySelect2($svc);
                 $svc.html(o);
                 bookingEditInitSelect2($svc);
-                $('#service_variation_selector__select').html(
+                bookingEditRefreshVariantSelect(
                     '<option value="" selected disabled>{{ translate('Select Service Variant') }}</option>');
             }).fail(function() {
                 toastr.error('{{ translate('Failed to load') }}');
@@ -4569,10 +4576,16 @@
         });
 
         $("#service_selector__select").on('change', function() {
-            $("#service_variation_selector__select").html(
-                '<option value="" selected disabled>{{ translate('Select Service Variant') }}</option>');
+            bookingEditRefreshVariantSelect(
+                '<option value="" selected disabled>{{ translate('Loading...') }}</option>');
 
             const serviceId = this.value;
+            if (!serviceId) {
+                bookingEditRefreshVariantSelect(
+                    '<option value="" selected disabled>{{ translate('Select Service Variant') }}</option>');
+                return;
+            }
+
             const route = '{{ route('admin.booking.service.ajax-get-variant') }}' + '?service_id=' + serviceId +
                 '&zone_id=' + "{{ $booking->zone_id }}";
 
@@ -4586,16 +4599,18 @@
                 success: function(response) {
                     var selectString =
                         '<option value="" selected disabled>{{ translate('Select Service Variant') }}</option>';
-                    response.content.forEach((item) => {
+                    (response.content || []).forEach((item) => {
                         selectString +=
-                            `<option value="${item.variant_key}">${item.variant}</option>`;
+                            `<option value="${item.variant_key}">${item.variant || item.variant_key}</option>`;
                     });
-                    $("#service_variation_selector__select").html(selectString)
+                    bookingEditRefreshVariantSelect(selectString);
                 },
                 complete: function() {
                     $('.preloader').hide();
                 },
                 error: function() {
+                    bookingEditRefreshVariantSelect(
+                        '<option value="" selected disabled>{{ translate('Select Service Variant') }}</option>');
                     toastr.error('{{ translate('Failed to load') }}')
                 }
             });
@@ -4633,7 +4648,7 @@
 
         $("#serviceUpdateModal--{{ $booking['id'] }}").on('hidden.bs.modal', function() {
             $('#service_selector__select').prop('selectedIndex', 0);
-            $("#service_variation_selector__select").html(
+            bookingEditRefreshVariantSelect(
                 '<option value="" selected disabled>{{ translate('Select Service Variant') }}</option>');
             $("#service_quantity").val('');
         });
