@@ -24,6 +24,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('status-update/{id}', [ProviderController::class, 'statusUpdate'])->name('status_update');
         Route::any('service-availability/{id}', [ProviderController::class, 'serviceAvailability'])->name('service_availability');
         Route::any('app-availability/{id}', [ProviderController::class, 'appAvailability'])->name('app_availability');
+        Route::any('advertisement-availability/{id}', [ProviderController::class, 'advertisementAvailability'])->name('advertisement_availability');
         Route::any('suspend-update/{id}', [ProviderController::class, 'suspendUpdate'])->name('suspend_update');
         Route::post('commission-update/{id}', [ProviderController::class, 'commissionUpdate'])->name('commission_update');
 

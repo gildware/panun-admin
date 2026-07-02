@@ -27,6 +27,10 @@ class Subscription
             if ($provider) {
 
                 $providerId = $provider->id;
+                if ($module === 'advertisement' && !providerCanUseAdvertisement($providerId)) {
+                    Toastr::error(translate('you_do_not_have_access_to_this_section'));
+                    return redirect()->route('provider.dashboard');
+                }
                 $packageSubscriber = PackageSubscriber::where('provider_id', $providerId)->with('feature')->first();
                 if ($packageSubscriber) {
                     $featureKeys = $packageSubscriber->feature->pluck('feature')->toArray();

@@ -140,6 +140,7 @@ class AccountController extends Controller
             'has_pending_profile_changes' => $hasPendingProfileChanges,
             'has_pending_branding_changes' => $hasPendingBrandingChanges,
             'pending_branding_preview' => $pendingBrandingPreview,
+            'can_use_advertisement' => providerCanUseAdvertisement($provider->id),
         ]), 200);
     }
 

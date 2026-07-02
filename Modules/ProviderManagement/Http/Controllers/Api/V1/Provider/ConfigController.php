@@ -196,6 +196,8 @@ class ConfigController extends Controller
             'phone_number_visibility_for_chatting' => (int)((business_config('phone_number_visibility_for_chatting', 'business_information'))->live_values ?? 0),
             'bid_offers_visibility_for_providers' => (int)((business_config('bid_offers_visibility_for_providers', 'bidding_system'))->live_values ?? 0),
             'bidding_status' => (int)((business_config('bidding_status', 'bidding_system'))->live_values ?? 0),
+            'advertisement_status' => (int)((business_config('advertisement_status', 'provider_config'))->live_values ?? 0),
+            'advertisement_minimum_bookings' => (int)((business_config('advertisement_minimum_bookings', 'provider_config'))->live_values ?? 0),
             'in_app_call_status' => (int)((business_config('in_app_call_status', 'in_app_call_system'))?->live_values ?? 1),
             'digital_payment' => (int)((business_config('digital_payment', 'service_setup'))->live_values ?? 0),
             'phone_verification' => (((login_setup('phone_verification'))->value ?? 0 ) == 1 && $count == 1 ? 1 : 0),

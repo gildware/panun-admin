@@ -2102,6 +2102,10 @@ if (!function_exists('chatEligibility')) {
 if (!function_exists('advertisementsEligibility')) {
     function advertisementsEligibility($providerId): bool
     {
+        if (!providerCanUseAdvertisement($providerId)) {
+            return false;
+        }
+
         $now = \Carbon\Carbon::now();
         $packageSubscriber = PackageSubscriber::where('provider_id', $providerId)->first();
 
@@ -2133,6 +2137,42 @@ if (!function_exists('advertisementsEligibility')) {
         }
 
         return true;
+    }
+}
+
+if (!function_exists('providerCanUseAdvertisement')) {
+    /**
+     * Whether a provider may access advertisement features in the provider app.
+     * Global advertisement_status must be on.
+     * allow_advertisement: 0 = force off, 1 = force on (bypass min bookings), null = follow min bookings rule.
+     */
+    function providerCanUseAdvertisement($providerId): bool
+    {
+        $globalEnabled = (int) (business_config('advertisement_status', 'provider_config')?->live_values ?? 0) === 1;
+        if (!$globalEnabled) {
+            return false;
+        }
+
+        $provider = Provider::find($providerId);
+        if (!$provider) {
+            return false;
+        }
+
+        if ($provider->allow_advertisement !== null && (int) $provider->allow_advertisement === 0) {
+            return false;
+        }
+
+        if ((int) $provider->allow_advertisement === 1) {
+            return true;
+        }
+
+        $minimumBookings = (int) (business_config('advertisement_minimum_bookings', 'provider_config')?->live_values ?? 0);
+        $completedBookings = \Modules\BookingModule\Entities\Booking::query()
+            ->where('provider_id', $providerId)
+            ->where('booking_status', 'completed')
+            ->count();
+
+        return $completedBookings >= $minimumBookings;
     }
 }
 

@@ -2910,6 +2910,21 @@ class ProviderController extends Controller
     }
 
     /**
+     * Toggle per-provider advertisement access override.
+     * 1 = force enable (bypass minimum bookings), 0 = force disable, null = follow global rules.
+     */
+    public function advertisementAvailability($id): JsonResponse
+    {
+        $this->authorize('provider_manage_status');
+
+        $provider = $this->provider->where('id', $id)->first();
+        $current = $provider?->allow_advertisement;
+        $next = (int) $current === 1 ? 0 : 1;
+        $this->provider->where('id', $id)->update(['allow_advertisement' => $next]);
+        return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
+    }
+
+    /**
      * Remove the specified resource from storage.
      * @param $id
      * @return JsonResponse

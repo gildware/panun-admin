@@ -109,6 +109,24 @@
                             @endcan
                         </div>
 
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                            <div>
+                                <h5 class="mb-1">{{ translate('Allow_Advertisement') }}</h5>
+                                <p class="mb-0 text-muted">
+                                    {{ translate('If_on_provider_can_access_advertisement_features_even_when_minimum_completed_bookings_are_not_met._If_off_provider_cannot_access_advertisement_features_even_when_conditions_are_met.') }}
+                                </p>
+                            </div>
+                            @can('provider_manage_status')
+                                <label class="switcher" data-bs-toggle="modal" data-bs-target="#deactivateAlertModal">
+                                    <input class="switcher_input route-alert"
+                                           data-route="{{ route('admin.provider.advertisement_availability', [$provider->id]) }}"
+                                           data-message="{{ translate('want_to_update_status') }}"
+                                           type="checkbox" {{ (int) $provider->allow_advertisement === 1 ? 'checked' : '' }}>
+                                    <span class="switcher_control"></span>
+                                </label>
+                            @endcan
+                        </div>
+
                         @can('provider_delete')
                             <div class="border-top pt-4 mt-2">
                                 <h5 class="mb-2 text-danger">{{ translate('This_action_will_permanently_delete_data') }}</h5>

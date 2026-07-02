@@ -37,6 +37,7 @@ class Provider extends Model
         'commission_tier_setup' => 'array',
         'is_active' => 'integer',
         'app_availability' => 'integer',
+        'allow_advertisement' => 'integer',
         'is_approved' => 'integer',
         'coordinates' => 'json',
         'company_identity_images' => 'array',

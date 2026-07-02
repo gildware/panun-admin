@@ -649,7 +649,7 @@ class BusinessInformationController extends Controller
         $this->authorize('business_update');
 
         collect([
-            'provider_can_cancel_booking', 'provider_can_edit_booking', 'provider_can_reply_review', 'provider_self_registration', 'provider_self_delete', 'service_at_provider_place', 'suspend_on_exceed_cash_limit_provider'
+            'provider_can_cancel_booking', 'provider_can_edit_booking', 'provider_can_reply_review', 'provider_self_registration', 'provider_self_delete', 'service_at_provider_place', 'advertisement_status', 'suspend_on_exceed_cash_limit_provider'
         ])->each(fn($item, $key) => $request[$item] = $request->has($item) ? (int)$request[$item] : 0);
 
         $validated = $request->validate([
@@ -659,6 +659,8 @@ class BusinessInformationController extends Controller
             'provider_self_registration' => 'required|in:0,1',
             'provider_self_delete' => 'required|in:0,1',
             'service_at_provider_place' => 'required|in:0,1',
+            'advertisement_status' => 'required|in:0,1',
+            'advertisement_minimum_bookings' => 'required|integer|min:0',
             'suspend_on_exceed_cash_limit_provider' => 'required|in:0,1',
             'max_cash_in_hand_limit_provider' => 'required',
             'min_payable_amount' => 'required',
