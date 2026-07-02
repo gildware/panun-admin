@@ -1010,6 +1010,38 @@ if (!function_exists('onErrorImage')) {
     }
 }
 
+if (! function_exists('support_channel_reference_types')) {
+    /**
+     * All channel reference_type values used for admin support chats.
+     */
+    function support_channel_reference_types(): array
+    {
+        return ['support', 'support_customer', 'support_provider', 'support_serviceman'];
+    }
+}
+
+if (! function_exists('is_support_channel_reference_type')) {
+    function is_support_channel_reference_type(?string $referenceType): bool
+    {
+        return in_array((string) $referenceType, support_channel_reference_types(), true);
+    }
+}
+
+if (! function_exists('support_channel_reference_type_for_app')) {
+    /**
+     * Distinct support channel type per mobile app so dual-role users keep separate threads.
+     */
+    function support_channel_reference_type_for_app(string $app): string
+    {
+        return match ($app) {
+            'customer' => 'support_customer',
+            'provider' => 'support_provider',
+            'serviceman' => 'support_serviceman',
+            default => 'support',
+        };
+    }
+}
+
 if (!function_exists('getSuperAdminId')) {
     function getSuperAdminId()
     {

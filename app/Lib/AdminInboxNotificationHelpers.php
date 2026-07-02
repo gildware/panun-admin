@@ -33,7 +33,7 @@ if (! function_exists('admin_inbox_notify_chat_message')) {
     function admin_inbox_notify_chat_message(ChannelConversation $conversation): void
     {
         $channel = ChannelList::query()->find($conversation->channel_id);
-        if (! $channel || (string) $channel->reference_type !== 'support') {
+        if (! $channel || ! is_support_channel_reference_type($channel->reference_type)) {
             return;
         }
 
@@ -42,8 +42,11 @@ if (! function_exists('admin_inbox_notify_chat_message')) {
             return;
         }
 
-        $senderIsCustomer = $sender->user_type === USER_TYPES[4]['value'];
-        $senderIsProvider = $sender->user_type === USER_TYPES[2]['value'];
+        $channelType = (string) $channel->reference_type;
+        $senderIsCustomer = $channelType === 'support_customer'
+            || ($channelType === 'support' && $sender->user_type === USER_TYPES[4]['value']);
+        $senderIsProvider = in_array($channelType, ['support_provider', 'support_serviceman'], true)
+            || ($channelType === 'support' && $sender->user_type === USER_TYPES[2]['value']);
 
         if (! $senderIsCustomer && ! $senderIsProvider) {
             return;

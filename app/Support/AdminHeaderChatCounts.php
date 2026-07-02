@@ -17,7 +17,7 @@ final class AdminHeaderChatCounts
         $userId = $user->id;
 
         $supportUnreadChannelIds = ChannelList::query()
-            ->where('reference_type', 'support')
+            ->whereIn('reference_type', support_channel_reference_types())
             ->whereHas('channelUsers', fn ($query) => $query->where('user_id', $userId)->where('is_read', 0))
             ->whereHas('channelUsers', function ($query) use ($userId) {
                 $query->where('user_id', '!=', $userId)

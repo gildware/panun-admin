@@ -629,7 +629,9 @@ class InAppCallService
             return false;
         }
 
-        $blockedReferenceTypes = ['support', 'staff_group'];
+        $blockedReferenceTypes = support_channel_reference_types();
+        $blockedReferenceTypes[] = 'staff_group';
+        $blockedReferenceTypes = array_values(array_unique($blockedReferenceTypes));
 
         return in_array((string) $channel->reference_type, $blockedReferenceTypes, true);
     }

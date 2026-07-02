@@ -392,6 +392,10 @@ class LoginController extends Controller
             return response()->json(response_formatter(ACCESS_DENIED), 200);
         }
 
+        if ($request->filled('device_id')) {
+            unregister_user_fcm_device((string) $request->user()->id, $request->input('device_id'));
+        }
+
         $request->user()->token()->revoke();
         return response()->json(response_formatter(AUTH_LOGOUT_200), 200);
     }
@@ -719,6 +723,9 @@ class LoginController extends Controller
     public function logout(Request $request): JsonResponse
     {
         if ($request->user() !== null) {
+            if ($request->filled('device_id')) {
+                unregister_user_fcm_device((string) $request->user()->id, $request->input('device_id'));
+            }
             $request->user()->token()->revoke();
         }
         return response()->json(response_formatter(AUTH_LOGOUT_200), 200);

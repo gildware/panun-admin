@@ -1,4 +1,7 @@
 @php($fromUser = $chat->channelUsers->where('user_id', '!=', auth()->id())->first())
+@php($supportChannelType = $chat->reference_type ?? null)
+@php($showAsCustomer = $supportChannelType === 'support_customer' || ($supportChannelType === 'support' && isset($fromUser->user) && in_array($fromUser->user->user_type, CUSTOMER_USER_TYPES, true)))
+@php($showAsProvider = in_array($supportChannelType, ['support_provider', 'support_serviceman'], true) || ($supportChannelType === 'support' && isset($fromUser->user) && $fromUser->user->user_type === 'provider-admin'))
 <div class="chat_list chat-list-class {{ $chat->is_read == 0 ? 'active' : '' }}{{ !empty($isActive) ? ' active-selected' : '' }}"
      id="chat-{{ $chat->id }}"
      data-route="{{ route('admin.chat.ajax-conversation', ['channel_id' => $chat->id, 'offset' => 1]) }}"
@@ -9,9 +12,9 @@
             <img
                 @if(isset($fromUser->user) && in_array($fromUser->user->user_type, ADMIN_USER_TYPES))
                     src="{{ $fromUser->user->profile_image_full_path }}"
-                @elseif(isset($fromUser->user) && $fromUser->user->user_type == 'customer')
+                @elseif($showAsCustomer)
                     src="{{ $fromUser->user->profile_image_full_path }}"
-                @elseif(isset($fromUser->user) && $fromUser->user->user_type == 'provider-admin')
+                @elseif($showAsProvider)
                     src="{{ $fromUser->user->provider->logo_full_path }}"
                 @elseif(isset($fromUser->user) && $fromUser->user->user_type == 'provider-serviceman')
                     src="{{ $fromUser->user->profile_image_full_path }}"
@@ -28,9 +31,9 @@
         </div>
         <div class="chat_ib chat_ib--support media-body min-w-0 flex-grow-1">
             <div class="chat-card-row chat-card-row--top d-flex align-items-start justify-content-between gap-2">
-                <h5 class="mb-0 text-truncate min-w-0">{{ isset($fromUser->user) ? ($fromUser->user->provider ? $fromUser->user->provider->company_name : $fromUser->user->first_name.' '.$fromUser->user->last_name) : translate('no_user_found') }}</h5>
+                <h5 class="mb-0 text-truncate min-w-0">{{ isset($fromUser->user) ? ($showAsProvider && $fromUser->user->provider ? $fromUser->user->provider->company_name : $fromUser->user->first_name.' '.$fromUser->user->last_name) : translate('no_user_found') }}</h5>
                 <div class="chat-card-end flex-shrink-0">
-                    @include('chattingmodule::admin.partials._support-chat-role-pill', ['fromUser' => $fromUser])
+                    @include('chattingmodule::admin.partials._support-chat-role-pill', ['fromUser' => $fromUser, 'chat' => $chat])
                 </div>
             </div>
             <div class="chat-card-row chat-card-row--bottom d-flex align-items-center justify-content-between gap-2 mt-1">

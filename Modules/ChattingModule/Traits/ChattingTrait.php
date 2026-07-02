@@ -9,11 +9,17 @@ trait ChattingTrait
     public function createNewChannel($fromUser, $toUser, $referenceId = null, $referenceType = null)
     {
         $channelIds = $this->channelUser->where(['user_id' => $fromUser])->pluck('channel_id')->toArray();
-        $findChannel = $this->channelList
+        $findChannelQuery = $this->channelList
             ->whereIn('id', $channelIds)
             ->whereHas('channelUsers', function ($query) use ($toUser) {
                 $query->where(['user_id' => $toUser]);
-            })->latest()->first();
+            });
+
+        if ($referenceType !== null) {
+            $findChannelQuery->where('reference_type', $referenceType);
+        }
+
+        $findChannel = $findChannelQuery->latest()->first();
 
         if (!isset($findChannel)) {
             $channel = $this->channelList;
@@ -119,7 +125,7 @@ trait ChattingTrait
     protected function healSupportChannelMembership(string $channelId, string $userId): bool
     {
         $channel = $this->channelList->find($channelId);
-        if (! $channel || $channel->reference_type !== 'support') {
+        if (! $channel || ! is_support_channel_reference_type($channel->reference_type)) {
             return false;
         }
 
@@ -131,6 +137,17 @@ trait ChattingTrait
             ->exists();
 
         if (! $hasSuperAdmin) {
+            return false;
+        }
+
+        // Never attach a different provider/customer to another account's support thread.
+        $otherNonAdminMemberExists = $this->channelUser
+            ->where('channel_id', $channelId)
+            ->where('user_id', '!=', $userId)
+            ->whereHas('user', fn ($query) => $query->whereNotIn('user_type', ADMIN_USER_TYPES))
+            ->exists();
+
+        if ($otherNonAdminMemberExists) {
             return false;
         }
 

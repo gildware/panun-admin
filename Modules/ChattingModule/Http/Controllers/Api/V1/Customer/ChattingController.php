@@ -64,7 +64,7 @@ class ChattingController extends Controller
             fromUser: $request->user()->id,
             toUser: $superAdminId,
             referenceId: '',
-            referenceType: 'support',
+            referenceType: support_channel_reference_type_for_app('customer'),
         );
 
         $adminChannel = $this->channelList
@@ -94,6 +94,10 @@ class ChattingController extends Controller
                 $query->filterByType($request['type']);
             })
             ->where('id', '!=', $adminChannel->id)
+            ->where(function ($query) {
+                $query->whereNull('reference_type')
+                    ->orWhereNotIn('reference_type', support_channel_reference_types());
+            })
             ->orderBy('updated_at', 'DESC')
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
             ->withPath('');

@@ -582,7 +582,7 @@ class SmokeTestNotificationScenarios extends Command
         return ChannelConversation::query()
             ->with(['channel_users'])
             ->whereHas('user', fn ($query) => $query->whereIn('user_type', $senderUserTypes))
-            ->whereHas('channel', fn ($query) => $query->where('reference_type', 'support'))
+            ->whereHas('channel', fn ($query) => $query->whereIn('reference_type', support_channel_reference_types()))
             ->whereHas('channel_users.user', fn ($query) => $query->whereIn('user_type', ADMIN_USER_TYPES))
             ->latest()
             ->first();
