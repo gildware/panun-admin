@@ -28,7 +28,7 @@
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
                     <h5 class="profile-name mb-0">
                         @if($supportChatProfileUrl)
-                            <a href="{{ $supportChatProfileUrl }}" class="chat-profile-link text-dark">{{ $fromUser->user->provider->company_name }}</a>
+                            <a href="{{ $supportChatProfileUrl }}" class="chat-profile-link text-dark" target="_blank" rel="noopener noreferrer">{{ $fromUser->user->provider->company_name }}</a>
                         @else
                             {{ $fromUser->user->provider->company_name }}
                         @endif
@@ -55,7 +55,7 @@
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
                     <h5 class="profile-name mb-0">
                         @if($supportChatProfileUrl)
-                            <a href="{{ $supportChatProfileUrl }}" class="chat-profile-link text-dark">{{ isset($fromUser->user) ? trim($fromUser->user->first_name . ' ' . $fromUser->user->last_name) : translate('no_user_found') }}</a>
+                            <a href="{{ $supportChatProfileUrl }}" class="chat-profile-link text-dark" target="_blank" rel="noopener noreferrer">{{ isset($fromUser->user) ? trim($fromUser->user->first_name . ' ' . $fromUser->user->last_name) : translate('no_user_found') }}</a>
                         @else
                             {{ isset($fromUser->user) ? trim($fromUser->user->first_name . ' ' . $fromUser->user->last_name) : translate('no_user_found') }}
                         @endif
