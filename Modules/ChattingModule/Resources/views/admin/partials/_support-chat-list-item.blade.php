@@ -1,7 +1,7 @@
 @php($fromUser = $chat->channelUsers->where('user_id', '!=', auth()->id())->first())
 @php($supportChannelType = $chat->reference_type ?? null)
 @php($showAsCustomer = $supportChannelType === 'support_customer' || ($supportChannelType === 'support' && isset($fromUser->user) && in_array($fromUser->user->user_type, CUSTOMER_USER_TYPES, true)))
-@php($showAsProvider = in_array($supportChannelType, ['support_provider', 'support_serviceman'], true) || ($supportChannelType === 'support' && isset($fromUser->user) && $fromUser->user->user_type === 'provider-admin'))
+@php($showAsProvider = in_array($supportChannelType, ['support_provider'], true) || ($supportChannelType === 'support' && isset($fromUser->user) && $fromUser->user->user_type === 'provider-admin'))
 <div class="chat_list chat-list-class {{ $chat->is_read == 0 ? 'active' : '' }}{{ !empty($isActive) ? ' active-selected' : '' }}"
      id="chat-{{ $chat->id }}"
      data-route="{{ route('admin.chat.ajax-conversation', ['channel_id' => $chat->id, 'offset' => 1]) }}"
@@ -10,22 +10,7 @@
     <div class="chat_people chat_people--support media gap-10 w-100 min-w-0" id="chat_people">
         <div class="position-relative flex-shrink-0">
             <img
-                @if(isset($fromUser->user) && in_array($fromUser->user->user_type, ADMIN_USER_TYPES))
-                    src="{{ $fromUser->user->profile_image_full_path }}"
-                @elseif($showAsCustomer)
-                    src="{{ $fromUser->user->profile_image_full_path }}"
-                @elseif($showAsProvider)
-                    src="{{ $fromUser->user->provider->logo_full_path }}"
-                @elseif(isset($fromUser->user) && $fromUser->user->user_type == 'provider-serviceman')
-                    src="{{ $fromUser->user->profile_image_full_path }}"
-                @else
-                    src="{{ onErrorImage(
-                        'null',
-                        asset('storage/app/public/serviceman/profile').'/',
-                        asset('assets/admin-module/img/media/user.png'),
-                        'serviceman/profile/'
-                    ) }}"
-                @endif
+                src="{{ support_chat_avatar_url($fromUser, $supportChannelType) }}"
                 class="avatar rounded-circle" alt="{{ translate('image') }}">
             <span class="avatar-status bg-success"></span>
         </div>

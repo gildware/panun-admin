@@ -1,31 +1,14 @@
 @php
     $isStaffGroup = $isStaffGroup ?? false;
     $isStaffChat = ! $isStaffGroup && isset($fromUser->user) && in_array($fromUser->user->user_type, ADMIN_USER_TYPES, true);
+    $supportChatProfileUrl = support_chat_profile_url($fromUser, $supportChannelType ?? null);
 @endphp
 <div
     class="inbox_msg_header d-flex flex-wrap gap-3 justify-content-between align-items-center border px-3 py-2 rounded mb-4">
     <div class="media align-items-center gap-3">
         <div class="position-relative">
             <img class="avatar rounded-circle {{ $isStaffGroup ? 'd-none' : '' }}"
-                 @if(isset($fromUser->user) && in_array($fromUser->user->user_type, ADMIN_USER_TYPES, true))
-                     src="{{ $fromUser->user->profile_image_full_path }}"
-                 @elseif(isset($fromUser->user) && $fromUser->user->user_type == 'customer')
-                     src="{{$fromUser->user->profile_image_full_path}}"
-                 @elseif(isset($fromUser->user) && $fromUser->user->user_type == 'provider-admin')
-                     src="{{$fromUser->user->provider->logo_full_path}}"
-                 @elseif(isset($fromUser->user) && $fromUser->user->user_type == 'provider-serviceman')
-                     src="{{onErrorImage(
-                                $fromUser->user->profile_image,
-                                asset('storage/app/public/serviceman/profile').'/' .$fromUser->user->profile_image,
-                                asset('assets/admin-module/img/media/user.png') ,
-                                'serviceman/profile/'
-                                )}}"
-                 @else
-                     src="{{onErrorImage('null',
-                        asset('storage/app/public/serviceman/profile').'/',
-                        asset('assets/admin-module/img/media/user.png') ,
-                        'serviceman/profile/')}}"
-                 @endif
+                 src="{{ support_chat_avatar_url($fromUser, $supportChannelType ?? null) }}"
                  alt="{{ translate('profile_image') }}">
             @if($isStaffGroup)
                 <span class="staff-group-header-icon d-inline-flex align-items-center justify-content-center rounded-circle bg-light">
@@ -43,7 +26,13 @@
                 <span class="fz-12 text-muted">{{ $memberCount ?? 0 }} {{ translate('members') }}</span>
             @elseif(isset($fromUser->user) && isset($fromUser->user->provider))
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                    <h5 class="profile-name mb-0">{{ $fromUser->user->provider->company_name }}</h5>
+                    <h5 class="profile-name mb-0">
+                        @if($supportChatProfileUrl)
+                            <a href="{{ $supportChatProfileUrl }}" class="chat-profile-link text-dark">{{ $fromUser->user->provider->company_name }}</a>
+                        @else
+                            {{ $fromUser->user->provider->company_name }}
+                        @endif
+                    </h5>
                     @include('chattingmodule::admin.partials._support-chat-role-pill', ['fromUser' => $fromUser])
                 </div>
                 <span class="fz-12">{{$fromUser->user->provider->company_phone}}</span>
@@ -64,7 +53,13 @@
                 </span>
             @else
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                    <h5 class="profile-name mb-0">{{ isset($fromUser->user) ? trim($fromUser->user->first_name . ' ' . $fromUser->user->last_name) : translate('no_user_found') }}</h5>
+                    <h5 class="profile-name mb-0">
+                        @if($supportChatProfileUrl)
+                            <a href="{{ $supportChatProfileUrl }}" class="chat-profile-link text-dark">{{ isset($fromUser->user) ? trim($fromUser->user->first_name . ' ' . $fromUser->user->last_name) : translate('no_user_found') }}</a>
+                        @else
+                            {{ isset($fromUser->user) ? trim($fromUser->user->first_name . ' ' . $fromUser->user->last_name) : translate('no_user_found') }}
+                        @endif
+                    </h5>
                     @include('chattingmodule::admin.partials._support-chat-role-pill', ['fromUser' => $fromUser])
                 </div>
                 <span class="fz-12">{{isset($fromUser->user)?$fromUser->user->phone:''}}</span>

@@ -1042,6 +1042,98 @@ if (! function_exists('support_channel_reference_type_for_app')) {
     }
 }
 
+if (! function_exists('support_chat_avatar_url')) {
+    /**
+     * Resolved avatar URL for a support-chat peer (sidebar list + conversation header).
+     */
+    function support_chat_avatar_url($fromUser, ?string $supportChannelType = null): string
+    {
+        $fallback = asset('assets/admin-module/img/media/user.png');
+
+        if (! $fromUser?->user) {
+            return $fallback;
+        }
+
+        $user = $fromUser->user;
+        $userType = (string) ($user->user_type ?? '');
+
+        if (in_array($userType, ADMIN_USER_TYPES, true)) {
+            return admin_nav_image_src($user->profile_image_full_path);
+        }
+
+        $showAsServiceman = $supportChannelType === 'support_serviceman'
+            || $userType === 'provider-serviceman';
+
+        $showAsCustomer = ! $showAsServiceman && (
+            $supportChannelType === 'support_customer'
+            || ($supportChannelType === 'support' && in_array($userType, CUSTOMER_USER_TYPES, true))
+            || in_array($userType, CUSTOMER_USER_TYPES, true)
+        );
+
+        $showAsProvider = ! $showAsServiceman && ! $showAsCustomer && (
+            $supportChannelType === 'support_provider'
+            || ($supportChannelType === 'support' && $userType === 'provider-admin')
+            || $userType === 'provider-admin'
+        );
+
+        if ($showAsCustomer || $showAsServiceman) {
+            return admin_nav_image_src($user->profile_image_full_path);
+        }
+
+        if ($showAsProvider) {
+            $provider = $user->relationLoaded('provider') ? $user->provider : $user->provider()->first();
+            if ($provider) {
+                return admin_nav_image_src($provider->list_avatar_full_path);
+            }
+        }
+
+        return admin_nav_image_src($user->profile_image_full_path) ?: $fallback;
+    }
+}
+
+if (! function_exists('support_chat_profile_url')) {
+    /**
+     * Admin profile page URL for a support-chat peer (customer or provider).
+     */
+    function support_chat_profile_url($fromUser, ?string $supportChannelType = null): ?string
+    {
+        if (! $fromUser?->user) {
+            return null;
+        }
+
+        $user = $fromUser->user;
+        $userType = (string) ($user->user_type ?? '');
+
+        $showAsServiceman = $supportChannelType === 'support_serviceman'
+            || $userType === 'provider-serviceman';
+
+        $showAsCustomer = ! $showAsServiceman && (
+            $supportChannelType === 'support_customer'
+            || ($supportChannelType === 'support' && in_array($userType, CUSTOMER_USER_TYPES, true))
+            || in_array($userType, CUSTOMER_USER_TYPES, true)
+        );
+
+        $showAsProvider = ! $showAsServiceman && ! $showAsCustomer && (
+            $supportChannelType === 'support_provider'
+            || ($supportChannelType === 'support' && $userType === 'provider-admin')
+            || $userType === 'provider-admin'
+        );
+
+        if ($showAsCustomer) {
+            return route('admin.customer.detail', [$user->id, 'web_page' => 'overview']);
+        }
+
+        if ($showAsProvider) {
+            $provider = $user->relationLoaded('provider') ? $user->provider : $user->provider()->first();
+            if ($provider?->id) {
+                return route('admin.provider.details', [$provider->id, 'web_page' => 'overview']);
+            }
+        }
+
+        return null;
+    }
+}
+
 if (!function_exists('getSuperAdminId')) {
     function getSuperAdminId()
     {

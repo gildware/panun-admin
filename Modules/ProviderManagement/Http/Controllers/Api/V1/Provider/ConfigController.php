@@ -67,7 +67,7 @@ class ConfigController extends Controller
             CustomerApiResponseCache::CONFIG_TTL
         );
         $content['maintenance'] = $this->checkMaintenanceMode();
-        $content['mobile_app_icons'] = app(MobileAppManagementService::class)->iconsForApi()['provider'] ?? [];
+        $content['mobile_app_icons'] = $this->providerMobileAppIconsForApi();
 
         return response()
             ->json(response_formatter(DEFAULT_200, $content), 200)
@@ -227,8 +227,22 @@ class ConfigController extends Controller
             'serviceman_can_edit_booking' => (int)((business_config('serviceman_can_edit_booking', 'serviceman_config'))->live_values ?? 0 ),
             'max_image_upload_size' => uploadMaxFileSize('image'),
             'max_video_upload_size' => uploadMaxFileSize('file'),
-            'mobile_app_icons' => app(MobileAppManagementService::class)->iconsForApi()['provider'] ?? [],
+            'mobile_app_icons' => $this->providerMobileAppIconsForApi(),
         ]), 200);
+    }
+
+    /**
+     * @return array<string, array{light: ?string, dark: ?string}>
+     */
+    private function providerMobileAppIconsForApi(): array
+    {
+        $mobileAppIcons = app(MobileAppManagementService::class)->iconsForApi();
+        $providerMobileAppIcons = $mobileAppIcons['provider'] ?? [];
+        if (isset($mobileAppIcons['customer']['customer_app_logo'])) {
+            $providerMobileAppIcons['customer_app_logo'] = $mobileAppIcons['customer']['customer_app_logo'];
+        }
+
+        return $providerMobileAppIcons;
     }
 
     public function pageDetails($key)

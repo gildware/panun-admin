@@ -76,6 +76,13 @@
             border-radius: 50%;
             background: rgba(13, 110, 253, 0.08);
         }
+        .chat-profile-link {
+            text-decoration: none;
+        }
+        .chat-profile-link:hover {
+            text-decoration: underline;
+            color: var(--bs-primary) !important;
+        }
         .input_msg_write {
             overflow: visible;
         }

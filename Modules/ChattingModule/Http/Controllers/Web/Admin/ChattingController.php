@@ -92,11 +92,7 @@ class ChattingController extends Controller
         }
 
         $chatListQuery = $this->channelList->withCount(['channelUsers'])
-            ->with([
-                'channelUsers.user.provider',
-                'channelLastConversation.user',
-                'channelLastConversation.conversationLastFiles',
-            ])
+            ->with($this->channelListEagerLoads())
             ->whereHas('channelUsers', function ($query) use ($request) {
                 $query->where(['user_id' => $request->user()->id]);
             });
@@ -222,10 +218,11 @@ class ChattingController extends Controller
 
         $fromUser = $this->channelUser->where('channel_id', $channel->id)
             ->where('user_id', '!=', $request->user()->id)
-            ->with('user')
+            ->with($this->channelMemberEagerLoads())
             ->first();
 
         $channelId = $channel->id;
+        $supportChannelType = $channel->reference_type;
         $presenceContext = $this->staffPresenceContextForFromUser($fromUser);
         $messagingContext = $this->staffMessagingViewContext($channel, $fromUser);
         $pinnedMessages = $this->pinnedMessagesFor($channelId);
@@ -234,7 +231,7 @@ class ChattingController extends Controller
             'channel_id' => $channelId,
             'ajax_route' => route('admin.chat.ajax-conversation', ['channel_id' => $channelId, 'offset' => 1]),
             'template' => view('chattingmodule::admin.partials._conversations', array_merge(
-                compact('fromUser', 'conversation', 'channelId', 'pinnedMessages'),
+                compact('fromUser', 'conversation', 'channelId', 'pinnedMessages', 'supportChannelType'),
                 $presenceContext,
                 $messagingContext,
                 ['recipientChannelUsers' => $this->recipientChannelUsersFor($channelId, (string) $request->user()->id)],
@@ -244,11 +241,7 @@ class ChattingController extends Controller
         $staffPresence = $presenceContext['staffPresence'] ?? null;
 
         if ($result['created']) {
-            $chat = $this->channelList->with([
-                'channelUsers.user',
-                'channelLastConversation.user',
-                'channelLastConversation.conversationLastFiles',
-            ])->find($channel->id);
+            $chat = $this->channelList->with($this->channelListEagerLoads())->find($channel->id);
             $presenceService = $this->staffPresenceService;
             $response['list_item'] = view('chattingmodule::admin.partials._staff-conversation-list-item', compact('chat', 'fromUser', 'staffPresence', 'presenceService'))->render();
         }
@@ -491,14 +484,11 @@ class ChattingController extends Controller
                 $query->where(['user_id' => $request->user()->id]);
             })->latest()->paginate(100, ['*'], 'offset', $request['offset']);
 
-        $channel = $this->channelList->with([
-            'channelUsers.user.provider',
-            'channelLastConversation.user',
-            'channelLastConversation.conversationLastFiles',
-        ])->find($request['channel_id']);
+        $channel = $this->channelList->with($this->channelListEagerLoads())
+            ->find($request['channel_id']);
         $fromUser = $this->channelUser->where('channel_id', $request['channel_id'])
             ->where('user_id', '!=', $request->user()->id)
-            ->with('user')
+            ->with($this->channelMemberEagerLoads())
             ->first();
         $messagingContext = $this->staffMessagingViewContext($channel, $fromUser);
         if ($channel) {
@@ -702,11 +692,12 @@ class ChattingController extends Controller
 
         $fromUser = $this->channelUser->where('channel_id', $request['channel_id'])
             ->where('user_id', '!=', $request->user()->id)
-            ->with('user')
+            ->with($this->channelMemberEagerLoads())
             ->first();
 
         $channelId = $request['channel_id'];
         $channel = $this->channelList->withCount('channelUsers')->find($channelId);
+        $supportChannelType = $channel?->reference_type;
         $messagingContext = $this->staffMessagingViewContext($channel, $fromUser);
         $presenceContext = ($messagingContext['isStaffGroup'] ?? false)
             ? []
@@ -715,7 +706,7 @@ class ChattingController extends Controller
 
         return response()->json([
             'template' => view('chattingmodule::admin.partials._conversations', array_merge(
-                compact('fromUser', 'conversation', 'channelId', 'pinnedMessages'),
+                compact('fromUser', 'conversation', 'channelId', 'pinnedMessages', 'supportChannelType'),
                 $presenceContext,
                 $messagingContext,
                 ['recipientChannelUsers' => $this->recipientChannelUsersFor($channelId, (string) $request->user()->id)],
@@ -921,6 +912,30 @@ class ChattingController extends Controller
     /**
      * @return list<string>
      */
+    private function channelListEagerLoads(): array
+    {
+        return [
+            'channelUsers.user.storage',
+            'channelUsers.user.provider.storage',
+            'channelLastConversation.user',
+            'channelLastConversation.conversationLastFiles',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function channelMemberEagerLoads(): array
+    {
+        return [
+            'user.storage',
+            'user.provider.storage',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
     private function conversationEagerLoads(): array
     {
         return ['user', 'conversationFiles', 'replyTo.user', 'replyTo.conversationFiles', 'reactions.user'];
@@ -996,11 +1011,7 @@ class ChattingController extends Controller
             if (in_array($request->user()->user_type, ADMIN_USER_TYPES, true)) {
                 $group = $this->staffGroupChannelService->ensureGroupForUser($request->user());
                 if ($group) {
-                    $group->load([
-                        'channelUsers.user',
-                        'channelLastConversation.user',
-                        'channelLastConversation.conversationLastFiles',
-                    ]);
+                    $group->load($this->channelListEagerLoads());
                     $group['is_read'] = $group->channelUsers
                         ->where('user_id', $request->user()->id)
                         ->first()
@@ -1023,11 +1034,7 @@ class ChattingController extends Controller
         }
 
         $chatListQuery = $this->channelList->withCount(['channelUsers'])
-            ->with([
-                'channelUsers.user.provider',
-                'channelLastConversation.user',
-                'channelLastConversation.conversationLastFiles',
-            ])
+            ->with($this->channelListEagerLoads())
             ->whereHas('channelUsers', function ($query) use ($request) {
                 $query->where(['user_id' => $request->user()->id]);
             })
@@ -1057,11 +1064,7 @@ class ChattingController extends Controller
     private function buildStaffChatListForSync(Request $request): \Illuminate\Support\Collection
     {
         $chatList = $this->channelList->withCount(['channelUsers'])
-            ->with([
-                'channelUsers.user',
-                'channelLastConversation.user',
-                'channelLastConversation.conversationLastFiles',
-            ])
+            ->with($this->channelListEagerLoads())
             ->whereHas('channelUsers', function ($query) use ($request) {
                 $query->where(['user_id' => $request->user()->id]);
             })
@@ -1158,7 +1161,7 @@ class ChattingController extends Controller
         $channel = $this->channelList->withCount('channelUsers')->find($channelId);
         $fromUser = $this->channelUser->where('channel_id', $channelId)
             ->where('user_id', '!=', $request->user()->id)
-            ->with('user')
+            ->with($this->channelMemberEagerLoads())
             ->first();
         $messagingContext = $this->staffMessagingViewContext($channel, $fromUser);
 
