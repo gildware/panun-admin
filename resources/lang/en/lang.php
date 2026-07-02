@@ -9771,7 +9771,6 @@ _Message' => 'Customer notification for provider bid offer
   'Showcase Approved_Message' => 'Showcase Approved Message',
   'Showcase Not Approved_Message' => 'Showcase Not Approved Message',
   'sent' => 'Sent',
-  'Delivered' => 'Delivered',
   'Seen' => 'Seen',
   'user_type' => 'User type',
   'time' => 'Time',
@@ -9788,4 +9787,5 @@ _Message' => 'Customer notification for provider bid offer
   'Call_accepted' => 'Call accepted',
   'Call_ended' => 'Call ended',
   'Call_declined' => 'Call declined',
+  'wrong login credentials' => 'Wrong login credentials',
 );

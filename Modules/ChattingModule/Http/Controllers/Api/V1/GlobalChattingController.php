@@ -123,6 +123,8 @@ class GlobalChattingController extends Controller
                     'id' => Uuid::uuid4(),
                     'channel_id' => $channel->id,
                     'user_id' => $request->user()->id,
+                    'is_read' => 1,
+                    'read_at' => now(),
                     'created_at' => now(),
                     'updated_at' => now()
                 ],
@@ -130,6 +132,8 @@ class GlobalChattingController extends Controller
                     'id' => Uuid::uuid4(),
                     'channel_id' => $channel->id,
                     'user_id' => $request['to_user'],
+                    'is_read' => 1,
+                    'read_at' => now(),
                     'created_at' => now(),
                     'updated_at' => now()
                 ]
@@ -228,9 +232,27 @@ class GlobalChattingController extends Controller
      */
     public function unreadConversationCount(Request $request): JsonResponse
     {
-        $count = $this->channelList->wherehas('channelUsers', function ($query) use ($request) {
-            $query->where('user_id', $request->user()->id)->where('is_read', 0);
-        })->count();
+        $userId = $request->user()->id;
+
+        $count = $this->channelList
+            ->whereHas('channelUsers', function ($query) use ($userId) {
+                $query->where('user_id', $userId)->where('is_read', 0);
+            })
+            ->whereHas('channelConversations', function ($query) use ($userId) {
+                $query->where('user_id', '!=', $userId)
+                    ->whereExists(function ($inner) use ($userId) {
+                        $inner->selectRaw('1')
+                            ->from('channel_users')
+                            ->whereColumn('channel_users.channel_id', 'channel_conversations.channel_id')
+                            ->where('channel_users.user_id', $userId)
+                            ->whereNull('channel_users.deleted_at')
+                            ->where(function ($readCheck) {
+                                $readCheck->whereNull('channel_users.read_at')
+                                    ->orWhereColumn('channel_conversations.created_at', '>', 'channel_users.read_at');
+                            });
+                    });
+            })
+            ->count();
 
         return response()->json(response_formatter(DEFAULT_STORE_200, ['unread_conversation' => $count]), 200);
     }

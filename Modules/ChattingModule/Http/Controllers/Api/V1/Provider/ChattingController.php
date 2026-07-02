@@ -74,6 +74,7 @@ class ChattingController extends Controller
             ->first();
 
         $this->formatConversation($adminChannel);
+        $this->markChannelReadWhenEmpty($adminChannel, (string) $request->user()->id);
 
         //channels except admin
         $channelList = $this->channelList->withCount('channelUsers')

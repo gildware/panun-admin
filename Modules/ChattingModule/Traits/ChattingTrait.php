@@ -32,6 +32,8 @@ trait ChattingTrait
                     'id' => Uuid::uuid4(),
                     'channel_id' => $channel->id,
                     'user_id' => $fromUser,
+                    'is_read' => 1,
+                    'read_at' => now(),
                     'created_at' => now(),
                     'updated_at' => now()
                 ],
@@ -39,6 +41,8 @@ trait ChattingTrait
                     'id' => Uuid::uuid4(),
                     'channel_id' => $channel->id,
                     'user_id' => $toUser,
+                    'is_read' => 1,
+                    'read_at' => now(),
                     'created_at' => now(),
                     'updated_at' => now()
                 ]
@@ -158,9 +162,6 @@ trait ChattingTrait
         return $paginator;
     }
 
-    /**
-     * Re-link a customer/provider to their Panun Kaergar support channel when membership rows are missing.
-     */
     protected function healSupportChannelMembership(string $channelId, string $userId): bool
     {
         $channel = $this->channelList->find($channelId);
@@ -201,6 +202,35 @@ trait ChattingTrait
         ]);
 
         return true;
+    }
+
+    /**
+     * Empty channels should not appear unread — fixes legacy rows created before is_read defaulted to 0.
+     */
+    protected function markChannelReadWhenEmpty(?ChannelList $channel, string $userId): void
+    {
+        if (! $channel) {
+            return;
+        }
+
+        $hasMessages = $this->channelConversation
+            ->where('channel_id', $channel->id)
+            ->exists();
+
+        if ($hasMessages) {
+            return;
+        }
+
+        $this->channelUser
+            ->where('channel_id', $channel->id)
+            ->where('user_id', $userId)
+            ->where('is_read', 0)
+            ->update(['is_read' => 1, 'read_at' => now()]);
+
+        $membership = $channel->channelUsers?->firstWhere('user_id', $userId);
+        if ($membership) {
+            $membership->is_read = 1;
+        }
     }
 
     protected function conversationApiEagerLoads(): array
