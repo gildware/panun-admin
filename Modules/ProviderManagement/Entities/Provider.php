@@ -279,6 +279,35 @@ class Provider extends Model
         return $resolved ?? (request()->is('api/*') ? null : $defaultPath);
     }
 
+    /**
+     * Avatar for admin lists: company logo when set, otherwise contact person photo.
+     */
+    public function getListAvatarFullPathAttribute(): ?string
+    {
+        $defaultPath = asset('assets/provider-module/img/user2x.png');
+
+        if ($this->hasStoredListAvatarFilename($this->logo)) {
+            return $this->logo_full_path ?? $defaultPath;
+        }
+
+        if ($this->hasStoredListAvatarFilename($this->contact_person_photo)) {
+            return $this->contact_person_photo_full_path ?? $defaultPath;
+        }
+
+        return $defaultPath;
+    }
+
+    private function hasStoredListAvatarFilename(mixed $filename): bool
+    {
+        if ($filename === null || $filename === '') {
+            return false;
+        }
+
+        $filename = (string) $filename;
+
+        return strlen($filename) >= 2 && $filename !== 'def.png';
+    }
+
     public function getCompanyIdentityImagesFullPathAttribute()
     {
         $path = 'provider/company-identity/';

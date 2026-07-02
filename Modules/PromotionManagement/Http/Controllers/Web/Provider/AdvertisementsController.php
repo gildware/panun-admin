@@ -131,7 +131,8 @@ class AdvertisementsController extends Controller
             return redirect()->back()->withErrors(['End date must be greater than start date']);
         }
 
-        DB::transaction(function () use ($request, $startDate, $endDate) {
+        $advertisement = null;
+        DB::transaction(function () use ($request, $startDate, $endDate, &$advertisement) {
             $advertisement = $this->advertisement;
             $advertisement->readable_id = $this->generateReadableId();
             $advertisement->title = $request->title[array_search('default', $request->lang)];
@@ -252,6 +253,10 @@ class AdvertisementsController extends Controller
 
         });
 
+        if ($advertisement) {
+            admin_inbox_notify_advertisement_submitted($advertisement);
+        }
+
         Toastr::success(translate(DEFAULT_STORE_200['message']));
         return redirect()->route('provider.advertisements.ads-list', ['status' => 'all'])->with('newItemAdded', true);
     }
@@ -369,7 +374,8 @@ class AdvertisementsController extends Controller
             return redirect()->back()->withErrors(['End date must be greater than start date']);
         }
 
-        DB::transaction(function () use ($request, $startDate, $endDate, $sourceId) {
+        $advertisement = null;
+        DB::transaction(function () use ($request, $startDate, $endDate, $sourceId, &$advertisement) {
 
             $advertisement = $this->advertisement;
             $advertisement->readable_id = $this->generateReadableId();
@@ -529,6 +535,10 @@ class AdvertisementsController extends Controller
                 }
             }
         });
+
+        if ($advertisement) {
+            admin_inbox_notify_advertisement_submitted($advertisement);
+        }
 
         Toastr::success(translate(DEFAULT_STORE_200['message']));
         return redirect()->route('provider.advertisements.ads-list', ['status' => 'all']);
@@ -761,6 +771,8 @@ class AdvertisementsController extends Controller
             }
 
         });
+
+        admin_inbox_notify_advertisement_submitted($advertisement->fresh());
 
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));
         return redirect()->route('provider.advertisements.ads-list', ['status' => 'all']);

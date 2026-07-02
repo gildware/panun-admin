@@ -171,6 +171,25 @@ if (! function_exists('admin_inbox_notify_booking_customer_canceled')) {
     }
 }
 
+if (! function_exists('admin_inbox_notify_advertisement_submitted')) {
+    function admin_inbox_notify_advertisement_submitted(\Modules\PromotionManagement\Entities\Advertisement $advertisement): void
+    {
+        $advertisement->loadMissing('provider');
+        $providerName = $advertisement->provider?->company_name ?? translate('Provider');
+        $adLabel = $advertisement->title ?? (string) ($advertisement->readable_id ?? $advertisement->id);
+        $isUpdateRequest = (int) ($advertisement->is_updated ?? 0) === 1;
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_ADVERTISEMENT,
+            $isUpdateRequest ? translate('Advertisement_update_request') : translate('New_advertisement_request'),
+            $providerName . ' — ' . $adLabel,
+            route('admin.advertisements.new-ads-request', ['status' => $isUpdateRequest ? 'update_request' : 'new']),
+            'advertisement_submitted',
+            (string) $advertisement->id,
+        );
+    }
+}
+
 if (! function_exists('admin_inbox_notify_advertisement_paused_by_provider')) {
     function admin_inbox_notify_advertisement_paused_by_provider(\Modules\PromotionManagement\Entities\Advertisement $advertisement): void
     {

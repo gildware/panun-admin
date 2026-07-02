@@ -118,7 +118,8 @@ class AdvertisementsController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        DB::transaction(function () use ($request) {
+        $advertisement = null;
+        DB::transaction(function () use ($request, &$advertisement) {
             $advertisement = $this->advertisement;
             $advertisement->readable_id = $this->generateReadableId();
             $advertisement->title = $request->title[array_search('default', $request->lang)];
@@ -229,6 +230,10 @@ class AdvertisementsController extends Controller
 
         });
 
+        if ($advertisement) {
+            admin_inbox_notify_advertisement_submitted($advertisement);
+        }
+
         return response()->json(response_formatter(DEFAULT_STORE_200), 200);
     }
 
@@ -325,7 +330,8 @@ class AdvertisementsController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        DB::transaction(function () use ($request, $sourceId) {
+        $advertisement = null;
+        DB::transaction(function () use ($request, $sourceId, &$advertisement) {
 
             $advertisement = $this->advertisement;
             $advertisement->readable_id = $this->generateReadableId();
@@ -476,6 +482,10 @@ class AdvertisementsController extends Controller
             }
 
         });
+
+        if ($advertisement) {
+            admin_inbox_notify_advertisement_submitted($advertisement);
+        }
 
         return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
     }
@@ -668,6 +678,8 @@ class AdvertisementsController extends Controller
             }
 
         });
+
+        admin_inbox_notify_advertisement_submitted($advertisement->fresh());
 
         return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
     }

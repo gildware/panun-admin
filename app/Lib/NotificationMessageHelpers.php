@@ -1077,6 +1077,13 @@ if (! function_exists('notification_scenario_trigger_map')) {
                     ['label' => 'Provider ad resumed push', 'needles' => ['send_advertisement_push_notification', "'advertisement_resumed_by_provider'"]],
                 ],
             ],
+            'advertisement_submitted' => [
+                'module' => 'advertisement',
+                'checks' => [
+                    ['label' => 'Ad submitted admin inbox', 'needles' => ['admin_inbox_notify_advertisement_submitted']],
+                    ['label' => 'Ad submitted provider API', 'needles' => ['admin_inbox_notify_advertisement_submitted', 'AdvertisementsController.php']],
+                ],
+            ],
 
             // Admin Alerts (5)
             'admin_alert_provider_registration' => [
@@ -2575,6 +2582,16 @@ if (! function_exists('notification_scenario_registry')) {
                 'audiences' => [
                     ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
                     ['audience' => 'provider', 'channel' => 'push', 'key' => 'advertisement_resumed_by_provider', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'advertisement_submitted',
+                'module' => 'advertisement',
+                'title' => 'Provider submits advertisement for approval',
+                'trigger_actor' => 'provider',
+                'trigger_action' => 'Provider creates, resubmits, or updates an advertisement awaiting admin approval',
+                'audiences' => [
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
                 ],
             ],
 

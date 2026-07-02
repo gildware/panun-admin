@@ -165,7 +165,10 @@
                                                 <div class="media align-items-center gap-3 min-w-200">
                                                     <div class="avatar avatar-lg">
                                                         <a href="{{route('admin.provider.details',[$provider->id, 'web_page'=>'overview'])}}">
-                                                            <img class="avatar-img radius-5" src="{{ $provider->logo_full_path }}" alt="{{ translate('provider-logo') }}">
+                                                            <img class="avatar-img radius-5"
+                                                                 src="{{ $provider->list_avatar_full_path }}"
+                                                                 alt="{{ translate('provider-logo') }}"
+                                                                 onerror="this.onerror=null;this.src='{{ asset('assets/provider-module/img/user2x.png') }}'">
                                                         </a>
                                                     </div>
                                                     <div class="media-body">
