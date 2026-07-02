@@ -436,8 +436,9 @@
                                 <div class="d-flex align-items-center gap-3">
                                     <img
                                         class="avatar-img radius-5"
-                                        src="{{ onErrorImage($provider->contact_person_photo, asset('storage/provider/contact_person_photo') . '/' . $provider->contact_person_photo, asset('assets/admin-module/img/placeholder.png'), 'provider/contact_person_photo/') }}"
-                                        alt="{{ translate('Contact_Person_Photo') }}">
+                                        src="{{ $provider->contact_person_photo_full_path }}"
+                                        alt="{{ translate('Contact_Person_Photo') }}"
+                                        onerror="this.onerror=null;this.src='{{ asset('assets/admin-module/img/placeholder.png') }}'">
                                     <div>
                                         <div class="overview-info-list">
                                             <div class="overview-info-item">

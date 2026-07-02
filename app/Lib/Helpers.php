@@ -1357,14 +1357,18 @@ if (!function_exists('normalize_identity_image_entries')) {
 if (!function_exists('cloud_storage_public_url')) {
     /**
      * Public URL for a file on the configured S3-compatible disk (Cloudflare R2, AWS S3).
+     *
+     * @param  bool  $useExactStorageKey  When true, use $relativePath as the object key (no env prefix rewrite).
      */
-    function cloud_storage_public_url(string $relativePath): string
+    function cloud_storage_public_url(string $relativePath, bool $useExactStorageKey = false): string
     {
         $relativePath = ltrim(str_replace(['storage/', '/storage/'], '', $relativePath), '/');
-        // DB stores logical paths without env folder; R2 objects use local/dev/prod prefix.
-        $relativePath = \App\Support\StoragePathPrefix::apply(
-            \App\Support\StoragePathPrefix::strip($relativePath)
-        );
+        if (! $useExactStorageKey) {
+            // DB stores logical paths without env folder; R2 objects use local/dev/prod prefix.
+            $relativePath = \App\Support\StoragePathPrefix::apply(
+                \App\Support\StoragePathPrefix::strip($relativePath)
+            );
+        }
         $baseUrl = \App\Support\CloudStorageConfigurator::publicBaseUrl();
 
         if ($baseUrl !== null && $baseUrl !== '') {
@@ -1447,7 +1451,7 @@ if (!function_exists('resolve_media_storage_url')) {
 
                 try {
                     if ($disk && \Illuminate\Support\Facades\Storage::disk($disk)->exists($candidate)) {
-                        return cloud_storage_public_url($candidate);
+                        return cloud_storage_public_url($candidate, true);
                     }
                 } catch (\Throwable $e) {
                     //

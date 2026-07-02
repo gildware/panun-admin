@@ -410,6 +410,7 @@ class RegisterController extends Controller
         }
 
         $this->normalizeIdentityImageUploads($request);
+        $this->normalizeCompanyIdentityImageUploads($request);
 
         $request->merge([
             'provider_type' => strtolower(trim((string) $request->input('provider_type', ''))),
@@ -566,19 +567,6 @@ class RegisterController extends Controller
 
         $identityImages = $this->buildIdentityImagesFromRegistration($request, $draft, $draftService);
         $companyIdentityImages = $this->buildCompanyIdentityImagesFromRegistration($request, $draft, $draftService);
-
-        $provider = $this->provider;
-        $provider->provider_type = $request->provider_type;
-        if ($request->provider_type === 'company') {
-            $provider->company_name = $request->company_name;
-            $provider->company_phone = $request->company_phone;
-            $provider->company_email = $request->company_email;
-        } else {
-            $provider->company_name = $request->contact_person_name;
-            $provider->company_phone = $request->contact_person_phone;
-            $provider->company_email = $request->contact_person_email;
-        }
-
         $logoName = $this->resolveRegistrationFileName(
             $request,
             $draft,
@@ -586,8 +574,42 @@ class RegisterController extends Controller
             'logo',
             'provider/logo/'
         );
-        if ($logoName) {
+        $contactPhotoName = $this->resolveRegistrationFileName(
+            $request,
+            $draft,
+            $draftService,
+            'contact_person_photo',
+            'provider/contact_person_photo/'
+        );
+
+        $persistedMediaError = $this->validateRegistrationPersistedMedia(
+            $request,
+            $contactPhotoName,
+            $logoName,
+            $identityImages,
+            $companyIdentityImages
+        );
+        if ($persistedMediaError !== null) {
+            return $persistedMediaError;
+        }
+
+        $provider = $this->provider;
+        $provider->provider_type = $request->provider_type;
+        if ($request->provider_type === 'company') {
+            $provider->company_name = $request->company_name;
+            $provider->company_phone = $request->company_phone;
+            $provider->company_email = $request->company_email;
             $provider->logo = $logoName;
+            $provider->company_identity_type = $request->company_identity_type;
+            $provider->company_identity_number = $request->company_identity_number;
+            $provider->company_identity_images = $companyIdentityImages;
+        } else {
+            $provider->company_name = $request->contact_person_name;
+            $provider->company_phone = $request->contact_person_phone;
+            $provider->company_email = $request->contact_person_email;
+            $provider->company_identity_type = null;
+            $provider->company_identity_number = null;
+            $provider->company_identity_images = [];
         }
 
         $provider->company_address = $request->company_address;
@@ -598,27 +620,7 @@ class RegisterController extends Controller
         $provider->contact_person_name = $request->contact_person_name;
         $provider->contact_person_phone = $request->contact_person_phone;
         $provider->contact_person_email = $request->contact_person_email;
-
-        $contactPhotoName = $this->resolveRegistrationFileName(
-            $request,
-            $draft,
-            $draftService,
-            'contact_person_photo',
-            'provider/contact_person_photo/'
-        );
-        if ($contactPhotoName) {
-            $provider->contact_person_photo = $contactPhotoName;
-        }
-
-        if ($request->provider_type === 'company') {
-            $provider->company_identity_type = $request->company_identity_type;
-            $provider->company_identity_number = $request->company_identity_number;
-            $provider->company_identity_images = $companyIdentityImages;
-        } else {
-            $provider->company_identity_type = null;
-            $provider->company_identity_number = null;
-            $provider->company_identity_images = [];
-        }
+        $provider->contact_person_photo = $contactPhotoName;
 
         $provider->is_approved = 2;
         $provider->is_active = 0;
@@ -830,7 +832,9 @@ class RegisterController extends Controller
                     continue;
                 }
                 $imageName = file_uploader('provider/identity/', APPLICATION_IMAGE_FORMAT, $image);
-                $identityImages[] = ['image' => $imageName, 'storage' => getDisk()];
+                if ($this->isPersistedRegistrationMediaFilename($imageName)) {
+                    $identityImages[] = ['image' => $imageName, 'storage' => getDisk()];
+                }
             }
         }
 
@@ -844,7 +848,7 @@ class RegisterController extends Controller
                 'provider/identity/',
                 APPLICATION_IMAGE_FORMAT
             );
-            if ($imageName) {
+            if ($this->isPersistedRegistrationMediaFilename($imageName)) {
                 $identityImages[] = ['image' => $imageName, 'storage' => getDisk()];
             }
         }
@@ -866,17 +870,22 @@ class RegisterController extends Controller
             $image = $request->file('company_identity_image');
             if ($image && $image->isValid()) {
                 $imageName = file_uploader('provider/company-identity/', APPLICATION_IMAGE_FORMAT, $image);
-                $companyIdentityImages[] = ['image' => $imageName, 'storage' => getDisk()];
+                if ($this->isPersistedRegistrationMediaFilename($imageName)) {
+                    $companyIdentityImages[] = ['image' => $imageName, 'storage' => getDisk()];
+                }
             }
         }
 
-        if ($request->has('company_identity_images')) {
-            foreach ($request->company_identity_images as $image) {
+        if ($request->hasFile('company_identity_images')) {
+            $images = $request->file('company_identity_images');
+            foreach (is_array($images) ? $images : [$images] as $image) {
                 if (! $image || ! $image->isValid()) {
                     continue;
                 }
                 $imageName = file_uploader('provider/company-identity/', APPLICATION_IMAGE_FORMAT, $image);
-                $companyIdentityImages[] = ['image' => $imageName, 'storage' => getDisk()];
+                if ($this->isPersistedRegistrationMediaFilename($imageName)) {
+                    $companyIdentityImages[] = ['image' => $imageName, 'storage' => getDisk()];
+                }
             }
         }
 
@@ -890,12 +899,76 @@ class RegisterController extends Controller
                 'provider/company-identity/',
                 APPLICATION_IMAGE_FORMAT
             );
-            if ($imageName) {
+            if ($this->isPersistedRegistrationMediaFilename($imageName)) {
                 $companyIdentityImages[] = ['image' => $imageName, 'storage' => getDisk()];
             }
         }
 
         return $companyIdentityImages;
+    }
+
+    private function isPersistedRegistrationMediaFilename(?string $filename): bool
+    {
+        if ($filename === null || $filename === '') {
+            return false;
+        }
+
+        return strlen($filename) >= 2 && $filename !== 'def.png';
+    }
+
+    private function countValidIdentityImageEntries(array $identityImages): int
+    {
+        $count = 0;
+        foreach ($identityImages as $entry) {
+            $image = is_array($entry) ? ($entry['image'] ?? '') : '';
+            if ($this->isPersistedRegistrationMediaFilename(is_string($image) ? $image : null)) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    private function validateRegistrationPersistedMedia(
+        Request $request,
+        ?string $contactPhotoName,
+        ?string $logoName,
+        array $identityImages,
+        array $companyIdentityImages
+    ): ?JsonResponse {
+        if (! $this->isPersistedRegistrationMediaFilename($contactPhotoName)) {
+            return response()->json(response_formatter(DEFAULT_400, null, [[
+                'error_code' => 'contact_person_photo',
+                'message' => translate('Failed to save contact person photo. Please try again.'),
+            ]]), 400);
+        }
+
+        if ($this->countValidIdentityImageEntries($identityImages) < 2) {
+            return response()->json(response_formatter(DEFAULT_400, null, [[
+                'error_code' => 'identity_images',
+                'message' => translate('Failed to save identity documents. Please try again.'),
+            ]]), 400);
+        }
+
+        if ($request->provider_type !== 'company') {
+            return null;
+        }
+
+        if (! $this->isPersistedRegistrationMediaFilename($logoName)) {
+            return response()->json(response_formatter(DEFAULT_400, null, [[
+                'error_code' => 'logo',
+                'message' => translate('Failed to save logo. Please try again.'),
+            ]]), 400);
+        }
+
+        if ($this->countValidIdentityImageEntries($companyIdentityImages) < 1) {
+            return response()->json(response_formatter(DEFAULT_400, null, [[
+                'error_code' => 'company_identity_images',
+                'message' => translate('Failed to save company identity document. Please try again.'),
+            ]]), 400);
+        }
+
+        return null;
     }
 
 }

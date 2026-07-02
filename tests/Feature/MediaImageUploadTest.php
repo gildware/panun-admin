@@ -144,6 +144,24 @@ class MediaImageUploadTest extends TestCase
         $this->assertStringContainsString($legacyFile, $url);
     }
 
+    public function test_unprefixed_s3_provider_identity_file_resolves_with_exact_object_key(): void
+    {
+        $this->forceStorageDisk('s3');
+        Storage::fake('s3');
+        putenv('STORAGE_PATH_PREFIX=local');
+        StoragePathPrefix::resetCache();
+
+        $filename = '2026-07-02-test-identity.webp';
+        $objectKey = 'provider/identity/'.$filename;
+        Storage::disk('s3')->put($objectKey, 'bytes');
+
+        config(['filesystems.disks.s3.url' => 'https://pub-example.r2.dev']);
+
+        $url = resolve_media_storage_url($filename, 'provider/identity/', 's3', null, true);
+
+        $this->assertSame('https://pub-example.r2.dev/'.$objectKey, $url);
+    }
+
     public function test_media_storage_delete_removes_prefixed_object(): void
     {
         $this->forceStorageDisk('public');
