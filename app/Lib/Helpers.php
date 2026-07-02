@@ -1017,6 +1017,32 @@ if (!function_exists('getSuperAdminId')) {
     }
 }
 
+if (!function_exists('customer_api_admin_details')) {
+    /**
+     * Super-admin profile for customer app config (e.g. "chat with admin" on policy pages).
+     */
+    function customer_api_admin_details(): ?array
+    {
+        $admin = User::query()
+            ->where('user_type', ADMIN_USER_TYPES[0])
+            ->where('is_active', 1)
+            ->first();
+
+        if (! $admin) {
+            return null;
+        }
+
+        $admin->setAppends(['profile_image_full_path']);
+
+        return [
+            'id' => $admin->id,
+            'first_name' => $admin->first_name,
+            'last_name' => $admin->last_name,
+            'profile_image' => $admin->profile_image_full_path,
+        ];
+    }
+}
+
 if (!function_exists('getServiceFee')) {
     /**
      * Total configured additional charges for the customer's current cart (ex-tax line basis).

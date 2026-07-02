@@ -45,7 +45,7 @@ class ConfigController extends Controller
     {
         $locale = strtolower((string) $request->header('X-localization', app()->getLocale()));
         $content = CustomerApiResponseCache::remember(
-            'customer_api_config:v1:'.$locale,
+            'customer_api_config:v2:'.$locale,
             function () {
                 $response = $this->buildConfigurationResponse();
                 $decoded = json_decode($response->getContent(), true);
@@ -247,6 +247,7 @@ class ConfigController extends Controller
             'newsletter_title' => DataSetting::where('type', 'landing_text_setup')->where('key', 'newsletter_title')->first()->value ?? '',
             'newsletter_description' => DataSetting::where('type', 'landing_text_setup')->where('key', 'newsletter_description')->first()->value ?? '',
             'business_pages' => mobile_visible_business_pages(),
+            'admin_details' => customer_api_admin_details(),
             'max_image_upload_size' => uploadMaxFileSize('image'),
             'max_video_upload_size' => uploadMaxFileSize('file'),
             'map_api_key_client' => $this->googleMap?->live_values['map_api_key_client'] ?? '',
