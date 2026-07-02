@@ -73,6 +73,17 @@
             }
         }
 
+        function openNotificationTarget(notificationId, notificationType, actionUrl, dropdownEl) {
+            if (notificationType === 'chat_message' && actionUrl) {
+                hideNotificationDropdown(dropdownEl);
+                markNotificationRead(notificationId);
+                window.location.href = actionUrl;
+                return;
+            }
+
+            window.pkOpenAdminNotificationModal(notificationId);
+        }
+
         window.pkOpenAdminNotificationModal = function (notificationId) {
             if (!notificationId) {
                 return;
@@ -164,11 +175,21 @@
                     showCancelButton: true,
                     cancelButtonText: '{{ translate('Dismiss') }}',
                     focusConfirm: false,
-                    confirmButtonText: '{{ translate('View_Details') }}',
+                    confirmButtonText: alert.type === 'chat_message' && alert.action_url
+                        ? '{{ translate('Go_to_message') }}'
+                        : '{{ translate('View_Details') }}',
                 }).then(function (result) {
-                    if (result.value && alert.id) {
-                        window.pkOpenAdminNotificationModal(alert.id);
+                    if (!result.value || !alert.id) {
+                        return;
                     }
+
+                    if (alert.type === 'chat_message' && alert.action_url) {
+                        markNotificationRead(alert.id);
+                        window.location.href = alert.action_url;
+                        return;
+                    }
+
+                    window.pkOpenAdminNotificationModal(alert.id);
                 });
             });
         };
@@ -176,15 +197,22 @@
         $(document).on('click', '.js-admin-notification-item', function (e) {
             e.preventDefault();
             e.stopPropagation();
-            hideNotificationDropdown(this);
-            var notificationId = $(this).data('notification-id');
-            window.pkOpenAdminNotificationModal(notificationId);
+            openNotificationTarget(
+                $(this).data('notification-id'),
+                $(this).data('notification-type'),
+                $(this).data('action-url'),
+                this
+            );
         });
 
         $(document).on('click', '.js-admin-notification-list-item', function (e) {
             e.preventDefault();
-            var notificationId = $(this).data('notification-id');
-            window.pkOpenAdminNotificationModal(notificationId);
+            openNotificationTarget(
+                $(this).data('notification-id'),
+                $(this).data('notification-type'),
+                $(this).data('action-url'),
+                this
+            );
         });
 
         $(document).on('click', '.js-view-all-notifications', function () {

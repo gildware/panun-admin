@@ -389,6 +389,7 @@ class AdminController extends Controller
                 ->count();
 
             $customerProviderUnreadChannels = $this->channelList
+                ->where('reference_type', 'support')
                 ->whereHas('channelUsers', fn ($query) => $query->where('user_id', $userId)->where('is_read', 0))
                 ->whereHas('channelUsers', function ($query) use ($userId) {
                     $query->where('user_id', '!=', $userId)
@@ -506,7 +507,7 @@ class AdminController extends Controller
             $fullURL = url($uri) . '?web_page=loyalty_point';
         }
         if ($uri == 'admin/chat/index') {
-            $fullURL = url($uri) . '?user_type=customer';
+            $fullURL = url($uri) . '?filter=all';
         }
         return $fullURL;
     }

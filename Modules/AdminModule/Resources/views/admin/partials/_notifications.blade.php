@@ -29,7 +29,9 @@
     @foreach($notifications as $notification)
         <button type="button"
                 class="dropdown-item-text media gap-3 js-admin-notification-item border-0 bg-transparent w-100 text-start {{ $notification->isUnread() ? 'bg-light' : '' }}"
-                data-notification-id="{{ $notification->id }}">
+                data-notification-id="{{ $notification->id }}"
+                data-notification-type="{{ $notification->type }}"
+                data-action-url="{{ $notification->action_url }}">
             <div class="avatar title-color hover-color-c2 flex-shrink-0">
                 <span class="material-symbols-outlined">{{ $notification->iconName() }}</span>
             </div>

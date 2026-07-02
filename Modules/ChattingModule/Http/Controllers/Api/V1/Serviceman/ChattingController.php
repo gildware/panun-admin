@@ -279,7 +279,8 @@ class ChattingController extends Controller
 
         $this->channelUser->where('channel_id', $request['channel_id'])->where('user_id', $request->user()->id)
             ->update([
-                'is_read' => 1
+                'is_read' => 1,
+                'read_at' => now(),
             ]);
 
         $conversation = $this->channelConversation->where(['channel_id' => $request['channel_id']])

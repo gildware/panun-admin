@@ -68,7 +68,9 @@
                                     @foreach($notifications as $notification)
                                         <button type="button"
                                                 class="list-group-item list-group-item-action px-3 py-3 border-0 js-admin-notification-list-item {{ $notification->isUnread() ? 'bg-light' : '' }}"
-                                                data-notification-id="{{ $notification->id }}">
+                                                data-notification-id="{{ $notification->id }}"
+                                                data-notification-type="{{ $notification->type }}"
+                                                data-action-url="{{ $notification->action_url }}">
                                             <div class="d-flex gap-3 align-items-start">
                                                 <div class="avatar title-color flex-shrink-0">
                                                     <span class="material-symbols-outlined">{{ $notification->iconName() }}</span>

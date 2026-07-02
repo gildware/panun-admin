@@ -741,9 +741,8 @@ class AdvanceSearch
             [$customerSettings . '?web_page=loyalty_point', 'loyalty_point', 'loyalty point, loyalty points, rewards, customer settings'],
             [$customerSettings . '?web_page=referral_earning', 'referral_earning', 'referral, referral earning, invite, customer settings'],
             ['admin/configuration/offline-payment/list?web_page=payment_config&type=offline_payment', 'Offline_Payment', 'offline payment, bank transfer, cash payment, manual payment, payment methods'],
-            ['admin/chat/index?user_type=customer', 'Chat', 'chat, messaging, conversation, customer chat, support chat, inbox'],
-            ['admin/chat/index?user_type=provider_admin', 'Chat', 'chat, messaging, provider admin chat, provider chat, inbox'],
-            ['admin/chat/index?user_type=provider_serviceman', 'Chat', 'chat, messaging, serviceman chat, provider serviceman, inbox'],
+            ['admin/chat/index?filter=all', 'Chat', 'chat, messaging, conversation, customer chat, provider chat, support chat, inbox'],
+            ['admin/chat/index?filter=unread', 'Chat', 'chat, messaging, unread chat, support inbox'],
         ];
 
         $out = [];

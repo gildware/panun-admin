@@ -71,7 +71,7 @@
                 <span class="top-utility-search-kbd d-none d-md-inline">Ctrl+K</span>
             </button>
 
-            <a href="{{ route('admin.chat.index', ['user_type' => 'staff']) }}"
+            <a href="{{ route('admin.chat.staff') }}"
                class="top-utility-icon-btn"
                @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif
                data-bs-toggle="tooltip"
@@ -80,6 +80,17 @@
                aria-label="{{ translate('Staff_Conversation') }}">
                 <span class="material-symbols-outlined">chat</span>
                 <span class="count" id="staff_message_count" @if(($staffUnreadCount ?? 0) < 1) style="display:none;" @endif>{{ $staffUnreadCount ?? 0 }}</span>
+            </a>
+
+            <a href="{{ route('admin.chat.support', ['filter' => 'all']) }}"
+               class="top-utility-icon-btn"
+               @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif
+               data-bs-toggle="tooltip"
+               data-bs-placement="bottom"
+               title="{{ translate('Support_Messages') }}"
+               aria-label="{{ translate('Support_Messages') }}">
+                <span class="material-symbols-outlined">support_agent</span>
+                @include('adminmodule::layouts.partials._header-unread-badge', ['id' => 'support_message_count', 'count' => $supportUnreadCount ?? 0])
             </a>
 
             @can('whatsapp_chat_view')

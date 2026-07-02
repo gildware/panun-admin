@@ -53,9 +53,16 @@ class ChattingController extends Controller
         }
 
         //admin channel
+        $superAdminId = getSuperAdminId();
+        if (! $superAdminId) {
+            return response()->json(response_formatter(DEFAULT_500, null, [[
+                'message' => translate('Super_admin_not_configured'),
+            ]]), 500);
+        }
+
         $channel = $this->createNewChannel(
             fromUser: $request->user()->id,
-            toUser: getSuperAdminId(),
+            toUser: $superAdminId,
             referenceId: '',
             referenceType: 'support',
         );
@@ -73,7 +80,10 @@ class ChattingController extends Controller
 
         $channelList = $this->channelList
             ->withCount(['channelUsers'])
-            ->with(['channelUsers.user.provider'])
+            ->with([
+                'channelLastConversation',
+                'channelUsers.user.provider',
+            ])
             ->whereHas('channelUsers', function ($query) use ($request) {
                 $query->where(['user_id' => $request->user()->id]);
             })
@@ -124,7 +134,10 @@ class ChattingController extends Controller
         }
 
         $chatList = $this->channelList->withCount(['channelUsers'])
-            ->with(['channelUsers.user.provider'])
+            ->with([
+                'channelLastConversation',
+                'channelUsers.user.provider',
+            ])
             ->whereHas('channelUsers', function ($query) use ($request) {
                 $query->where(['user_id' => $request->user()->id]);
             })
@@ -132,15 +145,7 @@ class ChattingController extends Controller
             ->orderBy('updated_at', 'DESC')
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
-        $chatList->each(function ($channel) {
-            $lastConversation = $channel?->channelLastConversation;
-            $lastFile = $lastConversation?->conversationLastFile?->first();
-            $channel->last_sent_message = $lastConversation?->message;
-            $channel->last_sent_attachment_type = $lastFile?->file_type;
-            $channel->last_sent_files_count = (int)$lastConversation?->conversationLastFile?->count();
-            $channel->last_message_sent_user = $lastConversation?->user->first_name . ' ' . $lastConversation?->user->last_name;
-            unset($channel->channelLastConversation);
-        });
+        $this->formatConversations($chatList);
 
         return response()->json(response_formatter(DEFAULT_200, $chatList), 200);
     }
@@ -290,11 +295,19 @@ class ChattingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $conversation = $this->paginateChannelConversationForUser($request);
-        if ($conversation === null) {
-            return response()->json(response_formatter(DEFAULT_403, null), 403);
-        }
+        try {
+            $conversation = $this->paginateChannelConversationForUser($request);
+            if ($conversation === null) {
+                return response()->json(response_formatter(DEFAULT_403, null), 403);
+            }
 
-        return response()->json(response_formatter(DEFAULT_STORE_200, $conversation), 200);
+            return response()->json(response_formatter(DEFAULT_STORE_200, $conversation), 200);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json(response_formatter(DEFAULT_500, null, [[
+                'message' => translate('Internal Server Error'),
+            ]]), 500);
+        }
     }
 }

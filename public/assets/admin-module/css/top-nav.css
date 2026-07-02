@@ -334,6 +334,31 @@ body.nav-top.open-aside-folded .main-area {
     background: #FF6B6B;
     color: #fff;
     font-weight: 700;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.top-utility-icon-btn .header-unread-dot,
+.count-btn .header-unread-dot {
+    position: absolute;
+    top: -0.15rem;
+    right: -0.15rem;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: #FF6B6B;
+    display: none;
+    pointer-events: none;
+}
+
+.top-utility-icon-btn .header-unread-dot {
+    border: 1.5px solid #1A1C38;
+}
+
+.count-btn .header-unread-dot {
+    background: var(--bs-primary);
+    border: 1.5px solid var(--bs-white, #fff);
 }
 
 .top-nav-bar {

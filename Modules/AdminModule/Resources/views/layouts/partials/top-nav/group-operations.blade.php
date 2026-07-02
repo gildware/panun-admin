@@ -1,5 +1,8 @@
-@canany(['lead_view', 'lead_outbound_enquiry_view', 'lead_configuration_view', 'whatsapp_chat_view', 'whatsapp_message_template_view', 'whatsapp_marketing_template_view', 'whatsapp_marketing_bulk_view', 'whatsapp_marketing_campaign_view', 'whatsapp_marketing_report_view', 'booking_view', 'booking_configuration_view'])
 @php($groupActive = \App\Support\AdminNavRegistry::groupIsActive('operations'))
+@if(
+    Gate::any(['lead_view', 'lead_outbound_enquiry_view', 'lead_configuration_view', 'whatsapp_chat_view', 'whatsapp_message_template_view', 'whatsapp_marketing_template_view', 'whatsapp_marketing_bulk_view', 'whatsapp_marketing_campaign_view', 'whatsapp_marketing_report_view', 'booking_view', 'booking_configuration_view'])
+    || (auth()->user() && in_array(auth()->user()->user_type, ADMIN_USER_TYPES, true))
+)
 <div class="top-nav-item">
     <button type="button" class="top-nav-trigger {{ $groupActive ? 'is-active' : '' }}">
         {{ translate('Operations') }} <span class="material-icons">expand_more</span>
@@ -160,6 +163,22 @@
                 ])
             @endcan
         @endcanany
+
+        @if(in_array(auth()->user()->user_type ?? '', ADMIN_USER_TYPES, true))
+            @include('adminmodule::layouts.partials.top-nav._section', ['label' => translate('Messages')])
+            @include('adminmodule::layouts.partials.top-nav._link', [
+                'href' => route('admin.chat.staff'),
+                'label' => translate('Staff_Conversation'),
+                'active' => request()->is('admin/chat/staff*'),
+                'count' => $staffUnreadCount ?? 0,
+            ])
+            @include('adminmodule::layouts.partials.top-nav._link', [
+                'href' => route('admin.chat.support', ['filter' => 'all']),
+                'label' => translate('Support_Messages'),
+                'active' => request()->is('admin/chat/support*'),
+                'count' => $supportUnreadCount ?? 0,
+            ])
+        @endif
     </div>
 </div>
-@endcanany
+@endif

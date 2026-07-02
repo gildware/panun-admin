@@ -950,7 +950,7 @@ class SmokeTestNotificationScenarios extends Command
         try {
             UserNotification::query()
                 ->where('reference_type', 'advertisement_paused_by_provider')
-                ->where('reference_id', (string) $advertisement->id . ':paused')
+                ->where('reference_id', 'like', (string) $advertisement->id . ':paused%')
                 ->delete();
 
             $adminBefore = UserNotification::where('created_at', '>=', $this->testStartedAt ?? now()->subMinute())->count();
@@ -970,7 +970,7 @@ class SmokeTestNotificationScenarios extends Command
         } finally {
             UserNotification::query()
                 ->where('reference_type', 'advertisement_paused_by_provider')
-                ->where('reference_id', (string) $advertisement->id . ':paused')
+                ->where('reference_id', 'like', (string) $advertisement->id . ':paused%')
                 ->delete();
         }
     }
@@ -993,7 +993,7 @@ class SmokeTestNotificationScenarios extends Command
         try {
             UserNotification::query()
                 ->where('reference_type', 'advertisement_resumed_by_provider')
-                ->where('reference_id', (string) $advertisement->id . ':resumed')
+                ->where('reference_id', 'like', (string) $advertisement->id . ':resumed%')
                 ->delete();
 
             $adminBefore = UserNotification::where('created_at', '>=', $this->testStartedAt ?? now()->subMinute())->count();
@@ -1013,7 +1013,7 @@ class SmokeTestNotificationScenarios extends Command
         } finally {
             UserNotification::query()
                 ->where('reference_type', 'advertisement_resumed_by_provider')
-                ->where('reference_id', (string) $advertisement->id . ':resumed')
+                ->where('reference_id', 'like', (string) $advertisement->id . ':resumed%')
                 ->delete();
         }
     }

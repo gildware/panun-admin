@@ -4,6 +4,7 @@ namespace Modules\AdminModule\Providers;
 
 use App\Support\AdminMenuCounts;
 use App\Support\AdminBreadcrumb;
+use App\Support\AdminHeaderChatCounts;
 use App\Support\AdminNavRegistry;
 use App\Support\AdminPinnedNav;
 use Illuminate\Support\Facades\View;
@@ -40,6 +41,7 @@ class AdminModuleServiceProvider extends ServiceProvider
     {
         View::composer([
             'adminmodule::layouts.partials._top-chrome',
+            'adminmodule::layouts.partials._header',
             'adminmodule::layouts.partials._top-nav-menu',
             'adminmodule::layouts.partials._top-pinned',
             'adminmodule::layouts.partials._top-group-subnav',
@@ -49,6 +51,8 @@ class AdminModuleServiceProvider extends ServiceProvider
             $menuCounts = AdminMenuCounts::all();
             $view->with([
                 'menuCounts' => $menuCounts,
+                'supportUnreadCount' => AdminHeaderChatCounts::supportUnreadMessages(auth()->user()),
+                'staffUnreadCount' => AdminHeaderChatCounts::staffUnreadMessages(auth()->user()),
                 'all_bookings_menu_count' => $menuCounts['all_bookings'],
                 'pending_booking_reviews_count' => $menuCounts['pending_booking_reviews'],
                 'special_scenarios_menu_count' => $menuCounts['special_scenarios'],

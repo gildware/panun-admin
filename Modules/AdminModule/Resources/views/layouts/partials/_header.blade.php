@@ -150,7 +150,7 @@
                         </li>
                         <li class="nav-item max-sm-m-0">
                             <div class="messages pe--12">
-                                <a href="{{ route('admin.chat.index', ['user_type' => 'staff']) }}"
+                                <a href="{{ route('admin.chat.staff') }}"
                                    class="header-icon count-btn"
                                    data-bs-toggle="tooltip"
                                    data-bs-placement="bottom"
@@ -158,6 +158,19 @@
                                    aria-label="{{ translate('Staff_Conversation') }}">
                                     <span class="material-symbols-outlined">chat</span>
                                     <span class="count" id="staff_message_count" @if(($staffUnreadCount ?? 0) < 1) style="display:none;" @endif>{{ $staffUnreadCount ?? 0 }}</span>
+                                </a>
+                            </div>
+                        </li>
+                        <li class="nav-item max-sm-m-0">
+                            <div class="messages pe--12">
+                                <a href="{{ route('admin.chat.support', ['filter' => 'all']) }}"
+                                   class="header-icon count-btn"
+                                   data-bs-toggle="tooltip"
+                                   data-bs-placement="bottom"
+                                   title="{{ translate('Support_Messages') }}"
+                                   aria-label="{{ translate('Support_Messages') }}">
+                                    <span class="material-symbols-outlined">support_agent</span>
+                                    @include('adminmodule::layouts.partials._header-unread-badge', ['id' => 'support_message_count', 'count' => $supportUnreadCount ?? 0])
                                 </a>
                             </div>
                         </li>

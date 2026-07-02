@@ -4,6 +4,7 @@ use Modules\AdminModule\Entities\UserNotification;
 use Modules\AdminModule\Services\AdminInboxNotificationService;
 use Modules\BookingModule\Entities\Booking;
 use Modules\ChattingModule\Entities\ChannelConversation;
+use Modules\ChattingModule\Entities\ChannelList;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\WithdrawRequest;
 use Modules\UserManagement\Entities\User;
@@ -31,6 +32,11 @@ if (! function_exists('admin_inbox_notify_all')) {
 if (! function_exists('admin_inbox_notify_chat_message')) {
     function admin_inbox_notify_chat_message(ChannelConversation $conversation): void
     {
+        $channel = ChannelList::query()->find($conversation->channel_id);
+        if (! $channel || (string) $channel->reference_type !== 'support') {
+            return;
+        }
+
         $sender = User::query()->with(['provider'])->find($conversation->user_id);
         if (!$sender) {
             return;
@@ -54,14 +60,17 @@ if (! function_exists('admin_inbox_notify_chat_message')) {
         } else {
             $senderName = $sender->provider?->company_name ?? trim($sender->first_name . ' ' . $sender->last_name);
             $title = translate('New_message_from_provider');
-            $userType = 'provider';
+            $userType = 'provider_admin';
         }
 
         $body = $senderName !== ''
             ? $senderName . ': ' . $messagePreview
             : $messagePreview;
 
-        $actionUrl = route('admin.chat.index', ['user_type' => $userType]);
+        $actionUrl = route('admin.chat.support', [
+            'filter' => 'all',
+            'channel_id' => $channelId,
+        ]);
 
         $conversation->channel_users
             ->where('user_id', '!=', $conversation->user_id)
@@ -203,7 +212,7 @@ if (! function_exists('admin_inbox_notify_advertisement_paused_by_provider')) {
             $providerName . ' — ' . $adLabel,
             route('admin.advertisements.details', [$advertisement->id]),
             'advertisement_paused_by_provider',
-            (string) $advertisement->id . ':paused',
+            (string) $advertisement->id . ':paused:' . now()->timestamp,
         );
     }
 }
@@ -221,7 +230,7 @@ if (! function_exists('admin_inbox_notify_advertisement_resumed_by_provider')) {
             $providerName . ' — ' . $adLabel,
             route('admin.advertisements.details', [$advertisement->id]),
             'advertisement_resumed_by_provider',
-            (string) $advertisement->id . ':resumed',
+            (string) $advertisement->id . ':resumed:' . now()->timestamp,
         );
     }
 }

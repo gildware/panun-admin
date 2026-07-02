@@ -28,17 +28,12 @@
     </div>
 @endif
 
-<div class="d-flex flex-wrap gap-2">
-    @if($notification->action_url)
+@if($notification->action_url)
+    <div class="d-flex {{ !empty($inModal) ? 'justify-content-center' : 'flex-wrap gap-2' }}">
         <a href="{{ $notification->action_url }}"
            class="btn btn--primary"
            @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
             {{ $notification->actionButtonLabel() }}
         </a>
-    @endif
-    @if(!empty($inModal))
-        <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">
-            {{ translate('Close') }}
-        </button>
-    @endif
-</div>
+    </div>
+@endif

@@ -7,6 +7,8 @@ use Modules\ChattingModule\Http\Controllers\Web\Provider\ChattingController as P
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
     Route::group(['prefix' => 'chat', 'as' => 'chat.'], function () {
         Route::get('index', [ChattingController::class, 'index'])->name('index');
+        Route::get('staff', [ChattingController::class, 'staffIndex'])->name('staff');
+        Route::get('support', [ChattingController::class, 'supportIndex'])->name('support');
         Route::get('channel-list', [ChattingController::class, 'channelList']);
         Route::get('referenced-channel-list', [ChattingController::class, 'referencedChannelList']);
         Route::get('open-staff/{staffId}', [ChattingController::class, 'openStaffConversation'])->name('open-staff');
@@ -18,6 +20,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('delete-message', [ChattingController::class, 'deleteMessage'])->name('delete-message');
         Route::post('clear-conversation', [ChattingController::class, 'clearConversation'])->name('clear-conversation');
         Route::get('ajax-conversation', [ChattingController::class, 'conversation'])->name('ajax-conversation');
+        Route::get('live-sync', [ChattingController::class, 'liveSync'])->name('live-sync');
         Route::get('entity-search', [ChattingController::class, 'entitySearch'])->name('entity-search');
     });
 });

@@ -82,7 +82,7 @@ class StaffChatMessageParser
   private function urlFor(string $type, string $id): string
   {
     return match ($type) {
-      'staff' => route('admin.chat.index', ['user_type' => 'staff', 'open_staff' => $id]),
+      'staff' => route('admin.chat.staff', ['open_staff' => $id]),
       'customer' => route('admin.customer.detail', [$id, 'web_page' => 'overview']),
       'provider' => route('admin.provider.details', [$id, 'web_page' => 'overview']),
       'booking' => route('admin.booking.details', [$id, 'web_page' => 'details']),

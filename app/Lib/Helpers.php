@@ -1013,7 +1013,13 @@ if (!function_exists('onErrorImage')) {
 if (!function_exists('getSuperAdminId')) {
     function getSuperAdminId()
     {
-        return User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
+        $admin = User::query()
+            ->where('user_type', ADMIN_USER_TYPES[0])
+            ->where('is_active', 1)
+            ->orderBy('created_at')
+            ->first();
+
+        return $admin?->id;
     }
 }
 

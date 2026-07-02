@@ -46,23 +46,21 @@ trait ChattingTrait
     function formatConversations($channelList): void
     {
         $channelList->each(function ($channel) {
-            $lastConversation = $channel?->channelLastConversation;
-            $lastConversationFiles = $lastConversation?->conversationLastFiles;
-            $channel->last_message_sent_user = $lastConversation?->user->first_name . ' ' . $lastConversation?->user->last_name;
-            $channel->last_sent_message = $lastConversation?->message;
-            $channel->last_sent_attachment_type = $lastConversationFiles?->last()?->file_type;
-            $channel->last_sent_files_count = (int)$lastConversationFiles?->count();
-            unset($channel->channelLastConversation);
+            $this->formatConversation($channel);
         });
     }
+
     function formatConversation($channel): void
     {
         $lastConversation = $channel?->channelLastConversation;
         $lastConversationFiles = $lastConversation?->conversationLastFiles;
-        $channel->last_message_sent_user = $lastConversation?->user->first_name . ' ' . $lastConversation?->user->last_name;
+        $lastUser = $lastConversation?->user;
+        $channel->last_message_sent_user = $lastUser
+            ? trim(($lastUser->first_name ?? '').' '.($lastUser->last_name ?? ''))
+            : null;
         $channel->last_sent_message = $lastConversation?->message;
         $channel->last_sent_attachment_type = $lastConversationFiles?->last()?->file_type;
-        $channel->last_sent_files_count = (int)$lastConversationFiles?->count();
+        $channel->last_sent_files_count = (int) $lastConversationFiles?->count();
         unset($channel->channelLastConversation);
     }
 
@@ -73,17 +71,33 @@ trait ChattingTrait
      */
     protected function paginateChannelConversationForUser($request, ?array $with = null)
     {
-        $updated = $this->channelUser
-            ->where('channel_id', $request['channel_id'])
-            ->where('user_id', $request->user()->id)
-            ->update(['is_read' => 1]);
+        $channelId = (string) $request['channel_id'];
+        $userId = (string) $request->user()->id;
 
-        if ($updated === 0) {
+        $updated = $this->channelUser
+            ->where('channel_id', $channelId)
+            ->where('user_id', $userId)
+            ->update([
+                'is_read' => 1,
+                'read_at' => now(),
+            ]);
+
+        if ($updated === 0 && ! $this->healSupportChannelMembership($channelId, $userId)) {
             return null;
         }
 
+        if ($updated === 0) {
+            $this->channelUser
+                ->where('channel_id', $channelId)
+                ->where('user_id', $userId)
+                ->update([
+                    'is_read' => 1,
+                    'read_at' => now(),
+                ]);
+        }
+
         $paginator = $this->channelConversation
-            ->where('channel_id', $request['channel_id'])
+            ->where('channel_id', $channelId)
             ->with($with ?? $this->conversationApiEagerLoads())
             ->latest()
             ->paginate(
@@ -97,6 +111,40 @@ trait ChattingTrait
         $this->prepareConversationMessagesForApi($paginator->getCollection());
 
         return $paginator;
+    }
+
+    /**
+     * Re-link a customer/provider to their Panun Kaergar support channel when membership rows are missing.
+     */
+    protected function healSupportChannelMembership(string $channelId, string $userId): bool
+    {
+        $channel = $this->channelList->find($channelId);
+        if (! $channel || $channel->reference_type !== 'support') {
+            return false;
+        }
+
+        $hasSuperAdmin = $this->channelUser
+            ->where('channel_id', $channelId)
+            ->whereHas('user', function ($query) {
+                $query->where('user_type', ADMIN_USER_TYPES[0]);
+            })
+            ->exists();
+
+        if (! $hasSuperAdmin) {
+            return false;
+        }
+
+        $this->channelUser->create([
+            'id' => Uuid::uuid4(),
+            'channel_id' => $channelId,
+            'user_id' => $userId,
+            'is_read' => 1,
+            'read_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return true;
     }
 
     protected function conversationApiEagerLoads(): array

@@ -51,9 +51,16 @@ class ChattingController extends Controller
         }
 
         //admin channel
+        $superAdminId = getSuperAdminId();
+        if (! $superAdminId) {
+            return response()->json(response_formatter(DEFAULT_500, null, [[
+                'message' => translate('Super_admin_not_configured'),
+            ]]), 500);
+        }
+
         $channel = $this->createNewChannel(
             fromUser: $request->user()->id,
-            toUser: getSuperAdminId(),
+            toUser: $superAdminId,
             referenceId : '',
             referenceType : 'support',
         );
@@ -274,11 +281,19 @@ class ChattingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $conversation = $this->paginateChannelConversationForUser($request);
-        if ($conversation === null) {
-            return response()->json(response_formatter(DEFAULT_403, null), 403);
-        }
+        try {
+            $conversation = $this->paginateChannelConversationForUser($request);
+            if ($conversation === null) {
+                return response()->json(response_formatter(DEFAULT_403, null), 403);
+            }
 
-        return response()->json(response_formatter(DEFAULT_STORE_200, $conversation), 200);
+            return response()->json(response_formatter(DEFAULT_STORE_200, $conversation), 200);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json(response_formatter(DEFAULT_500, null, [[
+                'message' => translate('Internal Server Error'),
+            ]]), 500);
+        }
     }
 }

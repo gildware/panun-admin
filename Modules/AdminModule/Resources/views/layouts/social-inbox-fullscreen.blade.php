@@ -174,6 +174,8 @@
         };
     })();
 
+    @include('adminmodule::layouts.partials._header-unread-badge-scripts')
+
     function handleAdminUpdatedDataResponse(response, opts) {
         opts = opts || {};
         var skipSound = !!opts.skipSound;
@@ -199,6 +201,25 @@
             }
         }
         sessionStorage.setItem(staffPrevKey, String(staffMsgCount));
+
+        var supportCountEl = document.getElementById("support_message_count");
+        if (supportCountEl) {
+            var supportMsgCount = parseInt(data.customer_provider_unread_messages, 10);
+            if (isNaN(supportMsgCount)) supportMsgCount = 0;
+            if (typeof window.pkUpdateHeaderUnreadBadge === 'function') {
+                window.pkUpdateHeaderUnreadBadge(supportCountEl, supportMsgCount);
+            }
+
+            var supportPrevKey = 'admin_support_unread_messages';
+            var supportPrevRaw = sessionStorage.getItem(supportPrevKey);
+            if (!skipSound && supportPrevRaw !== null && supportPrevRaw !== '') {
+                var supportPrev = parseInt(supportPrevRaw, 10) || 0;
+                if (supportMsgCount > supportPrev && typeof window.pkPlayStaffNotificationSound === 'function') {
+                    window.pkPlayStaffNotificationSound();
+                }
+            }
+            sessionStorage.setItem(supportPrevKey, String(supportMsgCount));
+        }
 
         var waCountEl = document.getElementById("whatsapp_unread_count");
         if (waCountEl) {

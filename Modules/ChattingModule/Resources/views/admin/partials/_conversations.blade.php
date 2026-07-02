@@ -42,7 +42,10 @@
                 <h5 class="profile-name mb-1">{{ translate('General_Staff_Group') }}</h5>
                 <span class="fz-12 text-muted">{{ $memberCount ?? 0 }} {{ translate('members') }}</span>
             @elseif(isset($fromUser->user) && isset($fromUser->user->provider))
-                <h5 class="profile-name">{{ $fromUser->user->provider->company_name }}</h5>
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                    <h5 class="profile-name mb-0">{{ $fromUser->user->provider->company_name }}</h5>
+                    @include('chattingmodule::admin.partials._support-chat-role-pill', ['fromUser' => $fromUser])
+                </div>
                 <span class="fz-12">{{$fromUser->user->provider->company_phone}}</span>
             @elseif($isStaffChat && ($staffPresence ?? null) && ($presenceService ?? null))
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
@@ -60,7 +63,10 @@
                     @endif
                 </span>
             @else
-                <h5 class="profile-name">{{ isset($fromUser->user) ? $fromUser->user->first_name : translate('no_user_found') }}</h5>
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                    <h5 class="profile-name mb-0">{{ isset($fromUser->user) ? trim($fromUser->user->first_name . ' ' . $fromUser->user->last_name) : translate('no_user_found') }}</h5>
+                    @include('chattingmodule::admin.partials._support-chat-role-pill', ['fromUser' => $fromUser])
+                </div>
                 <span class="fz-12">{{isset($fromUser->user)?$fromUser->user->phone:''}}</span>
             @endif
         </div>
@@ -86,6 +92,7 @@
             'conversation' => $conversation,
             'enableStaffMessaging' => $enableStaffMessaging ?? false,
             'isStaffGroup' => $isStaffGroup ?? false,
+            'recipientChannelUsers' => $recipientChannelUsers ?? collect(),
         ])
 
     </div>
@@ -96,6 +103,14 @@
                 @include('chattingmodule::admin.partials._chat-reply-bar')
                 <input name="channel_id" class="hide-div" value="{{$channelId}}"
                        id="chat-channel-id">
+                @php
+                    $chatReadFingerprint = ($recipientChannelUsers ?? collect())
+                        ->map(fn ($recipient) => ($recipient->user_id ?? '').':'.($recipient->read_at?->timestamp ?? 0).':'.((int) ($recipient->is_read ?? 0)))
+                        ->sort()
+                        ->implode('|');
+                @endphp
+                <input type="hidden" id="chat-last-message-at" value="{{ $conversation->first()?->created_at?->toIso8601String() ?? '' }}">
+                <input type="hidden" id="chat-read-fingerprint" value="{{ $chatReadFingerprint }}">
                 @if($enableStaffMessaging ?? false)
                     @include('chattingmodule::admin.partials._staff-chat-compose-toolbar')
                 @endif
@@ -226,6 +241,10 @@
                 window.staffChatTagRegistry = [];
                 if (typeof window.clearChatReply === 'function') {
                     window.clearChatReply();
+                }
+                if (window.ChatLiveSync) {
+                    window.ChatLiveSync.setActiveChannel($('#chat-channel-id').val(), { keepCursor: true });
+                    window.ChatLiveSync.onSendSuccess(response);
                 }
                 toastr.success("{{translate('Message sent successfully')}}", {
                     CloseButton: true,
