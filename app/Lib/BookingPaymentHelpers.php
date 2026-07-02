@@ -1234,6 +1234,10 @@ if (! function_exists('booking_clear_provider_ignore')) {
             ->where('booking_id', $bookingId)
             ->where('provider_id', $providerId)
             ->delete();
+
+        if (class_exists(\Modules\ProviderManagement\Services\ProviderBookingTabCountCache::class)) {
+            \Modules\ProviderManagement\Services\ProviderBookingTabCountCache::forgetForProvider($providerId);
+        }
     }
 }
 

@@ -572,4 +572,18 @@ trait BookingScopes
                 });
             });
     }
+
+    /**
+     * Hide bookings a provider ignored while unassigned; assigned bookings stay visible
+     * (e.g. after admin reassigns the same provider).
+     */
+    public function scopeExcludeProviderIgnoredUnlessAssigned($query, string $providerId): mixed
+    {
+        return $query->where(function ($q) use ($providerId) {
+            $q->where('provider_id', $providerId)
+                ->orWhereDoesntHave('ignores', function ($ignoreQuery) use ($providerId) {
+                    $ignoreQuery->where('provider_id', $providerId);
+                });
+        });
+    }
 }

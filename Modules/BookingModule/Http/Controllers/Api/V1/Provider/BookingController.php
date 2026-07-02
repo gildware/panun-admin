@@ -126,23 +126,16 @@ class BookingController extends Controller
             }])
             ->withCount('compensations')
             ->when($bookingStatus === 'all', function ($query) use ($providerId) {
-                $query->where('provider_id', $providerId)
-                    ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                        $query->where('provider_id', $providerId);
-                    });
+                $query->where('provider_id', $providerId);
             })
             ->when($bookingStatus === 'pending', function ($query) use ($providerId, $request, $maxBookingAmount, $serviceAtProviderPlace, $serviceLocations) {
                 $query->providerPendingBookings($request->user()->provider, $maxBookingAmount)
-                    ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                        $query->where('provider_id', $providerId);
-                    })->when($serviceAtProviderPlace == 1, function ($query) use ($serviceLocations) {
+                    ->excludeProviderIgnoredUnlessAssigned($providerId)
+                    ->when($serviceAtProviderPlace == 1, function ($query) use ($serviceLocations) {
                         $query->whereIn('service_location', $serviceLocations);
                     });
             })
             ->when(! in_array($bookingStatus, ['all', 'pending'], true), function ($query) use ($bookingStatus, $providerId, $tabOptions) {
-                $query->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                    $query->where('provider_id', $providerId);
-                });
                 if ($bookingStatus === 'accepted') {
                     $query->applyBookingListStatusTab('accepted', $tabOptions);
                 } else {
@@ -258,9 +251,6 @@ class BookingController extends Controller
             if ($tab === 'all') {
                 $counts[$tab] = $this->booking
                     ->where('provider_id', $providerId)
-                    ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                        $query->where('provider_id', $providerId);
-                    })
                     ->when($request['service_type'] != 'all', function ($query) use ($request) {
                         return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
                     })
@@ -271,9 +261,7 @@ class BookingController extends Controller
             if ($tab === 'pending') {
                 $counts[$tab] = $this->booking
                     ->providerPendingBookings($provider, $maxBookingAmount)
-                    ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                        $query->where('provider_id', $providerId);
-                    })
+                    ->excludeProviderIgnoredUnlessAssigned($providerId)
                     ->when($request['service_type'] != 'all', function ($query) use ($request) {
                         return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
                     })
@@ -285,9 +273,6 @@ class BookingController extends Controller
             }
 
             $query = $this->booking->newQuery()
-                ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                    $query->where('provider_id', $providerId);
-                })
                 ->when($request['service_type'] != 'all', function ($query) use ($request) {
                     return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
                 });
@@ -555,9 +540,6 @@ class BookingController extends Controller
         $bookings = Booking::query()
             ->where(function ($query) use ($providerId, $sDate, $eDate) {
                 $query->where('provider_id', $providerId)
-                    ->whereDoesntHave('ignores', function ($ignoreQuery) use ($providerId) {
-                        $ignoreQuery->where('provider_id', $providerId);
-                    })
                     ->where(function ($scheduleQuery) use ($sDate, $eDate) {
                         $scheduleQuery->where(function ($regularQuery) use ($sDate, $eDate) {
                             $regularQuery->where('is_repeated', 0)

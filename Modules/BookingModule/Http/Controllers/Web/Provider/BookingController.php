@@ -134,8 +134,8 @@ class BookingController extends Controller
 
         $bookings = $this->booking->with(['customer'])
             ->search($request['search'], ['readable_id'])
-            ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                $query->where('provider_id', $providerId);
+            ->when($request['booking_status'] === 'pending', function ($query) use ($providerId) {
+                $query->excludeProviderIgnoredUnlessAssigned($providerId);
             })
             ->when(!in_array($request['booking_status'], ['pending', 'all']), function ($query) use ($providerId, $request, $maxBookingAmount) {
                 $query->ofBookingStatus($request['booking_status'])
