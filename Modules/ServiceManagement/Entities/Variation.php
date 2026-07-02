@@ -276,6 +276,25 @@ class Variation extends Model
     }
 
     /**
+     * Parse zone id header / address value (single UUID, comma list, or bracketed list).
+     *
+     * @return array<int, string>
+     */
+    public static function parseZoneIdCandidates(?string $raw): array
+    {
+        if ($raw === null || trim($raw) === '') {
+            return [];
+        }
+
+        $cleaned = str_replace(['[', ']', '"', "'"], '', $raw);
+        $parts = array_map('trim', explode(',', $cleaned));
+
+        return array_values(array_filter($parts, function (string $id): bool {
+            return preg_match('/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i', $id) === 1;
+        }));
+    }
+
+    /**
      * Customer-app payload: one row per variant for the booking zone (zone tree + default/fallback pricing).
      *
      * @return array{zone_id: string|null, default_price: float, zone_wise_variations: list<array{variant_key: string, variant_name: string, price: float}>}
@@ -283,28 +302,42 @@ class Variation extends Model
     public static function variationsAppFormatForCustomer(string $serviceId, ?string $zoneId = null): array
     {
         $zoneId = $zoneId ?? Config::get('zone_id');
+        $candidates = static::parseZoneIdCandidates(is_string($zoneId) ? $zoneId : null);
         $formatting = [
-            'zone_id' => $zoneId,
+            'zone_id' => $candidates[0] ?? (is_string($zoneId) ? $zoneId : null),
             'default_price' => 0.0,
             'zone_wise_variations' => [],
         ];
 
-        if (! $zoneId) {
+        if ($candidates === []) {
             return $formatting;
         }
 
-        $variantKeys = static::variantQuery()
-            ->where('service_id', $serviceId)
-            ->distinct()
-            ->pluck('variant_key')
-            ->filter();
+        /** @var array<string, self> $seen */
+        $seen = [];
+        $resolvedZone = null;
 
-        foreach ($variantKeys as $variantKey) {
-            $variation = static::firstForBookingZone($serviceId, (string) $variantKey, (string) $zoneId, false);
-            if (! $variation) {
-                continue;
+        foreach ($candidates as $candidate) {
+            $list = static::listForBookingZone($serviceId, $candidate);
+            if ($list->isNotEmpty() && $resolvedZone === null) {
+                $resolvedZone = $candidate;
             }
 
+            foreach ($list as $variation) {
+                $key = (string) $variation->variant_key;
+                if (! isset($seen[$key])) {
+                    $seen[$key] = $variation;
+                }
+            }
+        }
+
+        if ($seen === []) {
+            return $formatting;
+        }
+
+        $formatting['zone_id'] = $resolvedZone ?? $candidates[0];
+
+        foreach ($seen as $variation) {
             $formatting['zone_wise_variations'][] = [
                 'variant_key' => $variation->variant_key,
                 'variant_name' => $variation->variant,
@@ -323,7 +356,12 @@ class Variation extends Model
     {
         static::addGlobalScope('zone_wise_data', function (Builder $builder) {
             if (request()->is('api/*/customer?*') || request()->is('api/*/customer/*')) {
-                $builder->where(['zone_id' => Config::get('zone_id')])->with(['zone:id,name']);
+                $candidates = static::parseZoneIdCandidates(Config::get('zone_id'));
+                if ($candidates !== []) {
+                    $builder->whereIn('zone_id', $candidates)->with(['zone:id,name']);
+                } else {
+                    $builder->whereRaw('0 = 1');
+                }
             } elseif (request()->is('api/*/provider?*') || request()->is('api/*/provider/*')) {
                 if (auth()->check() && auth()->user()->provider != null) {
                     $p = auth()->user()->provider;

@@ -4479,8 +4479,17 @@
             return $(serviceUpdateModalSelector);
         }
 
+        let bookingEditVariantLoadGen = 0;
+
+        function bookingEditModalField(name) {
+            return $(serviceUpdateModalSelector).find('[name="' + name + '"]');
+        }
+
         function bookingEditDestroySelect2($select) {
-            if ($select.data('select2')) {
+            if (!$select || !$select.length) {
+                return;
+            }
+            if ($select.hasClass('select2-hidden-accessible')) {
                 $select.select2('destroy');
             }
         }
@@ -4489,11 +4498,69 @@
             $select.select2({ dropdownParent: bookingEditSelect2ModalParent() });
         }
 
-        function bookingEditRefreshVariantSelect(html) {
-            const $variant = $('#service_variation_selector__select');
-            bookingEditDestroySelect2($variant);
-            $variant.html(html);
-            bookingEditInitSelect2($variant);
+        function bookingEditWireServiceSelect() {
+            const $svc = bookingEditModalField('service_id');
+            if (!$svc.length) {
+                return;
+            }
+            $svc.off('.bookingEditVariants');
+            $svc.on('change.bookingEditVariants select2:select.bookingEditVariants', function() {
+                bookingEditLoadVariantsForService($(this).val());
+            });
+        }
+
+        function bookingEditInitServiceSelect($svc) {
+            bookingEditInitSelect2($svc);
+            bookingEditWireServiceSelect();
+        }
+
+        function bookingEditResetVariantSelect(label) {
+            const $variant = bookingEditModalField('variant_key');
+            $variant.empty().append(new Option(label || '{{ translate('Select Service Variant') }}', '', true, true));
+        }
+
+        function bookingEditLoadVariantsForService(serviceId) {
+            const loadGen = ++bookingEditVariantLoadGen;
+            const $variant = bookingEditModalField('variant_key');
+
+            if (!serviceId) {
+                bookingEditResetVariantSelect('{{ translate('Select Service Variant') }}');
+                return;
+            }
+
+            bookingEditResetVariantSelect('{{ translate('Loading...') }}');
+            $('.preloader').show();
+
+            $.get('{{ route('admin.booking.service.ajax-get-variant') }}', {
+                service_id: serviceId,
+                zone_id: '{{ $booking->zone_id }}',
+            }).done(function(response) {
+                if (loadGen !== bookingEditVariantLoadGen) {
+                    return;
+                }
+
+                const items = Array.isArray(response.content) ? response.content : [];
+                $variant.empty().append(new Option('{{ translate('Select Service Variant') }}', '', true, true));
+                items.forEach(function(item) {
+                    const label = item.variant || item.variant_key;
+                    $variant.append(new Option(label, item.variant_key, false, false));
+                });
+
+                if (items.length === 0) {
+                    toastr.warning('{{ translate('No_service_variants_for_this_zone') }}', {
+                        CloseButton: true,
+                        ProgressBar: true,
+                    });
+                }
+            }).fail(function() {
+                if (loadGen !== bookingEditVariantLoadGen) {
+                    return;
+                }
+                bookingEditResetVariantSelect('{{ translate('Select Service Variant') }}');
+                toastr.error('{{ translate('Failed_to_load_variants') }}');
+            }).always(function() {
+                $('.preloader').hide();
+            });
         }
 
         function bookingEditLoadSubcategories(categoryId, selectedSubId) {
@@ -4512,7 +4579,7 @@
                     const sel = selectedSubId && String(sc.id) === String(selectedSubId) ? ' selected' : '';
                     o += '<option value="' + sc.id + '"' + sel + '>' + sc.name + '</option>';
                 });
-                const $sub = $('#sub_category_selector__select');
+                const $sub = bookingEditModalField('sub_category_id');
                 bookingEditDestroySelect2($sub);
                 $sub.html(o);
                 bookingEditInitSelect2($sub);
@@ -4521,15 +4588,53 @@
             });
         }
 
+        function bookingEditInitServiceEditModal() {
+            if (!$(serviceUpdateModalSelector).length) {
+                return;
+            }
+            bookingEditInitSelect2(bookingEditModalField('category_id'));
+            bookingEditInitSelect2(bookingEditModalField('sub_category_id'));
+            bookingEditInitServiceSelect(bookingEditModalField('service_id'));
+            bookingEditResetVariantSelect('{{ translate('Select Service Variant') }}');
+        }
+
         $(document).ready(function() {
-            bookingEditInitSelect2($('#category_selector__select'));
-            bookingEditInitSelect2($('#sub_category_selector__select'));
-            bookingEditInitSelect2($('#service_selector__select'));
-            bookingEditInitSelect2($('#service_variation_selector__select'));
+            bookingEditInitServiceEditModal();
+        });
+
+        function bookingEditWireModalActions() {
+            const modal = document.querySelector(serviceUpdateModalSelector);
+            if (!modal || modal.dataset.bookingEditClickWired === '1') {
+                return;
+            }
+            modal.dataset.bookingEditClickWired = '1';
+            modal.addEventListener('click', function(e) {
+                if (e.target.closest('#add-service')) {
+                    e.preventDefault();
+                    bookingEditHandleAddService();
+                    return;
+                }
+                const removeEl = e.target.closest('.remove-service-row');
+                if (removeEl) {
+                    removeServiceRow($(removeEl).data('row'));
+                }
+            });
+        }
+
+        let bookingEditAddInFlight = false;
+
+        // Partial-nav pages load @@stack('script') before the global jQuery bundle; re-bind after full load.
+        window.addEventListener('load', function() {
+            if (typeof bookingEditWireServiceSelect === 'function') {
+                bookingEditWireServiceSelect();
+            }
+            bookingEditWireModalActions();
         });
 
         $(serviceUpdateModalSelector).on('shown.bs.modal', function() {
-            const catId = $('#category_selector__select').val();
+            bookingEditWireServiceSelect();
+            bookingEditWireModalActions();
+            const catId = bookingEditModalField('category_id').val();
             const selectedSub = @json($subCategory?->id);
             if (catId) {
                 bookingEditLoadSubcategories(catId, selectedSub);
@@ -4543,18 +4648,17 @@
             bookingEditRecalcRowTotal($(this).closest('tr'));
         });
 
-        $('#category_selector__select').on('change', function() {
+        $(serviceUpdateModalSelector).on('change', '[name="category_id"]', function() {
             const catId = $(this).val();
             bookingEditLoadSubcategories(catId, null);
-            const $svc = $('#service_selector__select');
+            const $svc = bookingEditModalField('service_id');
             bookingEditDestroySelect2($svc);
             $svc.html('<option value="" selected disabled>{{ translate('Select Service') }}</option>');
-            bookingEditInitSelect2($svc);
-            bookingEditRefreshVariantSelect(
-                '<option value="" selected disabled>{{ translate('Select Service Variant') }}</option>');
+            bookingEditInitServiceSelect($svc);
+            bookingEditResetVariantSelect('{{ translate('Select Service Variant') }}');
         });
 
-        $('#sub_category_selector__select').on('change', function() {
+        $(serviceUpdateModalSelector).on('change select2:select', '[name="sub_category_id"]', function() {
             const subId = $(this).val();
             if (!subId) {
                 return;
@@ -4564,55 +4668,13 @@
                 (response.content || []).forEach(function(s) {
                     o += '<option value="' + s.id + '">' + s.name + '</option>';
                 });
-                const $svc = $('#service_selector__select');
+                const $svc = bookingEditModalField('service_id');
                 bookingEditDestroySelect2($svc);
                 $svc.html(o);
-                bookingEditInitSelect2($svc);
-                bookingEditRefreshVariantSelect(
-                    '<option value="" selected disabled>{{ translate('Select Service Variant') }}</option>');
+                bookingEditInitServiceSelect($svc);
+                bookingEditResetVariantSelect('{{ translate('Select Service Variant') }}');
             }).fail(function() {
                 toastr.error('{{ translate('Failed to load') }}');
-            });
-        });
-
-        $("#service_selector__select").on('change', function() {
-            bookingEditRefreshVariantSelect(
-                '<option value="" selected disabled>{{ translate('Loading...') }}</option>');
-
-            const serviceId = this.value;
-            if (!serviceId) {
-                bookingEditRefreshVariantSelect(
-                    '<option value="" selected disabled>{{ translate('Select Service Variant') }}</option>');
-                return;
-            }
-
-            const route = '{{ route('admin.booking.service.ajax-get-variant') }}' + '?service_id=' + serviceId +
-                '&zone_id=' + "{{ $booking->zone_id }}";
-
-            $.get({
-                url: route,
-                dataType: 'json',
-                data: {},
-                beforeSend: function() {
-                    $('.preloader').show();
-                },
-                success: function(response) {
-                    var selectString =
-                        '<option value="" selected disabled>{{ translate('Select Service Variant') }}</option>';
-                    (response.content || []).forEach((item) => {
-                        selectString +=
-                            `<option value="${item.variant_key}">${item.variant || item.variant_key}</option>`;
-                    });
-                    bookingEditRefreshVariantSelect(selectString);
-                },
-                complete: function() {
-                    $('.preloader').hide();
-                },
-                error: function() {
-                    bookingEditRefreshVariantSelect(
-                        '<option value="" selected disabled>{{ translate('Select Service Variant') }}</option>');
-                    toastr.error('{{ translate('Failed to load') }}')
-                }
             });
         });
 
@@ -4647,15 +4709,22 @@
         });
 
         $("#serviceUpdateModal--{{ $booking['id'] }}").on('hidden.bs.modal', function() {
-            $('#service_selector__select').prop('selectedIndex', 0);
-            bookingEditRefreshVariantSelect(
-                '<option value="" selected disabled>{{ translate('Select Service Variant') }}</option>');
+            const $svc = bookingEditModalField('service_id');
+            bookingEditDestroySelect2($svc);
+            $svc.prop('selectedIndex', 0);
+            bookingEditInitServiceSelect($svc);
+            bookingEditResetVariantSelect('{{ translate('Select Service Variant') }}');
+            bookingEditVariantLoadGen++;
             $("#service_quantity").val('');
         });
 
-        $("#add-service").on('click', function() {
-            const service_id = $("[name='service_id']").val();
-            const variant_key = $("[name='variant_key']").val();
+        function bookingEditHandleAddService() {
+            if (bookingEditAddInFlight) {
+                return;
+            }
+
+            const service_id = bookingEditModalField('service_id').val();
+            const variant_key = bookingEditModalField('variant_key').val();
             const quantity = parseInt($("[name='service_quantity']").val());
             const zone_id = '{{ $booking->zone_id }}';
 
@@ -4703,6 +4772,7 @@
                 return;
             }
 
+            bookingEditAddInFlight = true;
             let query_string = 'service_id=' + encodeURIComponent(service_id) + '&variant_key=' + encodeURIComponent(variant_key) + '&quantity=' +
                 quantity + '&zone_id=' + encodeURIComponent(zone_id) + '&booking_id=' + encodeURIComponent('{{ $booking->id }}');
             $.ajax({
@@ -4724,15 +4794,13 @@
                     });
                 },
                 complete: function() {
+                    bookingEditAddInFlight = false;
                     $('.preloader').hide();
                 },
             });
-        })
+        }
 
-        $(".remove-service-row").on('click', function() {
-            let row = $(this).data('row');
-            removeServiceRow(row)
-        })
+        bookingEditWireModalActions();
 
         function removeServiceRow(row) {
             const row_count = $('#service-edit-tbody tr').length;

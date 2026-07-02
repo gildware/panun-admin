@@ -59,12 +59,3 @@
     </td>
     <input type="hidden" name="booking_detail_ids[]" value="">
 </tr>
-
-<script>
-    "use strict";
-
-    $(".remove-service-row").on('click', function (){
-        let row = $(this).data('row');
-        removeServiceRow(row)
-    })
-</script>

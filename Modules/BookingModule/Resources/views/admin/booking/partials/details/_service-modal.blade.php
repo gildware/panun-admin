@@ -59,7 +59,7 @@
                             <label class="form-label small text-muted mb-1">{{ translate('variant') }}</label>
                             <select class="theme-input-style w-100" id="service_variation_selector__select"
                                     name="variant_key" required>
-                                <option selected disabled>{{translate('Select Service Variant')}}</option>
+                                <option value="" selected disabled>{{translate('Select Service Variant')}}</option>
                             </select>
                         </div>
                     </div>
@@ -214,12 +214,3 @@
         </div>
     </div>
 </div>
-
-<script>
-    "use strict";
-
-    $(".remove-service-row").on('click', function (){
-        let row = $(this).data('row');
-        removeServiceRow(row)
-    })
-</script>
