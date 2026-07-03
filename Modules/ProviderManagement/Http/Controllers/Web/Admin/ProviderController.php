@@ -3301,13 +3301,8 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400), 400);
         }
 
-        if ($changeRequest->change_type !== 'services') {
-            return response()->json(response_formatter(DEFAULT_400), 400);
-        }
-
         $validator = Validator::make($request->all(), [
             'decisions' => 'required|array|min:1',
-            'decisions.*.sub_category_id' => 'required|uuid',
             'decisions.*.approved' => 'required|in:0,1,true,false,on,yes',
         ]);
 
@@ -3316,32 +3311,42 @@ class ProviderController extends Controller
         }
 
         $service = app(ProviderProfileChangeRequestService::class);
-        $expectedIds = collect($service->pendingServiceChangesForRequest($changeRequest))
-            ->pluck('sub_category_id')
+        $expectedKeys = collect($service->pendingFieldChangesForRequest($changeRequest))
             ->sort()
             ->values();
-        $decisionIds = collect($request->input('decisions', []))
-            ->pluck('sub_category_id')
-            ->map(fn ($value) => (string) $value)
+        $decisionKeys = collect($request->input('decisions', []))
+            ->map(function (array $decision) {
+                if (! empty($decision['field_key'])) {
+                    return (string) $decision['field_key'];
+                }
+
+                return ! empty($decision['sub_category_id']) ? (string) $decision['sub_category_id'] : null;
+            })
+            ->filter()
             ->sort()
             ->values();
 
-        if ($expectedIds->isEmpty() || $expectedIds->toJson() !== $decisionIds->toJson()) {
+        if ($expectedKeys->isEmpty() || $expectedKeys->toJson() !== $decisionKeys->toJson()) {
             return response()->json(response_formatter(DEFAULT_400), 400);
         }
 
-        $approvedIds = collect($request->input('decisions', []))
+        $approvedKeys = collect($request->input('decisions', []))
             ->filter(function (array $decision) {
                 $approved = $decision['approved'] ?? false;
 
                 return in_array($approved, [true, 1, '1', 'true', 'on', 'yes'], true);
             })
-            ->pluck('sub_category_id')
-            ->map(fn ($value) => (string) $value)
+            ->map(function (array $decision) {
+                if (! empty($decision['field_key'])) {
+                    return (string) $decision['field_key'];
+                }
+
+                return (string) $decision['sub_category_id'];
+            })
             ->values()
             ->all();
 
-        $reviewSummary = $service->reviewServicesChange($changeRequest, $approvedIds);
+        $reviewSummary = $service->reviewFieldChanges($changeRequest, $approvedKeys);
 
         $changeRequest->reviewed_by = auth()->id();
         $changeRequest->reviewed_at = now();

@@ -9,20 +9,13 @@
                 <h2 class="page-title mb-0">{{ translate('Profile_Update_Request') }}</h2>
                 @if($changeRequest->status === \Modules\ProviderManagement\Entities\ProviderChangeRequest::STATUS_PENDING)
                     @can('onboarding_request_approve_or_deny')
-                        @if($changeRequest->change_type === 'services' && count($proposedChanges) > 0)
+                        @if(count($proposedChanges) > 0)
                             <div class="d-flex gap-2 flex-wrap">
                                 <button type="button" class="btn btn-soft--danger profile_change_deny"
                                         data-id="{{ $changeRequest->id }}">{{ translate('Deny_All') }}</button>
-                                <button type="button" class="btn btn--success" id="submit_service_review">
+                                <button type="button" class="btn btn--success" id="submit_change_review">
                                     {{ translate('Submit_Review') }}
                                 </button>
-                            </div>
-                        @else
-                            <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-soft--danger profile_change_deny"
-                                        data-id="{{ $changeRequest->id }}">{{ translate('Deny') }}</button>
-                                <button type="button" class="btn btn--success profile_change_approve"
-                                        data-id="{{ $changeRequest->id }}">{{ translate('Accept') }}</button>
                             </div>
                         @endif
                     @endcan
@@ -48,8 +41,8 @@
                         {{ translate($detailTypeKey) }}
                     </p>
                     <p><strong>{{ translate('Requested_At') }}:</strong> {{ $changeRequest->created_at?->format('d M Y, h:i A') }}</p>
-                    @if($changeRequest->change_type === 'services' && $changeRequest->status === \Modules\ProviderManagement\Entities\ProviderChangeRequest::STATUS_PENDING && count($proposedChanges) > 0)
-                        <p class="text-muted mb-0 small">{{ translate('Review_each_service_change_help') }}</p>
+                    @if($changeRequest->status === \Modules\ProviderManagement\Entities\ProviderChangeRequest::STATUS_PENDING && count($proposedChanges) > 0)
+                        <p class="text-muted mb-0 small">{{ translate('Review_each_change_help') }}</p>
                     @endif
                 </div>
             </div>
@@ -65,14 +58,14 @@
                                     <th style="min-width:180px;">{{ translate('field_name') }}</th>
                                     <th style="min-width:220px;">{{ translate('from') }}</th>
                                     <th style="min-width:220px;">{{ translate('to') }}</th>
-                                    @if($changeRequest->change_type === 'services' && $changeRequest->status === \Modules\ProviderManagement\Entities\ProviderChangeRequest::STATUS_PENDING)
+                                    @if($changeRequest->status === \Modules\ProviderManagement\Entities\ProviderChangeRequest::STATUS_PENDING)
                                         <th style="min-width:160px;">{{ translate('Decision') }}</th>
                                     @endif
                                 </tr>
                                 </thead>
                                 <tbody>
                                 @foreach($proposedChanges as $change)
-                                    <tr @if($changeRequest->change_type === 'services' && !empty($change['sub_category_id'])) class="service-change-row" data-sub-category-id="{{ $change['sub_category_id'] }}" @endif>
+                                    <tr class="change-review-row" data-field-key="{{ $change['field_key'] ?? '' }}">
                                         <td class="fw-medium">{{ $change['field'] }}</td>
                                         <td>
                                             @if(($change['type'] ?? '') === 'image' && !empty($change['from_url']))
@@ -94,10 +87,10 @@
                                                 {{ $change['to'] }}
                                             @endif
                                         </td>
-                                        @if($changeRequest->change_type === 'services' && $changeRequest->status === \Modules\ProviderManagement\Entities\ProviderChangeRequest::STATUS_PENDING)
+                                        @if($changeRequest->status === \Modules\ProviderManagement\Entities\ProviderChangeRequest::STATUS_PENDING)
                                             <td>
-                                                @if(!empty($change['sub_category_id']))
-                                                    <select class="form-select form-select-sm service-change-decision">
+                                                @if(!empty($change['field_key']))
+                                                    <select class="form-select form-select-sm change-review-decision">
                                                         <option value="approve" selected>{{ translate('Accept') }}</option>
                                                         <option value="deny">{{ translate('Deny') }}</option>
                                                     </select>
@@ -126,23 +119,18 @@
             let route = '{{ route('admin.provider.profile_change_update', ['id' => ':id', 'status' => 'deny']) }}'.replace(':id', id);
             route_alert_reload(route, '{{ translate('want_to_deny') }}', true);
         });
-        $('.profile_change_approve').on('click', function () {
-            let id = $(this).data('id');
-            let route = '{{ route('admin.provider.profile_change_update', ['id' => ':id', 'status' => 'approve']) }}'.replace(':id', id);
-            route_alert_reload(route, '{{ translate('want_to_approve') }}', true);
-        });
 
-        $('#submit_service_review').on('click', function () {
+        $('#submit_change_review').on('click', function () {
             const decisions = [];
-            $('.service-change-row').each(function () {
-                const subCategoryId = $(this).attr('data-sub-category-id');
-                if (!subCategoryId) {
+            $('.change-review-row').each(function () {
+                const fieldKey = $(this).attr('data-field-key');
+                if (!fieldKey) {
                     return;
                 }
 
                 decisions.push({
-                    sub_category_id: String(subCategoryId),
-                    approved: $(this).find('.service-change-decision').val() === 'approve' ? 1 : 0
+                    field_key: String(fieldKey),
+                    approved: $(this).find('.change-review-decision').val() === 'approve' ? 1 : 0
                 });
             });
 
@@ -152,18 +140,18 @@
 
             const approvedCount = decisions.filter((item) => Number(item.approved) === 1).length;
             const deniedCount = decisions.length - approvedCount;
-            let confirmText = '{{ translate('Submit_service_review_confirm') }}';
+            let confirmText = '{{ translate('Submit_change_review_confirm') }}';
             if (deniedCount > 0 && approvedCount > 0) {
-                confirmText = '{{ translate('Submit_partial_service_review_confirm') }}';
+                confirmText = '{{ translate('Submit_partial_change_review_confirm') }}';
             } else if (approvedCount === 0) {
-                confirmText = '{{ translate('Deny_all_service_changes_confirm') }}';
+                confirmText = '{{ translate('Deny_all_changes_confirm') }}';
             }
 
             const payload = {
                 _token: '{{ csrf_token() }}'
             };
             decisions.forEach(function (item, index) {
-                payload['decisions[' + index + '][sub_category_id]'] = item.sub_category_id;
+                payload['decisions[' + index + '][field_key]'] = item.field_key;
                 payload['decisions[' + index + '][approved]'] = item.approved;
             });
 

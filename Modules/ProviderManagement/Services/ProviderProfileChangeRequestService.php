@@ -370,34 +370,81 @@ class ProviderProfileChangeRequestService
      */
     public function reviewServicesChange(ProviderChangeRequest $changeRequest, array $approvedSubCategoryIds): array
     {
-        $provider = $changeRequest->provider()->firstOrFail();
-        $allChanges = $this->subscriptionChangesFromPayload($provider->id, $changeRequest->payload ?? []);
-        $approvedSet = array_flip(array_map('strval', $approvedSubCategoryIds));
+        return $this->reviewFieldChanges($changeRequest, $approvedSubCategoryIds);
+    }
 
-        $toApply = array_values(array_filter(
-            $allChanges,
-            fn (array $change) => isset($approvedSet[$change['sub_category_id']])
-        ));
-        $denied = array_values(array_filter(
-            $allChanges,
-            fn (array $change) => ! isset($approvedSet[$change['sub_category_id']])
-        ));
+    /**
+     * @return array<int, string>
+     */
+    public function pendingFieldChangesForRequest(ProviderChangeRequest $changeRequest): array
+    {
+        return collect(app(ProviderProfileChangeDiffService::class)->build($changeRequest))
+            ->pluck('field_key')
+            ->filter()
+            ->map(fn ($key) => (string) $key)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int, string>  $approvedFieldKeys
+     * @return array{approved_count: int, denied_count: int, denied_names: array<int, string>}
+     */
+    public function reviewFieldChanges(ProviderChangeRequest $changeRequest, array $approvedFieldKeys): array
+    {
+        $changes = app(ProviderProfileChangeDiffService::class)->build($changeRequest);
+        $allKeys = collect($changes)
+            ->pluck('field_key')
+            ->map(fn ($key) => (string) $key)
+            ->values()
+            ->all();
+        $approvedSet = array_flip(array_map('strval', $approvedFieldKeys));
+
+        $toApply = array_values(array_filter($allKeys, fn (string $key) => isset($approvedSet[$key])));
+        $denied = array_values(array_filter($allKeys, fn (string $key) => ! isset($approvedSet[$key])));
 
         if ($toApply !== []) {
-            $this->applyServices($provider, $this->buildServicesPayload($toApply));
+            $this->applyPartial($changeRequest, $toApply);
         }
 
-        $categoryNames = Category::whereIn('id', array_column($denied, 'sub_category_id'))
-            ->pluck('name', 'id');
+        $labelsByKey = collect($changes)->mapWithKeys(
+            fn (array $change) => [(string) $change['field_key'] => $change['field']]
+        );
 
         return [
             'approved_count' => count($toApply),
             'denied_count' => count($denied),
             'denied_names' => array_map(
-                fn (array $change) => $categoryNames->get($change['sub_category_id']) ?? $change['sub_category_id'],
+                fn (string $key) => $labelsByKey->get($key) ?? $key,
                 $denied
             ),
         ];
+    }
+
+    /**
+     * @param  array<int, string>  $approvedFieldKeys
+     */
+    public function applyPartial(ProviderChangeRequest $changeRequest, array $approvedFieldKeys): void
+    {
+        $provider = $changeRequest->provider()->with('owner')->firstOrFail();
+        $owner = $provider->owner;
+        $payload = $changeRequest->payload ?? [];
+
+        match ($changeRequest->change_type) {
+            'profile' => $this->applyProfileFields($provider, $owner, $payload, $approvedFieldKeys),
+            'branding' => $this->applyBrandingFields($provider, $payload, $approvedFieldKeys),
+            'business_settings' => $this->applyBusinessSettingsFields($provider, $payload, $approvedFieldKeys),
+            'services' => $this->applyServices(
+                $provider,
+                $this->buildServicesPayload(
+                    array_values(array_filter(
+                        $this->subscriptionChangesFromPayload($provider->id, $payload),
+                        fn (array $change) => in_array($change['sub_category_id'], $approvedFieldKeys, true)
+                    ))
+                )
+            ),
+            default => null,
+        };
     }
 
     /**
@@ -416,140 +463,236 @@ class ProviderProfileChangeRequestService
 
     public function applyBranding(Provider $provider, array $payload): void
     {
-        if (!empty($payload['logo'])) {
-            $provider->logo = $payload['logo'];
-        }
-        if (!empty($payload['cover_image'])) {
-            $provider->cover_image = $payload['cover_image'];
-        }
-        $provider->save();
+        $this->applyBrandingFields($provider, $payload, ['logo', 'cover_image']);
     }
 
-    private function applyProfile(Provider $provider, User $owner, array $payload): void
+    /**
+     * @param  array<int, string>  $approvedFieldKeys
+     */
+    public function applyBrandingFields(Provider $provider, array $payload, array $approvedFieldKeys): void
     {
-        $providerType = $payload['provider_type'] ?? 'company';
+        $approved = array_flip(array_map('strval', $approvedFieldKeys));
+        $changed = false;
+
+        if (isset($approved['logo']) && ! empty($payload['logo'])) {
+            $provider->logo = $payload['logo'];
+            $changed = true;
+        }
+        if (isset($approved['cover_image']) && ! empty($payload['cover_image'])) {
+            $provider->cover_image = $payload['cover_image'];
+            $changed = true;
+        }
+
+        if ($changed) {
+            $provider->save();
+        }
+    }
+
+    /**
+     * @param  array<int, string>  $approvedFieldKeys
+     */
+    public function applyBusinessSettingsFields(Provider $provider, array $payload, array $approvedFieldKeys): void
+    {
+        $approved = array_flip(array_map('strval', $approvedFieldKeys));
+        $data = collect($payload['data'] ?? [])
+            ->filter(fn (array $item) => isset($approved[(string) ($item['key'] ?? '')]))
+            ->values()
+            ->all();
+
+        if ($data !== []) {
+            $this->applyBusinessSettings($provider, ['data' => $data]);
+        }
+    }
+
+    /**
+     * @param  array<int, string>  $approvedFieldKeys
+     */
+    public function applyProfileFields(Provider $provider, User $owner, array $payload, array $approvedFieldKeys): void
+    {
+        $approved = array_flip(array_map('strval', $approvedFieldKeys));
+        $providerType = $payload['provider_type'] ?? ($provider->provider_type ?? 'company');
         $leafZoneIds = $payload['leaf_zone_ids'] ?? [];
+        $zonesChanged = false;
+        $newLeafIds = [];
 
-        $previousLeafIds = collect($provider->coveredLeafZoneIds())->sort()->values()->all();
-        $newLeafIds = collect($leafZoneIds)->sort()->values()->all();
-        $zonesChanged = $previousLeafIds !== $newLeafIds;
+        if (isset($approved['zone'])) {
+            $previousLeafIds = collect($provider->coveredLeafZoneIds())->sort()->values()->all();
+            $newLeafIds = collect($leafZoneIds)->sort()->values()->all();
+            $zonesChanged = $previousLeafIds !== $newLeafIds;
 
-        if ($zonesChanged) {
-            $this->unsubscribeSubCategoriesLostOnZoneRemoval(
-                (string) $provider->id,
-                $previousLeafIds,
-                $newLeafIds
-            );
+            if ($zonesChanged) {
+                $this->unsubscribeSubCategoriesLostOnZoneRemoval(
+                    (string) $provider->id,
+                    $previousLeafIds,
+                    $newLeafIds
+                );
+                $provider->zone_id = $newLeafIds[0] ?? $provider->zone_id;
+            }
         }
 
         if ($providerType === 'company') {
-            $provider->company_name = $payload['company_name'];
-            $provider->company_phone = $payload['company_phone'];
-            if (!empty($payload['company_email'])) {
+            if (isset($approved['company_name'])) {
+                $provider->company_name = $payload['company_name'];
+            }
+            if (isset($approved['company_phone'])) {
+                $provider->company_phone = $payload['company_phone'];
+            }
+            if (isset($approved['company_email']) && ! empty($payload['company_email'])) {
                 $provider->company_email = $payload['company_email'];
             }
         } else {
-            $provider->company_name = $payload['contact_person_name'];
-            $provider->company_phone = $payload['contact_person_phone'];
-            $provider->company_email = $payload['contact_person_email'] ?? null;
+            if (isset($approved['contact_person_name'])) {
+                $provider->company_name = $payload['contact_person_name'];
+            }
+            if (isset($approved['contact_person_phone'])) {
+                $provider->company_phone = $payload['contact_person_phone'];
+            }
+            if (isset($approved['contact_person_email'])) {
+                $provider->company_email = $payload['contact_person_email'] ?? null;
+            }
         }
 
-        if (!empty($payload['contact_person_photo'])) {
+        if (isset($approved['contact_person_photo']) && ! empty($payload['contact_person_photo'])) {
             $provider->contact_person_photo = $payload['contact_person_photo'];
         }
-        $provider->company_address = $payload['company_address'];
-        $provider->street = $payload['street'] ?? null;
-        $provider->city = $payload['city'] ?? null;
-        $provider->pincode = $payload['pincode'] ?? null;
-        $provider->contact_person_name = $payload['contact_person_name'];
-        $provider->contact_person_phone = $payload['contact_person_phone'];
-        $provider->contact_person_email = $payload['contact_person_email'] ?? null;
-        if ($zonesChanged) {
-            $provider->zone_id = $leafZoneIds[0] ?? $provider->zone_id;
+        if (isset($approved['company_address'])) {
+            $provider->company_address = $payload['company_address'];
         }
-        $provider->coordinates = [
-            'latitude' => $payload['latitude'],
-            'longitude' => $payload['longitude'],
-        ];
+        if (isset($approved['street'])) {
+            $provider->street = $payload['street'] ?? null;
+        }
+        if (isset($approved['city'])) {
+            $provider->city = $payload['city'] ?? null;
+        }
+        if (isset($approved['pincode'])) {
+            $provider->pincode = $payload['pincode'] ?? null;
+        }
+        if (isset($approved['contact_person_name'])) {
+            $provider->contact_person_name = $payload['contact_person_name'];
+        }
+        if (isset($approved['contact_person_phone'])) {
+            $provider->contact_person_phone = $payload['contact_person_phone'];
+        }
+        if (isset($approved['contact_person_email'])) {
+            $provider->contact_person_email = $payload['contact_person_email'] ?? null;
+        }
+        if (isset($approved['coordinates'])) {
+            $provider->coordinates = [
+                'latitude' => $payload['latitude'],
+                'longitude' => $payload['longitude'],
+            ];
+        }
 
-        if (!empty($payload['contact_person_email'])) {
+        if (isset($approved['contact_person_email']) && ! empty($payload['contact_person_email'])) {
             $owner->email = $payload['contact_person_email'];
         }
-        $owner->phone = $payload['contact_person_phone'];
-        $owner->is_phone_verified = 1;
-        if (!empty($payload['password'])) {
+        if (isset($approved['contact_person_phone'])) {
+            $owner->phone = $payload['contact_person_phone'];
+            $owner->is_phone_verified = 1;
+        }
+        if (isset($approved['password']) && ! empty($payload['password'])) {
             $owner->password = bcrypt($payload['password']);
         }
 
-        $existingImages = is_string($owner->identification_image)
-            ? json_decode($owner->identification_image, true)
-            : ($owner->identification_image ?? []);
-        $deletedImages = $payload['deleted_identity_images'] ?? [];
-        $filteredImages = [];
+        if (isset($approved['identity_documents'])) {
+            $existingImages = is_string($owner->identification_image)
+                ? json_decode($owner->identification_image, true)
+                : ($owner->identification_image ?? []);
+            $deletedImages = $payload['deleted_identity_images'] ?? [];
+            $filteredImages = [];
 
-        foreach ($existingImages as $item) {
-            if (is_string($item)) {
-                if (in_array($item, $deletedImages)) {
-                    file_remover('provider/identity', $item);
-                    continue;
+            foreach ($existingImages as $item) {
+                if (is_string($item)) {
+                    if (in_array($item, $deletedImages)) {
+                        file_remover('provider/identity', $item);
+                        continue;
+                    }
+                    $filteredImages[] = ['image' => $item, 'storage' => getDisk()];
+                } elseif (is_array($item) && isset($item['image'])) {
+                    if (in_array($item['image'], $deletedImages)) {
+                        file_remover('provider/identity', $item);
+                        continue;
+                    }
+                    $filteredImages[] = $item;
                 }
-                $filteredImages[] = ['image' => $item, 'storage' => getDisk()];
-            } elseif (is_array($item) && isset($item['image'])) {
-                if (in_array($item['image'], $deletedImages)) {
-                    file_remover('provider/identity', $item);
-                    continue;
-                }
+            }
+            foreach ($payload['new_identity_images'] ?? [] as $item) {
                 $filteredImages[] = $item;
             }
-        }
-        foreach ($payload['new_identity_images'] ?? [] as $item) {
-            $filteredImages[] = $item;
+
+            $owner->identification_image = array_values($filteredImages);
         }
 
-        $owner->identification_image = array_values($filteredImages);
-        $owner->identification_number = $payload['identity_number'];
-        $owner->identification_type = $payload['identity_type'];
+        if (isset($approved['identity_number'])) {
+            $owner->identification_number = $payload['identity_number'];
+        }
+        if (isset($approved['identity_type'])) {
+            $owner->identification_type = $payload['identity_type'];
+        }
 
         if ($providerType === 'company') {
-            $existingCompanyImages = is_array($provider->company_identity_images) ? $provider->company_identity_images : [];
-            $deletedCompanyImages = $payload['deleted_company_identity_images'] ?? [];
-            $filteredCompanyImages = [];
+            if (isset($approved['company_identity_documents'])) {
+                $existingCompanyImages = is_array($provider->company_identity_images) ? $provider->company_identity_images : [];
+                $deletedCompanyImages = $payload['deleted_company_identity_images'] ?? [];
+                $filteredCompanyImages = [];
 
-            foreach ($existingCompanyImages as $item) {
-                $fileName = is_string($item) ? $item : ($item['image'] ?? null);
-                if ($fileName && in_array($fileName, $deletedCompanyImages, true)) {
-                    file_remover('provider/company-identity/', $fileName);
-                    continue;
+                foreach ($existingCompanyImages as $item) {
+                    $fileName = is_string($item) ? $item : ($item['image'] ?? null);
+                    if ($fileName && in_array($fileName, $deletedCompanyImages, true)) {
+                        file_remover('provider/company-identity/', $fileName);
+                        continue;
+                    }
+                    if (is_string($item)) {
+                        $filteredCompanyImages[] = ['image' => $item, 'storage' => getDisk()];
+                    } elseif (is_array($item) && isset($item['image'])) {
+                        $filteredCompanyImages[] = $item;
+                    }
                 }
-                if (is_string($item)) {
-                    $filteredCompanyImages[] = ['image' => $item, 'storage' => getDisk()];
-                } elseif (is_array($item) && isset($item['image'])) {
+                foreach ($payload['new_company_identity_images'] ?? [] as $item) {
                     $filteredCompanyImages[] = $item;
                 }
-            }
-            foreach ($payload['new_company_identity_images'] ?? [] as $item) {
-                $filteredCompanyImages[] = $item;
+
+                $provider->company_identity_images = array_values($filteredCompanyImages);
             }
 
-            $provider->company_identity_type = $payload['company_identity_type'];
-            $provider->company_identity_number = $payload['company_identity_number'];
-            if ($filteredCompanyImages !== [] || !empty($payload['company_identity_type'])) {
-                $provider->company_identity_images = array_values($filteredCompanyImages);
+            if (isset($approved['company_identity_type'])) {
+                $provider->company_identity_type = $payload['company_identity_type'];
+            }
+            if (isset($approved['company_identity_number'])) {
+                $provider->company_identity_number = $payload['company_identity_number'];
             }
         }
 
-        DB::transaction(function () use ($provider, $owner, $leafZoneIds, $zonesChanged) {
+        DB::transaction(function () use ($provider, $owner, $newLeafIds, $zonesChanged) {
             if ($zonesChanged) {
-                $owner->zones()->sync($leafZoneIds);
+                $owner->zones()->sync($newLeafIds);
             }
             $owner->save();
             $provider->save();
             if ($zonesChanged) {
                 $provider->zones()->sync(
-                    collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
+                    collect($newLeafIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
                 );
             }
         });
+    }
+
+    private function applyProfile(Provider $provider, User $owner, array $payload): void
+    {
+        $fieldKeys = collect(app(ProviderProfileChangeDiffService::class)->build(
+            tap(
+                new ProviderChangeRequest([
+                    'change_type' => 'profile',
+                    'payload' => $payload,
+                    'provider_id' => $provider->id,
+                ]),
+                function (ProviderChangeRequest $request) use ($provider) {
+                    $request->setRelation('provider', $provider->loadMissing('owner', 'zones'));
+                }
+            )
+        ))->pluck('field_key')->map(fn ($key) => (string) $key)->all();
+
+        $this->applyProfileFields($provider, $owner, $payload, $fieldKeys);
     }
 
     private function applyBusinessSettings(Provider $provider, array $payload): void
