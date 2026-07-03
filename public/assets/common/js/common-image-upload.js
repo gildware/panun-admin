@@ -286,6 +286,10 @@ function initFileUpload() {
 
 function checkPreExistingImages(root) {
   (root || document).querySelectorAll(".upload-file-new").forEach(card => {
+    if (card.dataset.persistedImage === "false") {
+      return;
+    }
+
     const textbox = card.querySelector(".upload-file-new-textbox");
     const imgElement = card.querySelector(".upload-file-new-img");
     const removeBtn = card.querySelector(".remove_btn");
