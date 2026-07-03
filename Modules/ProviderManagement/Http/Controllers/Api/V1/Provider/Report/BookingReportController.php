@@ -138,6 +138,11 @@ class BookingReportController extends Controller
             }
 
             booking_append_provider_api_ui_fields($booking);
+            $booking->loadMissing(['extra_services', 'booking_partial_payments']);
+            $booking->setAttribute(
+                'list_display_total',
+                round((float) get_customer_booking_list_display_total($booking), 2)
+            );
 
             return $booking;
         });
@@ -145,7 +150,7 @@ class BookingReportController extends Controller
         //** Card Data **
         $bookingStatusKeys = array_column(BOOKING_STATUSES, 'key');
         $bookingsForAmount = self::filterQuery($this->booking, $request)
-            ->with(['customer', 'provider.owner'])
+            ->with(['customer', 'provider.owner', 'extra_services', 'booking_partial_payments'])
             ->whereIn('booking_status', $bookingStatusKeys)
             ->get();
 
@@ -155,23 +160,29 @@ class BookingReportController extends Controller
             $bookingsCount[$statusKey] = $bookingsForAmount->where('booking_status', $statusKey)->count();
         }
 
-        $bookingAmount = [];
-        $bookingAmount['total_booking_amount'] = $bookingsForAmount->sum('total_booking_amount');
-        $bookingAmount['total_paid_booking_amount'] = $bookingsForAmount
-            ->where('payment_method', '!=', 'cash_after_service')
-            ->where('booking_status', 'completed')
-            ->sum('total_booking_amount');
-        $bookingAmount['total_unpaid_booking_amount'] = $bookingsForAmount
-            ->where('payment_method', '!=', 'cash_after_service')
-            ->where('booking_status', '!=', 'completed')
-            ->sum('total_booking_amount');
+        $bookingAmount = [
+            'total_booking_amount' => 0,
+            'total_paid_booking_amount' => 0,
+            'total_unpaid_booking_amount' => 0,
+        ];
+        foreach ($bookingsForAmount as $booking) {
+            $displayTotal = round((float) get_customer_booking_list_display_total($booking), 2);
+            $paidAmount = round((float) get_booking_total_paid($booking), 2);
+            $dueAmount = round((float) get_booking_customer_display_due_balance($booking), 2);
+            $bookingAmount['total_booking_amount'] += $displayTotal;
+            $bookingAmount['total_paid_booking_amount'] += $paidAmount;
+            $bookingAmount['total_unpaid_booking_amount'] += $dueAmount;
+        }
+        $bookingAmount['total_booking_amount'] = round($bookingAmount['total_booking_amount'], 2);
+        $bookingAmount['total_paid_booking_amount'] = round($bookingAmount['total_paid_booking_amount'], 2);
+        $bookingAmount['total_unpaid_booking_amount'] = round($bookingAmount['total_unpaid_booking_amount'], 2);
 
         //** Chart Data **
 
         //deterministic
         $dateRange = $request['date_range'];
         if(is_null($dateRange) || $dateRange == 'all_time') {
-            $deterministic = 'year';
+            $deterministic = 'month';
         } elseif ($dateRange == 'this_week' || $dateRange == 'last_week') {
             $deterministic = 'week';
         } elseif ($dateRange == 'this_month' || $dateRange == 'last_month' || $dateRange == 'last_15_days') {
@@ -195,51 +206,38 @@ class BookingReportController extends Controller
         }
         $groupByDeterministic = $deterministic=='week'?'day':$deterministic;
 
-        $amounts = $this->booking_details_amount
-            ->whereHas('booking', function ($query) use ($request, $bookingStatusKeys) {
-                self::filterQuery($query, $request)->whereIn('booking_status', $bookingStatusKeys);
-            })
-            ->when(isset($groupByDeterministic), function ($query) use ($groupByDeterministic) {
-                $query->select(
-                    DB::raw('sum(admin_commission) as admin_commission'),
-
-                    DB::raw($groupByDeterministic.'(created_at) '.$groupByDeterministic)
-                );
-            })
-            ->groupby($groupByDeterministic)
-            ->get()->toArray();
-
         $bookings = self::filterQuery($this->booking, $request)
             ->whereIn('booking_status', $bookingStatusKeys)
             ->when(isset($groupByDeterministic), function ($query) use ($groupByDeterministic) {
                 $query->select(
-                    DB::raw('sum(total_booking_amount) as total_booking_amount'),
-                    DB::raw('sum(total_tax_amount) as total_tax_amount'),
-
+                    DB::raw('count(*) as booking_count'),
                     DB::raw($groupByDeterministic.'(created_at) '.$groupByDeterministic)
                 );
             })
             ->groupby($groupByDeterministic)
             ->get()->toArray();
 
-        $chartData = ['booking_amount'=>array(), 'tax_amount'=>array(), 'admin_commission'=>array(), 'timeline'=>array()];
+        $chartData = ['booking_amount'=>array(), 'booking_count'=>array(), 'tax_amount'=>array(), 'admin_commission'=>array(), 'timeline'=>array()];
         //data filter for deterministic
         if($deterministic == 'month') {
             $months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
             foreach ($months as $month) {
                 $found=0;
                 $chartData['timeline'][] = $month;
-                foreach ($bookings as $key=>$item) {
+                foreach ($bookings as $item) {
                     if ($item['month'] == $month) {
-                        $chartData['booking_amount'][] = $item['total_booking_amount'];
-                        $chartData['tax_amount'][] = $item['total_tax_amount'];
-
-                        $chartData['admin_commission'][] = $amounts[$key]['admin_commission']??0;
+                        $count = (int) ($item['booking_count'] ?? 0);
+                        $chartData['booking_amount'][] = $count;
+                        $chartData['booking_count'][] = $count;
+                        $chartData['tax_amount'][] = 0;
+                        $chartData['admin_commission'][] = 0;
                         $found=1;
+                        break;
                     }
                 }
                 if(!$found){
                     $chartData['booking_amount'][] = 0;
+                    $chartData['booking_count'][] = 0;
                     $chartData['tax_amount'][] = 0;
                     $chartData['admin_commission'][] = 0;
                 }
@@ -247,12 +245,13 @@ class BookingReportController extends Controller
 
         }
         elseif ($deterministic == 'year') {
-            foreach ($bookings as $key=>$item) {
-                $chartData['booking_amount'][] = $item['total_booking_amount'];
-                $chartData['tax_amount'][] = $item['total_tax_amount'];
+            foreach ($bookings as $item) {
+                $count = (int) ($item['booking_count'] ?? 0);
+                $chartData['booking_amount'][] = $count;
+                $chartData['booking_count'][] = $count;
+                $chartData['tax_amount'][] = 0;
                 $chartData['timeline'][] = $item[$deterministic];
-
-                $chartData['admin_commission'][] = $amounts[$key]['admin_commission']??0;
+                $chartData['admin_commission'][] = 0;
             }
         }
         elseif ($deterministic == 'day') {
@@ -269,17 +268,20 @@ class BookingReportController extends Controller
             for ($i = 1; $i <= $number; $i++) {
                 $found=0;
                 $chartData['timeline'][] = $i;
-                foreach ($bookings as $key=>$item) {
+                foreach ($bookings as $item) {
                     if ($item['day'] == $i) {
-                        $chartData['booking_amount'][] = $item['total_booking_amount'];
-                        $chartData['tax_amount'][] = $item['total_tax_amount'];
-
-                        $chartData['admin_commission'][] = $amounts[$key]['admin_commission']??0;
+                        $count = (int) ($item['booking_count'] ?? 0);
+                        $chartData['booking_amount'][] = $count;
+                        $chartData['booking_count'][] = $count;
+                        $chartData['tax_amount'][] = 0;
+                        $chartData['admin_commission'][] = 0;
                         $found=1;
+                        break;
                     }
                 }
                 if(!$found){
                     $chartData['booking_amount'][] = 0;
+                    $chartData['booking_count'][] = 0;
                     $chartData['tax_amount'][] = 0;
                     $chartData['admin_commission'][] = 0;
                 }
@@ -297,17 +299,20 @@ class BookingReportController extends Controller
             for ($i = (int)$from->format('d'); $i <= (int)$to->format('d'); $i++) {
                 $found=0;
                 $chartData['timeline'][] = $i;
-                foreach ($bookings as $key=>$item) {
+                foreach ($bookings as $item) {
                     if ($item['day'] == $i) {
-                        $chartData['booking_amount'][] = $item['total_booking_amount'];
-                        $chartData['tax_amount'][] = $item['total_tax_amount'];
-
-                        $chartData['admin_commission'][] = $amounts[$key]['admin_commission']??0;
+                        $count = (int) ($item['booking_count'] ?? 0);
+                        $chartData['booking_amount'][] = $count;
+                        $chartData['booking_count'][] = $count;
+                        $chartData['tax_amount'][] = 0;
+                        $chartData['admin_commission'][] = 0;
                         $found=1;
+                        break;
                     }
                 }
                 if(!$found) {
                     $chartData['booking_amount'][] = 0;
+                    $chartData['booking_count'][] = 0;
                     $chartData['tax_amount'][] = 0;
                     $chartData['admin_commission'][] = 0;
                 }
