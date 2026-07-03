@@ -413,6 +413,8 @@ class ProviderProfileChangeRequestService
 
         $labelsByKey = collect(app(ProviderProfileChangeDiffService::class)->build($changeRequest))
             ->mapWithKeys(fn (array $change) => [(string) $change['field_key'] => $change['field']]);
+        $changeRow = collect(app(ProviderProfileChangeDiffService::class)->build($changeRequest))
+            ->firstWhere('field_key', $fieldKey);
 
         if ($approved) {
             $this->applyPartial($changeRequest, [$fieldKey]);
@@ -424,6 +426,12 @@ class ProviderProfileChangeRequestService
             'decision' => $approved ? 'approve' : 'deny',
             'reviewed_by' => $reviewedBy,
             'reviewed_at' => now()->toIso8601String(),
+            'field_label' => (string) ($changeRow['field'] ?? $labelsByKey->get($fieldKey) ?? $fieldKey),
+            'from' => (string) ($changeRow['from'] ?? ''),
+            'to' => (string) ($changeRow['to'] ?? ''),
+            'type' => $changeRow['type'] ?? null,
+            'from_url' => $changeRow['from_url'] ?? null,
+            'to_url' => $changeRow['to_url'] ?? null,
         ];
         $this->removeReviewedFieldFromPayload((string) $changeRequest->change_type, $payload, $fieldKey);
 
@@ -472,7 +480,7 @@ class ProviderProfileChangeRequestService
             if (($review['decision'] ?? '') === 'approve') {
                 $approvedCount++;
             } elseif (($review['decision'] ?? '') === 'deny') {
-                $deniedNames[] = (string) ($labelsByKey->get((string) $key) ?? $key);
+                $deniedNames[] = (string) ($review['field_label'] ?? $labelsByKey->get((string) $key) ?? $key);
             }
         }
 
@@ -545,6 +553,69 @@ class ProviderProfileChangeRequestService
         }
 
         unset($payload[$fieldKey]);
+    }
+
+    /**
+     * @return array<int, array{
+     *     field_key: string,
+     *     field: string,
+     *     from: string,
+     *     to: string,
+     *     review_status: 'pending'|'approved'|'denied',
+     *     type?: string,
+     *     from_url?: ?string,
+     *     to_url?: ?string
+     * }>
+     */
+    public function buildReviewDisplayChanges(ProviderChangeRequest $changeRequest): array
+    {
+        $displayChanges = [];
+        $reviews = is_array($changeRequest->payload['field_reviews'] ?? null)
+            ? $changeRequest->payload['field_reviews']
+            : [];
+
+        foreach ($reviews as $fieldKey => $review) {
+            if (! is_array($review)) {
+                continue;
+            }
+
+            $displayChanges[] = [
+                'field_key' => (string) $fieldKey,
+                'field' => (string) ($review['field_label'] ?? $fieldKey),
+                'from' => (string) ($review['from'] ?? translate('not_set')),
+                'to' => (string) ($review['to'] ?? translate('not_set')),
+                'review_status' => ($review['decision'] ?? '') === 'approve' ? 'approved' : 'denied',
+                'type' => $review['type'] ?? null,
+                'from_url' => $review['from_url'] ?? null,
+                'to_url' => $review['to_url'] ?? null,
+            ];
+        }
+
+        foreach (app(ProviderProfileChangeDiffService::class)->build($changeRequest) as $change) {
+            if (empty($change['field_key'])) {
+                continue;
+            }
+
+            $displayChanges[] = [
+                'field_key' => (string) $change['field_key'],
+                'field' => (string) $change['field'],
+                'from' => (string) $change['from'],
+                'to' => (string) $change['to'],
+                'review_status' => 'pending',
+                'type' => $change['type'] ?? null,
+                'from_url' => $change['from_url'] ?? null,
+                'to_url' => $change['to_url'] ?? null,
+                'sub_category_id' => $change['sub_category_id'] ?? null,
+                'action' => $change['action'] ?? null,
+            ];
+        }
+
+        return $displayChanges;
+    }
+
+    public function pendingReviewCount(ProviderChangeRequest $changeRequest): int
+    {
+        return count($this->pendingFieldChangesForRequest($changeRequest));
     }
 
     /**

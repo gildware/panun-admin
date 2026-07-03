@@ -3259,9 +3259,15 @@ class ProviderController extends Controller
         $changeRequest = ProviderChangeRequest::with('provider.owner', 'provider.zones.parentZone')
             ->findOrFail($id);
 
-        $proposedChanges = app(ProviderProfileChangeDiffService::class)->build($changeRequest);
+        $reviewService = app(ProviderProfileChangeRequestService::class);
+        $proposedChanges = $reviewService->buildReviewDisplayChanges($changeRequest);
+        $pendingReviewCount = $reviewService->pendingReviewCount($changeRequest);
 
-        return view('providermanagement::admin.provider.detail.profile-change-details', compact('changeRequest', 'proposedChanges'));
+        return view('providermanagement::admin.provider.detail.profile-change-details', compact(
+            'changeRequest',
+            'proposedChanges',
+            'pendingReviewCount'
+        ));
     }
 
     public function updateProfileChangeApproval(string $id, string $status): JsonResponse
@@ -3355,7 +3361,11 @@ class ProviderController extends Controller
             : 'profile_change_deny';
         send_profile_change_provider_notification($changeRequest, $messageKey);
 
-        return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
+        return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200, [
+            'request_closed' => true,
+            'request_status' => $changeRequest->status,
+            'remaining_count' => 0,
+        ]), 200);
     }
 
     public function reviewProfileChangeField(Request $request, string $id): JsonResponse
@@ -3395,7 +3405,16 @@ class ProviderController extends Controller
             $result['message_key']
         );
 
-        return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
+        $changeRequest->refresh();
+
+        return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200, [
+            'field_key' => $result['field_key'],
+            'field_label' => $result['field_label'],
+            'approved' => $result['approved'],
+            'remaining_count' => $result['remaining_count'],
+            'request_closed' => $result['request_closed'],
+            'request_status' => $changeRequest->status,
+        ]), 200);
     }
 
     public function updateApproval($id, $status, Request $request): JsonResponse
