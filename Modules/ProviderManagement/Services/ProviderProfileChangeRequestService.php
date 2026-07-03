@@ -69,10 +69,23 @@ class ProviderProfileChangeRequestService
             return $this->submitServicesChange($providerId, $payload);
         }
 
-        ProviderChangeRequest::where('provider_id', $providerId)
+        $existing = ProviderChangeRequest::where('provider_id', $providerId)
             ->where('change_type', $changeType)
             ->where('status', ProviderChangeRequest::STATUS_PENDING)
-            ->update(['status' => ProviderChangeRequest::STATUS_DENIED]);
+            ->first();
+
+        if ($existing) {
+            $mergedPayload = $this->mergePendingChangePayload($changeType, $existing->payload ?? [], $payload);
+            $existing->payload = $mergedPayload;
+            $existing->touch();
+            $existing->save();
+
+            if (function_exists('admin_inbox_notify_profile_change_request')) {
+                admin_inbox_notify_profile_change_request($existing);
+            }
+
+            return $existing;
+        }
 
         $changeRequest = ProviderChangeRequest::create([
             'provider_id' => $providerId,
@@ -86,6 +99,89 @@ class ProviderProfileChangeRequestService
         }
 
         return $changeRequest;
+    }
+
+    /**
+     * @param  array<string, mixed>  $existing
+     * @param  array<string, mixed>  $incoming
+     * @return array<string, mixed>
+     */
+    private function mergePendingChangePayload(string $changeType, array $existing, array $incoming): array
+    {
+        if ($changeType === 'business_settings') {
+            return $this->mergeBusinessSettingsPayload($existing, $incoming);
+        }
+
+        return $this->mergeScalarPayload($existing, $incoming);
+    }
+
+    /**
+     * Merge top-level payload keys (branding, profile, etc.) without replacing unrelated pending fields.
+     *
+     * @param  array<string, mixed>  $existing
+     * @param  array<string, mixed>  $incoming
+     * @return array<string, mixed>
+     */
+    private function mergeScalarPayload(array $existing, array $incoming): array
+    {
+        $reviews = is_array($existing['field_reviews'] ?? null) ? $existing['field_reviews'] : [];
+        $merged = array_merge($existing, $incoming);
+
+        foreach (array_keys($incoming) as $key) {
+            if ($key === 'field_reviews') {
+                continue;
+            }
+
+            unset($reviews[$key]);
+        }
+
+        if ($reviews !== []) {
+            $merged['field_reviews'] = $reviews;
+        } else {
+            unset($merged['field_reviews']);
+        }
+
+        return $merged;
+    }
+
+    /**
+     * @param  array<string, mixed>  $existing
+     * @param  array<string, mixed>  $incoming
+     * @return array<string, mixed>
+     */
+    private function mergeBusinessSettingsPayload(array $existing, array $incoming): array
+    {
+        $existingByKey = collect($existing['data'] ?? [])
+            ->filter(fn ($item) => is_array($item) && ! empty($item['key']))
+            ->mapWithKeys(fn ($item) => [(string) $item['key'] => $item]);
+
+        foreach ($incoming['data'] ?? [] as $item) {
+            if (! is_array($item) || empty($item['key'])) {
+                continue;
+            }
+
+            $existingByKey[(string) $item['key']] = $item;
+        }
+
+        $reviews = is_array($existing['field_reviews'] ?? null) ? $existing['field_reviews'] : [];
+        foreach ($incoming['data'] ?? [] as $item) {
+            if (! is_array($item) || empty($item['key'])) {
+                continue;
+            }
+
+            unset($reviews[(string) $item['key']]);
+        }
+
+        $merged = $existing;
+        $merged['data'] = $existingByKey->values()->all();
+
+        if ($reviews !== []) {
+            $merged['field_reviews'] = $reviews;
+        } else {
+            unset($merged['field_reviews']);
+        }
+
+        return $merged;
     }
 
     /**

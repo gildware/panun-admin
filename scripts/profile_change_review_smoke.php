@@ -137,6 +137,31 @@ try {
     if ($request3->status !== ProviderChangeRequest::STATUS_DENIED) {
         $failures[] = 'deny all flow failed';
     }
+
+    $request4 = $service->submit($provider->id, 'branding', [
+        'cover_image' => 'sequential-cover.png',
+    ]);
+    $request4 = $service->submit($provider->id, 'branding', [
+        'logo' => 'sequential-logo.png',
+    ]);
+
+    if ($request4->status !== ProviderChangeRequest::STATUS_PENDING) {
+        $failures[] = 'sequential branding submit should keep request pending';
+    }
+    if (($request4->payload['cover_image'] ?? '') !== 'sequential-cover.png') {
+        $failures[] = 'sequential branding submit should keep earlier cover_image';
+    }
+    if (($request4->payload['logo'] ?? '') !== 'sequential-logo.png') {
+        $failures[] = 'sequential branding submit should add logo';
+    }
+    if (ProviderChangeRequest::query()
+        ->where('provider_id', $provider->id)
+        ->where('change_type', 'branding')
+        ->where('status', ProviderChangeRequest::STATUS_DENIED)
+        ->where('payload->cover_image', 'sequential-cover.png')
+        ->exists()) {
+        $failures[] = 'sequential branding submit must not auto-deny prior cover request';
+    }
 } catch (Throwable $e) {
     $failures[] = $e->getMessage();
 } finally {
@@ -151,5 +176,5 @@ if ($failures !== []) {
     exit(1);
 }
 
-echo "PASS: single approve, single deny, accept all, deny all\n";
+echo "PASS: single approve, single deny, accept all, deny all, sequential branding merge\n";
 exit(0);

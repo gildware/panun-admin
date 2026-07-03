@@ -96,6 +96,36 @@ class ProfileChangeReviewServiceTest extends TestCase
         $this->assertSame(0, $service->pendingReviewCount($request));
     }
 
+    public function test_submit_branding_merges_new_fields_into_existing_pending_request(): void
+    {
+        [$provider] = $this->seedProviderForBrandingSubmit();
+        $service = app(ProviderProfileChangeRequestService::class);
+
+        $coverRequest = $service->submit($provider->id, 'branding', [
+            'cover_image' => 'cover-v1.png',
+        ]);
+
+        $mergedRequest = $service->submit($provider->id, 'branding', [
+            'logo' => 'logo-v1.png',
+        ]);
+
+        $this->assertSame($coverRequest->id, $mergedRequest->id);
+        $this->assertSame(ProviderChangeRequest::STATUS_PENDING, $mergedRequest->status);
+        $this->assertSame('cover-v1.png', $mergedRequest->payload['cover_image']);
+        $this->assertSame('logo-v1.png', $mergedRequest->payload['logo']);
+        $this->assertSame(1, ProviderChangeRequest::query()
+            ->where('provider_id', $provider->id)
+            ->where('change_type', 'branding')
+            ->where('status', ProviderChangeRequest::STATUS_PENDING)
+            ->count());
+        $this->assertSame(0, ProviderChangeRequest::query()
+            ->where('provider_id', $provider->id)
+            ->where('change_type', 'branding')
+            ->where('status', ProviderChangeRequest::STATUS_DENIED)
+            ->count());
+        $this->assertSame(['cover_image', 'logo'], $service->pendingFieldChangesForRequest($mergedRequest));
+    }
+
     /**
      * @return array{0: Provider, 1: ProviderChangeRequest, 2: string}
      */
@@ -148,5 +178,37 @@ class ProfileChangeReviewServiceTest extends TestCase
         ]);
 
         return [$provider, $request, $adminId];
+    }
+
+    /**
+     * @return array{0: Provider}
+     */
+    private function seedProviderForBrandingSubmit(): array
+    {
+        $ownerId = (string) Str::uuid();
+        User::query()->create([
+            'id' => $ownerId,
+            'first_name' => 'Provider',
+            'last_name' => 'Owner',
+            'email' => 'provider-owner-'.Str::random(6).'@test.local',
+            'phone' => '8'.random_int(100000000, 999999999),
+            'password' => bcrypt('password'),
+            'user_type' => 'provider-admin',
+            'is_active' => 1,
+        ]);
+
+        $provider = Provider::query()->create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $ownerId,
+            'company_name' => 'Branding Submit Provider',
+            'company_phone' => '7000000002',
+            'company_email' => 'provider-'.Str::random(6).'@test.local',
+            'logo' => 'old-logo.png',
+            'cover_image' => null,
+            'is_active' => 1,
+            'is_approved' => 1,
+        ]);
+
+        return [$provider];
     }
 }
