@@ -387,6 +387,167 @@ class ProviderProfileChangeRequestService
     }
 
     /**
+     * Review one pending field immediately.
+     *
+     * @return array{
+     *     field_key: string,
+     *     field_label: string,
+     *     approved: bool,
+     *     remaining_count: int,
+     *     request_closed: bool,
+     *     message_key: 'profile_change_approve'|'profile_change_deny'
+     * }
+     */
+    public function reviewSingleField(
+        ProviderChangeRequest $changeRequest,
+        string $fieldKey,
+        bool $approved,
+        ?int $reviewedBy = null
+    ): array {
+        $changeRequest->loadMissing('provider.owner');
+        $pendingKeys = $this->pendingFieldChangesForRequest($changeRequest);
+
+        if (! in_array($fieldKey, $pendingKeys, true)) {
+            throw new \InvalidArgumentException('Field is not pending review.');
+        }
+
+        $labelsByKey = collect(app(ProviderProfileChangeDiffService::class)->build($changeRequest))
+            ->mapWithKeys(fn (array $change) => [(string) $change['field_key'] => $change['field']]);
+
+        if ($approved) {
+            $this->applyPartial($changeRequest, [$fieldKey]);
+        }
+
+        $payload = $changeRequest->payload ?? [];
+        $payload['field_reviews'] = is_array($payload['field_reviews'] ?? null) ? $payload['field_reviews'] : [];
+        $payload['field_reviews'][$fieldKey] = [
+            'decision' => $approved ? 'approve' : 'deny',
+            'reviewed_by' => $reviewedBy,
+            'reviewed_at' => now()->toIso8601String(),
+        ];
+        $this->removeReviewedFieldFromPayload((string) $changeRequest->change_type, $payload, $fieldKey);
+
+        $changeRequest->payload = $payload;
+        $changeRequest->save();
+        $changeRequest->refresh();
+
+        $remainingKeys = $this->pendingFieldChangesForRequest($changeRequest);
+        $requestClosed = $remainingKeys === [];
+
+        if ($requestClosed) {
+            $this->finalizeReviewedChangeRequest($changeRequest, $reviewedBy, $labelsByKey);
+            $changeRequest->refresh();
+        }
+
+        return [
+            'field_key' => $fieldKey,
+            'field_label' => (string) ($labelsByKey->get($fieldKey) ?? $fieldKey),
+            'approved' => $approved,
+            'remaining_count' => count($remainingKeys),
+            'request_closed' => $requestClosed,
+            'message_key' => $approved ? 'profile_change_approve' : 'profile_change_deny',
+        ];
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<string, string>  $labelsByKey
+     */
+    private function finalizeReviewedChangeRequest(
+        ProviderChangeRequest $changeRequest,
+        ?int $reviewedBy,
+        $labelsByKey
+    ): void {
+        $reviews = is_array($changeRequest->payload['field_reviews'] ?? null)
+            ? $changeRequest->payload['field_reviews']
+            : [];
+
+        $approvedCount = 0;
+        $deniedNames = [];
+
+        foreach ($reviews as $key => $review) {
+            if (! is_array($review)) {
+                continue;
+            }
+
+            if (($review['decision'] ?? '') === 'approve') {
+                $approvedCount++;
+            } elseif (($review['decision'] ?? '') === 'deny') {
+                $deniedNames[] = (string) ($labelsByKey->get((string) $key) ?? $key);
+            }
+        }
+
+        $changeRequest->reviewed_by = $reviewedBy;
+        $changeRequest->reviewed_at = now();
+        $changeRequest->status = $approvedCount > 0
+            ? ProviderChangeRequest::STATUS_APPROVED
+            : ProviderChangeRequest::STATUS_DENIED;
+
+        if ($approvedCount > 0 && $deniedNames !== []) {
+            $changeRequest->admin_note = translate('Denied_items').': '.implode(', ', $deniedNames);
+        }
+
+        $changeRequest->save();
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function removeReviewedFieldFromPayload(string $changeType, array &$payload, string $fieldKey): void
+    {
+        if ($changeType === 'services') {
+            $changes = collect($payload['subscription_changes'] ?? [])
+                ->filter(fn ($change) => is_array($change) && (string) ($change['sub_category_id'] ?? '') !== $fieldKey)
+                ->values()
+                ->all();
+            $payload['subscription_changes'] = $changes;
+            $payload['sub_category_id'] = array_column($changes, 'sub_category_id');
+
+            return;
+        }
+
+        if ($changeType === 'business_settings') {
+            $payload['data'] = collect($payload['data'] ?? [])
+                ->filter(fn ($item) => is_array($item) && (string) ($item['key'] ?? '') !== $fieldKey)
+                ->values()
+                ->all();
+
+            return;
+        }
+
+        if ($changeType === 'branding') {
+            unset($payload[$fieldKey]);
+
+            return;
+        }
+
+        if ($fieldKey === 'coordinates') {
+            unset($payload['latitude'], $payload['longitude']);
+
+            return;
+        }
+
+        if ($fieldKey === 'zone') {
+            unset($payload['leaf_zone_ids']);
+
+            return;
+        }
+
+        if ($fieldKey === 'identity_documents') {
+            unset($payload['deleted_identity_images'], $payload['new_identity_images']);
+
+            return;
+        }
+
+        if ($fieldKey === 'company_identity_documents') {
+            unset($payload['deleted_company_identity_images'], $payload['new_company_identity_images']);
+
+            return;
+        }
+
+        unset($payload[$fieldKey]);
+    }
+
+    /**
      * @param  array<int, string>  $approvedFieldKeys
      * @return array{approved_count: int, denied_count: int, denied_names: array<int, string>}
      */

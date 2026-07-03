@@ -3266,7 +3266,7 @@ class ProviderController extends Controller
 
     public function updateProfileChangeApproval(string $id, string $status): JsonResponse
     {
-        $this->authorize('onboarding_request_manage_status');
+        $this->authorize('onboarding_request_approve_or_deny');
 
         $changeRequest = ProviderChangeRequest::findOrFail($id);
         if ($changeRequest->status !== ProviderChangeRequest::STATUS_PENDING) {
@@ -3294,7 +3294,7 @@ class ProviderController extends Controller
 
     public function reviewProfileChange(Request $request, string $id): JsonResponse
     {
-        $this->authorize('onboarding_request_manage_status');
+        $this->authorize('onboarding_request_approve_or_deny');
 
         $changeRequest = ProviderChangeRequest::with('provider')->findOrFail($id);
         if ($changeRequest->status !== ProviderChangeRequest::STATUS_PENDING) {
@@ -3366,6 +3366,46 @@ class ProviderController extends Controller
             ? 'profile_change_approve'
             : 'profile_change_deny';
         send_profile_change_provider_notification($changeRequest->loadMissing('provider.owner'), $messageKey);
+
+        return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
+    }
+
+    public function reviewProfileChangeField(Request $request, string $id): JsonResponse
+    {
+        $this->authorize('onboarding_request_approve_or_deny');
+
+        $changeRequest = ProviderChangeRequest::with('provider.owner')->findOrFail($id);
+        if ($changeRequest->status !== ProviderChangeRequest::STATUS_PENDING) {
+            return response()->json(response_formatter(DEFAULT_400), 400);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'field_key' => 'required|string',
+            'approved' => 'required|in:0,1,true,false,on,yes',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $approved = in_array($request->input('approved'), [true, 1, '1', 'true', 'on', 'yes'], true);
+        $fieldKey = (string) $request->input('field_key');
+
+        try {
+            $result = app(ProviderProfileChangeRequestService::class)->reviewSingleField(
+                $changeRequest,
+                $fieldKey,
+                $approved,
+                auth()->id()
+            );
+        } catch (\InvalidArgumentException) {
+            return response()->json(response_formatter(DEFAULT_400), 400);
+        }
+
+        send_profile_change_provider_notification(
+            $changeRequest->fresh()->loadMissing('provider.owner'),
+            $result['message_key']
+        );
 
         return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
     }

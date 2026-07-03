@@ -13,9 +13,6 @@
                             <div class="d-flex gap-2 flex-wrap">
                                 <button type="button" class="btn btn-soft--danger profile_change_deny"
                                         data-id="{{ $changeRequest->id }}">{{ translate('Deny_All') }}</button>
-                                <button type="button" class="btn btn--success" id="submit_change_review">
-                                    {{ translate('Submit_Review') }}
-                                </button>
                             </div>
                         @endif
                     @endcan
@@ -69,7 +66,7 @@
                                 @foreach($proposedChanges as $change)
                                     <tr class="change-review-row"
                                         data-field-key="{{ $change['field_key'] ?? '' }}"
-                                        data-decision="approve">
+                                        data-field-label="{{ $change['field'] ?? '' }}">
                                         <td class="fw-medium">{{ $change['field'] }}</td>
                                         <td>
                                             @if(($change['type'] ?? '') === 'image' && !empty($change['from_url']))
@@ -97,11 +94,15 @@
                                                     @if(!empty($change['field_key']))
                                                         <div class="table-actions justify-content-center gap-2 flex-nowrap">
                                                             <button type="button"
-                                                                    class="btn btn-soft--danger btn-sm change-review-deny">
+                                                                    class="btn btn-soft--danger btn-sm change-review-deny"
+                                                                    data-field-key="{{ $change['field_key'] }}"
+                                                                    data-field-label="{{ $change['field'] }}">
                                                                 {{ translate('Deny') }}
                                                             </button>
                                                             <button type="button"
-                                                                    class="btn btn--success btn-sm change-review-accept">
+                                                                    class="btn btn--success btn-sm change-review-accept"
+                                                                    data-field-key="{{ $change['field_key'] }}"
+                                                                    data-field-label="{{ $change['field'] }}">
                                                                 {{ translate('Accept') }}
                                                             </button>
                                                         </div>
@@ -127,72 +128,50 @@
     <script>
         "use strict";
 
-        function setRowDecision($row, decision) {
-            $row.attr('data-decision', decision);
-            const $accept = $row.find('.change-review-accept');
-            const $deny = $row.find('.change-review-deny');
+        const reviewFieldUrl = '{{ route('admin.provider.profile_change_review_field', ['id' => $changeRequest->id]) }}';
 
-            if (decision === 'approve') {
-                $accept.removeClass('btn-outline--primary').addClass('btn--success');
-                $deny.removeClass('btn--danger').addClass('btn-soft--danger');
-            } else {
-                $deny.removeClass('btn-soft--danger').addClass('btn--danger');
-                $accept.removeClass('btn--success').addClass('btn-outline--primary');
-            }
-        }
-
-        $('.change-review-row').each(function () {
-            setRowDecision($(this), 'approve');
-        });
-
-        $(document).on('click', '.change-review-accept', function () {
-            setRowDecision($(this).closest('.change-review-row'), 'approve');
-        });
-
-        $(document).on('click', '.change-review-deny', function () {
-            setRowDecision($(this).closest('.change-review-row'), 'deny');
-        });
-
-        $('.profile_change_deny').on('click', function () {
-            let id = $(this).data('id');
-            let route = '{{ route('admin.provider.profile_change_update', ['id' => ':id', 'status' => 'deny']) }}'.replace(':id', id);
-            route_alert_reload(route, '{{ translate('want_to_deny') }}', true);
-        });
-
-        $('#submit_change_review').on('click', function () {
-            const decisions = [];
-            $('.change-review-row').each(function () {
-                const fieldKey = $(this).attr('data-field-key');
-                if (!fieldKey) {
-                    return;
-                }
-
-                decisions.push({
-                    field_key: String(fieldKey),
-                    approved: $(this).attr('data-decision') === 'approve' ? 1 : 0
-                });
-            });
-
-            if (!decisions.length) {
+        function submitFieldReview(fieldKey, approved, fieldLabel, $button) {
+            if (!fieldKey || $button.prop('disabled')) {
                 return;
             }
 
-            const approvedCount = decisions.filter((item) => Number(item.approved) === 1).length;
-            const deniedCount = decisions.length - approvedCount;
-            let confirmText = '{{ translate('Submit_change_review_confirm') }}';
-            if (deniedCount > 0 && approvedCount > 0) {
-                confirmText = '{{ translate('Submit_partial_change_review_confirm') }}';
-            } else if (approvedCount === 0) {
-                confirmText = '{{ translate('Deny_all_changes_confirm') }}';
-            }
+            $button.prop('disabled', true);
 
-            const payload = {
-                _token: '{{ csrf_token() }}'
-            };
-            decisions.forEach(function (item, index) {
-                payload['decisions[' + index + '][field_key]'] = item.field_key;
-                payload['decisions[' + index + '][approved]'] = item.approved;
+            $.ajax({
+                url: reviewFieldUrl,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    field_key: fieldKey,
+                    approved: approved ? 1 : 0
+                },
+                success: function (data) {
+                    toastr.success(data.message, {
+                        CloseButton: true,
+                        ProgressBar: true
+                    });
+                    setTimeout(function () {
+                        location.reload();
+                    }, 800);
+                },
+                error: function (xhr) {
+                    $button.prop('disabled', false);
+                    const message = xhr.responseJSON?.message || '{{ translate('failed_to_update') }}';
+                    toastr.error(message, {
+                        CloseButton: true,
+                        ProgressBar: true
+                    });
+                }
             });
+        }
+
+        function confirmFieldReview($button, approved) {
+            const fieldKey = String($button.data('field-key') || '');
+            const fieldLabel = String($button.data('field-label') || fieldKey);
+            const confirmText = approved
+                ? '{{ translate('Approve_field_change_confirm') }}'.replace(':field', fieldLabel)
+                : '{{ translate('Deny_field_change_confirm') }}'.replace(':field', fieldLabel);
 
             Swal.fire({
                 title: "{{ translate('are_you_sure') }}?",
@@ -200,38 +179,33 @@
                 type: 'warning',
                 showCancelButton: true,
                 cancelButtonColor: 'var(--bs-secondary)',
-                confirmButtonColor: 'var(--bs-primary)',
+                confirmButtonColor: approved ? 'var(--bs-success)' : 'var(--bs-danger)',
                 cancelButtonText: '{{ translate('cancel') }}',
-                confirmButtonText: '{{ translate('yes') }}',
+                confirmButtonText: approved ? '{{ translate('Accept') }}' : '{{ translate('Deny') }}',
                 reverseButtons: true
             }).then((result) => {
                 if (!result.value) {
                     return;
                 }
 
-                $.ajax({
-                    url: '{{ route('admin.provider.profile_change_review', ['id' => $changeRequest->id]) }}',
-                    method: 'POST',
-                    dataType: 'json',
-                    data: payload,
-                    success: function (data) {
-                        toastr.success(data.message, {
-                            CloseButton: true,
-                            ProgressBar: true
-                        });
-                        setTimeout(function () {
-                            location.reload();
-                        }, 1000);
-                    },
-                    error: function (xhr) {
-                        const message = xhr.responseJSON?.message || '{{ translate('failed_to_update') }}';
-                        toastr.error(message, {
-                            CloseButton: true,
-                            ProgressBar: true
-                        });
-                    }
-                });
+                submitFieldReview(fieldKey, approved, fieldLabel, $button);
             });
+        }
+
+        $(document).on('click', '.change-review-accept', function (event) {
+            event.preventDefault();
+            confirmFieldReview($(this), true);
+        });
+
+        $(document).on('click', '.change-review-deny', function (event) {
+            event.preventDefault();
+            confirmFieldReview($(this), false);
+        });
+
+        $('.profile_change_deny').on('click', function () {
+            let id = $(this).data('id');
+            let route = '{{ route('admin.provider.profile_change_update', ['id' => ':id', 'status' => 'deny']) }}'.replace(':id', id);
+            route_alert_reload(route, '{{ translate('want_to_deny') }}', true);
         });
     </script>
 @endpush
