@@ -134,6 +134,17 @@ class ServiceController extends Controller
                     $query->orWhereHas('variations', function ($query) use ($key) {
                         $query->where('variant', 'like', "%{$key}%");
                     });
+                    $query->orWhereHas('serviceVariants', function ($query) use ($key) {
+                        $query->where('is_active', true)
+                            ->where(function ($q) use ($key) {
+                                $q->where('title', 'like', "%{$key}%")
+                                    ->orWhere('description', 'like', "%{$key}%");
+                            })
+                            ->orWhereHas('translations', function ($t) use ($key) {
+                                $t->whereIn('key', ['title', 'description'])
+                                    ->where('value', 'like', "%{$key}%");
+                            });
+                    });
                     $query->orWhereHas('category', function ($query) use ($key) {
                         $query->where('name', 'like', "%{$key}%");
                     });

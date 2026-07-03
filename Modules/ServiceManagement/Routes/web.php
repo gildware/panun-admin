@@ -14,6 +14,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('store', [AdminServiceController::class, 'store'])->name('store');
         Route::any('detail/{id}', [AdminServiceController::class, 'show'])->name('detail');
         Route::get('edit/{id}', [AdminServiceController::class, 'edit'])->name('edit');
+        Route::put('update/{id}/basic', [AdminServiceController::class, 'updateBasic'])->name('update.basic');
+        Route::put('update/{id}/variations', [AdminServiceController::class, 'updateVariations'])->name('update.variations');
         Route::put('update/{id}/charges-tax', [AdminServiceController::class, 'updateChargesTax'])->name('update.charges.tax');
         Route::put('update/{id}/charges-commission', [AdminServiceController::class, 'updateChargesCommission'])->name('update.charges.commission');
         Route::put('update/{id}/charges-additional', [AdminServiceController::class, 'updateChargesAdditional'])->name('update.charges.additional');
@@ -29,9 +31,20 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('review-status-update/{id}', [AdminServiceController::class, 'reviewStatusUpdate'])->name('review-status-update');
 
         //ajax routes
-        Route::any('ajax-add-variant', [AdminServiceController::class, 'ajaxAddVariant'])->name('ajax-add-variant')->withoutMiddleware('csrf');
+        Route::any('ajax-add-variant', [AdminServiceController::class, 'ajaxAddVariant'])->name('ajax-add-variant');
         Route::any('ajax-remove-variant/{variant_key}', [AdminServiceController::class, 'ajaxRemoveVariant'])->name('ajax-remove-variant')->withoutMiddleware('csrf');
         Route::any('ajax-delete-db-variant/{variant_key}/{service_id}', [AdminServiceController::class, 'ajaxDeleteDbVariant'])->name('ajax-delete-db-variant')->withoutMiddleware('csrf');
+
+        Route::group(['prefix' => '{service}/variants', 'as' => 'variants.'], function () {
+            Route::get('/', [\Modules\ServiceManagement\Http\Controllers\Web\Admin\ServiceVariantController::class, 'index'])->name('index');
+            Route::get('/panel', [\Modules\ServiceManagement\Http\Controllers\Web\Admin\ServiceVariantController::class, 'panel'])->name('panel');
+            Route::get('/create', [\Modules\ServiceManagement\Http\Controllers\Web\Admin\ServiceVariantController::class, 'create'])->name('create');
+            Route::post('/', [\Modules\ServiceManagement\Http\Controllers\Web\Admin\ServiceVariantController::class, 'store'])->name('store');
+            Route::get('/{variant}', [\Modules\ServiceManagement\Http\Controllers\Web\Admin\ServiceVariantController::class, 'show'])->name('show');
+            Route::get('/{variant}/edit', [\Modules\ServiceManagement\Http\Controllers\Web\Admin\ServiceVariantController::class, 'edit'])->name('edit');
+            Route::put('/{variant}', [\Modules\ServiceManagement\Http\Controllers\Web\Admin\ServiceVariantController::class, 'update'])->name('update');
+            Route::delete('/{variant}', [\Modules\ServiceManagement\Http\Controllers\Web\Admin\ServiceVariantController::class, 'destroy'])->name('destroy');
+        });
     });
 
     Route::group(['prefix' => 'faq', 'as' => 'faq.'], function () {

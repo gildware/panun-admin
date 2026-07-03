@@ -259,6 +259,7 @@
   'service_name' => 'Service name',
   'service_information' => 'Service information',
   'price_variation' => 'Price variation',
+  'manage_variants' => 'Manage variants',
   'The tax field is required.' => 'The tax field is required.',
   'default_price' => 'Default price',
   'variations' => 'Variations',
@@ -9903,4 +9904,9 @@ _Message' => 'Customer notification for provider bid offer
   'Registration_Date' => 'Registration Date',
   'referral code is invalid' => 'Referral code is invalid',
   'Great news! You have earned a reward for referring a new user, who has now completed their first booking using your code...' => 'Great news! You have earned a reward for referring a new user, who has now completed their first booking using your code...',
+  'zone_pricing' => 'Zone pricing',
+  'choose_sub_category' => 'Choose sub category',
+  'Manage service price variations' => 'Manage service price variations',
+  'disabled' => 'Disabled',
+  'zone_wise_price' => 'Zone wise price',
 );

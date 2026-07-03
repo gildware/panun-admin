@@ -25,11 +25,10 @@
                     <div class="card-wrap">
                         <div class="card-body-inner">
                             <div>
-                                <form action="{{route('admin.service.store')}}" method="post" enctype="multipart/form-data" id="form-wizard">
+                                <form action="{{route('admin.service.store')}}" method="post" enctype="multipart/form-data" id="service-create-form">
                                     @csrf
 
-                                    <h3>{{translate('service_information')}}</h3>
-                                    <section class="card-offset-animation">
+                                    <div class="card-offset-animation">
                                         <div class="row service-description-wrapper">
                                             <div class="col-xxl-9 col-lg-8 mb-5 mb-lg-0">
                                                 <div class="card h-100">
@@ -376,7 +375,6 @@
                                                                             </div>
                                                                         </div>
                                                                     </div>
-                                                                    @include('categorymanagement::admin.partials.entity-tax-override', ['mode' => 'service', 'taxModel' => null])
                                                                     <div class="col-lg-4 col-md-5">
                                                                         <div class="m-0 form-floating form-floating__icon">
                                                                             <input type="number" class="form-control"
@@ -401,60 +399,10 @@
                                                 </div>
                                             </div>
                                         </div>
-                                    </section>
 
-                                    <h3>{{translate('price_variation')}}</h3>
-                                    <section>
-                                        <div class="general_wrapper mb-20">
-                                            <div class="outline-wrapper">
-                                                <div class="card bg-animate">
-                                                    <div class="card-body">
-                                                        <button type="button" class="btn bg-white text-primary bg-transparent shadow-none border-0 opacity-1 generate_btn_wrapper p-0 variation_setup_auto_fill"
-                                                                id="description-en-action-btn"  data-lang="en"
-                                                                data-route="{{ route('admin.product.variation-setup-auto-fill') }}">
-                                                            <div class="btn-svg-wrapper">
-                                                                <img width="18" height="18" class=""
-                                                                     src="{{ asset(path: 'assets/admin-module/img/ai/blink-right-small.svg') }}" alt="">
-                                                            </div>
-                                                            <span class="ai-text-animation d-none" role="status">{{ translate('Just_a_second') }}</span>
-                                                            <span class="btn-text">{{ translate('Generate') }}</span>
-                                                        </button>
-                                                        <div class="p-xxl-20 p-12px bg-light rounded">
-                                                            <div class="d-flex flex-wrap gap-20 mb-0">
-                                                                <div class="form-floating flex-grow-1">
-                                                                    <input type="text" class="form-control" name="variant_name"
-                                                                           id="variant-name"
-                                                                           placeholder="{{translate('add_variant')}} *">
-                                                                    <label>{{translate('add_variant')}} *</label>
-                                                                </div>
-                                                                <div class="form-floating flex-grow-1">
-                                                                    <input type="number" class="form-control" name="variant_price"
-                                                                           id="variant-price"
-                                                                           placeholder="{{translate('price')}} *" value="0">
-                                                                    <label>{{translate('price')}} *</label>
-                                                                </div>
-                                                                <button type="button" class="btn rounded btn--primary" id="service-ajax-variation">
-                                                                    <span class="material-icons">add</span>
-                                                                    {{translate('add')}}
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="table-responsive p-01">
-                                            <table class="table align-middle table-variation">
-                                                <thead id="category-wise-zone" class="text-nowrap">
-                                                    @include('servicemanagement::admin.partials._category-wise-zone',['zones'=>session()->has('category_wise_zones')?session('category_wise_zones'):[]])
-                                                </thead>
-                                                <tbody id="variation-table">
-                                                    @include('servicemanagement::admin.partials._variant-data',['zones'=>session()->has('category_wise_zones')?session('category_wise_zones'):[]])
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </section>
+                                    <div class="d-flex justify-content-end mt-4 pt-3 border-top border-light">
+                                        <button type="submit" class="btn btn--primary">{{ translate('save') }}</button>
+                                    </div>
                                 </form>
                             </div>
                         </div>
@@ -582,7 +530,6 @@
 @push('script')
     <script src="{{asset('assets/admin-module')}}/js//tags-input.min.js"></script>
     <script src="{{asset('assets/admin-module')}}/plugins/select2/select2.min.js"></script>
-    <script src="{{asset('assets/admin-module')}}/plugins/jquery-steps/jquery.steps.min.js"></script>
     <script src="{{asset('assets/provider-module')}}/plugins/jquery-validation/jquery.validate.min.js"></script>
     <script src="{{asset('assets/admin-module/plugins/tinymce/tinymce.min.js')}}"></script>
     <script src="{{asset('assets/admin-module/js/service-html-editor.js')}}"></script>
@@ -601,12 +548,12 @@
         (function ($) {
             "use strict";
 
-            let formWizard = $("#form-wizard");
+            let createForm = $("#service-create-form");
 
             $('body').on('click', function (event) {
                 if (!$(event.target).closest('#editor').length) {
                     if($("#editor iframe").contents().find("body").text() !== ""){
-                        formWizard.find('.desc-err').remove();
+                        createForm.find('.desc-err').remove();
                     };
                 }
 
@@ -617,10 +564,7 @@
                 }
             });
 
-
-
-            // Form validation with jQuery
-            formWizard.validate({
+            createForm.validate({
                 errorPlacement: function (error, element) {
                     element.parents('.form-floating, .form-error-wrap').after(error);
                 },
@@ -646,106 +590,30 @@
                 },
             });
 
-            formWizard.steps({
-                headerTag: "h3",
-                bodyTag: "section",
-                transitionEffect: "fade",
-                stepsOrientation: "vertical",
-                autoFocus: true,
-                labels: {
-                    finish: "Submit",
-                    next: "Next",
-                    previous: "Previous"
-                },
-                onStepChanging: function (event, currentIndex, newIndex) {
-                    if (newIndex < currentIndex) {
-                        return true;
-                    }
+            createForm.on('submit', function (e) {
+                createForm.validate().settings.ignore = ":disabled,:hidden";
 
-                    if (currentIndex == 0) {
-                        var errorMessageElement = formWizard.find(".desc-err");
-
-                        if ($("#editor iframe").contents().find("body").text() == "") {
-                            if (errorMessageElement.length > 0) {
-                                errorMessageElement.text("Please Add Description");
-                            } else {
-                                formWizard.find("#editor").after(
-                                    `<span class="text-danger desc-err mt-2">Please Add Description</span>`
-                                );
-                                return false;
-                            }
-                        } else {
-                            formWizard.find(".desc-err").remove();
-                        }
-                    }
-
-                    formWizard.validate().settings.ignore = ":disabled,:hidden";
-                    return formWizard.valid();
-                },
-                onStepChanged: function (event, currentIndex, priorIndex) {
-                    let nextBtn = $(".actions a[href='#next']");
-                    if (nextBtn.hasClass("proceed-to-next")) {
-                        setTimeout(function () {
-                            $(".variation_setup_auto_fill").trigger("click");
-                        }, 1000);
-                    }
-                },
-                onFinished: function (event, currentIndex) {
-                    event.preventDefault();
-                    let isValid = true;
-                    $(".desc-err").remove();
-
-                    let variationSections = $("#variation-table");
-
-                    // Loop through all number inputs
-                    variationSections.find('input[type="number"]').each(function () {
-                        let value = parseFloat($(this).val());
-                        let minValue = parseFloat($(this).attr("min"));
-
-                        if (isNaN(value) || value === "") {
-                            toastr.error("Please enter a valid number");
-                            isValid = false;
-                        } else if (value <= 0) {
-                            toastr.error("Value must be greater than zero");
-                            isValid = false;
-                        } else if (!isNaN(minValue) && value < minValue) {
-                            toastr.error(`Minimum allowed value is ${minValue}`);
-                            isValid = false;
-                        }
-                    });
-
-                    if (!isValid) {
-                        return false;
-                    }
-
-                    if (window.syncServiceDescriptionEditors) {
-                        window.syncServiceDescriptionEditors();
-                    }
-
-                    let hasRows = $("#variation-table > tr").length > 0;
-                    let submitButton = formWizard.find("button[type='submit']");
-                    if (submitButton.prop("disabled")) {
-                        return false;
-                    }
-                    if (hasRows) {
-                        $(".actions a[href='#finish']")
-                            .css("pointer-events", "none")
-                            .text("Submitting...");
-                        submitButton.prop("disabled", true);
-                        formWizard.off("submit").submit();
+                var errorMessageElement = createForm.find(".desc-err");
+                if ($("#editor iframe").contents().find("body").text() == "") {
+                    e.preventDefault();
+                    if (errorMessageElement.length > 0) {
+                        errorMessageElement.text("Please Add Description");
                     } else {
-                        var errorMessageElement = formWizard.find(".table-row-err");
-                        if (errorMessageElement.length > 0) {
-                            errorMessageElement.text("Please Add Variation");
-                        } else {
-                            formWizard
-                                .find("#variation-table")
-                                .parents(".table-responsive")
-                                .after(
-                                    `<span class="text-danger table-row-err">Please Add Variation</span>`
-                                );
-                        }
+                        createForm.find("#editor").after(
+                            `<span class="text-danger desc-err mt-2">Please Add Description</span>`
+                        );
                     }
+                    return false;
+                }
+                createForm.find(".desc-err").remove();
+
+                if (!createForm.valid()) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                if (window.syncServiceDescriptionEditors) {
+                    window.syncServiceDescriptionEditors();
                 }
             });
 
@@ -761,94 +629,6 @@
                 placeholder: "Choose Subcategory"
             });
         });
-
-        var variationCount = $("#variation-table > tbody > tr").length;
-
-
-        $("#service-ajax-variation").on('click', function (){
-            let route = "{{route('admin.service.ajax-add-variant')}}";
-            let id = "variation-table";
-            ajax_variation(route, id);
-        })
-
-        function ajax_variation(route, id) {
-
-            let name = $('#variant-name').val();
-            let price = $('#variant-price').val();
-
-            if (name.length > 0 && price > 0) {
-                $.get({
-                    url: route,
-                    dataType: 'json',
-                    data: {
-                        name: $('#variant-name').val(),
-                        price: $('#variant-price').val(),
-                    },
-                    success: function (response) {
-                        if (response.flag == 0) {
-                            toastr.info('Already added');
-                        } else {
-                            $('#new-variations-table').show();
-                            $('#' + id).html(response.template);
-                            if (window.initZonePricingRowControls) {
-                                window.initZonePricingRowControls('#' + id);
-                            }
-                            $('#variant-name').val("");
-                            $('#variant-price').val(0);
-                        }
-                        variationCount++;
-                    },
-                });
-            } else {
-                if(price <= 0){
-                    toastr.warning('{{translate('price can not be 0 or negative')}}');
-                }else{
-                    toastr.warning('{{translate('fields_are_required')}}');
-                }
-            }
-        }
-
-        document.addEventListener('click', function (event) {
-            if (event.target.closest('.service-ajax-remove-variant')) {
-                var btn = event.target.closest('.service-ajax-remove-variant');
-                var route = btn.getAttribute('data-route');
-                var id = btn.getAttribute('data-id');
-                ajax_remove_variant(route, id);
-            }
-        });
-
-        function ajax_remove_variant(route, id) {
-            Swal.fire({
-                title: "{{translate('are_you_sure')}}?",
-                text: "{{translate('want_to_remove_this_variation')}}",
-                type: 'warning',
-                showCloseButton: true,
-                showCancelButton: true,
-                cancelButtonColor: 'var(--bs-secondary)',
-                confirmButtonColor: 'var(--bs-primary)',
-                cancelButtonText: 'Cancel',
-                confirmButtonText: 'Yes',
-                reverseButtons: true
-            }).then((result) => {
-                if (result.value) {
-                    $.get({
-                        url: route,
-                        dataType: 'json',
-                        data: {},
-                        beforeSend: function () {
-                        },
-                        success: function (response) {
-                            $('#' + id).html(response.template);
-                            if (window.initZonePricingRowControls) {
-                                window.initZonePricingRowControls('#' + id);
-                            }
-                        },
-                        complete: function () {
-                        },
-                    });
-                }
-            })
-        }
 
         $("#category-id").change(function (){
             let id = this.value;
@@ -866,10 +646,6 @@
                 success: function (response) {
                     $('#sub-category-selector').html(response.template);
                     $('#category-wise-zone').html(response.template_for_zone);
-                    $('#variation-table').html(response.template_for_variant);
-                    if (window.initZonePricingRowControls) {
-                        window.initZonePricingRowControls('#variation-table');
-                    }
                 },
                 complete: function () {
                 },
@@ -952,7 +728,7 @@
                 var btn = document.querySelector('.service-zone-pricing-btn[data-variant-key="' + variantKey + '"]');
                 var defaultInput = null;
                 if (btn) {
-                    var tr = btn.closest('tr');
+                    var tr = btn.closest('.service-variant-card');
                     if (tr) {
                         defaultInput = tr.querySelector('input[name^="variant_default_price"]')
                             || tr.querySelector('input[type="number"][id^="default-set-"]');
@@ -1093,7 +869,7 @@
                 if (!modalEl) return;
 
                 var rowDefaultPrice = '';
-                var row = btn.closest('tr');
+                var row = btn.closest('.service-variant-card');
                 if (row) {
                     var defaultInput = row.querySelector('input[name^="variant_default_price"], input[type="number"][id^="default-set-"]');
                     if (defaultInput) rowDefaultPrice = defaultInput.value || '';
@@ -1139,7 +915,7 @@
                 var variantKey = t.dataset.variantKey;
                 if (!variantKey) return;
 
-                var tr = t.closest('tr');
+                var tr = t.closest('.service-variant-card');
                 var btn = tr ? tr.querySelector('.service-zone-pricing-btn[data-variant-key="' + variantKey + '"]') : null;
                 if (btn) {
                     btn.disabled = !t.checked;
@@ -1168,14 +944,14 @@
             if (!root) return;
             root.querySelectorAll('.service-zone-pricing-toggle').forEach(function (cb) {
                 var vk = cb.dataset.variantKey;
-                var tr = cb.closest('tr');
-                var btn = tr && tr.querySelector('.service-zone-pricing-btn[data-variant-key="' + vk + '"]');
+                var card = cb.closest('.service-variant-card');
+                var btn = card && card.querySelector('.service-zone-pricing-btn[data-variant-key="' + vk + '"]');
                 if (btn) {
                     btn.disabled = !cb.checked;
                     btn.setAttribute('aria-disabled', (!cb.checked).toString());
                 }
-                if (!cb.checked && tr) {
-                    var defInp = tr.querySelector('input[name^="variant_default_price"]');
+                if (!cb.checked && card) {
+                    var defInp = card.querySelector('input[name^="variant_default_price"]');
                     if (defInp) defInp.dispatchEvent(new Event('keyup'));
                 }
             });

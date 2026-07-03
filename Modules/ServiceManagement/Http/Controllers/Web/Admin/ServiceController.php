@@ -24,6 +24,7 @@ use Modules\ReviewModule\Entities\Review;
 use Modules\ReviewModule\Entities\ReviewReply;
 use Modules\ServiceManagement\Entities\Faq;
 use Modules\ServiceManagement\Entities\Service;
+use Modules\ServiceManagement\Entities\ServiceVariant;
 use Modules\ServiceManagement\Entities\Tag;
 use Modules\ServiceManagement\Entities\Variation;
 use Modules\ZoneManagement\Entities\Zone;
@@ -217,9 +218,11 @@ class ServiceController extends Controller
                 $variantsSpec[] = [
                     'variant_key' => $item['variant_key'],
                     'variant' => $item['variant'],
+                    'description' => $item['description'] ?? null,
+                    'image' => $item['image'] ?? null,
                 ];
             }
-            [$variationFormat, $variationPricing] = $this->buildAdminServiceVariations((string) $service->id, $data, $variantsSpec, $zones);
+            [$variationFormat, $variationPricing] = $this->buildAdminServiceVariations((string) $service->id, $data, $variantsSpec, $zones, $service);
             $service->variation_pricing = $variationPricing;
             $service->save();
         }
@@ -307,7 +310,9 @@ class ServiceController extends Controller
 
         Toastr::success(translate(SERVICE_STORE_200['message']));
 
-        return redirect()->route('admin.service.index');
+        return redirect()
+            ->route('admin.service.edit', ['id' => $service->id, 'tab' => 'variations'])
+            ->with('service_created', translate(SERVICE_STORE_200['message']));
     }
 
     /**
@@ -326,7 +331,7 @@ class ServiceController extends Controller
                 $query->ofStatus(1);
             },'subCategory' => function ($query) {
                 $query->ofStatus(1);
-            }, 'category.zones', 'category.children', 'variations.zone', 'reviews'])
+            }, 'category.zones', 'category.children', 'variations.zone', 'serviceVariants', 'reviews'])
             ->withCount(['bookings'])
             ->first();
 
@@ -387,7 +392,7 @@ class ServiceController extends Controller
     public function edit(string $id): View|Factory|RedirectResponse|Application
     {
         $this->authorize('service_update');
-        $service = $this->service->withoutGlobalScope('translate')->where('id', $id)->with(['category.children', 'category.zones', 'variations'])->first();
+        $service = $this->service->withoutGlobalScope('translate')->where('id', $id)->with(['category.children', 'category.zones', 'variations', 'serviceVariants.zonePrices'])->first();
         if (isset($service)) {
             $editingVariants = $service->variations->pluck('variant_key')->unique()->toArray();
             session()->put('editing_variants', $editingVariants);
@@ -504,32 +509,115 @@ class ServiceController extends Controller
         $service->save();
         $service->tags()->sync($tagIds);
 
-        $service->variations()->delete();
+        $this->persistServiceVariations($request, $service);
+        $this->syncServiceTranslations($request, $service);
 
-        //decoding url encoded keys
-        $data = $request->all();
-        $data = collect($data)->map(function ($value, $key) {
-            $key = urldecode($key);
-            return [$key => $value];
-        })->collapse()->all();
+        return redirect()
+            ->route('admin.service.edit', ['id' => $id, 'tab' => 'variations'])
+            ->with('service_updated', translate(DEFAULT_UPDATE_200['message']));
 
-        $zones = $this->zone->latest()->get();
-        $variantsSpec = [];
-        foreach ($data['variants'] as $item) {
-            $variantsSpec[] = [
-                'variant_key' => $item,
-                'variant' => str_replace('_', ' ', $item),
-            ];
+    }
+
+    public function updateBasic(Request $request, string $id): RedirectResponse
+    {
+        $this->authorize('service_update');
+
+        $check = $this->validateUploadedFile($request, ['cover_image', 'thumbnail']);
+        if ($check !== true) {
+            return $check;
         }
-        [$variationFormat, $variationPricing] = $this->buildAdminServiceVariations((string) $service->id, $data, $variantsSpec, $zones);
 
-        $service->variation_pricing = $variationPricing;
+        $request->validate([
+            'name' => 'required|max:191',
+            'name.0' => 'required|max:191',
+            'category_id' => 'required|uuid',
+            'sub_category_id' => 'required|uuid',
+            'description' => 'required',
+            'description.0' => 'required',
+            'short_description' => 'required',
+            'short_description.0' => 'required',
+            'min_bidding_price' => 'required|numeric|min:0|not_in:0',
+            'cover_image' => 'nullable|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+            'thumbnail' => 'nullable|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+        ]);
+
+        $service = $this->service->find($id);
+        if (!isset($service)) {
+            Toastr::error(translate(DEFAULT_204['message']));
+
+            return redirect()->route('admin.service.index');
+        }
+
+        $tagIds = [];
+        if ($request->tags != null) {
+            $tags = explode(",", $request->tags);
+        }
+        if (isset($tags)) {
+            foreach ($tags as $value) {
+                $tag = Tag::firstOrNew(['tag' => $value]);
+                $tag->save();
+                $tagIds[] = $tag->id;
+            }
+        }
+
+        $service->name = $request->name[array_search('default', $request->lang)];
+        $service->category_id = $request->category_id;
+        $service->sub_category_id = $request->sub_category_id;
+        $service->short_description = $request->short_description[array_search('default', $request->lang)];
+        $service->description = $request->description[array_search('default', $request->lang)];
+
+        if ($request->hasFile('cover_image')) {
+            $service->cover_image = media_file_uploader(
+                \App\Support\MediaStoragePath::serviceDir($service),
+                'png',
+                $request->file('cover_image'),
+                $service->cover_image
+            );
+        }
+
+        if ($request->hasFile('thumbnail')) {
+            $service->thumbnail = media_file_uploader(
+                \App\Support\MediaStoragePath::serviceDir($service),
+                'png',
+                $request->file('thumbnail'),
+                $service->thumbnail
+            );
+        }
+
+        $service->min_bidding_price = $request->min_bidding_price;
         $service->save();
+        $service->tags()->sync($tagIds);
+        $this->syncServiceTranslations($request, $service);
 
-        $service->variations()->createMany($variationFormat);
-        session()->forget('variations');
-        session()->forget('editing_variants');
+        return redirect()
+            ->route('admin.service.edit', ['id' => $id, 'tab' => 'info'])
+            ->with('service_updated', translate(DEFAULT_UPDATE_200['message']));
+    }
 
+    public function updateVariations(Request $request, string $id): RedirectResponse
+    {
+        $this->authorize('service_update');
+
+        $request->validate([
+            'variants' => 'required|array',
+        ]);
+
+        $service = $this->service->find($id);
+        if (!isset($service)) {
+            Toastr::error(translate(DEFAULT_204['message']));
+
+            return redirect()->route('admin.service.index');
+        }
+
+        $this->persistServiceVariations($request, $service);
+
+        return redirect()
+            ->route('admin.service.edit', ['id' => $id, 'tab' => 'variations'])
+            ->with('service_updated', translate(DEFAULT_UPDATE_200['message']));
+    }
+
+    private function syncServiceTranslations(Request $request, Service $service): void
+    {
         $defaultLang = str_replace('_', '-', app()->getLocale());
 
         foreach ($request->lang as $index => $key) {
@@ -544,18 +632,15 @@ class ServiceController extends Controller
                         ['value' => $service->name]
                     );
                 }
-            } else {
-
-                if ($request->name[$index] && $key != 'default') {
-                    Translation::updateOrInsert(
-                        [
-                            'translationable_type' => 'Modules\ServiceManagement\Entities\Service',
-                            'translationable_id' => $service->id,
-                            'locale' => $key,
-                            'key' => 'name'],
-                        ['value' => $request->name[$index]]
-                    );
-                }
+            } elseif ($request->name[$index] && $key != 'default') {
+                Translation::updateOrInsert(
+                    [
+                        'translationable_type' => 'Modules\ServiceManagement\Entities\Service',
+                        'translationable_id' => $service->id,
+                        'locale' => $key,
+                        'key' => 'name'],
+                    ['value' => $request->name[$index]]
+                );
             }
 
             if ($defaultLang == $key && !($request->short_description[$index])) {
@@ -569,18 +654,15 @@ class ServiceController extends Controller
                         ['value' => $service->short_description]
                     );
                 }
-            } else {
-
-                if ($request->short_description[$index] && $key != 'default') {
-                    Translation::updateOrInsert(
-                        [
-                            'translationable_type' => 'Modules\ServiceManagement\Entities\Service',
-                            'translationable_id' => $service->id,
-                            'locale' => $key,
-                            'key' => 'short_description'],
-                        ['value' => $request->short_description[$index]]
-                    );
-                }
+            } elseif ($request->short_description[$index] && $key != 'default') {
+                Translation::updateOrInsert(
+                    [
+                        'translationable_type' => 'Modules\ServiceManagement\Entities\Service',
+                        'translationable_id' => $service->id,
+                        'locale' => $key,
+                        'key' => 'short_description'],
+                    ['value' => $request->short_description[$index]]
+                );
             }
 
             if ($defaultLang == $key && !($request->description[$index])) {
@@ -594,26 +676,82 @@ class ServiceController extends Controller
                         ['value' => $service->description]
                     );
                 }
-            } else {
-
-                if ($request->description[$index] && $key != 'default') {
-                    Translation::updateOrInsert(
-                        [
-                            'translationable_type' => 'Modules\ServiceManagement\Entities\Service',
-                            'translationable_id' => $service->id,
-                            'locale' => $key,
-                            'key' => 'description'],
-                        ['value' => $request->description[$index]]
-                    );
-                }
+            } elseif ($request->description[$index] && $key != 'default') {
+                Translation::updateOrInsert(
+                    [
+                        'translationable_type' => 'Modules\ServiceManagement\Entities\Service',
+                        'translationable_id' => $service->id,
+                        'locale' => $key,
+                        'key' => 'description'],
+                    ['value' => $request->description[$index]]
+                );
             }
         }
+    }
 
+    private function persistServiceVariations(Request $request, Service $service): void
+    {
+        $service->load('serviceVariants');
+        $service->variations()->delete();
 
-        return redirect()
-            ->route('admin.service.edit', $id)
-            ->with('service_updated', translate(DEFAULT_UPDATE_200['message']));
+        $data = $request->all();
+        $data = collect($data)->map(function ($value, $key) {
+            $key = urldecode($key);
 
+            return [$key => $value];
+        })->collapse()->all();
+
+        $zones = $this->zone->latest()->get();
+        $serviceVariantsByKey = $service->serviceVariants->keyBy('variant_key');
+        $sessionVariations = session('variations', []);
+        $sessionByKey = collect($sessionVariations)->keyBy('variant_key');
+        $variantsSpec = [];
+        foreach ($data['variants'] as $item) {
+            $meta = $serviceVariantsByKey->get($item);
+            $sessionMeta = $sessionByKey->get($item);
+            $variantsSpec[] = [
+                'variant_key' => $item,
+                'variant' => $meta?->title ?? $sessionMeta['variant'] ?? str_replace('-', ' ', $item),
+                'description' => $data['variant_description'][$item]
+                    ?? $meta?->getRawOriginal('description')
+                    ?? ($sessionMeta['description'] ?? null),
+            ];
+        }
+
+        $existingKeys = collect($variantsSpec)->pluck('variant_key');
+        foreach ($sessionVariations as $item) {
+            if ($existingKeys->contains($item['variant_key'])) {
+                continue;
+            }
+            $variantsSpec[] = [
+                'variant_key' => $item['variant_key'],
+                'variant' => $item['variant'],
+                'description' => $item['description'] ?? null,
+                'image' => $item['image'] ?? null,
+            ];
+        }
+
+        $variantsSpec = collect($variantsSpec)
+            ->keyBy('variant_key')
+            ->values()
+            ->all();
+
+        $keptKeys = collect($variantsSpec)->pluck('variant_key')->unique()->values();
+        ServiceVariant::query()
+            ->where('service_id', $service->id)
+            ->whereNotIn('variant_key', $keptKeys)
+            ->get()
+            ->each
+            ->delete();
+
+        [$variationFormat, $variationPricing] = $this->buildAdminServiceVariations((string) $service->id, $data, $variantsSpec, $zones, $service);
+
+        $service->variation_pricing = $variationPricing;
+        $service->save();
+
+        $service->variations()->createMany($variationFormat);
+        session()->forget('variations');
+        session()->forget('editing_variants');
     }
 
     public function updateChargesTax(Request $request, string $id): RedirectResponse
@@ -629,7 +767,7 @@ class ServiceController extends Controller
         $service->save();
 
         return redirect()
-            ->route('admin.service.edit', $id)
+            ->route('admin.service.edit', ['id' => $id, 'tab' => 'charges'])
             ->with('service_updated', translate('Entity_charges_saved'));
     }
 
@@ -649,7 +787,7 @@ class ServiceController extends Controller
         $service->save();
 
         return redirect()
-            ->route('admin.service.edit', $id)
+            ->route('admin.service.edit', ['id' => $id, 'tab' => 'charges'])
             ->with('service_updated', translate('Entity_charges_saved'));
     }
 
@@ -666,7 +804,7 @@ class ServiceController extends Controller
         $service->save();
 
         return redirect()
-            ->route('admin.service.edit', $id)
+            ->route('admin.service.edit', ['id' => $id, 'tab' => 'charges'])
             ->with('service_updated', translate('Entity_charges_saved'));
     }
 
@@ -686,6 +824,7 @@ class ServiceController extends Controller
                 file_remover('service/', $service[$item]);
             }
             $service->translations()->delete();
+            $service->serviceVariants()->delete();
             $service->variations()->delete();
             $service->delete();
 
@@ -763,10 +902,33 @@ class ServiceController extends Controller
 
     public function ajaxAddVariant(Request $request): JsonResponse
     {
+        $check = $this->validateUploadedFile($request, ['image']);
+        if ($check !== true) {
+            return response()->json(['flag' => 0, 'message' => translate('invalid_file')]);
+        }
+
+        $request->validate([
+            'name' => 'required|string|max:191',
+            'price' => 'required|numeric|min:0.01',
+            'description' => 'nullable|string|max:5000',
+            'image' => 'nullable|image|max:'.uploadMaxFileSizeInKB('image').'|mimes:'.implode(',', array_column(IMAGEEXTENSION, 'key')),
+        ]);
+
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $imagePath = media_file_uploader(
+                \App\Support\MediaStoragePath::serviceDir('variant-temp'),
+                'png',
+                $request->file('image')
+            );
+        }
+
         $variation = [
             'variant' => $request['name'],
             'variant_key' => str_replace(' ', '-', $request['name']),
-            'price' => $request['price']
+            'price' => $request['price'],
+            'description' => $request['description'] ?? null,
+            'image' => $imagePath,
         ];
 
         $zones = session()->has('category_wise_zones') ? session('category_wise_zones') : [];
@@ -801,8 +963,14 @@ class ServiceController extends Controller
     {
         $zones = session()->has('category_wise_zones') ? session('category_wise_zones') : $this->zone->ofStatus(1)->latest()->get();
         $this->variation->where(['variant_key' => $variant_key, 'service_id' => $service_id])->delete();
+        $serviceVariant = ServiceVariant::query()
+            ->where(['variant_key' => $variant_key, 'service_id' => $service_id])
+            ->first();
+        if ($serviceVariant) {
+            $serviceVariant->delete();
+        }
         $variants = $this->variation->where(['service_id' => $service_id])->get();
-        $service = $this->service->find($service_id);
+        $service = $this->service->with('serviceVariants')->find($service_id);
         if ($service && is_array($service->variation_pricing)) {
             $vp = $service->variation_pricing;
             unset($vp[$variant_key]);
@@ -817,14 +985,51 @@ class ServiceController extends Controller
      * @param  array<int, array{variant_key: string, variant: string}>  $variantsSpec
      * @return array{0: array<int, array<string, mixed>>, 1: array<string, array{use_zone_pricing: bool, default_price: float}>}
      */
-    protected function buildAdminServiceVariations(string $serviceId, array $data, array $variantsSpec, $zones): array
+    protected function buildAdminServiceVariations(string $serviceId, array $data, array $variantsSpec, $zones, ?Service $service = null): array
     {
         $variationFormat = [];
         $variationPricing = [];
+        $serviceModel = $service ?? $this->service->find($serviceId);
+        $serviceDir = $serviceModel
+            ? \App\Support\MediaStoragePath::serviceDir($serviceModel)
+            : \App\Support\MediaStoragePath::serviceDir('variant-temp');
 
-        foreach ($variantsSpec as $spec) {
+        foreach ($variantsSpec as $index => $spec) {
             $keyStr = $spec['variant_key'];
-            $variantLabel = $spec['variant'];
+            $variantLabel = $spec['variant'] ?? str_replace('-', ' ', $keyStr);
+            $description = $spec['description'] ?? ($data['variant_description'][$keyStr] ?? null);
+
+            $variant = ServiceVariant::query()
+                ->where('service_id', $serviceId)
+                ->where('variant_key', $keyStr)
+                ->first();
+
+            if (! $variant) {
+                $variant = new ServiceVariant();
+                $variant->service_id = $serviceId;
+                $variant->variant_key = $keyStr;
+            }
+
+            $variant->title = $variantLabel;
+            $variant->description = $description;
+            $variant->sort_order = $index;
+            $variant->is_active = true;
+
+            if (! empty($spec['image'])) {
+                $variant->image = $spec['image'];
+            } else {
+                $variantImages = request()->file('variant_image');
+                if (is_array($variantImages) && isset($variantImages[$keyStr])) {
+                    $variant->image = media_file_uploader(
+                        $serviceDir,
+                        'png',
+                        $variantImages[$keyStr],
+                        $variant->image
+                    );
+                }
+            }
+
+            $variant->save();
 
             $useZone = ! empty($data['variant_use_zone_pricing'][$keyStr]);
             $defaultPrice = (float) ($data['variant_default_price'][$keyStr] ?? 0);
@@ -841,6 +1046,7 @@ class ServiceController extends Controller
                 $variationFormat[] = [
                     'variant' => $variantLabel,
                     'variant_key' => $keyStr,
+                    'service_variant_id' => $variant->id,
                     'zone_id' => $zone->id,
                     'price' => $price,
                     'service_id' => $serviceId,

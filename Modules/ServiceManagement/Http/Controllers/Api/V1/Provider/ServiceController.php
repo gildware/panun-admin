@@ -203,22 +203,9 @@ class ServiceController extends Controller
 
     private function variationsReactFormat($service)
     {
-        $variants = collect($service['variations'])->pluck('variant_key')->unique();
-        $storage = [];
-        foreach ($variants as $variant) {
-            $formatting = [];
-            $filtered = $service['variations']->where('variant_key', $variant);
-            $formatting['variationName'] = $variant;
-            $formatting['variationPrice'] = $filtered->first()->price;
-            foreach ($filtered as $singleVariant) {
-                $formatting['zoneWiseVariations'][] = [
-                    'id' => $singleVariant['zone_id'],
-                    'price' => $singleVariant['price']
-                ];
-            }
-            $storage[] = $formatting;
-        }
-        $service['variations_react_format'] = $storage;
+        $service->loadMissing(['variations', 'serviceVariants']);
+        $service['variations_react_format'] = $service->buildVariationsReactFormat();
+
         return $service;
     }
 

@@ -49,6 +49,48 @@ class Service extends Model
         return $this->hasMany(Variation::class, 'service_id', 'id');
     }
 
+    public function serviceVariants(): HasMany
+    {
+        return $this->hasMany(ServiceVariant::class, 'service_id', 'id')->orderBy('sort_order');
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function buildVariationsReactFormat(): array
+    {
+        $variantsByKey = $this->relationLoaded('serviceVariants')
+            ? $this->serviceVariants->keyBy('variant_key')
+            : $this->serviceVariants()->get()->keyBy('variant_key');
+
+        $variantKeys = collect($this->variations)->pluck('variant_key')->unique();
+        $storage = [];
+
+        foreach ($variantKeys as $variantKey) {
+            $filtered = collect($this->variations)->where('variant_key', $variantKey);
+            $meta = $variantsByKey->get($variantKey);
+            $formatting = [
+                'variationName' => $meta?->title ?? str_replace('-', ' ', (string) $variantKey),
+                'variationPrice' => $filtered->first()->price ?? 0,
+                'description' => $meta?->description,
+                'image' => $meta?->image,
+                'image_full_path' => $meta?->image_full_path,
+                'zoneWiseVariations' => [],
+            ];
+
+            foreach ($filtered as $singleVariant) {
+                $formatting['zoneWiseVariations'][] = [
+                    'id' => $singleVariant['zone_id'],
+                    'price' => $singleVariant['price'],
+                ];
+            }
+
+            $storage[] = $formatting;
+        }
+
+        return $storage;
+    }
+
     public function favorites(): HasMany
     {
         return $this->hasMany(FavoriteService::class, 'service_id', 'id');

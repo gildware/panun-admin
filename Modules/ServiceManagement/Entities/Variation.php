@@ -19,11 +19,16 @@ class Variation extends Model
         'price' => 'float',
     ];
 
-    protected $fillable = ['variant', 'variant_key', 'zone_id', 'price', 'service_id'];
+    protected $fillable = ['variant', 'variant_key', 'zone_id', 'price', 'service_id', 'service_variant_id'];
 
     public function zone(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Zone::class);
+    }
+
+    public function serviceVariant(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(ServiceVariant::class, 'service_variant_id', 'id');
     }
 
     /**
@@ -152,6 +157,7 @@ class Variation extends Model
             'variant' => $variantLabel,
             'variant_key' => $variantKey,
             'service_id' => $serviceId,
+            'service_variant_id' => $base?->service_variant_id,
             'zone_id' => (string) $zoneId,
             'price' => $price,
         ]);
@@ -337,10 +343,21 @@ class Variation extends Model
 
         $formatting['zone_id'] = $resolvedZone ?? $candidates[0];
 
+        $serviceVariants = ServiceVariant::query()
+            ->where('service_id', $serviceId)
+            ->whereIn('variant_key', array_keys($seen))
+            ->where('is_active', true)
+            ->get()
+            ->keyBy('variant_key');
+
         foreach ($seen as $variation) {
+            $variantMeta = $serviceVariants->get((string) $variation->variant_key);
             $formatting['zone_wise_variations'][] = [
                 'variant_key' => $variation->variant_key,
-                'variant_name' => $variation->variant,
+                'variant_name' => $variantMeta?->title ?? $variation->variant,
+                'description' => $variantMeta?->description,
+                'image' => $variantMeta?->image,
+                'image_full_path' => $variantMeta?->image_full_path,
                 'price' => (float) $variation->price,
             ];
         }
