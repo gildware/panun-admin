@@ -51,19 +51,27 @@
         .dashboard-top-cards .business-summary.dashboard-kpi--unsettled-withdraws {
             background: linear-gradient(145deg, #0891b2 0%, #0e7490 100%);
         }
-        .dashboard-top-cards .business-summary.dashboard-kpi--has-breakdown {
-            height: auto;
-            min-height: 7.25rem;
-            padding-bottom: 0.35rem;
+        .dashboard-top-cards .business-summary.dashboard-kpi--unsettled-withdraws h2 {
+            font-size: clamp(0.85rem, 1.5vw, 1.1rem);
+        }
+        .dashboard-top-cards .business-summary.dashboard-kpi--unsettled-withdraws h3 {
+            font-size: clamp(0.6rem, 0.9vw, 0.74rem);
+            margin: 0.08rem 0 0;
         }
         .dashboard-top-cards .business-summary .dashboard-kpi-breakdown {
-            font-size: clamp(0.58rem, 0.85vw, 0.72rem);
-            line-height: 1.25;
-            margin-top: 0.2rem;
+            font-size: clamp(0.55rem, 0.78vw, 0.66rem);
+            line-height: 1.1;
+            margin-top: 0.1rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
             opacity: 0.92;
         }
         .dashboard-top-cards .business-summary .dashboard-kpi-breakdown span {
-            display: block;
+            display: inline;
+        }
+        .dashboard-top-cards .business-summary .dashboard-kpi-breakdown span + span::before {
+            content: ' · ';
         }
         .dashboard-top-cards .business-summary.dashboard-kpi--balance-providers {
             background: linear-gradient(145deg, #ca8a04 0%, #a16207 100%);
@@ -415,7 +423,7 @@
                         </div>
                     </div>
                     <div class="col">
-                        <div class="business-summary dashboard-kpi--unsettled-withdraws dashboard-kpi--has-breakdown">
+                        <div class="business-summary dashboard-kpi--unsettled-withdraws">
                             <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.unsettled_withdraws_total', 0))}}</h2>
                             <h3>{{translate('UnSettled_Withdraws_Amount')}}</h3>
                             <p class="dashboard-kpi-breakdown mb-0">
