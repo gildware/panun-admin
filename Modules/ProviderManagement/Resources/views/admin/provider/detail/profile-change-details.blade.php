@@ -59,13 +59,17 @@
                                     <th style="min-width:220px;">{{ translate('from') }}</th>
                                     <th style="min-width:220px;">{{ translate('to') }}</th>
                                     @if($changeRequest->status === \Modules\ProviderManagement\Entities\ProviderChangeRequest::STATUS_PENDING)
-                                        <th style="min-width:160px;">{{ translate('Decision') }}</th>
+                                        @can('onboarding_request_approve_or_deny')
+                                            <th style="min-width:200px;">{{ translate('Action') }}</th>
+                                        @endcan
                                     @endif
                                 </tr>
                                 </thead>
                                 <tbody>
                                 @foreach($proposedChanges as $change)
-                                    <tr class="change-review-row" data-field-key="{{ $change['field_key'] ?? '' }}">
+                                    <tr class="change-review-row"
+                                        data-field-key="{{ $change['field_key'] ?? '' }}"
+                                        data-decision="approve">
                                         <td class="fw-medium">{{ $change['field'] }}</td>
                                         <td>
                                             @if(($change['type'] ?? '') === 'image' && !empty($change['from_url']))
@@ -88,14 +92,22 @@
                                             @endif
                                         </td>
                                         @if($changeRequest->status === \Modules\ProviderManagement\Entities\ProviderChangeRequest::STATUS_PENDING)
-                                            <td>
-                                                @if(!empty($change['field_key']))
-                                                    <select class="form-select form-select-sm change-review-decision">
-                                                        <option value="approve" selected>{{ translate('Accept') }}</option>
-                                                        <option value="deny">{{ translate('Deny') }}</option>
-                                                    </select>
-                                                @endif
-                                            </td>
+                                            @can('onboarding_request_approve_or_deny')
+                                                <td>
+                                                    @if(!empty($change['field_key']))
+                                                        <div class="table-actions justify-content-center gap-2 flex-nowrap">
+                                                            <button type="button"
+                                                                    class="btn btn-soft--danger btn-sm change-review-deny">
+                                                                {{ translate('Deny') }}
+                                                            </button>
+                                                            <button type="button"
+                                                                    class="btn btn--success btn-sm change-review-accept">
+                                                                {{ translate('Accept') }}
+                                                            </button>
+                                                        </div>
+                                                    @endif
+                                                </td>
+                                            @endcan
                                         @endif
                                     </tr>
                                 @endforeach
@@ -114,6 +126,33 @@
 @push('script')
     <script>
         "use strict";
+
+        function setRowDecision($row, decision) {
+            $row.attr('data-decision', decision);
+            const $accept = $row.find('.change-review-accept');
+            const $deny = $row.find('.change-review-deny');
+
+            if (decision === 'approve') {
+                $accept.removeClass('btn-soft--success').addClass('btn--success');
+                $deny.removeClass('btn--danger').addClass('btn-soft--danger');
+            } else {
+                $deny.removeClass('btn-soft--danger').addClass('btn--danger');
+                $accept.removeClass('btn--success').addClass('btn-soft--success');
+            }
+        }
+
+        $('.change-review-row').each(function () {
+            setRowDecision($(this), 'approve');
+        });
+
+        $(document).on('click', '.change-review-accept', function () {
+            setRowDecision($(this).closest('.change-review-row'), 'approve');
+        });
+
+        $(document).on('click', '.change-review-deny', function () {
+            setRowDecision($(this).closest('.change-review-row'), 'deny');
+        });
+
         $('.profile_change_deny').on('click', function () {
             let id = $(this).data('id');
             let route = '{{ route('admin.provider.profile_change_update', ['id' => ':id', 'status' => 'deny']) }}'.replace(':id', id);
@@ -130,7 +169,7 @@
 
                 decisions.push({
                     field_key: String(fieldKey),
-                    approved: $(this).find('.change-review-decision').val() === 'approve' ? 1 : 0
+                    approved: $(this).attr('data-decision') === 'approve' ? 1 : 0
                 });
             });
 
