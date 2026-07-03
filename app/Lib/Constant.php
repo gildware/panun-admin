@@ -916,6 +916,7 @@ const TRX_TYPE = [
     'booking_placed_by_customer_wallet' => 'booking_placed_by_customer_wallet',
     'add_fund' => 'add_fund',
     'add_fund_bonus' => 'add_fund_bonus',
+    'welcome_bonus' => 'welcome_bonus',
     'booking_refund' => 'booking_refund',
     'subscription_purchase' => 'subscription_purchase',
     'subscription_renew' => 'subscription_renew',
@@ -933,7 +934,8 @@ const WALLET_TRX_TYPE = [
     'wallet_payment' => 'wallet_payment',
     'booking_refund' => 'booking_refund',
     'add_fund' => 'add_fund',
-    'add_fund_bonus' => 'add_fund_bonus'
+    'add_fund_bonus' => 'add_fund_bonus',
+    'welcome_bonus' => 'welcome_bonus',
 ];
 
 const TRANSACTION_TYPE = [
@@ -3781,6 +3783,7 @@ const NOTIFICATION_FOR_USER = [
     ['key' => 'payment_failed', 'value' => 'Payment Failed', 'category' => 'payments'],
     ['key' => 'refund', 'value' => 'Refund', 'category' => 'payments'],
     ['key' => 'add_fund_wallet', 'value' => 'Add Fund Wallet', 'category' => 'wallet_and_loyalty'],
+    ['key' => 'welcome_bonus_wallet', 'value' => 'Welcome Bonus Wallet', 'category' => 'wallet_and_loyalty'],
     ['key' => 'wallet_deducted', 'value' => 'Wallet Deducted', 'category' => 'wallet_and_loyalty'],
     ['key' => 'referral_earning', 'value' => 'Referral Earning', 'category' => 'wallet_and_loyalty'],
     ['key' => 'referral_code_used', 'value' => 'Referral Code Used', 'category' => 'wallet_and_loyalty'],
@@ -3923,6 +3926,8 @@ const BUSINESS_SETTINGS_TYPE = [
     'coupon_cost_bearer' => 'promotional_setup',
     'customer_wallet' => 'customer_config',
     'add_to_fund_wallet' => 'customer_config',
+    'customer_welcome_bonus' => 'customer_config',
+    'customer_welcome_bonus_amount' => 'customer_config',
     'customer_loyalty_point' => 'customer_config',
     'loyalty_point_value_per_currency_unit' => 'customer_config',
     'min_loyalty_point_to_transfer' => 'customer_config',

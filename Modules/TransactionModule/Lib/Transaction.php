@@ -2394,6 +2394,70 @@ if (!function_exists('addFundTransaction')) {
     }
 }
 
+if (!function_exists('grant_customer_welcome_bonus')) {
+    function grant_customer_welcome_bonus(User $user): void
+    {
+        if ($user->user_type !== 'customer') {
+            return;
+        }
+
+        $walletEnabled = (int) (business_config('customer_wallet', 'customer_config')->live_values ?? 0);
+        $bonusEnabled = (int) (business_config('customer_welcome_bonus', 'customer_config')->live_values ?? 0);
+        $amount = (float) (business_config('customer_welcome_bonus_amount', 'customer_config')->live_values ?? 0);
+
+        if (!$walletEnabled || !$bonusEnabled || $amount <= 0) {
+            return;
+        }
+
+        $alreadyGranted = Transaction::query()
+            ->where('to_user_id', $user->id)
+            ->where('trx_type', TRX_TYPE['welcome_bonus'])
+            ->exists();
+
+        if ($alreadyGranted) {
+            return;
+        }
+
+        $adminUserId = User::where('user_type', ADMIN_USER_TYPES[0])->value('id');
+
+        DB::transaction(function () use ($user, $amount, $adminUserId) {
+            $user = lock_customer_user_for_wallet((string) $user->id);
+            $user = credit_customer_wallet($user, $amount);
+
+            Transaction::create([
+                'ref_trx_id' => null,
+                'booking_id' => null,
+                'trx_type' => TRX_TYPE['welcome_bonus'],
+                'debit' => 0,
+                'credit' => $amount,
+                'balance' => $user->wallet_balance,
+                'from_user_id' => $adminUserId,
+                'to_user_id' => $user->id,
+                'from_user_account' => null,
+                'to_user_account' => 'user_wallet',
+                'reference_note' => 'welcome_bonus',
+            ]);
+
+            if ($adminUserId) {
+                $account = Account::where('user_id', $adminUserId)->first();
+                if ($account) {
+                    $account->total_expense += $amount;
+                    $account->save();
+                }
+            }
+        });
+
+        $user = User::find($user->id);
+        if ($user) {
+            send_customer_welcome_bonus_notification($user, $amount);
+
+            if (function_exists('admin_inbox_notify_welcome_bonus')) {
+                admin_inbox_notify_welcome_bonus($user, $amount);
+            }
+        }
+    }
+}
+
 //*** Referral Earn ***
 if (!function_exists('referralEarningTransactionDuringRegistration')) {
     function referralEarningTransactionDuringRegistration($user, $amount) {

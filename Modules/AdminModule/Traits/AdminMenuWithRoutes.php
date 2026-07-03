@@ -424,6 +424,14 @@ trait AdminMenuWithRoutes
                 "type" => 'menu',
             ],
             [
+                'route_name' => 'Welcome_Bonus_Report',
+                'uri' => 'admin/customer/welcome-bonus/report',
+                'full_route' => url('admin/customer/welcome-bonus/report'),
+                "page_title" => 'Welcome_Bonus_Report',
+                "keywords" => 'Welcome Bonus Report, welcome bonus, signup bonus, registration bonus',
+                "type" => 'menu',
+            ],
+            [
                 'route_name' => 'Subscribed_Newsletter',
                 'uri' => 'admin/customer/newsletter/list',
                 'full_route' => url('admin/customer/newsletter/list'),

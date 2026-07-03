@@ -2167,6 +2167,8 @@ trait BookingTrait
         $user->is_active = 1;
         $user->save();
 
+        grant_customer_welcome_bonus($user);
+
         $loginToken = $user->createToken('CUSTOMER_PANEL_ACCESS')->accessToken;
 
         return [

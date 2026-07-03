@@ -104,6 +104,8 @@ class RegisterController extends Controller
         $user->referred_by = $referralResult['referrer_id'];
         $user->save();
 
+        grant_customer_welcome_bonus($user);
+
         $phoneVerification = checkActiveSMSGatewayCount();
         $emailVerification = login_setup('email_verification')?->value ?? 0;
 

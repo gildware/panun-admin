@@ -18,7 +18,7 @@ if (! function_exists('notification_message_variables_for_key')) {
             'otp' => array_merge($common, ['{{otp}}']),
             'booking_edit_service_add', 'booking_edit_service_update' => array_merge($common, ['{{serviceName}}']),
             'payment_collected_company', 'payment_collected_provider', 'refund', 'payment_failed' => array_merge($common, ['{{amount}}', '{{bookingStatus}}']),
-            'add_fund_wallet', 'referral_earning', 'referral_code_used', 'wallet_deducted' => ['{{amount}}', '{{userName}}', '{{bookingId}}'],
+            'add_fund_wallet', 'welcome_bonus_wallet', 'referral_earning', 'referral_code_used', 'wallet_deducted' => ['{{amount}}', '{{userName}}', '{{bookingId}}'],
             'loyalty_point', 'loyalty_point_convert' => ['{{amount}}', '{{userName}}', '{{bookingId}}'],
             'refund_bank_transfer' => array_merge($common, ['{{amount}}', '{{bookingStatus}}']),
             'customer_review_approved', 'review_published' => ['{{userName}}', '{{providerName}}', '{{bookingId}}'],
@@ -176,6 +176,10 @@ if (! function_exists('notification_default_message_templates')) {
                 'add_fund_wallet' => [
                     'title' => 'Wallet Credited',
                     'description' => 'Hi {{userName}}, {{amount}} has been added to your wallet.',
+                ],
+                'welcome_bonus_wallet' => [
+                    'title' => 'Welcome Bonus Received',
+                    'description' => 'Hi {{userName}}, welcome! {{amount}} has been added to your wallet as a signup bonus.',
                 ],
                 'wallet_deducted' => [
                     'title' => 'Wallet Debited',
@@ -951,6 +955,13 @@ if (! function_exists('notification_scenario_trigger_map')) {
                     ['label' => 'Wallet top-up push', 'needles' => ["get_push_notification_message('add_fund_wallet'", 'AddFundHook.php']],
                 ],
             ],
+            'welcome_bonus_granted' => [
+                'module' => 'wallet',
+                'checks' => [
+                    ['label' => 'Welcome bonus customer push', 'needles' => ['send_customer_welcome_bonus_notification', "'welcome_bonus_wallet'"]],
+                    ['label' => 'Welcome bonus admin inbox', 'needles' => ['admin_inbox_notify_welcome_bonus', 'grant_customer_welcome_bonus']],
+                ],
+            ],
             'wallet_customer_deducted' => [
                 'module' => 'wallet',
                 'checks' => [
@@ -1642,6 +1653,16 @@ if (! function_exists('notification_trigger_scenarios_for_key')) {
                 'scenarios' => [
                     'Customer tops up wallet via payment gateway.',
                     'Admin adds fund to customer wallet (including bonus if applicable).',
+                ],
+                'recipient' => 'Customer',
+                'module' => 'Wallet and Loyalty',
+                'wired' => true,
+            ] : null,
+
+            'welcome_bonus_wallet' => $isCustomer ? [
+                'summary' => 'Sent when a new customer receives a one-time welcome wallet bonus on registration.',
+                'scenarios' => [
+                    'Customer registers in the app and welcome bonus is enabled in customer settings.',
                 ],
                 'recipient' => 'Customer',
                 'module' => 'Wallet and Loyalty',
@@ -2464,6 +2485,17 @@ if (! function_exists('notification_scenario_registry')) {
                 'trigger_action' => 'Tops up wallet via payment gateway or admin adds funds',
                 'audiences' => [
                     ['audience' => 'customer', 'channel' => 'push', 'key' => 'add_fund_wallet', 'settings_type' => 'customer_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'welcome_bonus_granted',
+                'module' => 'wallet',
+                'title' => 'Welcome bonus credited on new customer registration',
+                'trigger_actor' => 'system',
+                'trigger_action' => 'New app customer registers and welcome bonus is enabled',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'welcome_bonus_wallet', 'settings_type' => 'customer_notification', 'wired' => true],
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
                 ],
             ],
             [
@@ -3367,6 +3399,58 @@ if (! function_exists('send_customer_payment_failed_notification')) {
             $title,
             $description,
             $bookingId,
+            NOTIFICATION_TYPE['wallet'] ?? 'wallet',
+            $user->id,
+            $data,
+            null,
+            null,
+            'customer',
+            config('zone_id')
+        );
+    }
+}
+
+if (! function_exists('send_customer_welcome_bonus_notification')) {
+    function send_customer_welcome_bonus_notification(
+        \Modules\UserManagement\Entities\User $user,
+        float $amount,
+    ): void {
+        if (! $user->is_active || $amount <= 0) {
+            return;
+        }
+
+        $permission = isNotificationActive(null, 'wallet', 'notification', 'user');
+        $title = get_push_notification_message('welcome_bonus_wallet', 'customer_notification', $user->current_language_key);
+        $description = get_push_notification_description('welcome_bonus_wallet', 'customer_notification', $user->current_language_key);
+        if (! $title || ! $permission) {
+            return;
+        }
+
+        $data = [
+            'amount' => with_currency_symbol($amount),
+            'user_name' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')),
+            'booking_id' => '',
+        ];
+
+        if (user_has_fcm_devices($user)) {
+            device_notification_for_user(
+                $user,
+                with_currency_symbol($amount) . ' ' . $title,
+                $description,
+                null,
+                null,
+                NOTIFICATION_TYPE['wallet'] ?? 'wallet',
+                null,
+                $user->id,
+                $data
+            );
+        }
+
+        scenario_push_notification(
+            $user,
+            with_currency_symbol($amount) . ' ' . $title,
+            $description,
+            null,
             NOTIFICATION_TYPE['wallet'] ?? 'wallet',
             $user->id,
             $data,

@@ -125,6 +125,10 @@ if (! function_exists('infer_admin_notification_sender_identity')) {
                 : ['admin', null];
         }
 
+        if ($referenceType === 'welcome_bonus' && $referenceId !== '') {
+            return resolve_admin_notification_sender_from_user($referenceId);
+        }
+
         return ['admin', null];
     }
 }

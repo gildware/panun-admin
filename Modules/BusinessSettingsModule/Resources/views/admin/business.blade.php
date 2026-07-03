@@ -1714,6 +1714,31 @@
                                                         </label>
                                                     </div>
                                                 </div>
+                                                <div class="col-lg-4 col-md-6">
+                                                    <?php ($welcomeBonus = $dataValues->where('key_name', 'customer_welcome_bonus')?->first()?->live_values ?? null); ?>
+                                                    <?php ($welcomeBonusAmount = $dataValues->where('key_name', 'customer_welcome_bonus_amount')?->first()?->live_values ?? 0); ?>
+
+                                                    <div class="mb-2 text-dark">{{translate('Welcome Bonus')}}
+                                                        <i class="material-icons fz-14 text-light-gray" data-bs-toggle="tooltip"
+                                                            data-bs-placement="top"
+                                                            title="{{translate('Credit new app customers with a one-time wallet bonus when they register')}}"
+                                                        >info</i>
+                                                    </div>
+                                                    <div class="border p-12 rounded d-flex justify-content-between bg-white mb-3">
+                                                        <span class="text-dark fz-14">{{ translate('Status') }}</span>
+                                                        <label class="switcher">
+                                                            <input class="switcher_input" type="checkbox"
+                                                                   id="customer_welcome_bonus"
+                                                                   name="customer_welcome_bonus"
+                                                                   value="1" {{$welcomeBonus ? 'checked' : ''}}>
+                                                            <span class="switcher_control"></span>
+                                                        </label>
+                                                    </div>
+                                                    <div class="mb-2 text-dark">{{translate('Welcome Bonus Amount')}} ({{currency_symbol()}}) <span class="text-danger">*</span></div>
+                                                    <input type="number" class="form-control"
+                                                           name="customer_welcome_bonus_amount" step="any"
+                                                           min="0" value="{{$welcomeBonusAmount}}" required="">
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

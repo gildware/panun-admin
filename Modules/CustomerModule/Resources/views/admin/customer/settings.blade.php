@@ -219,6 +219,13 @@
                     @if($web_page=='welcome_bonus')
                         <div class="tab-content">
                             <div class="tab-pane fade {{$web_page=='welcome_bonus'?'active show':''}}">
+                                <div class="d-flex justify-content-end mb-3">
+                                    <a href="{{ route('admin.customer.welcome-bonus.report') }}"
+                                       class="btn btn-outline--primary btn-sm d-inline-flex align-items-center gap-1">
+                                        <span class="material-icons fz-16">analytics</span>
+                                        {{ translate('View_Welcome_Bonus_Report') }}
+                                    </a>
+                                </div>
                                 <div class="card">
                                     <div class="card-body p-30">
                                         <form action="{{route('admin.customer.settings', ['web_page' => 'welcome_bonus'])}}"

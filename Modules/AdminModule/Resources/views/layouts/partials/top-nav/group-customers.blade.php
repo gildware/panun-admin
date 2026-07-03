@@ -49,6 +49,20 @@
             @endcan
         @endcanany
 
+        @can('customer_view')
+            @include('adminmodule::layouts.partials.top-nav._section', ['label' => translate('Welcome_Bonus')])
+            @include('adminmodule::layouts.partials.top-nav._link', [
+                'href' => route('admin.customer.welcome-bonus.report'),
+                'label' => translate('Welcome_Bonus_Report'),
+                'active' => request()->is('admin/customer/welcome-bonus/report'),
+            ])
+            @include('adminmodule::layouts.partials.top-nav._link', [
+                'href' => route('admin.customer.settings', ['web_page' => 'welcome_bonus']),
+                'label' => translate('Welcome_Bonus_Settings'),
+                'active' => request()->is('admin/customer/settings') && request('web_page') == 'welcome_bonus',
+            ])
+        @endcan
+
         @can('point_view')
             @include('adminmodule::layouts.partials.top-nav._section', ['label' => translate('loyalty_point')])
             @include('adminmodule::layouts.partials.top-nav._link', [

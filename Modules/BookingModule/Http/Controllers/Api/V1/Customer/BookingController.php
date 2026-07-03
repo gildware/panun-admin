@@ -1010,6 +1010,8 @@ class BookingController extends Controller
                 $user->customer_app_access = true;
                 $user->is_active = 1;
                 $user->save();
+
+                grant_customer_welcome_bonus($user);
             }
 
             if ($user && $booking) {

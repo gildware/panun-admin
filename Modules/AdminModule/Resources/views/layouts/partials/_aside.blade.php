@@ -837,7 +837,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcan
 
-            @canany(['wallet_add','wallet_view'])
+            @canany(['wallet_add', 'wallet_view'])
                 <li class="has-sub-item {{request()->is('admin/customer/wallet*')?'sub-menu-opened':''}}">
                     <a href="#" class="{{request()->is('admin/customer/wallet*')?'active-menu':''}}">
                         <span class="material-icons" title="Customers">wallet</span>
@@ -863,6 +863,29 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                     </ul>
                 </li>
             @endcanany
+
+            @can('customer_view')
+                <li class="has-sub-item {{request()->is('admin/customer/welcome-bonus*') || (request()->is('admin/customer/settings') && request('web_page')=='welcome_bonus')?'sub-menu-opened':''}}">
+                    <a href="#" class="{{request()->is('admin/customer/welcome-bonus*') || (request()->is('admin/customer/settings') && request('web_page')=='welcome_bonus')?'active-menu':''}}">
+                        <span class="material-icons" title="Customers">redeem</span>
+                        <span class="link-title">{{translate('Welcome_Bonus')}}</span>
+                    </a>
+                    <ul class="nav sub-menu">
+                        <li>
+                            <a href="{{route('admin.customer.welcome-bonus.report')}}"
+                               class="{{request()->is('admin/customer/welcome-bonus/report')?'active-menu':''}}">
+                                {{translate('Welcome_Bonus_Report')}}
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{route('admin.customer.settings', ['web_page' => 'welcome_bonus'])}}"
+                               class="{{request()->is('admin/customer/settings') && request('web_page')=='welcome_bonus'?'active-menu':''}}">
+                                {{translate('Welcome_Bonus_Settings')}}
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            @endcan
 
             @can('point_view')
                 <li class="has-sub-item {{request()->is('admin/customer/loyalty-point*')?'sub-menu-opened':''}}">

@@ -516,6 +516,8 @@ class OTPVerificationController extends Controller
                 $this->updateAddressAndCartUser($user->id, $request['guest_id']);
             }
 
+            grant_customer_welcome_bonus($user);
+
             return response()->json(
                 response_formatter(AUTH_LOGIN_200, $this->authenticateCustomer($user)),
                 200

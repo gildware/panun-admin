@@ -347,6 +347,20 @@ class UpdateController extends Controller
             ]);
         }
 
+        if (BusinessSettings::where(['key_name' => 'customer_welcome_bonus', 'settings_type' => 'customer_config'])->first() == false) {
+            BusinessSettings::updateOrCreate(['key_name' => 'customer_welcome_bonus', 'settings_type' => 'customer_config'], [
+                'live_values' => 0,
+                'test_values' => 0
+            ]);
+        }
+
+        if (BusinessSettings::where(['key_name' => 'customer_welcome_bonus_amount', 'settings_type' => 'customer_config'])->first() == false) {
+            BusinessSettings::updateOrCreate(['key_name' => 'customer_welcome_bonus_amount', 'settings_type' => 'customer_config'], [
+                'live_values' => 0,
+                'test_values' => 0
+            ]);
+        }
+
         if (BusinessSettings::where(['key_name' => 'referral_discount_type', 'settings_type' => 'customer_config'])->first() == false) {
             BusinessSettings::updateOrCreate(['key_name' => 'referral_discount_type', 'settings_type' => 'customer_config'], [
                 'live_values' => "flat",

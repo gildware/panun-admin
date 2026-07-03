@@ -277,6 +277,29 @@ if (! function_exists('admin_inbox_notify_showcase_submitted')) {
     }
 }
 
+if (! function_exists('admin_inbox_notify_welcome_bonus')) {
+    function admin_inbox_notify_welcome_bonus(User $customer, float $amount): void
+    {
+        if ($amount <= 0 || ! $customer->is_active) {
+            return;
+        }
+
+        $customerName = trim(($customer->first_name ?? '') . ' ' . ($customer->last_name ?? ''));
+        $phone = $customer->phone ?? '';
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_WELCOME_BONUS,
+            translate('Welcome_bonus_granted'),
+            ($customerName !== '' ? $customerName : translate('Customer'))
+                . ($phone !== '' ? ' (' . $phone . ')' : '')
+                . ' — ' . with_currency_symbol($amount),
+            route('admin.customer.welcome-bonus.report'),
+            'welcome_bonus',
+            (string) $customer->id,
+        );
+    }
+}
+
 if (! function_exists('admin_inbox_notify_profile_change_request')) {
     function admin_inbox_notify_profile_change_request(\Modules\ProviderManagement\Entities\ProviderChangeRequest $changeRequest): void
     {

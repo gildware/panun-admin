@@ -689,6 +689,8 @@ class LoginController extends Controller
             $this->updateAddressAndCartUser($user->id, $request['guest_id']);
         }
 
+        grant_customer_welcome_bonus($user);
+
         $phoneVerification = checkActiveSMSGatewayCount();
 
         if ($phoneVerification){

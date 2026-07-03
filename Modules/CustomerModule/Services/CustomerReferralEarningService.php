@@ -27,7 +27,6 @@ class CustomerReferralEarningService
             ->withCount([
                 'bookings as completed_bookings_count' => fn ($query) => $query->where('booking_status', 'completed'),
             ])
-            ->select('users.*')
             ->selectSub(
                 Booking::query()
                     ->select('updated_at')
@@ -71,7 +70,8 @@ class CustomerReferralEarningService
 
     public function transformReferredUser(User $user, float $reward): array
     {
-        $completed = (int) ($user->completed_bookings_count ?? 0) > 0;
+        $completed = (int) ($user->completed_bookings_count ?? 0) > 0
+            || ! empty($user->first_completed_booking_at);
 
         return [
             'id' => $user->id,

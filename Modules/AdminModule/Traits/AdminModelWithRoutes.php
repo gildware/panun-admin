@@ -158,6 +158,7 @@ trait AdminModelWithRoutes
                         'admin_routes' => [
                             'admin/customer/loyalty-point/report' => 'Loyalty point Report',
                             'admin/customer/referral-earning/report' => 'Referral Report',
+                            'admin/customer/welcome-bonus/report' => 'Welcome Bonus Report',
                         ],
                     ],
                 ],

@@ -607,10 +607,12 @@ class BusinessInformationController extends Controller
     {
         $this->authorize('business_update');
 
-        collect(['customer_wallet', 'customer_loyalty_point', 'customer_referral_earning', 'add_to_fund_wallet', 'referral_based_new_user_discount'])->each(fn($item, $key) => $request[$item] = $request->has($item) ? (int)$request[$item] : 0);
+        collect(['customer_wallet', 'customer_loyalty_point', 'customer_referral_earning', 'add_to_fund_wallet', 'customer_welcome_bonus', 'referral_based_new_user_discount'])->each(fn($item, $key) => $request[$item] = $request->has($item) ? (int)$request[$item] : 0);
         $validator = $request->validate([
             'customer_wallet' => 'required|in:0,1',
             'add_to_fund_wallet' => 'required|in:0,1',
+            'customer_welcome_bonus' => 'required|in:0,1',
+            'customer_welcome_bonus_amount' => 'required|numeric|min:0',
             'customer_loyalty_point' => 'required|in:0,1',
             'loyalty_point_value_per_currency_unit' => 'required',
             'min_loyalty_point_to_transfer' => 'required',
