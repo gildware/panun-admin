@@ -98,9 +98,9 @@ class ProviderController extends Controller
         $maxBookingAmount = (business_config('max_booking_amount', 'booking_setup'))->live_values;
 
         if (in_array('top_cards', $request['sections'])) {
-            $account = $this->account->where('user_id', $request->user()->id)->first();
+            $providerId = (string) $request->user()->provider->id;
             $data[] = ['top_cards' => [
-                'total_earning' => $account['received_balance'] + $account['total_withdrawn'],
+                'total_earning' => app(ProviderDashboardEarningStatsService::class)->lifetimeTotal($providerId),
                 'total_subscribed_services' => $this->subscribedService->where('provider_id', $request->user()->provider->id)
                     ->with(['sub_category'])
                     ->whereHas('category', function ($query) {
