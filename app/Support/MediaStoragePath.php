@@ -123,7 +123,8 @@ class MediaStoragePath
 
     public static function legacyPrefixForProviderCover(): string
     {
-        return 'provider/cover/';
+        // Cover uploads use provider/logo/ across admin, provider web, and API branding flows.
+        return 'provider/logo/';
     }
 
     private static function categorySlug(Category $category): string

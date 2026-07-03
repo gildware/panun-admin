@@ -434,11 +434,11 @@ class ProviderProfileChangeRequestService
         $payload = [];
 
         if ($request->hasFile('logo')) {
-            $payload['logo'] = file_uploader('provider/logo/', APPLICATION_IMAGE_FORMAT, $request->file('logo'));
+            $payload['logo'] = media_file_uploader('provider/logo/', APPLICATION_IMAGE_FORMAT, $request->file('logo'));
         }
 
         if ($request->hasFile('cover_image')) {
-            $payload['cover_image'] = file_uploader('provider/logo/', APPLICATION_IMAGE_FORMAT, $request->file('cover_image'));
+            $payload['cover_image'] = media_file_uploader('provider/logo/', APPLICATION_IMAGE_FORMAT, $request->file('cover_image'));
         }
 
         return $payload;

@@ -347,8 +347,11 @@ class Provider extends Model
 
         static::saved(function ($model) {
             $storageType = getDisk();
-            if($model->isDirty('logo') && $storageType != 'public'){
-                saveSingleImageDataToStorage(model: $model, modelColumn : 'logo', storageType : $storageType);
+            if ($model->isDirty('logo') && $storageType != 'public') {
+                saveSingleImageDataToStorage(model: $model, modelColumn: 'logo', storageType: $storageType);
+            }
+            if ($model->isDirty('cover_image') && $storageType != 'public') {
+                saveSingleImageDataToStorage(model: $model, modelColumn: 'cover_image', storageType: $storageType);
             }
         });
     }
