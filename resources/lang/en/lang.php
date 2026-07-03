@@ -9836,4 +9836,5 @@ _Message' => 'Customer notification for provider bid offer
   'Onboarding Denied_Message' => 'Onboarding Denied Message',
   'Profile Update Approved_Message' => 'Profile Update Approved Message',
   'Profile Update Denied_Message' => 'Profile Update Denied Message',
+  'failed_to_update' => 'Failed to update',
 );
