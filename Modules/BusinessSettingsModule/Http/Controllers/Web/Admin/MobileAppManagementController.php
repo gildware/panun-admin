@@ -390,6 +390,7 @@ class MobileAppManagementController extends Controller
             'biddingPostValidity' => (int) ((business_config('bidding_post_validity', 'bidding_system'))?->live_values ?? 7),
             'bidOffersVisibility' => (int) ((business_config('bid_offers_visibility_for_providers', 'bidding_system'))?->live_values ?? 0),
             'inAppCallStatus' => (int) ((business_config('in_app_call_status', 'in_app_call_system'))?->live_values ?? 1),
+            'nearbyProviderMaxDistanceKm' => (int) ((business_config('nearby_provider_max_distance_km', 'mobile_app_features'))?->live_values ?? 50),
         ]);
     }
 
@@ -402,6 +403,7 @@ class MobileAppManagementController extends Controller
             'bidding_post_validity' => 'required_if:bidding_status,1|nullable|integer|min:1|max:365',
             'bid_offers_visibility_for_providers' => 'required|in:0,1',
             'in_app_call_status' => 'required|in:0,1',
+            'nearby_provider_max_distance_km' => 'required|integer|min:1|max:500',
         ]);
 
         if ($validator->fails()) {
@@ -438,6 +440,18 @@ class MobileAppManagementController extends Controller
                 'live_values' => $validated['in_app_call_status'],
                 'test_values' => $validated['in_app_call_status'],
                 'settings_type' => 'in_app_call_system',
+                'mode' => 'live',
+                'is_active' => 1,
+            ],
+        );
+
+        BusinessSettings::query()->updateOrCreate(
+            ['key_name' => 'nearby_provider_max_distance_km'],
+            [
+                'key_name' => 'nearby_provider_max_distance_km',
+                'live_values' => $validated['nearby_provider_max_distance_km'],
+                'test_values' => $validated['nearby_provider_max_distance_km'],
+                'settings_type' => 'mobile_app_features',
                 'mode' => 'live',
                 'is_active' => 1,
             ],

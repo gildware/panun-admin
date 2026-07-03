@@ -208,6 +208,7 @@ class ConfigController extends Controller
             'direct_provider_booking' => (int)((business_config('direct_provider_booking', 'business_information'))->live_values ?? 0),
             'bidding_status' => (int)((business_config('bidding_status', 'bidding_system'))->live_values ?? 0),
             'in_app_call_status' => (int)((business_config('in_app_call_status', 'in_app_call_system'))?->live_values ?? 1),
+            'nearby_provider_max_distance_km' => (int)((business_config('nearby_provider_max_distance_km', 'mobile_app_features'))?->live_values ?? 50),
             'phone_verification' => (((login_setup('phone_verification'))->value ?? 0 ) == 1 && $count == 1 ? 1 : 0),
             'email_verification' => (int)((login_setup('email_verification'))->value ?? 0),
             'cash_after_service' => (int)((business_config('cash_after_service', 'service_setup'))->live_values ?? 0),
