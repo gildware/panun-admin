@@ -402,7 +402,7 @@ class ProviderProfileChangeRequestService
         ProviderChangeRequest $changeRequest,
         string $fieldKey,
         bool $approved,
-        ?int $reviewedBy = null
+        ?string $reviewedBy = null
     ): array {
         $changeRequest->loadMissing('provider.owner');
         $pendingKeys = $this->pendingFieldChangesForRequest($changeRequest);
@@ -454,7 +454,7 @@ class ProviderProfileChangeRequestService
      */
     private function finalizeReviewedChangeRequest(
         ProviderChangeRequest $changeRequest,
-        ?int $reviewedBy,
+        ?string $reviewedBy,
         $labelsByKey
     ): void {
         $reviews = is_array($changeRequest->payload['field_reviews'] ?? null)
