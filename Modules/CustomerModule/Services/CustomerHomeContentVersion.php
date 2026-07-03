@@ -25,12 +25,12 @@ class CustomerHomeContentVersion
 
     public static function bumpGlobal(): void
     {
-        Cache::forever(self::GLOBAL_KEY, (string) ((int) self::global()) + 1));
+        Cache::forever(self::GLOBAL_KEY, (string) ((int) self::global() + 1));
     }
 
     public static function bumpPersonal(int|string $userId): void
     {
-        Cache::forever(self::PERSONAL_PREFIX.$userId, (string) ((int) self::personal($userId)) + 1));
+        Cache::forever(self::PERSONAL_PREFIX.$userId, (string) ((int) self::personal($userId) + 1));
     }
 
     public static function resolveForRequest(
