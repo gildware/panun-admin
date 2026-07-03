@@ -143,7 +143,7 @@ class WithdrawController extends Controller
 
                 //adjust
                 withdrawRequestAcceptForAdjustTransaction($request->user()->id, $payable);
-                collectCashTransaction($provider->id, $payable);
+                collectCashTransaction($provider->id, $payable, null, null, null, false);
             }
 
             $createdWithdrawRequest = $this->withdraw_request->create([

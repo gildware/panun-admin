@@ -1875,12 +1875,12 @@ if (!function_exists('completeBookingRepeatTransactionForDigitalPaymentAndExtraS
 
 //*** (admin) collect cash from provider ***
 if (!function_exists('collectCashTransaction')) {
-    function collectCashTransaction($provider_id, $collect_amount, ?string $transaction_id = null, ?string $reference_note = null, ?string $ledger_payment_method = null): void
+    function collectCashTransaction($provider_id, $collect_amount, ?string $transaction_id = null, ?string $reference_note = null, ?string $ledger_payment_method = null, bool $recordLedger = true): void
     {
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
         $provider_user_id = get_user_id($provider_id, PROVIDER_USER_TYPES[0]);
 
-        DB::transaction(function () use ($provider_id, $collect_amount, $admin_user_id, $provider_user_id, $transaction_id, $reference_note, $ledger_payment_method) {
+        DB::transaction(function () use ($provider_id, $collect_amount, $admin_user_id, $provider_user_id, $transaction_id, $reference_note, $ledger_payment_method, $recordLedger) {
 
             $account = Account::where('user_id', $provider_user_id)->first();
             $account->account_payable -= $collect_amount;
@@ -1937,17 +1937,19 @@ if (!function_exists('collectCashTransaction')) {
                 'to_user_account' => null
             ]);
 
-            ledger_record_in([
-                'amount' => $collect_amount,
-                'transaction_id' => $transaction_id,
-                'booking_id' => null,
-                'provider_id' => $provider_id,
-                'payment_method' => $ledger_payment_method ?: 'collect_from_provider',
-                'date' => now()->toDateString(),
-                'received_by' => \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY,
-                'reference_note' => $reference_note,
-                'created_by' => auth()->id(),
-            ]);
+            if ($recordLedger) {
+                ledger_record_in([
+                    'amount' => $collect_amount,
+                    'transaction_id' => $transaction_id,
+                    'booking_id' => null,
+                    'provider_id' => $provider_id,
+                    'payment_method' => $ledger_payment_method ?: 'collect_from_provider',
+                    'date' => now()->toDateString(),
+                    'received_by' => \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY,
+                    'reference_note' => $reference_note,
+                    'created_by' => auth()->id(),
+                ]);
+            }
         });
     }
 }
