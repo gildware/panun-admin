@@ -233,23 +233,13 @@ class ProviderController extends Controller
 
         //recent_bookings
         $provider = $request->user()->provider;
-        $recent_bookings = collect();
-
-        if (
-            provider_can_receive_bookings($provider)
-            && ($provider->is_suspended == 0 || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)
-        ) {
-            $recent_bookings = $this->booking->with(['detail.service' => function ($query) {
-                $query->select('id', 'name', 'thumbnail');
-            }])
-                ->providerPendingBookings($provider, $maxBookingAmount)
-                ->whereDoesntHave('ignores', function ($query) use ($provider) {
-                    $query->where('provider_id', $provider->id);
-                })
-                ->latest()
-                ->take(5)
-                ->get();
-        }
+        $recent_bookings = $this->booking->with(['detail.service' => function ($query) {
+            $query->select('id', 'name', 'thumbnail');
+        }])
+            ->where('provider_id', $provider->id)
+            ->latest()
+            ->take(5)
+            ->get();
         $data[] = ['recent_bookings' => $recent_bookings];
 
         //my_subscriptions
