@@ -47,6 +47,7 @@ Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V
         Route::get('geocode-api', [ConfigController::class, 'geocodeApi'])->middleware('throttle:maps-proxy');
     });
 
+    Route::get('home-bundle/version', [HomeBundleController::class, 'version']);
     Route::get('home-bundle', [HomeBundleController::class, 'index']);
 
     Route::resource('address', 'AddressController', ['only' => ['index', 'store', 'edit', 'update', 'destroy']])->withoutMiddleware(['api:auth']);

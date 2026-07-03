@@ -17,6 +17,13 @@ class HomeBundleController extends Controller
     {
         return response()
             ->json(response_formatter(DEFAULT_200, $this->homeBundleService->build($request)), 200)
-            ->header('Cache-Control', 'public, max-age=120');
+            ->header('Cache-Control', 'private, no-cache');
+    }
+
+    public function version(Request $request): JsonResponse
+    {
+        return response()
+            ->json(response_formatter(DEFAULT_200, $this->homeBundleService->versionPayload($request)), 200)
+            ->header('Cache-Control', 'private, no-cache');
     }
 }

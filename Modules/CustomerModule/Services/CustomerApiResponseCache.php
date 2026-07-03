@@ -22,6 +22,7 @@ class CustomerApiResponseCache
      */
     public static function forgetConfigCaches(): void
     {
+        CustomerHomeContentVersion::bumpGlobal();
         BusinessConfigCache::forgetAll();
 
         $locales = [strtolower((string) app()->getLocale()), 'en'];

@@ -4,6 +4,13 @@ namespace Modules\CustomerModule\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Database\Eloquent\Factory;
+use Modules\CategoryManagement\Entities\Category;
+use Modules\CustomerModule\Observers\CustomerHomeContentVersionObserver;
+use Modules\PromotionManagement\Entities\Advertisement;
+use Modules\PromotionManagement\Entities\Banner;
+use Modules\PromotionManagement\Entities\Campaign;
+use Modules\ProviderManagement\Entities\Provider;
+use Modules\ServiceManagement\Entities\Service;
 
 class CustomerModuleServiceProvider extends ServiceProvider
 {
@@ -28,6 +35,17 @@ class CustomerModuleServiceProvider extends ServiceProvider
         $this->registerConfig();
         $this->registerViews();
         $this->loadMigrationsFrom(module_path($this->moduleName, 'Database/Migrations'));
+        $this->registerHomeContentVersionObservers();
+    }
+
+    private function registerHomeContentVersionObservers(): void
+    {
+        $observer = CustomerHomeContentVersionObserver::class;
+        foreach ([Banner::class, Campaign::class, Advertisement::class, Category::class, Service::class, Provider::class] as $model) {
+            if (class_exists($model)) {
+                $model::observe($observer);
+            }
+        }
     }
 
     /**
