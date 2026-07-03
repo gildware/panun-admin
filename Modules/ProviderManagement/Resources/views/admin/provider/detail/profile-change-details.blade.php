@@ -11,8 +11,12 @@
                     @can('onboarding_request_approve_or_deny')
                         @if(count($proposedChanges) > 0)
                             <div class="d-flex gap-2 flex-wrap">
-                                <button type="button" class="btn btn-soft--danger profile_change_deny"
-                                        data-id="{{ $changeRequest->id }}">{{ translate('Deny_All') }}</button>
+                                <button type="button" class="btn btn-soft--danger" id="profile_change_deny_all">
+                                    {{ translate('Deny_All') }}
+                                </button>
+                                <button type="button" class="btn btn--success" id="profile_change_accept_all">
+                                    {{ translate('Accept_All') }}
+                                </button>
                             </div>
                         @endif
                     @endcan
@@ -129,6 +133,93 @@
         "use strict";
 
         const reviewFieldUrl = '{{ route('admin.provider.profile_change_review_field', ['id' => $changeRequest->id]) }}';
+        const reviewAllUrl = '{{ route('admin.provider.profile_change_review', ['id' => $changeRequest->id]) }}';
+
+        function collectPendingFieldDecisions(approved) {
+            const decisions = [];
+            $('.change-review-row').each(function () {
+                const fieldKey = $(this).attr('data-field-key');
+                if (!fieldKey) {
+                    return;
+                }
+
+                decisions.push({
+                    field_key: String(fieldKey),
+                    approved: approved ? 1 : 0
+                });
+            });
+
+            return decisions;
+        }
+
+        function submitBulkReview(approved, $button) {
+            const decisions = collectPendingFieldDecisions(approved);
+            if (!decisions.length || $button.prop('disabled')) {
+                return;
+            }
+
+            const confirmText = approved
+                ? '{{ translate('Accept_all_changes_confirm') }}'
+                : '{{ translate('Deny_all_changes_confirm') }}';
+
+            Swal.fire({
+                title: "{{ translate('are_you_sure') }}?",
+                text: confirmText,
+                type: 'warning',
+                showCancelButton: true,
+                cancelButtonColor: 'var(--bs-secondary)',
+                confirmButtonColor: approved ? 'var(--bs-success)' : 'var(--bs-danger)',
+                cancelButtonText: '{{ translate('cancel') }}',
+                confirmButtonText: approved ? '{{ translate('Accept_All') }}' : '{{ translate('Deny_All') }}',
+                reverseButtons: true
+            }).then((result) => {
+                if (!result.value) {
+                    return;
+                }
+
+                $button.prop('disabled', true);
+
+                const payload = {
+                    _token: '{{ csrf_token() }}'
+                };
+                decisions.forEach(function (item, index) {
+                    payload['decisions[' + index + '][field_key]'] = item.field_key;
+                    payload['decisions[' + index + '][approved]'] = item.approved;
+                });
+
+                $.ajax({
+                    url: reviewAllUrl,
+                    method: 'POST',
+                    dataType: 'json',
+                    data: payload,
+                    success: function (data) {
+                        toastr.success(data.message, {
+                            CloseButton: true,
+                            ProgressBar: true
+                        });
+                        setTimeout(function () {
+                            location.reload();
+                        }, 800);
+                    },
+                    error: function (xhr) {
+                        $button.prop('disabled', false);
+                        const message = xhr.responseJSON?.message || '{{ translate('failed_to_update') }}';
+                        toastr.error(message, {
+                            CloseButton: true,
+                            ProgressBar: true
+                        });
+                    }
+                });
+            });
+        }
+
+        $('#profile_change_accept_all').on('click', function () {
+            submitBulkReview(true, $(this));
+        });
+
+        $('#profile_change_deny_all').on('click', function () {
+            submitBulkReview(false, $(this));
+        });
 
         function submitFieldReview(fieldKey, approved, fieldLabel, $button) {
             if (!fieldKey || $button.prop('disabled')) {
@@ -200,12 +291,6 @@
         $(document).on('click', '.change-review-deny', function (event) {
             event.preventDefault();
             confirmFieldReview($(this), false);
-        });
-
-        $('.profile_change_deny').on('click', function () {
-            let id = $(this).data('id');
-            let route = '{{ route('admin.provider.profile_change_update', ['id' => ':id', 'status' => 'deny']) }}'.replace(':id', id);
-            route_alert_reload(route, '{{ translate('want_to_deny') }}', true);
         });
     </script>
 @endpush

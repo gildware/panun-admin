@@ -1087,6 +1087,8 @@
   'Requested_At' => 'Requested at',
   'Decision' => 'Decision',
   'Deny_All' => 'Deny all',
+  'Accept_All' => 'Accept all',
+  'Accept_all_changes_confirm' => 'All pending changes will be approved and the provider will be notified.',
   'Submit_Review' => 'Submit review',
   'Denied_items' => 'Denied items',
   'Review_each_service_change_help' => 'Choose Accept or Deny for each service change, then click Submit review.',

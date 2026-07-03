@@ -3330,42 +3330,30 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400), 400);
         }
 
-        $approvedKeys = collect($request->input('decisions', []))
-            ->filter(function (array $decision) {
-                $approved = $decision['approved'] ?? false;
+        foreach ($request->input('decisions', []) as $decision) {
+            $fieldKey = ! empty($decision['field_key'])
+                ? (string) $decision['field_key']
+                : (string) ($decision['sub_category_id'] ?? '');
+            $approved = in_array($decision['approved'] ?? false, [true, 1, '1', 'true', 'on', 'yes'], true);
 
-                return in_array($approved, [true, 1, '1', 'true', 'on', 'yes'], true);
-            })
-            ->map(function (array $decision) {
-                if (! empty($decision['field_key'])) {
-                    return (string) $decision['field_key'];
-                }
-
-                return (string) $decision['sub_category_id'];
-            })
-            ->values()
-            ->all();
-
-        $reviewSummary = $service->reviewFieldChanges($changeRequest, $approvedKeys);
-
-        $changeRequest->reviewed_by = auth()->id();
-        $changeRequest->reviewed_at = now();
-
-        if ($reviewSummary['approved_count'] === 0) {
-            $changeRequest->status = ProviderChangeRequest::STATUS_DENIED;
-        } else {
-            $changeRequest->status = ProviderChangeRequest::STATUS_APPROVED;
-            if ($reviewSummary['denied_count'] > 0) {
-                $changeRequest->admin_note = translate('Denied_items').': '.implode(', ', $reviewSummary['denied_names']);
+            if ($fieldKey === '') {
+                return response()->json(response_formatter(DEFAULT_400), 400);
             }
+
+            try {
+                $service->reviewSingleField($changeRequest, $fieldKey, $approved, auth()->id());
+            } catch (\InvalidArgumentException) {
+                return response()->json(response_formatter(DEFAULT_400), 400);
+            }
+
+            $changeRequest->refresh();
         }
 
-        $changeRequest->save();
-
+        $changeRequest->loadMissing('provider.owner');
         $messageKey = $changeRequest->status === ProviderChangeRequest::STATUS_APPROVED
             ? 'profile_change_approve'
             : 'profile_change_deny';
-        send_profile_change_provider_notification($changeRequest->loadMissing('provider.owner'), $messageKey);
+        send_profile_change_provider_notification($changeRequest, $messageKey);
 
         return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
     }
