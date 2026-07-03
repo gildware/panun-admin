@@ -32,19 +32,21 @@ class UserFcmDeviceHelpersTest extends TestCase
         $this->assertTrue(is_valid_fcm_token('real-fcm-token'));
     }
 
-    public function test_register_user_fcm_device_keys_rows_by_token_not_device_id(): void
+    public function test_register_user_fcm_device_keys_rows_by_device_id(): void
     {
         if (! class_exists(\Modules\UserManagement\Entities\UserFcmDevice::class)) {
             $this->markTestSkipped('UserFcmDevice model is not available in this test harness.');
         }
 
+        $source = (string) file_get_contents(dirname(__DIR__, 2).'/app/Lib/UserFcmDeviceHelpers.php');
+
         $this->assertStringContainsString(
-            "'fcm_token' => \$fcmToken",
-            (string) file_get_contents(dirname(__DIR__, 2).'/app/Lib/UserFcmDeviceHelpers.php')
+            "'device_id' => \$deviceId",
+            $source
         );
         $this->assertStringContainsString(
             'sync_user_legacy_fcm_token($userId)',
-            (string) file_get_contents(dirname(__DIR__, 2).'/app/Lib/UserFcmDeviceHelpers.php')
+            $source
         );
     }
 

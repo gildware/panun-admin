@@ -43,8 +43,16 @@ if (! function_exists('register_user_fcm_device')) {
             ? $deviceId
             : 'legacy:'.substr(hash('sha256', $fcmToken), 0, 32);
 
-        // An FCM token belongs to one app install. Key by token (not device_id) so
-        // multiple physical devices that share a synced device_id still register separately.
+        if (preg_match('/^(customer|provider):(android|ios):(.+)$/', $deviceId, $matches)) {
+            $legacyDeviceId = $matches[2].':'.$matches[3];
+            UserFcmDevice::query()
+                ->where('user_id', $userId)
+                ->where('device_id', $legacyDeviceId)
+                ->delete();
+        }
+
+        // An FCM token belongs to one app install. Key by (user_id, device_id) to
+        // match the DB unique index and rotate tokens cleanly on shared hardware ids.
         UserFcmDevice::query()
             ->where('fcm_token', $fcmToken)
             ->where('user_id', '!=', $userId)
@@ -53,10 +61,10 @@ if (! function_exists('register_user_fcm_device')) {
         UserFcmDevice::query()->updateOrCreate(
             [
                 'user_id' => $userId,
-                'fcm_token' => $fcmToken,
+                'device_id' => $deviceId,
             ],
             [
-                'device_id' => $deviceId,
+                'fcm_token' => $fcmToken,
                 'platform' => $platform,
                 'device_model' => $deviceModel,
                 'device_manufacturer' => $deviceManufacturer,
@@ -64,13 +72,6 @@ if (! function_exists('register_user_fcm_device')) {
                 'last_seen_at' => now(),
             ]
         );
-
-        // Token rotation creates a new row; drop stale tokens for this install.
-        UserFcmDevice::query()
-            ->where('user_id', $userId)
-            ->where('device_id', $deviceId)
-            ->where('fcm_token', '!=', $fcmToken)
-            ->delete();
 
         sync_user_legacy_fcm_token($userId);
     }

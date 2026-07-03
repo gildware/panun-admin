@@ -106,7 +106,7 @@ class BookingReportController extends Controller
 
         //** Table Data **
         $filteredBookings = self::filterQuery($this->booking, $request)
-            ->with(['customer:id,first_name,last_name', 'provider.owner', 'service_address'])
+            ->with(['customer:id,first_name,last_name', 'service_address'])
             ->withCount('compensations')
             ->when($request->has('booking_status') && $request['booking_status'] != 'all', function ($query) use ($request) {
                 $query->where('booking_status', $request['booking_status']);
@@ -138,29 +138,23 @@ class BookingReportController extends Controller
             }
 
             booking_append_provider_api_ui_fields($booking);
-            $booking->loadMissing(['extra_services', 'booking_partial_payments']);
-            $booking->setAttribute(
-                'list_display_total',
-                round((float) get_customer_booking_list_display_total($booking), 2)
-            );
 
             return $booking;
         });
 
         //** Card Data **
         $bookingStatusKeys = array_column(BOOKING_STATUSES, 'key');
-        $bookingsForAmount = self::filterQuery($this->booking, $request)
-            ->with(['customer', 'provider.owner', 'extra_services', 'booking_partial_payments'])
+        $statusCounts = self::filterQuery($this->booking, $request)
             ->whereIn('booking_status', $bookingStatusKeys)
-            ->get();
+            ->select('booking_status', DB::raw('count(*) as booking_count'))
+            ->groupBy('booking_status')
+            ->pluck('booking_count', 'booking_status');
 
-        $bookingsCount = [];
-        $bookingsCount['total_bookings'] = $bookingsForAmount->count();
+        $bookingsCount = ['total_bookings' => 0];
         foreach ($bookingStatusKeys as $statusKey) {
-            $bookingsCount[$statusKey] = $bookingsForAmount->where('booking_status', $statusKey)->count();
+            $bookingsCount[$statusKey] = (int) ($statusCounts[$statusKey] ?? 0);
+            $bookingsCount['total_bookings'] += $bookingsCount[$statusKey];
         }
-
-        $bookingAmount = aggregate_provider_booking_report_amount_cards($bookingsForAmount);
 
         //** Chart Data **
         $chartData = $this->buildBookingReportChartData($request, $bookingStatusKeys, $request['date_range'] ?? null);
@@ -173,7 +167,6 @@ class BookingReportController extends Controller
 
             'filtered_bookings' => $filteredBookings,
             'bookings_count' => $bookingsCount,
-            'booking_amount' => $bookingAmount,
             'chart_data' => $chartData,
         ]), 200);
     }
