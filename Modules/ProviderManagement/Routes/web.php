@@ -93,6 +93,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('profile-change-request', [ProviderController::class, 'profileChangeRequest'])->name('profile_change_request');
         Route::get('profile-change-details/{id}', [ProviderController::class, 'profileChangeDetails'])->name('profile_change_details');
         Route::get('profile-change/update/{id}/{status}', [ProviderController::class, 'updateProfileChangeApproval'])->name('profile_change_update');
+        Route::post('profile-change/review/{id}', [ProviderController::class, 'reviewProfileChange'])->name('profile_change_review');
 
         Route::group(['prefix' => 'collect-cash', 'as' => 'collect_cash.'], function () {
             Route::get('/{id}', [CollectCashController::class, 'index'])->name('list');

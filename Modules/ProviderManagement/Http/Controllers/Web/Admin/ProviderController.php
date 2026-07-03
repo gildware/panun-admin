@@ -3289,6 +3289,70 @@ class ProviderController extends Controller
         return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
     }
 
+    public function reviewProfileChange(Request $request, string $id): JsonResponse
+    {
+        $this->authorize('onboarding_request_manage_status');
+
+        $changeRequest = ProviderChangeRequest::with('provider')->findOrFail($id);
+        if ($changeRequest->status !== ProviderChangeRequest::STATUS_PENDING) {
+            return response()->json(response_formatter(DEFAULT_400), 400);
+        }
+
+        if ($changeRequest->change_type !== 'services') {
+            return response()->json(response_formatter(DEFAULT_400), 400);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'decisions' => 'required|array|min:1',
+            'decisions.*.sub_category_id' => 'required|uuid',
+            'decisions.*.approved' => 'required|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $service = app(ProviderProfileChangeRequestService::class);
+        $expectedIds = collect($service->pendingServiceChangesForRequest($changeRequest))
+            ->pluck('sub_category_id')
+            ->sort()
+            ->values();
+        $decisionIds = collect($request->input('decisions', []))
+            ->pluck('sub_category_id')
+            ->map(fn ($value) => (string) $value)
+            ->sort()
+            ->values();
+
+        if ($expectedIds->isEmpty() || $expectedIds->toJson() !== $decisionIds->toJson()) {
+            return response()->json(response_formatter(DEFAULT_400), 400);
+        }
+
+        $approvedIds = collect($request->input('decisions', []))
+            ->filter(fn (array $decision) => (bool) ($decision['approved'] ?? false))
+            ->pluck('sub_category_id')
+            ->map(fn ($value) => (string) $value)
+            ->values()
+            ->all();
+
+        $reviewSummary = $service->reviewServicesChange($changeRequest, $approvedIds);
+
+        $changeRequest->reviewed_by = auth()->id();
+        $changeRequest->reviewed_at = now();
+
+        if ($reviewSummary['approved_count'] === 0) {
+            $changeRequest->status = ProviderChangeRequest::STATUS_DENIED;
+        } else {
+            $changeRequest->status = ProviderChangeRequest::STATUS_APPROVED;
+            if ($reviewSummary['denied_count'] > 0) {
+                $changeRequest->admin_note = translate('Denied_items').': '.implode(', ', $reviewSummary['denied_names']);
+            }
+        }
+
+        $changeRequest->save();
+
+        return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
+    }
+
     public function updateApproval($id, $status, Request $request): JsonResponse
     {
         $this->authorize('onboarding_request_manage_status');

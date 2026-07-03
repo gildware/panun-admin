@@ -184,6 +184,8 @@ class ProviderProfileChangeDiffService
                 'field' => $categories->get($id)?->name ?? (string) $id,
                 'from' => $currentlySubscribed ? translate('Subscribed') : translate('Unsubscribed'),
                 'to' => $action === 'subscribe' ? translate('Subscribed') : translate('Unsubscribed'),
+                'sub_category_id' => $id,
+                'action' => $action,
             ];
         }
 

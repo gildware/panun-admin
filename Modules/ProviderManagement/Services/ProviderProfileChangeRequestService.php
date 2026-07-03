@@ -346,6 +346,58 @@ class ProviderProfileChangeRequestService
         };
     }
 
+    /**
+     * Apply only approved service subscription rows from a pending request.
+     *
+     * @param  array<int, string>  $approvedSubCategoryIds
+     * @return array{approved_count: int, denied_count: int, denied_names: array<int, string>}
+     */
+    public function reviewServicesChange(ProviderChangeRequest $changeRequest, array $approvedSubCategoryIds): array
+    {
+        $provider = $changeRequest->provider()->firstOrFail();
+        $allChanges = $this->subscriptionChangesFromPayload($provider->id, $changeRequest->payload ?? []);
+        $approvedSet = array_flip(array_map('strval', $approvedSubCategoryIds));
+
+        $toApply = array_values(array_filter(
+            $allChanges,
+            fn (array $change) => isset($approvedSet[$change['sub_category_id']])
+        ));
+        $denied = array_values(array_filter(
+            $allChanges,
+            fn (array $change) => ! isset($approvedSet[$change['sub_category_id']])
+        ));
+
+        if ($toApply !== []) {
+            $this->applyServices($provider, $this->buildServicesPayload($toApply));
+        }
+
+        $categoryNames = Category::whereIn('id', array_column($denied, 'sub_category_id'))
+            ->pluck('name', 'id');
+
+        return [
+            'approved_count' => count($toApply),
+            'denied_count' => count($denied),
+            'denied_names' => array_map(
+                fn (array $change) => $categoryNames->get($change['sub_category_id']) ?? $change['sub_category_id'],
+                $denied
+            ),
+        ];
+    }
+
+    /**
+     * @return array<int, array{sub_category_id: string, action: 'subscribe'|'unsubscribe'}>
+     */
+    public function pendingServiceChangesForRequest(ProviderChangeRequest $changeRequest): array
+    {
+        if ($changeRequest->change_type !== 'services') {
+            return [];
+        }
+
+        $providerId = (string) $changeRequest->provider_id;
+
+        return $this->subscriptionChangesFromPayload($providerId, $changeRequest->payload ?? []);
+    }
+
     public function applyBranding(Provider $provider, array $payload): void
     {
         if (!empty($payload['logo'])) {
