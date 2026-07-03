@@ -78,6 +78,7 @@ function fillCardWithFile(card, file) {
   const textbox = card.querySelector(".upload-file-new-textbox");
   const overlay = card.querySelector(".overlay");
   const removeBtn = card.querySelector(".remove_btn");
+  const isIconUpload = card.classList.contains("mai-icon-upload");
 
   const reader = new FileReader();
   reader.onload = function (e) {
@@ -86,7 +87,9 @@ function fillCardWithFile(card, file) {
     if (textbox) textbox.style.display = "none";
     if (overlay) overlay.classList.add("show");
     if (removeBtn) removeBtn.style.opacity = 1;
-    card.classList.add("input-disabled");
+    if (!isIconUpload) {
+      card.classList.add("input-disabled");
+    }
   };
   reader.readAsDataURL(file);
 }
@@ -294,6 +297,7 @@ function checkPreExistingImages(root) {
     const imgElement = card.querySelector(".upload-file-new-img");
     const removeBtn = card.querySelector(".remove_btn");
     const overlay = card.querySelector(".overlay");
+    const isIconUpload = card.classList.contains("mai-icon-upload");
 
     const src = imgElement?.getAttribute("src");
 
@@ -303,7 +307,9 @@ function checkPreExistingImages(root) {
       if (imgElement) imgElement.style.display = "block";
       if (overlay) overlay.classList.add("show");
       if (removeBtn) removeBtn.style.opacity = 1;
-      card.classList.add("input-disabled");
+      if (!isIconUpload) {
+        card.classList.add("input-disabled");
+      }
     }
   });
 }

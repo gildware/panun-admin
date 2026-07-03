@@ -38,7 +38,7 @@
                         @if($hasCustom)
                             <span class="badge bg-success position-absolute top-0 end-0 m-2 fz-10">{{ translate('Custom_upload') }}</span>
                         @endif
-                        <div class="upload-file-new mai-icon-upload{{ $hasCustom ? ' input-disabled' : '' }}"
+                        <div class="upload-file-new mai-icon-upload"
                              data-persisted-image="{{ $hasCustom ? 'true' : 'false' }}">
                             <input type="file"
                                    name="{{ $field }}"

@@ -33,6 +33,20 @@
         .mai-icon-upload .upload-file-new__wrapper .upload-file-new-img {
             object-fit: contain;
             background: transparent;
+            pointer-events: none;
+        }
+        .mai-icon-upload .overlay {
+            pointer-events: none;
+        }
+        .mai-icon-upload .overlay .icon-btn {
+            pointer-events: auto;
+            position: relative;
+            z-index: 12;
+        }
+        .mai-icon-upload .upload-file-new__input {
+            z-index: 11;
+            pointer-events: auto !important;
+            cursor: pointer;
         }
         .mai-icon-field .badge { font-weight: 500; }
         .mai-icons-tab-panel { display: none; }
@@ -170,6 +184,31 @@
             if (typeof window.bootCommonImageUpload === 'function') {
                 window.bootCommonImageUpload(pageRoot);
             }
+
+            pageRoot.querySelectorAll('.mai-icon-upload').forEach(function (card) {
+                card.addEventListener('click', function (event) {
+                    if (event.target.closest('.view_btn')) {
+                        return;
+                    }
+
+                    const input = card.querySelector('.single_file_input');
+                    if (!input || event.target === input) {
+                        return;
+                    }
+
+                    if (event.target.closest('.edit_btn')) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        input.click();
+                        return;
+                    }
+
+                    if (!event.target.closest('button')) {
+                        event.preventDefault();
+                        input.click();
+                    }
+                });
+            });
         })();
     </script>
 @endpush
