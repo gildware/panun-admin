@@ -160,164 +160,10 @@ class BookingReportController extends Controller
             $bookingsCount[$statusKey] = $bookingsForAmount->where('booking_status', $statusKey)->count();
         }
 
-        $bookingAmount = [
-            'total_booking_amount' => 0,
-            'total_paid_booking_amount' => 0,
-            'total_unpaid_booking_amount' => 0,
-        ];
-        foreach ($bookingsForAmount as $booking) {
-            $displayTotal = round((float) get_customer_booking_list_display_total($booking), 2);
-            $paidAmount = round((float) get_booking_total_paid($booking), 2);
-            $dueAmount = round((float) get_booking_customer_display_due_balance($booking), 2);
-            $bookingAmount['total_booking_amount'] += $displayTotal;
-            $bookingAmount['total_paid_booking_amount'] += $paidAmount;
-            $bookingAmount['total_unpaid_booking_amount'] += $dueAmount;
-        }
-        $bookingAmount['total_booking_amount'] = round($bookingAmount['total_booking_amount'], 2);
-        $bookingAmount['total_paid_booking_amount'] = round($bookingAmount['total_paid_booking_amount'], 2);
-        $bookingAmount['total_unpaid_booking_amount'] = round($bookingAmount['total_unpaid_booking_amount'], 2);
+        $bookingAmount = aggregate_provider_booking_report_amount_cards($bookingsForAmount);
 
         //** Chart Data **
-
-        //deterministic
-        $dateRange = $request['date_range'];
-        if(is_null($dateRange) || $dateRange == 'all_time') {
-            $deterministic = 'month';
-        } elseif ($dateRange == 'this_week' || $dateRange == 'last_week') {
-            $deterministic = 'week';
-        } elseif ($dateRange == 'this_month' || $dateRange == 'last_month' || $dateRange == 'last_15_days') {
-            $deterministic = 'day';
-        } elseif ($dateRange == 'this_year' || $dateRange == 'last_year' || $dateRange == 'last_6_month' || $dateRange == 'this_year_1st_quarter' || $dateRange == 'this_year_2nd_quarter' || $dateRange == 'this_year_3rd_quarter' || $dateRange == 'this_year_4th_quarter') {
-            $deterministic = 'month';
-        } elseif($dateRange == 'custom_date') {
-            $from = Carbon::parse($request['from'])->startOfDay();
-            $to = Carbon::parse($request['to'])->endOfDay();
-            $diff = Carbon::parse($from)->diffInDays($to);
-
-            if($diff <= 7) {
-                $deterministic = 'week';
-            } elseif ($diff <= 30) {
-                $deterministic = 'day';
-            } elseif ($diff <= 365) {
-                $deterministic = 'month';
-            } else {
-                $deterministic = 'year';
-            }
-        }
-        $groupByDeterministic = $deterministic=='week'?'day':$deterministic;
-
-        $bookings = self::filterQuery($this->booking, $request)
-            ->whereIn('booking_status', $bookingStatusKeys)
-            ->when(isset($groupByDeterministic), function ($query) use ($groupByDeterministic) {
-                $query->select(
-                    DB::raw('count(*) as booking_count'),
-                    DB::raw($groupByDeterministic.'(created_at) '.$groupByDeterministic)
-                );
-            })
-            ->groupby($groupByDeterministic)
-            ->get()->toArray();
-
-        $chartData = ['booking_amount'=>array(), 'booking_count'=>array(), 'tax_amount'=>array(), 'admin_commission'=>array(), 'timeline'=>array()];
-        //data filter for deterministic
-        if($deterministic == 'month') {
-            $months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-            foreach ($months as $month) {
-                $found=0;
-                $chartData['timeline'][] = $month;
-                foreach ($bookings as $item) {
-                    if ($item['month'] == $month) {
-                        $count = (int) ($item['booking_count'] ?? 0);
-                        $chartData['booking_amount'][] = $count;
-                        $chartData['booking_count'][] = $count;
-                        $chartData['tax_amount'][] = 0;
-                        $chartData['admin_commission'][] = 0;
-                        $found=1;
-                        break;
-                    }
-                }
-                if(!$found){
-                    $chartData['booking_amount'][] = 0;
-                    $chartData['booking_count'][] = 0;
-                    $chartData['tax_amount'][] = 0;
-                    $chartData['admin_commission'][] = 0;
-                }
-            }
-
-        }
-        elseif ($deterministic == 'year') {
-            foreach ($bookings as $item) {
-                $count = (int) ($item['booking_count'] ?? 0);
-                $chartData['booking_amount'][] = $count;
-                $chartData['booking_count'][] = $count;
-                $chartData['tax_amount'][] = 0;
-                $chartData['timeline'][] = $item[$deterministic];
-                $chartData['admin_commission'][] = 0;
-            }
-        }
-        elseif ($deterministic == 'day') {
-            if ($dateRange == 'this_month') {
-                $to = Carbon::now()->lastOfMonth();
-            } elseif ($dateRange == 'last_month') {
-                $to = Carbon::now()->subMonth()->endOfMonth();
-            } elseif ($dateRange == 'last_15_days') {
-                $to = Carbon::now();
-            }
-
-            $number = date('d',strtotime($to));
-
-            for ($i = 1; $i <= $number; $i++) {
-                $found=0;
-                $chartData['timeline'][] = $i;
-                foreach ($bookings as $item) {
-                    if ($item['day'] == $i) {
-                        $count = (int) ($item['booking_count'] ?? 0);
-                        $chartData['booking_amount'][] = $count;
-                        $chartData['booking_count'][] = $count;
-                        $chartData['tax_amount'][] = 0;
-                        $chartData['admin_commission'][] = 0;
-                        $found=1;
-                        break;
-                    }
-                }
-                if(!$found){
-                    $chartData['booking_amount'][] = 0;
-                    $chartData['booking_count'][] = 0;
-                    $chartData['tax_amount'][] = 0;
-                    $chartData['admin_commission'][] = 0;
-                }
-            }
-        }
-        elseif ($deterministic == 'week') {
-            if ($dateRange == 'this_week') {
-                $from = Carbon::now()->startOfWeek();
-                $to = Carbon::now()->endOfWeek();
-            } elseif ($dateRange == 'last_week') {
-                $from = Carbon::now()->subWeek()->startOfWeek();
-                $to = Carbon::now()->subWeek()->endOfWeek();
-            }
-
-            for ($i = (int)$from->format('d'); $i <= (int)$to->format('d'); $i++) {
-                $found=0;
-                $chartData['timeline'][] = $i;
-                foreach ($bookings as $item) {
-                    if ($item['day'] == $i) {
-                        $count = (int) ($item['booking_count'] ?? 0);
-                        $chartData['booking_amount'][] = $count;
-                        $chartData['booking_count'][] = $count;
-                        $chartData['tax_amount'][] = 0;
-                        $chartData['admin_commission'][] = 0;
-                        $found=1;
-                        break;
-                    }
-                }
-                if(!$found) {
-                    $chartData['booking_amount'][] = 0;
-                    $chartData['booking_count'][] = 0;
-                    $chartData['tax_amount'][] = 0;
-                    $chartData['admin_commission'][] = 0;
-                }
-            }
-        }
+        $chartData = $this->buildBookingReportChartData($request, $bookingStatusKeys, $request['date_range'] ?? null);
 
 
         return response()->json(response_formatter(DEFAULT_200, [
@@ -386,6 +232,129 @@ class BookingReportController extends Controller
                 'VAT / Tax' => with_currency_symbol($booking['total_tax_amount']),
             ];
         });
+    }
+
+    /**
+     * Booking count chart: timeline slots plus per-status stacked counts.
+     *
+     * @param  list<string>  $bookingStatusKeys
+     * @return array<string, mixed>
+     */
+    private function buildBookingReportChartData(Request $request, array $bookingStatusKeys, ?string $dateRange): array
+    {
+        if (is_null($dateRange) || $dateRange == 'all_time') {
+            $deterministic = 'month';
+        } elseif ($dateRange == 'this_week' || $dateRange == 'last_week') {
+            $deterministic = 'week';
+        } elseif ($dateRange == 'this_month' || $dateRange == 'last_month' || $dateRange == 'last_15_days') {
+            $deterministic = 'day';
+        } elseif ($dateRange == 'this_year' || $dateRange == 'last_year' || $dateRange == 'last_6_month' || $dateRange == 'this_year_1st_quarter' || $dateRange == 'this_year_2nd_quarter' || $dateRange == 'this_year_3rd_quarter' || $dateRange == 'this_year_4th_quarter') {
+            $deterministic = 'month';
+        } elseif ($dateRange == 'custom_date') {
+            $from = Carbon::parse($request['from'])->startOfDay();
+            $to = Carbon::parse($request['to'])->endOfDay();
+            $diff = Carbon::parse($from)->diffInDays($to);
+
+            if ($diff <= 7) {
+                $deterministic = 'week';
+            } elseif ($diff <= 30) {
+                $deterministic = 'day';
+            } elseif ($diff <= 365) {
+                $deterministic = 'month';
+            } else {
+                $deterministic = 'year';
+            }
+        } else {
+            $deterministic = 'month';
+        }
+
+        $groupByDeterministic = $deterministic == 'week' ? 'day' : $deterministic;
+
+        $statusRows = self::filterQuery($this->booking, $request)
+            ->whereIn('booking_status', $bookingStatusKeys)
+            ->select(
+                DB::raw('count(*) as booking_count'),
+                'booking_status',
+                DB::raw($groupByDeterministic.'(created_at) as period_value')
+            )
+            ->groupBy('booking_status', DB::raw($groupByDeterministic.'(created_at)'))
+            ->get();
+
+        $countsByPeriodAndStatus = [];
+        foreach ($statusRows as $row) {
+            $period = (int) $row->period_value;
+            $status = (string) $row->booking_status;
+            $countsByPeriodAndStatus[$period][$status] = (int) $row->booking_count;
+        }
+
+        $chartStatuses = ['pending', 'accepted', 'pending_cancellation', 'ongoing', 'on_hold', 'completed', 'canceled', 'refunded'];
+        $timeline = [];
+
+        if ($deterministic == 'month') {
+            $timeline = range(1, 12);
+        } elseif ($deterministic == 'year') {
+            $timeline = array_values(array_unique(array_map(
+                fn ($row) => (int) $row->period_value,
+                $statusRows->all()
+            )));
+            sort($timeline);
+            if ($timeline === []) {
+                $timeline = [(int) Carbon::now()->format('Y')];
+            }
+        } elseif ($deterministic == 'day') {
+            if ($dateRange == 'this_month') {
+                $to = Carbon::now()->lastOfMonth();
+            } elseif ($dateRange == 'last_month') {
+                $to = Carbon::now()->subMonth()->endOfMonth();
+            } elseif ($dateRange == 'last_15_days') {
+                $to = Carbon::now();
+            } else {
+                $to = Carbon::now();
+            }
+            $timeline = range(1, (int) date('d', strtotime($to)));
+        } elseif ($deterministic == 'week') {
+            if ($dateRange == 'this_week') {
+                $from = Carbon::now()->startOfWeek();
+                $to = Carbon::now()->endOfWeek();
+            } elseif ($dateRange == 'last_week') {
+                $from = Carbon::now()->subWeek()->startOfWeek();
+                $to = Carbon::now()->subWeek()->endOfWeek();
+            } else {
+                $from = Carbon::now()->startOfWeek();
+                $to = Carbon::now()->endOfWeek();
+            }
+            $timeline = range((int) $from->format('d'), (int) $to->format('d'));
+        }
+
+        $statusBreakdown = [];
+        foreach ($chartStatuses as $statusKey) {
+            $statusBreakdown[$statusKey] = [];
+        }
+
+        $bookingCount = [];
+        $bookingAmount = [];
+
+        foreach ($timeline as $period) {
+            $periodCounts = $countsByPeriodAndStatus[$period] ?? [];
+            $slotTotal = 0;
+            foreach ($chartStatuses as $statusKey) {
+                $count = (int) ($periodCounts[$statusKey] ?? 0);
+                $statusBreakdown[$statusKey][] = $count;
+                $slotTotal += $count;
+            }
+            $bookingCount[] = $slotTotal;
+            $bookingAmount[] = $slotTotal;
+        }
+
+        return [
+            'timeline' => $timeline,
+            'booking_count' => $bookingCount,
+            'booking_amount' => $bookingAmount,
+            'status_breakdown' => $statusBreakdown,
+            'chart_status_order' => $chartStatuses,
+            'tax_amount' => array_fill(0, count($timeline), 0),
+            'admin_commission' => array_fill(0, count($timeline), 0),
+        ];
     }
 
     /**

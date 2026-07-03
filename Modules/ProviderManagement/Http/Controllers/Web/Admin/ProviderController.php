@@ -3286,6 +3286,9 @@ class ProviderController extends Controller
         $changeRequest->reviewed_at = now();
         $changeRequest->save();
 
+        $messageKey = $status === 'approve' ? 'profile_change_approve' : 'profile_change_deny';
+        send_profile_change_provider_notification($changeRequest->loadMissing('provider.owner'), $messageKey);
+
         return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
     }
 
@@ -3354,6 +3357,11 @@ class ProviderController extends Controller
 
         $changeRequest->save();
 
+        $messageKey = $changeRequest->status === ProviderChangeRequest::STATUS_APPROVED
+            ? 'profile_change_approve'
+            : 'profile_change_deny';
+        send_profile_change_provider_notification($changeRequest->loadMissing('provider.owner'), $messageKey);
+
         return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
     }
 
@@ -3378,6 +3386,8 @@ class ProviderController extends Controller
                 }
             }
 
+            send_provider_onboarding_status_notification($provider, 'onboarding_approve');
+
         } elseif ($status == 'deny') {
             $this->provider->where('id', $id)->update(['is_active' => 0, 'is_approved' => 0]);
             $provider = $this->provider->with('owner')->where('id', $id)->first();
@@ -3391,6 +3401,8 @@ class ProviderController extends Controller
                     info($exception);
                 }
             }
+
+            send_provider_onboarding_status_notification($provider, 'onboarding_deny');
 
         } else {
             return response()->json(response_formatter(DEFAULT_400), 200);

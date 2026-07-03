@@ -58,7 +58,7 @@ class ServiceRequestController extends Controller
         $serviceRequest->admin_feedback = $request['admin_feedback'];
         $serviceRequest->save();
 
-        if ($serviceRequest->user && $serviceRequest->user->provider) {
+        if ($serviceRequest->user) {
             $messageKey = $serviceRequest->status === 'approved'
                 ? 'service_request_approve'
                 : 'service_request_deny';

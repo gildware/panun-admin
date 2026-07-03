@@ -19,6 +19,7 @@ class UserNotification extends Model
     public const TYPE_ADVERTISEMENT = 'advertisement';
     public const TYPE_SERVICE_REQUEST = 'service_request';
     public const TYPE_SHOWCASE = 'showcase';
+    public const TYPE_PROFILE_CHANGE_REQUEST = 'profile_change_request';
 
     protected $fillable = [
         'user_id',
@@ -56,6 +57,7 @@ class UserNotification extends Model
             self::TYPE_ADVERTISEMENT => 'campaign',
             self::TYPE_SERVICE_REQUEST => 'design_services',
             self::TYPE_SHOWCASE => 'photo_library',
+            self::TYPE_PROFILE_CHANGE_REQUEST => 'manage_accounts',
             default => 'notifications',
         };
     }
@@ -71,6 +73,7 @@ class UserNotification extends Model
             self::TYPE_ADVERTISEMENT => translate('Advertisement'),
             self::TYPE_SERVICE_REQUEST => translate('service_requests'),
             self::TYPE_SHOWCASE => translate('Work_Showcase_Approvals'),
+            self::TYPE_PROFILE_CHANGE_REQUEST => translate('Profile_Update_Requests'),
             default => translate('Notification'),
         };
     }
@@ -89,6 +92,7 @@ class UserNotification extends Model
             self::TYPE_WITHDRAW_REQUEST => translate('View_Requests'),
             self::TYPE_SERVICE_REQUEST => translate('View_Requests'),
             self::TYPE_SHOWCASE => translate('View_Details'),
+            self::TYPE_PROFILE_CHANGE_REQUEST => translate('View_Requests'),
             default => translate('View_Details'),
         };
     }

@@ -74,12 +74,18 @@ class ProviderProfileChangeRequestService
             ->where('status', ProviderChangeRequest::STATUS_PENDING)
             ->update(['status' => ProviderChangeRequest::STATUS_DENIED]);
 
-        return ProviderChangeRequest::create([
+        $changeRequest = ProviderChangeRequest::create([
             'provider_id' => $providerId,
             'change_type' => $changeType,
             'status' => ProviderChangeRequest::STATUS_PENDING,
             'payload' => $payload,
         ]);
+
+        if (function_exists('admin_inbox_notify_profile_change_request')) {
+            admin_inbox_notify_profile_change_request($changeRequest);
+        }
+
+        return $changeRequest;
     }
 
     /**
@@ -161,15 +167,25 @@ class ProviderProfileChangeRequestService
             $existing->touch();
             $existing->save();
 
+            if (function_exists('admin_inbox_notify_profile_change_request')) {
+                admin_inbox_notify_profile_change_request($existing);
+            }
+
             return $existing;
         }
 
-        return ProviderChangeRequest::create([
+        $changeRequest = ProviderChangeRequest::create([
             'provider_id' => $providerId,
             'change_type' => 'services',
             'status' => ProviderChangeRequest::STATUS_PENDING,
             'payload' => $this->buildServicesPayload($changes),
         ]);
+
+        if (function_exists('admin_inbox_notify_profile_change_request')) {
+            admin_inbox_notify_profile_change_request($changeRequest);
+        }
+
+        return $changeRequest;
     }
 
     /**

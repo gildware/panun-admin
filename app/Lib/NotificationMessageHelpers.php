@@ -28,6 +28,7 @@ if (! function_exists('notification_message_variables_for_key')) {
             'new_service_request_arrived', 'admin_booking_assigned', 'booking_assigned_to_provider' => array_merge($common, $bookingExtras),
             'service_request_approve', 'service_request_deny' => ['{{serviceName}}', '{{providerName}}'],
             'showcase_submitted', 'showcase_approve', 'showcase_deny' => ['{{showcaseTitle}}', '{{providerName}}'],
+            'onboarding_approve', 'onboarding_deny', 'profile_change_approve', 'profile_change_deny' => ['{{providerName}}', '{{changeType}}'],
             'widthdraw_request_approve', 'widthdraw_request_deny', 'admin_payable', 'settlement_received', 'provider_suspend', 'provider_suspension_remove' => ['{{amount}}', '{{providerName}}'],
             'advertisement_created_by_admin', 'advertisement_approved', 'advertisement_denied', 'advertisement_paused', 'advertisement_resumed', 'advertisement_paused_by_provider', 'advertisement_resumed_by_provider' => ['{{providerName}}'],
             default => $common,
@@ -54,6 +55,7 @@ if (! function_exists('notification_message_preview_samples')) {
             'otp' => '482910',
             'senderName' => 'Acme Services',
             'showcaseTitle' => 'Kitchen Renovation',
+            'changeType' => 'Profile update',
         ];
     }
 }
@@ -340,6 +342,22 @@ if (! function_exists('notification_default_message_templates')) {
                 'showcase_deny' => [
                     'title' => 'Showcase Not Approved',
                     'description' => 'Hi {{providerName}}, your work showcase "{{showcaseTitle}}" was not approved. You may edit and resubmit.',
+                ],
+                'onboarding_approve' => [
+                    'title' => 'Onboarding Approved',
+                    'description' => 'Hi {{providerName}}, your provider onboarding request has been approved. You can now sign in and start accepting jobs.',
+                ],
+                'onboarding_deny' => [
+                    'title' => 'Onboarding Not Approved',
+                    'description' => 'Hi {{providerName}}, your provider onboarding request was not approved. Contact support if you need more information.',
+                ],
+                'profile_change_approve' => [
+                    'title' => 'Profile Update Approved',
+                    'description' => 'Hi {{providerName}}, your {{changeType}} update request has been approved.',
+                ],
+                'profile_change_deny' => [
+                    'title' => 'Profile Update Not Approved',
+                    'description' => 'Hi {{providerName}}, your {{changeType}} update request was not approved.',
                 ],
             ],
         ];
@@ -1089,7 +1107,14 @@ if (! function_exists('notification_scenario_trigger_map')) {
             'admin_alert_provider_registration' => [
                 'module' => 'admin_alerts',
                 'checks' => [
-                    ['label' => 'Provider registration inbox', 'needles' => ['admin_inbox_notify_provider_request']],
+                    ['label' => 'Provider onboarding inbox (web)', 'needles' => ['admin_inbox_notify_provider_request', 'RegisterController.php']],
+                    ['label' => 'Provider onboarding inbox (API)', 'needles' => ['admin_inbox_notify_provider_request', 'Api/V1/RegisterController.php']],
+                ],
+            ],
+            'admin_alert_profile_change_request' => [
+                'module' => 'admin_alerts',
+                'checks' => [
+                    ['label' => 'Profile change admin inbox', 'needles' => ['admin_inbox_notify_profile_change_request']],
                 ],
             ],
             'admin_alert_withdraw_request' => [
@@ -1114,6 +1139,30 @@ if (! function_exists('notification_scenario_trigger_map')) {
                 'module' => 'admin_alerts',
                 'checks' => [
                     ['label' => 'Customer cancel inbox', 'needles' => ['admin_inbox_notify_booking_customer_canceled']],
+                ],
+            ],
+            'onboarding_approved' => [
+                'module' => 'provider_account',
+                'checks' => [
+                    ['label' => 'Onboarding approved push', 'needles' => ['send_provider_onboarding_status_notification', "'onboarding_approve'"]],
+                ],
+            ],
+            'onboarding_denied' => [
+                'module' => 'provider_account',
+                'checks' => [
+                    ['label' => 'Onboarding denied push', 'needles' => ['send_provider_onboarding_status_notification', "'onboarding_deny'"]],
+                ],
+            ],
+            'profile_change_approved' => [
+                'module' => 'provider_account',
+                'checks' => [
+                    ['label' => 'Profile change approved push', 'needles' => ['send_profile_change_provider_notification', "'profile_change_approve'"]],
+                ],
+            ],
+            'profile_change_denied' => [
+                'module' => 'provider_account',
+                'checks' => [
+                    ['label' => 'Profile change denied push', 'needles' => ['send_profile_change_provider_notification', "'profile_change_deny'"]],
                 ],
             ],
         ];
@@ -1499,6 +1548,46 @@ if (! function_exists('notification_trigger_scenarios_for_key')) {
                 ],
                 'recipient' => 'Provider',
                 'module' => 'Provider Work Showcase',
+                'wired' => true,
+            ] : null,
+
+            'onboarding_approve' => ! $isCustomer ? [
+                'summary' => 'Sent when admin approves a provider onboarding request.',
+                'scenarios' => [
+                    'Admin approves a pending onboarding request from the admin panel.',
+                ],
+                'recipient' => 'Provider',
+                'module' => 'Provider Account',
+                'wired' => true,
+            ] : null,
+
+            'onboarding_deny' => ! $isCustomer ? [
+                'summary' => 'Sent when admin denies a provider onboarding request.',
+                'scenarios' => [
+                    'Admin denies a pending onboarding request from the admin panel.',
+                ],
+                'recipient' => 'Provider',
+                'module' => 'Provider Account',
+                'wired' => true,
+            ] : null,
+
+            'profile_change_approve' => ! $isCustomer ? [
+                'summary' => 'Sent when admin approves a provider profile or subscription update.',
+                'scenarios' => [
+                    'Admin approves profile, branding, subscription, or business settings changes.',
+                ],
+                'recipient' => 'Provider',
+                'module' => 'Provider Account',
+                'wired' => true,
+            ] : null,
+
+            'profile_change_deny' => ! $isCustomer ? [
+                'summary' => 'Sent when admin denies a provider profile or subscription update.',
+                'scenarios' => [
+                    'Admin denies profile, branding, subscription, or business settings changes.',
+                ],
+                'recipient' => 'Provider',
+                'module' => 'Provider Account',
                 'wired' => true,
             ] : null,
 
@@ -2510,6 +2599,46 @@ if (! function_exists('notification_scenario_registry')) {
                     ['audience' => 'provider', 'channel' => 'push', 'key' => 'provider_suspension_remove', 'settings_type' => 'provider_notification', 'wired' => true],
                 ],
             ],
+            [
+                'id' => 'onboarding_approved',
+                'module' => 'provider_account',
+                'title' => 'Admin approves provider onboarding',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Admin approves a pending provider onboarding request',
+                'audiences' => [
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'onboarding_approve', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'onboarding_denied',
+                'module' => 'provider_account',
+                'title' => 'Admin denies provider onboarding',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Admin denies a pending provider onboarding request',
+                'audiences' => [
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'onboarding_deny', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'profile_change_approved',
+                'module' => 'provider_account',
+                'title' => 'Admin approves provider profile update',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Admin approves a pending profile, branding, subscription, or business settings change',
+                'audiences' => [
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'profile_change_approve', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'profile_change_denied',
+                'module' => 'provider_account',
+                'title' => 'Admin denies provider profile update',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Admin denies a pending profile, branding, subscription, or business settings change',
+                'audiences' => [
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'profile_change_deny', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
 
             // --- Advertisement ---
             [
@@ -2599,9 +2728,19 @@ if (! function_exists('notification_scenario_registry')) {
             [
                 'id' => 'admin_alert_provider_registration',
                 'module' => 'admin_alerts',
-                'title' => 'New provider registration request',
+                'title' => 'New provider onboarding request',
                 'trigger_actor' => 'provider',
-                'trigger_action' => 'Provider completes registration and awaits admin approval',
+                'trigger_action' => 'Provider completes onboarding registration and awaits admin approval',
+                'audiences' => [
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'admin_alert_profile_change_request',
+                'module' => 'admin_alerts',
+                'title' => 'Provider profile or subscription update request',
+                'trigger_actor' => 'provider',
+                'trigger_action' => 'Provider submits profile, branding, subscription, or business settings changes for admin review',
                 'audiences' => [
                     ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
                 ],
@@ -3386,14 +3525,19 @@ if (! function_exists('build_chat_message_sender_payload')) {
         if (is_provider_org_chat_user($user)) {
             $providerOrg = \Modules\ProviderManagement\Entities\Provider::query()
                 ->find(resolve_provider_org_id_for_user($user));
-            if (! $providerOrg) {
-                return null;
+            if ($providerOrg) {
+                return [
+                    'name' => $providerOrg->company_name,
+                    'phone' => $providerOrg->company_phone,
+                    'image' => asset('storage/app/public/provider/logo') . '/' . $providerOrg->logo,
+                    'type' => $user->user_type,
+                ];
             }
 
             return [
-                'name' => $providerOrg->company_name,
-                'phone' => $providerOrg->company_phone,
-                'image' => asset('storage/app/public/provider/logo') . '/' . $providerOrg->logo,
+                'name' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')),
+                'phone' => $user->phone,
+                'image' => asset('storage/app/public/user/profile_image') . '/' . $user->profile_image,
                 'type' => $user->user_type,
             ];
         }
@@ -3420,6 +3564,49 @@ if (! function_exists('build_chat_message_sender_payload')) {
     }
 }
 
+if (! function_exists('chat_message_same_phone_fcm_users')) {
+    /**
+     * Fan out to same-phone accounts of a compatible type when the channel member
+     * has no registered push device (e.g. after account split / token on sibling row).
+     *
+     * @param  list<string>  $userTypes
+     * @return list<\Modules\UserManagement\Entities\User>
+     */
+    function chat_message_same_phone_fcm_users(
+        \Modules\UserManagement\Entities\User $channelMember,
+        array $userTypes
+    ): array {
+        if (! filled($channelMember->phone)) {
+            return [];
+        }
+
+        $digits = preg_replace('/\D+/', '', (string) $channelMember->phone) ?? '';
+        if ($digits === '') {
+            return [];
+        }
+
+        return \Modules\UserManagement\Entities\User::query()
+            ->whereIn('user_type', $userTypes)
+            ->where('id', '!=', $channelMember->id)
+            ->where('is_active', 1)
+            ->where(function ($query) use ($channelMember, $digits) {
+                $query->where('phone', $channelMember->phone)
+                    ->orWhere('phone', $digits);
+
+                if (\Illuminate\Support\Facades\DB::connection()->getDriverName() === 'mysql') {
+                    $query->orWhereRaw(
+                        'REGEXP_REPLACE(COALESCE(phone, \'\'), \'[^0-9]\', \'\') = ?',
+                        [$digits]
+                    );
+                }
+            })
+            ->get()
+            ->filter(fn (\Modules\UserManagement\Entities\User $user) => user_has_fcm_devices($user))
+            ->values()
+            ->all();
+    }
+}
+
 if (! function_exists('chat_message_push_recipient_users')) {
     /**
      * Resolve users who should receive a chat push for a channel member.
@@ -3434,40 +3621,48 @@ if (! function_exists('chat_message_push_recipient_users')) {
             return [$channelMember];
         }
 
-        if (! in_array($channelMember->user_type, [PROVIDER_USER_TYPES[0], PROVIDER_USER_TYPES[1]], true)) {
-            return [];
-        }
+        if (in_array($channelMember->user_type, [PROVIDER_USER_TYPES[0], PROVIDER_USER_TYPES[1]], true)) {
+            $providerOrgId = resolve_provider_org_id_for_user($channelMember);
 
-        $providerOrgId = resolve_provider_org_id_for_user($channelMember);
-        if (! $providerOrgId) {
-            return [];
-        }
+            if ($providerOrgId) {
+                try {
+                    $orgUserIds = array_values(array_diff(
+                        provider_org_member_user_ids($providerOrgId),
+                        [(string) $channelMember->id]
+                    ));
 
-        try {
-            $orgUserIds = array_values(array_diff(
-                provider_org_member_user_ids($providerOrgId),
-                [(string) $channelMember->id]
-            ));
+                    if ($orgUserIds !== []) {
+                        $orgRecipients = \Modules\UserManagement\Entities\User::query()
+                            ->whereIn('id', $orgUserIds)
+                            ->where('is_active', 1)
+                            ->get()
+                            ->filter(fn (\Modules\UserManagement\Entities\User $user) => user_has_fcm_devices($user))
+                            ->values()
+                            ->all();
 
-            if ($orgUserIds === []) {
-                return [];
+                        if ($orgRecipients !== []) {
+                            return $orgRecipients;
+                        }
+                    }
+                } catch (\Throwable $exception) {
+                    \Illuminate\Support\Facades\Log::error('Chat org push fan-out failed', [
+                        'channel_member_id' => $channelMember->id,
+                        'message' => $exception->getMessage(),
+                    ]);
+                }
             }
 
-            return \Modules\UserManagement\Entities\User::query()
-                ->whereIn('id', $orgUserIds)
-                ->where('is_active', 1)
-                ->get()
-                ->filter(fn (\Modules\UserManagement\Entities\User $user) => user_has_fcm_devices($user))
-                ->values()
-                ->all();
-        } catch (\Throwable $exception) {
-            \Illuminate\Support\Facades\Log::error('Chat org push fan-out failed', [
-                'channel_member_id' => $channelMember->id,
-                'message' => $exception->getMessage(),
-            ]);
-
-            return [];
+            return chat_message_same_phone_fcm_users(
+                $channelMember,
+                [PROVIDER_USER_TYPES[0], PROVIDER_USER_TYPES[1]]
+            );
         }
+
+        if ($channelMember->user_type === 'customer') {
+            return chat_message_same_phone_fcm_users($channelMember, CUSTOMER_USER_TYPES);
+        }
+
+        return [];
     }
 }
 
@@ -4346,6 +4541,26 @@ if (! function_exists('send_advertisement_push_notification')) {
     }
 }
 
+if (! function_exists('service_request_status_notification_fallbacks')) {
+    /**
+     * @return array{0: string, 1: string}|null
+     */
+    function service_request_status_notification_fallbacks(string $messageKey): ?array
+    {
+        return match ($messageKey) {
+            'service_request_approve' => [
+                translate('Service_request_approved'),
+                translate('Your_service_request_has_been_approved'),
+            ],
+            'service_request_deny' => [
+                translate('Service_request_denied'),
+                translate('Your_service_request_was_not_approved'),
+            ],
+            default => null,
+        };
+    }
+}
+
 if (! function_exists('send_service_request_provider_notification')) {
     function send_service_request_provider_notification(
         \Modules\ServiceManagement\Entities\ServiceRequest $serviceRequest,
@@ -4354,7 +4569,182 @@ if (! function_exists('send_service_request_provider_notification')) {
         ?string $fallbackDescription = null,
     ): void {
         $serviceRequest->loadMissing(['user.provider']);
-        $provider = $serviceRequest->user?->provider;
+        $user = $serviceRequest->user;
+        if (! $user || ! $user->is_active) {
+            return;
+        }
+
+        $provider = $user->provider;
+        $isProvider = $provider !== null;
+        $recipient = $isProvider ? ($provider->owner ?? $user) : $user;
+        if (! $recipient->is_active) {
+            return;
+        }
+
+        $settingsType = $isProvider ? 'provider_notification' : 'customer_notification';
+        $languageKey = $recipient->current_language_key;
+        $title = $messageKey !== ''
+            ? get_push_notification_message($messageKey, $settingsType, $languageKey)
+            : null;
+        $description = $messageKey !== ''
+            ? get_push_notification_description($messageKey, $settingsType, $languageKey)
+            : null;
+
+        if (! $title && $fallbackTitle) {
+            $title = $fallbackTitle;
+            $description = (string) ($fallbackDescription ?? '');
+        }
+
+        if (! $title && $messageKey !== '') {
+            $statusFallbacks = service_request_status_notification_fallbacks($messageKey);
+            if ($statusFallbacks) {
+                [$title, $description] = $statusFallbacks;
+            }
+        }
+
+        if (! $title) {
+            return;
+        }
+
+        $submitterName = $isProvider
+            ? ($provider->company_name ?? '')
+            : trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+        $data = [
+            'provider_name' => $provider?->company_name ?? $submitterName,
+            'providerName' => $provider?->company_name ?? $submitterName,
+            'user_name' => $submitterName,
+            'serviceName' => $serviceRequest->service_name ?? '',
+            'service_name' => $serviceRequest->service_name ?? '',
+        ];
+
+        scenario_push_notification(
+            $recipient,
+            $title,
+            $description,
+            null,
+            'service_request',
+            $recipient->id,
+            $data,
+            null,
+            null,
+            $isProvider ? 'provider-admin' : 'customer',
+            $provider?->zone_id ?? config('zone_id')
+        );
+    }
+}
+
+if (! function_exists('profile_change_type_notification_label')) {
+    function profile_change_type_notification_label(string $changeType): string
+    {
+        return match ($changeType) {
+            'profile' => translate('profile_update'),
+            'branding' => translate('Logo_and_Cover'),
+            'services' => translate('subscription_packages'),
+            'business_settings' => translate('business_settings'),
+            default => translate('Profile_Update'),
+        };
+    }
+}
+
+if (! function_exists('onboarding_status_notification_fallbacks')) {
+    /**
+     * @return array{0: string, 1: string}|null
+     */
+    function onboarding_status_notification_fallbacks(string $messageKey): ?array
+    {
+        return match ($messageKey) {
+            'onboarding_approve' => [
+                translate('Onboarding_approved'),
+                translate('Your_provider_onboarding_request_has_been_approved'),
+            ],
+            'onboarding_deny' => [
+                translate('Onboarding_not_approved'),
+                translate('Your_provider_onboarding_request_was_not_approved'),
+            ],
+            default => null,
+        };
+    }
+}
+
+if (! function_exists('profile_change_status_notification_fallbacks')) {
+    /**
+     * @return array{0: string, 1: string}|null
+     */
+    function profile_change_status_notification_fallbacks(string $messageKey): ?array
+    {
+        return match ($messageKey) {
+            'profile_change_approve' => [
+                translate('Profile_update_approved'),
+                translate('Your_profile_update_request_has_been_approved'),
+            ],
+            'profile_change_deny' => [
+                translate('Profile_update_not_approved'),
+                translate('Your_profile_update_request_was_not_approved'),
+            ],
+            default => null,
+        };
+    }
+}
+
+if (! function_exists('send_provider_onboarding_status_notification')) {
+    function send_provider_onboarding_status_notification(
+        \Modules\ProviderManagement\Entities\Provider $provider,
+        string $messageKey,
+    ): void {
+        $provider->loadMissing('owner');
+        $owner = $provider->owner;
+        if (! $owner) {
+            return;
+        }
+
+        $languageKey = $owner->current_language_key;
+        $title = $messageKey !== ''
+            ? get_push_notification_message($messageKey, 'provider_notification', $languageKey)
+            : null;
+        $description = $messageKey !== ''
+            ? get_push_notification_description($messageKey, 'provider_notification', $languageKey)
+            : null;
+
+        if (! $title && $messageKey !== '') {
+            $statusFallbacks = onboarding_status_notification_fallbacks($messageKey);
+            if ($statusFallbacks) {
+                [$title, $description] = $statusFallbacks;
+            }
+        }
+
+        if (! $title) {
+            return;
+        }
+
+        $providerName = $provider->company_name ?? '';
+        $data = [
+            'provider_name' => $providerName,
+            'providerName' => $providerName,
+        ];
+
+        scenario_push_notification(
+            $owner,
+            $title,
+            $description,
+            null,
+            'provider_onboarding',
+            $owner->id,
+            $data,
+            null,
+            null,
+            'provider-admin',
+            $provider->zone_id
+        );
+    }
+}
+
+if (! function_exists('send_profile_change_provider_notification')) {
+    function send_profile_change_provider_notification(
+        \Modules\ProviderManagement\Entities\ProviderChangeRequest $changeRequest,
+        string $messageKey,
+    ): void {
+        $changeRequest->loadMissing(['provider.owner']);
+        $provider = $changeRequest->provider;
         $owner = $provider?->owner;
         if (! $owner || ! $owner->is_active) {
             return;
@@ -4368,19 +4758,25 @@ if (! function_exists('send_service_request_provider_notification')) {
             ? get_push_notification_description($messageKey, 'provider_notification', $languageKey)
             : null;
 
-        if (! $title && $fallbackTitle) {
-            $title = $fallbackTitle;
-            $description = (string) ($fallbackDescription ?? '');
+        if (! $title && $messageKey !== '') {
+            $statusFallbacks = profile_change_status_notification_fallbacks($messageKey);
+            if ($statusFallbacks) {
+                [$title, $description] = $statusFallbacks;
+            }
         }
 
         if (! $title) {
             return;
         }
 
+        $providerName = $provider?->company_name ?? '';
+        $changeTypeLabel = profile_change_type_notification_label((string) $changeRequest->change_type);
         $data = [
-            'provider_name' => $provider?->company_name ?? '',
-            'serviceName' => $serviceRequest->service_name ?? '',
-            'service_name' => $serviceRequest->service_name ?? '',
+            'provider_name' => $providerName,
+            'providerName' => $providerName,
+            'changeType' => $changeTypeLabel,
+            'change_type' => $changeTypeLabel,
+            'profile_change_request_id' => (string) $changeRequest->id,
         ];
 
         scenario_push_notification(
@@ -4388,7 +4784,7 @@ if (! function_exists('send_service_request_provider_notification')) {
             $title,
             $description,
             null,
-            'service_request',
+            'profile_change',
             $owner->id,
             $data,
             null,

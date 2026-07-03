@@ -3824,6 +3824,10 @@ const NOTIFICATION_FOR_PROVIDER = [
     ['key' => 'showcase_submitted', 'value' => 'Showcase Submitted', 'category' => 'provider_work_showcase'],
     ['key' => 'showcase_approve', 'value' => 'Showcase Approved', 'category' => 'provider_work_showcase'],
     ['key' => 'showcase_deny', 'value' => 'Showcase Not Approved', 'category' => 'provider_work_showcase'],
+    ['key' => 'onboarding_approve', 'value' => 'Onboarding Approved', 'category' => 'service_updates'],
+    ['key' => 'onboarding_deny', 'value' => 'Onboarding Denied', 'category' => 'service_updates'],
+    ['key' => 'profile_change_approve', 'value' => 'Profile Update Approved', 'category' => 'service_updates'],
+    ['key' => 'profile_change_deny', 'value' => 'Profile Update Denied', 'category' => 'service_updates'],
     ['key' => 'review_approved', 'value' => 'New Review Received', 'category' => 'review'],
     ['key' => 'provider_review_published', 'value' => 'Your Review Approved', 'category' => 'review'],
 ];

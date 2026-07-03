@@ -367,8 +367,12 @@ if (!function_exists('device_notification_for_chatting')) {
     function device_notification_for_chatting($fcm_token, $title, $description, $image, $channel_id, $user_name, $user_image, $user_phone, $user_type, $type = 'status', $conversation_id = null, array $extraData = [])
     {
         $imageUrl = filled($image)
-            ? asset('storage/app/public/push-notification') . '/' . $image
+            ? (str_starts_with((string) $image, 'http://') || str_starts_with((string) $image, 'https://')
+                ? (string) $image
+                : asset('storage/app/public/push-notification') . '/' . $image)
             : '';
+
+        $senderImageUrl = (string) ($user_image ?? '');
 
         $postData = [
             'message' => [
@@ -381,7 +385,7 @@ if (!function_exists('device_notification_for_chatting')) {
                     "channel_id" => (string)$channel_id,
                     "conversation_id" => (string) ($conversation_id ?? ''),
                     "user_name" => (string)$user_name,
-                    "user_image"=> (string)$user_image,
+                    "user_image"=> (string)$senderImageUrl,
                     "user_phone"=> (string)$user_phone,
                     "user_type"=> (string)$user_type,
                 ], array_map('strval', $extraData)),

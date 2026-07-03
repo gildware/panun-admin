@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Str;
 use Modules\AdminModule\Entities\UserNotification;
 use Modules\BookingModule\Entities\Booking;
 use Modules\ChattingModule\Entities\ChannelConversation;
@@ -93,6 +94,8 @@ class SmokeTestNotificationScenarios extends Command
         if ($inboxOnly) {
             $this->restoreFcmTokens();
         }
+
+        $this->cleanupEphemeralSmokeActors();
 
         $grouped = [];
         foreach ($results as $row) {
@@ -268,6 +271,10 @@ class SmokeTestNotificationScenarios extends Command
             'showcase_submitted' => $this->testShowcaseSubmitted(),
             'showcase_approved' => $this->testShowcaseStatusNotification('showcase_approve', 'approved'),
             'showcase_denied' => $this->testShowcaseStatusNotification('showcase_deny', 'denied'),
+            'onboarding_approved' => $this->testOnboardingStatusNotification('onboarding_approve', 'approved'),
+            'onboarding_denied' => $this->testOnboardingStatusNotification('onboarding_deny', 'denied'),
+            'profile_change_approved' => $this->testProfileChangeStatusNotification('profile_change_approve', 'approved'),
+            'profile_change_denied' => $this->testProfileChangeStatusNotification('profile_change_deny', 'denied'),
             'provider_suspended' => $this->testProviderSuspended($booking),
             'provider_suspension_removed' => $this->testProviderSuspensionRemoved($booking),
             'advertisement_created_by_admin' => $this->testAdvertisementPush('advertisement_created_by_admin'),
@@ -304,6 +311,22 @@ class SmokeTestNotificationScenarios extends Command
                 fn () => UserNotification::query()
                     ->where('reference_type', 'booking_customer_cancel')
                     ->where('reference_id', (string) $booking->id)
+                    ->delete()
+            ),
+            'admin_alert_profile_change_request' => $this->testAdminInbox(
+                'admin_inbox_notify_profile_change_request',
+                function () {
+                    $provider = $this->sampleProvider();
+                    $changeRequest = \Modules\ProviderManagement\Entities\ProviderChangeRequest::create([
+                        'provider_id' => $provider->id,
+                        'change_type' => 'profile',
+                        'status' => \Modules\ProviderManagement\Entities\ProviderChangeRequest::STATUS_PENDING,
+                        'payload' => ['contact_person_name' => 'Smoke Test'],
+                    ]);
+                    admin_inbox_notify_profile_change_request($changeRequest);
+                },
+                fn () => UserNotification::query()
+                    ->where('reference_type', 'profile_change_request')
                     ->delete()
             ),
             default => ['status' => 'fail', 'detail' => 'No smoke test handler defined'],
@@ -1217,6 +1240,63 @@ class SmokeTestNotificationScenarios extends Command
     /**
      * @return array{status: string, detail: string}
      */
+    private function testOnboardingStatusNotification(string $messageKey, string $status): array
+    {
+        $provider = $this->sampleProvider();
+        $owner = $provider->owner;
+        if (! $owner) {
+            return ['status' => 'fail', 'detail' => 'No provider owner for onboarding status test'];
+        }
+
+        try {
+            $before = $this->inboxCountForUsers([$owner->id]);
+            send_provider_onboarding_status_notification($provider, $messageKey);
+            $delta = $this->inboxCountForUsers([$owner->id]) - $before;
+
+            return $delta > 0
+                ? ['status' => 'pass', 'detail' => ucfirst($status) . ": {$delta} provider inbox row(s)"]
+                : ['status' => 'fail', 'detail' => ucfirst($status) . ': provider inbox row not created'];
+        } catch (\Throwable $exception) {
+            return ['status' => 'fail', 'detail' => $exception->getMessage()];
+        }
+    }
+
+    /**
+     * @return array{status: string, detail: string}
+     */
+    private function testProfileChangeStatusNotification(string $messageKey, string $status): array
+    {
+        $provider = $this->sampleProvider();
+        $owner = $provider->owner;
+        if (! $owner) {
+            return ['status' => 'fail', 'detail' => 'No provider owner for profile change status test'];
+        }
+
+        $changeRequest = \Modules\ProviderManagement\Entities\ProviderChangeRequest::create([
+            'provider_id' => $provider->id,
+            'change_type' => 'profile',
+            'status' => $status === 'approved'
+                ? \Modules\ProviderManagement\Entities\ProviderChangeRequest::STATUS_APPROVED
+                : \Modules\ProviderManagement\Entities\ProviderChangeRequest::STATUS_DENIED,
+            'payload' => ['contact_person_name' => 'Smoke Test'],
+        ]);
+
+        try {
+            $before = $this->inboxCountForUsers([$owner->id]);
+            send_profile_change_provider_notification($changeRequest, $messageKey);
+            $delta = $this->inboxCountForUsers([$owner->id]) - $before;
+
+            return $delta > 0
+                ? ['status' => 'pass', 'detail' => ucfirst($status) . ": {$delta} provider inbox row(s)"]
+                : ['status' => 'fail', 'detail' => ucfirst($status) . ': provider inbox row not created'];
+        } finally {
+            $changeRequest->delete();
+        }
+    }
+
+    /**
+     * @return array{status: string, detail: string}
+     */
     private function testAdminInboxWithdraw(Booking $booking): array
     {
         $owner = $booking->provider?->owner;
@@ -1261,10 +1341,56 @@ class SmokeTestNotificationScenarios extends Command
             : ['status' => 'fail', 'detail' => "{$label}: no admin inbox rows created"];
     }
 
+    /** @var list<string> */
+    private array $ephemeralProviderIds = [];
+
+    /** @var list<string> */
+    private array $ephemeralUserIds = [];
+
     private function sampleProvider(): Provider
     {
-        return Provider::with('owner')->whereNotNull('id')->latest()->first()
-            ?? throw new \RuntimeException('No provider found');
+        $existing = Provider::with('owner')->whereNotNull('id')->latest()->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        $owner = User::query()->create([
+            'id' => (string) Str::uuid(),
+            'first_name' => 'Smoke',
+            'last_name' => 'Provider',
+            'email' => 'smoke-provider-'.Str::lower(Str::random(6)).'@smoke.test',
+            'phone' => '7'.str_pad((string) random_int(0, 999999999), 9, '0', STR_PAD_LEFT),
+            'password' => bcrypt('password'),
+            'user_type' => 'provider-admin',
+            'is_active' => 1,
+            'current_language_key' => 'en',
+        ]);
+        $this->ephemeralUserIds[] = (string) $owner->id;
+
+        $provider = new Provider;
+        $provider->id = (string) Str::uuid();
+        $provider->user_id = $owner->id;
+        $provider->company_name = 'Smoke Test Provider';
+        $provider->company_phone = $owner->phone;
+        $provider->is_active = 1;
+        $provider->is_approved = 1;
+        $provider->save();
+        $this->ephemeralProviderIds[] = (string) $provider->id;
+
+        return $provider->fresh(['owner', 'user']);
+    }
+
+    private function cleanupEphemeralSmokeActors(): void
+    {
+        if ($this->ephemeralProviderIds !== []) {
+            Provider::query()->whereIn('id', $this->ephemeralProviderIds)->delete();
+            $this->ephemeralProviderIds = [];
+        }
+
+        if ($this->ephemeralUserIds !== []) {
+            User::query()->whereIn('id', $this->ephemeralUserIds)->delete();
+            $this->ephemeralUserIds = [];
+        }
     }
 
     /**

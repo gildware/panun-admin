@@ -23,6 +23,7 @@ class ChatMessagePushDispatchTest extends TestCase
     {
         $source = (string) file_get_contents(dirname(__DIR__, 2).'/app/Lib/NotificationMessageHelpers.php');
 
+        $this->assertStringContainsString('chat_message_same_phone_fcm_users', $source);
         $this->assertStringContainsString('if (user_has_fcm_devices($channelMember)) {', $source);
         $this->assertStringContainsString('return [$channelMember];', $source);
         $this->assertStringContainsString('Chat org push fan-out failed', $source);

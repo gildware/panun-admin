@@ -34,10 +34,10 @@ class NotificationScenarioTriggerTest extends TestCase
         $this->assertCount(2, $byModule['refund']);
         $this->assertCount(3, $byModule['communication']);
         $this->assertCount(3, $byModule['service_requests']);
-        $this->assertCount(2, $byModule['provider_account']);
-        $this->assertCount(7, $byModule['advertisement']);
+        $this->assertCount(6, $byModule['provider_account']);
+        $this->assertCount(8, $byModule['advertisement']);
         $this->assertCount(3, $byModule['provider_work_showcase']);
-        $this->assertCount(5, $byModule['admin_alerts']);
+        $this->assertCount(6, $byModule['admin_alerts']);
     }
 
     public function test_all_scenario_triggers_are_wired_in_codebase(): void

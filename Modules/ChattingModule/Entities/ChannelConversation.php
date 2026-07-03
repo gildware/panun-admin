@@ -79,14 +79,26 @@ class ChannelConversation extends Model
         });
 
         self::created(function ($model) {
-            $conversationId = (string) $model->id;
+            try {
+                dispatch_chat_message_push_notifications($model);
+            } catch (\Throwable $exception) {
+                \Illuminate\Support\Facades\Log::error('Chat message push dispatch failed', [
+                    'conversation_id' => $model->id,
+                    'message' => $exception->getMessage(),
+                ]);
+            }
 
-            \Illuminate\Support\Facades\DB::afterCommit(function () use ($conversationId) {
-                dispatch_chat_message_push_notifications($conversationId);
-            });
+            if (! function_exists('admin_inbox_notify_chat_message')) {
+                return;
+            }
 
-            if (function_exists('admin_inbox_notify_chat_message')) {
+            try {
                 admin_inbox_notify_chat_message($model);
+            } catch (\Throwable $exception) {
+                \Illuminate\Support\Facades\Log::error('Admin inbox chat notify failed', [
+                    'conversation_id' => $model->id,
+                    'message' => $exception->getMessage(),
+                ]);
             }
         });
 

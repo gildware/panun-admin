@@ -468,6 +468,10 @@ class RegisterController extends Controller
             ]);
         });
 
+        if (function_exists('admin_inbox_notify_provider_request')) {
+            admin_inbox_notify_provider_request($provider);
+        }
+
         return response()->json(response_formatter(PROVIDER_STORE_200), 200);
     }
 

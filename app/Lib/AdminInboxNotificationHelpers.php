@@ -242,7 +242,10 @@ if (! function_exists('admin_inbox_notify_service_request_submitted')) {
     function admin_inbox_notify_service_request_submitted(\Modules\ServiceManagement\Entities\ServiceRequest $serviceRequest): void
     {
         $serviceRequest->loadMissing(['user.provider']);
-        $providerName = $serviceRequest->user?->provider?->company_name ?? translate('Provider');
+        $submitter = $serviceRequest->user;
+        $providerName = $submitter?->provider?->company_name
+            ?? trim(($submitter?->first_name ?? '') . ' ' . ($submitter?->last_name ?? ''))
+            ?: translate('Customer');
         $serviceLabel = $serviceRequest->service_name ?? translate('Service');
 
         admin_inbox_notify_all(
@@ -270,6 +273,34 @@ if (! function_exists('admin_inbox_notify_showcase_submitted')) {
             route('admin.provider.showcase_approval', ['status' => 'pending']),
             'showcase_submission',
             (string) $item->id,
+        );
+    }
+}
+
+if (! function_exists('admin_inbox_notify_profile_change_request')) {
+    function admin_inbox_notify_profile_change_request(\Modules\ProviderManagement\Entities\ProviderChangeRequest $changeRequest): void
+    {
+        if ((int) $changeRequest->status !== \Modules\ProviderManagement\Entities\ProviderChangeRequest::STATUS_PENDING) {
+            return;
+        }
+
+        $changeRequest->loadMissing('provider');
+        $providerName = $changeRequest->provider?->company_name ?? translate('Provider');
+        $changeLabel = match ($changeRequest->change_type) {
+            'profile' => translate('profile_update'),
+            'branding' => translate('Logo_and_Cover'),
+            'services' => translate('subscription_packages'),
+            'business_settings' => translate('business_settings'),
+            default => translate('Profile_Update'),
+        };
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_PROFILE_CHANGE_REQUEST,
+            translate('Profile_Update_Request'),
+            $providerName . ' — ' . $changeLabel,
+            route('admin.provider.profile_change_details', [$changeRequest->id]),
+            'profile_change_request',
+            (string) $changeRequest->id,
         );
     }
 }

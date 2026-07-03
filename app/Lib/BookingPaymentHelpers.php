@@ -3493,6 +3493,72 @@ if (!function_exists('get_customer_booking_list_display_total')) {
     }
 }
 
+if (! function_exists('provider_booking_report_pending_admin_amount')) {
+    /**
+     * Booking-report due card: amount still pending with admin (provider receivable context).
+     * Cash-after-service bookings return 0. Company-collected payments return the full booking
+     * total until completed, then the company_owes_provider slice still held by admin.
+     */
+    function provider_booking_report_pending_admin_amount(Booking $booking): float
+    {
+        if ((string) ($booking->payment_method ?? '') === 'cash_after_service') {
+            return 0.0;
+        }
+
+        $booking->loadMissing('booking_partial_payments');
+        $displayTotal = round((float) get_customer_booking_list_display_total($booking), 2);
+        if ($displayTotal <= 0.009) {
+            return 0.0;
+        }
+
+        $receipts = provider_payment_tab_receipts_for_main_booking($booking);
+        $companyReceived = round((float) ($receipts['company'] ?? 0), 2);
+        if ($companyReceived <= 0.009) {
+            return 0.0;
+        }
+
+        if ((string) ($booking->booking_status ?? '') !== 'completed') {
+            return $displayTotal;
+        }
+
+        $settlementCols = provider_payment_tab_earning_report_settlement_columns_for_booking($booking);
+
+        return round((float) ($settlementCols['company_owes_provider'] ?? 0), 2);
+    }
+}
+
+if (! function_exists('aggregate_provider_booking_report_amount_cards')) {
+    /**
+     * Provider booking report summary: total, due (pending with admin), settled (total − due).
+     *
+     * @param  iterable<int, Booking>  $bookings
+     * @return array{total_booking_amount: float, total_unpaid_booking_amount: float, total_paid_booking_amount: float}
+     */
+    function aggregate_provider_booking_report_amount_cards(iterable $bookings): array
+    {
+        $total = 0.0;
+        $pendingWithAdmin = 0.0;
+
+        foreach ($bookings as $booking) {
+            if (! $booking instanceof Booking) {
+                continue;
+            }
+            $displayTotal = round((float) get_customer_booking_list_display_total($booking), 2);
+            $total += $displayTotal;
+            $pendingWithAdmin += provider_booking_report_pending_admin_amount($booking);
+        }
+
+        $total = round($total, 2);
+        $pendingWithAdmin = round($pendingWithAdmin, 2);
+
+        return [
+            'total_booking_amount' => $total,
+            'total_unpaid_booking_amount' => $pendingWithAdmin,
+            'total_paid_booking_amount' => round(max(0.0, $total - $pendingWithAdmin), 2),
+        ];
+    }
+}
+
 if (!function_exists('provider_payment_tab_sum_repeat_line_totals_by_parent_booking_id')) {
     /**
      * Sum of {@see get_booking_total_amount} per parent booking_id for allocating scaled / visit-retained revenue across repeat rows.

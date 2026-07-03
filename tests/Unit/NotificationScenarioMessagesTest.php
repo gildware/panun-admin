@@ -33,11 +33,11 @@ class NotificationScenarioMessagesTest extends TestCase
         $this->assertCount(2, $grouped['refund']);
         $this->assertCount(3, $grouped['communication']);
         $this->assertCount(3, $grouped['service_requests']);
-        $this->assertCount(2, $grouped['provider_account']);
-        $this->assertCount(7, $grouped['advertisement']);
+        $this->assertCount(6, $grouped['provider_account']);
+        $this->assertCount(8, $grouped['advertisement']);
         $this->assertCount(3, $grouped['provider_work_showcase']);
-        $this->assertCount(5, $grouped['admin_alerts']);
-        $this->assertCount(65, notification_scenario_registry());
+        $this->assertCount(6, $grouped['admin_alerts']);
+        $this->assertCount(71, notification_scenario_registry());
     }
 
     public function test_all_config_keys_are_covered_by_scenarios(): void
@@ -61,6 +61,11 @@ class NotificationScenarioMessagesTest extends TestCase
             'provider_suspended',
             'advertisement_approved',
             'admin_alert_provider_registration',
+            'admin_alert_profile_change_request',
+            'onboarding_approved',
+            'onboarding_denied',
+            'profile_change_approved',
+            'profile_change_denied',
             'chat_admin_customer_message',
             'chat_admin_provider_message',
         ] as $scenarioId) {

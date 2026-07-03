@@ -110,6 +110,9 @@ class NotificationWiringAuditTest extends TestCase
         $this->assertTrue(function_exists('send_showcase_provider_notification'));
         $this->assertTrue(function_exists('admin_inbox_notify_service_request_submitted'));
         $this->assertTrue(function_exists('send_service_request_provider_notification'));
+        $this->assertTrue(function_exists('admin_inbox_notify_profile_change_request'));
+        $this->assertTrue(function_exists('send_provider_onboarding_status_notification'));
+        $this->assertTrue(function_exists('send_profile_change_provider_notification'));
     }
 
     public function test_scenario_registry_has_no_unwired_audiences(): void

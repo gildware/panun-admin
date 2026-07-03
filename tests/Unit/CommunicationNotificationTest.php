@@ -232,6 +232,7 @@ class CommunicationNotificationTest extends TestCase
         $this->assertTrue(function_exists('build_chat_message_sender_payload'));
         $this->assertTrue(function_exists('chat_message_push_recipient_users'));
         $this->assertTrue(function_exists('provider_org_member_user_ids'));
+        $this->assertTrue(function_exists('chat_message_same_phone_fcm_users'));
         $this->assertTrue(function_exists('admin_inbox_notify_chat_message'));
         $this->assertTrue(function_exists('device_notification_for_chatting'));
     }
