@@ -48,6 +48,23 @@
         .dashboard-top-cards .business-summary.dashboard-kpi--payable-providers {
             background: linear-gradient(145deg, #2563eb 0%, #1e40af 100%);
         }
+        .dashboard-top-cards .business-summary.dashboard-kpi--unsettled-withdraws {
+            background: linear-gradient(145deg, #0891b2 0%, #0e7490 100%);
+        }
+        .dashboard-top-cards .business-summary.dashboard-kpi--has-breakdown {
+            height: auto;
+            min-height: 7.25rem;
+            padding-bottom: 0.35rem;
+        }
+        .dashboard-top-cards .business-summary .dashboard-kpi-breakdown {
+            font-size: clamp(0.58rem, 0.85vw, 0.72rem);
+            line-height: 1.25;
+            margin-top: 0.2rem;
+            opacity: 0.92;
+        }
+        .dashboard-top-cards .business-summary .dashboard-kpi-breakdown span {
+            display: block;
+        }
         .dashboard-top-cards .business-summary.dashboard-kpi--balance-providers {
             background: linear-gradient(145deg, #ca8a04 0%, #a16207 100%);
         }
@@ -389,12 +406,23 @@
                         </div>
                     </div>
                 </div>
-                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5 mb-4 g-4 dashboard-top-cards">
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-6 mb-4 g-4 dashboard-top-cards">
                     <div class="col">
                         <div class="business-summary dashboard-kpi--payable-providers">
                             <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.payable_to_providers', 0))}}</h2>
                             <h3>{{translate('Payable_to_providers')}}</h3>
                             <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">engineering</span>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="business-summary dashboard-kpi--unsettled-withdraws dashboard-kpi--has-breakdown">
+                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.unsettled_withdraws_total', 0))}}</h2>
+                            <h3>{{translate('UnSettled_Withdraws_Amount')}}</h3>
+                            <p class="dashboard-kpi-breakdown mb-0">
+                                <span>{{translate('Pending_Withdraw')}}: {{with_currency_symbol(data_get($data[0], 'top_cards.unsettled_withdraws_pending', 0))}}</span>
+                                <span>{{translate('Approved')}}: {{with_currency_symbol(data_get($data[0], 'top_cards.unsettled_withdraws_approved', 0))}}</span>
+                            </p>
+                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">payments</span>
                         </div>
                     </div>
                     <div class="col">

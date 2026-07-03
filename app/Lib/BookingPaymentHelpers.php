@@ -4569,16 +4569,115 @@ if (!function_exists('booking_settlement_net_with_provider_ledger_for_provider_i
     }
 }
 
+if (!function_exists('admin_dashboard_unsettled_withdraw_totals')) {
+    /**
+     * Sum of all provider withdraw requests awaiting payout (pending admin review + approved, not yet settled).
+     *
+     * @return array{unsettled_total: float, pending_total: float, approved_total: float}
+     */
+    function admin_dashboard_unsettled_withdraw_totals(): array
+    {
+        $pending = (float) \Modules\ProviderManagement\Entities\WithdrawRequest::query()
+            ->where('request_status', 'pending')
+            ->sum('amount');
+        $approved = (float) \Modules\ProviderManagement\Entities\WithdrawRequest::query()
+            ->where('request_status', 'approved')
+            ->sum('amount');
+
+        return [
+            'pending_total' => round($pending, 2),
+            'approved_total' => round($approved, 2),
+            'unsettled_total' => round($pending + $approved, 2),
+        ];
+    }
+}
+
+if (!function_exists('admin_dashboard_provider_net_balance_card_totals')) {
+    /**
+     * Payable-to-providers and balance-with-providers dashboard cards: sum each provider’s Net Balance
+     * ({@see provider_payment_net_balance_context()} display_amount), including pending/approved withdraw
+     * deductions when the company owes the provider.
+     *
+     * @return array{payable_to_providers: float, balance_with_providers: float}
+     */
+    function admin_dashboard_provider_net_balance_card_totals(): array
+    {
+        $fromBookings = DB::table('bookings')->whereNotNull('provider_id')->distinct()->pluck('provider_id');
+        $fromLedger = DB::table('ledger_transactions')->whereNotNull('provider_id')->distinct()->pluck('provider_id');
+        $fromPayable = DB::table('providers')
+            ->join('users', 'users.id', '=', 'providers.user_id')
+            ->join('accounts', 'accounts.user_id', '=', 'users.id')
+            ->where('accounts.account_payable', '>', 0.01)
+            ->pluck('providers.id');
+        $fromWithdraws = DB::table('withdraw_requests')
+            ->join('providers', 'providers.user_id', '=', 'withdraw_requests.user_id')
+            ->whereIn('withdraw_requests.request_status', ['pending', 'approved'])
+            ->distinct()
+            ->pluck('providers.id');
+
+        $providerRows = DB::table('providers')
+            ->whereIn('id', collect()
+                ->merge($fromBookings)
+                ->merge($fromLedger)
+                ->merge($fromPayable)
+                ->merge($fromWithdraws)
+                ->filter()
+                ->unique()
+                ->values()
+                ->all())
+            ->select('id', 'user_id')
+            ->get();
+
+        $activeWithdrawByUser = DB::table('withdraw_requests')
+            ->whereIn('request_status', ['pending', 'approved'])
+            ->groupBy('user_id')
+            ->selectRaw('user_id, SUM(amount) as total')
+            ->pluck('total', 'user_id');
+
+        $payableToProviders = 0.0;
+        $balanceWithProviders = 0.0;
+
+        foreach ($providerRows as $row) {
+            $providerId = (string) $row->id;
+            $userId = (string) $row->user_id;
+            $settlement = booking_settlement_net_with_provider_ledger_for_provider_id($providerId);
+            $bookingSettlementNet = (float) ($settlement['settlement_net'] ?? 0);
+            $companyPaysProvider = $bookingSettlementNet > 0.009;
+            $providerPaysCompany = $bookingSettlementNet < -0.009;
+            $activeWithdrawTotal = round((float) ($activeWithdrawByUser->get($userId) ?? 0), 2);
+            $displayAmount = provider_net_balance_amount_after_active_withdraws(
+                $bookingSettlementNet,
+                $activeWithdrawTotal,
+                $companyPaysProvider
+            );
+
+            if ($companyPaysProvider) {
+                $payableToProviders += $displayAmount;
+            } elseif ($providerPaysCompany) {
+                $balanceWithProviders += $displayAmount;
+            }
+        }
+
+        return [
+            'payable_to_providers' => round($payableToProviders, 2),
+            'balance_with_providers' => round($balanceWithProviders, 2),
+        ];
+    }
+}
+
 if (!function_exists('admin_dashboard_financial_summary_metrics')) {
     /**
      * Admin dashboard financial top cards: same booking cohort as provider payment / settlement aggregates.
-     * Settlement net and payable/balance-with-providers subtract all provider-ledger OUT (provider_payout) and add
-     * provider-ledger IN (e.g. collected from provider), matching the headline net on each provider’s payment tab.
+     * Payable/balance-with-providers cards sum per-provider Net Balance (see {@see admin_dashboard_provider_net_balance_card_totals()}).
+     * Settlement net subtracts all provider-ledger OUT (provider_payout) and adds provider-ledger IN (e.g. collected from provider).
      *
      * @return array{
      *     payable_to_providers: float,
      *     payable_to_customers: float,
      *     balance_with_providers: float,
+     *     unsettled_withdraws_total: float,
+     *     unsettled_withdraws_pending: float,
+     *     unsettled_withdraws_approved: float,
      *     settlement_net: float,
      *     total_amount_received_by_company: float,
      *     total_loss_in_all_bookings: float,
@@ -4594,7 +4693,7 @@ if (!function_exists('admin_dashboard_financial_summary_metrics')) {
     function admin_dashboard_financial_summary_metrics(): array
     {
         return \Modules\AdminModule\Services\AdminDashboardCache::rememberMetrics(
-            'financial_summary:v1',
+            'financial_summary:v3',
             function (): array {
                 return admin_dashboard_financial_summary_metrics_uncached();
             }
@@ -4608,6 +4707,9 @@ if (!function_exists('admin_dashboard_financial_summary_metrics_uncached')) {
      *     payable_to_providers: float,
      *     payable_to_customers: float,
      *     balance_with_providers: float,
+     *     unsettled_withdraws_total: float,
+     *     unsettled_withdraws_pending: float,
+     *     unsettled_withdraws_approved: float,
      *     settlement_net: float,
      *     total_amount_received_by_company: float,
      *     total_loss_in_all_bookings: float,
@@ -4707,11 +4809,17 @@ if (!function_exists('admin_dashboard_financial_summary_metrics_uncached')) {
             }
         }
 
+        $providerNetBalanceCards = admin_dashboard_provider_net_balance_card_totals();
+        $unsettledWithdraws = admin_dashboard_unsettled_withdraw_totals();
+
         return [
             'settlement_net' => round($net, 2),
-            'payable_to_providers' => round(max(0.0, $net), 2),
+            'payable_to_providers' => $providerNetBalanceCards['payable_to_providers'],
             'payable_to_customers' => round($refundDue, 2),
-            'balance_with_providers' => round(max(0.0, -$net), 2),
+            'balance_with_providers' => $providerNetBalanceCards['balance_with_providers'],
+            'unsettled_withdraws_total' => $unsettledWithdraws['unsettled_total'],
+            'unsettled_withdraws_pending' => $unsettledWithdraws['pending_total'],
+            'unsettled_withdraws_approved' => $unsettledWithdraws['approved_total'],
             'total_amount_received_by_company' => round($totalCompanyReceived, 2),
             'total_loss_in_all_bookings' => round($totalScaledLossAmount, 2),
             'total_bad_debt_with_customers' => round($totalCompanyLossShare, 2),

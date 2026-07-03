@@ -17,7 +17,7 @@ class AdminDashboardCache
     public static function forgetMetrics(): void
     {
         $keys = [
-            'financial_summary:v1',
+            'financial_summary:v3',
             'revenue_totals:v1',
             'top_providers:v1',
             'top_customers:v1',
