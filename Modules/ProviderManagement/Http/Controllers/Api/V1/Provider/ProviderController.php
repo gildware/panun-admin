@@ -24,6 +24,7 @@ use Modules\ProviderManagement\Entities\BankDetail;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\ProviderManagement\Services\ProviderDashboardEarningStatsService;
+use Modules\ProviderManagement\Services\ProviderProfileChangeRequestService;
 use Modules\ReviewModule\Entities\Review;
 use Modules\SMSModule\Lib\SMS_gateway;
 use Modules\TransactionModule\Entities\Account;
@@ -175,6 +176,16 @@ class ProviderController extends Controller
                 ->with(['sub_category'])
                 ->withCount(['services', 'completed_booking'])
                 ->where(['provider_id' => $request->user()->provider->id])->take(5)->get();
+            $providerId = $request->user()->provider->id;
+            $pendingActions = app(ProviderProfileChangeRequestService::class)->pendingSubscriptionActions($providerId);
+            $changeRequestService = app(ProviderProfileChangeRequestService::class);
+            foreach ($subscriptions as $item) {
+                $subCategoryId = (string) $item->sub_category_id;
+                $changeRequestService->applySubscriptionPendingFlags($item, $subCategoryId, $pendingActions);
+                if ($item->sub_category) {
+                    $changeRequestService->applySubscriptionPendingFlags($item->sub_category, $subCategoryId, $pendingActions);
+                }
+            }
             $data[] = ['subscriptions' => $subscriptions];
         }
 
@@ -852,6 +863,17 @@ class ProviderController extends Controller
                 $query->where('category_id', $request['category_id']);
             })
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
+
+        $providerId = $request->user()->provider->id;
+        $pendingActions = app(ProviderProfileChangeRequestService::class)->pendingSubscriptionActions($providerId);
+        $changeRequestService = app(ProviderProfileChangeRequestService::class);
+        foreach ($subscribed as $item) {
+            $subCategoryId = (string) $item->sub_category_id;
+            $changeRequestService->applySubscriptionPendingFlags($item, $subCategoryId, $pendingActions);
+            if ($item->sub_category) {
+                $changeRequestService->applySubscriptionPendingFlags($item->sub_category, $subCategoryId, $pendingActions);
+            }
+        }
 
         return response()->json(response_formatter(DEFAULT_200, $subscribed), 200);
     }

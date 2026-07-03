@@ -8,6 +8,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Validator;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\SubscribedService;
+use Modules\ProviderManagement\Services\ProviderProfileChangeRequestService;
 
 class CategoryController extends Controller
 {
@@ -82,10 +83,14 @@ class CategoryController extends Controller
             ->orderBY('name', 'asc')
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
-        $subSubCategoryIds = $this->subscribedService->where('provider_id', $request->user()->provider->id)
+        $providerId = $request->user()->provider->id;
+        $subSubCategoryIds = $this->subscribedService->where('provider_id', $providerId)
             ->where('is_subscribed', 1)->pluck('sub_category_id')->toArray();
+        $pendingActions = app(ProviderProfileChangeRequestService::class)->pendingSubscriptionActions($providerId);
+        $changeRequestService = app(ProviderProfileChangeRequestService::class);
         foreach ($childes as $child) {
             $child->is_subscribed = in_array($child->id, $subSubCategoryIds) ? 1 : 0;
+            $changeRequestService->applySubscriptionPendingFlags($child, (string) $child->id, $pendingActions);
         }
 
         return response()->json(response_formatter(DEFAULT_200, $childes), 200);
@@ -128,9 +133,13 @@ class CategoryController extends Controller
             ->ofStatus(1)->ofType('sub')->orderBY('name', 'asc')
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
-        $subSubCategoryIds = $this->subscribedService->where('provider_id', $request->user()->provider->id)->where('is_subscribed', 1)->pluck('sub_category_id')->toArray();
+        $providerId = $request->user()->provider->id;
+        $subSubCategoryIds = $this->subscribedService->where('provider_id', $providerId)->where('is_subscribed', 1)->pluck('sub_category_id')->toArray();
+        $pendingActions = app(ProviderProfileChangeRequestService::class)->pendingSubscriptionActions($providerId);
+        $changeRequestService = app(ProviderProfileChangeRequestService::class);
         foreach ($subCategories as $subCategory) {
             $subCategory->is_subscribed = in_array($subCategory->id, $subSubCategoryIds) ? 1 : 0;
+            $changeRequestService->applySubscriptionPendingFlags($subCategory, (string) $subCategory->id, $pendingActions);
         }
 
         return response()->json(response_formatter(DEFAULT_200, $subCategories), 200);

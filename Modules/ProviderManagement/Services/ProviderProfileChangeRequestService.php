@@ -24,6 +24,61 @@ class ProviderProfileChangeRequestService
             ->exists();
     }
 
+    /**
+     * Pending subscribe/unsubscribe actions keyed by sub_category_id.
+     *
+     * @return array<string, 'subscribe'|'unsubscribe'>
+     */
+    public function pendingSubscriptionActions(string $providerId): array
+    {
+        $request = ProviderChangeRequest::where('provider_id', $providerId)
+            ->where('change_type', 'services')
+            ->where('status', ProviderChangeRequest::STATUS_PENDING)
+            ->latest()
+            ->first();
+
+        if (! $request) {
+            return [];
+        }
+
+        $subCategoryIds = $request->payload['sub_category_id'] ?? [];
+        if (! is_array($subCategoryIds) || $subCategoryIds === []) {
+            return [];
+        }
+
+        $subscribedService = app(SubscribedService::class);
+        $actions = [];
+
+        foreach ($subCategoryIds as $id) {
+            $id = (string) $id;
+            if ($id === '') {
+                continue;
+            }
+
+            $row = $subscribedService::where('sub_category_id', $id)
+                ->where('provider_id', $providerId)
+                ->first();
+
+            $actions[$id] = ($row && (int) $row->is_subscribed === 1) ? 'unsubscribe' : 'subscribe';
+        }
+
+        return $actions;
+    }
+
+    /**
+     * @param  array<string, 'subscribe'|'unsubscribe'>  $pendingActions
+     */
+    public function applySubscriptionPendingFlags(object $item, string $subCategoryId, array $pendingActions): void
+    {
+        if (isset($pendingActions[$subCategoryId])) {
+            $item->subscription_pending = 1;
+            $item->pending_subscription_action = $pendingActions[$subCategoryId];
+        } else {
+            $item->subscription_pending = 0;
+            $item->pending_subscription_action = null;
+        }
+    }
+
     public function submit(string $providerId, string $changeType, array $payload): ProviderChangeRequest
     {
         ProviderChangeRequest::where('provider_id', $providerId)
@@ -178,8 +233,11 @@ class ProviderProfileChangeRequestService
         $providerType = $payload['provider_type'] ?? 'company';
         $leafZoneIds = $payload['leaf_zone_ids'] ?? [];
 
-        $previousLeafIds = $provider->zones()->pluck('zones.id')->sort()->values()->all();
-        if ($previousLeafIds !== collect($leafZoneIds)->sort()->values()->all()) {
+        $previousLeafIds = collect($provider->coveredLeafZoneIds())->sort()->values()->all();
+        $newLeafIds = collect($leafZoneIds)->sort()->values()->all();
+        $zonesChanged = $previousLeafIds !== $newLeafIds;
+
+        if ($zonesChanged) {
             DB::table('subscribed_services')->where('provider_id', $provider->id)->update(['is_subscribed' => 0]);
         }
 
@@ -205,7 +263,9 @@ class ProviderProfileChangeRequestService
         $provider->contact_person_name = $payload['contact_person_name'];
         $provider->contact_person_phone = $payload['contact_person_phone'];
         $provider->contact_person_email = $payload['contact_person_email'] ?? null;
-        $provider->zone_id = $leafZoneIds[0] ?? $provider->zone_id;
+        if ($zonesChanged) {
+            $provider->zone_id = $leafZoneIds[0] ?? $provider->zone_id;
+        }
         $provider->coordinates = [
             'latitude' => $payload['latitude'],
             'longitude' => $payload['longitude'],
@@ -277,13 +337,17 @@ class ProviderProfileChangeRequestService
             }
         }
 
-        DB::transaction(function () use ($provider, $owner, $leafZoneIds) {
-            $owner->zones()->sync($leafZoneIds);
+        DB::transaction(function () use ($provider, $owner, $leafZoneIds, $zonesChanged) {
+            if ($zonesChanged) {
+                $owner->zones()->sync($leafZoneIds);
+            }
             $owner->save();
             $provider->save();
-            $provider->zones()->sync(
-                collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
-            );
+            if ($zonesChanged) {
+                $provider->zones()->sync(
+                    collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
+                );
+            }
         });
     }
 

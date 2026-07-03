@@ -2,6 +2,7 @@
 
 namespace Modules\ChattingModule\Traits;
 
+use Modules\ChattingModule\Entities\ChannelList;
 use Ramsey\Uuid\Nonstandard\Uuid;
 
 trait ChattingTrait
