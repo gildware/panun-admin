@@ -133,11 +133,11 @@
             const $deny = $row.find('.change-review-deny');
 
             if (decision === 'approve') {
-                $accept.removeClass('btn-soft--success').addClass('btn--success');
+                $accept.removeClass('btn-outline--primary').addClass('btn--success');
                 $deny.removeClass('btn--danger').addClass('btn-soft--danger');
             } else {
                 $deny.removeClass('btn-soft--danger').addClass('btn--danger');
-                $accept.removeClass('btn--success').addClass('btn-soft--success');
+                $accept.removeClass('btn--success').addClass('btn-outline--primary');
             }
         }
 
