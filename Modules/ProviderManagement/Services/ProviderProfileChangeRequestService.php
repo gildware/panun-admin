@@ -41,25 +41,9 @@ class ProviderProfileChangeRequestService
             return [];
         }
 
-        $subCategoryIds = $request->payload['sub_category_id'] ?? [];
-        if (! is_array($subCategoryIds) || $subCategoryIds === []) {
-            return [];
-        }
-
-        $subscribedService = app(SubscribedService::class);
         $actions = [];
-
-        foreach ($subCategoryIds as $id) {
-            $id = (string) $id;
-            if ($id === '') {
-                continue;
-            }
-
-            $row = $subscribedService::where('sub_category_id', $id)
-                ->where('provider_id', $providerId)
-                ->first();
-
-            $actions[$id] = ($row && (int) $row->is_subscribed === 1) ? 'unsubscribe' : 'subscribe';
+        foreach ($this->subscriptionChangesFromPayload($providerId, $request->payload ?? []) as $change) {
+            $actions[$change['sub_category_id']] = $change['action'];
         }
 
         return $actions;
@@ -81,6 +65,10 @@ class ProviderProfileChangeRequestService
 
     public function submit(string $providerId, string $changeType, array $payload): ProviderChangeRequest
     {
+        if ($changeType === 'services') {
+            return $this->submitServicesChange($providerId, $payload);
+        }
+
         ProviderChangeRequest::where('provider_id', $providerId)
             ->where('change_type', $changeType)
             ->where('status', ProviderChangeRequest::STATUS_PENDING)
@@ -92,6 +80,147 @@ class ProviderProfileChangeRequestService
             'status' => ProviderChangeRequest::STATUS_PENDING,
             'payload' => $payload,
         ]);
+    }
+
+    /**
+     * @return array<int, array{sub_category_id: string, action: 'subscribe'|'unsubscribe'}>
+     */
+    public function subscriptionChangesFromPayload(string $providerId, array $payload): array
+    {
+        if (! empty($payload['subscription_changes']) && is_array($payload['subscription_changes'])) {
+            return collect($payload['subscription_changes'])
+                ->filter(fn ($change) => is_array($change) && ! empty($change['sub_category_id']))
+                ->map(function ($change) {
+                    $action = ($change['action'] ?? 'subscribe') === 'unsubscribe' ? 'unsubscribe' : 'subscribe';
+
+                    return [
+                        'sub_category_id' => (string) $change['sub_category_id'],
+                        'action' => $action,
+                    ];
+                })
+                ->values()
+                ->all();
+        }
+
+        $ids = $payload['sub_category_id'] ?? [];
+        if (! is_array($ids) || $ids === []) {
+            return [];
+        }
+
+        $changes = [];
+        foreach ($ids as $id) {
+            $id = (string) $id;
+            if ($id === '') {
+                continue;
+            }
+
+            $changes[] = [
+                'sub_category_id' => $id,
+                'action' => $this->resolveIntendedSubscriptionAction($providerId, $id),
+            ];
+        }
+
+        return $changes;
+    }
+
+    private function submitServicesChange(string $providerId, array $payload): ProviderChangeRequest
+    {
+        $incomingIds = $payload['sub_category_id'] ?? [];
+        if (! is_array($incomingIds)) {
+            $incomingIds = [];
+        }
+
+        $existing = ProviderChangeRequest::where('provider_id', $providerId)
+            ->where('change_type', 'services')
+            ->where('status', ProviderChangeRequest::STATUS_PENDING)
+            ->first();
+
+        $changes = $existing
+            ? $this->subscriptionChangesFromPayload($providerId, $existing->payload ?? [])
+            : [];
+
+        foreach ($incomingIds as $id) {
+            $id = (string) $id;
+            if ($id === '') {
+                continue;
+            }
+
+            $action = $this->resolveIntendedSubscriptionAction($providerId, $id);
+            $changes = $this->mergeSubscriptionChange($changes, $id, $action);
+        }
+
+        if ($existing) {
+            if ($changes === []) {
+                $existing->status = ProviderChangeRequest::STATUS_DENIED;
+                $existing->save();
+
+                return $existing;
+            }
+
+            $existing->payload = $this->buildServicesPayload($changes);
+            $existing->touch();
+            $existing->save();
+
+            return $existing;
+        }
+
+        return ProviderChangeRequest::create([
+            'provider_id' => $providerId,
+            'change_type' => 'services',
+            'status' => ProviderChangeRequest::STATUS_PENDING,
+            'payload' => $this->buildServicesPayload($changes),
+        ]);
+    }
+
+    /**
+     * @param  array<int, array{sub_category_id: string, action: 'subscribe'|'unsubscribe'}>  $changes
+     * @return array{subscription_changes: array<int, array{sub_category_id: string, action: 'subscribe'|'unsubscribe'}>, sub_category_id: array<int, string>}
+     */
+    private function buildServicesPayload(array $changes): array
+    {
+        return [
+            'subscription_changes' => $changes,
+            'sub_category_id' => array_column($changes, 'sub_category_id'),
+        ];
+    }
+
+    /**
+     * @param  array<int, array{sub_category_id: string, action: 'subscribe'|'unsubscribe'}>  $changes
+     * @return array<int, array{sub_category_id: string, action: 'subscribe'|'unsubscribe'}>
+     */
+    private function mergeSubscriptionChange(array $changes, string $subCategoryId, string $action): array
+    {
+        $keyed = [];
+        foreach ($changes as $change) {
+            $keyed[$change['sub_category_id']] = $change['action'];
+        }
+
+        if (isset($keyed[$subCategoryId])) {
+            if ($keyed[$subCategoryId] === $action) {
+                return $changes;
+            }
+
+            unset($keyed[$subCategoryId]);
+        } else {
+            $keyed[$subCategoryId] = $action;
+        }
+
+        return collect($keyed)
+            ->map(fn ($itemAction, $id) => [
+                'sub_category_id' => (string) $id,
+                'action' => $itemAction,
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function resolveIntendedSubscriptionAction(string $providerId, string $subCategoryId): string
+    {
+        $row = SubscribedService::where('sub_category_id', $subCategoryId)
+            ->where('provider_id', $providerId)
+            ->first();
+
+        return ($row && (int) $row->is_subscribed === 1) ? 'unsubscribe' : 'subscribe';
     }
 
     /**
@@ -238,7 +367,11 @@ class ProviderProfileChangeRequestService
         $zonesChanged = $previousLeafIds !== $newLeafIds;
 
         if ($zonesChanged) {
-            DB::table('subscribed_services')->where('provider_id', $provider->id)->update(['is_subscribed' => 0]);
+            $this->unsubscribeSubCategoriesLostOnZoneRemoval(
+                (string) $provider->id,
+                $previousLeafIds,
+                $newLeafIds
+            );
         }
 
         if ($providerType === 'company') {
@@ -403,8 +536,8 @@ class ProviderProfileChangeRequestService
 
     private function applyServices(Provider $provider, array $payload): void
     {
-        $subCategoryIds = $payload['sub_category_id'] ?? [];
-        if ($subCategoryIds === []) {
+        $subscriptionChanges = $this->subscriptionChangesFromPayload($provider->id, $payload);
+        if ($subscriptionChanges === []) {
             return;
         }
 
@@ -426,21 +559,33 @@ class ProviderProfileChangeRequestService
 
         $categoryCount = $subscribedService->where('provider_id', $providerId)->where('is_subscribed', 1)->count();
 
-        foreach ($subCategoryIds as $id) {
+        foreach ($subscriptionChanges as $change) {
+            $id = $change['sub_category_id'];
+            $action = $change['action'];
             $row = $subscribedService::where('sub_category_id', $id)->where('provider_id', $providerId)->first();
-            if (!$row) {
-                if ($packageSubscriberLimit <= $categoryCount && $packageSubscriber && $isLimit && $isPackageEnded) {
+
+            if ($action === 'subscribe') {
+                if ($row && (int) $row->is_subscribed === 1) {
                     continue;
                 }
-                $row = new SubscribedService();
-                $row->is_subscribed = 1;
-            } elseif ($row->is_subscribed == 0) {
-                if ($packageSubscriberLimit <= $categoryCount && $packageSubscriber && $isLimit && $isPackageEnded) {
-                    continue;
+
+                if (! $row) {
+                    if ($packageSubscriberLimit <= $categoryCount && $packageSubscriber && $isLimit && $isPackageEnded) {
+                        continue;
+                    }
+                    $row = new SubscribedService();
+                    $row->is_subscribed = 1;
+                } elseif ($row->is_subscribed == 0) {
+                    if ($packageSubscriberLimit <= $categoryCount && $packageSubscriber && $isLimit && $isPackageEnded) {
+                        continue;
+                    }
+                    $row->is_subscribed = 1;
                 }
-                $row->is_subscribed = !$row->is_subscribed;
             } else {
-                $row->is_subscribed = !$row->is_subscribed;
+                if (! $row || (int) $row->is_subscribed === 0) {
+                    continue;
+                }
+                $row->is_subscribed = 0;
             }
 
             $row->provider_id = $providerId;
@@ -450,6 +595,88 @@ class ProviderProfileChangeRequestService
                 $row->category_id = $parent->parent_id;
             }
             $row->save();
+
+            if ((int) $row->is_subscribed === 1) {
+                $categoryCount++;
+            } elseif ($categoryCount > 0) {
+                $categoryCount--;
+            }
+        }
+    }
+
+    /**
+     * When provider zones shrink, unsubscribe only sub-categories whose parent category
+     * is not available in any remaining zone. Adding zones does not change subscriptions.
+     *
+     * @param  array<int, string>  $previousZoneIds
+     * @param  array<int, string>  $remainingZoneIds
+     */
+    private function unsubscribeSubCategoriesLostOnZoneRemoval(
+        string $providerId,
+        array $previousZoneIds,
+        array $remainingZoneIds
+    ): void {
+        $previous = collect($previousZoneIds)->map(fn ($id) => (string) $id)->unique()->values();
+        $remaining = collect($remainingZoneIds)->map(fn ($id) => (string) $id)->unique()->values();
+
+        if ($previous->diff($remaining)->isEmpty()) {
+            return;
+        }
+
+        if ($remaining->isEmpty()) {
+            DB::table('subscribed_services')->where('provider_id', $providerId)->update(['is_subscribed' => 0]);
+
+            return;
+        }
+
+        $remainingZoneIds = $remaining->all();
+
+        $subscribed = SubscribedService::query()
+            ->where('provider_id', $providerId)
+            ->where('is_subscribed', 1)
+            ->get(['id', 'category_id']);
+
+        if ($subscribed->isEmpty()) {
+            return;
+        }
+
+        $parentCategoryIds = $subscribed->pluck('category_id')->filter()->unique()->values()->all();
+        if ($parentCategoryIds === []) {
+            return;
+        }
+
+        $parentsById = Category::query()
+            ->withoutGlobalScope('translate')
+            ->withoutGlobalScope('zone_wise_data')
+            ->whereIn('id', $parentCategoryIds)
+            ->with(['zones' => fn ($query) => $query->withoutGlobalScope('translate')->select('zones.id')])
+            ->get()
+            ->keyBy('id');
+
+        $idsToUnsubscribe = [];
+
+        foreach ($subscribed as $row) {
+            $parent = $parentsById->get($row->category_id);
+            if (! $parent) {
+                continue;
+            }
+
+            $parentZoneIds = $parent->zones
+                ->pluck('id')
+                ->map(fn ($id) => (string) $id)
+                ->all();
+
+            $stillAvailable = array_intersect($parentZoneIds, $remainingZoneIds) !== [];
+
+            if (! $stillAvailable) {
+                $idsToUnsubscribe[] = $row->id;
+            }
+        }
+
+        if ($idsToUnsubscribe !== []) {
+            SubscribedService::query()
+                ->whereIn('id', $idsToUnsubscribe)
+                ->update(['is_subscribed' => 0]);
         }
     }
 }

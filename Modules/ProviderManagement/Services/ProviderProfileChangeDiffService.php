@@ -169,18 +169,21 @@ class ProviderProfileChangeDiffService
     private function diffServices(string $providerId, array $payload): array
     {
         $changes = [];
-        $ids = $payload['sub_category_id'] ?? [];
+        $subscriptionChanges = app(ProviderProfileChangeRequestService::class)
+            ->subscriptionChangesFromPayload($providerId, $payload);
+        $ids = array_column($subscriptionChanges, 'sub_category_id');
         $categories = Category::whereIn('id', $ids)->get()->keyBy('id');
 
-        foreach ($ids as $id) {
+        foreach ($subscriptionChanges as $item) {
+            $id = $item['sub_category_id'];
+            $action = $item['action'];
             $row = SubscribedService::where('sub_category_id', $id)->where('provider_id', $providerId)->first();
             $currentlySubscribed = (int) ($row?->is_subscribed ?? 0) === 1;
-            $willSubscribe = !$currentlySubscribed;
 
             $changes[] = [
                 'field' => $categories->get($id)?->name ?? (string) $id,
                 'from' => $currentlySubscribed ? translate('Subscribed') : translate('Unsubscribed'),
-                'to' => $willSubscribe ? translate('Subscribed') : translate('Unsubscribed'),
+                'to' => $action === 'subscribe' ? translate('Subscribed') : translate('Unsubscribed'),
             ];
         }
 

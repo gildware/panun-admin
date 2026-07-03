@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\DB;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingIgnore;
 use Modules\BusinessSettingsModule\Entities\PackageSubscriber;
@@ -330,12 +329,6 @@ class Provider extends Model
 
         self::created(function ($model) {
             // ... code here
-        });
-
-        self::updating(function ($model) {
-            if ($model->isDirty('zone_id')) {
-                DB::table('subscribed_services')->where(['provider_id' => $model->id])->update(['is_subscribed' => 0]);
-            }
         });
 
         self::updated(function ($model) {
