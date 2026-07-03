@@ -59,9 +59,12 @@ class Service extends Model
      */
     public function buildVariationsReactFormat(): array
     {
-        $variantsByKey = $this->relationLoaded('serviceVariants')
-            ? $this->serviceVariants->keyBy('variant_key')
-            : $this->serviceVariants()->get()->keyBy('variant_key');
+        if ($this->relationLoaded('serviceVariants')) {
+            $this->serviceVariants->loadMissing('storage_image');
+            $variantsByKey = $this->serviceVariants->keyBy('variant_key');
+        } else {
+            $variantsByKey = $this->serviceVariants()->with('storage_image')->get()->keyBy('variant_key');
+        }
 
         $variantKeys = collect($this->variations)->pluck('variant_key')->unique();
         $storage = [];

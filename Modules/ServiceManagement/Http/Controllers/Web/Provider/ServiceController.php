@@ -299,8 +299,12 @@ class ServiceController extends Controller
      */
     public function show(Request $request, string $id): View|Factory|RedirectResponse|Application
     {
-        $service = $this->service->where('id', $id)->with(['category.children', 'variations.zone',
-            'reviews'])->withCount(['bookings'])->first();
+        $service = $this->service->where('id', $id)->with([
+            'category.children',
+            'variations.zone',
+            'serviceVariants',
+            'reviews',
+        ])->withCount(['bookings'])->first();
         $ongoing = $this->booking->whereHas('detail', function ($query) use ($id) {
             $query->where('service_id', $id);
         })->where(['booking_status' => 'ongoing'])->count();

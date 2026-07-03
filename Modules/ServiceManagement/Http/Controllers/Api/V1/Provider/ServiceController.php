@@ -140,7 +140,11 @@ class ServiceController extends Controller
      */
     public function show(string $id): JsonResponse
     {
-        $service = $this->service->where('id', $id)->with(['category.children', 'variations'])->first();
+        $service = $this->service->where('id', $id)->with([
+            'category.children',
+            'variations',
+            'serviceVariants.storage_image',
+        ])->first();
         if (isset($service)) {
             $service = self::variationsReactFormat($service);
             return response()->json(response_formatter(DEFAULT_200, $service), 200);
@@ -203,7 +207,7 @@ class ServiceController extends Controller
 
     private function variationsReactFormat($service)
     {
-        $service->loadMissing(['variations', 'serviceVariants']);
+        $service->loadMissing(['variations', 'serviceVariants.storage_image']);
         $service['variations_react_format'] = $service->buildVariationsReactFormat();
 
         return $service;
