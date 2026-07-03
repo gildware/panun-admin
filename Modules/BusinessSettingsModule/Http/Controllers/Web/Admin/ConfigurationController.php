@@ -980,6 +980,14 @@ class ConfigurationController extends Controller
 
             $filter = $validator->validated();
             $filter['customer_wallet'] = $request['customer_wallet'] ?? 0;
+        } elseif ($request['web_page'] == 'welcome_bonus') {
+            $validator = Validator::make($request->all(), [
+                'customer_welcome_bonus' => 'in:0,1',
+                'customer_welcome_bonus_amount' => 'required|numeric|min:0',
+            ]);
+
+            $filter = $validator->validated();
+            $filter['customer_welcome_bonus'] = $request['customer_welcome_bonus'] ?? 0;
         } elseif ($request['web_page'] == 'loyalty_point') {
             $validator = Validator::make($request->all(), [
                 //loyalty point

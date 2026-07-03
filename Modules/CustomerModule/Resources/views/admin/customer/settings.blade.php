@@ -30,6 +30,12 @@
                                 </a>
                             </li>
                             <li class="nav-item">
+                                <a href="{{url()->current()}}?web_page=welcome_bonus"
+                                   class="nav-link {{$web_page=='welcome_bonus'?'active':''}}">
+                                    {{translate('Welcome Bonus')}}
+                                </a>
+                            </li>
+                            <li class="nav-item">
                                 <a href="{{url()->current()}}?web_page=referral_earning"
                                    class="nav-link {{$web_page=='referral_earning'?'active':''}}">
                                     {{translate('referral_earning')}}
@@ -203,6 +209,60 @@
                                                         class="btn btn--primary">{{translate('update')}}</button>
                                             </div>
 
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if($web_page=='welcome_bonus')
+                        <div class="tab-content">
+                            <div class="tab-pane fade {{$web_page=='welcome_bonus'?'active show':''}}">
+                                <div class="card">
+                                    <div class="card-body p-30">
+                                        <form action="{{route('admin.customer.settings', ['web_page' => 'welcome_bonus'])}}"
+                                              method="POST">
+                                            @csrf
+                                            @method('PUT')
+
+                                            <div class="row">
+                                                <div class="col-12 d-flex justify-content-start align-items-center mb-3">
+                                                    @php($welcomeBonus=$data_values->where('key_name','customer_welcome_bonus')->first())
+                                                    <div>
+                                                        <h4 class="mb-1">{{translate('Welcome Bonus')}}</h4>
+                                                        <p class="text-muted fz-12 mb-0">
+                                                            {{translate('Credit new app customers with a one-time wallet bonus when they register')}}
+                                                        </p>
+                                                    </div>
+                                                    <label class="switcher mx-3">
+                                                        <input class="switcher_input" type="checkbox" value="1"
+                                                               name="customer_welcome_bonus"
+                                                            {{isset($welcomeBonus) && $welcomeBonus->live_values == '1' ? 'checked' : ''}}>
+                                                        <span class="switcher_control"></span>
+                                                    </label>
+                                                </div>
+
+                                                <div class="col-md-6 col-12 mb-30">
+                                                    @php($welcomeBonusAmount=$data_values->where('key_name','customer_welcome_bonus_amount')->first())
+                                                    <label class="mb-1">
+                                                        {{translate('Welcome Bonus Amount')}} ({{currency_symbol()}})
+                                                        <i class="material-icons" data-bs-toggle="tooltip"
+                                                           data-bs-placement="top"
+                                                           title="{{translate('Amount credited to a new customer wallet on first app registration')}}">info</i>
+                                                    </label>
+                                                    <input type="number" class="form-control"
+                                                           name="customer_welcome_bonus_amount" step="any"
+                                                           min="0" value="{{ $welcomeBonusAmount->live_values ?? 0 }}">
+                                                </div>
+                                            </div>
+
+                                            <div class="d-flex gap-2 justify-content-end">
+                                                <button type="reset"
+                                                        class="btn btn-secondary">{{translate('reset')}}</button>
+                                                <button type="submit"
+                                                        class="btn btn--primary">{{translate('update')}}</button>
+                                            </div>
                                         </form>
                                     </div>
                                 </div>
