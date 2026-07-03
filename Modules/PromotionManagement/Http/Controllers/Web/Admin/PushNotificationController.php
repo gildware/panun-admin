@@ -158,6 +158,7 @@ class PushNotificationController extends Controller
             'zone_ids' => $validatedData['zone_ids'] ?? [],
             'cover_image' => $image_name,
             'is_active' => 1,
+            'sender_type' => 'admin',
         ]);
 
 

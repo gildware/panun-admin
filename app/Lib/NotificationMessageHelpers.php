@@ -2872,6 +2872,8 @@ if (! function_exists('persist_transactional_push_notification')) {
         mixed $bookingId = null,
         ?string $bookingType = null,
         ?string $repeatType = null,
+        ?string $senderType = 'admin',
+        ?string $senderId = null,
     ): ?string {
         try {
             $pushNotification = new \Modules\PromotionManagement\Entities\PushNotification();
@@ -2884,6 +2886,8 @@ if (! function_exists('persist_transactional_push_notification')) {
             $pushNotification->booking_id = normalize_notification_booking_id($bookingId);
             $pushNotification->booking_type = $bookingType;
             $pushNotification->repeat_type = $repeatType;
+            $pushNotification->sender_type = $senderType;
+            $pushNotification->sender_id = $senderId;
             $pushNotification->save();
 
             $pushNotificationUser = new \Modules\PromotionManagement\Entities\PushNotificationUser();
@@ -2993,6 +2997,8 @@ if (! function_exists('scenario_push_notification')) {
         ?string $zoneId = null,
         mixed $image = null,
         mixed $advertisementId = null,
+        ?string $senderType = 'admin',
+        ?string $senderId = null,
     ): void {
         if ($title === '') {
             return;
@@ -3021,7 +3027,9 @@ if (! function_exists('scenario_push_notification')) {
                 $type,
                 normalize_notification_booking_id($bookingId),
                 $bookingType,
-                null
+                null,
+                $senderType,
+                $senderId
             );
         }
 
@@ -4617,6 +4625,17 @@ if (! function_exists('send_service_request_provider_notification')) {
             'service_name' => $serviceRequest->service_name ?? '',
         ];
 
+        $senderType = match ($messageKey) {
+            'service_request_approve', 'service_request_deny' => 'admin',
+            'new_service_request_arrived' => $isProvider ? 'customer' : 'admin',
+            default => 'admin',
+        };
+        $senderId = match ($senderType) {
+            'customer' => (string) $user->id,
+            'provider' => $provider ? (string) $provider->id : null,
+            default => null,
+        };
+
         scenario_push_notification(
             $recipient,
             $title,
@@ -4628,7 +4647,11 @@ if (! function_exists('send_service_request_provider_notification')) {
             null,
             null,
             $isProvider ? 'provider-admin' : 'customer',
-            $provider?->zone_id ?? config('zone_id')
+            $provider?->zone_id ?? config('zone_id'),
+            null,
+            null,
+            $senderType,
+            $senderId
         );
     }
 }

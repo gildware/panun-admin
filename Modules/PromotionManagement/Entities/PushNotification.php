@@ -21,7 +21,7 @@ class PushNotification extends Model
 
     protected $appends = ['cover_image_full_path'];
 
-    protected $fillable = ['id', 'title', 'description', 'to_users', 'zone_ids', 'cover_image', 'is_active', 'notification_type', 'booking_id', 'booking_type', 'repeat_type'];
+    protected $fillable = ['id', 'title', 'description', 'to_users', 'zone_ids', 'cover_image', 'is_active', 'notification_type', 'booking_id', 'booking_type', 'repeat_type', 'sender_type', 'sender_id'];
 
     public function pushNotificationUser(): hasOne
     {

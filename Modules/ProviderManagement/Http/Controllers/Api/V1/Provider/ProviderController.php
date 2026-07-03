@@ -756,7 +756,7 @@ class ProviderController extends Controller
             ->latest()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
-        mobile_inbox_enrich_paginator($pushNotification, $providerUserId);
+        mobile_inbox_enrich_paginator($pushNotification, $providerUserId, 'provider');
 
         return response()->json(response_formatter(DEFAULT_200, $pushNotification), 200);
     }
