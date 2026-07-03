@@ -161,54 +161,45 @@ if (! function_exists('resolve_notification_customer_sender_image')) {
 if (! function_exists('infer_notification_sender_type')) {
     function infer_notification_sender_type(PushNotification $notification): string
     {
-        if (filled($notification->sender_type)) {
+        if (filled($notification->sender_type) && $notification->sender_type !== 'admin') {
             return (string) $notification->sender_type;
         }
 
-        $type = strtolower((string) ($notification->notification_type ?? ''));
-        $title = strtolower((string) ($notification->title ?? ''));
-
-        if ($type === 'service_request') {
-            if (
-                str_contains($title, 'approved')
-                || str_contains($title, 'denied')
-                || str_contains($title, 'not approved')
-            ) {
-                return 'admin';
-            }
-
-            $toUsers = is_array($notification->to_users) ? $notification->to_users : [];
-            if (
-                in_array('provider-admin', $toUsers, true)
-                || in_array('provider-serviceman', $toUsers, true)
-            ) {
-                if (
-                    str_contains($title, 'submitted')
-                    || str_contains($title, 'request arrived')
-                    || str_contains($title, 'new service')
-                ) {
-                    return 'customer';
-                }
-            }
-
-            return 'admin';
+        if (filled($notification->sender_id)) {
+            return (string) ($notification->sender_type ?: 'admin');
         }
 
-        if ($type === 'booking' && filled($notification->booking_id)) {
-            $booking = \Modules\BookingModule\Entities\Booking::query()
-                ->with('provider')
-                ->find($notification->booking_id);
+        $type = strtolower((string) ($notification->notification_type ?? ''));
+        $toUsers = is_array($notification->to_users) ? $notification->to_users : [];
+        $toCustomer = in_array('customer', $toUsers, true);
+        $toProvider = in_array('provider-admin', $toUsers, true)
+            || in_array('provider-serviceman', $toUsers, true)
+            || in_array('provider-employee', $toUsers, true);
 
-            if ($booking?->provider_id) {
-                $toUsers = is_array($notification->to_users) ? $notification->to_users : [];
-                if (in_array('customer', $toUsers, true)) {
-                    $providerStatuses = ['accepted', 'ongoing', 'completed', 'canceled', 'cancelled'];
-                    foreach ($providerStatuses as $status) {
-                        if (str_contains($title, $status)) {
-                            return 'provider';
-                        }
+        if ($type === 'booking' && filled($notification->booking_id)) {
+            $booking = \Modules\BookingModule\Entities\Booking::query()->find($notification->booking_id);
+            if ($booking) {
+                if ($toProvider && $booking->customer_id) {
+                    return 'customer';
+                }
+
+                if ($toCustomer && $booking->provider_id) {
+                    $status = strtolower((string) ($booking->booking_status ?? ''));
+                    if (in_array($status, ['accepted', 'ongoing', 'completed', 'canceled', 'cancelled', 'arrived'], true)) {
+                        return 'provider';
                     }
                 }
+            }
+        }
+
+        if ($type === 'service_request' && $toProvider) {
+            $title = strtolower((string) ($notification->title ?? ''));
+            if (
+                str_contains($title, 'new service')
+                || str_contains($title, 'request arrived')
+                || str_contains($title, 'arrived')
+            ) {
+                return 'customer';
             }
         }
 
@@ -219,17 +210,73 @@ if (! function_exists('infer_notification_sender_type')) {
 if (! function_exists('infer_notification_sender_id')) {
     function infer_notification_sender_id(PushNotification $notification, string $senderType): ?string
     {
-        if (filled($notification->sender_id)) {
+        if (
+            filled($notification->sender_id)
+            && filled($notification->sender_type)
+            && $notification->sender_type !== 'admin'
+        ) {
             return (string) $notification->sender_id;
         }
 
-        if ($senderType === 'provider' && filled($notification->booking_id)) {
+        if (in_array($senderType, ['provider', 'customer'], true) && filled($notification->booking_id)) {
             $booking = \Modules\BookingModule\Entities\Booking::query()->find($notification->booking_id);
+            if (! $booking) {
+                return null;
+            }
 
-            return $booking?->provider_id ? (string) $booking->provider_id : null;
+            return $senderType === 'provider'
+                ? ($booking->provider_id ? (string) $booking->provider_id : null)
+                : ($booking->customer_id ? (string) $booking->customer_id : null);
         }
 
         return null;
+    }
+}
+
+if (! function_exists('resolve_persisted_notification_sender')) {
+    /**
+     * Determine sender metadata when persisting transactional inbox notifications.
+     *
+     * @return array{0: string, 1: ?string}
+     */
+    function resolve_persisted_notification_sender(
+        ?string $senderType,
+        ?string $senderId,
+        ?string $notificationType,
+        ?string $inboxAudience,
+        mixed $bookingId,
+        ?string $bookingStatusOverride = null,
+    ): array {
+        if (filled($senderId)) {
+            return [(string) ($senderType ?: 'admin'), (string) $senderId];
+        }
+
+        if (filled($senderType) && $senderType !== 'admin') {
+            return [(string) $senderType, null];
+        }
+
+        $notificationType = strtolower((string) ($notificationType ?? ''));
+        $inboxAudience = (string) ($inboxAudience ?? '');
+        $toProvider = in_array($inboxAudience, ['provider-admin', 'provider-serviceman', 'provider-employee'], true);
+        $toCustomer = $inboxAudience === 'customer';
+
+        if ($notificationType === 'booking' && filled($bookingId)) {
+            $booking = \Modules\BookingModule\Entities\Booking::query()->find(normalize_notification_booking_id($bookingId));
+            if ($booking) {
+                if ($toProvider && $booking->customer_id) {
+                    return ['customer', (string) $booking->customer_id];
+                }
+
+                if ($toCustomer && $booking->provider_id) {
+                    $status = strtolower((string) ($bookingStatusOverride ?? $booking->booking_status ?? ''));
+                    if (in_array($status, ['accepted', 'ongoing', 'completed', 'canceled', 'cancelled', 'arrived'], true)) {
+                        return ['provider', (string) $booking->provider_id];
+                    }
+                }
+            }
+        }
+
+        return ['admin', null];
     }
 }
 

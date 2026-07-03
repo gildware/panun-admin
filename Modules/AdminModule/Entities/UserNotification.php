@@ -46,6 +46,16 @@ class UserNotification extends Model
         return $this->read_at === null;
     }
 
+    public function senderType(): string
+    {
+        return resolve_admin_notification_sender($this)['sender_type'];
+    }
+
+    public function senderAvatarUrl(): ?string
+    {
+        return resolve_admin_notification_sender($this)['sender_image_url'];
+    }
+
     public function iconName(): string
     {
         return match ($this->type) {

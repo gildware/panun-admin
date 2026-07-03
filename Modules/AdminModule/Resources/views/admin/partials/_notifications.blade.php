@@ -32,9 +32,7 @@
                 data-notification-id="{{ $notification->id }}"
                 data-notification-type="{{ $notification->type }}"
                 data-action-url="{{ $notification->action_url }}">
-            <div class="avatar title-color hover-color-c2 flex-shrink-0">
-                <span class="material-symbols-outlined">{{ $notification->iconName() }}</span>
-            </div>
+            @include('adminmodule::admin.partials._notification-avatar', ['notification' => $notification])
             <div class="media-body">
                 <h5 class="card-title mb-1 {{ $notification->isUnread() ? 'fw-bold' : '' }}">
                     {{ $notification->title }}

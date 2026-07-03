@@ -72,9 +72,7 @@
                                                 data-notification-type="{{ $notification->type }}"
                                                 data-action-url="{{ $notification->action_url }}">
                                             <div class="d-flex gap-3 align-items-start">
-                                                <div class="avatar title-color flex-shrink-0">
-                                                    <span class="material-symbols-outlined">{{ $notification->iconName() }}</span>
-                                                </div>
+                                                @include('adminmodule::admin.partials._notification-avatar', ['notification' => $notification])
                                                 <div class="flex-grow-1 min-w-0">
                                                     <div class="d-flex flex-wrap gap-2 align-items-center mb-1">
                                                         <h5 class="mb-0 {{ $notification->isUnread() ? 'fw-bold' : '' }}">

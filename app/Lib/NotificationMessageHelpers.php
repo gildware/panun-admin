@@ -2874,8 +2874,18 @@ if (! function_exists('persist_transactional_push_notification')) {
         ?string $repeatType = null,
         ?string $senderType = 'admin',
         ?string $senderId = null,
+        ?string $bookingStatusOverride = null,
     ): ?string {
         try {
+            [$senderType, $senderId] = resolve_persisted_notification_sender(
+                $senderType,
+                $senderId,
+                $notificationType,
+                $audience,
+                $bookingId,
+                $bookingStatusOverride,
+            );
+
             $pushNotification = new \Modules\PromotionManagement\Entities\PushNotification();
             $pushNotification->title = $title;
             $pushNotification->description = $description;
@@ -3029,7 +3039,8 @@ if (! function_exists('scenario_push_notification')) {
                 $bookingType,
                 null,
                 $senderType,
-                $senderId
+                $senderId,
+                $bookingStatusOverride,
             );
         }
 
@@ -3185,7 +3196,11 @@ if (! function_exists('send_booking_new_service_request_to_assigned_provider')) 
             $repeatOrRegular,
             (string) ($booking->booking_status ?? 'pending'),
             'provider-admin',
-            $booking->zone_id
+            $booking->zone_id,
+            null,
+            null,
+            'customer',
+            (string) $booking->customer_id,
         );
     }
 }
@@ -4531,6 +4546,16 @@ if (! function_exists('send_advertisement_push_notification')) {
             return;
         }
 
+        $providerInitiated = in_array($messageKey, [
+            'advertisement_paused_by_provider',
+            'advertisement_resumed_by_provider',
+        ], true);
+        $senderType = $providerInitiated ? 'provider' : 'admin';
+        $senderId = $providerInitiated ? (string) ($provider?->id ?? '') : null;
+        if ($senderId === '') {
+            $senderId = null;
+        }
+
         scenario_push_notification(
             $owner,
             $title,
@@ -4544,7 +4569,9 @@ if (! function_exists('send_advertisement_push_notification')) {
             'provider-admin',
             $provider?->zone_id,
             null,
-            $advertisement->id
+            $advertisement->id,
+            $senderType,
+            $senderId,
         );
     }
 }
@@ -4635,6 +4662,11 @@ if (! function_exists('send_service_request_provider_notification')) {
             'provider' => $provider ? (string) $provider->id : null,
             default => null,
         };
+
+        if ($messageKey === '' && $isProvider) {
+            $senderType = 'admin';
+            $senderId = null;
+        }
 
         scenario_push_notification(
             $recipient,

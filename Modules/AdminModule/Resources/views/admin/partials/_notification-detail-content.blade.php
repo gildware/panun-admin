@@ -1,7 +1,5 @@
 <div class="d-flex gap-3 align-items-start mb-4">
-    <div class="avatar title-color flex-shrink-0">
-        <span class="material-symbols-outlined fs-2">{{ $notification->iconName() }}</span>
-    </div>
+    @include('adminmodule::admin.partials._notification-avatar', ['notification' => $notification, 'avatarSize' => 48])
     <div class="flex-grow-1">
         <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
             <h3 class="mb-0 h5">{{ $notification->title }}</h3>

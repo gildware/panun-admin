@@ -41,8 +41,8 @@ class CreateAdminProviderWithdrawalNotification
             title: translate('Provider_withdrew_from_booking_admin_title') . ' #' . $readableId,
             body: $body,
             actionUrl: route('admin.booking.details', ['id' => $booking->id, 'web_page' => 'details']),
-            referenceType: 'booking',
-            referenceId: (string) $booking->id,
+            referenceType: 'provider',
+            referenceId: (string) $event->providerId,
         );
     }
 }
