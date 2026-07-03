@@ -881,6 +881,29 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcan
 
+            @can('customer_view')
+                <li class="has-sub-item {{request()->is('admin/customer/referral-earning*')?'sub-menu-opened':''}}">
+                    <a href="#" class="{{request()->is('admin/customer/referral-earning*')?'active-menu':''}}">
+                        <span class="material-icons" title="Customers">share</span>
+                        <span class="link-title">{{translate('refer_and_earn')}}</span>
+                    </a>
+                    <ul class="nav sub-menu">
+                        <li>
+                            <a href="{{route('admin.customer.referral-earning.report')}}"
+                               class="{{request()->is('admin/customer/referral-earning/report')?'active-menu':''}}">
+                                {{translate('Referral_Report')}}
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{route('admin.customer.settings', ['web_page' => 'referral_earning'])}}"
+                               class="{{request()->is('admin/customer/settings') && request('web_page')=='referral_earning'?'active-menu':''}}">
+                                {{translate('Referral_Settings')}}
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            @endcan
+
             @can('newsletter_view')
                 <li>
                     <a href="{{route('admin.customer.newsletter.index')}}"

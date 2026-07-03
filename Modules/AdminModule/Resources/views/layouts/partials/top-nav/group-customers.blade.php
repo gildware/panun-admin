@@ -58,6 +58,20 @@
             ])
         @endcan
 
+        @can('customer_view')
+            @include('adminmodule::layouts.partials.top-nav._section', ['label' => translate('refer_and_earn')])
+            @include('adminmodule::layouts.partials.top-nav._link', [
+                'href' => route('admin.customer.referral-earning.report'),
+                'label' => translate('Referral_Report'),
+                'active' => request()->is('admin/customer/referral-earning/report'),
+            ])
+            @include('adminmodule::layouts.partials.top-nav._link', [
+                'href' => route('admin.customer.settings', ['web_page' => 'referral_earning']),
+                'label' => translate('Referral_Settings'),
+                'active' => request()->is('admin/customer/settings') && request('web_page') == 'referral_earning',
+            ])
+        @endcan
+
         @can('newsletter_view')
             @include('adminmodule::layouts.partials.top-nav._link', [
                 'href' => route('admin.customer.newsletter.index'),

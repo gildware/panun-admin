@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\CustomerModule\Http\Controllers\Web\Admin\LoyaltyPointController;
+use Modules\CustomerModule\Http\Controllers\Web\Admin\ReferralEarningController;
 use Modules\CustomerModule\Http\Controllers\Web\Admin\WalletController;
 use Modules\CustomerModule\Http\Controllers\Web\Admin\SubscribeNewsletterController;
 use Modules\CustomerModule\Http\Controllers\Web\Admin\CustomerController;
@@ -45,6 +46,11 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::group(['prefix' => 'loyalty-point', 'as' => 'loyalty-point.'], function () {
             Route::any('report', [LoyaltyPointController::class, 'getLoyaltyPointReport'])->name('report');
             Route::any('report/download', [LoyaltyPointController::class, 'getLoyaltyPointReportDownload'])->name('report.download');
+        });
+
+        Route::group(['prefix' => 'referral-earning', 'as' => 'referral-earning.'], function () {
+            Route::any('report', [ReferralEarningController::class, 'report'])->name('report');
+            Route::any('report/download', [ReferralEarningController::class, 'reportDownload'])->name('report.download');
         });
 
         Route::group(['prefix' => 'newsletter', 'as' => 'newsletter.'], function () {

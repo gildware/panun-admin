@@ -127,6 +127,40 @@ if (!function_exists('generate_referer_code')) {
     }
 }
 
+if (!function_exists('resolve_customer_referral_registration')) {
+    /**
+     * @return array{error: \Illuminate\Http\JsonResponse|null, referrer_id: int|null}
+     */
+    function resolve_customer_referral_registration(?string $referralCode): array
+    {
+        $referralCode = trim((string) ($referralCode ?? ''));
+        if ($referralCode === '') {
+            return ['error' => null, 'referrer_id' => null];
+        }
+
+        $userWhoReferred = User::where('ref_code', $referralCode)->first();
+        if (is_null($userWhoReferred)) {
+            return [
+                'error' => response()->json(response_formatter(REFERRAL_CODE_INVALID_400), 404),
+                'referrer_id' => null,
+            ];
+        }
+
+        $customerReferralEarning = business_config('customer_referral_earning', 'customer_config')->live_values ?? 0;
+        $amount = business_config('referral_value_per_currency_unit', 'customer_config')->live_values ?? 0;
+
+        if ($customerReferralEarning == 1) {
+            referralEarningTransactionDuringRegistration($userWhoReferred, $amount);
+
+            if (isNotificationActive(null, 'refer_earn', 'notification', 'user')) {
+                send_referral_code_used_notification($userWhoReferred);
+            }
+        }
+
+        return ['error' => null, 'referrer_id' => $userWhoReferred->id];
+    }
+}
+
 if (!function_exists('getLanguageCode')) {
     function getLanguageCode(string $country_code): string
     {

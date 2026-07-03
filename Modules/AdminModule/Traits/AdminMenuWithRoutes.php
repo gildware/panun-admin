@@ -416,6 +416,14 @@ trait AdminMenuWithRoutes
                 "type" => 'menu',
             ],
             [
+                'route_name' => 'Referral_Report',
+                'uri' => 'admin/customer/referral-earning/report',
+                'full_route' => url('admin/customer/referral-earning/report'),
+                "page_title" => 'Referral_Report',
+                "keywords" => 'Referral Report, Refer and earn, referral earning, referred users',
+                "type" => 'menu',
+            ],
+            [
                 'route_name' => 'Subscribed_Newsletter',
                 'uri' => 'admin/customer/newsletter/list',
                 'full_route' => url('admin/customer/newsletter/list'),

@@ -213,6 +213,13 @@
                     @if($web_page=='referral_earning')
                         <div class="tab-content">
                             <div class="tab-pane fade {{$web_page=='referral_earning'?'active show':''}}">
+                                <div class="d-flex justify-content-end mb-3">
+                                    <a href="{{ route('admin.customer.referral-earning.report') }}"
+                                       class="btn btn-outline--primary btn-sm d-inline-flex align-items-center gap-1">
+                                        <span class="material-icons fz-16">analytics</span>
+                                        {{ translate('View_Referral_Report') }}
+                                    </a>
+                                </div>
                                 <div class="card">
                                     <div class="card-body p-30">
                                         <form

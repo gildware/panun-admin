@@ -634,6 +634,7 @@ class LoginController extends Controller
             'last_name' => 'required|string|max:255',
             'email' => 'nullable|email|max:255',
             'phone' => 'required|max:15',
+            'referral_code' => 'nullable|string|max:50',
         ]);
 
         if ($validator->fails()) {
@@ -663,6 +664,11 @@ class LoginController extends Controller
             return response()->json(response_formatter(ALREADY_USE_EMAIL_ANOTHER_ACCOUNT), 403);
         }
 
+        $referralResult = resolve_customer_referral_registration($request->input('referral_code'));
+        if ($referralResult['error'] !== null) {
+            return $referralResult['error'];
+        }
+
         $temporaryToken = Str::random(40);
 
         $user = $this->user->create([
@@ -676,6 +682,7 @@ class LoginController extends Controller
             'customer_app_access' => true,
             'is_email_verified' => 1,
             'is_active' => 1,
+            'referred_by' => $referralResult['referrer_id'],
         ]);
 
         if ($request['guest_id']){

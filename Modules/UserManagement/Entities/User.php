@@ -289,6 +289,11 @@ class User extends Authenticatable
         return $this->belongsTo(User::class, 'referred_by');
     }
 
+    public function referred_users(): HasMany
+    {
+        return $this->hasMany(User::class, 'referred_by');
+    }
+
     public function provider(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(Provider::class);

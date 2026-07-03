@@ -444,6 +444,7 @@ class OTPVerificationController extends Controller
             'last_name' => 'required|string|max:255',
             'email' => 'nullable|email|max:255',
             'phone' => 'required|string|max:20',
+            'referral_code' => 'nullable|string|max:50',
         ]);
 
         if ($validator->fails()) {
@@ -493,6 +494,11 @@ class OTPVerificationController extends Controller
                 }
             }
 
+            $referralResult = resolve_customer_referral_registration($request->input('referral_code'));
+            if ($referralResult['error'] !== null) {
+                return $referralResult['error'];
+            }
+
             $user = $this->user->create([
                 'first_name' => $request->first_name,
                 'last_name' => $request->last_name,
@@ -503,6 +509,7 @@ class OTPVerificationController extends Controller
                 'is_phone_verified' => 1,
                 'is_active' => 1,
                 'customer_app_access' => true,
+                'referred_by' => $referralResult['referrer_id'],
             ]);
 
             if ($request['guest_id']) {

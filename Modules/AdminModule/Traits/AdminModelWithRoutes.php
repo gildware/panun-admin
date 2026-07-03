@@ -157,6 +157,7 @@ trait AdminModelWithRoutes
                         'columns' => ['id', 'first_name', 'last_name', 'email', 'phone'],
                         'admin_routes' => [
                             'admin/customer/loyalty-point/report' => 'Loyalty point Report',
+                            'admin/customer/referral-earning/report' => 'Referral Report',
                         ],
                     ],
                 ],

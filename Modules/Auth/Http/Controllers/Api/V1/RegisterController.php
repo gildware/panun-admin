@@ -96,27 +96,12 @@ class RegisterController extends Controller
         $user->customer_app_access = true;
         $user->is_active = 1;
 
-        if ($request->has('referral_code')) {
-            $customerReferralEarning = business_config('customer_referral_earning', 'customer_config')->live_values ?? 0;
-            $amount = business_config('referral_value_per_currency_unit', 'customer_config')->live_values ?? 0;
-            $userWhoRerreded = User::where('ref_code', $request['referral_code'])->first();
-
-            if (is_null($userWhoRerreded)) {
-                return response()->json(response_formatter(REFERRAL_CODE_INVALID_400), 404);
-            }
-
-            if ($customerReferralEarning == 1 && isset($userWhoRerreded)){
-
-                referralEarningTransactionDuringRegistration($userWhoRerreded, $amount);
-
-                $userRefund  = isNotificationActive(null, 'refer_earn', 'notification', 'user');
-                if ($userRefund) {
-                    send_referral_code_used_notification($userWhoRerreded);
-                }
-            }
+        $referralResult = resolve_customer_referral_registration($request->input('referral_code'));
+        if ($referralResult['error'] !== null) {
+            return $referralResult['error'];
         }
 
-        $user->referred_by = $userWhoRerreded->id ?? null;
+        $user->referred_by = $referralResult['referrer_id'];
         $user->save();
 
         $phoneVerification = checkActiveSMSGatewayCount();

@@ -740,6 +740,7 @@ class AdvanceSearch
             [$customerSettings . '?web_page=wallet', 'customer_wallet', 'customer wallet, wallet settings, wallet bonus, customer settings'],
             [$customerSettings . '?web_page=loyalty_point', 'loyalty_point', 'loyalty point, loyalty points, rewards, customer settings'],
             [$customerSettings . '?web_page=referral_earning', 'referral_earning', 'referral, referral earning, invite, customer settings'],
+            [url('admin/customer/referral-earning/report'), 'Referral_Report', 'referral report, referred users, refer and earn'],
             ['admin/configuration/offline-payment/list?web_page=payment_config&type=offline_payment', 'Offline_Payment', 'offline payment, bank transfer, cash payment, manual payment, payment methods'],
             ['admin/chat/index?filter=all', 'Chat', 'chat, messaging, conversation, customer chat, provider chat, support chat, inbox'],
             ['admin/chat/index?filter=unread', 'Chat', 'chat, messaging, unread chat, support inbox'],
