@@ -20,7 +20,7 @@ use Modules\UserManagement\Entities\Guest;
 use Modules\UserManagement\Entities\User;
 use Modules\UserManagement\Entities\UserAddress;
 use Illuminate\Support\Facades\Mail;
-use Modules\PaymentModule\Traits\SmsGateway;
+use Modules\CustomerModule\Services\CustomerReferralEarningService;
 
 class CustomerController extends Controller
 {
@@ -294,6 +294,43 @@ class CustomerController extends Controller
             'min_loyalty_point_to_transfer' => business_config('min_loyalty_point_to_transfer', 'customer_config')->live_values,
             'transactions' => $transactions
         ]), 200);
+    }
+
+    public function referralEarning(Request $request, CustomerReferralEarningService $referralService): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'limit' => 'required|numeric|min:1|max:50',
+            'offset' => 'required|numeric|min:1|max:100000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        if (! $referralService->isEnabled()) {
+            return response()->json(response_formatter(DEFAULT_403), 403);
+        }
+
+        $referrer = $this->customer->find($request->user()->id);
+        if (! $referrer) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        $reward = $referralService->referralRewardAmount();
+        $paginator = $referralService->paginateReferredUsers(
+            (string) $referrer->id,
+            (int) $request->limit,
+            (int) $request->offset
+        );
+
+        $paginator->getCollection()->transform(
+            fn (User $user) => $referralService->transformReferredUser($user, $reward)
+        );
+
+        return response()->json(response_formatter(DEFAULT_204, array_merge(
+            $referralService->buildSummary((string) $referrer->id, $referrer),
+            ['referred_users' => $paginator]
+        )), 200);
     }
 
     /**

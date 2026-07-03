@@ -69,6 +69,7 @@ Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V
         Route::post('loyalty-point/wallet-transfer', [CustomerController::class, 'transferLoyaltyPointToWallet']);
         Route::get('wallet-transaction', [CustomerController::class, 'walletTransaction']);
         Route::get('loyalty-point-transaction', [CustomerController::class, 'loyaltyPointTransaction']);
+        Route::get('referral-earning', [CustomerController::class, 'referralEarning']);
     });
 
     Route::post('change-language', [CustomerController::class, 'changeLanguage']);
