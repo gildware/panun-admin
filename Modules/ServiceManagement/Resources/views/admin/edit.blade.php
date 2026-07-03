@@ -15,6 +15,10 @@
     <style>
         .service-variations-workspace.is-loading { opacity: .55; pointer-events: none; transition: opacity .15s ease; }
         .service-variants-table .badge { font-size: 10px; padding: 3px 6px; }
+        .body-customize-editor textarea.ckeditor { width: 100%; min-height: 300px; display: block; }
+        .body-customize-editor .tox-tinymce { width: 100% !important; min-height: 300px !important; }
+        .body-customize-editor .tox .tox-edit-area { min-height: 240px !important; }
+        .body-customize-editor .tox .tox-edit-area__iframe { min-height: 240px !important; }
     </style>
 
 @endpush

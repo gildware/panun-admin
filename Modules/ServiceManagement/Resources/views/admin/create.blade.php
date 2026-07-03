@@ -12,6 +12,13 @@
     {{--AI--}}
     <link rel="stylesheet" href="{{asset('assets/admin-module/css/ai-sidebar.css') }}"/>
 
+    <style>
+        .body-customize-editor textarea.ckeditor { width: 100%; min-height: 300px; display: block; }
+        .body-customize-editor .tox-tinymce { width: 100% !important; min-height: 300px !important; }
+        .body-customize-editor .tox .tox-edit-area { min-height: 240px !important; }
+        .body-customize-editor .tox .tox-edit-area__iframe { min-height: 240px !important; }
+    </style>
+
 @endpush
 
 @section('content')

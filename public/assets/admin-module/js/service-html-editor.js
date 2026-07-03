@@ -42,13 +42,15 @@
 
         tinymce.init({
             selector: 'textarea.ckeditor',
-            height: 360,
+            width: '100%',
+            min_height: 300,
+            height: 300,
             menubar: false,
             branding: false,
             promotion: false,
             convert_urls: false,
             relative_urls: false,
-            plugins: 'lists link image table code fullscreen preview autoresize',
+            plugins: 'lists link image table code fullscreen preview',
             toolbar:
                 'undo redo | blocks | bold italic underline strikethrough | ' +
                 'alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | ' +
@@ -61,6 +63,7 @@
                 });
             },
             init_instance_callback: function (editor) {
+                editor.fire('ResizeEditor');
                 var $el = $(editor.getElement());
                 if ($el.closest('.d-none').length) {
                     editor.hide();
@@ -72,7 +75,7 @@
     $(document).ready(function () {
         initServiceDescriptionEditors();
 
-        $(document).on('submit', '#service-add-form, #form-wizard', function () {
+        $(document).on('submit', '#service-add-form, #service-create-form, #service-edit-info-form, #form-wizard', function () {
             window.syncServiceDescriptionEditors();
         });
     });
