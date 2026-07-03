@@ -1003,11 +1003,13 @@ class ConfigurationController extends Controller
         } elseif ($request['web_page'] == 'referral_earning') {
             $validator = Validator::make($request->all(), [
                 'customer_referral_earning' => 'in:0,1',
-                'referral_value_per_currency_unit' => 'required'
+                'referral_value_per_currency_unit' => 'required',
+                'referral_share_message_template' => 'nullable|string|max:2000',
             ]);
 
             $filter = $validator->validated();
             $filter['customer_referral_earning'] = $request['customer_referral_earning'] ?? 0;
+            $filter['referral_share_message_template'] = $request->input('referral_share_message_template', '');
         } else {
             Toastr::success(translate(DEFAULT_400['message']));
             return back();

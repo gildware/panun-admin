@@ -263,6 +263,13 @@ class UpdateController extends Controller
             ]);
         }
 
+        if (BusinessSettings::where(['key_name' => 'referral_share_message_template', 'settings_type' => 'customer_config'])->first() == false) {
+            BusinessSettings::updateOrCreate(['key_name' => 'referral_share_message_template', 'settings_type' => 'customer_config'], [
+                'live_values' => "Hi! Please use this {CODE} at time of registration to book services from {APP_NAME}.\n\nDownload Android app: {ANDROID_APP_URL}\nDownload iOS app: {IOS_APP_URL}",
+                'test_values' => "Hi! Please use this {CODE} at time of registration to book services from {APP_NAME}.\n\nDownload Android app: {ANDROID_APP_URL}\nDownload iOS app: {IOS_APP_URL}",
+            ]);
+        }
+
         if (BusinessSettings::where(['key_name' => 'customer_wallet', 'settings_type' => 'customer_config'])->first() == false) {
             BusinessSettings::updateOrCreate(['key_name' => 'customer_wallet', 'settings_type' => 'customer_config'], [
                 'live_values' => 0,

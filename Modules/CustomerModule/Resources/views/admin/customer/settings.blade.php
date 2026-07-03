@@ -243,6 +243,26 @@
                                                                name="referral_value_per_currency_unit" step="any"
                                                                min="0" value="{{$value->live_values??''}}">
                                                     </div>
+
+                                                    @php($shareTemplate=$data_values->where('key_name','referral_share_message_template')->first())
+                                                    <div class="col-md-12 mb-30">
+                                                        <label class="mb-1">
+                                                            {{translate('Referral Share Message Template')}}
+                                                            <i class="material-icons" data-bs-toggle="tooltip"
+                                                               data-bs-placement="top"
+                                                               title="{{translate('This message is shared when a customer taps Share on Refer & Earn. Use placeholders: {CODE}, {APP_NAME}, {ANDROID_APP_URL}, {IOS_APP_URL}')}}">info</i>
+                                                        </label>
+                                                        <textarea class="form-control" name="referral_share_message_template"
+                                                                  rows="6"
+                                                                  placeholder="{{translate('Hi! Please use this {CODE} at time of registration to book services from {APP_NAME}.')}}&#10;{{translate('Download Android app: {ANDROID_APP_URL}')}}&#10;{{translate('Download iOS app: {IOS_APP_URL}')}}">{{$shareTemplate->live_values ?? ''}}</textarea>
+                                                        <small class="text-muted d-block mt-2">
+                                                            {{translate('Available placeholders')}}:
+                                                            <code>{CODE}</code>,
+                                                            <code>{APP_NAME}</code>,
+                                                            <code>{ANDROID_APP_URL}</code>,
+                                                            <code>{IOS_APP_URL}</code>
+                                                        </small>
+                                                    </div>
                                                 </div>
                                             </div>
 

@@ -205,6 +205,7 @@ class ConfigController extends Controller
             'add_to_fund_wallet' => (int)((business_config('add_to_fund_wallet', 'customer_config'))->live_values ?? 0),
             'loyalty_point_status' => (int)((business_config('customer_loyalty_point', 'customer_config'))->live_values ?? 0),
             'referral_earning_status' => (int)((business_config('customer_referral_earning', 'customer_config'))->live_values ?? 0),
+            'referral_share_message_template' => (string)((business_config('referral_share_message_template', 'customer_config'))->live_values ?? ''),
             'direct_provider_booking' => (int)((business_config('direct_provider_booking', 'business_information'))->live_values ?? 0),
             'bidding_status' => (int)((business_config('bidding_status', 'bidding_system'))->live_values ?? 0),
             'in_app_call_status' => (int)((business_config('in_app_call_status', 'in_app_call_system'))?->live_values ?? 1),

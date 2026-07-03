@@ -3929,6 +3929,7 @@ const BUSINESS_SETTINGS_TYPE = [
     'loyalty_point_percentage_per_booking' => 'customer_config',
     'customer_referral_earning' => 'customer_config',
     'referral_value_per_currency_unit' => 'customer_config',
+    'referral_share_message_template' => 'customer_config',
     'referral_based_new_user_discount' => 'customer_config',
     'referral_discount_amount' => 'customer_config',
     'referral_discount_type' => 'customer_config',
