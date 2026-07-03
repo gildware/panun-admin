@@ -135,9 +135,14 @@
         $('#submit_service_review').on('click', function () {
             const decisions = [];
             $('.service-change-row').each(function () {
+                const subCategoryId = $(this).attr('data-sub-category-id');
+                if (!subCategoryId) {
+                    return;
+                }
+
                 decisions.push({
-                    sub_category_id: $(this).data('sub-category-id'),
-                    approved: $(this).find('.service-change-decision').val() === 'approve'
+                    sub_category_id: String(subCategoryId),
+                    approved: $(this).find('.service-change-decision').val() === 'approve' ? 1 : 0
                 });
             });
 
@@ -145,7 +150,7 @@
                 return;
             }
 
-            const approvedCount = decisions.filter((item) => item.approved).length;
+            const approvedCount = decisions.filter((item) => Number(item.approved) === 1).length;
             const deniedCount = decisions.length - approvedCount;
             let confirmText = '{{ translate('Submit_service_review_confirm') }}';
             if (deniedCount > 0 && approvedCount > 0) {
@@ -153,6 +158,14 @@
             } else if (approvedCount === 0) {
                 confirmText = '{{ translate('Deny_all_service_changes_confirm') }}';
             }
+
+            const payload = {
+                _token: '{{ csrf_token() }}'
+            };
+            decisions.forEach(function (item, index) {
+                payload['decisions[' + index + '][sub_category_id]'] = item.sub_category_id;
+                payload['decisions[' + index + '][approved]'] = item.approved;
+            });
 
             Swal.fire({
                 title: "{{ translate('are_you_sure') }}?",
@@ -173,10 +186,7 @@
                     url: '{{ route('admin.provider.profile_change_review', ['id' => $changeRequest->id]) }}',
                     method: 'POST',
                     dataType: 'json',
-                    data: {
-                        _token: '{{ csrf_token() }}',
-                        decisions: decisions
-                    },
+                    data: payload,
                     success: function (data) {
                         toastr.success(data.message, {
                             CloseButton: true,

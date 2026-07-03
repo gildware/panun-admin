@@ -3305,7 +3305,7 @@ class ProviderController extends Controller
         $validator = Validator::make($request->all(), [
             'decisions' => 'required|array|min:1',
             'decisions.*.sub_category_id' => 'required|uuid',
-            'decisions.*.approved' => 'required|boolean',
+            'decisions.*.approved' => 'required|in:0,1,true,false,on,yes',
         ]);
 
         if ($validator->fails()) {
@@ -3328,7 +3328,11 @@ class ProviderController extends Controller
         }
 
         $approvedIds = collect($request->input('decisions', []))
-            ->filter(fn (array $decision) => (bool) ($decision['approved'] ?? false))
+            ->filter(function (array $decision) {
+                $approved = $decision['approved'] ?? false;
+
+                return in_array($approved, [true, 1, '1', 'true', 'on', 'yes'], true);
+            })
             ->pluck('sub_category_id')
             ->map(fn ($value) => (string) $value)
             ->values()
