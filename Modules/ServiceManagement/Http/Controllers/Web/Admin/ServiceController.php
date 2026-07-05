@@ -137,7 +137,9 @@ class ServiceController extends Controller
                 ->get();
         }
 
-        $services = $this->service->with(['category.zonesBasicInfo', 'subCategory', 'storage_thumbnail'])->latest()
+        $services = $this->service->with(['category', 'subCategory', 'storage_thumbnail'])
+            ->withCount('variations')
+            ->latest()
             ->when($request->filled('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request['search']);
                 foreach ($keys as $key) {

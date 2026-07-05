@@ -161,7 +161,7 @@
                                                 <th>{{translate('name')}}</th>
                                                 <th>{{translate('category')}}</th>
                                                 <th>{{translate('sub_category')}}</th>
-                                                <th>{{translate('zones')}}</th>
+                                                <th>{{translate('variations')}}</th>
                                                 <th>{{translate('Minimum Bidding Price')}}</th>
                                                 @can('service_manage_status')
                                                     <th>{{translate('status')}}</th>
@@ -223,18 +223,7 @@
                                                             </div>
                                                         @endif
                                                     </td>
-                                                    <td>
-                                                        @if($service->category)
-                                                            @if(count($service->category->zonesBasicInfo) > 0)
-                                                             {{implode(', ',$service->category->zonesBasicInfo->pluck('name')->toArray())}}
-                                                            @else
-                                                                <i class="material-icons" data-bs-toggle="tooltip"
-                                                                   data-bs-placement="top"
-                                                                   title="{{translate('This category is not under any zone. Kindly update the category with zone')}}">info
-                                                                </i>
-                                                            @endif
-                                                        @endif
-                                                    </td>
+                                                    <td>{{ $service->variations_count }}</td>
                                                     <td>
                                                         {{with_currency_symbol($service->min_bidding_price)}}
 

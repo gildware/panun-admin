@@ -23,8 +23,24 @@ class CatalogTreeService
             'name' => (string) $z->name,
         ])->values()->all();
 
+        $emptyStats = [
+            'categories' => 0,
+            'sub_categories' => 0,
+            'services' => 0,
+            'variations' => 0,
+        ];
+
+        if ($zoneId === null || $zoneId === '') {
+            return [
+                'stats' => $emptyStats,
+                'tree' => [],
+                'zones' => $zones,
+            ];
+        }
+
         $mainCategories = Category::query()
             ->ofType('main')
+            ->whereHas('zonesBasicInfo', fn ($query) => $query->where('zones.id', $zoneId))
             ->with([
                 'zonesBasicInfo:id,name',
                 'children' => fn ($q) => $q->ofType('sub')->orderBy('name'),
@@ -58,6 +74,8 @@ class CatalogTreeService
         } elseif ($status === 'inactive') {
             $servicesQuery->where('is_active', 0);
         }
+
+        $servicesQuery->whereHas('variations', fn ($query) => $query->where('zone_id', $zoneId));
 
         $services = $servicesQuery->orderBy('name')->get();
 
@@ -169,6 +187,11 @@ class CatalogTreeService
 
         foreach ($services as $service) {
             $variationNodes = $this->variationNodes($service, $zoneId);
+
+            if ($zoneId !== null && $zoneId !== '' && $variationNodes === []) {
+                continue;
+            }
+
             $stats['services']++;
             $stats['variations'] += count($variationNodes);
 
