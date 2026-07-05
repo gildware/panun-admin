@@ -5,6 +5,7 @@ namespace Modules\WhatsAppModule\Support;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Modules\WhatsAppModule\Support\SocialInboxChannel;
 
 /**
  * Unread counts for admin header (IN messages not yet marked seen).
@@ -40,14 +41,18 @@ final class WhatsAppAdminUnread
                 return [0, 0];
             }
 
+            $channel = SocialInboxChannel::WHATSAPP;
+
             $unreadMessages = (int) DB::table($table)
                 ->where('direction', 'IN')
                 ->whereNull('admin_seen_at')
+                ->where('channel', $channel)
                 ->count();
 
             $unreadChats = (int) DB::table($table)
                 ->where('direction', 'IN')
                 ->whereNull('admin_seen_at')
+                ->where('channel', $channel)
                 ->distinct()
                 ->count('phone');
 

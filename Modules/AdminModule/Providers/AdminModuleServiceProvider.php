@@ -53,6 +53,7 @@ class AdminModuleServiceProvider extends ServiceProvider
                 'menuCounts' => $menuCounts,
                 'supportUnreadCount' => AdminHeaderChatCounts::supportUnreadMessages(auth()->user()),
                 'staffUnreadCount' => AdminHeaderChatCounts::staffUnreadMessages(auth()->user()),
+                'whatsappUnreadCount' => AdminHeaderChatCounts::whatsappUnreadChats(auth()->user()),
                 'all_bookings_menu_count' => $menuCounts['all_bookings'],
                 'pending_booking_reviews_count' => $menuCounts['pending_booking_reviews'],
                 'special_scenarios_menu_count' => $menuCounts['special_scenarios'],

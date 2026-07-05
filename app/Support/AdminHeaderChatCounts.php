@@ -5,6 +5,7 @@ namespace App\Support;
 use Modules\ChattingModule\Entities\ChannelConversation;
 use Modules\ChattingModule\Entities\ChannelList;
 use Modules\UserManagement\Entities\User;
+use Modules\WhatsAppModule\Support\WhatsAppAdminUnread;
 
 final class AdminHeaderChatCounts
 {
@@ -81,5 +82,14 @@ final class AdminHeaderChatCounts
                     });
             })
             ->count();
+    }
+
+    public static function whatsappUnreadChats(?User $user): int
+    {
+        if (! $user || ! $user->can('whatsapp_chat_view')) {
+            return 0;
+        }
+
+        return WhatsAppAdminUnread::counts()[0];
     }
 }
