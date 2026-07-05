@@ -10,11 +10,33 @@
 
 @section('title', translate('Pending_provider_balances'))
 
+@push('css_or_js')
+    <style>
+        .pk-pending-balance-header-widget.statistics-card {
+            min-width: 11rem;
+            padding: 0.75rem 1rem 1rem;
+            flex-shrink: 0;
+        }
+        .pk-pending-balance-header-widget.statistics-card h2 {
+            font-size: 1.35rem;
+            margin-block-end: 0.25rem;
+        }
+        .pk-pending-balance-header-widget.statistics-card h3 {
+            font-size: 0.8125rem;
+            margin: 0;
+        }
+    </style>
+@endpush
+
 @section('content')
     <div class="main-content">
         <div class="container-fluid">
             <div class="page-title-wrap d-flex justify-content-between flex-wrap align-items-center gap-3 mb-30">
-                <h2 class="page-title">{{ translate('Pending_provider_balances') }}</h2>
+                <h2 class="page-title mb-0">{{ translate('Pending_provider_balances') }}</h2>
+                <div class="statistics-card statistics-card__purple border pk-pending-balance-header-widget">
+                    <h2>{{ with_currency_symbol($total_pending_balance ?? 0) }}</h2>
+                    <h3>{{ translate('Total_pending_balance') }}</h3>
+                </div>
             </div>
 
             <p class="text-muted small mb-4">{{ translate('Pending_provider_balances_help') }}</p>
@@ -101,7 +123,7 @@
                                            class="fw-semibold">{{ $row['provider_name'] }}</a>
                                     </td>
                                     <td>{{ $row['category_label'] }}</td>
-                                    <td class="text-end">{{ with_currency_symbol($row['balance_due']) }}</td>
+                                    <td class="text-end @if($row['balance_due'] > 0.009) text-success @elseif($row['balance_due'] < -0.009) text-danger @endif">{{ with_currency_symbol($row['balance_due']) }}</td>
                                     <td class="text-end">
                                         {{ $row['last_payment_amount'] !== null ? with_currency_symbol($row['last_payment_amount']) : '—' }}
                                     </td>

@@ -84,12 +84,10 @@ class PendingProviderBalanceListingService
 
         $rows = [];
         foreach ($providers as $provider) {
-            $net = $this->settlementResolver->resolveForProviderId((string) $provider->id)['booking_settlement_net'];
-            $payable = (float) ($provider->owner?->account->account_payable ?? 0);
-            if (!$this->shouldInclude($net, $payable)) {
+            $balanceDue = $this->signedBalanceDue($provider);
+            if (abs($balanceDue) <= 0.009) {
                 continue;
             }
-            $balanceDue = $this->rowBalanceDue($net, $payable);
             $last = $lastByProvider->get($provider->id);
             $categoryNames = $provider->subscribed_services
                 ? $provider->subscribed_services->pluck('category.name')->filter()->unique()->values()->all()
@@ -138,20 +136,31 @@ class PendingProviderBalanceListingService
             ->all();
     }
 
-    protected function shouldInclude(float $net, float $payable): bool
+    /**
+     * Signed Net balance: positive when provider owes company, negative when company owes provider.
+     * Magnitude matches {@see provider_payment_net_balance_context()} display_amount.
+     */
+    protected function signedBalanceDue(Provider $provider): float
     {
-        return max(0.0, -$net) > 0.009 || $payable > 0.009;
-    }
+        $providerId = (string) $provider->id;
+        $net = (float) $this->settlementResolver->resolveForProviderId($providerId)['booking_settlement_net'];
+        $context = provider_payment_net_balance_context(
+            $providerId,
+            (string) $provider->user_id,
+            $net,
+            (float) ($provider->owner?->account->account_receivable ?? 0),
+            (float) ($provider->owner?->account->account_payable ?? 0),
+        );
 
-    protected function rowBalanceDue(float $net, float $payable): float
-    {
-        if (max(0.0, -$net) > 0.009) {
-            return round(max(0.0, -$net), 2);
-        }
-        if ($payable > 0.009) {
-            return round($payable, 2);
+        $amount = round((float) $context['display_amount'], 2);
+        if ($amount <= 0.009) {
+            return 0.0;
         }
 
-        return 0.0;
+        if ($context['company_pays_provider']) {
+            return -$amount;
+        }
+
+        return $amount;
     }
 }
