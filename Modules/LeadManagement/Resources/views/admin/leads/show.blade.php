@@ -1334,25 +1334,25 @@
 
 @push('script')
     <script>
+        window.leadShowModal = function ($modal) {
+            if (!$modal || !$modal.length || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+                return;
+            }
+            bootstrap.Modal.getOrCreateInstance($modal[0]).show();
+        };
+
+        window.leadHideModal = function ($modal) {
+            if (!$modal || !$modal.length || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+                return;
+            }
+            var instance = bootstrap.Modal.getInstance($modal[0]);
+            if (instance) {
+                instance.hide();
+            }
+        };
+
         (function ($) {
             "use strict";
-
-            function leadShowModal($modal) {
-                if (!$modal || !$modal.length || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
-                    return;
-                }
-                bootstrap.Modal.getOrCreateInstance($modal[0]).show();
-            }
-
-            function leadHideModal($modal) {
-                if (!$modal || !$modal.length || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
-                    return;
-                }
-                var instance = bootstrap.Modal.getInstance($modal[0]);
-                if (instance) {
-                    instance.hide();
-                }
-            }
 
             $(function () {
                 var $customerModal = $('#leadCustomerModal');
