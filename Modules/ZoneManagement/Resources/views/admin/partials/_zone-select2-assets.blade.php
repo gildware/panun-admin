@@ -87,14 +87,14 @@
                     return data;
                 }
 
-                function zoneSelect2FormatResult(data) {
+                function zoneSelect2FormatResult(data, hideDescription) {
                     if (!data.id) {
                         return data.text;
                     }
                     var z = zoneDataFromElement(data.element);
                     var term = data._zoneSearchTerm || '';
                     var nameLine = (z.prefix || '') + (z.name || data.text || '');
-                    if (!z.description) {
+                    if (hideDescription || !z.description) {
                         return $('<div class="zone-select2-name"></div>').html(highlightZoneText(nameLine, term));
                     }
                     var $wrap = $('<div class="zone-select2-option"></div>');
@@ -112,15 +112,21 @@
                 }
 
                 window.zoneSelect2Config = function (extra) {
+                    extra = extra || {};
+                    var hideDescription = !!extra.hideDescription;
                     var base = {
-                        templateResult: zoneSelect2FormatResult,
+                        templateResult: function (data) {
+                            return zoneSelect2FormatResult(data, hideDescription);
+                        },
                         templateSelection: zoneSelect2FormatSelection,
                         matcher: zoneSelect2Matcher,
                         escapeMarkup: function (markup) {
                             return markup;
                         }
                     };
-                    return $.extend(true, {}, base, extra || {});
+                    var config = $.extend(true, {}, base, extra);
+                    delete config.hideDescription;
+                    return config;
                 };
 
                 window.initZoneTreeSelect2 = function ($select, extra) {
