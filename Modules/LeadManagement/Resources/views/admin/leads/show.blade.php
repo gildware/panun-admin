@@ -1336,6 +1336,24 @@
     <script>
         (function ($) {
             "use strict";
+
+            function leadShowModal($modal) {
+                if (!$modal || !$modal.length || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+                    return;
+                }
+                bootstrap.Modal.getOrCreateInstance($modal[0]).show();
+            }
+
+            function leadHideModal($modal) {
+                if (!$modal || !$modal.length || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+                    return;
+                }
+                var instance = bootstrap.Modal.getInstance($modal[0]);
+                if (instance) {
+                    instance.hide();
+                }
+            }
+
             $(function () {
                 var $customerModal = $('#leadCustomerModal');
                 if (typeof initZoneTreeSelect2 === 'function') {
@@ -1628,7 +1646,7 @@
                             $edit.addClass('d-none');
                             $view.removeClass('d-none');
                             if ($cancelModal.length) {
-                                $cancelModal.modal('hide');
+                                leadHideModal($cancelModal);
                             }
                             if (typeof toastr !== 'undefined') toastr.success('{{ translate('Provider_lead_information_updated_successfully') }}');
                         }
@@ -1652,7 +1670,7 @@
                         $cancelRemarks.val('');
                     }
                     if ($cancelModal.length) {
-                        $cancelModal.modal('show');
+                        leadShowModal($cancelModal);
                     }
                     return;
                 }
@@ -1741,7 +1759,7 @@
                             $edit.addClass('d-none');
                             $view.removeClass('d-none');
                             if ($cancelModal.length) {
-                                $cancelModal.modal('hide');
+                                leadHideModal($cancelModal);
                             }
                             if (typeof toastr !== 'undefined') toastr.success('{{ translate('Customer_lead_information_updated_successfully') }}');
                         }
@@ -1765,7 +1783,7 @@
                         $cancelRemarks.val('');
                     }
                     if ($cancelModal.length) {
-                        $cancelModal.modal('show');
+                        leadShowModal($cancelModal);
                     }
                     return;
                 }
