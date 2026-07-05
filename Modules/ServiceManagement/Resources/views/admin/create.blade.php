@@ -635,6 +635,28 @@
             $('.subcategory-select').select2({
                 placeholder: "Choose Subcategory"
             });
+
+            var params = new URLSearchParams(window.location.search);
+            var categoryId = params.get('category_id');
+            var subCategoryId = params.get('sub_category_id');
+            if (categoryId) {
+                $('#category-id').val(categoryId).trigger('change');
+
+                if (subCategoryId) {
+                    var attempts = 0;
+                    var timer = setInterval(function () {
+                        attempts++;
+                        var $sub = $('#sub-category-id');
+                        if ($sub.length && $sub.find('option[value="' + subCategoryId + '"]').length) {
+                            $sub.val(subCategoryId).trigger('change');
+                            clearInterval(timer);
+                        }
+                        if (attempts > 50) {
+                            clearInterval(timer);
+                        }
+                    }, 200);
+                }
+            }
         });
 
         $("#category-id").change(function (){
@@ -643,7 +665,7 @@
             ajax_switch_category(route)
         });
 
-        function ajax_switch_category(route) {
+        function ajax_switch_category(route, onLoaded) {
             $.get({
                 url: route,
                 dataType: 'json',
@@ -653,6 +675,9 @@
                 success: function (response) {
                     $('#sub-category-selector').html(response.template);
                     $('#category-wise-zone').html(response.template_for_zone);
+                    if (typeof onLoaded === 'function') {
+                        onLoaded();
+                    }
                 },
                 complete: function () {
                 },

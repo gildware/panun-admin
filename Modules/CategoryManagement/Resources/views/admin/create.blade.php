@@ -273,6 +273,10 @@
 
                 if (btnShow) btnShow.addEventListener('click', showPanel);
                 if (btnCancel) btnCancel.addEventListener('click', hidePanel);
+
+                if (new URLSearchParams(window.location.search).get('open_add') === '1') {
+                    showPanel();
+                }
             }
 
             if (document.readyState === 'loading') {

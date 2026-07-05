@@ -15,6 +15,13 @@
 
         @canany(['category_add', 'category_view'])
             @include('adminmodule::layouts.partials.top-nav._section', ['label' => translate('Categories')])
+            @canany(['category_view', 'service_view'])
+                @include('adminmodule::layouts.partials.top-nav._link', [
+                    'href' => route('admin.catalog.view'),
+                    'label' => translate('View_Catalog'),
+                    'active' => request()->is('admin/catalog/view*'),
+                ])
+            @endcanany
             @include('adminmodule::layouts.partials.top-nav._link', [
                 'href' => route('admin.category.create'),
                 'label' => translate('Category Setup'),

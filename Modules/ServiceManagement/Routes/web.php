@@ -1,12 +1,18 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\ServiceManagement\Http\Controllers\Web\Admin\CatalogViewController;
 use Modules\ServiceManagement\Http\Controllers\Web\Admin\ServiceController as AdminServiceController;
 use Modules\ServiceManagement\Http\Controllers\Web\Admin\ServiceRequestController;
 use Modules\ServiceManagement\Http\Controllers\Web\Admin\FAQController;
 use Modules\ServiceManagement\Http\Controllers\Web\Provider\ServiceController;
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
+
+    Route::group(['prefix' => 'catalog', 'as' => 'catalog.'], function () {
+        Route::get('view', [CatalogViewController::class, 'index'])->name('view');
+        Route::get('tree', [CatalogViewController::class, 'tree'])->name('tree');
+    });
 
     Route::group(['prefix' => 'service', 'as' => 'service.'], function () {
         Route::any('list', [AdminServiceController::class, 'index'])->name('index');
