@@ -225,7 +225,9 @@
         if (waCountEl) {
             var chats = parseInt(data.whatsapp_unread_chats, 10);
             if (isNaN(chats)) chats = 0;
-            waCountEl.innerHTML = chats;
+            if (typeof window.pkUpdateHeaderUnreadBadge === 'function') {
+                window.pkUpdateHeaderUnreadBadge(waCountEl, chats);
+            }
 
             var msgTotal = parseInt(data.whatsapp_unread_messages, 10);
             if (isNaN(msgTotal)) msgTotal = 0;
