@@ -582,23 +582,49 @@
                 }, 400);
             });
 
+            function getLeadDetailModal() {
+                var modalEl = document.getElementById('leadDetailModal');
+                if (!modalEl || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+                    return null;
+                }
+                return bootstrap.Modal.getOrCreateInstance(modalEl);
+            }
+
             // Lead detail modal: open with iframe to show page
             $(document).on('click', '.btn-lead-view', function (e) {
                 e.preventDefault();
-                var url = $(this).data('lead-url');
-                if (url) {
-                    $('#leadDetailIframe').attr('src', url);
-                    $('#leadDetailModal').modal('show');
+                var url = $(this).data('lead-url') || $(this).attr('href');
+                if (!url) {
+                    return;
                 }
+
+                var modal = getLeadDetailModal();
+                if (!modal) {
+                    window.location.href = url;
+                    return;
+                }
+
+                $('#leadDetailIframe').attr('src', url);
+                modal.show();
             });
 
-            $('#leadDetailModal').on('hidden.bs.modal', function () {
-                $('#leadDetailIframe').attr('src', 'about:blank');
-                reloadLeads();
-            });
+            var leadDetailModalEl = document.getElementById('leadDetailModal');
+            if (leadDetailModalEl) {
+                leadDetailModalEl.addEventListener('hidden.bs.modal', function () {
+                    $('#leadDetailIframe').attr('src', 'about:blank');
+                    reloadLeads();
+                });
+            }
 
             window.closeLeadDetailModal = function () {
-                $('#leadDetailModal').modal('hide');
+                var modalEl = document.getElementById('leadDetailModal');
+                if (!modalEl || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+                    return;
+                }
+                var modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) {
+                    modal.hide();
+                }
             };
 
             const TYPE_INVALID_MODAL = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_INVALID }}';
