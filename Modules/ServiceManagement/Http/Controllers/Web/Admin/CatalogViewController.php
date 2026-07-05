@@ -43,7 +43,7 @@ class CatalogViewController extends Controller
         return view('servicemanagement::admin.catalog.view', [
             'stats' => $payload['stats'],
             'tree' => $payload['tree'],
-            'zones' => $payload['zones'],
+            'zoneTreeOptions' => $payload['zoneTreeOptions'],
             'zoneId' => $zoneId,
             'status' => $status,
             'currencySymbol' => $currencySymbol,

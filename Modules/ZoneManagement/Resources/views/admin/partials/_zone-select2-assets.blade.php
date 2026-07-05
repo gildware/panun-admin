@@ -128,7 +128,14 @@
                         return;
                     }
                     if ($select.hasClass('select2-hidden-accessible')) {
-                        $select.select2('destroy');
+                        try {
+                            $select.select2('destroy');
+                        } catch (e) {
+                            $select.removeClass('select2-hidden-accessible');
+                            $select.removeAttr('aria-hidden');
+                            $select.removeAttr('tabindex');
+                            $select.next('.select2').remove();
+                        }
                     }
                     $select.select2(window.zoneSelect2Config($.extend({width: '100%'}, extra || {})));
                 };
