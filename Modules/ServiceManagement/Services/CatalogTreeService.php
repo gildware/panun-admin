@@ -46,9 +46,6 @@ class CatalogTreeService
         $servicesQuery = Service::query()
             ->withoutGlobalScope('zone_wise_data')
             ->with([
-                'variations' => fn ($query) => $query
-                    ->whereIn('zone_id', $variationZoneIds)
-                    ->with('zone:id,name'),
                 'serviceVariants' => fn ($q) => $q->with('storage_image'),
             ])
             ->whereHas('variations', fn ($query) => $query->whereIn('zone_id', $variationZoneIds));
@@ -105,7 +102,7 @@ class CatalogTreeService
                 }
 
                 $svcList = $bySubId->get((string) $sub->id, collect());
-                $serviceNodes = $this->serviceNodes($svcList, $stats);
+                $serviceNodes = $this->serviceNodes($svcList, $zoneId, $stats);
 
                 if ($serviceNodes === []) {
                     continue;
@@ -127,7 +124,7 @@ class CatalogTreeService
 
             $direct = $directByMainId->get((string) $main->id, collect());
             if ($direct->isNotEmpty()) {
-                $directNodes = $this->serviceNodes($direct, $stats);
+                $directNodes = $this->serviceNodes($direct, $zoneId, $stats);
                 if ($directNodes !== []) {
                     $stats['sub_categories']++;
                     $subNodes[] = [
@@ -175,12 +172,12 @@ class CatalogTreeService
      * @param  Collection<int, Service>  $services
      * @return list<array<string, mixed>>
      */
-    private function serviceNodes(Collection $services, array &$stats): array
+    private function serviceNodes(Collection $services, string $zoneId, array &$stats): array
     {
         $nodes = [];
 
         foreach ($services as $service) {
-            $variationNodes = $this->variationNodes($service);
+            $variationNodes = $this->variationNodes($service, $zoneId);
 
             if ($variationNodes === []) {
                 continue;
@@ -212,26 +209,54 @@ class CatalogTreeService
     /**
      * @return list<array<string, mixed>>
      */
-    private function variationNodes(Service $service): array
+    private function variationNodes(Service $service, string $zoneId): array
     {
         $variantsByKey = $service->serviceVariants->keyBy('variant_key');
-        $rows = $service->variations->sortBy(fn ($v) => ($v->variant_key ?? '').' '.($v->zone_id ?? ''))->values();
+
+        $variantKeys = $service->serviceVariants
+            ->sortBy('sort_order')
+            ->pluck('variant_key')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($variantKeys->isEmpty()) {
+            $variantKeys = Variation::query()
+                ->withoutGlobalScopes()
+                ->where('service_id', $service->id)
+                ->whereIn('zone_id', Variation::zoneIdsMatchingBookingSelection($zoneId))
+                ->distinct()
+                ->pluck('variant_key')
+                ->filter()
+                ->values();
+        }
 
         $nodes = [];
-        foreach ($rows as $variation) {
-            $label = trim((string) ($variation->variant ?? ''));
+        foreach ($variantKeys as $variantKey) {
+            $variation = Variation::firstForBookingZone(
+                (string) $service->id,
+                (string) $variantKey,
+                $zoneId,
+                false
+            );
+
+            if ($variation === null) {
+                continue;
+            }
+
+            $meta = $variantsByKey->get($variation->variant_key);
+            $label = $meta?->title ? trim((string) $meta->title) : '';
+            if ($label === '') {
+                $label = trim((string) ($variation->variant ?? ''));
+            }
             if ($this->looksLikeUuid($label)) {
                 $label = '';
             }
             if ($label === '' && ! empty($variation->variant_key)) {
                 $vk = (string) $variation->variant_key;
                 if (! $this->looksLikeUuid($vk)) {
-                    $label = trim($vk);
+                    $label = str_replace('-', ' ', trim($vk));
                 }
-            }
-            $meta = $variantsByKey->get($variation->variant_key);
-            if ($label === '' && $meta?->title) {
-                $label = trim((string) $meta->title);
             }
             if ($label === '' || $this->looksLikeUuid($label)) {
                 $label = translate('Catalog_variation');
@@ -245,8 +270,6 @@ class CatalogTreeService
                 'image' => $meta?->image_full_path,
                 'is_active' => $meta ? (bool) $meta->is_active : true,
                 'price' => $variation->price,
-                'zone_id' => $variation->zone_id ? (string) $variation->zone_id : null,
-                'zone_name' => $variation->zone?->name,
                 'variant_key' => $variation->variant_key,
                 'service_id' => (string) $service->id,
                 'edit_url' => route('admin.service.edit', $service->id),

@@ -868,10 +868,7 @@
                 }
                 let html = '';
                 variations.forEach(function (v) {
-                    let meta = formatPrice(v.price);
-                    if (v.zone_name) {
-                        meta += ' · ' + escapeHtml(v.zone_name);
-                    }
+                    const meta = formatPrice(v.price);
                     html += listItemHtml(
                         { label: v.label, image: v.image, is_active: v.is_active, edit_url: v.edit_url },
                         'variation',
