@@ -134,8 +134,8 @@ class BookingController extends Controller
 
         $bookings = $this->booking->with(['customer'])
             ->search($request['search'], ['readable_id'])
-            ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                $query->where('provider_id', $providerId);
+            ->when($request['booking_status'] === 'pending', function ($query) use ($providerId) {
+                $query->excludeProviderIgnoredUnlessAssigned($providerId);
             })
             ->when(!in_array($request['booking_status'], ['pending', 'all']), function ($query) use ($providerId, $request, $maxBookingAmount) {
                 $query->ofBookingStatus($request['booking_status'])
@@ -549,14 +549,11 @@ class BookingController extends Controller
             if (!empty($booking->provider_id)){
                 $booking->provider_id = null;
 
-                $fcmToken = $booking?->customer?->fcm_token ?? null;
+                $customer = $booking?->customer;
                 $repeatOrRegular = $booking?->is_repeated ? 'repeat' : 'regular';
-                $languageKey = $booking?->customer?->current_language_key;
-                if (!is_null($fcmToken)) {
-                    $notification = isNotificationActive(null, 'booking', 'notification', 'user');
-                    if ($notification) {
-                        device_notification($fcmToken, "Booking ignore by provider", null, null, $booking->id, 'booking_ignored', null, null, null, null, $repeatOrRegular);
-                    }
+                $languageKey = $customer?->current_language_key;
+                if ($customer && user_has_fcm_devices($customer)) {
+                    send_booking_ignored_by_provider_notification($booking);
                 }
             }
 
@@ -635,12 +632,12 @@ class BookingController extends Controller
                 return response()->json(response_formatter(BOOKING_ALREADY_CANCELED_200), 200);
             }
 
-            if($booking->booking_status == 'ongoing' && $request['booking_status'] == 'canceled'){
-                return response()->json(BOOKING_ALREADY_ONGOING, 200);
+            if($booking->booking_status === 'pending_cancellation'){
+                return response()->json(response_formatter(BOOKING_PENDING_CANCELLATION_200), 200);
             }
 
-            if($booking->booking_status == 'completed' && $request['booking_status'] == 'canceled'){
-                return response()->json(BOOKING_ALREADY_COMPLETED, 200);
+            if($request['booking_status'] == 'canceled' && ! booking_provider_may_cancel_booking((string) $booking->booking_status)){
+                return response()->json(response_formatter(booking_provider_cancel_blocked_response((string) $booking->booking_status)), 200);
             }
 
             if($booking->payment_method != 'cash_after_service' && $request['booking_status'] == 'canceled' && $booking->additional_charge > 0){
@@ -694,6 +691,18 @@ class BookingController extends Controller
             return response()->json(response_formatter(NO_CHANGES_FOUND), 200);
         }
         if (isset($repeatBooking)){
+            if ($repeatBooking->booking_status == 'canceled') {
+                return response()->json(response_formatter(BOOKING_ALREADY_CANCELED_200), 200);
+            }
+
+            if ($repeatBooking->booking_status === 'pending_cancellation') {
+                return response()->json(response_formatter(BOOKING_PENDING_CANCELLATION_200), 200);
+            }
+
+            if ($request['booking_status'] == 'canceled' && ! booking_provider_may_cancel_booking((string) $repeatBooking->booking_status)) {
+                return response()->json(response_formatter(booking_provider_cancel_blocked_response((string) $repeatBooking->booking_status)), 200);
+            }
+
             if ($request['booking_status'] === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($repeatBooking)) {
                 return response()->json(response_formatter([
                     'response_code' => 'booking_ongoing_schedule_date_200',
@@ -864,12 +873,12 @@ class BookingController extends Controller
             $repeat = $this->bookingRepeat->where('id', $request['booking_id'])->where('provider_id', $request->user()->provider->id)->first();
 
             if ($repeat){
-                $fcmToken = $repeat?->booking?->customer?->fcm_token;
+                $customer = $repeat?->booking?->customer;
                 $title = translate('Your booking verification OTP is') . ' ' . $repeat->booking_otp;
-                $description = get_push_notification_description('otp', 'customer_notification', $repeat?->booking?->customer?->current_language_key);
+                $description = get_push_notification_description('otp', 'customer_notification', $customer?->current_language_key);
 
-                if ($fcmToken) {
-                    device_notification($fcmToken, $title, $description, null, $repeat->id, 'booking', null, $repeat?->booking?->customer?->id);
+                if ($customer && user_has_fcm_devices($customer)) {
+                    device_notification_for_user($customer, $title, $description, null, $repeat->id, 'booking', null, $customer->id);
                     return response()->json(response_formatter(NOTIFICATION_SEND_SUCCESSFULLY_200), 200);
 
                 } else {
@@ -880,12 +889,12 @@ class BookingController extends Controller
             return response()->json(response_formatter(DEFAULT_404), 404);
         }
 
-        $fcmToken = $booking?->customer?->fcm_token;
+        $customer = $booking?->customer;
         $title = translate('Your booking verification OTP is') . ' ' . $booking->booking_otp;
-        $description = get_push_notification_description('otp', 'customer_notification', $booking?->customer?->current_language_key);
+        $description = get_push_notification_description('otp', 'customer_notification', $customer?->current_language_key);
 
-        if ($fcmToken) {
-            device_notification($fcmToken, $title, $description, null, $booking->id, 'booking', null, $booking?->customer?->id);
+        if ($customer && user_has_fcm_devices($customer)) {
+            device_notification_for_user($customer, $title, $description, null, $booking->id, 'booking', null, $customer->id);
             return response()->json(response_formatter(NOTIFICATION_SEND_SUCCESSFULLY_200), 200);
 
         } else {
@@ -1806,9 +1815,9 @@ class BookingController extends Controller
 
         $user = $booking?->customer;
         $repeatOrRegular = $booking?->is_repeated ? 'repeat' : 'regular';
-        if (isset($user) && $user?->fcm_token && $user?->is_active) {
+        if (isset($user) && user_has_fcm_devices($user) && $user?->is_active) {
             try {
-                device_notification($user?->fcm_token, translate('service location updated'), null, null, $booking->id, 'booking', null, null, null, null, $repeatOrRegular);
+                send_booking_service_location_updated_notification($booking);
             }catch (\Exception $exception) {
                 //
             }
@@ -1877,9 +1886,9 @@ class BookingController extends Controller
 
         $user = $booking?->customer;
         $repeatOrRegular = $booking?->is_repeated ? 'repeat' : 'regular';
-        if (isset($user) && $user?->fcm_token && $user?->is_active) {
+        if (isset($user) && user_has_fcm_devices($user) && $user?->is_active) {
             try {
-                device_notification($user?->fcm_token, translate('service location updated'), null, null, $booking->id, 'booking', null, null, null, null, $repeatOrRegular);
+                send_booking_service_location_updated_notification($booking);
             }catch (Exception $exception){
                 //
             }

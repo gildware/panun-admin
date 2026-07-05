@@ -4,6 +4,7 @@ namespace Modules\CustomerModule\Services;
 
 use Closure;
 use Illuminate\Support\Facades\Cache;
+use Modules\BusinessSettingsModule\Services\BusinessConfigCache;
 
 class CustomerApiResponseCache
 {
@@ -21,6 +22,9 @@ class CustomerApiResponseCache
      */
     public static function forgetConfigCaches(): void
     {
+        CustomerHomeContentVersion::bumpGlobal();
+        BusinessConfigCache::forgetAll();
+
         $locales = [strtolower((string) app()->getLocale()), 'en'];
 
         $countryData = business_config('system_language', 'business_information')?->live_values ?? [];
@@ -33,7 +37,7 @@ class CustomerApiResponseCache
         }
 
         foreach (array_unique($locales) as $locale) {
-            Cache::forget('customer_api_config:v1:'.$locale);
+            Cache::forget('customer_api_config:v2:'.$locale);
             Cache::forget('provider_api_config:v1:'.$locale);
         }
     }

@@ -48,6 +48,8 @@ use Modules\BookingModule\Services\AdminCompanyInflowPaymentService;
 use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\BookingModule\Services\AdminBookingDeletionService;
 use Modules\BookingModule\Services\BookingReadableIdAllocator;
+use Modules\BookingModule\Services\ProviderBookingCancellationAdminService;
+use Modules\BookingModule\Services\ProviderBookingWithdrawalService;
 use Modules\BookingModule\Services\BookingReopenService;
 use Modules\BookingModule\Http\Traits\BookingTrait;
 use Modules\CategoryManagement\Entities\Category;
@@ -211,6 +213,15 @@ class BookingController extends Controller
     public function index(Request $request): Renderable
     {
         $this->authorize('booking_view');
+
+        if ($request->routeIs('admin.booking.list') && ($request->input('booking_status') ?: '') === 'cancelled_by_provider') {
+            return redirect()->route('admin.booking.list.cancelled_by_provider', $request->except(['booking_status']));
+        }
+
+        if ($request->routeIs('admin.booking.list') && ($request->input('booking_status') ?: '') === 'cancelled_by_customer') {
+            return redirect()->route('admin.booking.list.cancelled_by_customer', $request->except(['booking_status']));
+        }
+
         $allowedBookingStatuses = array_merge(array_column(BOOKING_STATUSES, 'key'), [
             'all',
             'reopened',
@@ -224,6 +235,8 @@ class BookingController extends Controller
             'loss_making_pending',
             'loss_recovered',
             'loss_settled',
+            'cancelled_by_provider',
+            'cancelled_by_customer',
         ]);
         $request->validate([
             'booking_status' => 'nullable|in:' . implode(',', $allowedBookingStatuses),
@@ -255,6 +268,17 @@ class BookingController extends Controller
                 ] : [],
                 $bookingStatus === 'canceled' ? ['latestParentCancellationStatusHistory.cancellationReason'] : [],
                 $bookingStatus === 'on_hold' ? ['latestParentHoldStatusHistory.holdReopenReason'] : [],
+                $bookingStatus === 'cancelled_by_provider' ? [
+                    'latestPendingCancellationRequestHistory.providerCancellationReason',
+                    'latestParentProviderCancellationStatusHistory.providerCancellationReason',
+                    'latestProviderRejectionHistory.providerCancellationReason',
+                    'providerCancelledByProvider',
+                    'provider',
+                ] : [],
+                $bookingStatus === 'cancelled_by_customer' ? [
+                    'latestParentCustomerCancellationStatusHistory.customerCancellationReason',
+                    'customer',
+                ] : [],
             ))
             ->search($request['search'], ['readable_id'])
             ->when($bookingStatus != 'all', function ($query) use ($bookingStatus, $maxBookingAmount, $request) {
@@ -278,6 +302,10 @@ class BookingController extends Controller
                     $query->lossRecovered();
                 } elseif ($bookingStatus === 'loss_settled') {
                     $query->lossSettled();
+                } elseif ($bookingStatus === 'cancelled_by_provider') {
+                    $query->cancelledByProvider();
+                } elseif ($bookingStatus === 'cancelled_by_customer') {
+                    $query->cancelledByCustomer();
                 } else {
                     $query->when($bookingStatus == 'pending', function ($query) use ($maxBookingAmount) {
                         $query->adminPendingBookings($maxBookingAmount);
@@ -304,7 +332,11 @@ class BookingController extends Controller
             ->filterByCategoryIds($request['category_ids'])
             ->filterByDateRange($request['start_date'], $request['end_date'])
             ->filterByAssigneeIds($queryParams['assignee_ids'])
-            ->latest()
+            ->when($bookingStatus === 'cancelled_by_provider', function ($query) {
+                $query->orderByDesc('provider_cancelled_at')->orderByDesc('updated_at');
+            }, function ($query) {
+                $query->latest();
+            })
             ->paginate(pagination_limit())
             ->appends($queryParams);
 
@@ -343,6 +375,32 @@ class BookingController extends Controller
         $bookingTabCounts = $this->adminBookingListStatusTabCounts();
 
         return view('bookingmodule::admin.booking.list', compact('bookings', 'zones', 'categories', 'subCategories', 'assigneeUsers', 'queryParams', 'filterCounter', 'bookingTabCounts'));
+    }
+
+    /**
+     * Bookings where a provider withdrew after accepting (awaiting admin reassignment).
+     */
+    public function cancelledByProviderList(Request $request): Renderable
+    {
+        $request->merge([
+            'booking_status' => 'cancelled_by_provider',
+            'service_type' => $request->input('service_type', 'all'),
+        ]);
+
+        return $this->index($request);
+    }
+
+    /**
+     * Bookings canceled by the customer via the app.
+     */
+    public function cancelledByCustomerList(Request $request): Renderable
+    {
+        $request->merge([
+            'booking_status' => 'cancelled_by_customer',
+            'service_type' => $request->input('service_type', 'all'),
+        ]);
+
+        return $this->index($request);
     }
 
     /**
@@ -546,9 +604,7 @@ class BookingController extends Controller
         }
 
         // Try to find existing customer by phone; otherwise create one
-        $customer = User::query()->inCustomerDirectory()
-            ->where('phone', $leadModel->phone_number)
-            ->first();
+        $customer = User::findByContactPhoneScoped((string) $leadModel->phone_number, CUSTOMER_USER_TYPES);
 
         if (!$customer) {
             $defaultPassword = config('app.default_customer_password', '12345678');
@@ -679,8 +735,8 @@ class BookingController extends Controller
             return redirect()->route('admin.whatsapp.conversations.index', ['channel' => 'whatsapp', 'tab' => 'bookings']);
         }
 
-        $customer = User::findByContactPhone((string) $wa->phone);
-        if (!$customer || $customer->user_type !== 'customer') {
+        $customer = User::findByContactPhoneScoped((string) $wa->phone, CUSTOMER_USER_TYPES);
+        if (!$customer) {
             $defaultPassword = config('app.default_customer_password', '12345678');
             $customer = new User();
             $name = trim((string) ($wa->name ?? ''));
@@ -1973,8 +2029,11 @@ class BookingController extends Controller
 
             try {
                 $fresh = Booking::query()
-                    ->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])
+                    ->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments', 'zone'])
                     ->find($booking->id);
+                if ($fresh) {
+                    send_admin_booking_created_notifications($fresh);
+                }
                 if ($fresh && class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)) {
                     $prompt = app(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)
                         ->buildBookingConfirmationPrompt($fresh);
@@ -2404,8 +2463,18 @@ class BookingController extends Controller
                 'provider',
                 'serviceman',
                 'assignee',
-                'status_histories' => fn ($q) => $q->with(['user', 'cancellationReason', 'holdReopenReason', 'disputeReason']),
+                'status_histories' => fn ($q) => $q->with(['user', 'cancellationReason', 'customerCancellationReason', 'holdReopenReason', 'disputeReason']),
                 'latestParentCancellationStatusHistory.cancellationReason',
+                'latestParentCustomerCancellationStatusHistory.customerCancellationReason',
+                'latestPendingCancellationRequestHistory.providerCancellationReason',
+                'latestPendingCancellationRequestHistory.user',
+                'latestProviderRejectionHistory.providerCancellationReason',
+                'latestProviderRejectionHistory.user',
+                'latestParentProviderCancellationStatusHistory.providerCancellationReason',
+                'latestParentProviderCancellationStatusHistory.user',
+                'providerWithdrawalStatusHistories.providerCancellationReason',
+                'providerWithdrawalStatusHistories.user',
+                'providerCancelledByProvider',
                 'latestParentHoldStatusHistory.holdReopenReason',
                 'latestParentHoldStatusHistory.user',
                 'latestParentDisputeStatusHistory.disputeReason',
@@ -2417,6 +2486,8 @@ class BookingController extends Controller
                 'reopenEvents.holdReopenReason',
                 'originatedFromBooking',
                 'originatedFromBooking.reopenEvents.holdReopenReason',
+                'reopenLinkedSpawnedFollowupBookings',
+                'providerCancellationReplacementBookings',
                 'spawnedFollowupBookings',
                 'reopenedByUser',
                 'reopenCaseResolvedByUser',
@@ -4164,21 +4235,23 @@ class BookingController extends Controller
             $booking->save();
 
             if (isset($booking->provider_id)) {
-                $fcmToken = Provider::with('owner')->whereId($booking->provider_id)->first()->owner->fcm_token ?? null;
-                $language_key = $this->provider->with('owner')->whereId($booking->provider_id)->first()->owner?->current_language_key;
-                if (!is_null($fcmToken) && (!business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values || $booking?->provider?->is_suspended == 0)) {
+                $owner = Provider::with('owner')->whereId($booking->provider_id)->first()?->owner;
+                $language_key = $owner?->current_language_key;
+                if ($owner && user_has_fcm_devices($owner) && (!business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values || $booking?->provider?->is_suspended == 0)) {
                     $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', $language_key);
                     $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', $language_key);
-                    device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
+                    device_notification_for_user($owner, $title, $description, null, $booking->id, 'booking');
                 }
             } else {
                 $provider_ids = SubscribedService::where('sub_category_id', $booking->sub_category_id)->ofSubscription(1)->pluck('provider_id')->toArray();
                 $providers = Provider::with('owner')->whereIn('id', $provider_ids)->coveringLeafZone($booking->zone_id)->get();
                 foreach ($providers as $provider) {
-                    $fcmToken = $provider->owner->fcm_token ?? null;
-                    $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', $provider?->owner?->current_language_key);
-                    $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', $provider?->owner?->current_language_key);
-                    if (!is_null($fcmToken) && (!business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values || $provider?->is_suspended == 0)) device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
+                    $owner = $provider->owner;
+                    $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', $owner?->current_language_key);
+                    $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', $owner?->current_language_key);
+                    if ($owner && user_has_fcm_devices($owner) && (!business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values || $provider?->is_suspended == 0)) {
+                        device_notification_for_user($owner, $title, $description, null, $booking->id, 'booking');
+                    }
                 }
             }
             return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
@@ -4244,21 +4317,23 @@ class BookingController extends Controller
             }
 
             if (isset($booking->provider_id)) {
-                $fcmToken = Provider::with('owner')->whereId($booking->provider_id)->first()->owner->fcm_token ?? null;
-                $language_key = $this->provider->with('owner')->whereId($booking->provider_id)->first()->owner?->current_language_key;
-                if (!is_null($fcmToken) && (!business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values || $booking?->provider?->is_suspended == 0)) {
+                $owner = Provider::with('owner')->whereId($booking->provider_id)->first()?->owner;
+                $language_key = $owner?->current_language_key;
+                if ($owner && user_has_fcm_devices($owner) && (!business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values || $booking?->provider?->is_suspended == 0)) {
                     $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', $language_key);
                     $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', $language_key);
-                    device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
+                    device_notification_for_user($owner, $title, $description, null, $booking->id, 'booking');
                 }
             } else {
                 $provider_ids = SubscribedService::where('sub_category_id', $booking->sub_category_id)->ofSubscription(1)->pluck('provider_id')->toArray();
                 $providers = Provider::with('owner')->whereIn('id', $provider_ids)->coveringLeafZone($booking->zone_id)->get();
                 foreach ($providers as $provider) {
-                    $fcmToken = $provider->owner->fcm_token ?? null;
-                    $title = get_push_notification_message('booking_accepted', 'provider_notification', $provider?->owner?->current_language_key);
-                    $description = get_push_notification_description('booking_accepted', 'provider_notification', $provider?->owner?->current_language_key);
-                    if (!is_null($fcmToken) && (!business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values || $provider?->is_suspended == 0)) device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
+                    $owner = $provider->owner;
+                    $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', $owner?->current_language_key);
+                    $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', $owner?->current_language_key);
+                    if ($owner && user_has_fcm_devices($owner) && (!business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values || $provider?->is_suspended == 0)) {
+                        device_notification_for_user($owner, $title, $description, null, $booking->id, 'booking');
+                    }
                 }
             }
 
@@ -4267,6 +4342,41 @@ class BookingController extends Controller
         }
 
         Toastr::success(translate(DEFAULT_404['message']));
+        return back();
+    }
+
+    /**
+     * Admin action on a provider's pending cancellation request.
+     */
+    public function providerCancellationRequestReview($bookingId, Request $request): RedirectResponse
+    {
+        $this->authorize('booking_can_manage_status');
+
+        $request->validate([
+            'action' => 'required|in:cancel_booking,reject',
+            'admin_note' => 'nullable|string|max:2000',
+        ]);
+
+        $booking = $this->booking->where('id', $bookingId)->first();
+        $adminService = app(ProviderBookingCancellationAdminService::class);
+        if (! $booking || ! $adminService->isWithdrawalAwaitingAdmin($booking)) {
+            Toastr::error(translate('No_pending_cancellation_request_for_this_booking'));
+            return back();
+        }
+
+        try {
+            if ($request->action === 'cancel_booking') {
+                $adminService->adminCancelBooking($booking, $request->user(), $request->admin_note);
+                Toastr::success(translate('Provider_cancellation_booking_canceled'));
+            } else {
+                Toastr::error(translate('No_pending_cancellation_request_for_this_booking'));
+            }
+        } catch (\Throwable $e) {
+            Toastr::error($e->getMessage());
+
+            return back();
+        }
+
         return back();
     }
 
@@ -4473,8 +4583,12 @@ class BookingController extends Controller
 
             $oldProviderId = $booking->provider_id;
             $booking->provider_id = $request->provider_id;
+            $booking->provider_cancelled_at = null;
+            $booking->provider_cancelled_by_provider_id = null;
 
-            if ($booking->isDirty('provider_id')) {
+            booking_clear_provider_ignore((string) $booking->id, (string) $request->provider_id);
+
+            if ($booking->isDirty('provider_id') || $booking->isDirty('provider_cancelled_at')) {
                 $booking->booking_status = 'accepted';
                 $booking->serviceman_id = null;
                 $booking->assigned_by = 'admin';
@@ -4490,8 +4604,16 @@ class BookingController extends Controller
 
                 $booking->save();
 
+                $history = new \Modules\BookingModule\Entities\BookingStatusHistory;
+                $history->booking_id = $booking->id;
+                $history->changed_by = $request->user()->id;
+                $history->booking_status = 'accepted';
+                $history->status_change_remarks = translate('Admin_reassigned_provider_after_withdrawal');
+                $history->save();
+
                 $payload = response_formatter(DEFAULT_STATUS_UPDATE_200);
                 if ((string) $oldProviderId !== (string) $request->provider_id) {
+                    send_booking_provider_reassignment_notifications($booking->fresh(), $oldProviderId ? (string) $oldProviderId : null, (string) $request->provider_id);
                     try {
                         $previousProvider = $oldProviderId ? $this->provider->with('owner')->find($oldProviderId) : null;
                         $booking->refresh();
@@ -4737,6 +4859,8 @@ class BookingController extends Controller
         $item = new BookingExtraService($data);
         $item->recalculateTotal();
         $item->save();
+
+        send_booking_edit_service_add_notifications($booking, (string) ($data['title'] ?? ''));
 
         Toastr::success(translate('Extra_service_item_added'));
         return redirect()->back();
@@ -6133,10 +6257,13 @@ class BookingController extends Controller
         if ($isApproved) {
             $user = $booking->customer;
             $offline = isNotificationActive(null, 'booking', 'notification', 'user');
-            $title = get_push_notification_message('offline_payment_approved', 'customer_notification', $user?->current_language_key);
-            $description = get_push_notification_description('offline_payment_approved', 'customer_notification', $user?->current_language_key);
-            if ($user?->fcm_token && $title && $offline) {
-                device_notification($user?->fcm_token, $title, $description, null, $booking->id, 'booking', null, $user->id);
+            $title = get_push_notification_message('payment_collected_company', 'customer_notification', $user?->current_language_key);
+            $description = get_push_notification_description('payment_collected_company', 'customer_notification', $user?->current_language_key);
+            if (user_has_fcm_devices($user) && $title && $offline) {
+                device_notification_for_user($user, $title, $description, null, $booking->id, 'booking', null, $user->id, [
+                    'amount' => with_currency_symbol((float) get_booking_total_amount($booking)),
+                    'booking_status' => (string) ($booking->booking_status ?? ''),
+                ]);
             }
 
             placeBookingTransactionForDigitalPayment($booking);
@@ -6470,6 +6597,17 @@ class BookingController extends Controller
             }
         } catch (\Throwable $e) {
             Log::warning('WhatsApp booking payment added prompt failed', ['booking_id' => $booking->id ?? null, 'message' => $e->getMessage()]);
+        }
+
+        if ($partial) {
+            $freshForNotify = $this->booking->with(['customer', 'provider.owner'])->find($booking->id);
+            if ($freshForNotify) {
+                send_booking_payment_collected_notifications(
+                    $freshForNotify,
+                    round((float) $request->input('amount'), 2),
+                    (string) $request->input('received_by', 'company')
+                );
+            }
         }
 
         if ($request->wantsJson()) {
@@ -7454,6 +7592,8 @@ class BookingController extends Controller
             Log::warning('WhatsApp booking refund prompt failed', ['booking_id' => $booking->id ?? null, 'message' => $e->getMessage()]);
         }
 
+        send_customer_refund_notification($booking->fresh(['customer']), $amount, 'refund_bank_transfer');
+
         if ($request->wantsJson()) {
             $payload = $this->attachWhatsAppAdminPrompt($waRefundPrompt, response_formatter(DEFAULT_UPDATE_200, null));
 
@@ -7463,6 +7603,125 @@ class BookingController extends Controller
             ? translate('Refund recorded successfully.')
             : translate('Refund recorded successfully. You can record another refund until the balance is zero.');
         Toastr::success($successMessage);
+        return back();
+    }
+
+    /**
+     * Admin: refund canceled booking amount to customer wallet (no bank transfer reference).
+     */
+    public function refundToWallet(Request $request, string $id): JsonResponse|RedirectResponse
+    {
+        $this->authorize('booking_can_manage_status');
+        $validator = Validator::make($request->all(), [
+            'amount' => 'required|numeric|min:0.01',
+            'reference_note' => 'nullable|string|max:2000',
+        ]);
+        if ($validator->fails()) {
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+            }
+            Toastr::error(implode(' ', $validator->errors()->all()));
+
+            return back();
+        }
+
+        $booking = $this->booking->find($id);
+        if (! $booking) {
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_404, 'Booking not found'), 404);
+            }
+            Toastr::error(translate('Booking not found'));
+
+            return back();
+        }
+
+        if (! in_array((string) $booking->booking_status, ['canceled', 'cancelled', 'refunded'], true)) {
+            $message = translate('Refund is only available for canceled bookings.');
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, ['amount' => [$message]]), 400);
+            }
+            Toastr::error($message);
+
+            return back();
+        }
+
+        if ($this->bookingSuppressesAdminCustomerRefundCard($booking)) {
+            $message = translate('Bfs_refund_not_available_after_visit_cancel');
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, ['amount' => [$message]]), 400);
+            }
+            Toastr::error($message);
+
+            return back();
+        }
+
+        $refundTotals = get_booking_refund_display_totals($booking);
+        $remainingRefundable = round((float) ($refundTotals['refundable_remaining'] ?? 0), 2);
+        if ($remainingRefundable <= 0) {
+            $message = translate('This booking has already been fully refunded.');
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, ['amount' => [$message]]), 400);
+            }
+            Toastr::error($message);
+
+            return back();
+        }
+
+        $amount = round((float) $request->amount, 2);
+        if ($amount > $remainingRefundable) {
+            $message = translate('Refund amount cannot exceed amount paid by customer. Max') . ': ' . with_currency_symbol($remainingRefundable);
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, ['amount' => [$message]]), 400);
+            }
+            Toastr::error($message);
+
+            return back();
+        }
+
+        if ($amount < 0.01) {
+            $message = translate('Refund amount must be greater than zero.');
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, ['amount' => [$message]]), 400);
+            }
+            Toastr::error($message);
+
+            return back();
+        }
+
+        $booking->loadMissing('customer');
+        if (! $booking->customer_id) {
+            $message = translate('Booking not found');
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, ['amount' => [$message]]), 400);
+            }
+            Toastr::error($message);
+
+            return back();
+        }
+
+        $fullyRefundedAfter = false;
+        $refundNote = trim((string) $request->input('reference_note', ''));
+        DB::transaction(function () use ($booking, $amount, $refundNote, &$fullyRefundedAfter) {
+            processBookingWalletRefund($booking, $amount, $refundNote !== '' ? $refundNote : null);
+
+            $booking->refresh();
+            $afterTotals = get_booking_refund_display_totals($booking);
+            $fullyRefundedAfter = round((float) ($afterTotals['refundable_remaining'] ?? 0), 2) <= 0;
+
+            if (! in_array((string) $booking->booking_status, ['canceled', 'cancelled'], true)) {
+                $booking->booking_status = 'canceled';
+            }
+            $booking->save();
+        });
+
+        if ($request->wantsJson()) {
+            return response()->json(response_formatter(DEFAULT_UPDATE_200, null), 200);
+        }
+        $successMessage = $fullyRefundedAfter
+            ? translate('Refund_to_wallet_success')
+            : translate('Refund_to_wallet_partial_success');
+        Toastr::success($successMessage);
+
         return back();
     }
 
@@ -7980,9 +8239,9 @@ class BookingController extends Controller
 
         $user = $booking?->customer;
         $repeatOrRegular = $booking?->is_repeated ? 'repeat' : 'regular';
-        if (isset($user) && $user?->fcm_token && $user?->is_active) {
+        if (isset($user) && user_has_fcm_devices($user) && $user?->is_active) {
             try {
-                device_notification($user?->fcm_token, translate('service location updated'), null, null, $booking->id, 'booking', null, null, null, null, $repeatOrRegular);
+                send_booking_service_location_updated_notification($booking);
             }catch (\Exception $exception) {
                 //
             }

@@ -5,6 +5,13 @@
 
     RewriteEngine On
 
+    # Proxy Pusher/Soketi traffic to local Soketi (before Laravel front controller).
+    # Dual rules: WS upgrade when present, plain HTTP otherwise (CDN may strip Upgrade headers).
+    RewriteCond %{HTTP:Upgrade} =websocket [NC]
+    RewriteRule ^app/(.*)$ ws://127.0.0.1:6001/app/$1 [P,L]
+    RewriteCond %{HTTP:Upgrade} !=websocket [NC]
+    RewriteRule ^app/(.*)$ http://127.0.0.1:6001/app/$1 [P,L]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]

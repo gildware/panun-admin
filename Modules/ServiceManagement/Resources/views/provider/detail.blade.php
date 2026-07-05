@@ -139,9 +139,18 @@
                                                         </p>
                                                         <div class="service-price-list">
                                                             @foreach($service->variations->where('zone_id',$zone->zone_id)->all() as $variant)
-                                                                <div class="service-price-list-item">
-                                                                    <p>{{translate($variant->variant)}} </p>
-                                                                    <h3 class="c1">{{with_currency_symbol($variant->price)}}</h3>
+                                                                @php($meta = $service->serviceVariants?->firstWhere('variant_key', $variant->variant_key))
+                                                                <div class="service-price-list-item d-flex align-items-start gap-3 mb-3">
+                                                                    @if($meta?->image)
+                                                                        <img src="{{ $meta->image_full_path }}" alt="" width="48" height="48" class="rounded flex-shrink-0" style="object-fit:cover;">
+                                                                    @endif
+                                                                    <div class="flex-grow-1">
+                                                                        <p class="mb-1 fw-semibold">{{ $meta?->title ?? translate($variant->variant) }}</p>
+                                                                        @if($meta?->description)
+                                                                            <p class="small text-muted mb-1">{{ Str::limit($meta->description, 120) }}</p>
+                                                                        @endif
+                                                                        <h3 class="c1 mb-0">{{with_currency_symbol($variant->price)}}</h3>
+                                                                    </div>
                                                                 </div>
                                                             @endforeach
                                                         </div>

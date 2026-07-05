@@ -150,7 +150,7 @@
                         </li>
                         <li class="nav-item max-sm-m-0">
                             <div class="messages pe--12">
-                                <a href="{{ route('admin.chat.index', ['user_type' => 'staff']) }}"
+                                <a href="{{ route('admin.chat.staff') }}"
                                    class="header-icon count-btn"
                                    data-bs-toggle="tooltip"
                                    data-bs-placement="bottom"
@@ -158,6 +158,19 @@
                                    aria-label="{{ translate('Staff_Conversation') }}">
                                     <span class="material-symbols-outlined">chat</span>
                                     <span class="count" id="staff_message_count" @if(($staffUnreadCount ?? 0) < 1) style="display:none;" @endif>{{ $staffUnreadCount ?? 0 }}</span>
+                                </a>
+                            </div>
+                        </li>
+                        <li class="nav-item max-sm-m-0">
+                            <div class="messages pe--12">
+                                <a href="{{ route('admin.chat.support', ['filter' => 'all']) }}"
+                                   class="header-icon count-btn"
+                                   data-bs-toggle="tooltip"
+                                   data-bs-placement="bottom"
+                                   title="{{ translate('Support_Messages') }}"
+                                   aria-label="{{ translate('Support_Messages') }}">
+                                    <span class="material-symbols-outlined">support_agent</span>
+                                    @include('adminmodule::layouts.partials._header-unread-badge', ['id' => 'support_message_count', 'count' => $supportUnreadCount ?? 0])
                                 </a>
                             </div>
                         </li>
@@ -180,6 +193,26 @@
                             </div>
                         </li>
                         @endcan
+                        <li class="nav-item max-sm-m-0">
+                            <div class="notification update-notification pe--12">
+                                <a href="#" class="header-icon count-btn notification-icon" data-bs-toggle="dropdown"
+                                   title="{{ translate('Notifications') }}"
+                                   aria-label="{{ translate('Notifications') }}">
+                                    <span class="material-symbols-outlined">notifications</span>
+                                    <span class="count" id="notification_count" style="display:none;">0</span>
+                                </a>
+                                <div class="dropdown-menu dropdown-menu-right p-0" style="min-width:22rem;max-width:26rem;">
+                                    <div class="show-notification-list" id="show-notification-list" style="max-height:24rem;overflow-y:auto;"></div>
+                                    <div class="border-top py-2 px-3 text-center bg-white">
+                                        <a href="{{ route('admin.notifications.index') }}"
+                                           class="btn btn-sm btn-link text-decoration-none fw-semibold js-view-all-notifications"
+                                           @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
+                                            {{ translate('view_all') }}
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </li>
                         <li class="nav-item max-sm-m-0">
                             <div class="user mt-n1">
                                 <a href="#" class="header-icon user-icon" data-bs-toggle="dropdown">
@@ -217,30 +250,4 @@
     </div>
 </header>
 
-<div class="modal fade removeSlideDown" id="staticBackdrop" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content modal-content__search border-0 {{env('APP_ENV') == 'demo' ? 'mt-5' : ''}}">
-            <div class="d-flex flex-column gap-3">
-                <div class="d-flex gap-2 align-items-center rounded bg-card py-2 px-3">
-                    <form class="flex-grow-1" id="searchForm" action="{{ route('admin.search.routing') }}">
-                        @csrf
-                        <div class="d-flex align-items-center global-search-container">
-                            <span class="material-symbols-outlined">search</span>
-                            <input class="form-control flex-grow-1 border-0 search-input" id="searchInput" name="search" type="search" placeholder="Search" aria-label="Search" autofocus autocomplete="off">
-                        </div>
-                    </form>
-                    <button class="border-0 rounded-3 px-2 py-1" type="button" data-bs-dismiss="modal">{{ translate('Esc') }}</button>
-                </div>
-
-                <div class="bg-card p-4 rounded-3 min-h-350">
-                    <div class="search-result" id="searchResults">
-                        <div id="searchLoaderOverlay" class="search-loader-overlay">
-                            <div class="loader-spinner"></div>
-                        </div>
-                        <div class="text-center text-muted py-5">{{translate('It appears that you have not yet searched.')}}.</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+@include('adminmodule::layouts.partials._search-modal')

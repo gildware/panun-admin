@@ -27,41 +27,27 @@
                     $field = "icon_{$appKey}_{$def['key']}_{$variant}";
                     $previewUrl = $previews[$variant] ?? null;
                     $hasCustom = !empty($storedVariants[$variant]);
+                    $displayUrl = $hasCustom ? $previewUrl : null;
                     $bgClass = $variant === 'dark' ? 'mai-preview-dark' : 'mai-preview-light';
                     $variantLabel = $variant === 'dark' ? translate('Dark_theme') : translate('Light_theme');
                 @endphp
                 <div class="col-md-6">
                     <p class="fz-12 fw-semibold mb-2">{{ $variantLabel }}</p>
 
-                    <div class="mai-current-preview {{ $bgClass }} rounded-10 p-3 mb-2 d-flex align-items-center justify-content-center position-relative"
-                         style="min-height:88px;">
-                        @if($previewUrl)
-                            <img src="{{ $previewUrl }}" alt="" class="mai-preview-img" loading="lazy" style="max-height:56px;max-width:56px;object-fit:contain;"
-                                 onerror="this.style.display='none';this.nextElementSibling?.classList.remove('d-none');">
-                            <div class="text-center d-none">
-                                <span class="material-icons fz-28 opacity-50">broken_image</span>
-                                <p class="fz-11 mb-0 mt-1 opacity-75">{{ translate('Preview_unavailable') }}</p>
-                            </div>
-                            @if($hasCustom)
-                                <span class="badge bg-success position-absolute top-0 end-0 m-2 fz-10">{{ translate('Custom_upload') }}</span>
-                            @endif
-                        @else
-                            <div class="text-center">
-                                <span class="material-icons fz-28 opacity-50">image</span>
-                                <p class="fz-11 mb-0 mt-1 opacity-75">{{ translate('Using_bundled_default') }}</p>
-                            </div>
+                    <div class="upload_wrapper d-flex justify-content-center {{ $bgClass }} rounded-10 p-3 position-relative">
+                        @if($hasCustom)
+                            <span class="badge bg-success position-absolute top-0 end-0 m-2 fz-10">{{ translate('Custom_upload') }}</span>
                         @endif
-                    </div>
-
-                    <div class="upload_wrapper d-flex justify-content-center">
-                        <div class="upload-file-new mai-icon-upload">
+                        <div class="upload-file-new mai-icon-upload"
+                             data-persisted-image="{{ $hasCustom ? 'true' : 'false' }}">
                             <input type="file"
                                    name="{{ $field }}"
                                    id="{{ $field }}"
                                    class="upload-file-new__input single_file_input"
-                                   accept=".webp,.jpg,.jpeg,.png,.gif">
+                                   accept=".webp,.jpg,.jpeg,.png,.gif"
+                                   data-crop-ratio="1:1">
                             <label class="upload-file-new__wrapper ratio-1-1" for="{{ $field }}">
-                                <div class="upload-file-new-textbox text-center">
+                                <div class="upload-file-new-textbox text-center" @if($displayUrl) style="display:none" @endif>
                                     <div class="d-flex flex-column gap-1 justify-content-center">
                                         <i class="fi fi-sr-camera text-primary fs-16"></i>
                                         <span class="fs-10">{{ $hasCustom ? translate('Replace_image') : translate('Add_image') }}</span>
@@ -69,13 +55,13 @@
                                 </div>
                                 <img class="upload-file-new-img"
                                      loading="lazy"
-                                     src="{{ $previewUrl ?? '' }}"
-                                     data-default-src="{{ $previewUrl ?? '' }}"
-                                     data-src="{{ $previewUrl ?? '' }}"
+                                     src="{{ $displayUrl ?? '' }}"
+                                     data-default-src="{{ $displayUrl ?? '' }}"
+                                     data-src="{{ $displayUrl ?? '' }}"
                                      alt=""
-                                     style="{{ $previewUrl ? 'display:block' : 'display:none' }}">
+                                     style="{{ $displayUrl ? 'display:block' : 'display:none' }}">
                             </label>
-                            <div class="overlay">
+                            <div class="overlay @if($displayUrl) show @endif">
                                 <div class="d-flex gap-10 justify-content-center align-items-center h-100">
                                     <button type="button" class="btn btn-outline-info icon-btn edit_btn">
                                         <i class="fi fi-rr-camera"></i>

@@ -5,6 +5,7 @@
         (int) @filemtime(public_path('assets/admin-module/css/style.css')),
         (int) @filemtime(public_path('assets/admin-module/css/dev.css')),
         (int) @filemtime(public_path('assets/admin-module/js/custom.js')),
+        (int) @filemtime(public_path('assets/admin-module/js/admin-image-fallback.js')),
     ) ?: time();
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ $site_direction }}">
@@ -39,6 +40,8 @@
     <link rel="stylesheet" href="{{ asset('assets/admin-module') }}/css/style.css?v={{ $adminAssetVersion }}"/>
     <link rel="stylesheet" href="{{ asset('assets/admin-module') }}/css/dev.css?v={{ $adminAssetVersion }}"/>
     <link rel="stylesheet" href="{{ asset('assets/common') }}/css/common.css"/>
+    <link rel="stylesheet" href="{{ asset('assets/common') }}/plugins/cropperjs/cropper.min.css"/>
+    <link rel="stylesheet" href="{{ asset('assets/common') }}/css/image-crop-upload.css?v={{ @filemtime(public_path('assets/common/css/image-crop-upload.css')) ?: time() }}"/>
     <link rel="stylesheet" href="{{ asset('assets/provider-module') }}/css/view-guideline.css"/>
 
     <style>
@@ -59,7 +62,10 @@
     @stack('css_or_js')
 </head>
 
-<body class="wa-social-inbox-fullscreen-body">
+<body class="wa-social-inbox-fullscreen-body"
+      data-admin-img-placeholder="{{ admin_nav_placeholder() }}"
+      data-admin-profile-placeholder="{{ admin_nav_placeholder('profile') }}"
+      data-admin-logo-placeholder="{{ admin_nav_placeholder('logo') }}">
 <script>
     localStorage.theme && document.querySelector('body').setAttribute("data-bs-theme", localStorage.theme);
 </script>
@@ -72,13 +78,18 @@
     @yield('content')
 
     @include('adminmodule::layouts.partials._status-modal')
+
+    @include('adminmodule::layouts.partials._notification-detail-modal')
 </main>
 
 <script src="{{ asset('assets/admin-module') }}/js/jquery-3.6.0.min.js"></script>
 <script src="{{ asset('assets/admin-module') }}/js/bootstrap.bundle.min.js"></script>
+<script src="{{ asset('assets/common') }}/plugins/cropperjs/cropper.min.js"></script>
+<script src="{{ asset('assets/common') }}/js/image-crop-upload.js?v={{ @filemtime(public_path('assets/common/js/image-crop-upload.js')) ?: time() }}"></script>
 <script src="{{ asset('assets/admin-module') }}/plugins/perfect-scrollbar/perfect-scrollbar.min.js"></script>
 <script src="{{ asset('assets/admin-module') }}/js/main.js"></script>
 <script src="{{ asset('assets/admin-module') }}/js/custom.js?v={{ $adminAssetVersion }}"></script>
+<script src="{{ asset('assets/admin-module') }}/js/admin-image-fallback.js?v={{ $adminAssetVersion }}"></script>
 <script src="{{ asset('assets/admin-module') }}/js/helper.js"></script>
 <script src="{{ asset('assets/common') }}/js/common.js"></script>
 <script src="{{ asset('assets/common') }}/js/form-submit-once.js"></script>
@@ -163,6 +174,8 @@
         };
     })();
 
+    @include('adminmodule::layouts.partials._header-unread-badge-scripts')
+
     function handleAdminUpdatedDataResponse(response, opts) {
         opts = opts || {};
         var skipSound = !!opts.skipSound;
@@ -189,6 +202,25 @@
         }
         sessionStorage.setItem(staffPrevKey, String(staffMsgCount));
 
+        var supportCountEl = document.getElementById("support_message_count");
+        if (supportCountEl) {
+            var supportMsgCount = parseInt(data.customer_provider_unread_messages, 10);
+            if (isNaN(supportMsgCount)) supportMsgCount = 0;
+            if (typeof window.pkUpdateHeaderUnreadBadge === 'function') {
+                window.pkUpdateHeaderUnreadBadge(supportCountEl, supportMsgCount);
+            }
+
+            var supportPrevKey = 'admin_support_unread_messages';
+            var supportPrevRaw = sessionStorage.getItem(supportPrevKey);
+            if (!skipSound && supportPrevRaw !== null && supportPrevRaw !== '') {
+                var supportPrev = parseInt(supportPrevRaw, 10) || 0;
+                if (supportMsgCount > supportPrev && typeof window.pkPlayStaffNotificationSound === 'function') {
+                    window.pkPlayStaffNotificationSound();
+                }
+            }
+            sessionStorage.setItem(supportPrevKey, String(supportMsgCount));
+        }
+
         var waCountEl = document.getElementById("whatsapp_unread_count");
         if (waCountEl) {
             var chats = parseInt(data.whatsapp_unread_chats, 10);
@@ -207,6 +239,10 @@
                 }
             }
             sessionStorage.setItem(waPrevKey, String(msgTotal));
+        }
+
+        if (typeof window.pkHandleAdminInboxNotifications === 'function') {
+            window.pkHandleAdminInboxNotifications(data, opts);
         }
     }
 
@@ -241,7 +277,7 @@
         }, adminHeaderPollMs);
     })();
 
-    $('.form-alert').on('click', function (){
+    $(document).on('click', '.form-alert', function (){
         let id = $(this).data('id');
         let message = $(this).data('message');
         form_alert(id, message)
@@ -266,7 +302,7 @@
         })
     }
 
-    $('.route-alert').on('change', function (event){
+    $(document).on('change', '.route-alert', function (event){
         event.preventDefault();
         let $this = $(this);
         let initialState = $this.prop('checked');
@@ -306,7 +342,7 @@
         })
     }
 
-    $('.route-alert-reload').on('click', function (){
+    $(document).on('click', '.route-alert-reload', function (){
         let route = $(this).data('route');
         let message = $(this).data('message');
         route_alert_reload(route, message, true);
@@ -366,6 +402,8 @@
         }
     });
 </script>
+
+@include('adminmodule::layouts.partials._admin-notification-scripts')
 
 @stack('script')
 </body>

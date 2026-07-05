@@ -40,6 +40,8 @@ class PendingProviderBalancesController extends Controller
             is_string($sort) ? $sort : 'balance_desc'
         );
 
+        $totalPendingBalance = round(array_sum(array_column($rows, 'balance_due')), 2);
+
         $perPage = pagination_limit();
         $page = max(1, (int) $request->get('page', 1));
         $paginator = new LengthAwarePaginator(
@@ -56,6 +58,7 @@ class PendingProviderBalancesController extends Controller
             'search' => is_string($search) ? $search : '',
             'category_id' => is_string($categoryId) ? $categoryId : '',
             'sort' => $sort,
+            'total_pending_balance' => $totalPendingBalance,
         ]);
     }
 

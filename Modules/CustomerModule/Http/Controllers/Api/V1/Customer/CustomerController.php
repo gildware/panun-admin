@@ -20,7 +20,7 @@ use Modules\UserManagement\Entities\Guest;
 use Modules\UserManagement\Entities\User;
 use Modules\UserManagement\Entities\UserAddress;
 use Illuminate\Support\Facades\Mail;
-use Modules\PaymentModule\Traits\SmsGateway;
+use Modules\CustomerModule\Services\CustomerReferralEarningService;
 
 class CustomerController extends Controller
 {
@@ -87,7 +87,7 @@ class CustomerController extends Controller
             'first_name' => 'required',
             'last_name' => 'required',
             'phone' => 'required',
-            'email' => 'required',
+            'email' => 'nullable|email',
             'password' => '',
             'profile_image' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
         ]);
@@ -96,18 +96,25 @@ class CustomerController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        if (User::where('phone', $request['phone'])->where('id', '!=', $customer->id)->exists()) {
+        $existingCustomerPhone = User::findByContactPhoneScoped($request['phone'], CUSTOMER_USER_TYPES);
+        if ($existingCustomerPhone && $existingCustomerPhone->id !== $customer->id) {
             return response()->json(response_formatter(DEFAULT_400, null, [["error_code"=>"phone","message"=>translate('Phone already taken')]]), 400);
         }
 
-        if ($customer->email != $request['email']){
+        if ($request->filled('email') && User::where('email', $request['email'])->where('id', '!=', $customer->id)->exists()) {
+            return response()->json(response_formatter(DEFAULT_400, null, [["error_code"=>"email","message"=>translate('Email already taken')]]), 400);
+        }
+
+        if ($request->filled('email') && $customer->email != $request['email']){
             $customer->is_email_verified = 0;
         }
 
         $customer->first_name = $request->first_name;
         $customer->last_name = $request->last_name;
         $customer->phone = $request->phone;
-        $customer->email = $request->email;
+        if ($request->filled('email')) {
+            $customer->email = $request->email;
+        }
 
         if ($request->has('profile_image')) {
             $customer->profile_image = file_uploader('user/profile_image/', APPLICATION_IMAGE_FORMAT, $request->file('profile_image'), $customer->profile_image);;
@@ -132,15 +139,19 @@ class CustomerController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'fcm_token' => 'required',
+            'device_id' => 'nullable|string|max:64',
+            'platform' => 'nullable|string|in:android,ios,web',
+            'device_model' => 'nullable|string|max:128',
+            'device_manufacturer' => 'nullable|string|max:128',
+            'os_version' => 'nullable|string|max:64',
+            'unregister' => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $customer = $this->customer::find($request->user()->id);
-        $customer->fcm_token = $request->fcm_token;
-        $customer->save();
+        handle_user_fcm_token_request($request, (string) $request->user()->id);
 
         return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
     }
@@ -210,6 +221,8 @@ class CustomerController extends Controller
         try {
             $loyaltyAmount = round($point / $pointValuePerCurrencyUnit, 2);
             loyaltyPointWalletTransferTransaction($user->id, $point, $loyaltyAmount);
+            $user->refresh();
+            send_customer_loyalty_point_notification($user, $point, 'loyalty_point_convert');
         } catch (\RuntimeException $e) {
             if (in_array($e->getMessage(), ['insufficient_loyalty_points', 'customer_not_found'], true)) {
                 return response()->json(response_formatter(DEFAULT_400, null, null), 400);
@@ -281,6 +294,43 @@ class CustomerController extends Controller
             'min_loyalty_point_to_transfer' => business_config('min_loyalty_point_to_transfer', 'customer_config')->live_values,
             'transactions' => $transactions
         ]), 200);
+    }
+
+    public function referralEarning(Request $request, CustomerReferralEarningService $referralService): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'limit' => 'required|numeric|min:1|max:50',
+            'offset' => 'required|numeric|min:1|max:100000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        if (! $referralService->isEnabled()) {
+            return response()->json(response_formatter(DEFAULT_403), 403);
+        }
+
+        $referrer = $this->customer->find($request->user()->id);
+        if (! $referrer) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        $reward = $referralService->referralRewardAmount();
+        $paginator = $referralService->paginateReferredUsers(
+            (string) $referrer->id,
+            (int) $request->limit,
+            (int) $request->offset
+        );
+
+        $paginator->getCollection()->transform(
+            fn (User $user) => $referralService->transformReferredUser($user, $reward)
+        );
+
+        return response()->json(response_formatter(DEFAULT_204, array_merge(
+            $referralService->buildSummary((string) $referrer->id, $referrer),
+            ['referred_users' => $paginator]
+        )), 200);
     }
 
     /**

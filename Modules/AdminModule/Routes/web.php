@@ -15,6 +15,8 @@ use Modules\AdminModule\Http\Controllers\Web\Admin\DataTransferController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\SystemMaintenanceController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\SystemLogsController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\AdminBusinessAiController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\AdminPinnedNavController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\NotificationController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\StaffPresenceController;
 
 
@@ -41,10 +43,18 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
     Route::post('data-transfer/import', [DataTransferController::class, 'import'])->name('data-transfer.import');
     Route::get('system-maintenance/data-reset', [SystemMaintenanceController::class, 'index'])->name('system-maintenance.data-reset.index');
     Route::post('system-maintenance/data-reset', [SystemMaintenanceController::class, 'reset'])->name('system-maintenance.data-reset.run');
+    Route::post('system-maintenance/data-reset/progress/init', [SystemMaintenanceController::class, 'progressInit'])->name('system-maintenance.data-reset.progress.init');
+    Route::post('system-maintenance/data-reset/progress/step', [SystemMaintenanceController::class, 'progressStep'])->name('system-maintenance.data-reset.progress.step');
     Route::get('update-dashboard-earning-graph', [AdminController::class, 'updateDashboardEarningGraph'])->name('update-dashboard-earning-graph');
     Route::get('profile-update', [AdminController::class, 'profileInfo'])->name('profile_update');
     Route::post('profile-update', [AdminController::class, 'updateProfile']);
     Route::get('get-updated-data', [AdminController::class, 'getUpdatedData'])->name('get_updated_data');
+    Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('notifications/{id}/detail', [NotificationController::class, 'detail'])->name('notifications.detail');
+    Route::get('notifications/{id}', [NotificationController::class, 'show'])->name('notifications.show');
+    Route::post('notifications/mark-all-read', [AdminController::class, 'markAllNotificationsRead'])->name('notifications.mark_all_read');
+    Route::post('notifications/mark-all-read-page', [NotificationController::class, 'markAllRead'])->name('notifications.mark_all_read_page');
+    Route::post('notifications/{id}/read', [AdminController::class, 'markNotificationRead'])->name('notifications.read');
 
     Route::group(['prefix' => 'staff-presence', 'as' => 'staff-presence.'], function () {
         Route::post('heartbeat', [StaffPresenceController::class, 'heartbeat'])->name('heartbeat');
@@ -53,6 +63,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('history-dates', [StaffPresenceController::class, 'historyDates'])->name('history-dates');
         Route::get('history', [StaffPresenceController::class, 'history'])->name('history');
     });
+
+    Route::post('pinned-nav', [AdminPinnedNavController::class, 'save'])->name('pinned-nav.save');
     Route::post('store/search-routing', [AdminController::class, 'storeClickedRoute'])->name('search.routing.store');
     Route::get('recent-search', [AdminController::class, 'recentSearch'])->name('recent.search');
 

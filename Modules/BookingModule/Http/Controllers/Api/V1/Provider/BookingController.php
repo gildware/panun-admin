@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingDetail;
 use Modules\BookingModule\Entities\BookingIgnore;
@@ -24,9 +25,13 @@ use Modules\BookingModule\Entities\BookingRepeatDetails;
 use Modules\BookingModule\Entities\BookingRepeatHistory;
 use Modules\BookingModule\Entities\BookingScheduleHistory;
 use Modules\BookingModule\Entities\BookingStatusHistory;
+use Modules\BookingModule\Entities\BookingHoldReopenReason;
+use Modules\BookingModule\Entities\BookingProviderCancellationReason;
 use Modules\BookingModule\Http\Traits\BookingTrait;
+use Modules\BookingModule\Services\ProviderBookingWithdrawalService;
 use Modules\CartModule\Entities\Cart;
 use Modules\ProviderManagement\Entities\SubscribedService;
+use Modules\ProviderManagement\Services\ProviderBookingTabCountCache;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\UserManagement\Entities\UserAddress;
 use App\Lib\BookingInvoiceUrl;
@@ -105,7 +110,7 @@ class BookingController extends Controller
             'provider_id' => $providerId,
         ];
 
-        $bookings_count = $this->providerBookingListTabCounts(
+        $bookings_count = $this->resolveProviderBookingTabCounts(
             $request,
             $provider,
             $providerId,
@@ -116,28 +121,21 @@ class BookingController extends Controller
 
         //bookings list
         $bookings = $this->booking
-            ->with(['customer', 'subCategory:id,name', 'repeat', 'extra_services', 'booking_offline_payments' => function ($query) {
+            ->with(['customer.storage', 'subCategory:id,name', 'repeat', 'extra_services', 'booking_offline_payments' => function ($query) {
                     $query->first() ?? [];
             }])
             ->withCount('compensations')
             ->when($bookingStatus === 'all', function ($query) use ($providerId) {
-                $query->where('provider_id', $providerId)
-                    ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                        $query->where('provider_id', $providerId);
-                    });
+                $query->where('provider_id', $providerId);
             })
             ->when($bookingStatus === 'pending', function ($query) use ($providerId, $request, $maxBookingAmount, $serviceAtProviderPlace, $serviceLocations) {
                 $query->providerPendingBookings($request->user()->provider, $maxBookingAmount)
-                    ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                        $query->where('provider_id', $providerId);
-                    })->when($serviceAtProviderPlace == 1, function ($query) use ($serviceLocations) {
+                    ->excludeProviderIgnoredUnlessAssigned($providerId)
+                    ->when($serviceAtProviderPlace == 1, function ($query) use ($serviceLocations) {
                         $query->whereIn('service_location', $serviceLocations);
                     });
             })
             ->when(! in_array($bookingStatus, ['all', 'pending'], true), function ($query) use ($bookingStatus, $providerId, $tabOptions) {
-                $query->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                    $query->where('provider_id', $providerId);
-                });
                 if ($bookingStatus === 'accepted') {
                     $query->applyBookingListStatusTab('accepted', $tabOptions);
                 } else {
@@ -165,6 +163,8 @@ class BookingController extends Controller
                 });
                 $booking->repeats = $sortedRepeats->values()->toArray();
             }
+            booking_prepare_mobile_api_user_for_json($booking->customer, true);
+            $booking->setAppends([]);
             booking_append_provider_api_ui_fields($booking);
             $listDisplayTotal = get_customer_booking_list_display_total($booking);
             $originalGrandTotal = round((float) get_booking_total_amount($booking), 2);
@@ -198,6 +198,40 @@ class BookingController extends Controller
     /**
      * @return array<string, int>
      */
+    private function resolveProviderBookingTabCounts(
+        Request $request,
+        $provider,
+        string $providerId,
+        $maxBookingAmount,
+        int $serviceAtProviderPlace,
+        array $serviceLocations,
+    ): array {
+        $includeTabCounts = filter_var($request->input('include_tab_counts', true), FILTER_VALIDATE_BOOL);
+        if (! $includeTabCounts) {
+            return array_fill_keys(booking_api_list_filter_tab_order(), 0);
+        }
+
+        $filtersKey = md5(json_encode([
+            'service_type' => (string) ($request['service_type'] ?? 'all'),
+        ]));
+
+        return ProviderBookingTabCountCache::remember(
+            $providerId,
+            $filtersKey,
+            fn () => $this->providerBookingListTabCounts(
+                $request,
+                $provider,
+                $providerId,
+                $maxBookingAmount,
+                $serviceAtProviderPlace,
+                $serviceLocations,
+            )
+        );
+    }
+
+    /**
+     * @return array<string, int>
+     */
     private function providerBookingListTabCounts(
         Request $request,
         $provider,
@@ -217,9 +251,6 @@ class BookingController extends Controller
             if ($tab === 'all') {
                 $counts[$tab] = $this->booking
                     ->where('provider_id', $providerId)
-                    ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                        $query->where('provider_id', $providerId);
-                    })
                     ->when($request['service_type'] != 'all', function ($query) use ($request) {
                         return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
                     })
@@ -230,9 +261,7 @@ class BookingController extends Controller
             if ($tab === 'pending') {
                 $counts[$tab] = $this->booking
                     ->providerPendingBookings($provider, $maxBookingAmount)
-                    ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                        $query->where('provider_id', $providerId);
-                    })
+                    ->excludeProviderIgnoredUnlessAssigned($providerId)
                     ->when($request['service_type'] != 'all', function ($query) use ($request) {
                         return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
                     })
@@ -244,9 +273,6 @@ class BookingController extends Controller
             }
 
             $query = $this->booking->newQuery()
-                ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                    $query->where('provider_id', $providerId);
-                })
                 ->when($request['service_type'] != 'all', function ($query) use ($request) {
                     return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
                 });
@@ -514,9 +540,6 @@ class BookingController extends Controller
         $bookings = Booking::query()
             ->where(function ($query) use ($providerId, $sDate, $eDate) {
                 $query->where('provider_id', $providerId)
-                    ->whereDoesntHave('ignores', function ($ignoreQuery) use ($providerId) {
-                        $ignoreQuery->where('provider_id', $providerId);
-                    })
                     ->where(function ($scheduleQuery) use ($sDate, $eDate) {
                         $scheduleQuery->where(function ($regularQuery) use ($sDate, $eDate) {
                             $regularQuery->where('is_repeated', 0)
@@ -763,7 +786,7 @@ class BookingController extends Controller
     {
         $provider_id = $request->user()->provider->id;
         $booking = $this->booking->with([
-            'detail.service', 'schedule_histories.user', 'status_histories.user', 'status_histories.holdReopenReason', 'change_logs.changedBy', 'customer',
+            'detail.service', 'schedule_histories.user', 'status_histories.user', 'status_histories.holdReopenReason', 'status_histories.providerCancellationReason', 'customer',
             'provider', 'zone.parentZone', 'serviceman.user', 'booking_partial_payments.ledgerTransactions', 'booking_offline_payments',
             'category', 'subCategory:id,name',
             'repeat.detail.service', 'repeat.repeatHistories'
@@ -772,7 +795,9 @@ class BookingController extends Controller
                 ->orWhereHas('repeat', function ($subQuery) use ($provider_id) {
                     $subQuery->where('provider_id', $provider_id);
                 });
-        })->where(['id' => $id])->first();
+        })->where(function ($query) use ($id) {
+            $query->where('id', $id)->orWhere('readable_id', $id);
+        })->first();
 
         if (isset($booking)) {
             $booking->loadCount('compensations');
@@ -844,6 +869,7 @@ class BookingController extends Controller
             }
 
             booking_attach_api_change_logs($booking);
+            booking_prepare_provider_api_booking_for_json($booking);
 
             return response()->json(response_formatter(DEFAULT_200, $booking), 200);
         }
@@ -868,6 +894,7 @@ class BookingController extends Controller
             $booking->booking->service_address = $booking->booking->service_address_location != null ? json_decode($booking->booking->service_address_location) : $booking->booking->service_address;
             booking_append_provider_api_financial_fields($booking);
             booking_attach_api_change_logs($booking, (string) $booking->id);
+            booking_prepare_provider_api_repeat_for_json($booking);
             return response()->json(response_formatter(DEFAULT_200, $booking), 200);
         }
         return response()->json(response_formatter(DEFAULT_204), 200);
@@ -881,63 +908,77 @@ class BookingController extends Controller
      */
     public function requestAccept(Request $request, string $bookingId): JsonResponse
     {
-        $booking = $this->booking->where('id', $bookingId)->where('provider_id', $request->user()->provider->id)->first();
+        $provider = $request->user()->provider;
 
-        if (isset($booking)) {
+        if (! provider_can_receive_bookings($provider)) {
+            return response()->json(response_formatter(PROVIDER_ACCOUNT_NOT_APPROVED), 403);
+        }
 
-            $provider = $request->user()->provider;
+        if (
+            (int) ($provider?->is_active_for_jobs ?? 1) === 0
+            || ($provider?->is_suspended == 1 && business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)
+        ) {
+            return response()->json(DEFAULT_SUSPEND_200, 404);
+        }
 
-            if (! provider_can_receive_bookings($provider)) {
-                return response()->json(response_formatter(PROVIDER_ACCOUNT_NOT_APPROVED), 403);
-            }
+        if (! nextBookingEligibility($provider->id)) {
+            return response()->json(response_formatter(BOOKING_LIMIT_END), 200);
+        }
 
-            if (
-                (int)($provider?->is_active_for_jobs ?? 1) === 0
-                || ($provider?->is_suspended == 1 && business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)
-            ) {
-                return response()->json(DEFAULT_SUSPEND_200, 404);
+        return DB::transaction(function () use ($request, $bookingId, $provider) {
+            $booking = $this->booking->where('id', $bookingId)
+                ->where('provider_id', $provider->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! isset($booking)) {
+                return response()->json(response_formatter(DEFAULT_204), 200);
             }
 
             if ($booking->booking_status == 'canceled') {
                 return response()->json(response_formatter(BOOKING_ALREADY_CANCELED_200), 200);
             }
 
-            $nextBookingEligibility = nextBookingEligibility($provider->id);
-            if (!$nextBookingEligibility) {
-                return response()->json(response_formatter(BOOKING_LIMIT_END), 200);
+            if ((string) $booking->booking_status === 'accepted') {
+                return response()->json(response_formatter(BOOKING_STATUS_UPDATE_SUCCESS_200), 200);
             }
 
-            $booking->provider_id = $request->user()->provider->id;
+            if ((string) $booking->booking_status !== 'pending') {
+                return response()->json(response_formatter(DEFAULT_204), 200);
+            }
+
+            $booking->provider_id = $provider->id;
             $booking->booking_status = 'accepted';
+            $booking->provider_cancelled_at = null;
+            $booking->provider_cancelled_by_provider_id = null;
+
+            booking_clear_provider_ignore((string) $booking->id, (string) $provider->id);
 
             $bookingStatusHistory = $this->bookingStatusHistory;
             $bookingStatusHistory->booking_id = $bookingId;
             $bookingStatusHistory->changed_by = $request->user()->id;
             $bookingStatusHistory->booking_status = 'accepted';
 
-            DB::transaction(function () use ($bookingStatusHistory, $booking, $request) {
-                $booking->save();
-                $bookingStatusHistory->save();
+            $booking->save();
+            $bookingStatusHistory->save();
 
-                if ($booking->repeat->isNotEmpty()) {
-                    foreach ($booking->repeat as $repeat) {
-                        $repeat->provider_id = $request->user()->provider->id;
-                        $repeat->booking_status = 'accepted';
-                        $repeat->save();
+            if ($booking->repeat->isNotEmpty()) {
+                foreach ($booking->repeat as $repeat) {
+                    $repeat->provider_id = $provider->id;
+                    $repeat->booking_status = 'accepted';
+                    $repeat->save();
 
-                        $repeatBookingStatusHistory = new $this->bookingStatusHistory;
-                        $repeatBookingStatusHistory->booking_id = 0;
-                        $repeatBookingStatusHistory->booking_repeat_id = $repeat->id;
-                        $repeatBookingStatusHistory->changed_by = $request->user()->id;
-                        $repeatBookingStatusHistory->booking_status = 'accepted';
-                        $repeatBookingStatusHistory->save();
-                    }
+                    $repeatBookingStatusHistory = new $this->bookingStatusHistory;
+                    $repeatBookingStatusHistory->booking_id = 0;
+                    $repeatBookingStatusHistory->booking_repeat_id = $repeat->id;
+                    $repeatBookingStatusHistory->changed_by = $request->user()->id;
+                    $repeatBookingStatusHistory->booking_status = 'accepted';
+                    $repeatBookingStatusHistory->save();
                 }
-            });
+            }
 
             return response()->json(response_formatter(BOOKING_STATUS_UPDATE_SUCCESS_200), 200);
-        }
-        return response()->json(response_formatter(DEFAULT_204), 200);
+        });
     }
 
 
@@ -954,49 +995,53 @@ class BookingController extends Controller
             return response()->json(response_formatter(PROVIDER_ACCOUNT_NOT_APPROVED), 403);
         }
 
-        $providerId = $provider->id;
-        $booking = $this->booking->where('id', $bookingId)->where('provider_id', $providerId)->first();
-        $repeatBookings = $this->bookingRepeat->where('booking_id', $bookingId)->get();
+        $validator = Validator::make($request->all(), [
+            'booking_provider_cancellation_reason_id' => [
+                'required',
+                'integer',
+                Rule::exists('booking_provider_cancellation_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1)),
+            ],
+            'status_change_remarks' => 'nullable|string|max:2000',
+        ]);
 
-        if (isset($booking)) {
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $providerId = $provider->id;
+
+        return DB::transaction(function () use ($request, $bookingId, $providerId, $provider) {
+            $booking = $this->booking->where('id', $bookingId)
+                ->where('provider_id', $providerId)
+                ->lockForUpdate()
+                ->first();
+
+            if (! isset($booking)) {
+                return response()->json(response_formatter(DEFAULT_204), 200);
+            }
+
+            if ((string) $booking->booking_status !== 'pending') {
+                return response()->json(response_formatter([
+                    'response_code' => 'provider_reject_only_pending_booking_200',
+                    'message' => translate('Provider_can_only_reject_pending_booking_requests'),
+                ]), 200);
+            }
 
             $ignoreList = $this->bookingIgnore->where('booking_id', $bookingId)->where('provider_id', $providerId)->first();
             if ($ignoreList) {
                 return response()->json(response_formatter(BOOKING_ALREADY_IGNORED_200), 200);
             }
 
-            $bookingIgnore = $this->bookingIgnore;
-            $bookingIgnore->booking_id = $bookingId;
-            $bookingIgnore->provider_id = $providerId;
-
-            if (!empty($booking->provider_id)) {
-                $booking->provider_id = null;
-
-                $fcmToken = $booking?->customer?->fcm_token ?? null;
-                $repeatOrRegular = $booking?->is_repeated ? 'repeat' : 'regular';
-                $languageKey = $booking?->customer?->current_language_key;
-                if (!is_null($fcmToken)) {
-                    $notification = isNotificationActive(null, 'booking', 'notification', 'user');
-                    if ($notification) {
-                        device_notification($fcmToken, "Booking ignore by provider", null, null, $booking->id, 'booking_ignored', null, null, null, null, $repeatOrRegular);
-                    }
-                }
-            }
-
-
-            DB::transaction(function () use ($bookingIgnore, $booking, $repeatBookings) {
-                $bookingIgnore->save();
-                $booking->save();
-
-                foreach ($repeatBookings as $repeatBooking) {
-                    $repeatBooking->provider_id = null;
-                    $repeatBooking->save();
-                }
-            });
+            app(ProviderBookingWithdrawalService::class)->withdrawParentBooking(
+                $booking,
+                $request->user(),
+                (int) $request->input('booking_provider_cancellation_reason_id'),
+                $request->input('status_change_remarks') ?: translate('Provider_rejected_booking_request'),
+                $providerId,
+            );
 
             return response()->json(response_formatter(BOOKING_IGNORE_SUCCESS_200), 200);
-        }
-        return response()->json(response_formatter(DEFAULT_204), 200);
+        });
     }
 
 
@@ -1017,6 +1062,22 @@ class BookingController extends Controller
                 return response()->json(response_formatter(BOOKING_ALREADY_CANCELED_200), 200);
             }
 
+            if (! booking_provider_may_cancel_booking((string) $booking->booking_status)) {
+                return response()->json(response_formatter(booking_provider_cancel_blocked_response((string) $booking->booking_status)), 200);
+            }
+
+            if ((string) $booking->booking_status === 'accepted') {
+                app(ProviderBookingWithdrawalService::class)->withdrawRepeatBooking(
+                    $booking,
+                    $request->user(),
+                    $request->input('booking_provider_cancellation_reason_id') ? (int) $request->input('booking_provider_cancellation_reason_id') : null,
+                    $request->input('status_change_remarks'),
+                    (string) $request->user()->provider->id,
+                );
+
+                return response()->json(response_formatter(PROVIDER_BOOKING_WITHDRAWN_SUCCESS_200), 200);
+            }
+
             DB::transaction(function () use ($booking) {
                 $booking->booking_status = 'canceled';
                 $booking->save();
@@ -1029,6 +1090,33 @@ class BookingController extends Controller
     }
 
     /**
+     * Active cancellation reasons for provider-initiated booking cancellations.
+     */
+    public function providerCancellationReasons(Request $request): JsonResponse
+    {
+        $reasons = BookingProviderCancellationReason::query()
+            ->active()
+            ->orderBy('name')
+            ->get(['id', 'name', 'description']);
+
+        return response()->json(response_formatter(DEFAULT_200, $reasons), 200);
+    }
+
+    /**
+     * Active hold reasons for provider-initiated booking holds.
+     */
+    public function providerHoldReasons(Request $request): JsonResponse
+    {
+        $reasons = BookingHoldReopenReason::query()
+            ->active()
+            ->where('kind', BookingHoldReopenReason::KIND_HOLD)
+            ->orderBy('name')
+            ->get(['id', 'name', 'description', 'responsible']);
+
+        return response()->json(response_formatter(DEFAULT_200, $reasons), 200);
+    }
+
+    /**
      * Show the specified resource.
      * @param Request $request
      * @param string $bookingId
@@ -1036,10 +1124,18 @@ class BookingController extends Controller
      */
     public function statusUpdate(Request $request, string $bookingId): JsonResponse
     {
+        $booking = $this->booking->where('id', $bookingId)->where('provider_id', $request->user()->provider->id)->first();
+        $requiresProviderCancelReason = isset($booking)
+            && $request->input('booking_status') === 'canceled'
+            && (string) $booking->booking_status === 'accepted';
+
         $validator = Validator::make($request->all(), [
             'booking_status' => 'required|in:' . implode(',', array_column(BOOKING_STATUSES, 'key')),
             'payment_received_confirmed' => ($request->booking_status == 'completed') ? 'required|accepted' : 'nullable',
             'booking_hold_reopen_reason_id' => ($request->booking_status == 'on_hold') ? 'required|integer' : 'nullable|integer',
+            'booking_provider_cancellation_reason_id' => $requiresProviderCancelReason
+                ? ['required', 'integer', Rule::exists('booking_provider_cancellation_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1))]
+                : ['nullable', 'integer', Rule::exists('booking_provider_cancellation_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1))],
             'status_change_remarks' => 'nullable|string|max:2000',
         ]);
 
@@ -1047,7 +1143,9 @@ class BookingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $booking = $this->booking->where('id', $bookingId)->where('provider_id', $request->user()->provider->id)->first();
+        if (! isset($booking)) {
+            $booking = $this->booking->where('id', $bookingId)->where('provider_id', $request->user()->provider->id)->first();
+        }
 
         if (isset($booking)) {
 
@@ -1082,12 +1180,12 @@ class BookingController extends Controller
                 return response()->json(response_formatter(BOOKING_ALREADY_CANCELED_200), 200);
             }
 
-            if ($booking->booking_status == 'ongoing' && $request['booking_status'] == 'canceled') {
-                return response()->json(response_formatter(BOOKING_ALREADY_ONGOING), 200);
+            if ($booking->booking_status === 'pending_cancellation') {
+                return response()->json(response_formatter(BOOKING_PENDING_CANCELLATION_200), 200);
             }
 
-            if ($booking->booking_status == 'completed' && $request['booking_status'] == 'canceled') {
-                return response()->json(response_formatter(BOOKING_ALREADY_COMPLETED), 200);
+            if ($request['booking_status'] === 'canceled' && ! booking_provider_may_cancel_booking((string) $booking->booking_status)) {
+                return response()->json(response_formatter(booking_provider_cancel_blocked_response((string) $booking->booking_status)), 200);
             }
 
             if ($booking->payment_method != 'cash_after_service' && $request['booking_status'] == 'canceled' && $booking->additional_charge > 0) {
@@ -1116,6 +1214,18 @@ class BookingController extends Controller
                 ]), 200);
             }
 
+            if ($request['booking_status'] === 'canceled' && (string) $booking->booking_status === 'accepted') {
+                $withdrawn = app(ProviderBookingWithdrawalService::class)->withdrawParentBooking(
+                    $booking,
+                    $request->user(),
+                    $request->input('booking_provider_cancellation_reason_id') ? (int) $request->input('booking_provider_cancellation_reason_id') : null,
+                    $request->input('status_change_remarks'),
+                    (string) $request->user()->provider->id,
+                );
+
+                return response()->json(response_formatter(PROVIDER_BOOKING_WITHDRAWN_SUCCESS_200, $withdrawn), 200);
+            }
+
             $booking->booking_status = $request['booking_status'];
             $booking->evidence_photos = $evidence_photos;
             if ($request['booking_status'] == 'completed' && $request->boolean('payment_received_confirmed')) {
@@ -1127,6 +1237,7 @@ class BookingController extends Controller
             $bookingStatusHistory->changed_by = $request->user()->id;
             $bookingStatusHistory->booking_status = $request['booking_status'];
             $bookingStatusHistory->booking_hold_reopen_reason_id = $request->input('booking_hold_reopen_reason_id');
+            $bookingStatusHistory->booking_provider_cancellation_reason_id = $request->input('booking_provider_cancellation_reason_id');
             $bookingStatusHistory->status_change_remarks = $request->input('status_change_remarks');
 
             if ($booking->isDirty('booking_status')) {
@@ -1150,10 +1261,18 @@ class BookingController extends Controller
      */
     public function singleBookingStatusUpdate(Request $request, string $repeatId): JsonResponse
     {
+        $booking = $this->bookingRepeat->where('id', $repeatId)->where('provider_id', $request->user()->provider->id)->first();
+        $requiresProviderCancelReason = isset($booking)
+            && $request->input('booking_status') === 'canceled'
+            && (string) $booking->booking_status === 'accepted';
+
         $validator = Validator::make($request->all(), [
             'booking_status' => 'required|in:' . implode(',', array_column(BOOKING_STATUSES, 'key')),
             'payment_received_confirmed' => ($request->booking_status == 'completed') ? 'required|accepted' : 'nullable',
             'booking_hold_reopen_reason_id' => ($request->booking_status == 'on_hold') ? 'required|integer' : 'nullable|integer',
+            'booking_provider_cancellation_reason_id' => $requiresProviderCancelReason
+                ? ['required', 'integer', Rule::exists('booking_provider_cancellation_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1))]
+                : ['nullable', 'integer', Rule::exists('booking_provider_cancellation_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1))],
             'status_change_remarks' => 'nullable|string|max:2000',
         ]);
 
@@ -1161,7 +1280,9 @@ class BookingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $booking = $this->bookingRepeat->where('id', $repeatId)->where('provider_id', $request->user()->provider->id)->first();
+        if (! isset($booking)) {
+            $booking = $this->bookingRepeat->where('id', $repeatId)->where('provider_id', $request->user()->provider->id)->first();
+        }
 
         if (isset($booking)) {
             $evidence_photos = [];
@@ -1182,12 +1303,12 @@ class BookingController extends Controller
                 return response()->json(response_formatter(BOOKING_ALREADY_CANCELED_200), 200);
             }
 
-            if ($booking->booking_status == 'ongoing' && $request['booking_status'] == 'canceled') {
-                return response()->json(response_formatter(BOOKING_ALREADY_ONGOING), 200);
+            if ($booking->booking_status === 'pending_cancellation') {
+                return response()->json(response_formatter(BOOKING_PENDING_CANCELLATION_200), 200);
             }
 
-            if ($booking->booking_status == 'completed' && $request['booking_status'] == 'canceled') {
-                return response()->json(response_formatter(BOOKING_ALREADY_COMPLETED), 200);
+            if ($request['booking_status'] === 'canceled' && ! booking_provider_may_cancel_booking((string) $booking->booking_status)) {
+                return response()->json(response_formatter(booking_provider_cancel_blocked_response((string) $booking->booking_status)), 200);
             }
 
             if ($booking->payment_method != 'cash_after_service' && $request['booking_status'] == 'canceled' && $booking->additional_charge > 0) {
@@ -1217,6 +1338,18 @@ class BookingController extends Controller
                 ]), 200);
             }
 
+            if ($request['booking_status'] === 'canceled' && (string) $booking->booking_status === 'accepted') {
+                $withdrawn = app(ProviderBookingWithdrawalService::class)->withdrawRepeatBooking(
+                    $booking,
+                    $request->user(),
+                    $request->input('booking_provider_cancellation_reason_id') ? (int) $request->input('booking_provider_cancellation_reason_id') : null,
+                    $request->input('status_change_remarks'),
+                    (string) $request->user()->provider->id,
+                );
+
+                return response()->json(response_formatter(PROVIDER_BOOKING_WITHDRAWN_SUCCESS_200, $withdrawn), 200);
+            }
+
             $previousRepeatStatus = (string) $booking->booking_status;
             $booking->booking_status = $request['booking_status'];
             $booking->evidence_photos = $evidence_photos;
@@ -1230,6 +1363,7 @@ class BookingController extends Controller
             $bookingStatusHistory->changed_by = $request->user()->id;
             $bookingStatusHistory->booking_status = $request['booking_status'];
             $bookingStatusHistory->booking_hold_reopen_reason_id = $request->input('booking_hold_reopen_reason_id');
+            $bookingStatusHistory->booking_provider_cancellation_reason_id = $request->input('booking_provider_cancellation_reason_id');
             $bookingStatusHistory->status_change_remarks = $request->input('status_change_remarks');
 
             if ($booking->isDirty('booking_status')) {
@@ -1419,11 +1553,11 @@ class BookingController extends Controller
 
         if (!isset($booking)) {
             if ($bookingRepeat) {
-                $fcmToken = $bookingRepeat?->booking?->customer?->fcm_token;
-                $title = get_push_notification_message('otp', 'customer_notification', $bookingRepeat?->booking?->customer?->current_language_key) . ' ' . $bookingRepeat->booking_otp;
-                $description = get_push_notification_description('otp', 'customer_notification', $bookingRepeat?->booking?->customer?->current_language_key);
-                if ($fcmToken) {
-                    device_notification($fcmToken, $title, $description, null, $bookingRepeat->id, 'booking', null, $bookingRepeat?->booking?->customer?->id, null, null, 'repeat');
+                $customer = $bookingRepeat?->booking?->customer;
+                $title = get_push_notification_message('otp', 'customer_notification', $customer?->current_language_key);
+                $description = get_push_notification_description('otp', 'customer_notification', $customer?->current_language_key);
+                if ($customer && user_has_fcm_devices($customer)) {
+                    device_notification_for_user($customer, $title, $description, null, $bookingRepeat->id, 'booking', null, $customer->id, ['otp' => $bookingRepeat->booking_otp], null, 'repeat');
                     return response()->json(response_formatter(NOTIFICATION_SEND_SUCCESSFULLY_200), 200);
 
                 } else {
@@ -1433,11 +1567,11 @@ class BookingController extends Controller
             return response()->json(response_formatter(DEFAULT_404), 404);
         }
 
-        $fcmToken = $booking?->customer?->fcm_token;
-        $title = get_push_notification_message('otp', 'customer_notification', $booking?->customer?->current_language_key) . ' ' . $booking->booking_otp;
-        $description = get_push_notification_description('otp', 'customer_notification', $booking?->customer?->current_language_key);
-        if ($fcmToken) {
-            device_notification($fcmToken, $title, $description, null, $booking->id, 'booking', null, $booking?->customer?->id);
+        $customer = $booking?->customer;
+        $title = get_push_notification_message('otp', 'customer_notification', $customer?->current_language_key);
+        $description = get_push_notification_description('otp', 'customer_notification', $customer?->current_language_key);
+        if ($customer && user_has_fcm_devices($customer)) {
+            device_notification_for_user($customer, $title, $description, null, $booking->id, 'booking', null, $customer->id, ['otp' => $booking->booking_otp]);
             return response()->json(response_formatter(NOTIFICATION_SEND_SUCCESSFULLY_200), 200);
 
         } else {
@@ -2048,9 +2182,9 @@ class BookingController extends Controller
 
         $user = $booking?->customer;
         $repeatOrRegular = $booking?->is_repeated ? 'repeat' : 'regular';
-        if (isset($user) && $user?->fcm_token && $user?->is_active) {
+        if (isset($user) && $user?->is_active) {
             try {
-                device_notification($user?->fcm_token, translate('service location updated'), null, null, $booking->id, 'booking', null, null, null, null, $repeatOrRegular);
+                send_booking_service_location_updated_notification($booking);
             } catch (\Exception $exception) {
                 //
             }
@@ -2148,7 +2282,7 @@ class BookingController extends Controller
         }
 
         $freshBooking = $this->booking->with([
-            'detail.service', 'schedule_histories.user', 'status_histories.user', 'status_histories.holdReopenReason', 'change_logs.changedBy', 'customer',
+            'detail.service', 'schedule_histories.user', 'status_histories.user', 'status_histories.holdReopenReason', 'status_histories.providerCancellationReason', 'change_logs.changedBy', 'customer',
             'provider', 'zone.parentZone', 'serviceman.user', 'booking_partial_payments.ledgerTransactions', 'booking_offline_payments',
             'category', 'subCategory:id,name',
         ])->find($booking->id);

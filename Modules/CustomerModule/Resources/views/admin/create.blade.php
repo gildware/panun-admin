@@ -43,16 +43,6 @@
                                         </div>
 
                                         <div class="mb-30">
-                                            <div class="form-floating form-floating__icon">
-                                                <input type="email" class="form-control" name="email"
-                                                       placeholder="{{translate('ex: abc@email.com')}} *"
-                                                       required="" value="{{old('email')}}">
-                                                <label>{{translate('email')}} *</label>
-                                                <span class="material-icons">mail</span>
-                                            </div>
-                                        </div>
-
-                                        <div class="mb-30">
                                             <div class="form-floating form-floting-fix">
                                                 <label for="phone">{{translate('Phone')}}</label>
                                                 <input type="tel"

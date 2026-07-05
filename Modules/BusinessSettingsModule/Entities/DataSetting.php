@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Modules\BusinessSettingsModule\Services\BusinessConfigCache;
 
 class DataSetting extends Model
 {
@@ -46,5 +47,8 @@ class DataSetting extends Model
                 return $query->where('locale', app()->getLocale());
             }]);
         });
+
+        static::saved(fn () => BusinessConfigCache::forgetAll());
+        static::deleted(fn () => BusinessConfigCache::forgetAll());
     }
 }

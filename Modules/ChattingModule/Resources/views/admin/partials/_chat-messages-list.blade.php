@@ -11,7 +11,7 @@
         if ($messagePreview === '' && $chat->conversationFiles && $chat->conversationFiles->count() > 0) {
             $messagePreview = translate('Attachment');
         }
-        $isOutgoing = $chat->user->id == auth()->user()->id;
+        $isOutgoing = $chat->user && (string) $chat->user->id === (string) auth()->id();
     @endphp
     <div class="chat-message-bubble {{ $isOutgoing ? 'outgoing_msg' : 'received_msg' }} {{ $chat->is_pinned ? 'is-pinned' : '' }}"
          id="bubble-{{ $chat->id }}"
@@ -27,32 +27,43 @@
 
         @if($chat->message != null)
             <p class="message_text mb-0">
-                @include('chattingmodule::admin.partials._chat-message-text', [
+                <span class="message_text__body">@include('chattingmodule::admin.partials._chat-message-text', [
                     'message' => $chat->message,
                     'enableStaffMessaging' => $enableStaffMessaging ?? false,
-                ])
+                ])</span>@if($isOutgoing)@include('chattingmodule::admin.partials._chat-message-inline-meta', [
+                    'chat' => $chat,
+                    'recipientChannelUsers' => $recipientChannelUsers ?? collect(),
+                ])@endif
             </p>
         @endif
 
         @if(count($chat->conversationFiles) > 0)
             @if($isOutgoing)
-                <div class="inbox-img-grid">
-                    @foreach($chat->conversationFiles as $file)
-                        @if(in_array($file->file_type, $format))
-                            <div class="conv-img-wrap">
-                                <a data-lightbox="mygallery" href="{{ $file->stored_file_name_full_path }}">
-                                    <img width="150" src="{{ $file->stored_file_name_full_path }}" alt="">
-                                </a>
-                            </div>
-                        @else
-                            <div class="d-flex align-items-center flex-column gap-1">
-                                <img width="50" src="{{ asset('assets/admin-module/img/icons/folder.png') }}" alt="">
-                                <a class="fs-12" href="{{ $file->stored_file_name_full_path }}" download>
-                                    {{ $file->original_file_name }}
-                                </a>
-                            </div>
-                        @endif
-                    @endforeach
+                <div class="message_text message_text--attachment mb-0 {{ $chat->message != null ? 'mt-1' : '' }}">
+                    <div class="inbox-img-grid">
+                        @foreach($chat->conversationFiles as $file)
+                            @if(in_array($file->file_type, $format))
+                                <div class="conv-img-wrap">
+                                    <a data-lightbox="mygallery" href="{{ $file->stored_file_name_full_path }}">
+                                        <img width="150" src="{{ $file->stored_file_name_full_path }}" alt="">
+                                    </a>
+                                </div>
+                            @else
+                                <div class="d-flex align-items-center flex-column gap-1">
+                                    <img width="50" src="{{ asset('assets/admin-module/img/icons/folder.png') }}" alt="">
+                                    <a class="fs-12" href="{{ $file->stored_file_name_full_path }}" download>
+                                        {{ $file->original_file_name }}
+                                    </a>
+                                </div>
+                            @endif
+                        @endforeach
+                    </div>
+                    @if($chat->message == null)
+                        @include('chattingmodule::admin.partials._chat-message-inline-meta', [
+                            'chat' => $chat,
+                            'recipientChannelUsers' => $recipientChannelUsers ?? collect(),
+                        ])
+                    @endif
                 </div>
             @else
                 @foreach($chat->conversationFiles as $file)
@@ -67,7 +78,7 @@
             @endif
         @endif
 
-        <div class="d-flex align-items-center gap-2 mt-1 {{ $isOutgoing ? 'justify-content-end' : '' }}">
+        <div class="d-flex align-items-center gap-2 mt-1 flex-wrap {{ $isOutgoing ? 'justify-content-end' : '' }}">
             <button type="button" class="btn btn-link btn-sm p-0 chat-reply-btn text-muted" title="{{ translate('Reply') }}">
                 <span class="material-symbols-outlined fs-16">reply</span>
             </button>
@@ -100,8 +111,9 @@
                         title="{{ translate('Delete') }}">
                     <span class="material-symbols-outlined fs-16">delete</span>
                 </button>
+            @else
+                <span class="time_date mb-0">{{ date('H:i a | M d Y', strtotime($chat->created_at)) }}</span>
             @endif
-            <span class="time_date mb-0">{{ date('H:i a | M d Y', strtotime($chat->created_at)) }}</span>
         </div>
 
         @include('chattingmodule::admin.partials._chat-message-reactions', ['chat' => $chat])

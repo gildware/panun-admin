@@ -32,4 +32,40 @@ class CancelAutoRefundPartialsTest extends TestCase
         ]);
         $this->assertSame(40.0, booking_sum_partials_for_cancel_platform_auto_refund($partials));
     }
+
+    public function test_refund_channel_breakdown_splits_wallet_and_digital(): void
+    {
+        if (! function_exists('get_booking_customer_refund_channel_breakdown')) {
+            $this->markTestSkipped('Helper not loaded');
+        }
+
+        $booking = new \Modules\BookingModule\Entities\Booking;
+        $booking->setRelation('booking_partial_payments', collect([
+            (object) ['paid_with' => 'wallet', 'paid_amount' => 50],
+            (object) ['paid_with' => 'digital', 'paid_amount' => 100],
+        ]));
+
+        $breakdown = get_booking_customer_refund_channel_breakdown($booking);
+
+        $this->assertSame(50.0, $breakdown['wallet_paid']);
+        $this->assertSame(100.0, $breakdown['digital_paid']);
+        $this->assertTrue($breakdown['has_mixed_payments']);
+        $this->assertTrue($breakdown['requires_digital_refund_choice']);
+    }
+
+    public function test_refund_ledger_method_key_distinguishes_wallet_and_transfer(): void
+    {
+        if (! function_exists('booking_refund_ledger_method_key')) {
+            $this->markTestSkipped('Helper not loaded');
+        }
+
+        $walletEntry = new \Modules\TransactionModule\Entities\LedgerTransaction;
+        $walletEntry->transaction_id = null;
+
+        $transferEntry = new \Modules\TransactionModule\Entities\LedgerTransaction;
+        $transferEntry->transaction_id = 'TXN-12345';
+
+        $this->assertSame('wallet', booking_refund_ledger_method_key($walletEntry));
+        $this->assertSame('transfer', booking_refund_ledger_method_key($transferEntry));
+    }
 }

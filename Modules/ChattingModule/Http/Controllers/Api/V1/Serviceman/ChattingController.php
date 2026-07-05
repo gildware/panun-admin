@@ -51,11 +51,10 @@ class ChattingController extends Controller
         }
 
         //admin channel
-        $channel = $this->createNewChannel(
+        $channel = $this->findOrCreateSupportChannel(
             fromUser: $request->user()->id,
             toUser: getSuperAdminId(),
-            referenceId : '',
-            referenceType : 'support',
+            app: 'serviceman',
         );
 
         $adminChannel = $this->channelList
@@ -77,6 +76,10 @@ class ChattingController extends Controller
                 $query->where(['user_id' => $request->user()->id]);
             })
             ->where('id', '!=', $adminChannel->id)
+            ->where(function ($query) {
+                $query->whereNull('reference_type')
+                    ->orWhereNotIn('reference_type', support_channel_reference_types());
+            })
             ->orderBy('updated_at', 'DESC')
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
@@ -238,7 +241,7 @@ class ChattingController extends Controller
                     'is_read' => 0
                 ]);
 
-            $channelConversation = $this->channelConversation;
+            $channelConversation = new ChannelConversation();
             $channelConversation->channel_id = $request->channel_id;
             $channelConversation->message = $request['message'];
             $channelConversation->user_id = $request->user()->id;
@@ -279,7 +282,8 @@ class ChattingController extends Controller
 
         $this->channelUser->where('channel_id', $request['channel_id'])->where('user_id', $request->user()->id)
             ->update([
-                'is_read' => 1
+                'is_read' => 1,
+                'read_at' => now(),
             ]);
 
         $conversation = $this->channelConversation->where(['channel_id' => $request['channel_id']])

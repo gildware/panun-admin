@@ -25,6 +25,9 @@ use Modules\BusinessSettingsModule\Http\Requests\ThirdPartyDataStoreOrUpdateRequ
 use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\PaymentModule\Entities\OfflinePayment;
 use Modules\PaymentModule\Entities\Setting;
+use Modules\PromotionManagement\Entities\PushNotificationDeliveryLog;
+use Modules\UserManagement\Entities\User;
+use Modules\UserManagement\Entities\UserFcmDevice;
 use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
@@ -53,10 +56,148 @@ class ConfigurationController extends Controller
     public function notificationSettingsGet(Request $request): Factory|View|Application
     {
         $this->authorize('notification_message_view');
-        $queryParams = $request->type;
+        ensure_notification_channel_setups();
+        $this->ensureNotificationMessageSettings(NOTIFICATION_FOR_USER, 'customer_notification', 'serviceman_assign', 'provider_assign');
+        $this->migrateNotificationMessageFromLegacyKeys('customer_notification', [
+            'booking_ongoing' => 'booking_status_change',
+            'booking_cancel' => 'booking_status_change',
+            'booking_edit_service_remove' => 'booking_edit_service_update',
+            'booking_edit_service_quantity_increase' => 'booking_edit_service_update',
+            'booking_edit_service_quantity_decrease' => 'booking_edit_service_update',
+        ]);
+        $this->ensureNotificationMessageSettings(NOTIFICATION_FOR_USER, 'customer_notification');
+        $this->migrateNotificationMessageFromLegacyKeys('provider_notification', [
+            'ongoing_booking' => 'booking_status_change',
+            'booking_cancel' => 'booking_status_change',
+            'booking_edit_service_remove' => 'booking_edit_service_update',
+            'booking_edit_service_quantity_increase' => 'booking_edit_service_update',
+            'booking_edit_service_quantity_decrease' => 'booking_edit_service_update',
+        ]);
+        $this->ensureNotificationMessageSettings(NOTIFICATION_FOR_PROVIDER, 'provider_notification');
         $dataSettingsValue = $this->businessSetting->whereIn('settings_type', ['notification_settings'])->get();
         $dataValues = $this->businessSetting->whereIn('settings_type', ['customer_notification', 'provider_notification', 'serviceman_notification'])->with('translations')->get();
-        return view('businesssettingsmodule::admin.notification', compact('dataValues', 'queryParams', 'dataSettingsValue'));
+        $groupedScenarios = group_notification_scenarios_by_module();
+        $allowedSections = ['message_config', 'logs', 'device_check'];
+        $activeSection = $request->query('section', 'message_config');
+        if (! is_string($activeSection) || ! in_array($activeSection, $allowedSections, true)) {
+            $activeSection = 'message_config';
+        }
+
+        $activeModuleTab = $request->query('tab');
+        if ($activeSection === 'message_config') {
+            if (! is_string($activeModuleTab) || ! isset($groupedScenarios[$activeModuleTab])) {
+                $activeModuleTab = array_key_first($groupedScenarios);
+            }
+        } else {
+            $activeModuleTab = array_key_first($groupedScenarios);
+        }
+
+        $notificationDeliveryLogs = null;
+        $customerUsersWithDevices = null;
+        $providerUsersWithDevices = null;
+        $deviceStats = null;
+
+        if ($activeSection === 'logs') {
+            $logSearch = trim((string) $request->query('log_search', ''));
+            $statusFilter = (string) $request->query('status', 'all');
+
+            $notificationDeliveryLogs = PushNotificationDeliveryLog::query()
+                ->with(['user:id,first_name,last_name,phone,email,user_type'])
+                ->when($logSearch !== '', function ($query) use ($logSearch) {
+                    $query->where(function ($inner) use ($logSearch) {
+                        $inner->where('title', 'like', '%'.$logSearch.'%')
+                            ->orWhere('notification_type', 'like', '%'.$logSearch.'%')
+                            ->orWhere('topic', 'like', '%'.$logSearch.'%')
+                            ->orWhere('device_id', 'like', '%'.$logSearch.'%')
+                            ->orWhereHas('user', function ($userQuery) use ($logSearch) {
+                                $userQuery->where('first_name', 'like', '%'.$logSearch.'%')
+                                    ->orWhere('last_name', 'like', '%'.$logSearch.'%')
+                                    ->orWhere('phone', 'like', '%'.$logSearch.'%')
+                                    ->orWhere('email', 'like', '%'.$logSearch.'%');
+                            });
+                    });
+                })
+                ->when($statusFilter !== 'all', fn ($query) => $query->where('status', $statusFilter))
+                ->orderByDesc('created_at')
+                ->paginate(pagination_limit())
+                ->appends($request->only(['section', 'log_search', 'status']));
+
+            $deviceStats = $this->notificationDeviceStats();
+            $deviceStats['sent_last_24h'] = PushNotificationDeliveryLog::query()
+                ->where('status', 'sent')
+                ->where('created_at', '>=', now()->subDay())
+                ->count();
+            $deviceStats['failed_last_24h'] = PushNotificationDeliveryLog::query()
+                ->where('status', 'failed')
+                ->where('created_at', '>=', now()->subDay())
+                ->count();
+        }
+
+        if ($activeSection === 'device_check') {
+            $userSearch = trim((string) $request->query('user_search', ''));
+            $userTypeFilter = (string) $request->query('user_type', 'all');
+
+            $appendQuery = $request->only(['section', 'user_search', 'user_type']);
+
+            if ($userTypeFilter === 'all' || $userTypeFilter === 'customer') {
+                $customerUsersWithDevices = $this->paginateUsersWithNotificationDevices($userSearch, ['customer'], 'customers_page')
+                    ->appends($appendQuery);
+            }
+
+            if (in_array($userTypeFilter, ['all', 'provider-admin', 'provider-serviceman'], true)) {
+                $providerTypes = match ($userTypeFilter) {
+                    'provider-serviceman' => ['provider-serviceman'],
+                    'provider-admin' => ['provider-admin', 'provider-employee'],
+                    default => ['provider-admin', 'provider-employee', 'provider-serviceman'],
+                };
+
+                $providerUsersWithDevices = $this->paginateUsersWithNotificationDevices(
+                    $userSearch,
+                    $providerTypes,
+                    'providers_page'
+                )->appends($appendQuery);
+            }
+
+            $deviceStats = $this->notificationDeviceStats();
+        }
+
+        return view('businesssettingsmodule::admin.notification', compact(
+            'dataValues',
+            'dataSettingsValue',
+            'groupedScenarios',
+            'activeSection',
+            'activeModuleTab',
+            'notificationDeliveryLogs',
+            'customerUsersWithDevices',
+            'providerUsersWithDevices',
+            'deviceStats'
+        ));
+    }
+
+    public function deregisterNotificationDevice(Request $request): RedirectResponse
+    {
+        $this->authorize('notification_message_update');
+
+        $validated = $request->validate([
+            'user_id' => 'required|uuid|exists:users,id',
+            'device_id' => 'required|string|max:64',
+        ]);
+
+        if (! admin_deregister_user_notification_device($validated['user_id'], $validated['device_id'])) {
+            Toastr::error(translate('device_deregister_failed'));
+
+            return back();
+        }
+
+        Toastr::success(translate('device_deregistered_successfully'));
+
+        return redirect()->route('admin.configuration.get-notification-setting', array_filter([
+            'section' => $request->input('section', 'device_check'),
+            'user_search' => $request->input('user_search'),
+            'user_type' => $request->input('user_type') !== 'all' ? $request->input('user_type') : null,
+            'customers_page' => $request->input('customers_page'),
+            'providers_page' => $request->input('providers_page'),
+        ]));
     }
 
     /**
@@ -839,6 +980,14 @@ class ConfigurationController extends Controller
 
             $filter = $validator->validated();
             $filter['customer_wallet'] = $request['customer_wallet'] ?? 0;
+        } elseif ($request['web_page'] == 'welcome_bonus') {
+            $validator = Validator::make($request->all(), [
+                'customer_welcome_bonus' => 'in:0,1',
+                'customer_welcome_bonus_amount' => 'required|numeric|min:0',
+            ]);
+
+            $filter = $validator->validated();
+            $filter['customer_welcome_bonus'] = $request['customer_welcome_bonus'] ?? 0;
         } elseif ($request['web_page'] == 'loyalty_point') {
             $validator = Validator::make($request->all(), [
                 //loyalty point
@@ -862,11 +1011,13 @@ class ConfigurationController extends Controller
         } elseif ($request['web_page'] == 'referral_earning') {
             $validator = Validator::make($request->all(), [
                 'customer_referral_earning' => 'in:0,1',
-                'referral_value_per_currency_unit' => 'required'
+                'referral_value_per_currency_unit' => 'required',
+                'referral_share_message_template' => 'nullable|string|max:2000',
             ]);
 
             $filter = $validator->validated();
             $filter['customer_referral_earning'] = $request['customer_referral_earning'] ?? 0;
+            $filter['referral_share_message_template'] = $request->input('referral_share_message_template', '');
         } else {
             Toastr::success(translate(DEFAULT_400['message']));
             return back();
@@ -1268,5 +1419,196 @@ class ConfigurationController extends Controller
         }
 
         return [];
+    }
+
+    private function ensureNotificationMessageSettings(
+        array $notifications,
+        string $settingsType,
+        ?string $migrateFromKey = null,
+        ?string $migrateToKey = null
+    ): void {
+        foreach ($notifications as $notification) {
+            $keyName = $notification['key'];
+            $value = $notification['value'];
+            $defaultTemplate = get_notification_default_message($keyName, $settingsType);
+            $defaultTitle = $defaultTemplate['title'] ?? $value;
+            $defaultDescription = $defaultTemplate['description'] ?? '';
+
+            if ($this->businessSetting->where(['key_name' => $keyName, 'settings_type' => $settingsType])->exists()) {
+                continue;
+            }
+
+            $liveValues = [
+                $keyName . '_status' => '1',
+                $keyName . '_message' => $defaultTitle,
+                $keyName . '_description' => $defaultDescription,
+            ];
+
+            if ($migrateFromKey && $migrateToKey === $keyName) {
+                $legacy = $this->businessSetting
+                    ->where(['key_name' => $migrateFromKey, 'settings_type' => $settingsType])
+                    ->with('translations')
+                    ->first();
+
+                if ($legacy) {
+                    $legacyValues = is_string($legacy->live_values)
+                        ? json_decode($legacy->live_values, true)
+                        : (array) $legacy->live_values;
+
+                    $liveValues = [
+                        $keyName . '_status' => $legacyValues[$migrateFromKey . '_status'] ?? '1',
+                        $keyName . '_message' => $legacyValues[$migrateFromKey . '_message'] ?? $value,
+                        $keyName . '_description' => $legacyValues[$migrateFromKey . '_description'] ?? '',
+                    ];
+                }
+            }
+
+            $record = $this->businessSetting->updateOrCreate(
+                ['key_name' => $keyName, 'settings_type' => $settingsType],
+                [
+                    'key_name' => $keyName,
+                    'live_values' => $liveValues,
+                    'test_values' => $liveValues,
+                    'settings_type' => $settingsType,
+                    'mode' => 'live',
+                    'is_active' => 1,
+                ]
+            );
+
+            if ($migrateFromKey && $migrateToKey === $keyName && isset($legacy) && $legacy->relationLoaded('translations')) {
+                foreach ($legacy->translations as $translation) {
+                    $newKey = match ($translation->key) {
+                        $migrateFromKey => $keyName,
+                        $migrateFromKey . '_description' => $keyName . '_description',
+                        default => null,
+                    };
+
+                    if ($newKey) {
+                        $record->translations()->updateOrCreate(
+                            ['locale' => $translation->locale, 'key' => $newKey],
+                            ['value' => $translation->value]
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    private function migrateNotificationMessageFromLegacyKeys(string $settingsType, array $legacyToNew): void
+    {
+        foreach ($legacyToNew as $fromKey => $toKey) {
+            if ($this->businessSetting->where(['key_name' => $toKey, 'settings_type' => $settingsType])->exists()) {
+                continue;
+            }
+
+            $label = collect(
+                $settingsType === 'customer_notification' ? NOTIFICATION_FOR_USER : NOTIFICATION_FOR_PROVIDER
+            )->firstWhere('key', $toKey)['value'] ?? ucwords(str_replace('_', ' ', $toKey));
+
+            $this->ensureNotificationMessageSettings(
+                [['key' => $toKey, 'value' => $label]],
+                $settingsType,
+                $fromKey,
+                $toKey
+            );
+        }
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function notificationDeviceStats(): array
+    {
+        $configuredDevices = UserFcmDevice::query()
+            ->whereNotNull('fcm_token')
+            ->where('fcm_token', '!=', '@')
+            ->where('fcm_token', '!=', '')
+            ->count();
+        $totalDevices = UserFcmDevice::query()->count();
+
+        return [
+            'total_devices' => $totalDevices,
+            'configured_devices' => $configuredDevices,
+            'not_configured_devices' => max(0, $totalDevices - $configuredDevices),
+            'legacy_only_users' => User::query()
+                ->whereNotNull('fcm_token')
+                ->where('fcm_token', '!=', '@')
+                ->where('fcm_token', '!=', '')
+                ->whereDoesntHave('fcmDevices')
+                ->count(),
+        ];
+    }
+
+    private function notificationDevicesUsersQuery(string $userSearch, bool $requireDevices = true): \Illuminate\Database\Eloquent\Builder
+    {
+        $phoneDigits = preg_replace('/\D+/', '', $userSearch) ?? '';
+
+        return User::query()
+            ->select('users.*')
+            ->with([
+                'fcmDevices' => function ($query) {
+                    $query->orderByDesc('last_seen_at')->orderByDesc('updated_at');
+                },
+                'provider:id,user_id,company_name,contact_person_name',
+                'serviceman.provider:id,company_name,contact_person_name',
+            ])
+            ->withCount('fcmDevices')
+            ->addSelect([
+                'latest_device_seen' => UserFcmDevice::query()
+                    ->selectRaw('MAX(last_seen_at)')
+                    ->whereColumn('user_fcm_devices.user_id', 'users.id'),
+            ])
+            ->when($requireDevices, function ($query) {
+                $query->where(function ($deviceQuery) {
+                    $deviceQuery->whereHas('fcmDevices')
+                        ->orWhere(function ($legacy) {
+                            $legacy->whereNotNull('fcm_token')
+                                ->where('fcm_token', '!=', '@')
+                                ->where('fcm_token', '!=', '');
+                        });
+                });
+            })
+            ->when($userSearch !== '', function ($query) use ($userSearch, $phoneDigits) {
+                $query->where(function ($inner) use ($userSearch, $phoneDigits) {
+                    $inner->where('first_name', 'like', '%'.$userSearch.'%')
+                        ->orWhere('last_name', 'like', '%'.$userSearch.'%')
+                        ->orWhere('phone', 'like', '%'.$userSearch.'%')
+                        ->orWhere('email', 'like', '%'.$userSearch.'%')
+                        ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ['%'.$userSearch.'%']);
+
+                    if ($phoneDigits !== '') {
+                        $inner->orWhere('phone', $phoneDigits)
+                            ->orWhere('phone', 'like', '%'.$phoneDigits.'%');
+
+                        if (\Illuminate\Support\Facades\DB::connection()->getDriverName() === 'mysql') {
+                            $inner->orWhereRaw(
+                                'REGEXP_REPLACE(COALESCE(phone, \'\'), \'[^0-9]\', \'\') = ?',
+                                [$phoneDigits]
+                            )->orWhereRaw(
+                                'REGEXP_REPLACE(COALESCE(phone, \'\'), \'[^0-9]\', \'\') LIKE ?',
+                                ['%'.$phoneDigits.'%']
+                            );
+                        }
+                    }
+                });
+            })
+            ->orderByDesc('latest_device_seen')
+            ->orderByDesc('last_seen_at')
+            ->orderBy('first_name');
+    }
+
+    /**
+     * @param  list<string>  $userTypes
+     */
+    private function paginateUsersWithNotificationDevices(
+        string $userSearch,
+        array $userTypes,
+        string $pageName = 'users_page'
+    ): \Illuminate\Contracts\Pagination\LengthAwarePaginator {
+        $requireDevices = $userSearch === '';
+
+        return $this->notificationDevicesUsersQuery($userSearch, $requireDevices)
+            ->whereIn('user_type', $userTypes)
+            ->paginate(pagination_limit(), ['*'], $pageName);
     }
 }

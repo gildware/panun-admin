@@ -306,6 +306,9 @@ We may release future updates so it will overwrite this file. it's better and sa
   ====================================*/
     $(window).on("load", function () {
         $(".preloader").fadeOut(200);
+        try {
+            sessionStorage.setItem('admin_shell_ready', '1');
+        } catch (e) {}
     });
 
     /*==================================
@@ -409,9 +412,58 @@ We may release future updates so it will overwrite this file. it's better and sa
     /*============================================
   11: File Upload
   ==============================================*/
+    let legacyUploadFileInputBound = false;
+
+    function handleLegacyUploadFileInputChange() {
+        if (!this.files || !this.files[0]) {
+            return;
+        }
+
+        const reader = new FileReader();
+        const img = $(this).siblings(".upload-file__img").find("img");
+        const input = this;
+
+        reader.onload = function (e) {
+            img.attr("src", e.target.result);
+        };
+
+        reader.readAsDataURL(this.files[0]);
+
+        reader.addEventListener("progress", (event) => {
+            if (event.loaded && event.total) {
+                const percent = (event.loaded / event.total) * 100;
+                $("#uploadProgress").val(percent);
+                $("#progress-label").html(Math.round(percent) + "%");
+                $("#name_of_file").html(input.files[0].name);
+            }
+        });
+
+        const $uploadFile = $(this).parents(".upload-file");
+        $uploadFile.parent().find(".file_error-message").remove();
+    }
+
+    function bindLegacyUploadFileInput() {
+        if (legacyUploadFileInputBound) {
+            return;
+        }
+        legacyUploadFileInputBound = true;
+
+        $(document).on("change", ".upload-file__input", function () {
+            handleLegacyUploadFileInputChange.call(this);
+        });
+    }
+
     $(document).ready(function () {
+        initFileUpload();
+        bindLegacyUploadFileInput();
         if ($(".upload-file").length) {
-            initFileUpload();
+            checkPreExistingImages();
+        }
+    });
+
+    document.addEventListener("admin:page-loaded", function (event) {
+        const root = event.detail?.root || document;
+        if (root.querySelector && root.querySelector(".upload-file")) {
             checkPreExistingImages();
         }
     });
@@ -512,53 +564,7 @@ We may release future updates so it will overwrite this file. it's better and sa
         }
     }
 
-    $(window).on("load", function () {
-        $(".upload-file__input").on("change", function () {
-            if (this.files && this.files[0]) {
-                let reader = new FileReader();
-                let img = $(this).siblings(".upload-file__img").find("img");
-
-                reader.onload = function (e) {
-                    img.attr("src", e.target.result);
-                };
-
-                reader.readAsDataURL(this.files[0]);
-
-                reader.addEventListener("progress", (event) => {
-                    if (event.loaded && event.total) {
-                        const percent = (event.loaded / event.total) * 100;
-                        $("#uploadProgress").val(percent);
-                        $("#progress-label").html(Math.round(percent) + "%");
-                        $("#name_of_file").html(this.files[0].name);
-                    }
-                });
-
-                var $uploadFile = $(this).parents(".upload-file");
-                $uploadFile.parent().find(".file_error-message").remove();
-
-                var file_size = this.files[0].size;
-
-                // if (file_size > 2097152) {
-                //     $uploadFile
-                //         .parent()
-                //         .append(
-                //             "<div class='file_error-message text-danger mt-3'>File size is greater than 2MB</div>"
-                //         );
-                // }
-                //
-                // // Check if any error messages are present in the form
-                // var hasErrors =
-                //     $(this).parents("form").find(".file_error-message").length >
-                //     0;
-                //
-                // // Enable or disable the submit button based on the presence of errors
-                // $(this)
-                //     .parents("form")
-                //     .find('button[type="submit"]')
-                //     .prop("disabled", hasErrors);
-            }
-        });
-    });
+    /* Legacy upload-file__input preview is bound via bindLegacyUploadFileInput(). */
 
     /*============================================
   12: Filter Aside Toggle
@@ -787,25 +793,9 @@ We may release future updates so it will overwrite this file. it's better and sa
             );
     });
 
-    // Search Modal Open Input Focus
+    // Global admin search modal is handled in admin-global-search.js
+
     $(document).ready(function () {
-        $("#staticBackdrop").on("shown.bs.modal", function () {
-            $(this).find("#searchForm input[type=search]").val("");
-            $("#searchResults").html(
-                '<div class="text-center text-muted py-5">It appears that you have not yet searched.</div>'
-            );
-            $(this).find("#searchForm input[type=search]").focus();
-        });
-
-        const searchInput = document.getElementById("searchInput");
-        searchInput.addEventListener("search", function () {
-            if (!this.value.trim()) {
-                $("#searchResults").html(
-                    '<div class="text-center text-muted py-5">It appears that you have not yet searched.</div>'
-                );
-            }
-        });
-
         let paymentMethod = $('input[name="payment_method"]');
         paymentMethod.on("change", function () {
             paymentMethod.closest("label").removeClass("active");

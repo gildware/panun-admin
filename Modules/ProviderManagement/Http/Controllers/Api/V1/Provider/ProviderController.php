@@ -24,6 +24,7 @@ use Modules\ProviderManagement\Entities\BankDetail;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\ProviderManagement\Services\ProviderDashboardEarningStatsService;
+use Modules\ProviderManagement\Services\ProviderProfileChangeRequestService;
 use Modules\ReviewModule\Entities\Review;
 use Modules\SMSModule\Lib\SMS_gateway;
 use Modules\TransactionModule\Entities\Account;
@@ -97,9 +98,9 @@ class ProviderController extends Controller
         $maxBookingAmount = (business_config('max_booking_amount', 'booking_setup'))->live_values;
 
         if (in_array('top_cards', $request['sections'])) {
-            $account = $this->account->where('user_id', $request->user()->id)->first();
+            $providerId = (string) $request->user()->provider->id;
             $data[] = ['top_cards' => [
-                'total_earning' => $account['received_balance'] + $account['total_withdrawn'],
+                'total_earning' => app(ProviderDashboardEarningStatsService::class)->lifetimeTotal($providerId),
                 'total_subscribed_services' => $this->subscribedService->where('provider_id', $request->user()->provider->id)
                     ->with(['sub_category'])
                     ->whereHas('category', function ($query) {
@@ -143,23 +144,13 @@ class ProviderController extends Controller
 
         if (in_array('recent_bookings', $request['sections'])) {
             $provider = $request->user()->provider;
-            $recentBookings = collect();
-
-            if (
-                provider_can_receive_bookings($provider)
-                && ($provider->is_suspended == 0 || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)
-            ) {
-                $recentBookings = $this->booking->with(['detail.service' => function ($query) {
-                    $query->select('id', 'name', 'thumbnail');
-                }])
-                    ->providerPendingBookings($provider, $maxBookingAmount)
-                    ->whereDoesntHave('ignores', function ($query) use ($provider) {
-                        $query->where('provider_id', $provider->id);
-                    })
-                    ->latest()
-                    ->take(5)
-                    ->get();
-            }
+            $recentBookings = $this->booking->with(['detail.service' => function ($query) {
+                $query->select('id', 'name', 'thumbnail');
+            }])
+                ->where('provider_id', $provider->id)
+                ->latest()
+                ->take(5)
+                ->get();
 
             $data[] = ['recent_bookings' => $recentBookings];
         }
@@ -175,6 +166,16 @@ class ProviderController extends Controller
                 ->with(['sub_category'])
                 ->withCount(['services', 'completed_booking'])
                 ->where(['provider_id' => $request->user()->provider->id])->take(5)->get();
+            $providerId = $request->user()->provider->id;
+            $pendingActions = app(ProviderProfileChangeRequestService::class)->pendingSubscriptionActions($providerId);
+            $changeRequestService = app(ProviderProfileChangeRequestService::class);
+            foreach ($subscriptions as $item) {
+                $subCategoryId = (string) $item->sub_category_id;
+                $changeRequestService->applySubscriptionPendingFlags($item, $subCategoryId, $pendingActions);
+                if ($item->sub_category) {
+                    $changeRequestService->applySubscriptionPendingFlags($item->sub_category, $subCategoryId, $pendingActions);
+                }
+            }
             $data[] = ['subscriptions' => $subscriptions];
         }
 
@@ -716,15 +717,19 @@ class ProviderController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'fcm_token' => 'required',
+            'device_id' => 'nullable|string|max:64',
+            'platform' => 'nullable|string|in:android,ios,web',
+            'device_model' => 'nullable|string|max:128',
+            'device_manufacturer' => 'nullable|string|max:128',
+            'os_version' => 'nullable|string|max:64',
+            'unregister' => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $customer = $this->user::find($request->user()->id);
-        $customer->fcm_token = $request->fcm_token;
-        $customer->save();
+        handle_user_fcm_token_request($request, (string) $request->user()->id);
 
         return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
     }
@@ -746,28 +751,69 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $createdAt = $request->user()->created_at ?? null;
+        $providerUserId = (string) $request->user()->id;
+        $pushNotification = $this->providerInboxQuery($request)
+            ->latest()
+            ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
+        mobile_inbox_enrich_paginator($pushNotification, $providerUserId, 'provider');
+
+        return response()->json(response_formatter(DEFAULT_200, $pushNotification), 200);
+    }
+
+    public function notificationUnreadCount(Request $request): JsonResponse
+    {
+        $providerUserId = (string) $request->user()->id;
+        $count = mobile_inbox_unread_count($this->providerInboxQuery($request), $providerUserId);
+
+        return response()->json(response_formatter(DEFAULT_200, ['unread_count' => $count]), 200);
+    }
+
+    public function markNotificationRead(Request $request, string $id): JsonResponse
+    {
+        $providerUserId = (string) $request->user()->id;
+
+        $visible = $this->providerInboxQuery($request)->where('id', $id)->exists();
+        if (! $visible) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        mobile_inbox_mark_read($id, $providerUserId);
+
+        return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
+    }
+
+    public function markAllNotificationsRead(Request $request): JsonResponse
+    {
+        $providerUserId = (string) $request->user()->id;
+        $marked = mobile_inbox_mark_all_read($this->providerInboxQuery($request), $providerUserId);
+
+        return response()->json(response_formatter(DEFAULT_200, ['marked' => $marked]), 200);
+    }
+
+    private function providerInboxQuery(Request $request): \Illuminate\Database\Eloquent\Builder
+    {
+        $createdAt = $request->user()->created_at ?? null;
+        $providerUserId = $request->user()->id;
         $nZoneIds = $request->user()->provider->coveredLeafZoneIds();
-        $pushNotification = $this->pushNotification->ofStatus(1)
+
+        return $this->pushNotification->ofStatus(1)
             ->whereJsonContains('to_users', 'provider-admin')
             ->when($nZoneIds !== [], function ($query) use ($nZoneIds) {
-                $query->where(function ($q) use ($nZoneIds) {
-                    foreach ($nZoneIds as $zid) {
-                        $q->orWhereJsonContains('zone_ids', $zid);
-                    }
-                });
+                mobile_inbox_matches_zone_ids($query, $nZoneIds);
             })
             ->when($nZoneIds === [], function ($query) {
                 $query->whereRaw('1 = 0');
             })
+            ->where(function ($query) use ($providerUserId) {
+                $query->whereDoesntHave('pushNotificationUser')
+                    ->orWhereHas('pushNotificationUser', function ($q) use ($providerUserId) {
+                        $q->where('user_id', $providerUserId);
+                    });
+            })
             ->when($createdAt, function ($query) use ($createdAt) {
                 $query->where('created_at', '>=', $createdAt);
-            })
-            ->latest()
-            ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
-
-        return response()->json(response_formatter(DEFAULT_200, $pushNotification), 200);
+            });
     }
 
     /**
@@ -807,6 +853,17 @@ class ProviderController extends Controller
                 $query->where('category_id', $request['category_id']);
             })
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
+
+        $providerId = $request->user()->provider->id;
+        $pendingActions = app(ProviderProfileChangeRequestService::class)->pendingSubscriptionActions($providerId);
+        $changeRequestService = app(ProviderProfileChangeRequestService::class);
+        foreach ($subscribed as $item) {
+            $subCategoryId = (string) $item->sub_category_id;
+            $changeRequestService->applySubscriptionPendingFlags($item, $subCategoryId, $pendingActions);
+            if ($item->sub_category) {
+                $changeRequestService->applySubscriptionPendingFlags($item->sub_category, $subCategoryId, $pendingActions);
+            }
+        }
 
         return response()->json(response_formatter(DEFAULT_200, $subscribed), 200);
     }

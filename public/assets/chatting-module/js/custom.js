@@ -3,22 +3,14 @@ $("#user_type").on("change", function () {
     if (this.value === "customer") {
         $("#customer").show();
         $("#provider").hide();
-        $("#serviceman").hide();
         $("#staff").hide();
     } else if (this.value === "provider-admin") {
         $("#customer").hide();
         $("#provider").show();
-        $("#serviceman").hide();
-        $("#staff").hide();
-    } else if (this.value === "provider-serviceman") {
-        $("#customer").hide();
-        $("#provider").hide();
-        $("#serviceman").show();
         $("#staff").hide();
     } else if (this.value === "staff") {
         $("#customer").hide();
         $("#provider").hide();
-        $("#serviceman").hide();
         $("#staff").show();
     }
 });

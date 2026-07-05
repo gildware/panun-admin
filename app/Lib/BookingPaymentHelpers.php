@@ -5,6 +5,7 @@ use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingDetail;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingExtraService;
+use Modules\BookingModule\Entities\BookingIgnore;
 use Modules\BookingModule\Entities\BookingPartialPayment;
 use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\BookingModule\Entities\BookingRepeat;
@@ -1219,6 +1220,27 @@ if (! function_exists('booking_admin_can_reassign_provider')) {
     }
 }
 
+if (! function_exists('booking_clear_provider_ignore')) {
+    /**
+     * Remove a provider from a booking's ignore list when admin reassigns them.
+     */
+    function booking_clear_provider_ignore(string $bookingId, string $providerId): void
+    {
+        if ($bookingId === '' || $providerId === '') {
+            return;
+        }
+
+        BookingIgnore::query()
+            ->where('booking_id', $bookingId)
+            ->where('provider_id', $providerId)
+            ->delete();
+
+        if (class_exists(\Modules\ProviderManagement\Services\ProviderBookingTabCountCache::class)) {
+            \Modules\ProviderManagement\Services\ProviderBookingTabCountCache::forgetForProvider($providerId);
+        }
+    }
+}
+
 if (! function_exists('booking_reopen_combined_status_key')) {
     /**
      * Translation key for open reopen tickets, e.g. reopened_and_pending.
@@ -1291,9 +1313,17 @@ if (!function_exists('booking_admin_booking_status_display_label')) {
         }
 
         $st = (string) ($booking->booking_status ?? '');
+        if ($st === 'pending_cancellation') {
+            return translate('Pending_cancellation');
+        }
         $base = ucwords(str_replace('_', ' ', $st));
         if ($st === 'canceled' || $st === 'cancelled') {
-            $base = translate('Booking_cancelled');
+            $refundTotals = get_booking_refund_display_totals($booking);
+            if (round((float) ($refundTotals['refundable_remaining'] ?? 0), 2) > 0.009) {
+                return translate('Booking_cancelled') . ' — ' . translate('Pending_refund');
+            }
+
+            return translate('Booking_cancelled');
         }
 
         return $base;
@@ -1651,6 +1681,7 @@ if (! function_exists('booking_api_list_filter_tab_order')) {
             'all',
             'pending',
             'accepted',
+            'pending_cancellation',
             'canceled',
             'ongoing',
             'completed',
@@ -2351,15 +2382,7 @@ if (! function_exists('booking_append_provider_api_financial_fields')) {
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->get()
-            ->map(function ($entry, $index) {
-                return [
-                    'serial' => $index + 1,
-                    'date' => $entry->created_at?->toIso8601String(),
-                    'amount' => round((float) ($entry->amount ?? 0), 2),
-                    'transaction_id' => $entry->transaction_id ?: null,
-                    'reference_note' => $entry->reference_note ?: null,
-                ];
-            })
+            ->map(fn ($entry, $index) => booking_refund_ledger_row_payload($entry, $index + 1))
             ->all();
 
         $listDisplayTotal = get_customer_booking_list_display_total($main);
@@ -2784,6 +2807,11 @@ if (! function_exists('record_customer_booking_due_payment')) {
             $fresh->transaction_id = $transactionId;
             booking_after_partial_payment_booking_refresh($fresh);
         });
+
+        $freshBooking = $booking->fresh(['customer', 'provider.owner']);
+        if ($freshBooking) {
+            send_booking_payment_collected_notifications($freshBooking, $amount, 'company');
+        }
     }
 }
 
@@ -2868,6 +2896,11 @@ if (! function_exists('record_provider_booking_customer_payment')) {
 
         if (! $partial instanceof \Modules\BookingModule\Entities\BookingPartialPayment) {
             throw new \RuntimeException(translate('Payment recording failed.'));
+        }
+
+        $freshBooking = $booking->fresh(['customer', 'provider.owner']);
+        if ($freshBooking) {
+            send_booking_payment_collected_notifications($freshBooking, $amount, 'provider');
         }
 
         return $partial;
@@ -2984,6 +3017,110 @@ if (! function_exists('booking_installment_payments_payload')) {
     }
 }
 
+if (! function_exists('booking_refund_ledger_method_key')) {
+    /**
+     * Customer refund delivery method for payment ledger rows.
+     * Transfer refunds record a gateway/bank transaction id; wallet refunds do not.
+     */
+    function booking_refund_ledger_method_key(LedgerTransaction $entry): string
+    {
+        $transactionId = trim((string) ($entry->transaction_id ?? ''));
+
+        return $transactionId !== '' ? 'transfer' : 'wallet';
+    }
+}
+
+if (! function_exists('booking_refund_ledger_row_payload')) {
+    /**
+     * @return array{serial: int, date: string|null, amount: float, transaction_id: string|null, reference_note: string|null, refund_method: string, refund_method_label: string}
+     */
+    function booking_refund_ledger_row_payload(LedgerTransaction $entry, int $serial): array
+    {
+        $method = booking_refund_ledger_method_key($entry);
+        $referenceNote = trim((string) ($entry->reference_note ?? ''));
+        if ($referenceNote === 'wallet_refund') {
+            $referenceNote = '';
+        }
+
+        return [
+            'serial' => $serial,
+            'date' => $entry->created_at?->toIso8601String(),
+            'amount' => round((float) ($entry->amount ?? 0), 2),
+            'transaction_id' => $entry->transaction_id ?: null,
+            'reference_note' => $referenceNote !== '' ? $referenceNote : null,
+            'refund_method' => $method,
+            'refund_method_label' => $method === 'transfer'
+                ? translate('Transfer_to_customer')
+                : translate('Refund_to_wallet'),
+        ];
+    }
+}
+
+if (! function_exists('get_booking_customer_refund_delivered_breakdown')) {
+    /**
+     * Refunds already delivered to the customer, split by wallet credit vs bank/gateway transfer.
+     * Excludes internal disputed-refund ledger legs (company/provider pool rows).
+     *
+     * @return array{
+     *     wallet_refunded: float,
+     *     transfer_refunded: float,
+     *     total_refunded: float,
+     *     has_any: bool
+     * }
+     */
+    function get_booking_customer_refund_delivered_breakdown(Booking $booking): array
+    {
+        $bid = (string) ($booking->id ?? '');
+        if ($bid === '') {
+            return [
+                'wallet_refunded' => 0.0,
+                'transfer_refunded' => 0.0,
+                'total_refunded' => 0.0,
+                'has_any' => false,
+            ];
+        }
+
+        $walletRefunded = 0.0;
+        $transferRefunded = 0.0;
+
+        $entries = LedgerTransaction::query()
+            ->where('booking_id', $bid)
+            ->where('reason', LedgerTransaction::REASON_REFUND)
+            ->where('type', LedgerTransaction::TYPE_OUT)
+            ->where(function ($query) {
+                $query->whereNull('received_by')
+                    ->orWhereNotIn('received_by', [
+                        LedgerTransaction::RECEIVED_BY_COMPANY,
+                        LedgerTransaction::RECEIVED_BY_PROVIDER,
+                    ]);
+            })
+            ->get();
+
+        foreach ($entries as $entry) {
+            $amount = round((float) ($entry->amount ?? 0), 2);
+            if ($amount <= 0.009) {
+                continue;
+            }
+
+            if (booking_refund_ledger_method_key($entry) === 'transfer') {
+                $transferRefunded += $amount;
+            } else {
+                $walletRefunded += $amount;
+            }
+        }
+
+        $walletRefunded = round($walletRefunded, 2);
+        $transferRefunded = round($transferRefunded, 2);
+
+        return [
+            'wallet_refunded' => $walletRefunded,
+            'transfer_refunded' => $transferRefunded,
+            'total_refunded' => round($walletRefunded + $transferRefunded, 2),
+            'has_any' => $walletRefunded > 0.009 || $transferRefunded > 0.009,
+        ];
+    }
+}
+
 if (! function_exists('booking_append_customer_api_financial_fields')) {
     /**
      * Additional charges breakdown, payable total, payment summary, and customer payment ledger for customer API.
@@ -3046,6 +3183,7 @@ if (! function_exists('booking_append_customer_api_financial_fields')) {
         $paymentPayload = array_merge($snapshot, [
             'payment_method_display' => format_booking_payment_method_for_admin_display($main),
             'offline_verify_status' => $offlineVerifyStatus,
+            'refund_channel_breakdown' => get_booking_customer_refund_channel_breakdown($main),
         ]);
 
         if ((int) ($main->is_repeated ?? 0) === 0
@@ -3100,15 +3238,7 @@ if (! function_exists('booking_append_customer_api_financial_fields')) {
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->get()
-            ->map(function ($entry, $index) {
-                return [
-                    'serial' => $index + 1,
-                    'date' => $entry->created_at?->toIso8601String(),
-                    'amount' => round((float) ($entry->amount ?? 0), 2),
-                    'transaction_id' => $entry->transaction_id ?: null,
-                    'reference_note' => $entry->reference_note ?: null,
-                ];
-            })
+            ->map(fn ($entry, $index) => booking_refund_ledger_row_payload($entry, $index + 1))
             ->all();
 
         $listDisplayTotal = get_customer_booking_list_display_total($main);
@@ -3360,6 +3490,72 @@ if (!function_exists('get_customer_booking_list_display_total')) {
         }
 
         return round((float) get_booking_revenue_reporting_amount($booking), 2);
+    }
+}
+
+if (! function_exists('provider_booking_report_pending_admin_amount')) {
+    /**
+     * Booking-report due card: amount still pending with admin (provider receivable context).
+     * Cash-after-service bookings return 0. Company-collected payments return the full booking
+     * total until completed, then the company_owes_provider slice still held by admin.
+     */
+    function provider_booking_report_pending_admin_amount(Booking $booking): float
+    {
+        if ((string) ($booking->payment_method ?? '') === 'cash_after_service') {
+            return 0.0;
+        }
+
+        $booking->loadMissing('booking_partial_payments');
+        $displayTotal = round((float) get_customer_booking_list_display_total($booking), 2);
+        if ($displayTotal <= 0.009) {
+            return 0.0;
+        }
+
+        $receipts = provider_payment_tab_receipts_for_main_booking($booking);
+        $companyReceived = round((float) ($receipts['company'] ?? 0), 2);
+        if ($companyReceived <= 0.009) {
+            return 0.0;
+        }
+
+        if ((string) ($booking->booking_status ?? '') !== 'completed') {
+            return $displayTotal;
+        }
+
+        $settlementCols = provider_payment_tab_earning_report_settlement_columns_for_booking($booking);
+
+        return round((float) ($settlementCols['company_owes_provider'] ?? 0), 2);
+    }
+}
+
+if (! function_exists('aggregate_provider_booking_report_amount_cards')) {
+    /**
+     * Provider booking report summary: total, due (pending with admin), settled (total − due).
+     *
+     * @param  iterable<int, Booking>  $bookings
+     * @return array{total_booking_amount: float, total_unpaid_booking_amount: float, total_paid_booking_amount: float}
+     */
+    function aggregate_provider_booking_report_amount_cards(iterable $bookings): array
+    {
+        $total = 0.0;
+        $pendingWithAdmin = 0.0;
+
+        foreach ($bookings as $booking) {
+            if (! $booking instanceof Booking) {
+                continue;
+            }
+            $displayTotal = round((float) get_customer_booking_list_display_total($booking), 2);
+            $total += $displayTotal;
+            $pendingWithAdmin += provider_booking_report_pending_admin_amount($booking);
+        }
+
+        $total = round($total, 2);
+        $pendingWithAdmin = round($pendingWithAdmin, 2);
+
+        return [
+            'total_booking_amount' => $total,
+            'total_unpaid_booking_amount' => $pendingWithAdmin,
+            'total_paid_booking_amount' => round(max(0.0, $total - $pendingWithAdmin), 2),
+        ];
     }
 }
 
@@ -4439,16 +4635,115 @@ if (!function_exists('booking_settlement_net_with_provider_ledger_for_provider_i
     }
 }
 
+if (!function_exists('admin_dashboard_unsettled_withdraw_totals')) {
+    /**
+     * Sum of all provider withdraw requests awaiting payout (pending admin review + approved, not yet settled).
+     *
+     * @return array{unsettled_total: float, pending_total: float, approved_total: float}
+     */
+    function admin_dashboard_unsettled_withdraw_totals(): array
+    {
+        $pending = (float) \Modules\ProviderManagement\Entities\WithdrawRequest::query()
+            ->where('request_status', 'pending')
+            ->sum('amount');
+        $approved = (float) \Modules\ProviderManagement\Entities\WithdrawRequest::query()
+            ->where('request_status', 'approved')
+            ->sum('amount');
+
+        return [
+            'pending_total' => round($pending, 2),
+            'approved_total' => round($approved, 2),
+            'unsettled_total' => round($pending + $approved, 2),
+        ];
+    }
+}
+
+if (!function_exists('admin_dashboard_provider_net_balance_card_totals')) {
+    /**
+     * Payable-to-providers and balance-with-providers dashboard cards: sum each provider’s Net Balance
+     * ({@see provider_payment_net_balance_context()} display_amount), including pending/approved withdraw
+     * deductions when the company owes the provider.
+     *
+     * @return array{payable_to_providers: float, balance_with_providers: float}
+     */
+    function admin_dashboard_provider_net_balance_card_totals(): array
+    {
+        $fromBookings = DB::table('bookings')->whereNotNull('provider_id')->distinct()->pluck('provider_id');
+        $fromLedger = DB::table('ledger_transactions')->whereNotNull('provider_id')->distinct()->pluck('provider_id');
+        $fromPayable = DB::table('providers')
+            ->join('users', 'users.id', '=', 'providers.user_id')
+            ->join('accounts', 'accounts.user_id', '=', 'users.id')
+            ->where('accounts.account_payable', '>', 0.01)
+            ->pluck('providers.id');
+        $fromWithdraws = DB::table('withdraw_requests')
+            ->join('providers', 'providers.user_id', '=', 'withdraw_requests.user_id')
+            ->whereIn('withdraw_requests.request_status', ['pending', 'approved'])
+            ->distinct()
+            ->pluck('providers.id');
+
+        $providerRows = DB::table('providers')
+            ->whereIn('id', collect()
+                ->merge($fromBookings)
+                ->merge($fromLedger)
+                ->merge($fromPayable)
+                ->merge($fromWithdraws)
+                ->filter()
+                ->unique()
+                ->values()
+                ->all())
+            ->select('id', 'user_id')
+            ->get();
+
+        $activeWithdrawByUser = DB::table('withdraw_requests')
+            ->whereIn('request_status', ['pending', 'approved'])
+            ->groupBy('user_id')
+            ->selectRaw('user_id, SUM(amount) as total')
+            ->pluck('total', 'user_id');
+
+        $payableToProviders = 0.0;
+        $balanceWithProviders = 0.0;
+
+        foreach ($providerRows as $row) {
+            $providerId = (string) $row->id;
+            $userId = (string) $row->user_id;
+            $settlement = booking_settlement_net_with_provider_ledger_for_provider_id($providerId);
+            $bookingSettlementNet = (float) ($settlement['settlement_net'] ?? 0);
+            $companyPaysProvider = $bookingSettlementNet > 0.009;
+            $providerPaysCompany = $bookingSettlementNet < -0.009;
+            $activeWithdrawTotal = round((float) ($activeWithdrawByUser->get($userId) ?? 0), 2);
+            $displayAmount = provider_net_balance_amount_after_active_withdraws(
+                $bookingSettlementNet,
+                $activeWithdrawTotal,
+                $companyPaysProvider
+            );
+
+            if ($companyPaysProvider) {
+                $payableToProviders += $displayAmount;
+            } elseif ($providerPaysCompany) {
+                $balanceWithProviders += $displayAmount;
+            }
+        }
+
+        return [
+            'payable_to_providers' => round($payableToProviders, 2),
+            'balance_with_providers' => round($balanceWithProviders, 2),
+        ];
+    }
+}
+
 if (!function_exists('admin_dashboard_financial_summary_metrics')) {
     /**
      * Admin dashboard financial top cards: same booking cohort as provider payment / settlement aggregates.
-     * Settlement net and payable/balance-with-providers subtract all provider-ledger OUT (provider_payout) and add
-     * provider-ledger IN (e.g. collected from provider), matching the headline net on each provider’s payment tab.
+     * Payable/balance-with-providers cards sum per-provider Net Balance (see {@see admin_dashboard_provider_net_balance_card_totals()}).
+     * Settlement net subtracts all provider-ledger OUT (provider_payout) and adds provider-ledger IN (e.g. collected from provider).
      *
      * @return array{
      *     payable_to_providers: float,
      *     payable_to_customers: float,
      *     balance_with_providers: float,
+     *     unsettled_withdraws_total: float,
+     *     unsettled_withdraws_pending: float,
+     *     unsettled_withdraws_approved: float,
      *     settlement_net: float,
      *     total_amount_received_by_company: float,
      *     total_loss_in_all_bookings: float,
@@ -4462,6 +4757,34 @@ if (!function_exists('admin_dashboard_financial_summary_metrics')) {
      * total_bad_debt_with_customers: sum of the company’s configured loss share on those bookings (company loss absorbed).
      */
     function admin_dashboard_financial_summary_metrics(): array
+    {
+        return \Modules\AdminModule\Services\AdminDashboardCache::rememberMetrics(
+            'financial_summary:v3',
+            function (): array {
+                return admin_dashboard_financial_summary_metrics_uncached();
+            }
+        );
+    }
+}
+
+if (!function_exists('admin_dashboard_financial_summary_metrics_uncached')) {
+    /**
+     * @return array{
+     *     payable_to_providers: float,
+     *     payable_to_customers: float,
+     *     balance_with_providers: float,
+     *     unsettled_withdraws_total: float,
+     *     unsettled_withdraws_pending: float,
+     *     unsettled_withdraws_approved: float,
+     *     settlement_net: float,
+     *     total_amount_received_by_company: float,
+     *     total_loss_in_all_bookings: float,
+     *     total_bad_debt_with_customers: float,
+     *     total_write_off_company: float,
+     *     total_write_off_provider: float
+     * }
+     */
+    function admin_dashboard_financial_summary_metrics_uncached(): array
     {
         $bookingIdsWithRepeats = BookingRepeat::query()
             ->whereNotNull('booking_id')
@@ -4552,11 +4875,17 @@ if (!function_exists('admin_dashboard_financial_summary_metrics')) {
             }
         }
 
+        $providerNetBalanceCards = admin_dashboard_provider_net_balance_card_totals();
+        $unsettledWithdraws = admin_dashboard_unsettled_withdraw_totals();
+
         return [
             'settlement_net' => round($net, 2),
-            'payable_to_providers' => round(max(0.0, $net), 2),
+            'payable_to_providers' => $providerNetBalanceCards['payable_to_providers'],
             'payable_to_customers' => round($refundDue, 2),
-            'balance_with_providers' => round(max(0.0, -$net), 2),
+            'balance_with_providers' => $providerNetBalanceCards['balance_with_providers'],
+            'unsettled_withdraws_total' => $unsettledWithdraws['unsettled_total'],
+            'unsettled_withdraws_pending' => $unsettledWithdraws['pending_total'],
+            'unsettled_withdraws_approved' => $unsettledWithdraws['approved_total'],
             'total_amount_received_by_company' => round($totalCompanyReceived, 2),
             'total_loss_in_all_bookings' => round($totalScaledLossAmount, 2),
             'total_bad_debt_with_customers' => round($totalCompanyLossShare, 2),
@@ -4620,8 +4949,7 @@ if (!function_exists('booking_cap_refund_for_visit_retained')) {
 
 if (!function_exists('booking_sum_partials_for_cancel_platform_auto_refund')) {
     /**
-     * Sum of partial paid_amount that qualifies for automatic wallet + ledger refund on cancel
-     * (see refundTransactionForCanceledBooking). Excludes manual/offline paths so admin Refund does not double-count.
+     * Sum of partial paid_amount that may qualify for wallet refund on cancel (excludes manual/offline paths).
      */
     function booking_sum_partials_for_cancel_platform_auto_refund($partials): float
     {
@@ -4633,10 +4961,72 @@ if (!function_exists('booking_sum_partials_for_cancel_platform_auto_refund')) {
     }
 }
 
+if (! function_exists('get_booking_customer_refund_channel_breakdown')) {
+    /**
+     * Split customer-paid amounts by wallet vs digital for cancel/refund UI and processing.
+     *
+     * @return array{
+     *     wallet_paid: float,
+     *     digital_paid: float,
+     *     wallet_refund_amount: float,
+     *     digital_refund_amount: float,
+     *     total_refundable: float,
+     *     has_mixed_payments: bool,
+     *     requires_digital_refund_choice: bool
+     * }
+     */
+    function get_booking_customer_refund_channel_breakdown(Booking $booking): array
+    {
+        if (! $booking->relationLoaded('booking_partial_payments') && $booking->exists) {
+            $booking->loadMissing('booking_partial_payments');
+        }
+
+        $walletPaid = 0.0;
+        $digitalPaid = 0.0;
+
+        if ($booking->relationLoaded('booking_partial_payments') && $booking->booking_partial_payments->isNotEmpty()) {
+            foreach ($booking->booking_partial_payments as $partial) {
+                $amount = round((float) ($partial->paid_amount ?? 0), 2);
+                if ($amount <= 0.009) {
+                    continue;
+                }
+
+                $paidWith = (string) ($partial->paid_with ?? '');
+                if ($paidWith === 'wallet') {
+                    $walletPaid += $amount;
+                } elseif ($paidWith === 'digital') {
+                    $digitalPaid += $amount;
+                }
+            }
+        } elseif ((int) ($booking->is_paid ?? 0) === 1) {
+            $paid = round((float) get_booking_total_paid($booking), 2);
+            $method = (string) ($booking->payment_method ?? '');
+            if ($method === 'wallet_payment') {
+                $walletPaid = $paid;
+            } elseif (! in_array($method, ['cash_after_service', 'offline_payment'], true) && $paid > 0.009) {
+                $digitalPaid = $paid;
+            }
+        }
+
+        $walletPaid = round($walletPaid, 2);
+        $digitalPaid = round($digitalPaid, 2);
+
+        return [
+            'wallet_paid' => $walletPaid,
+            'digital_paid' => $digitalPaid,
+            'wallet_refund_amount' => $walletPaid,
+            'digital_refund_amount' => $digitalPaid,
+            'total_refundable' => round($walletPaid + $digitalPaid, 2),
+            'has_mixed_payments' => $walletPaid > 0.009 && $digitalPaid > 0.009,
+            'requires_digital_refund_choice' => $digitalPaid > 0.009,
+        ];
+    }
+}
+
 if (!function_exists('booking_ledger_refund_out_total')) {
     /**
      * Sum of ledger OUT rows for this booking with reason refund (money already recorded as leaving the platform).
-     * Cancel auto-refund and admin "Refund customer" both write these; subtract this before recording another OUT.
+     * Cancel wallet refund and admin "Transfer to customer" both write these; subtract this before recording another OUT.
      */
     function booking_ledger_refund_out_total(string $bookingId): float
     {
@@ -5414,7 +5804,7 @@ if (!function_exists('lock_customer_user_for_wallet')) {
 }
 
 if (!function_exists('debit_customer_wallet_or_fail')) {
-    function debit_customer_wallet_or_fail(\Modules\UserManagement\Entities\User $user, float $amount): \Modules\UserManagement\Entities\User
+    function debit_customer_wallet_or_fail(\Modules\UserManagement\Entities\User $user, float $amount, ?string $bookingId = null): \Modules\UserManagement\Entities\User
     {
         $amount = round(max(0.0, $amount), 2);
         if ($amount <= 0) {
@@ -5425,6 +5815,8 @@ if (!function_exists('debit_customer_wallet_or_fail')) {
         }
         $user->wallet_balance = round((float) $user->wallet_balance - $amount, 2);
         $user->save();
+
+        send_customer_wallet_deducted_notification($user, $amount, $bookingId);
 
         return $user;
     }
@@ -5597,7 +5989,7 @@ if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
 
             if ($paymentMethod === 'wallet_payment') {
                 $user = lock_customer_user_for_wallet((string) $booking->customer_id);
-                $user = debit_customer_wallet_or_fail($user, $paidAmount);
+                $user = debit_customer_wallet_or_fail($user, $paidAmount, (string) $booking->id);
 
                 $walletTransaction = \Modules\TransactionModule\Entities\Transaction::create([
                     'ref_trx_id' => null,
@@ -5636,13 +6028,67 @@ if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
     }
 }
 
+if (!function_exists('distribute_checkout_amount_equally')) {
+    /**
+     * Split a cart-level amount equally across multiple booking lines (remainder cents go to first lines).
+     */
+    function distribute_checkout_amount_equally(float $totalAmount, int $totalUnits, int $unitIndex): float
+    {
+        $totalUnits = max(1, $totalUnits);
+        $unitIndex = max(0, min($unitIndex, $totalUnits - 1));
+        $totalCents = (int) round(max(0.0, $totalAmount) * 100);
+        $quotientCents = intdiv($totalCents, $totalUnits);
+        $remainderCents = $totalCents % $totalUnits;
+        $unitCents = $quotientCents + ($unitIndex < $remainderCents ? 1 : 0);
+
+        return round($unitCents / 100, 2);
+    }
+}
+
 if (!function_exists('resolve_checkout_wallet_digital_split')) {
     /**
+     * Split checkout payment between wallet and digital for one booking line.
+     * When $multiBookingSplit is set (multi-booking cart checkout), cart-level wallet and digital
+     * totals are divided equally across each service line.
+     *
+     * @param  array{wallet_total: float, digital_total: float, total_bookings: int, booking_index: int}|null  $multiBookingSplit
      * @return array{wallet_paid: float, digital_paid: float, checkout_paid: float}
      */
-    function resolve_checkout_wallet_digital_split($request, float $checkoutPayable, float $customerWalletBalance): array
-    {
+    function resolve_checkout_wallet_digital_split(
+        $request,
+        float $checkoutPayable,
+        float $customerWalletBalance,
+        ?array $multiBookingSplit = null
+    ): array {
         $checkoutPayable = round(max(0.0, $checkoutPayable), 2);
+
+        if (is_array($multiBookingSplit)) {
+            $totalBookings = max(1, (int) ($multiBookingSplit['total_bookings'] ?? 1));
+            $bookingIndex = max(0, min((int) ($multiBookingSplit['booking_index'] ?? 0), $totalBookings - 1));
+            $walletShare = distribute_checkout_amount_equally(
+                (float) ($multiBookingSplit['wallet_total'] ?? 0),
+                $totalBookings,
+                $bookingIndex
+            );
+            $digitalShare = distribute_checkout_amount_equally(
+                (float) ($multiBookingSplit['digital_total'] ?? 0),
+                $totalBookings,
+                $bookingIndex
+            );
+
+            $walletPaid = round(min($checkoutPayable, max(0.0, $walletShare)), 2);
+            $digitalPaid = round(min(
+                max(0.0, $checkoutPayable - $walletPaid),
+                max(0.0, $digitalShare)
+            ), 2);
+
+            return [
+                'wallet_paid' => $walletPaid,
+                'digital_paid' => $digitalPaid,
+                'checkout_paid' => round($walletPaid + $digitalPaid, 2),
+            ];
+        }
+
         $walletPaid = round((float) ($request['wallet_paid_amount'] ?? 0), 2);
         $digitalPaid = round((float) ($request['digitally_paid_amount'] ?? ($request['verified_checkout_amount'] ?? 0)), 2);
 
@@ -5678,9 +6124,15 @@ if (!function_exists('record_checkout_wallet_digital_partial_payments')) {
         $request,
         float $totalBookingAmount,
         float $checkoutPayable,
-        float $customerWalletBalance
+        float $customerWalletBalance,
+        ?array $multiBookingSplit = null
     ): void {
-        $split = resolve_checkout_wallet_digital_split($request, $checkoutPayable, $customerWalletBalance);
+        $split = resolve_checkout_wallet_digital_split(
+            $request,
+            $checkoutPayable,
+            $customerWalletBalance,
+            $multiBookingSplit
+        );
         $walletPaid = $split['wallet_paid'];
         $digitalPaid = $split['digital_paid'];
         $checkoutPaid = $split['checkout_paid'];
@@ -6152,5 +6604,108 @@ if (! function_exists('booking_change_log_translate_tokens')) {
         }
 
         return str_replace('_', ' ', $text);
+    }
+}
+
+if (! function_exists('booking_prepare_mobile_api_user_for_json')) {
+    /**
+     * Avoid expensive User appends (especially identification_image_full_path) on nested API payloads.
+     *
+     * @param  \Modules\UserManagement\Entities\User|null  $user
+     */
+    function booking_prepare_mobile_api_user_for_json($user, bool $withProfileImage = false): void
+    {
+        if ($user === null) {
+            return;
+        }
+
+        if ($withProfileImage) {
+            $user->loadMissing('storage');
+            $user->setAppends(['profile_image_full_path']);
+        } else {
+            $user->setAppends([]);
+        }
+    }
+}
+
+if (! function_exists('booking_prepare_provider_api_booking_for_json')) {
+    /**
+     * Trim heavy Eloquent appends before serializing provider booking detail API responses.
+     */
+    function booking_prepare_provider_api_booking_for_json(Booking $booking): void
+    {
+        booking_prepare_mobile_api_user_for_json($booking->customer, true);
+
+        if ($booking->relationLoaded('serviceman') && $booking->serviceman?->relationLoaded('user')) {
+            booking_prepare_mobile_api_user_for_json($booking->serviceman->user, true);
+        }
+
+        if ($booking->relationLoaded('provider') && $booking->provider) {
+            $booking->provider->setAppends([]);
+        }
+
+        if ($booking->relationLoaded('status_histories')) {
+            foreach ($booking->status_histories as $history) {
+                if ($history->relationLoaded('user')) {
+                    booking_prepare_mobile_api_user_for_json($history->user, false);
+                }
+            }
+        }
+
+        if ($booking->relationLoaded('schedule_histories')) {
+            foreach ($booking->schedule_histories as $history) {
+                if ($history->relationLoaded('user')) {
+                    booking_prepare_mobile_api_user_for_json($history->user, false);
+                }
+            }
+        }
+
+        if ($booking->relationLoaded('change_logs')) {
+            foreach ($booking->change_logs as $log) {
+                if ($log->relationLoaded('changedBy')) {
+                    booking_prepare_mobile_api_user_for_json($log->changedBy, false);
+                }
+            }
+        }
+    }
+}
+
+if (! function_exists('booking_prepare_provider_api_repeat_for_json')) {
+    /**
+     * Trim heavy Eloquent appends before serializing provider repeat-booking detail API responses.
+     */
+    function booking_prepare_provider_api_repeat_for_json(BookingRepeat $repeat): void
+    {
+        if ($repeat->relationLoaded('serviceman') && $repeat->serviceman?->relationLoaded('user')) {
+            booking_prepare_mobile_api_user_for_json($repeat->serviceman->user, true);
+        }
+
+        if ($repeat->relationLoaded('booking') && $repeat->booking) {
+            if ($repeat->booking->relationLoaded('customer')) {
+                booking_prepare_mobile_api_user_for_json($repeat->booking->customer, true);
+            }
+            if ($repeat->booking->relationLoaded('provider') && $repeat->booking->provider) {
+                $repeat->booking->provider->setAppends([]);
+            }
+        }
+
+        foreach (['statusHistories', 'scheduleHistories'] as $relation) {
+            if (! $repeat->relationLoaded($relation)) {
+                continue;
+            }
+            foreach ($repeat->{$relation} as $history) {
+                if ($history->relationLoaded('user')) {
+                    booking_prepare_mobile_api_user_for_json($history->user, false);
+                }
+            }
+        }
+
+        if ($repeat->relationLoaded('change_logs')) {
+            foreach ($repeat->change_logs as $log) {
+                if ($log->relationLoaded('changedBy')) {
+                    booking_prepare_mobile_api_user_for_json($log->changedBy, false);
+                }
+            }
+        }
     }
 }

@@ -140,7 +140,11 @@ class ServiceController extends Controller
      */
     public function show(string $id): JsonResponse
     {
-        $service = $this->service->where('id', $id)->with(['category.children', 'variations'])->first();
+        $service = $this->service->where('id', $id)->with([
+            'category.children',
+            'variations',
+            'serviceVariants.storage_image',
+        ])->first();
         if (isset($service)) {
             $service = self::variationsReactFormat($service);
             return response()->json(response_formatter(DEFAULT_200, $service), 200);
@@ -203,22 +207,9 @@ class ServiceController extends Controller
 
     private function variationsReactFormat($service)
     {
-        $variants = collect($service['variations'])->pluck('variant_key')->unique();
-        $storage = [];
-        foreach ($variants as $variant) {
-            $formatting = [];
-            $filtered = $service['variations']->where('variant_key', $variant);
-            $formatting['variationName'] = $variant;
-            $formatting['variationPrice'] = $filtered->first()->price;
-            foreach ($filtered as $singleVariant) {
-                $formatting['zoneWiseVariations'][] = [
-                    'id' => $singleVariant['zone_id'],
-                    'price' => $singleVariant['price']
-                ];
-            }
-            $storage[] = $formatting;
-        }
-        $service['variations_react_format'] = $storage;
+        $service->loadMissing(['variations', 'serviceVariants.storage_image']);
+        $service['variations_react_format'] = $service->buildVariationsReactFormat();
+
         return $service;
     }
 

@@ -3,4 +3,5 @@
     'conversation' => $conversation,
     'enableStaffMessaging' => $enableStaffMessaging ?? false,
     'isStaffGroup' => $isStaffGroup,
+    'recipientChannelUsers' => $recipientChannelUsers ?? collect(),
 ])

@@ -165,7 +165,8 @@ class WithdrawController extends Controller
         }
 
 
-        DB::transaction(function () use ($account, $request, $payable) {
+        $createdWithdrawRequest = null;
+        DB::transaction(function () use ($account, $request, $payable, &$createdWithdrawRequest) {
             withdrawRequestTransaction($request->user()->id, $request['amount']);
 
             //admin payment transaction
@@ -174,10 +175,10 @@ class WithdrawController extends Controller
 
                 //adjust
                 withdrawRequestAcceptForAdjustTransaction($request->user()->id, $payable);
-                collectCashTransaction($provider->id, $payable);
+                collectCashTransaction($provider->id, $payable, null, null, null, false);
             }
 
-            $this->withdraw_request->create([
+            $createdWithdrawRequest = $this->withdraw_request->create([
                 'user_id' => $request->user()->id,
                 'request_updated_by' => $request->user()->id,
                 'amount' => $request['amount'],
@@ -186,6 +187,14 @@ class WithdrawController extends Controller
                 'note' => $request['note'],
             ]);
         });
+
+        if ($createdWithdrawRequest && function_exists('admin_inbox_notify_withdraw_request')) {
+            admin_inbox_notify_withdraw_request($createdWithdrawRequest->loadMissing('user.provider'));
+        }
+
+        if ($createdWithdrawRequest && function_exists('send_provider_withdraw_request_submitted_notification')) {
+            send_provider_withdraw_request_submitted_notification($createdWithdrawRequest->loadMissing('user.provider'));
+        }
 
         Toastr::success(translate(DEFAULT_200['message']));
         return back();

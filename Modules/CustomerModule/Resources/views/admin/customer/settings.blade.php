@@ -30,6 +30,12 @@
                                 </a>
                             </li>
                             <li class="nav-item">
+                                <a href="{{url()->current()}}?web_page=welcome_bonus"
+                                   class="nav-link {{$web_page=='welcome_bonus'?'active':''}}">
+                                    {{translate('Welcome Bonus')}}
+                                </a>
+                            </li>
+                            <li class="nav-item">
                                 <a href="{{url()->current()}}?web_page=referral_earning"
                                    class="nav-link {{$web_page=='referral_earning'?'active':''}}">
                                     {{translate('referral_earning')}}
@@ -210,9 +216,77 @@
                         </div>
                     @endif
 
+                    @if($web_page=='welcome_bonus')
+                        <div class="tab-content">
+                            <div class="tab-pane fade {{$web_page=='welcome_bonus'?'active show':''}}">
+                                <div class="d-flex justify-content-end mb-3">
+                                    <a href="{{ route('admin.customer.welcome-bonus.report') }}"
+                                       class="btn btn-outline--primary btn-sm d-inline-flex align-items-center gap-1">
+                                        <span class="material-icons fz-16">analytics</span>
+                                        {{ translate('View_Welcome_Bonus_Report') }}
+                                    </a>
+                                </div>
+                                <div class="card">
+                                    <div class="card-body p-30">
+                                        <form action="{{route('admin.customer.settings', ['web_page' => 'welcome_bonus'])}}"
+                                              method="POST">
+                                            @csrf
+                                            @method('PUT')
+
+                                            <div class="row">
+                                                <div class="col-12 d-flex justify-content-start align-items-center mb-3">
+                                                    @php($welcomeBonus=$data_values->where('key_name','customer_welcome_bonus')->first())
+                                                    <div>
+                                                        <h4 class="mb-1">{{translate('Welcome Bonus')}}</h4>
+                                                        <p class="text-muted fz-12 mb-0">
+                                                            {{translate('Credit new app customers with a one-time wallet bonus when they register')}}
+                                                        </p>
+                                                    </div>
+                                                    <label class="switcher mx-3">
+                                                        <input class="switcher_input" type="checkbox" value="1"
+                                                               name="customer_welcome_bonus"
+                                                            {{isset($welcomeBonus) && $welcomeBonus->live_values == '1' ? 'checked' : ''}}>
+                                                        <span class="switcher_control"></span>
+                                                    </label>
+                                                </div>
+
+                                                <div class="col-md-6 col-12 mb-30">
+                                                    @php($welcomeBonusAmount=$data_values->where('key_name','customer_welcome_bonus_amount')->first())
+                                                    <label class="mb-1">
+                                                        {{translate('Welcome Bonus Amount')}} ({{currency_symbol()}})
+                                                        <i class="material-icons" data-bs-toggle="tooltip"
+                                                           data-bs-placement="top"
+                                                           title="{{translate('Amount credited to a new customer wallet on first app registration')}}">info</i>
+                                                    </label>
+                                                    <input type="number" class="form-control"
+                                                           name="customer_welcome_bonus_amount" step="any"
+                                                           min="0" value="{{ $welcomeBonusAmount->live_values ?? 0 }}">
+                                                </div>
+                                            </div>
+
+                                            <div class="d-flex gap-2 justify-content-end">
+                                                <button type="reset"
+                                                        class="btn btn-secondary">{{translate('reset')}}</button>
+                                                <button type="submit"
+                                                        class="btn btn--primary">{{translate('update')}}</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+
                     @if($web_page=='referral_earning')
                         <div class="tab-content">
                             <div class="tab-pane fade {{$web_page=='referral_earning'?'active show':''}}">
+                                <div class="d-flex justify-content-end mb-3">
+                                    <a href="{{ route('admin.customer.referral-earning.report') }}"
+                                       class="btn btn-outline--primary btn-sm d-inline-flex align-items-center gap-1">
+                                        <span class="material-icons fz-16">analytics</span>
+                                        {{ translate('View_Referral_Report') }}
+                                    </a>
+                                </div>
                                 <div class="card">
                                     <div class="card-body p-30">
                                         <form
@@ -242,6 +316,26 @@
                                                         <input type="number" class="form-control"
                                                                name="referral_value_per_currency_unit" step="any"
                                                                min="0" value="{{$value->live_values??''}}">
+                                                    </div>
+
+                                                    @php($shareTemplate=$data_values->where('key_name','referral_share_message_template')->first())
+                                                    <div class="col-md-12 mb-30">
+                                                        <label class="mb-1">
+                                                            {{translate('Referral Share Message Template')}}
+                                                            <i class="material-icons" data-bs-toggle="tooltip"
+                                                               data-bs-placement="top"
+                                                               title="{{translate('This message is shared when a customer taps Share on Refer & Earn. Use placeholders: {CODE}, {APP_NAME}, {ANDROID_APP_URL}, {IOS_APP_URL}')}}">info</i>
+                                                        </label>
+                                                        <textarea class="form-control" name="referral_share_message_template"
+                                                                  rows="6"
+                                                                  placeholder="{{translate('Hi! Please use this {CODE} at time of registration to book services from {APP_NAME}.')}}&#10;{{translate('Download Android app: {ANDROID_APP_URL}')}}&#10;{{translate('Download iOS app: {IOS_APP_URL}')}}">{{$shareTemplate->live_values ?? ''}}</textarea>
+                                                        <small class="text-muted d-block mt-2">
+                                                            {{translate('Available placeholders')}}:
+                                                            <code>{CODE}</code>,
+                                                            <code>{APP_NAME}</code>,
+                                                            <code>{ANDROID_APP_URL}</code>,
+                                                            <code>{IOS_APP_URL}</code>
+                                                        </small>
                                                     </div>
                                                 </div>
                                             </div>

@@ -28,6 +28,16 @@ class AdvertisementsController extends Controller
     )
     {}
 
+    private function ensureAdvertisementAccess(): ?JsonResponse
+    {
+        $providerId = auth('api')->user()?->provider?->id;
+        if (!$providerId || !providerCanUseAdvertisement($providerId)) {
+            return response()->json(response_formatter(DEFAULT_403), 403);
+        }
+
+        return null;
+    }
+
     /**
      * Display a listing of the resource.
      * @param Request $request
@@ -35,6 +45,10 @@ class AdvertisementsController extends Controller
      */
     public function AdsList(Request $request): JsonResponse
     {
+        if ($denied = $this->ensureAdvertisementAccess()) {
+            return $denied;
+        }
+
         $validator = Validator::make($request->all(), [
             'limit' => 'required|numeric|min:1|max:200',
             'offset' => 'required|numeric|min:1|max:100000'
@@ -54,7 +68,6 @@ class AdvertisementsController extends Controller
                 });
             })
             ->where('provider_id', auth('api')->user()->provider->id)
-            ->latest()
             ->when($request->has('status') && $request['status'] !== 'all', function ($query) use ($request) {
                 return $query->when($request['status'] === 'running', function ($query) {
                     return $query->ofRunning();
@@ -71,8 +84,7 @@ class AdvertisementsController extends Controller
                 });
             })
             ->withoutGlobalScope('translate')
-            ->orderByRaw('ISNULL(priority), priority ASC')
-            ->orderBy('created_at')
+            ->latest('updated_at')
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
         foreach($advertisements as $advertisement){
@@ -95,6 +107,10 @@ class AdvertisementsController extends Controller
 
     public function AdsStore(Request $request): JsonResponse
     {
+        if ($denied = $this->ensureAdvertisementAccess()) {
+            return $denied;
+        }
+
         $check = $this->validateUploadedFile($request, ['profile_image', 'cover_image']);
         if ($check !== true) {
             return $check;
@@ -120,7 +136,8 @@ class AdvertisementsController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        DB::transaction(function () use ($request) {
+        $advertisement = null;
+        DB::transaction(function () use ($request, &$advertisement) {
             $advertisement = $this->advertisement;
             $advertisement->readable_id = $this->generateReadableId();
             $advertisement->title = $request->title[array_search('default', $request->lang)];
@@ -231,6 +248,10 @@ class AdvertisementsController extends Controller
 
         });
 
+        if ($advertisement) {
+            admin_inbox_notify_advertisement_submitted($advertisement);
+        }
+
         return response()->json(response_formatter(DEFAULT_STORE_200), 200);
     }
 
@@ -240,6 +261,10 @@ class AdvertisementsController extends Controller
      */
     public function edit($id): JsonResponse
     {
+        if ($denied = $this->ensureAdvertisementAccess()) {
+            return $denied;
+        }
+
         $advertisement = $this->advertisement->with(['provider', 'attachments'])->withoutGlobalScope('translate')->find($id);
         if (!isset($advertisement)) {
             return response()->json(response_formatter(DEFAULT_204), 204);
@@ -274,6 +299,10 @@ class AdvertisementsController extends Controller
      */
     public function details($id): JsonResponse
     {
+        if ($denied = $this->ensureAdvertisementAccess()) {
+            return $denied;
+        }
+
         $advertisement = $this->advertisement->withoutGlobalScope('translate')->with(['attachments', 'attachment', 'provider:id,company_name,company_phone,company_address,company_email,logo', 'attachments', 'attachment', 'review', 'rating', 'showcase', 'note'])->find($id);
 
         if (isset($advertisement)) {
@@ -302,6 +331,10 @@ class AdvertisementsController extends Controller
      */
     public function storeReSubmit(Request $request, $sourceId): JsonResponse
     {
+        if ($denied = $this->ensureAdvertisementAccess()) {
+            return $denied;
+        }
+
         $check = $this->validateUploadedFile($request, ['profile_image', 'cover_image']);
         if ($check !== true) {
             return $check;
@@ -327,7 +360,8 @@ class AdvertisementsController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        DB::transaction(function () use ($request, $sourceId) {
+        $advertisement = null;
+        DB::transaction(function () use ($request, $sourceId, &$advertisement) {
 
             $advertisement = $this->advertisement;
             $advertisement->readable_id = $this->generateReadableId();
@@ -479,6 +513,10 @@ class AdvertisementsController extends Controller
 
         });
 
+        if ($advertisement) {
+            admin_inbox_notify_advertisement_submitted($advertisement);
+        }
+
         return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
     }
 
@@ -502,6 +540,10 @@ class AdvertisementsController extends Controller
      */
     public function update(Request $request, $id): JsonResponse
     {
+        if ($denied = $this->ensureAdvertisementAccess()) {
+            return $denied;
+        }
+
         $check = $this->validateUploadedFile($request, ['profile_image', 'cover_image']);
         if ($check !== true) {
             return $check;
@@ -671,15 +713,29 @@ class AdvertisementsController extends Controller
 
         });
 
+        admin_inbox_notify_advertisement_submitted($advertisement->fresh());
+
         return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
     }
 
     public function statusUpdate(Request $request, $id, $status): JsonResponse
     {
+        if ($denied = $this->ensureAdvertisementAccess()) {
+            return $denied;
+        }
+
         $advertisement = $this->advertisement->find($id);
         if ($advertisement) {
             $advertisement->status = $status;
             $advertisement->save();
+
+            if ($status === 'paused') {
+                admin_inbox_notify_advertisement_paused_by_provider($advertisement);
+                send_advertisement_push_notification('advertisement_paused_by_provider', $advertisement);
+            } elseif ($status === 'resumed') {
+                admin_inbox_notify_advertisement_resumed_by_provider($advertisement);
+                send_advertisement_push_notification('advertisement_resumed_by_provider', $advertisement);
+            }
         }
 
         if ($request->has('note')){
@@ -696,6 +752,10 @@ class AdvertisementsController extends Controller
 
     public function destroy(Request $request, $id)
     {
+        if ($denied = $this->ensureAdvertisementAccess()) {
+            return $denied;
+        }
+
         $advertisement = $this->advertisement->with(['attachments'])->where('id', $id)->first();
         if (isset($advertisement)){
             if($advertisement->attachments){

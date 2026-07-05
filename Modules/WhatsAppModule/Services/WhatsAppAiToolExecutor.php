@@ -390,8 +390,8 @@ class WhatsAppAiToolExecutor
             ];
         }
 
-        $customer = User::findByContactPhone($phone);
-        if (!$customer || $customer->user_type !== 'customer') {
+        $customer = User::findByContactPhoneScoped($phone, CUSTOMER_USER_TYPES);
+        if (!$customer) {
             return [
                 'ok' => false,
                 'error' => 'not_found',
@@ -463,7 +463,7 @@ class WhatsAppAiToolExecutor
     {
         $limit = min(20, max(1, (int) ($args['limit'] ?? 8)));
 
-        $customer = User::findByContactPhone($phone);
+        $customer = User::findByContactPhoneScoped($phone, CUSTOMER_USER_TYPES);
         if (!$customer) {
             return [
                 'ok' => true,

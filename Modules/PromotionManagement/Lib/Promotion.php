@@ -19,10 +19,33 @@ use Illuminate\Support\Facades\Http;
         'Authorization' => 'Bearer ' . getAccessToken($clientEmail, $privateKey),
         'Content-Type' => 'application/json',
     ];
+
+    $logContext = [
+        'fcm_token' => data_get($data, 'message.token'),
+        'topic' => data_get($data, 'message.topic'),
+        'notification_type' => data_get($data, 'message.data.type'),
+        'title' => data_get($data, 'message.data.title'),
+        'push_notification_id' => data_get($data, 'message.data.push_notification_id') ?: null,
+        'booking_id' => data_get($data, 'message.data.booking_id') ?: null,
+    ];
+
     try {
-        Http::withHeaders($headers)->post($url, $data);
-        return true;
-    }catch (\Exception){
+        $response = Http::withHeaders($headers)->post($url, $data);
+        $success = $response->successful();
+
+        log_push_notification_delivery(array_merge($logContext, [
+            'status' => $success ? 'sent' : 'failed',
+            'http_status' => $response->status(),
+            'error_message' => $success ? null : $response->body(),
+        ]));
+
+        return $success;
+    } catch (\Exception $exception) {
+        log_push_notification_delivery(array_merge($logContext, [
+            'status' => 'failed',
+            'error_message' => $exception->getMessage(),
+        ]));
+
         return false;
     }
 }
@@ -80,6 +103,7 @@ if (!function_exists('push_notification_sound_for_type')) {
         return match ($type) {
             'booking', 'booking_ignored', 'offline-payment' => 'booking.wav',
             'chatting' => 'chat.wav',
+            'incoming_call', 'call_accepted', 'call_declined', 'call_ended', 'call_cancelled', 'call_missed' => 'notification.wav',
             'wallet', 'loyalty_point', 'admin_pay', 'withdraw', 'refund' => 'wallet.wav',
             'bidding', 'bid-withdraw' => 'bidding.wav',
             default => 'notification.wav',
@@ -91,11 +115,11 @@ if (!function_exists('push_notification_android_channel_for_type')) {
     function push_notification_android_channel_for_type(?string $type): string
     {
         return match ($type) {
-            'booking', 'booking_ignored', 'offline-payment' => 'demandium_booking',
-            'chatting' => 'demandium_chat',
-            'wallet', 'loyalty_point', 'admin_pay', 'withdraw', 'refund' => 'demandium_wallet',
-            'bidding', 'bid-withdraw' => 'demandium_bidding',
-            default => 'demandium',
+            'booking', 'booking_ignored', 'offline-payment' => 'demandium_booking_v3',
+            'chatting' => 'demandium_chat_v3',
+            'wallet', 'loyalty_point', 'admin_pay', 'withdraw', 'refund' => 'demandium_wallet_v3',
+            'bidding', 'bid-withdraw' => 'demandium_bidding_v3',
+            default => 'demandium_v3',
         };
     }
 }
@@ -108,16 +132,54 @@ if (!function_exists('apply_push_notification_sound')) {
 
         $postData['message']['data']['notification_sound'] = $sound;
         $postData['message']['data']['android_channel_id'] = $channelId;
+
+        if (isset($postData['message']['apns']['payload']['aps'])) {
+            $postData['message']['apns']['payload']['aps']['sound'] = $sound;
+        }
+    }
+}
+
+if (!function_exists('finalize_fcm_push_payload')) {
+    /**
+     * Android: send data-only FCM so the Flutter app shows local notifications
+     * with custom res/raw sounds. iOS: APNS alert + custom sound.
+     */
+    function finalize_fcm_push_payload(array &$postData, string $title, string $body, ?string $type): void
+    {
+        unset($postData['message']['notification']);
+
+        apply_push_notification_sound($postData, $type);
+
+        $postData['message']['android'] = ['priority' => 'HIGH'];
+
+        $sound = push_notification_sound_for_type($type);
+        $postData['message']['apns']['headers'] = array_merge(
+            $postData['message']['apns']['headers'] ?? [],
+            [
+                'apns-priority' => '10',
+                'apns-push-type' => 'alert',
+            ]
+        );
+        $postData['message']['apns']['payload']['aps']['alert'] = [
+            'title' => $title,
+            'body' => $body,
+        ];
         $postData['message']['apns']['payload']['aps']['sound'] = $sound;
-        $postData['message']['android']['notification']['channelId'] = $channelId;
+        if (! isset($postData['message']['apns']['payload']['aps']['badge'])) {
+            $postData['message']['apns']['payload']['aps']['badge'] = 1;
+        }
     }
 }
 
 if (!function_exists('resolve_push_notification_booking_status')) {
-    function resolve_push_notification_booking_status($booking_id, ?string $type): string
+    function resolve_push_notification_booking_status($booking_id, ?string $type, ?string $override = null): string
     {
         if ($type !== 'booking' || empty($booking_id)) {
             return '';
+        }
+
+        if ($override !== null && $override !== '') {
+            return $override;
         }
 
         $bookingStatus = \Modules\BookingModule\Entities\Booking::query()
@@ -168,11 +230,17 @@ if (!function_exists('apply_push_notification_urgent_delivery')) {
 }
 
 if (!function_exists('device_notification')) {
-    function device_notification($fcm_token, $title, $description, $image, $booking_id, $type='status', $channel_id = null, $user_id = null, $data=null, $advertisement_id=null, $bookingType=null, $repeat_type=null, $service_slug=null, $service_id=null)
+    function device_notification($fcm_token, $title, $description, $image, $booking_id, $type='status', $channel_id = null, $user_id = null, $data=null, $advertisement_id=null, $bookingType=null, $repeat_type=null, $service_slug=null, $service_id=null, $booking_status_override = null, $push_notification_id = null)
     {
+        if ($booking_status_override !== null && $booking_status_override !== '') {
+            $data = merge_notification_template_data($data, [
+                'booking_status' => ucfirst(str_replace('_', ' ', (string) $booking_status_override)),
+            ]);
+        }
+
         $title = text_variable_data_format($title, $booking_id, $type, $data, $bookingType);
         $body = format_push_notification_body($description, $booking_id, $type, $data, $bookingType);
-        $bookingStatus = resolve_push_notification_booking_status($booking_id, $type);
+        $bookingStatus = resolve_push_notification_booking_status($booking_id, $type, $booking_status_override);
         $postData = [
             'message' => [
                 "token" => $fcm_token,
@@ -190,6 +258,7 @@ if (!function_exists('device_notification')) {
                     "repeat_type" => (string)$repeat_type,
                     "service_slug" => (string)($service_slug ?? ''),
                     "service_id" => (string)($service_id ?? ''),
+                    "push_notification_id" => (string)($push_notification_id ?? ''),
                 ],
                 "notification" => [
                     'title' => (string)$title,
@@ -206,7 +275,7 @@ if (!function_exists('device_notification')) {
         ];
 
         apply_push_notification_body($postData, $body);
-        apply_push_notification_sound($postData, $type);
+        finalize_fcm_push_payload($postData, (string) $title, (string) $body, $type);
         apply_push_notification_urgent_delivery($postData, $type);
 
         return sendNotificationToHttp($postData);
@@ -246,7 +315,7 @@ if (!function_exists('topic_notification')) {
         ];
 
         apply_push_notification_body($postData, $body);
-        apply_push_notification_sound($postData, $type);
+        finalize_fcm_push_payload($postData, (string) $title, (string) $body, $type);
 
         return sendNotificationToHttp($postData);
     }
@@ -286,7 +355,7 @@ if (!function_exists('device_notification_for_bidding')) {
         ];
 
         apply_push_notification_body($postData, $body);
-        apply_push_notification_sound($postData, $type);
+        finalize_fcm_push_payload($postData, (string) $title, (string) $body, $type);
 
         return sendNotificationToHttp($postData);
     }
@@ -295,24 +364,31 @@ if (!function_exists('device_notification_for_bidding')) {
 //chatting notification
 
 if (!function_exists('device_notification_for_chatting')) {
-    function device_notification_for_chatting($fcm_token, $title, $description, $image, $channel_id, $user_name, $user_image, $user_phone, $user_type, $type = 'status')
+    function device_notification_for_chatting($fcm_token, $title, $description, $image, $channel_id, $user_name, $user_image, $user_phone, $user_type, $type = 'status', $conversation_id = null, array $extraData = [])
     {
-        $image = asset('storage/app/public/push-notification') . '/' . $image;
+        $imageUrl = filled($image)
+            ? (str_starts_with((string) $image, 'http://') || str_starts_with((string) $image, 'https://')
+                ? (string) $image
+                : asset('storage/app/public/push-notification') . '/' . $image)
+            : '';
+
+        $senderImageUrl = (string) ($user_image ?? '');
 
         $postData = [
             'message' => [
                 "token" => $fcm_token,
-                "data" => [
+                "data" => array_merge([
                     "title" => (string)$title,
                     "body" => (string)$description,
-                    "image" => (string)$image,
+                    "image" => (string)$imageUrl,
                     "type" => (string)$type,
                     "channel_id" => (string)$channel_id,
+                    "conversation_id" => (string) ($conversation_id ?? ''),
                     "user_name" => (string)$user_name,
-                    "user_image"=> (string)$user_image,
+                    "user_image"=> (string)$senderImageUrl,
                     "user_phone"=> (string)$user_phone,
                     "user_type"=> (string)$user_type,
-                ],
+                ], array_map('strval', $extraData)),
                 "notification" => [
                     "title" => (string)$title,
                     "body" => (string)$description,
@@ -328,7 +404,62 @@ if (!function_exists('device_notification_for_chatting')) {
             ]
         ];
 
-        apply_push_notification_sound($postData, $type);
+        finalize_fcm_push_payload($postData, (string) $title, (string) $description, $type);
+
+        return sendNotificationToHttp($postData);
+    }
+}
+
+if (!function_exists('device_notification_for_in_app_call')) {
+    function device_notification_for_in_app_call(
+        $fcm_token,
+        $title,
+        $description,
+        $call_id,
+        $channel_id,
+        $agora_channel_name,
+        $user_name,
+        $user_image,
+        $user_phone,
+        $user_type,
+        $type = 'incoming_call'
+    ) {
+        $image = $user_image
+            ? asset('storage/app/public/user/profile_image').'/'.$user_image
+            : '';
+
+        $postData = [
+            'message' => [
+                'token' => $fcm_token,
+                'data' => [
+                    'title' => (string) $title,
+                    'body' => (string) $description,
+                    'image' => (string) $image,
+                    'type' => (string) $type,
+                    'call_id' => (string) $call_id,
+                    'channel_id' => (string) $channel_id,
+                    'agora_channel_name' => (string) $agora_channel_name,
+                    'user_name' => (string) $user_name,
+                    'user_image' => (string) $image,
+                    'user_phone' => (string) ($user_phone ?? ''),
+                    'user_type' => (string) ($user_type ?? ''),
+                ],
+                'notification' => [
+                    'title' => (string) $title,
+                    'body' => (string) $description,
+                ],
+                'apns' => [
+                    'payload' => [
+                        'aps' => [],
+                    ],
+                ],
+                'android' => [
+                    'notification' => [],
+                ],
+            ],
+        ];
+
+        finalize_fcm_push_payload($postData, (string) $title, (string) $description, $type);
 
         return sendNotificationToHttp($postData);
     }

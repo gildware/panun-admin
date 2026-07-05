@@ -1,0 +1,13 @@
+{
+    "name": "InAppCallModule",
+    "alias": "inappcallmodule",
+    "description": "In-app audio calls between customers and providers via Agora",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\InAppCallModule\\Providers\\InAppCallModuleServiceProvider"
+    ],
+    "aliases": {},
+    "files": [],
+    "requires": []
+}

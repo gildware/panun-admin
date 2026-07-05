@@ -97,7 +97,7 @@ class PostBidController extends Controller
         info($request->user()->provider?->company_name);
         $userNotify  = isNotificationActive(null, 'booking', 'notification', 'user');
         if ($customer && $title && $userNotify) {
-            device_notification_for_bidding($customer->fcm_token, $title, $description, null, 'bidding', null, $post_bid->post_id, $request->user()->provider->id, data: $data_info);
+            device_notification_for_bidding_user($customer, $title, $description, null, 'bidding', null, $post_bid->post_id, $request->user()->provider->id, data: $data_info);
         }
 
         return response()->json(response_formatter(DEFAULT_STORE_200, null), 200);
@@ -126,15 +126,15 @@ class PostBidController extends Controller
             return response()->json(response_formatter(DEFAULT_404, null), 404);
         }
 
-        $fcmToken = $post_bids->first()?->post?->customer?->fcm_token ?? null;
+        $customer = $post_bids->first()?->post?->customer;
 
-        if (!is_null($fcmToken)) {
-            $languageKey = $post_bids->first()?->post?->customer?->current_language_key;
+        if ($customer && user_has_fcm_devices($customer)) {
+            $languageKey = $customer->current_language_key;
             $title = get_push_notification_message('customer_notification_for_provider_bid_withdraw', 'customer_notification', $languageKey);
             $description = get_push_notification_description('customer_notification_for_provider_bid_withdraw', 'customer_notification', $languageKey);
             $userNotify  = isNotificationActive(null, 'booking', 'notification', 'user');
             if ($userNotify) {
-                device_notification($fcmToken, $title, $description, null, null, 'bid-withdraw');
+                device_notification_for_user($customer, $title, $description, null, null, 'bid-withdraw');
             }
         }
 

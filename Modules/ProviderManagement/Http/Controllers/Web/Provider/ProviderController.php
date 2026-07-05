@@ -33,6 +33,7 @@ use Modules\ProviderManagement\Entities\BankDetail;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProvidersWithdrawMethodsData;
 use Modules\ProviderManagement\Entities\SubscribedService;
+use Modules\ProviderManagement\Services\ProviderDashboardEarningStatsService;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\TransactionModule\Entities\Account;
@@ -194,9 +195,9 @@ class ProviderController extends Controller
         $maxBookingAmount = (business_config('max_booking_amount', 'booking_setup'))->live_values;
 
         //top_cards
-        $account = $this->account->where('user_id', $request->user()->id)->first();
+        $providerId = (string) $request->user()->provider->id;
         $data[] = ['top_cards' => [
-            'total_earning' => $account['received_balance'] + $account['total_withdrawn'],
+            'total_earning' => app(ProviderDashboardEarningStatsService::class)->lifetimeTotal($providerId),
             'total_subscribed_services' => $this->subscribedService->where('provider_id', $request->user()->provider->id)
                 ->with(['sub_category'])
                 ->whereHas('category', function ($query) {
@@ -232,23 +233,13 @@ class ProviderController extends Controller
 
         //recent_bookings
         $provider = $request->user()->provider;
-        $recent_bookings = collect();
-
-        if (
-            provider_can_receive_bookings($provider)
-            && ($provider->is_suspended == 0 || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)
-        ) {
-            $recent_bookings = $this->booking->with(['detail.service' => function ($query) {
-                $query->select('id', 'name', 'thumbnail');
-            }])
-                ->providerPendingBookings($provider, $maxBookingAmount)
-                ->whereDoesntHave('ignores', function ($query) use ($provider) {
-                    $query->where('provider_id', $provider->id);
-                })
-                ->latest()
-                ->take(5)
-                ->get();
-        }
+        $recent_bookings = $this->booking->with(['detail.service' => function ($query) {
+            $query->select('id', 'name', 'thumbnail');
+        }])
+            ->where('provider_id', $provider->id)
+            ->latest()
+            ->take(5)
+            ->get();
         $data[] = ['recent_bookings' => $recent_bookings];
 
         //my_subscriptions

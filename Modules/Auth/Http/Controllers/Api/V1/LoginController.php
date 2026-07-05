@@ -19,6 +19,7 @@ use Modules\BusinessSettingsModule\Entities\LoginSetup;
 use Modules\CustomerModule\Traits\CustomerTrait;
 use Modules\PaymentModule\Entities\Setting;
 use Modules\Auth\Services\ProviderRegistrationDraftService;
+use Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement;
 use Modules\UserManagement\Entities\User;
 use Modules\UserManagement\Entities\UserVerification;
 use Modules\UserManagement\Http\Controllers\Api\V1\OTPVerificationController;
@@ -262,7 +263,7 @@ class LoginController extends Controller
             return response()->json(response_formatter(ACCOUNT_DISABLED), 401);
         }
 
-        if ($manualBlock = $this->resolveManualPerformanceBlockForProvider($user)) {
+        if ($manualBlock = ProviderManualPerformanceEnforcement::resolveLoginBlockMessage($user)) {
             return response()->json(response_formatter([
                 'response_code' => 'auth_login_401',
                 'message' => $manualBlock,
@@ -310,7 +311,7 @@ class LoginController extends Controller
         if ($validator->fails()) return response()->json(response_formatter(AUTH_LOGIN_403, null, error_processor($validator)), 403);
 
         $user = $this->user
-            ->eligibleCustomerAppUsers()
+            ->ofType(CUSTOMER_USER_TYPES)
             ->where(function ($q) use ($request) {
                 $q->where('phone', $request['email_or_phone'])
                     ->orWhere('email', $request['email_or_phone']);
@@ -389,6 +390,10 @@ class LoginController extends Controller
     {
         if (!auth()->user()) {
             return response()->json(response_formatter(ACCESS_DENIED), 200);
+        }
+
+        if ($request->filled('device_id')) {
+            unregister_user_fcm_device((string) $request->user()->id, $request->input('device_id'));
         }
 
         $request->user()->token()->revoke();
@@ -548,7 +553,7 @@ class LoginController extends Controller
         }
 
         $user = $this->user->where('email', $data['email'])
-            ->eligibleCustomerAppUsers()
+            ->ofType(CUSTOMER_USER_TYPES)
             ->first();
 
         $temporaryToken = Str::random(40);
@@ -591,7 +596,9 @@ class LoginController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $user = $this->user->where('email', $request['email'])->first();
+        $user = $this->user->where('email', $request['email'])
+            ->ofType(CUSTOMER_USER_TYPES)
+            ->first();
 
         $temporaryToken = Str::random(40);
         if (!$user) {
@@ -625,50 +632,41 @@ class LoginController extends Controller
         $validator = Validator::make($request->all(), [
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
+            'email' => 'nullable|email|max:255',
             'phone' => 'required|max:15',
+            'referral_code' => 'nullable|string|max:50',
         ]);
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $existingUser = $this->user->where(function ($query) use ($request) {
-            $query->where('phone', $request['phone'])
-                ->orWhere('email', $request['email']);
-        })->first();
+        $existingCustomer = User::findByContactPhoneScoped($request['phone'], CUSTOMER_USER_TYPES);
 
-        if ($existingUser) {
-            if ($existingUser->phone === $request['phone']) {
-                if ($existingUser->user_type === 'provider-serviceman') {
-                    return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
-                }
+        if ($existingCustomer) {
+            $existingCustomer->first_name = $request->first_name;
+            $existingCustomer->last_name = $request->last_name;
+            if ($request['email']) {
+                $existingCustomer->email = $request['email'];
+            }
+            $existingCustomer->is_email_verified = 1;
+            $existingCustomer->is_active = 1;
+            $existingCustomer->save();
 
-                $existingUser = grant_customer_app_access_for_provider($existingUser);
-
-                if (user_can_use_customer_app($existingUser)) {
-                    $existingUser->first_name = $request->first_name;
-                    $existingUser->last_name = $request->last_name;
-                    if ($request['email']) {
-                        $existingUser->email = $request['email'];
-                    }
-                    $existingUser->is_email_verified = 1;
-                    $existingUser->is_active = 1;
-                    $existingUser->save();
-
-                    if ($request['guest_id']) {
-                        $this->updateAddressAndCartUser($existingUser->id, $request['guest_id']);
-                    }
-
-                    return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($existingUser, CUSTOMER_PANEL_ACCESS)), 200);
-                }
-
-                return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
+            if ($request['guest_id']) {
+                $this->updateAddressAndCartUser($existingCustomer->id, $request['guest_id']);
             }
 
-            if ($existingUser->email === $request['email']) {
-                return response()->json(response_formatter(ALREADY_USE_EMAIL_ANOTHER_ACCOUNT), 403);
-            }
+            return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($existingCustomer, CUSTOMER_PANEL_ACCESS)), 200);
+        }
+
+        if ($request->filled('email') && $this->user->where('email', $request['email'])->exists()) {
+            return response()->json(response_formatter(ALREADY_USE_EMAIL_ANOTHER_ACCOUNT), 403);
+        }
+
+        $referralResult = resolve_customer_referral_registration($request->input('referral_code'));
+        if ($referralResult['error'] !== null) {
+            return $referralResult['error'];
         }
 
         $temporaryToken = Str::random(40);
@@ -676,17 +674,22 @@ class LoginController extends Controller
         $user = $this->user->create([
             'first_name' => $request->first_name,
             'last_name' => $request->last_name,
-            'email' => $request->email,
+            'email' => $request->filled('email') ? $request->email : null,
             'phone' => $request->phone,
             'password' => bcrypt(rand(11111111, 99999999)),
             'language_code' => $request->header('X-localization') ?? 'en',
+            'user_type' => 'customer',
+            'customer_app_access' => true,
             'is_email_verified' => 1,
             'is_active' => 1,
+            'referred_by' => $referralResult['referrer_id'],
         ]);
 
         if ($request['guest_id']){
             $this->updateAddressAndCartUser($user->id, $request['guest_id']);
         }
+
+        grant_customer_welcome_bonus($user);
 
         $phoneVerification = checkActiveSMSGatewayCount();
 
@@ -716,6 +719,9 @@ class LoginController extends Controller
     public function logout(Request $request): JsonResponse
     {
         if ($request->user() !== null) {
+            if ($request->filled('device_id')) {
+                unregister_user_fcm_device((string) $request->user()->id, $request->input('device_id'));
+            }
             $request->user()->token()->revoke();
         }
         return response()->json(response_formatter(AUTH_LOGOUT_200), 200);
@@ -743,37 +749,4 @@ class LoginController extends Controller
         return null;
     }
 
-    private function resolveManualPerformanceBlockForProvider(User $user): ?string
-    {
-        $provider = $user->provider;
-        $status = (string) ($provider?->manual_performance_status ?? $user->manual_performance_status ?? '');
-
-        if ($status === 'blacklisted') {
-            return translate('Provider account is blacklisted. Please contact with admin');
-        }
-
-        if ($status === 'suspended') {
-            $untilValue = $provider?->performance_suspended_until ?? $user->performance_suspended_until;
-            $until = $untilValue ? Carbon::parse($untilValue) : null;
-
-            if ($until && $until->isFuture()) {
-                return translate('Provider account is suspended until') . ' ' . $until->format('Y-m-d H:i');
-            }
-
-            // Auto-clear expired manual suspension.
-            if ($provider) {
-                $provider->manual_performance_status = 'active';
-                $provider->performance_suspended_until = null;
-                if ((int) $provider->is_active !== 0) {
-                    $provider->is_suspended = 0;
-                }
-                $provider->save();
-            }
-            $user->manual_performance_status = 'active';
-            $user->performance_suspended_until = null;
-            $user->save();
-        }
-
-        return null;
-    }
 }

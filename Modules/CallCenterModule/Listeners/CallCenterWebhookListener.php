@@ -23,11 +23,15 @@ class CallCenterWebhookListener
             return;
         }
 
-        $profile = $this->profiles->getProfileForUser($user);
-        $this->webhooks->dispatch('customer.created', $profile->id, [
-            'customer_ref' => $profile->customer_ref,
-            'phone' => $user->phone,
-        ]);
+        try {
+            $profile = $this->profiles->getProfileForUser($user);
+            $this->webhooks->dispatch('customer.created', $profile->id, [
+                'customer_ref' => $profile->customer_ref,
+                'phone' => $user->phone,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     public function handleUserUpdated(User $user): void
@@ -128,7 +132,6 @@ class CallCenterWebhookListener
 
     private function isCustomerUser(User $user): bool
     {
-        return in_array($user->user_type, CUSTOMER_USER_TYPES, true)
-            || ($user->user_type === 'provider-admin' && $user->customer_app_access);
+        return in_array($user->user_type, CUSTOMER_USER_TYPES, true);
     }
 }

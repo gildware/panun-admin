@@ -737,13 +737,15 @@ class AdvanceSearch
             [$biz . '?web_page=business_plan', 'Business_Plan', 'business plan, subscription plan, package settings, business settings'],
             [$login . '?web_page=customer_login', 'General Login Setup', 'login setup, general login, customer login, otp, social login tab, authentication'],
             [$login . '?web_page=admin_provider_login', 'Rules_&_Restrictions', 'rules and restrictions, admin login, provider login, rules restrictions'],
-            [$customerSettings . '?web_page=wallet', 'customer_wallet', 'customer wallet, wallet settings, wallet bonus, customer settings'],
+            [$customerSettings . '?web_page=wallet', 'customer_wallet', 'customer wallet, wallet settings, customer settings'],
+            [$customerSettings . '?web_page=welcome_bonus', 'Welcome Bonus', 'welcome bonus, new customer bonus, registration bonus, customer settings'],
             [$customerSettings . '?web_page=loyalty_point', 'loyalty_point', 'loyalty point, loyalty points, rewards, customer settings'],
             [$customerSettings . '?web_page=referral_earning', 'referral_earning', 'referral, referral earning, invite, customer settings'],
+            [url('admin/customer/referral-earning/report'), 'Referral_Report', 'referral report, referred users, refer and earn'],
+            [url('admin/customer/welcome-bonus/report'), 'Welcome_Bonus_Report', 'welcome bonus report, signup bonus, registration bonus'],
             ['admin/configuration/offline-payment/list?web_page=payment_config&type=offline_payment', 'Offline_Payment', 'offline payment, bank transfer, cash payment, manual payment, payment methods'],
-            ['admin/chat/index?user_type=customer', 'Chat', 'chat, messaging, conversation, customer chat, support chat, inbox'],
-            ['admin/chat/index?user_type=provider_admin', 'Chat', 'chat, messaging, provider admin chat, provider chat, inbox'],
-            ['admin/chat/index?user_type=provider_serviceman', 'Chat', 'chat, messaging, serviceman chat, provider serviceman, inbox'],
+            ['admin/chat/index?filter=all', 'Chat', 'chat, messaging, conversation, customer chat, provider chat, support chat, inbox'],
+            ['admin/chat/index?filter=unread', 'Chat', 'chat, messaging, unread chat, support inbox'],
         ];
 
         $out = [];

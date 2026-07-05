@@ -458,15 +458,19 @@ class ServicemanController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'fcm_token' => 'required',
+            'device_id' => 'nullable|string|max:64',
+            'platform' => 'nullable|string|in:android,ios,web',
+            'device_model' => 'nullable|string|max:128',
+            'device_manufacturer' => 'nullable|string|max:128',
+            'os_version' => 'nullable|string|max:64',
+            'unregister' => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $customer = $this->employee::find($request->user()->id);
-        $customer->fcm_token = $request->fcm_token;
-        $customer->save();
+        handle_user_fcm_token_request($request, (string) $request->user()->id);
 
         return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
     }

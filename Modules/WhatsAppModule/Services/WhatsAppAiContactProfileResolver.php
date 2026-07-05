@@ -40,7 +40,8 @@ final class WhatsAppAiContactProfileResolver
         }
 
         $wa = WhatsAppUser::query()->where('phone', $phone)->first();
-        $sys = User::findByContactPhone($phone);
+        $customerUser = User::findByContactPhoneScoped($phone, CUSTOMER_USER_TYPES);
+        $providerUser = User::findByContactPhoneScoped($phone, ['provider-admin']);
 
         $merged = [
             'name' => null,
@@ -53,18 +54,17 @@ final class WhatsAppAiContactProfileResolver
         $systemRole = null;
         $lines = [];
 
-        if ($sys) {
-            if ($sys->user_type === 'provider-admin') {
+        if ($customerUser) {
+            $systemRole = 'customer';
+            $this->mergeFromCustomer($merged, $customerUser);
+        }
+
+        if ($providerUser) {
+            if ($systemRole === null) {
                 $systemRole = 'provider';
-                $provider = Provider::query()->where('user_id', $sys->id)->first();
-                $this->mergeFromProvider($merged, $sys, $provider, $phone);
-                if ($sys->customer_app_access) {
-                    $this->mergeFromCustomer($merged, $sys);
-                }
-            } elseif (in_array($sys->user_type, CUSTOMER_USER_TYPES, true)) {
-                $systemRole = 'customer';
-                $this->mergeFromCustomer($merged, $sys);
             }
+            $provider = Provider::query()->where('user_id', $providerUser->id)->first();
+            $this->mergeFromProvider($merged, $providerUser, $provider, $phone);
         }
 
         $this->mergeFromWhatsAppUser($merged, $wa);
@@ -87,7 +87,7 @@ final class WhatsAppAiContactProfileResolver
 
         $out = [
             'merged' => $merged,
-            'system_user_found' => $sys !== null,
+            'system_user_found' => $customerUser !== null || $providerUser !== null,
             'system_role' => $systemRole,
             'lines_for_prompt' => $lines,
         ];

@@ -76,6 +76,13 @@
             border-radius: 50%;
             background: rgba(13, 110, 253, 0.08);
         }
+        .chat-profile-link {
+            text-decoration: none;
+        }
+        .chat-profile-link:hover {
+            text-decoration: underline;
+            color: var(--bs-primary) !important;
+        }
         .input_msg_write {
             overflow: visible;
         }
@@ -279,6 +286,157 @@
             padding: 0.5rem;
             transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
+        .chat-list-last-message {
+            max-width: 100%;
+        }
+        .chat_people--support {
+            width: 100%;
+            min-width: 0;
+        }
+        .chat_ib--support {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+        .chat-card-row {
+            width: 100%;
+            min-width: 0;
+        }
+        .chat-card-end {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.35rem;
+            flex-shrink: 0;
+            white-space: nowrap;
+            margin-left: auto;
+        }
+        .chat-card-row--bottom .chat-list-last-meta {
+            margin-left: 0;
+        }
+        .chat-list-last-message-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.35rem;
+            margin-top: 0.15rem;
+            max-width: 100%;
+            min-width: 0;
+        }
+        .chat-list-last-message-row .chat-list-last-message {
+            margin-top: 0;
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+        .chat-list-last-message--empty {
+            flex: 1 1 auto;
+        }
+        .chat-list-last-meta {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            white-space: nowrap;
+            margin-left: auto;
+        }
+        .chat-list-last-time {
+            font-size: 0.6875rem;
+            line-height: 1.2;
+            color: #6c757d;
+        }
+        .chat-message-status--list {
+            font-size: 0.6875rem;
+            font-weight: 500;
+            line-height: 1.2;
+        }
+        .chat-list-last-meta .chat-message-status--sent,
+        .chat-list-last-meta .chat-message-status--delivered {
+            color: #6c757d;
+        }
+        .chat-list-last-meta .chat-message-status--seen {
+            color: #0d6efd;
+        }
+        .chat-list-last-meta .chat-message-status--seen .material-symbols-outlined {
+            font-variation-settings: 'FILL' 1;
+        }
+        .chat-message-status--compact {
+            flex-shrink: 0;
+            font-size: 0.6875rem;
+            font-weight: 500;
+        }
+        .chat-list-last-message-row .chat-message-status--seen .material-symbols-outlined {
+            font-variation-settings: 'FILL' 1;
+        }
+        .chat_ib .chat-list-last-message {
+            color: var(--bs-secondary, #6c757d) !important;
+        }
+        .chat_list.active .chat-list-last-message,
+        .chat_list.active-selected .chat-list-last-message {
+            color: var(--bs-body-color, #212529) !important;
+        }
+        .outgoing_msg .message_text {
+            position: relative;
+        }
+        .outgoing_msg .message_text__body {
+            display: inline;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        .outgoing_msg .message_text .chat-message-meta--inline {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            float: right;
+            margin-left: 0.45rem;
+            margin-top: 0.2rem;
+            line-height: 1.2;
+            white-space: nowrap;
+            vertical-align: bottom;
+        }
+        .outgoing_msg .message_text .chat-message-meta--inline .time_date {
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 0.6875rem;
+        }
+        .outgoing_msg .message_text .chat-message-status--inline {
+            font-size: 0.6875rem;
+        }
+        .outgoing_msg .message_text .chat-message-status--inline.chat-message-status--sent,
+        .outgoing_msg .message_text .chat-message-status--inline.chat-message-status--delivered {
+            color: rgba(255, 255, 255, 0.85);
+        }
+        .outgoing_msg .message_text .chat-message-status--inline.chat-message-status--seen {
+            color: #8ec5ff;
+        }
+        .outgoing_msg .message_text .chat-message-status--inline.chat-message-status--seen .material-symbols-outlined {
+            font-variation-settings: 'FILL' 1;
+        }
+        .outgoing_msg .message_text--attachment {
+            position: relative;
+            padding-bottom: 1.5rem;
+        }
+        .outgoing_msg .message_text--attachment .chat-message-meta--inline {
+            position: absolute;
+            right: 0.625rem;
+            bottom: 0.375rem;
+            float: none;
+            margin: 0;
+            background: rgba(0, 0, 0, 0.28);
+            border-radius: 0.35rem;
+            padding: 0.1rem 0.35rem;
+        }
+        .chat-message-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+        .chat-message-status .material-symbols-outlined {
+            font-size: 0.875rem;
+            line-height: 1;
+        }
     </style>
 @endpush
 
@@ -304,21 +462,15 @@
                                 <div class="d-flex flex-wrap justify-content-between align-items-center border-bottom mx-lg-4 mb-10 gap-3">
                                     <ul class="nav nav--tabs">
                                         <li class="nav-item">
-                                            <a class="nav-link {{$type=='customer'?'active':''}}"
-                                               href="{{url()->current()}}?user_type=customer">
-                                                {{translate('customer')}}
+                                            <a class="nav-link {{($filter ?? 'all') === 'all' ? 'active' : ''}}"
+                                               href="{{ route('admin.chat.support', array_filter(['filter' => 'all', 'channel_id' => request()->query('channel_id')])) }}">
+                                                {{ translate('all') }}
                                             </a>
                                         </li>
                                         <li class="nav-item">
-                                            <a class="nav-link {{$type=='provider_serviceman'?'active':''}}"
-                                               href="{{url()->current()}}?user_type=provider_serviceman">
-                                                {{translate('Service Man')}}
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a class="nav-link {{$type=='provider_admin'?'active':''}}"
-                                               href="{{url()->current()}}?user_type=provider_admin">
-                                                {{translate('Provider')}}
+                                            <a class="nav-link {{($filter ?? 'all') === 'unread' ? 'active' : ''}}"
+                                               href="{{ route('admin.chat.support', ['filter' => 'unread']) }}">
+                                                {{ translate('unread') }}
                                             </a>
                                         </li>
                                     </ul>
@@ -347,7 +499,7 @@
                                 @php($presenceService = app(\Modules\AdminModule\Services\StaffPresenceService::class))
                                 <div class="staff-sidebar-section">
                                     <h6 class="staff-sidebar-heading">{{ translate('Conversations') }}</h6>
-                                    <div class="inbox_chat staff-conversations-list d-flex flex-column mt-1">
+                                    <div class="inbox_chat staff-conversations-list d-flex flex-column mt-1" id="admin-chat-sidebar-list">
                                         @if(!empty($staffGroupChannel))
                                             @include('chattingmodule::admin.partials._staff-group-conversation-list-item', [
                                                 'staffGroupChannel' => $staffGroupChannel,
@@ -357,31 +509,13 @@
                                         @forelse($chatList as $chat)
                                             @php($fromUser=$chat->channelUsers->where('user_id','!=',auth()->id())->first())
                                             @php($staffPresence = isset($fromUser->user) ? ($staffPresenceById[$fromUser->user->id] ?? null) : null)
-                                            <div class="chat_list chat-list-class staff-conversation-item {{$chat->is_read==0?'active':''}}"
-                                                 id="chat-{{$chat->id}}"
-                                                 data-route="{{route('admin.chat.ajax-conversation',['channel_id'=>$chat->id,'offset'=>1])}}"
-                                                 data-chat="{{$chat->id}}">
-                                                <div class="chat_people media gap-10">
-                                                    <div class="position-relative">
-                                                        <img src="{{ $fromUser->user->profile_image_full_path ?? asset('assets/admin-module/img/media/user.png') }}"
-                                                             class="avatar rounded-circle" alt="">
-                                                        @if($staffPresence)
-                                                            <span class="avatar-status {{ $presenceService->statusDotClass($staffPresence['presence_status']) }}"></span>
-                                                        @endif
-                                                    </div>
-                                                    <div class="chat_ib media-body">
-                                                        <h5 class="mb-0">{{ $fromUser->user ? trim($fromUser->user->first_name.' '.$fromUser->user->last_name) : translate('no_user_found') }}</h5>
-                                                        @if($staffPresence)
-                                                            <span class="fz-12 text-muted">{{ $staffPresence['presence_label'] }}</span>
-                                                        @endif
-                                                    </div>
-                                                </div>
-                                                @if($chat->is_read==0)
-                                                    <div class="bg-info text-white radius-50 px-1 fz-12" id="badge-{{$chat->id}}">
-                                                        <span class="material-symbols-outlined">swipe_up</span>
-                                                    </div>
-                                                @endif
-                                            </div>
+                                            @include('chattingmodule::admin.partials._staff-conversation-list-item', [
+                                                'chat' => $chat,
+                                                'fromUser' => $fromUser,
+                                                'staffPresence' => $staffPresence,
+                                                'presenceService' => $presenceService,
+                                                'isActive' => ($openChannelId ?? '') === (string) $chat->id,
+                                            ])
                                         @empty
                                             <p class="text-muted fs-13 px-2 py-2 mb-0">{{ translate('No_conversations_yet') }}</p>
                                         @endforelse
@@ -421,52 +555,12 @@
                                     </div>
                                 </div>
                             @else
-                            <div class="inbox_chat d-flex flex-column mt-1">
+                            <div class="inbox_chat d-flex flex-column mt-1" id="admin-chat-sidebar-list">
                                 @foreach($chatList as $chat)
-                                    @php($fromUser=$chat->channelUsers->where('user_id','!=',auth()->id())->first())
-                                    @php($staffPresence = ($type ?? '') === 'staff' && isset($fromUser->user) ? ($staffPresenceById[$fromUser->user->id] ?? null) : null)
-                                    <div class="chat_list chat-list-class {{$chat->is_read==0?'active':''}}"
-                                         id="chat-{{$chat->id}}"
-                                         data-route="{{route('admin.chat.ajax-conversation',['channel_id'=>$chat->id,'offset'=>1])}}"
-                                         data-chat="{{$chat->id}}">
-                                        <div class="chat_people media gap-10" id="chat_people">
-                                            <div class="position-relative">
-                                                <img
-                                                    @if(isset($fromUser->user) && in_array($fromUser->user->user_type, ADMIN_USER_TYPES))
-                                                        src="{{$fromUser->user->profile_image_full_path}}"
-                                                    @elseif(isset($fromUser->user) && $fromUser->user->user_type == 'customer')
-                                                        src="{{$fromUser->user->profile_image_full_path}}"
-                                                    @elseif(isset($fromUser->user) && $fromUser->user->user_type == 'provider-admin')
-                                                        src="{{$fromUser->user->provider->logo_full_path}}"
-                                                    @elseif(isset($fromUser->user) && $fromUser->user->user_type == 'provider-serviceman')
-                                                        src="{{$fromUser->user->profile_image_full_path}}"
-                                                    @else
-                                                        src="{{onErrorImage(
-                                                                'null',
-                                                                asset('storage/app/public/serviceman/profile').'/',
-                                                                asset('assets/admin-module/img/media/user.png') ,
-                                                                'serviceman/profile/')}}"
-                                                    @endif
-                                                    class="avatar rounded-circle" alt="{{ translate('image') }}">
-                                                @if($staffPresence)
-                                                    <span class="avatar-status {{ app(\Modules\AdminModule\Services\StaffPresenceService::class)->statusDotClass($staffPresence['presence_status']) }}"></span>
-                                                @else
-                                                    <span class="avatar-status bg-success"></span>
-                                                @endif
-                                            </div>
-                                            <div class="chat_ib media-body">
-                                                <h5 class="">{{isset($fromUser->user) ? ($fromUser->user->provider ? $fromUser->user->provider->company_name : $fromUser->user->first_name . ' ' . $fromUser->user->last_name)  : translate('no_user_found')}}</h5>
-                                                <span
-                                                    class="fz-12">{{isset($fromUser->user) ? ($fromUser->user->provider ? $fromUser->user->provider->company_phone : $fromUser->user->phone) : ''}}</span>
-                                            </div>
-                                        </div>
-                                        @if($chat->is_read==0)
-                                            <div class="bg-info text-white radius-50 px-1 fz-12"
-                                                 id="badge-{{$chat->id}}">
-                                                <span class="material-symbols-outlined">swipe_up</span>
-                                            </div>
-                                        @endif
-                                    </div>
+                                    @include('chattingmodule::admin.partials._support-chat-list-item', [
+                                        'chat' => $chat,
+                                        'isActive' => ($openChannelId ?? '') === (string) $chat->id,
+                                    ])
                                 @endforeach
                             </div>
                             @endif
@@ -519,7 +613,6 @@
                                     <option value="" selected disabled>{{translate('Select_User_Type')}}</option>
                                     <option value="customer">{{translate('customer')}}</option>
                                     <option value="provider-admin">{{translate('provider')}}</option>
-                                    <option value="provider-serviceman">{{translate('serviceman')}}</option>
                                 </select>
                             </div>
 
@@ -543,17 +636,6 @@
                                                 {{$item->provider->company_name??''}} ({{$item->provider->company_phone}})
                                             </option>
                                         @endif
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <div class="form-group mb-30 d--none" id="serviceman">
-                                <select class="form-control chat-js-select" name="serviceman_id">
-                                    <option value="" selected disabled>{{translate('Select_Serviceman')}}</option>
-                                    @foreach($servicemen as $item)
-                                        <option value="{{$item->id}}">
-                                            {{$item->first_name}} {{$item->last_name}} ({{$item->phone}})
-                                        </option>
                                     @endforeach
                                 </select>
                             </div>
@@ -608,6 +690,13 @@
         function updateStaffChatUrl(channelId) {
             var url = new URL(window.location.href);
             url.searchParams.set('channel_id', channelId);
+            if (window.location.pathname.indexOf('/admin/chat/staff') !== -1) {
+                history.replaceState({}, '', url.pathname + '?' + url.searchParams.toString());
+                return;
+            }
+            if (!url.searchParams.get('user_type')) {
+                url.searchParams.set('filter', url.searchParams.get('filter') || 'all');
+            }
             history.replaceState({}, '', url);
         }
 
@@ -620,6 +709,10 @@
                     $('#set-conversation').empty().html(response.template);
                     highlightActiveChat(chat_id, null);
                     updateStaffChatUrl(chat_id);
+                    if (window.ChatLiveSync) {
+                        window.ChatLiveSync.setActiveChannel(chat_id);
+                        window.ChatLiveSync.captureConversationCursor();
+                    }
                 },
                 error: function (jqXHR) {
                     if (jqXHR.responseJSON && jqXHR.responseJSON.errors && jqXHR.responseJSON.errors.length > 0) {
@@ -648,6 +741,10 @@
 
                     highlightActiveChat(response.channel_id, staffId);
                     updateStaffChatUrl(response.channel_id);
+                    if (window.ChatLiveSync) {
+                        window.ChatLiveSync.setActiveChannel(response.channel_id);
+                        window.ChatLiveSync.captureConversationCursor();
+                    }
                 },
                 error: function (jqXHR) {
                     if (jqXHR.responseJSON && jqXHR.responseJSON.errors && jqXHR.responseJSON.errors.length > 0) {
@@ -685,6 +782,13 @@
 
             @if(request()->query('open_staff'))
             openStaffContact('{{ request()->query('open_staff') }}');
+            @endif
+            @else
+            @if(!empty($openChannelId))
+            var openChat = document.getElementById('chat-{{ $openChannelId }}');
+            if (openChat) {
+                openChat.click();
+            }
             @endif
             @endif
         });
@@ -724,7 +828,12 @@
         window.chatConfirmYes = @json(translate('Yes'));
         window.chatConfirmNo = @json(translate('No'));
         window.chatConfirmTitle = @json(translate('Are_you_sure?'));
+        window.chatLiveSyncUrl = @json(route('admin.chat.live-sync'));
+        window.chatSidebarMode = @json(($type ?? '') === 'staff' ? 'staff' : 'support');
+        window.chatSidebarFilter = @json($filter ?? 'all');
+        window.chatActiveChannelId = @json($openChannelId ?? '');
     </script>
+    <script src="{{ asset('assets/chatting-module/js/chat-live-sync.js') }}"></script>
     <script src="{{ asset('assets/chatting-module/js/chat-reply.js') }}"></script>
     <script src="{{ asset('assets/chatting-module/js/chat-pin.js') }}"></script>
     <script src="{{ asset('assets/chatting-module/js/chat-reactions.js') }}"></script>

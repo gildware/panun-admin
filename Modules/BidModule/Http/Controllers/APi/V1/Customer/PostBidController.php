@@ -162,8 +162,8 @@ class PostBidController extends Controller
                 ];
                 $title = get_push_notification_message('provider_bid_request_denied', 'provider_notification', $provider?->owner?->current_language_key);
                 $description = get_push_notification_description('provider_bid_request_denied', 'provider_notification', $provider?->owner?->current_language_key);
-                if ($title && $provider?->owner?->fcm_token) {
-                    device_notification_for_bidding($provider->owner->fcm_token, $title, $description, null, 'bidding', null, null, $request['provider_id'], $data_info);
+                if ($title && user_has_fcm_devices($provider?->owner)) {
+                    device_notification_for_bidding_user($provider->owner, $title, $description, null, 'bidding', null, null, $request['provider_id'], $data_info);
                 }
             }
 

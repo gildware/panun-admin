@@ -17,6 +17,49 @@ use Modules\UserManagement\Entities\User;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Http\UploadedFile;
 
+if (!function_exists('admin_uses_top_nav')) {
+    /**
+     * When true, admin uses the top navigation chrome instead of sidebar + legacy header.
+     * Rollback: set ADMIN_TOP_NAV=false in .env and php artisan config:clear
+     */
+    function admin_uses_top_nav(): bool
+    {
+        return filter_var(config('admin.top_nav', false), FILTER_VALIDATE_BOOLEAN);
+    }
+}
+
+if (!function_exists('admin_uses_partial_nav')) {
+    function admin_uses_partial_nav(): bool
+    {
+        return admin_uses_top_nav()
+            && filter_var(config('admin.partial_nav', true), FILTER_VALIDATE_BOOLEAN);
+    }
+}
+
+if (!function_exists('admin_nav_placeholder')) {
+    function admin_nav_placeholder(string $type = 'image'): string
+    {
+        return match ($type) {
+            'logo' => asset('assets/admin-module/img/placeholder.png'),
+            'profile' => asset('assets/admin-module/img/customer.png'),
+            default => asset('assets/placeholder.png'),
+        };
+    }
+}
+
+if (!function_exists('admin_nav_image_src')) {
+    function admin_nav_image_src(?string $src, string $placeholderType = 'image'): string
+    {
+        $src = trim((string) $src);
+
+        if ($src === '' || $src === 'null' || str_ends_with($src, '/null')) {
+            return admin_nav_placeholder($placeholderType);
+        }
+
+        return $src;
+    }
+}
+
 if (!function_exists('use_dummy_login_otp')) {
     /**
      * When true, login OTP is a fixed code (default 123456) for customer/provider apps.
@@ -56,6 +99,44 @@ if (!function_exists('api_user')) {
         } catch (\Throwable) {
             return null;
         }
+    }
+}
+
+if (!function_exists('format_relative_time_ago')) {
+    /**
+     * Human-readable relative time without decimals.
+     * e.g. "6 minutes ago", "1 hour 30 minutes ago", "2 days ago"
+     */
+    function format_relative_time_ago($datetime): string
+    {
+        $createdAt = $datetime instanceof Carbon ? $datetime : Carbon::parse($datetime);
+        $totalMinutes = (int) round(abs($createdAt->diffInMinutes(Carbon::now())));
+
+        if ($totalMinutes < 1) {
+            $totalMinutes = 1;
+        }
+
+        $totalDays = intdiv($totalMinutes, 1440);
+        $remainingMinutes = $totalMinutes % 1440;
+        $hours = intdiv($remainingMinutes, 60);
+        $minutes = $remainingMinutes % 60;
+
+        if ($totalDays > 0) {
+            $unit = translate($totalDays === 1 ? 'day' : 'days');
+
+            return $totalDays.' '.$unit.' '.translate('ago');
+        }
+
+        if ($hours > 0) {
+            $time = $hours.' '.translate('hours');
+            if ($minutes > 0) {
+                $time .= ' '.$minutes.' '.translate('minutes');
+            }
+
+            return $time.' '.translate('ago');
+        }
+
+        return $totalMinutes.' '.translate('minutes').' '.translate('ago');
     }
 }
 
@@ -819,59 +900,89 @@ if (!function_exists('remove_invalid_charcaters')) {
 if (!function_exists('text_variable_data_format')) {
     function text_variable_data_format($title, $booking_id, ?string $type = null, array|object|string|null $data = null, ?string $bookingType = null): array|string
     {
+        $dataArray = is_object($data) ? (array) $data : (is_array($data) ? $data : []);
+
+        $bookingStatusFromData = trim((string) ($dataArray['booking_status'] ?? ''));
+
         $replaceMap = [
-            '{{providerName}}' => '',
-            '{{scheduleTime}}' => '',
-            '{{userName}}' => '',
-            '{{zoneName}}' => '',
-            '{{serviceManName}}' => '',
+            '{{providerName}}' => (string) ($dataArray['provider_name'] ?? ''),
+            '{{scheduleTime}}' => (string) ($dataArray['schedule_time'] ?? ''),
+            '{{userName}}' => (string) ($dataArray['user_name'] ?? ''),
+            '{{zoneName}}' => (string) ($dataArray['zone_name'] ?? ''),
+            '{{serviceManName}}' => (string) ($dataArray['service_man_name'] ?? ''),
+            '{{bookingId}}' => (string) ($dataArray['booking_id'] ?? ''),
+            '{{bookingStatus}}' => $bookingStatusFromData,
+            '{{amount}}' => (string) ($dataArray['amount'] ?? ''),
+            '{{serviceName}}' => (string) ($dataArray['service_name'] ?? ''),
+            '{{otp}}' => (string) ($dataArray['otp'] ?? ''),
+            '{{senderName}}' => (string) ($dataArray['sender_name'] ?? ''),
+            '{{showcaseTitle}}' => (string) ($dataArray['showcase_title'] ?? $dataArray['showcaseTitle'] ?? ''),
         ];
 
         if ($type == 'booking' || $type == 'offline-payment') {
-            $booking = null;
 
             if ($bookingType == 'repeat') {
-                $booking = BookingRepeat::find($booking_id) ?? Booking::find($booking_id);
+                $booking = \Modules\BookingModule\Entities\BookingRepeat::find($booking_id) ?? \Modules\BookingModule\Entities\Booking::find($booking_id);
             } else {
-                $booking = Booking::find($booking_id);
+                $booking = \Modules\BookingModule\Entities\Booking::find($booking_id);
             }
 
             if (!$booking) {
-                return $title;
+                return str_replace(array_keys($replaceMap), array_values($replaceMap), $title);
             }
 
-            $replaceMap['{{providerName}}'] = $booking?->provider?->company_name ?? '';
-            $replaceMap['{{bookingId}}'] = $booking->readable_id;
-            $replaceMap['{{scheduleTime}}'] = $booking->service_schedule;
+            $fillTemplateValue = static function (string $placeholder, string $value) use (&$replaceMap): void {
+                if (trim($replaceMap[$placeholder] ?? '') === '' && trim($value) !== '') {
+                    $replaceMap[$placeholder] = $value;
+                }
+            };
+
+            $fillTemplateValue('{{providerName}}', (string) ($booking?->provider?->company_name ?? ''));
+            $fillTemplateValue('{{bookingId}}', (string) ($booking->readable_id ?? $booking->id ?? ''));
+            $fillTemplateValue('{{scheduleTime}}', (string) ($booking->service_schedule ?? ''));
+            if ($bookingStatusFromData === '') {
+                $replaceMap['{{bookingStatus}}'] = ucfirst(str_replace('_', ' ', (string) ($booking->booking_status ?? '')));
+            }
+            $fillTemplateValue('{{otp}}', (string) ($booking->booking_otp ?? ''));
 
             if ($bookingType == 'repeat') {
                 if ($booking->booking) {
-                    $replaceMap['{{userName}}'] = $booking->booking->customer ? $booking->booking->customer->first_name . ' ' . $booking->booking->customer->last_name : '';
-                    $replaceMap['{{zoneName}}'] = $booking->booking->zone?->name ?? '';
+                    $fillTemplateValue(
+                        '{{userName}}',
+                        $booking->booking->customer
+                            ? trim($booking->booking->customer->first_name . ' ' . $booking->booking->customer->last_name)
+                            : ''
+                    );
+                    $fillTemplateValue('{{zoneName}}', (string) ($booking->booking->zone?->name ?? ''));
                 } else {
-                    $replaceMap['{{userName}}'] = $booking->customer?->first_name . ' ' . $booking->customer?->last_name;
-                    $replaceMap['{{zoneName}}'] = $booking->zone?->name;
+                    $fillTemplateValue(
+                        '{{userName}}',
+                        trim(($booking->customer?->first_name ?? '') . ' ' . ($booking->customer?->last_name ?? ''))
+                    );
+                    $fillTemplateValue('{{zoneName}}', (string) ($booking->zone?->name ?? ''));
                 }
             } else {
-                $replaceMap['{{userName}}'] = $booking->customer?->first_name . ' ' . $booking->customer?->last_name;
-                $replaceMap['{{zoneName}}'] = $booking->zone?->name;
+                $fillTemplateValue(
+                    '{{userName}}',
+                    trim(($booking->customer?->first_name ?? '') . ' ' . ($booking->customer?->last_name ?? ''))
+                );
+                $fillTemplateValue('{{zoneName}}', (string) ($booking->zone?->name ?? ''));
             }
 
-            $replaceMap['{{serviceManName}}'] = $booking?->serviceman?->user?->first_name . ' ' . $booking?->serviceman?->user?->last_name;
+            $fillTemplateValue(
+                '{{serviceManName}}',
+                trim(($booking?->serviceman?->user?->first_name ?? '') . ' ' . ($booking?->serviceman?->user?->last_name ?? ''))
+            );
 
-        } else {
-            if (is_array($data) && !empty($data)) {
-                $replaceMap['{{providerName}}'] = $data['provider_name'] ?? '';
-                $replaceMap['{{scheduleTime}}'] = $data['schedule_time'] ?? '';
-                $replaceMap['{{userName}}'] = $data['user_name'] ?? '';
-                $replaceMap['{{zoneName}}'] = $data['zone_name'] ?? '';
-                $replaceMap['{{serviceManName}}'] = $data['service_man_name'] ?? '';
+        } elseif ($type === 'review' && filled($booking_id)) {
+            $readableBookingId = notification_readable_booking_id((string) $booking_id);
+            $currentBookingId = trim((string) ($replaceMap['{{bookingId}}'] ?? ''));
+            if ($readableBookingId !== '' && ($currentBookingId === '' || str_contains($currentBookingId, '-'))) {
+                $replaceMap['{{bookingId}}'] = $readableBookingId;
             }
         }
 
-        $formattedTitle = str_replace(array_keys($replaceMap), array_values($replaceMap), $title);
-
-        return ($formattedTitle === $title) ? $title : $formattedTitle;
+        return str_replace(array_keys($replaceMap), array_values($replaceMap), $title);
     }
 }
 
@@ -899,10 +1010,166 @@ if (!function_exists('onErrorImage')) {
     }
 }
 
+if (! function_exists('support_channel_reference_types')) {
+    /**
+     * All channel reference_type values used for admin support chats.
+     */
+    function support_channel_reference_types(): array
+    {
+        return ['support', 'support_customer', 'support_provider', 'support_serviceman'];
+    }
+}
+
+if (! function_exists('is_support_channel_reference_type')) {
+    function is_support_channel_reference_type(?string $referenceType): bool
+    {
+        return in_array((string) $referenceType, support_channel_reference_types(), true);
+    }
+}
+
+if (! function_exists('support_channel_reference_type_for_app')) {
+    /**
+     * Distinct support channel type per mobile app so dual-role users keep separate threads.
+     */
+    function support_channel_reference_type_for_app(string $app): string
+    {
+        return match ($app) {
+            'customer' => 'support_customer',
+            'provider' => 'support_provider',
+            'serviceman' => 'support_serviceman',
+            default => 'support',
+        };
+    }
+}
+
+if (! function_exists('support_chat_avatar_url')) {
+    /**
+     * Resolved avatar URL for a support-chat peer (sidebar list + conversation header).
+     */
+    function support_chat_avatar_url($fromUser, ?string $supportChannelType = null): string
+    {
+        $fallback = asset('assets/admin-module/img/media/user.png');
+
+        if (! $fromUser?->user) {
+            return $fallback;
+        }
+
+        $user = $fromUser->user;
+        $userType = (string) ($user->user_type ?? '');
+
+        if (in_array($userType, ADMIN_USER_TYPES, true)) {
+            return admin_nav_image_src($user->profile_image_full_path);
+        }
+
+        $showAsServiceman = $supportChannelType === 'support_serviceman'
+            || $userType === 'provider-serviceman';
+
+        $showAsCustomer = ! $showAsServiceman && (
+            $supportChannelType === 'support_customer'
+            || ($supportChannelType === 'support' && in_array($userType, CUSTOMER_USER_TYPES, true))
+            || in_array($userType, CUSTOMER_USER_TYPES, true)
+        );
+
+        $showAsProvider = ! $showAsServiceman && ! $showAsCustomer && (
+            $supportChannelType === 'support_provider'
+            || ($supportChannelType === 'support' && $userType === 'provider-admin')
+            || $userType === 'provider-admin'
+        );
+
+        if ($showAsCustomer || $showAsServiceman) {
+            return admin_nav_image_src($user->profile_image_full_path);
+        }
+
+        if ($showAsProvider) {
+            $provider = $user->relationLoaded('provider') ? $user->provider : $user->provider()->first();
+            if ($provider) {
+                return admin_nav_image_src($provider->list_avatar_full_path);
+            }
+        }
+
+        return admin_nav_image_src($user->profile_image_full_path) ?: $fallback;
+    }
+}
+
+if (! function_exists('support_chat_profile_url')) {
+    /**
+     * Admin profile page URL for a support-chat peer (customer or provider).
+     */
+    function support_chat_profile_url($fromUser, ?string $supportChannelType = null): ?string
+    {
+        if (! $fromUser?->user) {
+            return null;
+        }
+
+        $user = $fromUser->user;
+        $userType = (string) ($user->user_type ?? '');
+
+        $showAsServiceman = $supportChannelType === 'support_serviceman'
+            || $userType === 'provider-serviceman';
+
+        $showAsCustomer = ! $showAsServiceman && (
+            $supportChannelType === 'support_customer'
+            || ($supportChannelType === 'support' && in_array($userType, CUSTOMER_USER_TYPES, true))
+            || in_array($userType, CUSTOMER_USER_TYPES, true)
+        );
+
+        $showAsProvider = ! $showAsServiceman && ! $showAsCustomer && (
+            $supportChannelType === 'support_provider'
+            || ($supportChannelType === 'support' && $userType === 'provider-admin')
+            || $userType === 'provider-admin'
+        );
+
+        if ($showAsCustomer) {
+            return route('admin.customer.detail', [$user->id, 'web_page' => 'overview']);
+        }
+
+        if ($showAsProvider) {
+            $provider = $user->relationLoaded('provider') ? $user->provider : $user->provider()->first();
+            if ($provider?->id) {
+                return route('admin.provider.details', [$provider->id, 'web_page' => 'overview']);
+            }
+        }
+
+        return null;
+    }
+}
+
 if (!function_exists('getSuperAdminId')) {
     function getSuperAdminId()
     {
-        return User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
+        $admin = User::query()
+            ->where('user_type', ADMIN_USER_TYPES[0])
+            ->where('is_active', 1)
+            ->orderBy('created_at')
+            ->first();
+
+        return $admin?->id;
+    }
+}
+
+if (!function_exists('customer_api_admin_details')) {
+    /**
+     * Super-admin profile for customer app config (e.g. "chat with admin" on policy pages).
+     */
+    function customer_api_admin_details(): ?array
+    {
+        $admin = User::query()
+            ->where('user_type', ADMIN_USER_TYPES[0])
+            ->where('is_active', 1)
+            ->first();
+
+        if (! $admin) {
+            return null;
+        }
+
+        $admin->setAppends(['profile_image_full_path']);
+
+        return [
+            'id' => $admin->id,
+            'first_name' => $admin->first_name,
+            'last_name' => $admin->last_name,
+            'profile_image' => $admin->profile_image_full_path,
+        ];
     }
 }
 
@@ -1246,14 +1513,18 @@ if (!function_exists('normalize_identity_image_entries')) {
 if (!function_exists('cloud_storage_public_url')) {
     /**
      * Public URL for a file on the configured S3-compatible disk (Cloudflare R2, AWS S3).
+     *
+     * @param  bool  $useExactStorageKey  When true, use $relativePath as the object key (no env prefix rewrite).
      */
-    function cloud_storage_public_url(string $relativePath): string
+    function cloud_storage_public_url(string $relativePath, bool $useExactStorageKey = false): string
     {
         $relativePath = ltrim(str_replace(['storage/', '/storage/'], '', $relativePath), '/');
-        // DB stores logical paths without env folder; R2 objects use local/dev/prod prefix.
-        $relativePath = \App\Support\StoragePathPrefix::apply(
-            \App\Support\StoragePathPrefix::strip($relativePath)
-        );
+        if (! $useExactStorageKey) {
+            // DB stores logical paths without env folder; R2 objects use local/dev/prod prefix.
+            $relativePath = \App\Support\StoragePathPrefix::apply(
+                \App\Support\StoragePathPrefix::strip($relativePath)
+            );
+        }
         $baseUrl = \App\Support\CloudStorageConfigurator::publicBaseUrl();
 
         if ($baseUrl !== null && $baseUrl !== '') {
@@ -1336,7 +1607,7 @@ if (!function_exists('resolve_media_storage_url')) {
 
                 try {
                     if ($disk && \Illuminate\Support\Facades\Storage::disk($disk)->exists($candidate)) {
-                        return cloud_storage_public_url($candidate);
+                        return cloud_storage_public_url($candidate, true);
                     }
                 } catch (\Throwable $e) {
                     //
@@ -1344,11 +1615,26 @@ if (!function_exists('resolve_media_storage_url')) {
             }
 
             if (str_starts_with($candidate, 'provider/')) {
-                return public_storage_asset_url($candidate);
+                $disk = $preferredStorage ?? (function_exists('getDisk') ? getDisk() : 'public');
+                if ($disk === 's3') {
+                    return cloud_storage_public_url($candidate);
+                }
+
+                return public_storage_asset_url(
+                    \App\Support\StoragePathPrefix::apply(\App\Support\StoragePathPrefix::strip($candidate))
+                );
             }
         }
 
-        return $defaultPath;
+        $logicalPath = $candidates[0] ?? $image;
+        $disk = $preferredStorage ?? (function_exists('getDisk') ? getDisk() : 'public');
+        if ($disk === 's3') {
+            return cloud_storage_public_url($logicalPath);
+        }
+
+        return public_storage_asset_url(
+            \App\Support\StoragePathPrefix::apply(\App\Support\StoragePathPrefix::strip($logicalPath))
+        );
     }
 }
 
@@ -1816,6 +2102,10 @@ if (!function_exists('chatEligibility')) {
 if (!function_exists('advertisementsEligibility')) {
     function advertisementsEligibility($providerId): bool
     {
+        if (!providerCanUseAdvertisement($providerId)) {
+            return false;
+        }
+
         $now = \Carbon\Carbon::now();
         $packageSubscriber = PackageSubscriber::where('provider_id', $providerId)->first();
 
@@ -1847,6 +2137,42 @@ if (!function_exists('advertisementsEligibility')) {
         }
 
         return true;
+    }
+}
+
+if (!function_exists('providerCanUseAdvertisement')) {
+    /**
+     * Whether a provider may access advertisement features in the provider app.
+     * Global advertisement_status must be on.
+     * allow_advertisement: 0 = force off, 1 = force on (bypass min bookings), null = follow min bookings rule.
+     */
+    function providerCanUseAdvertisement($providerId): bool
+    {
+        $globalEnabled = (int) (business_config('advertisement_status', 'provider_config')?->live_values ?? 0) === 1;
+        if (!$globalEnabled) {
+            return false;
+        }
+
+        $provider = Provider::find($providerId);
+        if (!$provider) {
+            return false;
+        }
+
+        if ($provider->allow_advertisement !== null && (int) $provider->allow_advertisement === 0) {
+            return false;
+        }
+
+        if ((int) $provider->allow_advertisement === 1) {
+            return true;
+        }
+
+        $minimumBookings = (int) (business_config('advertisement_minimum_bookings', 'provider_config')?->live_values ?? 0);
+        $completedBookings = \Modules\BookingModule\Entities\Booking::query()
+            ->where('provider_id', $providerId)
+            ->where('booking_status', 'completed')
+            ->count();
+
+        return $completedBookings >= $minimumBookings;
     }
 }
 
@@ -1896,6 +2222,65 @@ if (!function_exists('sendDeviceNotificationPermission')) {
     }
 }
 
+if (! function_exists('resolve_provider_org_id_for_user')) {
+    function resolve_provider_org_id_for_user(?\Modules\UserManagement\Entities\User $user): ?string
+    {
+        if (! $user) {
+            return null;
+        }
+
+        return match ($user->user_type) {
+            PROVIDER_USER_TYPES[0] => $user->provider?->id,
+            PROVIDER_USER_TYPES[1] => $user->provider?->id,
+            PROVIDER_USER_TYPES[2] => $user->serviceman?->provider_id,
+            default => null,
+        };
+    }
+}
+
+if (! function_exists('provider_org_member_user_ids')) {
+    /**
+     * User IDs belonging to a provider organization (admin, servicemen, and legacy employees).
+     *
+     * @return list<string>
+     */
+    function provider_org_member_user_ids(string $providerOrgId): array
+    {
+        $userIds = [];
+
+        $adminUserId = \Modules\ProviderManagement\Entities\Provider::query()
+            ->where('id', $providerOrgId)
+            ->value('user_id');
+        if ($adminUserId) {
+            $userIds[] = (string) $adminUserId;
+        }
+
+        $servicemanUserIds = \Modules\UserManagement\Entities\Serviceman::query()
+            ->where('provider_id', $providerOrgId)
+            ->pluck('user_id')
+            ->all();
+        $userIds = array_merge($userIds, array_map('strval', $servicemanUserIds));
+
+        if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'provider_id')) {
+            $employeeUserIds = \Modules\UserManagement\Entities\User::query()
+                ->where('user_type', PROVIDER_USER_TYPES[1])
+                ->where('provider_id', $providerOrgId)
+                ->pluck('id')
+                ->all();
+            $userIds = array_merge($userIds, array_map('strval', $employeeUserIds));
+        }
+
+        return array_values(array_unique(array_filter($userIds)));
+    }
+}
+
+if (! function_exists('is_provider_org_chat_user')) {
+    function is_provider_org_chat_user(?\Modules\UserManagement\Entities\User $user): bool
+    {
+        return $user && in_array($user->user_type, [PROVIDER_USER_TYPES[0], PROVIDER_USER_TYPES[1]], true);
+    }
+}
+
 if (!function_exists('isNotificationActive')) {
    function isNotificationActive(?string $providerId, string $key, string $type, string $userType): ?bool
    {
@@ -1910,7 +2295,7 @@ if (!function_exists('isNotificationActive')) {
                 $providerSettings = $providerSettings ? json_decode($providerSettings->value) : null;
             }
 
-            $settingValue = $providerSettings->$type ?? $adminSettings->$type;
+            $settingValue = $providerSettings?->$type ?? $adminSettings->$type;
 
             if (is_null($settingValue)) {
                 return false;
@@ -1920,6 +2305,30 @@ if (!function_exists('isNotificationActive')) {
         }
 
         return false;
+    }
+}
+
+if (!function_exists('group_notification_messages_by_category')) {
+    function group_notification_messages_by_category(array $notifications): array
+    {
+        $grouped = [];
+        foreach ($notifications as $notification) {
+            $category = $notification['category'] ?? 'other';
+            $grouped[$category][] = $notification;
+        }
+
+        $ordered = [];
+        foreach (NOTIFICATION_MESSAGE_CATEGORIES as $category) {
+            if (!empty($grouped[$category])) {
+                $ordered[$category] = $grouped[$category];
+            }
+        }
+
+        if (!empty($grouped['other'])) {
+            $ordered['other'] = $grouped['other'];
+        }
+
+        return $ordered;
     }
 }
 
@@ -2689,25 +3098,17 @@ if (!function_exists('user_can_use_customer_app')) {
         if ($user === null) {
             return false;
         }
-        if (in_array($user->user_type, CUSTOMER_USER_TYPES, true)) {
-            return true;
-        }
 
-        return $user->user_type === 'provider-admin' && (bool) $user->customer_app_access;
+        return in_array($user->user_type, CUSTOMER_USER_TYPES, true);
     }
 }
 
 if (!function_exists('grant_customer_app_access_for_provider')) {
     /**
-     * Allow a provider-admin to use the customer app with the same phone (dual role).
+     * @deprecated Provider and customer are separate accounts; kept as a no-op for backward compatibility.
      */
     function grant_customer_app_access_for_provider(User $user): User
     {
-        if ($user->user_type === 'provider-admin' && ! $user->customer_app_access) {
-            $user->customer_app_access = true;
-            $user->save();
-        }
-
         return $user->fresh() ?? $user;
     }
 }

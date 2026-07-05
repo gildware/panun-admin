@@ -165,18 +165,20 @@
                                                 <div class="media align-items-center gap-3 min-w-200">
                                                     <div class="avatar avatar-lg">
                                                         <a href="{{route('admin.provider.details',[$provider->id, 'web_page'=>'overview'])}}">
-                                                            <img class="avatar-img radius-5" src="{{ $provider->logo_full_path }}" alt="{{ translate('provider-logo') }}">
+                                                            <img class="avatar-img radius-5"
+                                                                 src="{{ $provider->list_avatar_full_path }}"
+                                                                 alt="{{ translate('provider-logo') }}"
+                                                                 onerror="this.onerror=null;this.src='{{ asset('assets/provider-module/img/user2x.png') }}'">
                                                         </a>
                                                     </div>
                                                     <div class="media-body">
                                                         <h5 class="mb-1">
                                                             <a href="{{route('admin.provider.details',[$provider->id, 'web_page'=>'overview'])}}&provider={{ $provider->id}}">
                                                                 {{$provider->company_name}}
-                                                                @if($provider?->is_suspended && business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)
-                                                                    <span
-                                                                        class="text-danger fz-12">{{('(' . translate('Suspended') . ')')}}</span>
+                                                                @php($restrictionLabel = \Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement::primaryRestrictionLabel($provider))
+                                                                @if($restrictionLabel)
+                                                                    <span class="text-danger fz-12">({{ $restrictionLabel }})</span>
                                                                 @endif
-
                                                             </a>
                                                         </h5>
                                                         <span
@@ -200,25 +202,23 @@
                                                 <p>{{$provider->subscribed_services_count}}</p>
                                             </td>
                                             <td>{{$provider->bookings_count}}</td>
-                                            @php
-                                                $perfStatus = $provider->manual_performance_status ?? 'active';
-                                                if ($perfStatus === 'suspended' && !empty($provider->performance_suspended_until) && \Illuminate\Support\Carbon::parse($provider->performance_suspended_until)->isPast()) {
-                                                    $perfStatus = 'active';
-                                                }
-                                                $perfBadge = match($perfStatus) {
-                                                    'warning' => 'bg-warning',
-                                                    'active' => 'bg-success',
-                                                    default => 'bg-danger', // suspended/blacklisted
-                                                };
-                                                $perfLabel = match($perfStatus) {
-                                                    'warning' => translate('Warning'),
-                                                    'suspended' => translate('Suspended'),
-                                                    'blacklisted' => translate('Blacklisted'),
-                                                    default => translate('Active'),
-                                                };
-                                            @endphp
+                                            @php($providerListPerformance = \Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement::providerListPerformance($provider))
                                             <td>{{ (int)($provider->performance_score ?? 0) }}</td>
-                                            <td><span class="badge {{ $perfBadge }}">{{ $perfLabel }}</span></td>
+                                            <td>
+                                                <span class="badge {{ $providerListPerformance['badge'] }}">{{ $providerListPerformance['label'] }}</span>
+                                                @if(!empty($providerListPerformance['items']))
+                                                    <div class="fz-12 text-danger mt-1">
+                                                        {{ $providerListPerformance['items'][0]['label'] }}
+                                                        @if(!empty($providerListPerformance['items'][0]['until']))
+                                                            · {{ translate('Until') }} {{ $providerListPerformance['items'][0]['until'] }}
+                                                        @endif
+                                                    </div>
+                                                    <a class="fz-12 text-primary text-decoration-underline"
+                                                       href="{{ route('admin.provider.details', [$provider->id, 'web_page' => 'overview']) }}">
+                                                        {{ translate('View details') }}
+                                                    </a>
+                                                @endif
+                                            </td>
                                             <td>{{ (float)($provider->complaints_percent ?? 0) }}%</td>
                                             <td>{{ (float)($provider->no_show_percent ?? 0) }}%</td>
                                             @can('provider_manage_status')

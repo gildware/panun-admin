@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin navigation redesign — full menu demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+    <link href="/assets/admin-module/css/material-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/admin-module/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/assets/admin-module/css/style.css">
+    <link rel="stylesheet" href="/assets/admin-module/css/dev.css">
+    <style>
+        body { font-family: Outfit, sans-serif; }
+        .demo-banner { position: fixed; inset-inline: 0; top: 0; z-index: 2000; background: #1A1C38; color: #fff; padding: 0.5rem 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; font-size: 0.875rem; }
+        body[data-nav="proposed-top"] .demo-banner { display: none !important; }
+        .demo-toggle { display: inline-flex; background: rgba(255,255,255,0.12); border-radius: 0.5rem; padding: 0.2rem; gap: 0.2rem; flex-shrink: 0; }
+        .demo-toggle button { border: 0; background: transparent; color: rgba(255,255,255,0.8); padding: 0.35rem 0.85rem; border-radius: 0.375rem; font-size: 0.8125rem; font-weight: 600; cursor: pointer; }
+        .demo-toggle button.is-active { background: #fff; color: #25274D; }
+        .demo-shell { padding-top: 2.75rem; }
+        body[data-nav="proposed-top"] .demo-shell { padding-top: 0; }
+        .demo-shell .header { top: 2.75rem; }
+        .demo-shell .aside { top: 2.75rem; height: calc(100% - 2.75rem); }
+        .demo-shell .main-area { padding-block-start: calc(5.625rem + 2.75rem); min-height: 100vh; }
+        body[data-nav="current"] .top-chrome { display: none !important; }
+        body[data-nav="proposed-top"] .aside-current, body[data-nav="proposed-top"] .header-legacy { display: none !important; }
+        body[data-nav="proposed-top"] .demo-shell .main-area { padding-inline-start: 0.9375rem; padding-block-start: calc(2.5rem + 3.75rem + 2.5rem); }
+
+        .top-chrome { position: fixed; left: 0; right: 0; top: 0; z-index: 1031; background: var(--bs-white); border-bottom: 1px solid var(--border-color, #E5E7EB); box-shadow: 0 0 0.125rem rgba(37,39,77,0.05), 0 0.75rem 1.5rem -0.25rem rgba(37,39,77,0.05); overflow: visible; }
+        .top-utility-bar {
+            display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+            padding: 0.35rem 0.9375rem; min-height: 2.5rem;
+            background: #1A1C38; color: #fff; flex-wrap: nowrap;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            position: relative; z-index: 3; overflow: visible;
+        }
+        .top-utility-start { display: flex; align-items: center; gap: 0.5rem; min-width: 0; flex: 1; flex-wrap: nowrap; }
+        .top-utility-brand { font-weight: 700; font-size: 0.875rem; white-space: nowrap; flex-shrink: 0; }
+        .top-utility-title { font-size: 0.8125rem; color: rgba(255,255,255,0.72); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .top-utility-end { display: flex; align-items: center; gap: 0.25rem; flex-shrink: 0; flex-wrap: nowrap; }
+        .top-utility-item { position: relative; flex-shrink: 0; z-index: 1; }
+        .top-utility-item.is-open { z-index: 1050; }
+        .top-utility-icon-btn {
+            border: 0; border-radius: 0.375rem; width: 2rem; height: 2rem; padding: 0;
+            display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+            background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.92);
+            cursor: pointer; text-decoration: none; position: relative;
+        }
+        .top-utility-icon-btn:hover, .top-utility-item.is-open > .top-utility-icon-btn,
+        .top-utility-item.is-open > .top-utility-action-btn { background: rgba(255,255,255,0.2); color: #fff; }
+        .top-utility-icon-btn .material-icons, .top-utility-icon-btn .material-symbols-outlined { font-size: 1.125rem; line-height: 1; }
+        .top-utility-action-btn {
+            border: 0; border-radius: 0.375rem; height: 2rem; padding: 0 0.75rem;
+            display: inline-flex; align-items: center; gap: 0.4rem; flex-shrink: 0;
+            background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.92);
+            font-size: 0.8125rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+            text-decoration: none;
+        }
+        .top-utility-action-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+        .top-utility-action-btn .material-icons, .top-utility-action-btn .material-symbols-outlined { font-size: 1.125rem; line-height: 1; flex-shrink: 0; }
+        .top-utility-search-btn { min-width: 8.5rem; }
+        .top-utility-search-btn .top-utility-search-kbd { margin-left: auto; }
+        .top-utility-quick-btn { min-width: 9.5rem; }
+        .top-utility-quick-btn .material-icons:last-child { font-size: 1rem; margin-left: -0.15rem; }
+        .top-utility-action-btn .top-utility-search-kbd {
+            font-size: 0.625rem; font-weight: 700; line-height: 1;
+            background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 0.2rem; padding: 0.1rem 0.3rem;
+        }
+        .top-utility-action-btn:hover .top-utility-search-kbd { background: #fff; color: #25274D; border-color: #fff; }
+        .top-utility-user {
+            width: 2rem; height: 2rem; border-radius: 50%;
+            background: var(--bs-primary); color: #fff;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
+            border: 2px solid rgba(255,255,255,0.25); cursor: pointer;
+        }
+        .top-utility-notify-dot {
+            position: absolute; top: 0.3rem; right: 0.3rem; width: 0.4rem; height: 0.4rem;
+            border-radius: 50%; background: #FF6B6B; border: 1.5px solid #1A1C38;
+        }
+        .top-nav-bar { padding: 0 0.9375rem; border-bottom: 1px solid var(--border-color, #E5E7EB); overflow: visible; position: relative; z-index: 2; }
+        .top-nav-shell { display: flex; align-items: center; gap: 0.35rem; min-height: 3.75rem; overflow: visible; flex-wrap: nowrap; }
+        .top-nav-inner { display: flex; align-items: center; gap: 0.15rem; flex: 1; min-width: 0; overflow-x: auto; overflow-y: visible; flex-wrap: nowrap; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+        .top-nav-item { position: relative; flex-shrink: 0; z-index: 1; }
+        .top-nav-item.is-open { z-index: 1050; }
+        .top-nav-trigger { border: 0; background: transparent; display: inline-flex; align-items: center; gap: 0.15rem; padding: 0.4rem 0.55rem; border-radius: 0.375rem; font-size: 0.8125rem; font-weight: 600; color: var(--bs-body-color); cursor: pointer; white-space: nowrap; text-decoration: none; flex-shrink: 0; }
+        .top-nav-trigger:hover, .top-nav-item.is-open > .top-nav-trigger, .top-nav-trigger.is-active { background: var(--bs-primary-light-bg); color: var(--bs-primary); }
+        .top-nav-trigger--accent { background: var(--bs-primary-light-bg); color: var(--bs-primary); }
+        .top-nav-item.is-open > .top-nav-trigger--accent { background: var(--bs-primary); color: #fff; }
+        .top-nav-trigger .material-icons { font-size: 1rem; }
+        .top-nav-dropdown { display: none; position: absolute; top: calc(100% + 0.35rem); left: 0; right: auto; min-width: 240px; max-width: min(320px, 92vw); max-height: min(70vh, 520px); overflow-y: auto; background: var(--bs-white); border: 1px solid var(--border-color, #E5E7EB); border-radius: 0.5rem; padding: 0.35rem; z-index: 1050; box-shadow: 0 8px 24px rgba(37,39,77,0.12); }
+        .top-nav-dropdown--align-end { left: auto; right: 0; }
+        .top-nav-item.is-open > .top-nav-dropdown { display: block !important; }
+        .top-utility-item.is-open > .top-nav-dropdown { display: block !important; }
+        .top-nav-dropdown a, .quick-action-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 0.65rem; border-radius: 0.375rem; text-decoration: none; color: inherit; font-size: 0.8125rem; width: 100%; border: 0; background: transparent; text-align: left; cursor: pointer; }
+        .top-nav-dropdown a:hover, .top-nav-dropdown a.active-menu, .quick-action-row:hover { background: var(--bs-primary); color: #fff; }
+        .dropdown-section-label { font-size: 0.625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--bs-secondary); padding: 0.55rem 0.65rem 0.2rem; pointer-events: none; }
+        .badge-count { background: var(--bs-primary-light-bg); color: var(--bs-primary); border-radius: 999px; padding: 0.05rem 0.4rem; font-size: 0.6875rem; font-weight: 700; flex-shrink: 0; }
+        .top-nav-dropdown a:hover .badge-count, .top-nav-dropdown a.active-menu .badge-count { background: #fff; color: var(--bs-primary); }
+        .quick-action-row .material-symbols-outlined { font-size: 1.125rem; }
+        .quick-action-kbd { margin-left: auto; font-size: 0.6875rem; font-weight: 700; background: var(--bs-primary-light-bg); color: var(--bs-primary); border-radius: 0.25rem; padding: 0.1rem 0.35rem; }
+        .quick-action-row:hover .quick-action-kbd { background: #fff; color: var(--bs-primary); }
+        .quick-action-divider { height: 1px; background: var(--border-color, #E5E7EB); margin: 0.25rem 0.5rem; }
+
+        .top-sub-nav-bar { padding: 0.4rem 0.9375rem; display: flex; align-items: center; gap: 0.5rem; min-height: 2.5rem; overflow-x: auto; background: var(--bs-primary-light-bg); position: relative; z-index: 1; }
+        .top-sub-nav-label { font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; color: var(--bs-secondary); letter-spacing: 0.04em; margin-right: 0.15rem; flex-shrink: 0; }
+        .top-sub-nav-link { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.3rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; text-decoration: none; color: var(--bs-body-color); white-space: nowrap; background: var(--bs-white); border: 1px solid var(--border-color, #E5E7EB); }
+        .top-sub-nav-link:hover { border-color: var(--bs-primary); color: var(--bs-primary); }
+        .top-sub-nav-link.active-menu { background: var(--bs-primary); color: #fff; border-color: var(--bs-primary); }
+        .top-sub-nav-link .badge-count { background: var(--bs-primary); color: #fff; }
+        .top-sub-nav-link.active-menu .badge-count { background: #fff; color: var(--bs-primary); }
+
+        .compare-note { background: var(--bs-primary-light-bg); border-radius: 0.5rem; padding: 0.85rem 1rem; font-size: 0.875rem; margin-bottom: 1rem; }
+        .route-preview { background: var(--bs-white); border: 1px solid var(--border-color, #E5E7EB); border-radius: 0.5rem; padding: 1.25rem; }
+        .route-preview code { font-size: 0.8125rem; word-break: break-all; }
+        .menu-stats { font-size: 0.75rem; color: var(--bs-secondary); margin-top: 0.5rem; }
+        .sub-menu { display: none; }
+        .sub-menu-opened > .sub-menu { display: block; }
+
+        .search-modal-backdrop { position: fixed; inset: 0; background: rgba(26,28,56,0.45); z-index: 3000; display: none; align-items: flex-start; justify-content: center; padding: 6rem 1rem 1rem; }
+        .search-modal-backdrop.is-open { display: flex; }
+        .search-modal { width: min(640px,100%); background: var(--bs-white); border-radius: 0.75rem; overflow: hidden; }
+        .search-modal-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.85rem 1rem; border-bottom: 1px solid var(--border-color, #E5E7EB); }
+        .search-modal-header input { flex: 1; border: 0; outline: none; font-size: 1rem; }
+        .search-modal-body { padding: 0.5rem 0; max-height: 360px; overflow: auto; }
+        .search-group-label { font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; color: var(--bs-secondary); padding: 0.5rem 1rem 0.25rem; }
+        .search-result-item { display: flex; justify-content: space-between; padding: 0.65rem 1rem; cursor: pointer; text-decoration: none; color: inherit; }
+        .search-result-item:hover { background: var(--bs-primary-light-bg); }
+    </style>
+</head>
+<body data-nav="proposed-top">
+<div class="demo-banner">
+    <div><strong>Admin navigation redesign</strong> <span class="d-none d-md-inline">— full real menu (<span id="menuItemCount">0</span> links)</span></div>
+    <div class="demo-toggle">
+        <button type="button" data-nav-toggle="current">Current</button>
+        <button type="button" data-nav-toggle="proposed-top" class="is-active">Proposed top nav</button>
+    </div>
+</div>
+
+<div class="demo-shell">
+    <header class="header header-legacy fixed-top">
+        <div class="container-fluid">
+            <div class="row align-items-center justify-content-between">
+                <div class="col-auto"><button class="aside-toggle border-0 bg-transparent p-0"><span class="material-icons">menu</span></button></div>
+                <div class="col"><ul class="nav justify-content-end gap-3"><li><span class="text-muted small">Legacy header</span></li></ul></div>
+            </div>
+        </div>
+    </header>
+
+    <div class="top-chrome">
+        <div class="top-utility-bar">
+            <div class="top-utility-start">
+                <span class="top-utility-brand">Panun Admin</span>
+                <span class="top-utility-title d-none d-sm-inline">Admin navigation redesign — full real menu (<span id="menuItemCount">0</span> links)</span>
+                <div class="demo-toggle">
+                    <button type="button" data-nav-toggle="current">Current</button>
+                    <button type="button" data-nav-toggle="proposed-top" class="is-active">Proposed top nav</button>
+                </div>
+            </div>
+            <div class="top-utility-end" id="utilityBarMount"></div>
+        </div>
+        <nav class="top-nav-bar">
+            <div class="top-nav-shell">
+                <div class="top-nav-inner" id="mainNavMount"></div>
+            </div>
+        </nav>
+        <div class="top-sub-nav-bar" id="pinnedMount">
+            <span class="top-sub-nav-label">Pinned</span>
+        </div>
+    </div>
+
+    <aside class="aside aside-current">
+        <div class="aside-header"><strong style="color:var(--bs-primary)">Panun Admin</strong></div>
+        <div class="aside-body"><p class="small text-muted px-2">Switch to <strong>Proposed top nav</strong> for the full reorganized menu.</p></div>
+    </aside>
+
+    <main class="main-area">
+        <div class="container-fluid py-3">
+            <div id="compareNote" class="compare-note">
+                <strong>Proposed top nav</strong> — dark utility bar (search, actions, chat, notifications, profile) + white menu row (links only) + pinned shortcuts.
+            </div>
+            <div class="route-preview">
+                <h2 class="h5 mb-2" id="previewTitle">Dashboard</h2>
+                <p class="text-muted mb-3" id="previewDesc">Select any menu link above. Links use the same URLs as your live admin.</p>
+                <div class="mb-2"><strong>Route:</strong></div>
+                <code id="previewRoute">/admin/dashboard</code>
+                <div class="mt-3">
+                    <a href="/admin/dashboard" id="previewOpen" class="btn btn--primary btn-sm">Open in admin</a>
+                </div>
+                <div class="menu-stats" id="menuStats"></div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div class="search-modal-backdrop" id="searchBackdrop">
+    <div class="search-modal">
+        <div class="search-modal-header">
+            <span class="material-icons text-muted">search</span>
+            <input type="search" id="globalSearch" placeholder="Search menu..." autocomplete="off">
+            <button type="button" class="btn btn-sm btn--secondary" id="closeSearch">Esc</button>
+        </div>
+        <div class="search-modal-body" id="searchResults"></div>
+    </div>
+</div>
+
+<script>
+(function () {
+    // Full menu mapped from _aside.blade.php (super-admin view, all permissions)
+    const PINNED = [
+        { label: 'Booking Requests', href: '/admin/booking/list?booking_status=all&service_type=all', count: 47 },
+        { label: 'WhatsApp', href: '/admin/social-inbox/whatsapp/conversations?channel=whatsapp&tab=chats', count: 5 },
+        { label: 'Verify Requests', href: '/admin/booking/list/verification?booking_status=pending&type=pending', count: 3 },
+        { label: 'Leads', href: '/admin/lead' }
+    ];
+
+    const QUICK_ACTIONS = [
+        { label: 'Add New Booking', href: '/admin/booking/create', icon: 'add_circle' },
+        { label: 'Add New Bidding', href: '/admin/booking/post/create', icon: 'post_add' },
+        { label: 'Add New Provider', href: '/admin/provider/create', icon: 'person_add' },
+        { divider: true },
+        { label: 'Talk With AI', href: '/admin/business-ai', icon: 'psychology' }
+    ];
+
+    const MENU_GROUPS = [
+        {
+            label: 'Dashboard',
+            direct: { label: 'Dashboard', href: '/admin/dashboard', icon: 'dashboard' }
+        },
+        {
+            label: 'Operations',
+            items: [
+                { section: 'Lead Management' },
+                { label: 'Leads', href: '/admin/lead' },
+                { label: 'Outbound Enquiry', href: '/admin/lead/outbound-enquiry' },
+                { label: 'Lead Configuration', href: '/admin/lead/configuration' },
+                { section: 'Voice' },
+                { label: 'Voice Calls', href: '/admin/voice-call' },
+                { section: 'WhatsApp & Social' },
+                { label: 'WhatsApp', href: '/admin/social-inbox/whatsapp/conversations?channel=whatsapp&tab=chats' },
+                { label: 'Message Templates', href: '/admin/social-inbox/whatsapp/booking-message-templates' },
+                { label: 'WhatsApp AI Support', href: '/admin/social-inbox/whatsapp/ai-support' },
+                { section: 'WhatsApp Marketing' },
+                { label: 'Send Bulk Message', href: '/admin/social-inbox/whatsapp/marketing/send' },
+                { label: 'Campaigns', href: '/admin/social-inbox/whatsapp/marketing/campaigns' },
+                { label: 'Templates', href: '/admin/social-inbox/whatsapp/marketing/templates' },
+                { label: 'Reports', href: '/admin/social-inbox/whatsapp/marketing/reports' },
+                { section: 'Bookings' },
+                { label: 'Booking Configuration', href: '/admin/booking/configuration' },
+                { label: 'Add New Booking', href: '/admin/booking/create' },
+                { label: 'Add New Bidding', href: '/admin/booking/post/create' },
+                { label: 'Customized Requests', href: '/admin/booking/post?type=all', count: 12 },
+                { label: 'Verify Requests', href: '/admin/booking/list/verification?booking_status=pending&type=pending', count: 3 },
+                { label: 'Booking Requests', href: '/admin/booking/list?booking_status=all&service_type=all', count: 47 },
+                { label: 'Special Scenario Bookings', href: '/admin/booking/list/special-scenarios?scenario=all', count: 8 },
+                { label: 'Booking Review', href: '/admin/booking/reviews/list', count: 2 }
+            ]
+        },
+        {
+            label: 'Customers',
+            items: [
+                { section: 'Customers' },
+                { label: 'Customer List', href: '/admin/customer/list' },
+                { label: 'Add New Customer', href: '/admin/customer/create' },
+                { label: 'Customer Cart', href: '/admin/customer-cart' },
+                { section: 'Wallet & Loyalty' },
+                { label: 'Add Fund to Wallet', href: '/admin/customer/wallet/add-fund' },
+                { label: 'Wallet Transactions', href: '/admin/customer/wallet/report' },
+                { label: 'Loyalty Points Transactions', href: '/admin/customer/loyalty-point/report' },
+                { label: 'Subscribed Newsletter', href: '/admin/customer/newsletter' }
+            ]
+        },
+        {
+            label: 'Providers',
+            items: [
+                { section: 'Onboarding & Approvals' },
+                { label: 'Onboarding Request', href: '/admin/provider/onboarding?status=onboarding', count: 4 },
+                { label: 'Work Showcase Approvals', href: '/admin/provider/showcase-approval?status=pending', count: 2 },
+                { label: 'Profile Update Requests', href: '/admin/provider/profile-change?status=pending', count: 1 },
+                { section: 'Providers' },
+                { label: 'Provider List', href: '/admin/provider/list?status=all' },
+                { label: 'Add New Provider', href: '/admin/provider/create' },
+                { label: 'Feedback Configuration', href: '/admin/provider/feedback-tags' },
+                { section: 'Withdrawals' },
+                { label: 'Withdraw Requests', href: '/admin/withdraw/request/list?status=all' },
+                { label: 'Withdraw Method Setup', href: '/admin/withdraw/method/list' }
+            ]
+        },
+        {
+            label: 'Catalog',
+            items: [
+                { label: 'Service Zones Setup', href: '/admin/zone/create' },
+                { section: 'Categories' },
+                { label: 'Category Setup', href: '/admin/category/create' },
+                { label: 'Sub Category Setup', href: '/admin/sub-category/create' },
+                { section: 'Services' },
+                { label: 'Service List', href: '/admin/service/list' },
+                { label: 'Add New Service', href: '/admin/service/create' },
+                { label: 'New Service Requests', href: '/admin/service/request/list' }
+            ]
+        },
+        {
+            label: 'Marketing',
+            items: [
+                { section: 'Discounts' },
+                { label: 'Discount List', href: '/admin/discount/list' },
+                { label: 'Add New Discount', href: '/admin/discount/create' },
+                { section: 'Coupons' },
+                { label: 'Coupon List', href: '/admin/coupon/list' },
+                { label: 'Add New Coupon', href: '/admin/coupon/create' },
+                { section: 'Wallet Bonus' },
+                { label: 'Bonus List', href: '/admin/bonus/list' },
+                { label: 'Add New Bonus', href: '/admin/bonus/create' },
+                { section: 'Campaigns' },
+                { label: 'Campaign List', href: '/admin/campaign/list' },
+                { label: 'Add New Campaign', href: '/admin/campaign/create' },
+                { section: 'Advertisements' },
+                { label: 'Ads List', href: '/admin/advertisements/ads-list?status=all' },
+                { label: 'New Ads Request', href: '/admin/advertisements/new-ads-request?status=new' },
+                { label: 'Promotional Banners', href: '/admin/banner/create' },
+                { section: 'Notifications' },
+                { label: 'Send Notifications', href: '/admin/push-notification/create' },
+                { label: 'Push Notification', href: '/admin/configuration/get-notification-setting?type=customers' },
+                { label: 'Notification Channel', href: '/admin/business-settings/notification-channel?notification_type=user' }
+            ]
+        },
+        {
+            label: 'Finance',
+            items: [
+                { label: 'All Transactions', href: '/admin/transaction/list?trx_type=all' },
+                { label: 'Razorpay Webhook Logs', href: '/admin/transaction/razorpay-webhooks' },
+                { label: 'Ledger', href: '/admin/ledger' },
+                { label: 'Pending Provider Balances', href: '/admin/transaction/pending-provider-balances' },
+                { label: 'Transaction Reports', href: '/admin/report/transaction?transaction_type=all' }
+            ]
+        },
+        {
+            label: 'Insights',
+            items: [
+                { section: 'Reports' },
+                { label: 'Business Reports', href: '/admin/report/business/overview' },
+                { label: 'Booking Reports', href: '/admin/report/booking' },
+                { label: 'Provider Reports', href: '/admin/report/provider' },
+                { label: 'Lead Reports', href: '/admin/lead/reports?tab=inbound' },
+                { label: 'User Report', href: '/admin/lead/reports/user' },
+                { section: 'Analytics' },
+                { label: 'Keyword Search', href: '/admin/analytics/search/keyword' },
+                { label: 'Customer Search', href: '/admin/analytics/search/customer' }
+            ]
+        },
+        {
+            label: 'Mobile App',
+            items: [
+                { label: 'AI', href: '/admin/mobile-app-management/ai' },
+                { label: 'App Features', href: '/admin/mobile-app-management/settings' },
+                { label: 'Home Page', href: '/admin/mobile-app-management/home-page' },
+                { label: 'Icons and Images', href: '/admin/mobile-app-management/icons' }
+            ]
+        },
+        {
+            label: 'Team',
+            items: [
+                { label: 'Employee Role Setup', href: '/admin/role/list' },
+                { label: 'Employee List', href: '/admin/employee/list' },
+                { label: 'Add New Employee', href: '/admin/employee/create' }
+            ]
+        },
+        {
+            label: 'Settings',
+            items: [
+                { section: 'Business Setup' },
+                { label: 'Business Settings', href: '/admin/business-settings/get-business-information' },
+                { label: 'Subscription Package', href: '/admin/subscription/package/list' },
+                { label: 'Subscriber List', href: '/admin/subscription/subscriber/list' },
+                { label: 'Subscription Settings', href: '/admin/subscription/settings' },
+                { label: 'Business Pages', href: '/admin/business-page-setup/list' },
+                { label: 'Social Media', href: '/admin/social-media' },
+                { label: 'Landing Page Settings', href: '/admin/business-settings/get-landing-information?web_page=text_setup' },
+                { label: '404 Logs', href: '/admin/business-settings/seo-setting?page_type=error_logs' },
+                { label: 'Cron Job', href: '/admin/business-settings/cron-job/list' },
+                { section: 'System Setup' },
+                { label: 'Login Setup', href: '/admin/business-settings/login/setup' },
+                { label: 'Language Setup', href: '/admin/configuration/language-setup' },
+                { label: 'Gallery', href: '/admin/business-settings/get-gallery-setup' },
+                { label: 'Backup Database', href: '/admin/business-settings/get-database-backup' },
+                { label: 'Reset Operational Data', href: '/admin/system-maintenance/data-reset' },
+                { label: 'System Logs', href: '/admin/system-logs' },
+                { label: 'Data Transfer', href: '/admin/data-transfer' },
+                { section: '3rd Party Setup' },
+                { label: 'Firebase', href: '/admin/configuration/third-party/firebase-configuration' },
+                { label: 'Payment Methods', href: '/admin/configuration/third-party/payment_config?webPage=payment_config&type=digital_payment' },
+                { label: 'AI Configuration', href: '/admin/configuration/ai-configuration' },
+                { label: 'Other Configuration', href: '/admin/configuration/third-party/map-api' },
+                { section: 'Add-ons' },
+                { label: 'System Addons', href: '/admin/addon' },
+                { label: 'Add-on Activation', href: '/admin/add-on-activation/index' }
+            ]
+        }
+    ];
+
+    let allLinks = [];
+    let activeHref = '/admin/dashboard';
+
+    function collectLinks() {
+        allLinks = [];
+        PINNED.forEach(function (i) { allLinks.push(i); });
+        MENU_GROUPS.forEach(function (g) {
+            if (g.direct) allLinks.push(g.direct);
+            (g.items || []).forEach(function (i) { if (i.href) allLinks.push(i); });
+        });
+        QUICK_ACTIONS.forEach(function (i) { if (i.href) allLinks.push(i); });
+    }
+
+    function badgeHtml(count) {
+        return count ? ' <span class="badge-count">' + count + '</span>' : '';
+    }
+
+    function renderDropdownItems(items) {
+        return items.map(function (item) {
+            if (item.section) {
+                return '<div class="dropdown-section-label">' + item.section + '</div>';
+            }
+            return '<a href="' + item.href + '" class="demo-nav-link" data-label="' + item.label + '">' + item.label + badgeHtml(item.count) + '</a>';
+        }).join('');
+    }
+
+    function renderMainNav() {
+        const mount = document.getElementById('mainNavMount');
+        let html = '';
+
+        MENU_GROUPS.forEach(function (group) {
+            if (group.direct) {
+                html += '<div class="top-nav-item"><a class="top-nav-trigger demo-nav-link" href="' + group.direct.href + '" data-label="' + group.direct.label + '">';
+                if (group.direct.icon) html += '<span class="material-icons">' + group.direct.icon + '</span> ';
+                html += group.direct.label + '</a></div>';
+                return;
+            }
+            html += '<div class="top-nav-item"><button type="button" class="top-nav-trigger">' + group.label + ' <span class="material-icons">expand_more</span></button>';
+            html += '<div class="top-nav-dropdown top-nav-dropdown--menu">' + renderDropdownItems(group.items) + '</div></div>';
+        });
+
+        mount.innerHTML = html;
+    }
+
+    function renderPinned() {
+        const mount = document.getElementById('pinnedMount');
+        mount.innerHTML = '<span class="top-sub-nav-label">Pinned</span>' + PINNED.map(function (item) {
+            return '<a href="' + item.href + '" class="top-sub-nav-link demo-nav-link" data-label="' + item.label + '">' + item.label + badgeHtml(item.count) + '</a>';
+        }).join('');
+    }
+
+    function renderUtilityBar() {
+        const mount = document.getElementById('utilityBarMount');
+        let itemsHtml = QUICK_ACTIONS.map(function (item) {
+            if (item.divider) return '<div class="quick-action-divider"></div>';
+            return '<a href="' + item.href + '" class="quick-action-row demo-nav-link" data-label="' + item.label + '"><span class="material-symbols-outlined">' + item.icon + '</span> ' + item.label + '</a>';
+        }).join('');
+
+        mount.innerHTML =
+            '<button type="button" class="top-utility-action-btn top-utility-search-btn js-open-search" title="Search (Ctrl+K)">' +
+                '<span class="material-symbols-outlined">search</span>' +
+                '<span>Search</span>' +
+                '<span class="top-utility-search-kbd d-none d-md-inline">Ctrl+K</span>' +
+            '</button>' +
+            '<div class="top-utility-item top-nav-quick-actions">' +
+                '<button type="button" class="top-utility-action-btn top-utility-quick-btn" title="Quick actions">' +
+                    '<span class="material-icons">bolt</span>' +
+                    '<span>Quick actions</span>' +
+                    '<span class="material-icons">expand_more</span>' +
+                '</button>' +
+                '<div class="top-nav-dropdown top-nav-dropdown--align-end">' + itemsHtml + '</div>' +
+            '</div>' +
+            '<button type="button" class="top-utility-icon-btn" title="Staff chat"><span class="material-symbols-outlined">chat</span></button>' +
+            '<button type="button" class="top-utility-icon-btn" title="Notifications"><span class="material-symbols-outlined">notifications</span><span class="top-utility-notify-dot"></span></button>' +
+            '<span class="top-utility-user" title="Profile">KA</span>';
+    }
+
+    function renderSearchIndex() {
+        const body = document.getElementById('searchResults');
+        body.innerHTML = allLinks.filter(function (l) { return l.href; }).map(function (item) {
+            return '<a class="search-result-item demo-nav-link" href="' + item.href + '" data-label="' + item.label + '"><span>' + item.label + '</span></a>';
+        }).join('');
+    }
+
+    function updateStats() {
+        const linkCount = allLinks.filter(function (l) { return l.href; }).length;
+        document.getElementById('menuItemCount').textContent = linkCount;
+        document.getElementById('menuStats').textContent = linkCount + ' links across ' + MENU_GROUPS.length + ' main menu groups (mapped from your live admin sidebar).';
+    }
+
+    function setPreview(label, href) {
+        activeHref = href;
+        document.getElementById('previewTitle').textContent = label;
+        document.getElementById('previewRoute').textContent = href;
+        document.getElementById('previewOpen').href = href;
+        document.querySelectorAll('.demo-nav-link').forEach(function (el) {
+            el.classList.toggle('active-menu', el.getAttribute('href') === href);
+        });
+    }
+
+    function closeDropdowns() {
+        document.querySelectorAll('.top-nav-item.is-open, .top-utility-item.is-open').forEach(function (el) { el.classList.remove('is-open'); });
+    }
+
+    function bindNav() {
+        document.querySelectorAll('.top-chrome .top-nav-trigger, .top-chrome .top-utility-icon-btn, .top-chrome .top-utility-action-btn').forEach(function (trigger) {
+            if (trigger.classList.contains('demo-nav-link') || trigger.classList.contains('js-open-search')) return;
+            trigger.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const item = trigger.closest('.top-nav-item, .top-utility-item');
+                if (!item) return;
+                const willOpen = !item.classList.contains('is-open');
+                closeDropdowns();
+                if (willOpen) item.classList.add('is-open');
+            });
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('.top-chrome .top-nav-item, .top-chrome .top-utility-item')) closeDropdowns();
+        });
+
+        document.body.addEventListener('click', function (e) {
+            const link = e.target.closest('.demo-nav-link');
+            if (!link || !link.href) return;
+            e.preventDefault();
+            setPreview(link.dataset.label || link.textContent.trim(), link.getAttribute('href'));
+            closeDropdowns();
+        });
+    }
+
+    const backdrop = document.getElementById('searchBackdrop');
+    function openSearch() { backdrop.classList.add('is-open'); document.getElementById('globalSearch').focus(); }
+    function closeSearch() { backdrop.classList.remove('is-open'); }
+
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('.js-open-search')) { e.preventDefault(); closeDropdowns(); openSearch(); }
+    });
+    document.getElementById('closeSearch').addEventListener('click', closeSearch);
+    backdrop.addEventListener('click', function (e) { if (e.target === backdrop) closeSearch(); });
+    document.addEventListener('keydown', function (e) {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openSearch(); }
+        if (e.key === 'Escape') closeSearch();
+    });
+
+    document.getElementById('globalSearch').addEventListener('input', function () {
+        const q = this.value.trim().toLowerCase();
+        document.querySelectorAll('#searchResults .search-result-item').forEach(function (el) {
+            el.style.display = !q || el.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+    });
+
+    document.querySelectorAll('[data-nav-toggle]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.body.dataset.nav = btn.dataset.navToggle;
+            document.querySelectorAll('[data-nav-toggle]').forEach(function (b) { b.classList.toggle('is-active', b === btn); });
+        });
+    });
+
+    collectLinks();
+    renderMainNav();
+    renderPinned();
+    renderUtilityBar();
+    renderSearchIndex();
+    updateStats();
+    bindNav();
+    setPreview('Dashboard', '/admin/dashboard');
+})();
+</script>
+</body>
+</html>

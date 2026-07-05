@@ -1,0 +1,21 @@
+{
+    "name": "nwidart/inappcallmodule",
+    "description": "In-app audio calls for customer and provider mobile apps",
+    "authors": [
+        {
+            "name": "Panun Kaergar",
+            "email": "dev@panunkaergar.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {}
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\InAppCallModule\\": ""
+        }
+    }
+}

@@ -64,12 +64,15 @@ Route::post('subscribe-newsletter',[LandingController::class, 'subscribeNewslett
 
 Route::get('/storage/{path}', function (string $path) {
     $path = str_replace(['..', '\\'], '', $path);
-    $fullPath = storage_path('app/public/'.$path);
-    if (! is_file($fullPath)) {
-        abort(404);
+
+    foreach (\App\Support\StoragePathPrefix::keyVariants($path) as $candidate) {
+        $fullPath = storage_path('app/public/'.$candidate);
+        if (is_file($fullPath)) {
+            return response()->file($fullPath);
+        }
     }
 
-    return response()->file($fullPath);
+    abort(404);
 })->where('path', '.*');
 
 Route::fallback(function () {

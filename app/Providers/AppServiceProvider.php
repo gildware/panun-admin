@@ -27,6 +27,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register()
     {
+        require_once app_path('Lib/NotificationMessageHelpers.php');
+        require_once app_path('Lib/MobileInboxNotificationHelpers.php');
+        require_once app_path('Lib/AdminInboxNotificationAvatarHelpers.php');
     }
 
     /**

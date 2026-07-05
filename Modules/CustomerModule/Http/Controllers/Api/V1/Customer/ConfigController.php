@@ -45,7 +45,7 @@ class ConfigController extends Controller
     {
         $locale = strtolower((string) $request->header('X-localization', app()->getLocale()));
         $content = CustomerApiResponseCache::remember(
-            'customer_api_config:v1:'.$locale,
+            'customer_api_config:v2:'.$locale,
             function () {
                 $response = $this->buildConfigurationResponse();
                 $decoded = json_decode($response->getContent(), true);
@@ -205,8 +205,11 @@ class ConfigController extends Controller
             'add_to_fund_wallet' => (int)((business_config('add_to_fund_wallet', 'customer_config'))->live_values ?? 0),
             'loyalty_point_status' => (int)((business_config('customer_loyalty_point', 'customer_config'))->live_values ?? 0),
             'referral_earning_status' => (int)((business_config('customer_referral_earning', 'customer_config'))->live_values ?? 0),
+            'referral_share_message_template' => (string)((business_config('referral_share_message_template', 'customer_config'))->live_values ?? ''),
             'direct_provider_booking' => (int)((business_config('direct_provider_booking', 'business_information'))->live_values ?? 0),
             'bidding_status' => (int)((business_config('bidding_status', 'bidding_system'))->live_values ?? 0),
+            'in_app_call_status' => (int)((business_config('in_app_call_status', 'in_app_call_system'))?->live_values ?? 1),
+            'nearby_provider_max_distance_km' => (int)((business_config('nearby_provider_max_distance_km', 'mobile_app_features'))?->live_values ?? 50),
             'phone_verification' => (((login_setup('phone_verification'))->value ?? 0 ) == 1 && $count == 1 ? 1 : 0),
             'email_verification' => (int)((login_setup('email_verification'))->value ?? 0),
             'cash_after_service' => (int)((business_config('cash_after_service', 'service_setup'))->live_values ?? 0),
@@ -246,6 +249,7 @@ class ConfigController extends Controller
             'newsletter_title' => DataSetting::where('type', 'landing_text_setup')->where('key', 'newsletter_title')->first()->value ?? '',
             'newsletter_description' => DataSetting::where('type', 'landing_text_setup')->where('key', 'newsletter_description')->first()->value ?? '',
             'business_pages' => mobile_visible_business_pages(),
+            'admin_details' => customer_api_admin_details(),
             'max_image_upload_size' => uploadMaxFileSize('image'),
             'max_video_upload_size' => uploadMaxFileSize('file'),
             'map_api_key_client' => $this->googleMap?->live_values['map_api_key_client'] ?? '',

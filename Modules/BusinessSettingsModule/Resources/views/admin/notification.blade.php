@@ -7,146 +7,116 @@
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/dataTables/jquery.dataTables.min.css"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/dataTables/select.dataTables.min.css"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/swiper/swiper-bundle.min.css"/>
+    <style>
+        .notification-page-section-tabs {
+            margin-bottom: 1.25rem;
+        }
+        .notification-page-section-tabs .nav-link {
+            white-space: nowrap;
+        }
+        .notification-scenario-accordion + .notification-scenario-accordion {
+            margin-top: 12px;
+        }
+        .notification-scenario-accordion .notification-scenario-toggle-header {
+            border-radius: 8px;
+        }
+        .notification-scenario-accordion .notification-scenario-toggle-header.active {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+        .notification-scenario-accordion .notification-scenario-toggle-header.active .notification-scenario-toggle-chevron {
+            transform: rotate(-180deg);
+            background-color: var(--bs-primary) !important;
+            color: var(--bs-white);
+        }
+        .notification-scenario-audience-table th,
+        .notification-scenario-audience-table td {
+            font-size: 12px;
+            vertical-align: middle;
+        }
+        .notification-scenario-badge-audience-customer {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+        .notification-scenario-badge-audience-provider {
+            background: #fff3e0;
+            color: #ef6c00;
+            border: 1px solid #ffe0b2;
+        }
+        .notification-device-badge-customer {
+            background: #e8f5e9;
+            color: #1b5e20;
+            border: 1px solid #a5d6a7;
+        }
+        .notification-device-badge-provider {
+            background: #fff3e0;
+            color: #e65100;
+            border: 1px solid #ffcc80;
+        }
+        .notification-device-badge-serviceman {
+            background: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #90caf9;
+        }
+    </style>
 @endpush
 
 @section('content')
+    @php
+        $activeSection = $activeSection ?? 'message_config';
+    @endphp
     <div class="main-content">
         <div class="container-fluid">
-             <!-- Notification Messages -->
-             <h2 class="page-title mb-3">{{translate('Notification Messages')}}</h2>
-             <div class="position-relative mb-3">
-                <ul class="nav nav--tabs scrollbar-w flex-nowrap white-nowrap overflow-x-auto flex-wrap-nowrap nav--tabs__style2">
+            <h2 class="page-title mb-3">{{ translate('Push Notification') }}</h2>
+
+            <div class="notification-page-section-tabs">
+                <ul class="nav nav--tabs nav--tabs__style2 flex-wrap gap-2 align-items-center" role="tablist">
                     <li class="nav-item">
-                        <a class="nav-link {{ request('type', 'customers') == 'customers' ? 'active' : '' }}" href="{{ request()->fullUrlWithQuery(['type' => 'customers']) }}">
-                            {{ translate('Customer') }}
+                        <a class="nav-link {{ $activeSection === 'message_config' ? 'active' : '' }}"
+                           href="{{ route('admin.configuration.get-notification-setting', array_filter([
+                               'section' => 'message_config',
+                               'tab' => $activeModuleTab ?? null,
+                           ])) }}">
+                            {{ translate('notification_message_config') }}
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{ request('type', 'providers') == 'providers' ? 'active' : '' }}" href="{{ request()->fullUrlWithQuery(['type' => 'providers']) }}">
-                            {{ translate('Providers') }}
+                        <a class="nav-link {{ $activeSection === 'logs' ? 'active' : '' }}"
+                           href="{{ route('admin.configuration.get-notification-setting', ['section' => 'logs']) }}">
+                            {{ translate('notification_logs') }}
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{ request('type', 'serviceman') == 'serviceman' ? 'active' : '' }}" href="{{ request()->fullUrlWithQuery(['type' => 'serviceman']) }}">
-                            {{ translate('Servicemen') }}
+                        <a class="nav-link {{ $activeSection === 'device_check' ? 'active' : '' }}"
+                           href="{{ route('admin.configuration.get-notification-setting', ['section' => 'device_check']) }}">
+                            {{ translate('notification_device_check') }}
                         </a>
                     </li>
                 </ul>
-                <div class="nav--tab__prev position-absolute top-0 start-3">
-                    <button class="border-0 w-38 h-38 d-flex align-items-center justify-content-center rounded-full p-0 bg-white text-primary">
-                        <span class="material-symbols-outlined">
-                            arrow_back_ios
-                        </span>
-                    </button>
-                </div>
-                <div class="nav--tab__next position-absolute top-0 right-3">
-                    <button class="border-0 w-38 h-38 d-flex align-items-center justify-content-center rounded-full p-0 bg-white text-primary">
-                        <span class="material-symbols-outlined">
-                            arrow_forward_ios
-                        </span>
-                    </button>
-                </div>
             </div>
-            <div class="bg-warning bg-opacity-10 fs-12 p-12 text-dark rounded mb-3">
-                <div class="d-flex align-items-center gap-2">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <g clip-path="url(#clip0_9562_195)">
-                        <path d="M7 14C8.38447 14 9.73785 13.5895 10.889 12.8203C12.0401 12.0511 12.9373 10.9579 13.4672 9.67879C13.997 8.3997 14.1356 6.99224 13.8655 5.63437C13.5954 4.2765 12.9287 3.02922 11.9497 2.05026C10.9708 1.07129 9.7235 0.404603 8.36563 0.134506C7.00777 -0.13559 5.6003 0.003033 4.32122 0.532846C3.04213 1.06266 1.94888 1.95987 1.17971 3.11101C0.410543 4.26216 0 5.61553 0 7C0.0020073 8.8559 0.74015 10.6352 2.05247 11.9475C3.36479 13.2599 5.1441 13.998 7 14ZM7 2.91667C7.17306 2.91667 7.34223 2.96799 7.48612 3.06413C7.63002 3.16028 7.74217 3.29694 7.8084 3.45682C7.87462 3.61671 7.89195 3.79264 7.85819 3.96237C7.82443 4.13211 7.74109 4.28802 7.61872 4.41039C7.49635 4.53276 7.34044 4.6161 7.1707 4.64986C7.00097 4.68362 6.82504 4.66629 6.66515 4.60006C6.50527 4.53384 6.36861 4.42169 6.27246 4.27779C6.17632 4.1339 6.125 3.96473 6.125 3.79167C6.125 3.55961 6.21719 3.33705 6.38128 3.17295C6.54538 3.00886 6.76794 2.91667 7 2.91667ZM6.41667 5.83334H7C7.30942 5.83334 7.60617 5.95625 7.82496 6.17505C8.04375 6.39384 8.16667 6.69058 8.16667 7V10.5C8.16667 10.6547 8.10521 10.8031 7.99581 10.9125C7.88642 11.0219 7.73804 11.0833 7.58333 11.0833C7.42862 11.0833 7.28025 11.0219 7.17086 10.9125C7.06146 10.8031 7 10.6547 7 10.5V7H6.41667C6.26196 7 6.11358 6.93855 6.00419 6.82915C5.89479 6.71975 5.83333 6.57138 5.83333 6.41667C5.83333 6.26196 5.89479 6.11359 6.00419 6.00419C6.11358 5.8948 6.26196 5.83334 6.41667 5.83334Z" fill="#FFBB38"></path>
-                        </g>
-                        <defs>
-                        <clipPath id="clip0_9562_195">
-                        <rect width="14" height="14" fill="white"></rect>
-                        </clipPath>
-                        </defs>
-                    </svg>
-                    <p class="fz-12 mb-20">{{ translate('Setup Push Notification Messages for customer. Must setup') }} <a @can('firebase_view') href="{{ route('admin.configuration.third-party','firebase-configuration') }}" @endcan target="_blank" class="text-primary text-decoration-underline fw-medium">{{ translate('Firebase Configuration') }} </a>  {{ translate('page to work notifications.') }}</p>
-                </div>
-            </div>
+
             <div class="card">
-                <div class="border-bottom p-20">
-                    <h3 class="mb-1">{{ translate('Push Notification') }}</h3>
-                    <p class="fz-12 mb-20">{{ translate('Here you set up your all push notification.') }}</p>
-                </div>
                 <div class="card-body p-20">
-                    <div class="discount-type">
-                        <div class="mb-4">
-                            @php($language= Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name','system_language')->first())
-                            @php($defaultLanguage = str_replace('_', '-', app()->getLocale()))
-                            @if($language)
-                                <ul class="nav nav--tabs border-color-primary">
-                                    <li class="nav-item">
-                                        <a class="nav-link lang_link active"
-                                            href="#"
-                                            id="default-link">{{translate('default')}}</a>
-                                    </li>
-                                    @foreach ($language?->live_values as $lang)
-                                        <li class="nav-item">
-                                            <a class="nav-link lang_link"
-                                                href="#"
-                                                id="{{ $lang['code'] }}-link">{{ get_language_name($lang['code']) }}</a>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            @endif
-                        </div>
-
-                        <div class="bg-light rounded p-20 mb-20">
-
-                            <div class="row">
-                                @if($queryParams == 'customers')
-                                    @foreach(NOTIFICATION_FOR_USER as $userNotification)
-                                        <div class="col-md-6">
-                                            <form method="POST"
-                                                  action="{{route('admin.configuration.set-message-setting', ['type' => $queryParams])}}">
-                                                @csrf
-                                                @method('PUT')
-                                                @include('businesssettingsmodule::admin.partials.notification-message-fields', [
-                                                    'notification' => $userNotification,
-                                                    'settingsType' => 'customer_notification',
-                                                    'dataValues' => $dataValues,
-                                                    'language' => $language,
-                                                ])
-                                            </form>
-                                        </div>
-                                    @endforeach
-                                @endif
-                                @if($queryParams == 'providers')
-                                    @foreach(NOTIFICATION_FOR_PROVIDER as $providerNotification)
-                                        <div class="col-md-6">
-                                            <form method="POST"
-                                                  action="{{route('admin.configuration.set-message-setting', ['type' => $queryParams])}}">
-                                                @csrf
-                                                @method('PUT')
-                                                @include('businesssettingsmodule::admin.partials.notification-message-fields', [
-                                                    'notification' => $providerNotification,
-                                                    'settingsType' => 'provider_notification',
-                                                    'dataValues' => $dataValues,
-                                                    'language' => $language,
-                                                ])
-                                            </form>
-                                        </div>
-                                    @endforeach
-                                @endif
-                                @if($queryParams == 'serviceman')
-                                    @foreach(NOTIFICATION_FOR_SERVICEMAN as $servicemanNotification)
-                                        <div class="col-md-6">
-                                            <form method="POST"
-                                                  action="{{route('admin.configuration.set-message-setting', ['type' => $queryParams])}}">
-                                                @csrf
-                                                @method('PUT')
-                                                @include('businesssettingsmodule::admin.partials.notification-message-fields', [
-                                                    'notification' => $servicemanNotification,
-                                                    'settingsType' => 'serviceman_notification',
-                                                    'dataValues' => $dataValues,
-                                                    'language' => $language,
-                                                ])
-                                            </form>
-                                        </div>
-                                    @endforeach
-                                @endif
-                            </div>
-                        </div>
-                    </div>
+                    @if($activeSection === 'message_config')
+                        @include('businesssettingsmodule::admin.partials.notification-scenario-groups', [
+                            'groupedScenarios' => $groupedScenarios,
+                            'dataValues' => $dataValues,
+                            'language' => null,
+                            'activeModuleTab' => $activeModuleTab,
+                        ])
+                    @elseif($activeSection === 'logs')
+                        @include('businesssettingsmodule::admin.partials.notification-delivery-logs', [
+                            'notificationDeliveryLogs' => $notificationDeliveryLogs ?? null,
+                            'deviceStats' => $deviceStats ?? null,
+                        ])
+                    @elseif($activeSection === 'device_check')
+                        @include('businesssettingsmodule::admin.partials.notification-device-check', [
+                            'customerUsersWithDevices' => $customerUsersWithDevices ?? null,
+                            'providerUsersWithDevices' => $providerUsersWithDevices ?? null,
+                            'deviceStats' => $deviceStats ?? null,
+                        ])
+                    @endif
                 </div>
             </div>
         </div>
@@ -313,167 +283,292 @@
 @endsection
 
 @push('script')
-    <script src="{{asset('assets/admin-module')}}/plugins/select2/select2.min.js"></script>
+    <script>
+        (function () {
+            if (!window.__notificationExtrasToggleBound) {
+                window.__notificationExtrasToggleBound = true;
+
+                document.addEventListener('click', function (e) {
+                    const btn = e.target.closest('.notification-toggle-btn, .notification-trigger-info-btn, .notification-scenario-edit-btn');
+                    if (!btn) {
+                        return;
+                    }
+
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    const selector = btn.getAttribute('data-toggle-target');
+                    if (!selector) {
+                        return;
+                    }
+
+                    const scope = btn.closest('.notification-message-form');
+                    let panel = scope ? scope.querySelector(selector) : null;
+                    if (!panel) {
+                        panel = document.querySelector(selector);
+                    }
+                    if (!panel) {
+                        return;
+                    }
+
+                    panel.classList.toggle('d-none');
+                    const isOpen = !panel.classList.contains('d-none');
+
+                    if (btn.classList.contains('notification-toggle-btn') || btn.classList.contains('notification-scenario-edit-btn')) {
+                        btn.classList.toggle('active', isOpen);
+                        const hideLabel = btn.getAttribute('data-hide-label');
+                        const showLabel = btn.getAttribute('data-show-label');
+                        if (hideLabel && showLabel) {
+                            btn.textContent = isOpen ? hideLabel : showLabel;
+                        }
+                    } else {
+                        btn.classList.toggle('active', isOpen);
+                        btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                    }
+                });
+            }
+        })();
+    </script>
+
     <script src="{{asset('assets/admin-module')}}/plugins/swiper/swiper-bundle.min.js"></script>
-    <script src="{{asset('assets/admin-module')}}/plugins/dataTables/jquery.dataTables.min.js"></script>
-    <script src="{{asset('assets/admin-module')}}/plugins/dataTables/dataTables.select.min.js"></script>
 
     <script>
         "use strict";
 
-        let swiper = new Swiper(".modalSwiper", {
-            pagination: {
-                el: ".swiper-pagination",
-                clickable: true,
-                dynamicBullets: true,
-                autoHeight: true,
-            },
-        });
-
-        $(document).ready(function () {
-            $('.js-select').select2();
-        });
-
-        $('.update-message').on('click', function () {
-            let id = $(this).data('key');
-            update_message(id)
-        });
-
-        $('#business-info-update-form').on('submit', function (event) {
-            event.preventDefault();
-
-            var form = $('#business-info-update-form')[0];
-            var formData = new FormData(form);
-
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+        (function () {
+            function whenJQueryReady(callback) {
+                if (window.jQuery) {
+                    callback(window.jQuery);
+                    return;
                 }
+
+                setTimeout(function () {
+                    whenJQueryReady(callback);
+                }, 50);
+            }
+
+            if (document.querySelector('.modalSwiper') && typeof Swiper !== 'undefined') {
+                new Swiper('.modalSwiper', {
+                    pagination: {
+                        el: '.swiper-pagination',
+                        clickable: true,
+                        dynamicBullets: true,
+                        autoHeight: true,
+                    },
+                });
+            }
+
+            const notificationPreviewSamples = @json(notification_message_preview_samples());
+
+            whenJQueryReady(function ($) {
+                function applyNotificationPreview(text) {
+                    let output = text || '';
+                    Object.keys(notificationPreviewSamples).forEach(function (name) {
+                        const token = '{' + '{' + name + '}' + '}';
+                        output = output.split(token).join(notificationPreviewSamples[name]);
+                    });
+                    return output;
+                }
+
+                function refreshNotificationPreviewForField(fieldId) {
+                    const $field = $('#' + fieldId);
+                    if (!$field.length) return;
+
+                    const role = $field.attr('data-preview-role');
+                    const previewText = applyNotificationPreview($field.val());
+                    if (role === 'title') {
+                        $('[data-preview-title-for="' + fieldId + '"]').text(previewText);
+                    } else if (role === 'description') {
+                        $('[data-preview-desc-for="' + fieldId + '"]').text(previewText);
+                    }
+                }
+
+                function initNotificationMessagePreview() {
+                    $(document).off('input.notificationExtras', '.notification-message-input');
+                    $(document).on('input.notificationExtras', '.notification-message-input', function () {
+                        refreshNotificationPreviewForField($(this).attr('id'));
+                    });
+
+                    $(document).off('click.notificationExtras', '.notification-var-chip');
+                    $(document).on('click.notificationExtras', '.notification-var-chip', function (e) {
+                        e.preventDefault();
+                        const targetId = $(this).attr('data-target');
+                        const variable = $(this).attr('data-var');
+                        const $target = $('#' + targetId);
+                        if (!$target.length) return;
+
+                        const el = $target.get(0);
+                        const start = el.selectionStart ?? $target.val().length;
+                        const end = el.selectionEnd ?? start;
+                        const value = $target.val();
+                        $target.val(value.slice(0, start) + variable + value.slice(end));
+                        $target.trigger('input').focus();
+                        el.selectionStart = el.selectionEnd = start + String(variable).length;
+                    });
+                }
+
+                function bindNotificationPageActions() {
+                    $('.js-select').select2();
+                    initNotificationMessagePreview();
+
+                    $('.update-message').off('click.notificationPage').on('click.notificationPage', function () {
+                        update_message($(this).attr('data-key'));
+                    });
+
+                    $(".lang_link").off('click.notificationPage').on('click.notificationPage', function (e) {
+                        e.preventDefault();
+                        $(".lang_link").removeClass('active');
+                        $(".lang-form").addClass('d-none');
+                        $(this).addClass('active');
+
+                        let form_id = this.id;
+                        let lang = form_id.substring(0, form_id.length - 5);
+                        $("." + lang + "-form").removeClass('d-none');
+                    });
+
+                    $('#notification_type').off('change.notificationPage').on('change.notificationPage', function () {
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('type', $(this).val());
+                        window.location.href = url.toString();
+                    });
+                }
+
+                function update_action_status(key_name, value) {
+                    Swal.fire({
+                        title: "{{translate('are_you_sure')}}?",
+                        text: '{{translate('want_to_update_status')}}',
+                        type: 'warning',
+                        showCloseButton: true,
+                        showCancelButton: true,
+                        cancelButtonColor: 'var(--bs-secondary)',
+                        confirmButtonColor: 'var(--bs-primary)',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonText: 'Yes',
+                        reverseButtons: true
+                    }).then((result) => {
+                        if (result.value) {
+                            $.ajaxSetup({
+                                headers: {
+                                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                                }
+                            });
+                            $.ajax({
+                                url: "{{route('admin.configuration.set-notification-setting')}}",
+                                data: {
+                                    key: key_name,
+                                    value: value,
+                                },
+                                type: 'put',
+                                success: function (response) {
+                                    console.log(response)
+                                    toastr.success('{{translate('successfully_updated')}}')
+                                },
+                                error: function () {
+
+                                }
+                            });
+                        }
+                    })
+                }
+
+                function update_message(id) {
+                    var $status = $('#' + id + '_status');
+                    var messageType = $status.data('message-type') || 'customers';
+                    Swal.fire({
+                        title: "{{translate('are_you_sure')}}?",
+                        text: '{{translate('want_to_update')}}',
+                        type: 'warning',
+                        showCloseButton: true,
+                        showCancelButton: true,
+                        cancelButtonColor: 'var(--bs-secondary)',
+                        confirmButtonColor: 'var(--bs-primary)',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonText: 'Yes',
+                        reverseButtons: true
+                    }).then((result) => {
+                        if (result.value) {
+
+                            $.ajaxSetup({
+                                headers: {
+                                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                                }
+                            });
+                            $.ajax({
+                                url: "{{route('admin.configuration.set-message-setting')}}",
+                                data: {
+                                    id: id,
+                                    status: $('#' + id + '_status').is(':checked') === true ? 1 : 0,
+                                    message: $('#' + id + '_message').val(),
+                                    type: messageType,
+                                    change_type: "status"
+                                },
+                                type: 'post',
+                                success: function (response) {
+                                    console.log(response)
+                                    toastr.success('{{translate('successfully_updated')}}')
+                                },
+                                error: function () {
+
+                                }
+                            });
+                        }
+                    })
+                }
+
+                function bootNotificationPage() {
+                    bindNotificationPageActions();
+
+                    $('#business-info-update-form').off('submit.notificationPage').on('submit.notificationPage', function (event) {
+                        event.preventDefault();
+
+                        var form = $('#business-info-update-form')[0];
+                        var formData = new FormData(form);
+
+                        $.ajaxSetup({
+                            headers: {
+                                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                            }
+                        });
+                        $.ajax({
+                            url: "{{route('admin.business-settings.set-business-information')}}",
+                            data: formData,
+                            processData: false,
+                            contentType: false,
+                            type: 'POST',
+                            success: function (response) {
+                                toastr.success('{{translate('successfully_updated')}}')
+                            },
+                            error: function () {
+
+                            }
+                        });
+                    });
+
+                    $(".push-notification-update-action-status").off('click.notificationPage').on('click.notificationPage', function () {
+                        let keyName = $(this).attr('data-keyname');
+                        let value = $(this).is(':checked') === true ? 1 : 0
+                        update_action_status(keyName, value);
+                    });
+                }
+
+                $(document).ready(bootNotificationPage);
+                document.addEventListener('admin:page-loaded', bootNotificationPage);
+
+                document.addEventListener('click', function (e) {
+                    var header = e.target.closest('.notification-user-device-accordion .notification-scenario-toggle-header');
+                    if (!header) {
+                        return;
+                    }
+                    e.preventDefault();
+                    var body = header.nextElementSibling;
+                    if (!body || !body.classList.contains('notification-scenario-toggle-body')) {
+                        return;
+                    }
+                    var isOpen = window.getComputedStyle(body).display !== 'none';
+                    body.style.display = isOpen ? 'none' : 'block';
+                    header.classList.toggle('active', !isOpen);
+                });
             });
-            $.ajax({
-                url: "{{route('admin.business-settings.set-business-information')}}",
-                data: formData,
-                processData: false,
-                contentType: false,
-                type: 'POST',
-                success: function (response) {
-                    toastr.success('{{translate('successfully_updated')}}')
-                },
-                error: function () {
-
-                }
-            });
-        });
-
-        $(".push-notification-update-action-status").on('click', function () {
-            let keyName = $(this).data('keyname');
-            let value = $(this).is(':checked') === true ? 1 : 0
-            update_action_status(keyName, value);
-        })
-
-        function update_action_status(key_name, value) {
-            Swal.fire({
-                title: "{{translate('are_you_sure')}}?",
-                text: '{{translate('want_to_update_status')}}',
-                type: 'warning',
-                showCloseButton: true,
-                showCancelButton: true,
-                cancelButtonColor: 'var(--bs-secondary)',
-                confirmButtonColor: 'var(--bs-primary)',
-                cancelButtonText: 'Cancel',
-                confirmButtonText: 'Yes',
-                reverseButtons: true
-            }).then((result) => {
-                if (result.value) {
-                    $.ajaxSetup({
-                        headers: {
-                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                        }
-                    });
-                    $.ajax({
-                        url: "{{route('admin.configuration.set-notification-setting')}}",
-                        data: {
-                            key: key_name,
-                            value: value,
-                        },
-                        type: 'put',
-                        success: function (response) {
-                            console.log(response)
-                            toastr.success('{{translate('successfully_updated')}}')
-                        },
-                        error: function () {
-
-                        }
-                    });
-                }
-            })
-        }
-
-        function update_message(id) {
-            Swal.fire({
-                title: "{{translate('are_you_sure')}}?",
-                text: '{{translate('want_to_update')}}',
-                type: 'warning',
-                showCloseButton: true,
-                showCancelButton: true,
-                cancelButtonColor: 'var(--bs-secondary)',
-                confirmButtonColor: 'var(--bs-primary)',
-                cancelButtonText: 'Cancel',
-                confirmButtonText: 'Yes',
-                reverseButtons: true
-            }).then((result) => {
-                if (result.value) {
-
-                    $.ajaxSetup({
-                        headers: {
-                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                        }
-                    });
-                    $.ajax({
-                        url: "{{route('admin.configuration.set-message-setting')}}",
-                        data: {
-                            id: id,
-                            status: $('#' + id + '_status').is(':checked') === true ? 1 : 0,
-                            message: $('#' + id + '_message').val(),
-                            type: "{{$queryParams}}",
-                            change_type: "status"
-                        },
-                        type: 'post',
-                        success: function (response) {
-                            console.log(response)
-                            toastr.success('{{translate('successfully_updated')}}')
-                        },
-                        error: function () {
-
-                        }
-                    });
-                }
-            })
-        }
-
-        $(document).ready(function () {
-            $('#notification_type').on('change', function () {
-                var selectedOption = $(this).val();
-
-                var currentUrl = window.location.href;
-                var url = new URL(currentUrl);
-
-                url.searchParams.set('type', selectedOption);
-
-                window.location.href = url.toString();
-            });
-        });
-
-        $(".lang_link").on('click', function (e) {
-            e.preventDefault();
-            $(".lang_link").removeClass('active');
-            $(".lang-form").addClass('d-none');
-            $(this).addClass('active');
-
-            let form_id = this.id;
-            let lang = form_id.substring(0, form_id.length - 5);
-            console.log(lang);
-            $("." + lang + "-form").removeClass('d-none');
-        });
+        })();
     </script>
 @endpush

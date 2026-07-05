@@ -102,6 +102,9 @@
                         <a class="nav-link {{ $webPage == 'bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=bookings">{{ translate('Bookings') }}</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {{ $webPage == 'withdrawn_bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=withdrawn_bookings">{{ translate('Provider_withdrawals_and_rejections') }}</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {{ $webPage == 'special_bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=special_bookings">{{ translate('Special_Bookings') }}</a>
                     </li>
                     <li class="nav-item">
@@ -363,25 +366,76 @@
 
 @push('script')
     <script>
-        "use strict";
-        let pendingProviderStatusForm = null;
-        const providerStatusModalEl = document.getElementById('providerStatusConfirmModal');
-        const providerStatusModal = bootstrap.Modal.getOrCreateInstance(providerStatusModalEl);
+        (function () {
+            "use strict";
 
-        document.querySelectorAll('.confirm-status-change-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                pendingProviderStatusForm = btn.closest('form');
-                const statusLabel = btn.dataset.statusLabel || '';
-                document.getElementById('providerStatusConfirmText').textContent = `Are you sure you want to set status to "${statusLabel}"?`;
-                providerStatusModal.show();
-            });
-        });
+            let pendingProviderStatusForm = null;
+            let providerStatusModal = null;
 
-        document.getElementById('providerStatusConfirmSubmit').addEventListener('click', function () {
-            if (pendingProviderStatusForm) {
-                pendingProviderStatusForm.submit();
+            function initProviderPerformanceStatusActions(root) {
+                root = root || document.getElementById('admin-main') || document;
+
+                const modalEl = root.querySelector
+                    ? root.querySelector('#providerStatusConfirmModal')
+                    : document.getElementById('providerStatusConfirmModal');
+
+                if (!modalEl || !window.bootstrap || typeof window.bootstrap.Modal !== 'function') {
+                    return false;
+                }
+
+                providerStatusModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+                root.querySelectorAll('.confirm-status-change-btn').forEach(function (btn) {
+                    if (btn.dataset.providerStatusBound === '1') {
+                        return;
+                    }
+                    btn.dataset.providerStatusBound = '1';
+                    btn.addEventListener('click', function () {
+                        pendingProviderStatusForm = btn.closest('form');
+                        const statusLabel = btn.dataset.statusLabel || '';
+                        const textEl = document.getElementById('providerStatusConfirmText');
+                        if (textEl) {
+                            textEl.textContent = `Are you sure you want to set status to "${statusLabel}"?`;
+                        }
+                        providerStatusModal.show();
+                    });
+                });
+
+                const submitBtn = document.getElementById('providerStatusConfirmSubmit');
+                if (submitBtn && submitBtn.dataset.providerStatusBound !== '1') {
+                    submitBtn.dataset.providerStatusBound = '1';
+                    submitBtn.addEventListener('click', function () {
+                        if (pendingProviderStatusForm) {
+                            pendingProviderStatusForm.submit();
+                        }
+                    });
+                }
+
+                return true;
             }
-        });
+
+            function bootProviderPerformanceStatusActions() {
+                if (initProviderPerformanceStatusActions(document.getElementById('admin-main') || document)) {
+                    return;
+                }
+
+                // Partial nav loads page scripts inside turbo-frame before bootstrap.bundle.min.js.
+                window.addEventListener('load', function () {
+                    initProviderPerformanceStatusActions(document.getElementById('admin-main') || document);
+                }, { once: true });
+            }
+
+            if (!window.__providerPerformanceStatusBound) {
+                window.__providerPerformanceStatusBound = true;
+                document.addEventListener('admin:page-loaded', function (event) {
+                    initProviderPerformanceStatusActions(
+                        event.detail && event.detail.root ? event.detail.root : document
+                    );
+                });
+            }
+
+            bootProviderPerformanceStatusActions();
+        })();
     </script>
 @endpush
 

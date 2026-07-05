@@ -51,11 +51,17 @@ class ChattingController extends Controller
         }
 
         //admin channel
-        $channel = $this->createNewChannel(
+        $superAdminId = getSuperAdminId();
+        if (! $superAdminId) {
+            return response()->json(response_formatter(DEFAULT_500, null, [[
+                'message' => translate('Super_admin_not_configured'),
+            ]]), 500);
+        }
+
+        $channel = $this->findOrCreateSupportChannel(
             fromUser: $request->user()->id,
-            toUser: getSuperAdminId(),
-            referenceId : '',
-            referenceType : 'support',
+            toUser: $superAdminId,
+            app: 'provider',
         );
 
         $adminChannel = $this->channelList
@@ -68,6 +74,7 @@ class ChattingController extends Controller
             ->first();
 
         $this->formatConversation($adminChannel);
+        $this->markChannelReadWhenEmpty($adminChannel, (string) $request->user()->id);
 
         //channels except admin
         $channelList = $this->channelList->withCount('channelUsers')
@@ -80,6 +87,10 @@ class ChattingController extends Controller
                 $query->where(['user_id' => $request->user()->id]);
             })
             ->where('id', '!=', $adminChannel->id)
+            ->where(function ($query) {
+                $query->whereNull('reference_type')
+                    ->orWhereNotIn('reference_type', support_channel_reference_types());
+            })
             ->orderBy('updated_at', 'DESC')
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
@@ -235,7 +246,7 @@ class ChattingController extends Controller
                     'is_read' => 0
                 ]);
 
-            $channelConversation = $this->channelConversation;
+            $channelConversation = new ChannelConversation();
             $channelConversation->channel_id = $request->channel_id;
             $channelConversation->message = $request['message'];
             $channelConversation->user_id = $request->user()->id;
@@ -274,18 +285,19 @@ class ChattingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $this->channelUser->where('channel_id', $request['channel_id'])
-            ->where('user_id', $request->user()->id)
-            ->update([
-                'is_read' => 1
-            ]);
+        try {
+            $conversation = $this->paginateChannelConversationForUser($request);
+            if ($conversation === null) {
+                return response()->json(response_formatter(DEFAULT_403, null), 403);
+            }
 
-        $conversation = $this->channelConversation->where(['channel_id' => $request['channel_id']])
-            ->with(['user', 'conversationFiles'])->whereHas('channel.channelUsers', function ($query) use ($request) {
-                $query->where(['user_id' => $request->user()->id]);
-            })->latest()
-            ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
+            return response()->json(response_formatter(DEFAULT_STORE_200, $conversation), 200);
+        } catch (\Throwable $e) {
+            report($e);
 
-        return response()->json(response_formatter(DEFAULT_STORE_200, $conversation), 200);
+            return response()->json(response_formatter(DEFAULT_500, null, [[
+                'message' => translate('Internal Server Error'),
+            ]]), 500);
+        }
     }
 }

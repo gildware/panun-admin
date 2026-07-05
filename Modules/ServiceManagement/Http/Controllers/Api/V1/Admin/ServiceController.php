@@ -8,6 +8,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Str;
 use Modules\BookingModule\Entities\Booking;
 use Modules\ServiceManagement\Entities\Service;
+use Modules\ServiceManagement\Entities\ServiceVariant;
 use Illuminate\Support\Facades\Validator;
 
 class ServiceController extends Controller
@@ -117,13 +118,28 @@ class ServiceController extends Controller
 
         $variationFormat = [];
         foreach ($request['variations'] as $variant) {
+            $variantKey = Str::slug($variant->variationName);
+            $serviceVariant = ServiceVariant::query()->updateOrCreate(
+                [
+                    'service_id' => $service->id,
+                    'variant_key' => $variantKey,
+                ],
+                [
+                    'title' => $variant->variationName,
+                    'description' => $variant->description ?? null,
+                    'image' => $variant->image ?? null,
+                    'is_active' => true,
+                ]
+            );
+
             foreach ($variant->zoneWiseVariations as $zone_wise_info) {
                 $variationFormat[] = [
                     'variant' => $variant->variationName,
-                    'variant_key' => Str::slug($variant->variationName),
+                    'variant_key' => $variantKey,
+                    'service_variant_id' => $serviceVariant->id,
                     'zone_id' => $zone_wise_info->id,
                     'price' => $zone_wise_info->price,
-                    'service_id' => $service->id
+                    'service_id' => $service->id,
                 ];
             }
         }
@@ -186,22 +202,9 @@ class ServiceController extends Controller
 
     private function variationsReactFormat($service)
     {
-        $variants = collect($service['variations'])->pluck('variant_key')->unique();
-        $storage = [];
-        foreach ($variants as $variant) {
-            $formatting = [];
-            $filtered = $service['variations']->where('variant_key', $variant);
-            $formatting['variationName'] = $variant;
-            $formatting['variationPrice'] = $filtered->first()->price;
-            foreach ($filtered as $single_variant) {
-                $formatting['zoneWiseVariations'][] = [
-                    'id' => $single_variant['zone_id'],
-                    'price' => $single_variant['price']
-                ];
-            }
-            $storage[] = $formatting;
-        }
-        $service['variations_react_format'] = $storage;
+        $service->loadMissing(['variations', 'serviceVariants']);
+        $service['variations_react_format'] = $service->buildVariationsReactFormat();
+
         return $service;
     }
 
@@ -268,15 +271,38 @@ class ServiceController extends Controller
 
         $service->variations()->delete();
 
+        $keptKeys = collect($request['variations'])->map(fn ($v) => Str::slug($v->variationName))->unique()->values();
+        ServiceVariant::query()
+            ->where('service_id', $service->id)
+            ->whereNotIn('variant_key', $keptKeys)
+            ->get()
+            ->each
+            ->delete();
+
         $variationFormat = [];
         foreach ($request['variations'] as $variant) {
+            $variantKey = Str::slug($variant->variationName);
+            $serviceVariant = ServiceVariant::query()->updateOrCreate(
+                [
+                    'service_id' => $service->id,
+                    'variant_key' => $variantKey,
+                ],
+                [
+                    'title' => $variant->variationName,
+                    'description' => $variant->description ?? null,
+                    'image' => $variant->image ?? null,
+                    'is_active' => true,
+                ]
+            );
+
             foreach ($variant->zoneWiseVariations as $zone_wise_info) {
                 $variationFormat[] = [
                     'variant' => $variant->variationName,
-                    'variant_key' => Str::slug($variant->variationName),
+                    'variant_key' => $variantKey,
+                    'service_variant_id' => $serviceVariant->id,
                     'zone_id' => $zone_wise_info->id,
                     'price' => $zone_wise_info->price,
-                    'service_id' => $service->id
+                    'service_id' => $service->id,
                 ];
             }
         }

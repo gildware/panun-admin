@@ -6,6 +6,8 @@ use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Facades\Cache;
+use Modules\BusinessSettingsModule\Services\BusinessConfigCache;
 
 class BusinessSettings extends Model
 {
@@ -33,5 +35,17 @@ class BusinessSettings extends Model
     public function storage()
     {
         return $this->hasOne(Storage::class, 'model_id');
+    }
+
+    protected static function booted(): void
+    {
+        static::saved(function () {
+            BusinessConfigCache::forgetAll();
+            Cache::forget('system_language_defaults:v1');
+        });
+        static::deleted(function () {
+            BusinessConfigCache::forgetAll();
+            Cache::forget('system_language_defaults:v1');
+        });
     }
 }

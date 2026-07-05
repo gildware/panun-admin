@@ -2,6 +2,7 @@
 
 namespace Modules\Auth\Services;
 
+use App\Support\StoragePathPrefix;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
@@ -451,7 +452,7 @@ class ProviderRegistrationDraftService
         }
 
         $disk = getDisk();
-        $dir = rtrim($destinationDir, '/') . '/';
+        $dir = StoragePathPrefix::apply(rtrim($destinationDir, '/') . '/');
         $imageName = now()->toDateString() . '-' . uniqid() . '.' . $format;
 
         try {
@@ -462,7 +463,9 @@ class ProviderRegistrationDraftService
                 $dir . $imageName,
                 Storage::disk('public')->get($relativePath)
             );
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            report($e);
+
             return null;
         }
 

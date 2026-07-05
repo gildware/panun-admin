@@ -39,6 +39,7 @@ use Modules\BusinessSettingsModule\Entities\PackageSubscriberLimit;
 use Modules\BusinessSettingsModule\Entities\SubscriptionPackage;
 use Modules\PaymentModule\Entities\PaymentRequest;
 use Modules\PaymentModule\Traits\SubscriptionTrait;
+use Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement;
 use Modules\ProviderManagement\Emails\AccountSuspendMail;
 use Modules\ProviderManagement\Emails\AccountUnsuspendMail;
 use Modules\ProviderManagement\Emails\NewJoiningRequestMail;
@@ -912,7 +913,7 @@ class ProviderController extends Controller
     {
         $this->authorize('provider_view');
         $request->validate([
-            'web_page' => 'in:overview,subscribed_services,bookings,special_bookings,serviceman_list,settings,bank_information,reviews,subscription,payment,performance',
+            'web_page' => 'in:overview,subscribed_services,bookings,withdrawn_bookings,special_bookings,serviceman_list,settings,bank_information,reviews,subscription,payment,performance',
         ]);
 
         $webPage = $request->has('web_page') ? $request['web_page'] : 'overview';
@@ -985,9 +986,12 @@ class ProviderController extends Controller
             }
 
             $pendingShowcaseItems = ProviderShowcaseItem::where('provider_id', $id)
+                ->with('storage')
                 ->where('is_approved', ProviderShowcaseItem::STATUS_PENDING)
                 ->orderByDesc('created_at')
                 ->get();
+
+            $withdrawnBookingsCount = (int) $this->booking->where('provider_cancelled_by_provider_id', $id)->count();
 
             return view('providermanagement::admin.provider.detail.overview', compact(
                 'provider',
@@ -1003,7 +1007,8 @@ class ProviderController extends Controller
                 'scaledLossCompanyShareTotal',
                 'additionalDocuments',
                 'additionalDocumentFiles',
-                'pendingShowcaseItems'
+                'pendingShowcaseItems',
+                'withdrawnBookingsCount',
             ));
 
         } //subscribed_services
@@ -1231,6 +1236,35 @@ class ProviderController extends Controller
                 ->paginate(pagination_limit())->appends($queryParam);
 
             return view('providermanagement::admin.provider.detail.bookings', compact('bookings', 'webPage', 'search', 'provider'));
+
+        } elseif ($request->web_page == 'withdrawn_bookings') {
+            $webPage = $request->web_page;
+            $search = $request->has('search') ? $request['search'] : '';
+            $queryParam = ['web_page' => $webPage, 'search' => $search];
+
+            $provider = $this->provider->with('owner')->find($id);
+
+            $bookings = $this->booking
+                ->where('provider_cancelled_by_provider_id', $id)
+                ->with([
+                    'customer',
+                    'latestParentProviderCancellationStatusHistory.providerCancellationReason',
+                    'latestProviderRejectionHistory.providerCancellationReason',
+                    'latestPendingCancellationRequestHistory.providerCancellationReason',
+                ])
+                ->when($search, function ($query) use ($search) {
+                    $keys = explode(' ', $search);
+                    foreach ($keys as $key) {
+                        $query->where('readable_id', 'LIKE', '%' . $key . '%');
+                    }
+                })
+                ->orderByDesc('provider_cancelled_at')
+                ->paginate(pagination_limit())
+                ->appends($queryParam);
+
+            $withdrawnCount = (int) $this->booking->where('provider_cancelled_by_provider_id', $id)->count();
+
+            return view('providermanagement::admin.provider.detail.withdrawn-bookings', compact('bookings', 'webPage', 'search', 'provider', 'withdrawnCount'));
 
         } //serviceman_list
         elseif ($request->web_page == 'serviceman_list') {
@@ -2876,6 +2910,21 @@ class ProviderController extends Controller
     }
 
     /**
+     * Toggle per-provider advertisement access override.
+     * 1 = force enable (bypass minimum bookings), 0 = force disable, null = follow global rules.
+     */
+    public function advertisementAvailability($id): JsonResponse
+    {
+        $this->authorize('provider_manage_status');
+
+        $provider = $this->provider->where('id', $id)->first();
+        $current = $provider?->allow_advertisement;
+        $next = (int) $current === 1 ? 0 : 1;
+        $this->provider->where('id', $id)->update(['allow_advertisement' => $next]);
+        return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
+    }
+
+    /**
      * Remove the specified resource from storage.
      * @param $id
      * @return JsonResponse
@@ -2885,16 +2934,17 @@ class ProviderController extends Controller
         $this->authorize('provider_manage_status');
 
         $provider = $this->provider->where('id', $id)->first();
+        $wasSuspended = (int) ($provider->is_suspended ?? 0) === 1;
         $this->provider->where('id', $id)->update(['is_suspended' => !$provider->is_suspended]);
         $provider_info = $this->provider->where('id', $id)->first();
 
+        if ($wasSuspended && (int) ($provider_info?->is_suspended ?? 0) === 0) {
+            ProviderManualPerformanceEnforcement::clearActiveSuspension($provider_info);
+            $provider_info->refresh();
+        }
+
         if ($provider_info?->is_suspended == '1') {
-            $provider = $provider_info?->owner;
-            $title = get_push_notification_message('provider_suspend', 'provider_notification', $provider?->current_language_key);
-            $description = get_push_notification_description('provider_suspend', 'provider_notification', $provider?->current_language_key);
-            if ($provider?->fcm_token && $title) {
-                device_notification($provider?->fcm_token, $title, $description, null, $provider_info->id, 'suspend');
-            }
+            send_provider_suspended_notification($provider_info);
 
             $emailStatus = business_config('email_config_status', 'email_config')->live_values;
 
@@ -2907,12 +2957,7 @@ class ProviderController extends Controller
             }
 
         } else {
-            $provider = $provider_info?->owner;
-            $title = get_push_notification_message('provider_suspension_remove', 'provider_notification', $provider?->current_language_key);
-            $description = get_push_notification_description('provider_suspension_remove', 'provider_notification', $provider?->current_language_key);
-            if ($provider?->fcm_token && $title) {
-                device_notification($provider?->fcm_token, $title, $description, null, $provider_info->id, 'suspend');
-            }
+            send_provider_suspension_removed_notification($provider_info);
 
             $emailStatus = business_config('email_config_status', 'email_config')->live_values;
 
@@ -3104,6 +3149,7 @@ class ProviderController extends Controller
             ->values();
 
         $pendingShowcaseItems = ProviderShowcaseItem::where('provider_id', $id)
+            ->with('storage')
             ->where('is_approved', ProviderShowcaseItem::STATUS_PENDING)
             ->orderByDesc('created_at')
             ->get();
@@ -3124,7 +3170,7 @@ class ProviderController extends Controller
         $search = $request['search'];
         $queryParam = ['status' => $status, 'search' => $request['search']];
 
-        $query = ProviderShowcaseItem::with('provider.owner')
+        $query = ProviderShowcaseItem::with(['provider.owner', 'storage'])
             ->when($request->has('search'), function ($q) use ($request) {
                 $keys = explode(' ', $request['search']);
                 $q->whereHas('provider', function ($pq) use ($keys) {
@@ -3164,6 +3210,9 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400), 400);
         }
         $item->save();
+
+        $messageKey = $status === 'approve' ? 'showcase_approve' : 'showcase_deny';
+        send_showcase_provider_notification($item, $messageKey);
 
         return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
     }
@@ -3210,14 +3259,20 @@ class ProviderController extends Controller
         $changeRequest = ProviderChangeRequest::with('provider.owner', 'provider.zones.parentZone')
             ->findOrFail($id);
 
-        $proposedChanges = app(ProviderProfileChangeDiffService::class)->build($changeRequest);
+        $reviewService = app(ProviderProfileChangeRequestService::class);
+        $proposedChanges = $reviewService->buildReviewDisplayChanges($changeRequest);
+        $pendingReviewCount = $reviewService->pendingReviewCount($changeRequest);
 
-        return view('providermanagement::admin.provider.detail.profile-change-details', compact('changeRequest', 'proposedChanges'));
+        return view('providermanagement::admin.provider.detail.profile-change-details', compact(
+            'changeRequest',
+            'proposedChanges',
+            'pendingReviewCount'
+        ));
     }
 
     public function updateProfileChangeApproval(string $id, string $status): JsonResponse
     {
-        $this->authorize('onboarding_request_manage_status');
+        $this->authorize('onboarding_request_approve_or_deny');
 
         $changeRequest = ProviderChangeRequest::findOrFail($id);
         if ($changeRequest->status !== ProviderChangeRequest::STATUS_PENDING) {
@@ -3237,7 +3292,129 @@ class ProviderController extends Controller
         $changeRequest->reviewed_at = now();
         $changeRequest->save();
 
+        $messageKey = $status === 'approve' ? 'profile_change_approve' : 'profile_change_deny';
+        send_profile_change_provider_notification($changeRequest->loadMissing('provider.owner'), $messageKey);
+
         return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
+    }
+
+    public function reviewProfileChange(Request $request, string $id): JsonResponse
+    {
+        $this->authorize('onboarding_request_approve_or_deny');
+
+        $changeRequest = ProviderChangeRequest::with('provider')->findOrFail($id);
+        if ($changeRequest->status !== ProviderChangeRequest::STATUS_PENDING) {
+            return response()->json(response_formatter(DEFAULT_400), 400);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'decisions' => 'required|array|min:1',
+            'decisions.*.approved' => 'required|in:0,1,true,false,on,yes',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $service = app(ProviderProfileChangeRequestService::class);
+        $expectedKeys = collect($service->pendingFieldChangesForRequest($changeRequest))
+            ->sort()
+            ->values();
+        $decisionKeys = collect($request->input('decisions', []))
+            ->map(function (array $decision) {
+                if (! empty($decision['field_key'])) {
+                    return (string) $decision['field_key'];
+                }
+
+                return ! empty($decision['sub_category_id']) ? (string) $decision['sub_category_id'] : null;
+            })
+            ->filter()
+            ->sort()
+            ->values();
+
+        if ($expectedKeys->isEmpty() || $expectedKeys->toJson() !== $decisionKeys->toJson()) {
+            return response()->json(response_formatter(DEFAULT_400), 400);
+        }
+
+        foreach ($request->input('decisions', []) as $decision) {
+            $fieldKey = ! empty($decision['field_key'])
+                ? (string) $decision['field_key']
+                : (string) ($decision['sub_category_id'] ?? '');
+            $approved = in_array($decision['approved'] ?? false, [true, 1, '1', 'true', 'on', 'yes'], true);
+
+            if ($fieldKey === '') {
+                return response()->json(response_formatter(DEFAULT_400), 400);
+            }
+
+            try {
+                $service->reviewSingleField($changeRequest, $fieldKey, $approved, auth()->id());
+            } catch (\InvalidArgumentException) {
+                return response()->json(response_formatter(DEFAULT_400), 400);
+            }
+
+            $changeRequest->refresh();
+        }
+
+        $changeRequest->loadMissing('provider.owner');
+        $messageKey = $changeRequest->status === ProviderChangeRequest::STATUS_APPROVED
+            ? 'profile_change_approve'
+            : 'profile_change_deny';
+        send_profile_change_provider_notification($changeRequest, $messageKey);
+
+        return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200, [
+            'request_closed' => true,
+            'request_status' => $changeRequest->status,
+            'remaining_count' => 0,
+        ]), 200);
+    }
+
+    public function reviewProfileChangeField(Request $request, string $id): JsonResponse
+    {
+        $this->authorize('onboarding_request_approve_or_deny');
+
+        $changeRequest = ProviderChangeRequest::with('provider.owner')->findOrFail($id);
+        if ($changeRequest->status !== ProviderChangeRequest::STATUS_PENDING) {
+            return response()->json(response_formatter(DEFAULT_400), 400);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'field_key' => 'required|string',
+            'approved' => 'required|in:0,1,true,false,on,yes',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $approved = in_array($request->input('approved'), [true, 1, '1', 'true', 'on', 'yes'], true);
+        $fieldKey = (string) $request->input('field_key');
+
+        try {
+            $result = app(ProviderProfileChangeRequestService::class)->reviewSingleField(
+                $changeRequest,
+                $fieldKey,
+                $approved,
+                auth()->id()
+            );
+        } catch (\InvalidArgumentException) {
+            return response()->json(response_formatter(DEFAULT_400), 400);
+        }
+
+        send_profile_change_provider_notification(
+            $changeRequest->fresh()->loadMissing('provider.owner'),
+            $result['message_key']
+        );
+
+        $changeRequest->refresh();
+
+        return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200, [
+            'field_key' => $result['field_key'],
+            'field_label' => $result['field_label'],
+            'approved' => $result['approved'],
+            'remaining_count' => $result['remaining_count'],
+            'request_closed' => $result['request_closed'],
+            'request_status' => $changeRequest->status,
+        ]), 200);
     }
 
     public function updateApproval($id, $status, Request $request): JsonResponse
@@ -3261,6 +3438,8 @@ class ProviderController extends Controller
                 }
             }
 
+            send_provider_onboarding_status_notification($provider, 'onboarding_approve');
+
         } elseif ($status == 'deny') {
             $this->provider->where('id', $id)->update(['is_active' => 0, 'is_approved' => 0]);
             $provider = $this->provider->with('owner')->where('id', $id)->first();
@@ -3274,6 +3453,8 @@ class ProviderController extends Controller
                     info($exception);
                 }
             }
+
+            send_provider_onboarding_status_notification($provider, 'onboarding_deny');
 
         } else {
             return response()->json(response_formatter(DEFAULT_400), 200);
@@ -3451,11 +3632,11 @@ class ProviderController extends Controller
                 $previousProvider = $oldProviderId ? $this->provider->with('owner')->find($oldProviderId) : null;
                 $booking->refresh();
                 $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
+                send_booking_provider_reassignment_notifications($booking, $oldProviderId ? (string) $oldProviderId : null, (string) $providerId);
                 app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
                     ->sendBookingProviderChange($booking, $previousProvider);
             }
 
-            $this->sendProviderNotification($providerId, $booking->id, 'booking');
             $providers = $this->fetchProviders($request, $booking);
 
             return response()->json([
@@ -3486,7 +3667,6 @@ class ProviderController extends Controller
                 }
             }
 
-            $this->sendProviderNotification($providerId, $bookingRepeat->id, 'repeat');
             $providers = $this->fetchProviders($request, $bookingRepeat->booking);
 
             return response()->json([
@@ -3504,10 +3684,15 @@ class ProviderController extends Controller
 
     private function updateBooking($booking, $providerId, $changedBy): void
     {
+        booking_clear_provider_ignore((string) $booking->id, (string) $providerId);
+
         $booking->update([
             'provider_id' => $providerId,
             'serviceman_id' => null,
             'booking_status' => 'accepted',
+            'provider_cancelled_at' => null,
+            'provider_cancelled_by_provider_id' => null,
+            'assigned_by' => 'admin',
         ]);
 
         $this->bookingStatusHistory->create([
@@ -3557,14 +3742,14 @@ class ProviderController extends Controller
         $provider = $this->provider->with('owner')->find($providerId);
 
         if ($provider && isset($provider->owner)) {
-            $fcmToken = $provider->owner->fcm_token;
-            $languageKey = $provider->owner->current_language_key;
+            $owner = $provider->owner;
+            $languageKey = $owner->current_language_key;
 
             $bookingNotificationStatus = business_config('booking', 'notification_settings')->live_values;
-            if ($fcmToken && $bookingNotificationStatus['push_notification_booking']) {
+            if (user_has_fcm_devices($owner) && $bookingNotificationStatus['push_notification_booking']) {
                 $readableId = $this->booking->where('id', $bookingId)->value('readable_id');
                 $title = translate('Admin has assigned you booking ID') . ' ' . $readableId;
-                device_notification($fcmToken, $title, null, null, $bookingId, 'booking', '', '', '', '', $type);
+                device_notification_for_user($owner, $title, null, null, $bookingId, 'booking', '', '', '', '', $type);
             }
         }
     }

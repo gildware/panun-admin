@@ -57,7 +57,9 @@
           title="{{ translate('Reopen_case_resolved') }}">{{ translate('Booking_tag_case_closed') }}</span>
 @endif
 @if(empty($booking->is_repeated))
-    @if($booking->isOpenReopenTicket())
+    @if($booking->isProviderCancellationReplacement())
+        <span class="badge bg-info text-white text-nowrap text-start {{ $bfsTagGapClass }} d-inline-block lh-sm{{ $bfsTagFz }}">{{ translate('Provider_cancellation_replacement') }}</span>
+    @elseif($booking->isOpenReopenTicket())
         <span class="badge bg-warning text-dark text-nowrap text-start {{ $bfsTagGapClass }} d-inline-block lh-sm{{ $bfsTagFz }}">{{ translate('Reopened') }}</span>
     @elseif($booking->isReopenedTagged() && !booking_admin_has_disputed_reopen_snapshot($booking))
         <span class="badge bg-success text-nowrap text-start {{ $bfsTagGapClass }} d-inline-block lh-sm{{ $bfsTagFz }}">{{ translate('Resolved') }}</span>

@@ -69,9 +69,12 @@
                                     <td>
                                         <a class="media align-items-center gap-2"
                                            href="{{route('admin.provider.onboarding_details',[$provider->id])}}">
-                                            <img class=" h-50 min-w-50 w-50px radius-5"
-                                                 alt="{{ translate('image') }}"
-                                                 src="{{$provider->logo_full_path}}">
+                                            <div class="avatar avatar-lg">
+                                                <img class="avatar-img radius-5"
+                                                     alt="{{ translate('provider-logo') }}"
+                                                     src="{{ $provider->list_avatar_full_path }}"
+                                                     onerror="this.onerror=null;this.src='{{ asset('assets/provider-module/img/user2x.png') }}'">
+                                            </div>
                                             <h5 class="media-body">
                                                 {{Str::limit($provider->company_name, 30)}}
                                             </h5>

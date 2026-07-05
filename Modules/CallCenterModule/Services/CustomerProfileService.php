@@ -22,7 +22,7 @@ class CustomerProfileService
         $digits = $this->phoneNormalizer->digitsOnly($normalized);
 
         $user = User::query()
-            ->inCustomerDirectory()
+            ->ofType(CUSTOMER_USER_TYPES)
             ->where(function ($q) use ($normalized, $digits) {
                 if ($normalized !== '') {
                     $q->where('phone', $normalized)
@@ -40,7 +40,7 @@ class CustomerProfileService
         }
 
         return User::query()
-            ->inCustomerDirectory()
+            ->ofType(CUSTOMER_USER_TYPES)
             ->whereIn('id', function ($sub) use ($normalized, $digits) {
                 $sub->select('user_id')
                     ->from('user_addresses')

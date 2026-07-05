@@ -55,6 +55,45 @@
                     </div>
                 </div>
 
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <h5 class="mb-1">{{ translate('Nearby_Providers_Max_Distance') }}</h5>
+                            <p class="fz-12 text-muted mb-3">
+                                {{ translate('Set_maximum_distance_km_for_nearby_providers_and_explore_map') }}
+                            </p>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">{{ translate('Maximum_distance_km') }}</label>
+                                    <input type="number" name="nearby_provider_max_distance_km" class="form-control" min="1" max="500"
+                                           value="{{ old('nearby_provider_max_distance_km', $nearbyProviderMaxDistanceKm) }}"
+                                           placeholder="{{ translate('Maximum_distance_km') }}">
+                                    <div class="form-text">{{ translate('Providers_beyond_this_distance_will_not_appear_in_nearby_sections_or_map') }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+                            <div class="flex-grow-1">
+                                <h5 class="mb-1">{{ translate('Calling_System_Customer_Provider') }}</h5>
+                                <p class="fz-12 text-muted mb-0">
+                                    {{ translate('When_disabled_customers_and_providers_cannot_make_calls_or_view_call_history') }}
+                                </p>
+                            </div>
+                            <label class="form-check form-switch mb-0">
+                                <input type="hidden" name="in_app_call_status" value="0">
+                                <input class="form-check-input" type="checkbox" name="in_app_call_status" value="1"
+                                       {{ $inAppCallStatus ? 'checked' : '' }}>
+                                <span class="form-check-label fw-semibold">{{ translate('Enable') }}</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="d-flex justify-content-end">
                     <button type="submit" class="btn btn--primary">{{ translate('Save') }}</button>
                 </div>

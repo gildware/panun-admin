@@ -42,6 +42,8 @@
     <link rel="stylesheet" href="{{asset('assets/provider-module')}}/css/dev.css"/>
     <link rel="stylesheet" href="{{asset('assets/provider-module')}}/css/dev-tahir-provider.css"/>
     <link rel="stylesheet" href="{{asset('assets/common')}}/css/common.css"/>
+    <link rel="stylesheet" href="{{asset('assets/common')}}/plugins/cropperjs/cropper.min.css"/>
+    <link rel="stylesheet" href="{{asset('assets/common')}}/css/image-crop-upload.css"/>
 
     @stack('css_or_js')
     <style>
@@ -112,6 +114,8 @@ $serviceLocations = getProviderSettings(providerId: auth()->user()->provider->id
 
 <script src="{{asset('assets/provider-module')}}/js/jquery-3.6.0.min.js"></script>
 <script src="{{asset('assets/provider-module')}}/js/bootstrap.bundle.min.js"></script>
+<script src="{{asset('assets/common')}}/plugins/cropperjs/cropper.min.js"></script>
+<script src="{{asset('assets/common')}}/js/image-crop-upload.js"></script>
 <script src="{{asset('assets/provider-module')}}/plugins/perfect-scrollbar/perfect-scrollbar.min.js"></script>
 <script src="{{asset('assets/provider-module')}}/plugins/spartan-multi-image-picker/spartan-multi-image-picker-min.js"></script>
 <script src="{{asset('assets/provider-module')}}/js/main.js"></script>
@@ -269,7 +273,7 @@ $serviceLocations = getProviderSettings(providerId: auth()->user()->provider->id
         })
     }
 
-    $('.route-alert-reload').on('click', function (){
+    $(document).on('click', '.route-alert-reload', function (){
         let route = $(this).data('route');
         let message = $(this).data('message');
         route_alert_reload(route, message, true);

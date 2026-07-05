@@ -366,6 +366,8 @@
 @endsection
 
 @push('script')
+    {{-- Select2 must load in the turbo frame before this page script (partial nav loads jQuery here, not in the global bundle). --}}
+    <script src="{{ asset('assets/admin-module') }}/plugins/select2/select2.min.js"></script>
     <script>
         (function () {
             const previewData = JSON.parse(document.getElementById('mahPreviewData').textContent);
@@ -723,10 +725,20 @@
                 });
             }
 
+            function select2Ready() {
+                return typeof window.jQuery !== 'undefined'
+                    && typeof window.jQuery.fn !== 'undefined'
+                    && typeof window.jQuery.fn.select2 === 'function';
+            }
+
             function initPickSelect(item, force) {
                 const select = item.querySelector('.mah-pick-select');
                 if (!select) return;
                 if (!force && select.dataset.mahPickInit === '1') return;
+                if (!select2Ready()) {
+                    select.dataset.mahPickInit = '0';
+                    return;
+                }
 
                 const type = select.dataset.pickType || 'services';
                 const url = pickSearchUrl(type);
@@ -775,7 +787,8 @@
                 initPickSelect(item, true);
             }
 
-            function syncDataSourceUi(item) {
+            function syncDataSourceUi(item, options) {
+                const opts = options || {};
                 const value = item.querySelector('.mah-data-mode-radio:checked')?.value || 'default';
                 const isManual = value === 'manual';
                 item.classList.toggle('is-manual-mode', isManual);
@@ -786,7 +799,11 @@
                 const panel = item.querySelector('.mah-manual-picks-panel');
                 if (panel) panel.classList.toggle('is-hidden', !isManual);
                 if (isManual) {
-                    resetPickSelect(item);
+                    const shouldInitPick = opts.initPick === true
+                        || (opts.initPick !== false && item.classList.contains('is-expanded'));
+                    if (shouldInitPick) {
+                        resetPickSelect(item);
+                    }
                 } else {
                     const hiddenWrap = item.querySelector('.mah-pick-hidden');
                     if (hiddenWrap) hiddenWrap.innerHTML = '';
@@ -845,7 +862,7 @@
                 updateDataSourceHints(item);
                 item.querySelectorAll('.mah-data-mode-radio').forEach(radio => {
                     radio.addEventListener('change', function () {
-                        syncDataSourceUi(item);
+                        syncDataSourceUi(item, { initPick: true });
                         refreshPreview();
                     });
                 });
@@ -914,8 +931,21 @@
 
             function initAllSections() {
                 list.querySelectorAll('.mah-section-item').forEach(item => {
-                    bindSectionItem(item);
-                    syncPickHidden(item);
+                    try {
+                        bindSectionItem(item);
+                        syncPickHidden(item);
+                    } catch (err) {
+                        console.error('Home page section init failed:', item.dataset.key, err);
+                    }
+                });
+            }
+
+            function initExpandedPickSelects() {
+                if (!select2Ready()) return;
+                list.querySelectorAll('.mah-section-item.is-expanded').forEach(item => {
+                    if (isManualMode(item)) {
+                        resetPickSelect(item);
+                    }
                 });
             }
 
@@ -939,8 +969,8 @@
                 if (manualRadio) {
                     manualRadio.checked = true;
                 }
-                syncDataSourceUi(item);
                 setAccordionExpanded(item, true);
+                syncDataSourceUi(item, { initPick: true });
                 refreshPreview();
             });
 
@@ -989,6 +1019,12 @@
 
             initAllSections();
             refreshPreview();
+            initExpandedPickSelects();
+
+            document.addEventListener('admin:page-loaded', function (event) {
+                if (!event.detail?.root?.querySelector?.('#mahSectionList')) return;
+                initExpandedPickSelects();
+            });
         })();
     </script>
 @endpush

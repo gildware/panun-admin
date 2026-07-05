@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Modules\BookingModule\Entities\Booking;
 use Modules\CategoryManagement\Entities\Category;
+use Modules\CustomerModule\Services\CustomerHomeContentVersion;
 use Modules\CustomerModule\Traits\CustomerSearchTrait;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ServiceManagement\Entities\FavoriteService;
@@ -132,6 +133,17 @@ class ServiceController extends Controller
                     $query->orWhere('description', 'LIKE', '%' . $decodedString . '%');
                     $query->orWhereHas('variations', function ($query) use ($key) {
                         $query->where('variant', 'like', "%{$key}%");
+                    });
+                    $query->orWhereHas('serviceVariants', function ($query) use ($key) {
+                        $query->where('is_active', true)
+                            ->where(function ($q) use ($key) {
+                                $q->where('title', 'like', "%{$key}%")
+                                    ->orWhere('description', 'like', "%{$key}%");
+                            })
+                            ->orWhereHas('translations', function ($t) use ($key) {
+                                $t->whereIn('key', ['title', 'description'])
+                                    ->where('value', 'like', "%{$key}%");
+                            });
                     });
                     $query->orWhereHas('category', function ($query) use ($key) {
                         $query->where('name', 'like', "%{$key}%");
@@ -759,6 +771,7 @@ class ServiceController extends Controller
                 $recentView = $this->recentView->firstOrNew(['service_id' => $service->id, 'user_id' => $authUser->id]);
                 $recentView->total_service_view += 1;
                 $recentView->save();
+                CustomerHomeContentVersion::bumpPersonal($authUser->id);
             }
 
             $service->loadMissing(['category', 'subCategory']);
@@ -893,13 +906,21 @@ class ServiceController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        ServiceRequest::create([
+        $serviceRequest = ServiceRequest::create([
             'category_id' => strtolower($request['category_id']) == 'null' || $request['category_id'] == '' ? null : $request['category_id'],
             'service_name' => $request['service_name'],
             'service_description' => $request['service_description'],
             'status' => 'pending',
             'user_id' => $request->user()->id,
         ]);
+
+        admin_inbox_notify_service_request_submitted($serviceRequest);
+        send_service_request_provider_notification(
+            $serviceRequest,
+            '',
+            translate('Service_request_submitted'),
+            translate('Your_service_request_has_been_submitted_and_is_pending_review'),
+        );
 
         return response()->json(response_formatter(DEFAULT_STORE_200), 200);
     }

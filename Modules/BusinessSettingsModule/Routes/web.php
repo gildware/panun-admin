@@ -175,6 +175,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
 
     Route::group(['prefix' => 'configuration', 'as' => 'configuration.'], function () {
         Route::get('get-notification-setting', [ConfigurationController::class, 'notificationSettingsGet'])->name('get-notification-setting');
+        Route::post('deregister-notification-device', [ConfigurationController::class, 'deregisterNotificationDevice'])->name('deregister-notification-device');
         Route::put('set-notification-setting', [ConfigurationController::class, 'notificationSettingsSet'])->name('set-notification-setting');
         Route::any('set-message-setting', [ConfigurationController::class, 'messageSettingsSet'])->name('set-message-setting');
 

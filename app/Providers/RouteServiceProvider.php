@@ -74,7 +74,7 @@ class RouteServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('otp-verify', function (Request $request) {
-            $identity = (string) $request->input('identity', '');
+            $identity = (string) ($request->input('identity') ?: $request->input('phone') ?: $request->input('phoneNumber') ?: '');
 
             return Limit::perMinute(10)->by($identity !== '' ? $identity : $request->ip());
         });

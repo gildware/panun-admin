@@ -1,0 +1,33 @@
+# Coturn example for Panun Kaergar dev/production.
+# Install: sudo apt install coturn
+# Copy: sudo cp turnserver.conf.example /etc/turnserver.conf
+# Enable: sudo sed -i 's/#TURNSERVER_ENABLED=1/TURNSERVER_ENABLED=1/' /etc/default/coturn
+# Firewall: open UDP+TCP 3478 and UDP 49152-49252 (or your relay range)
+# Start: sudo systemctl enable coturn && sudo systemctl restart coturn
+#
+# Match TURN_USERNAME / TURN_CREDENTIAL with Laravel .env (TURN_URL=turn:YOUR_IP:3478)
+
+listening-port=3478
+tls-listening-port=5349
+
+# Public IP or hostname phones can reach (required if server is behind NAT)
+# external-ip=PUBLIC_IP/PRIVATE_IP
+# realm=dev.panunkaergar.com
+
+fingerprint
+lt-cred-mech
+user=panun_turn:REPLACE_WITH_LONG_RANDOM_SECRET
+
+# Dev: allow relay; restrict in production with denied-peer-ip / allowed-peer-ip
+no-multicast-peers
+no-cli
+verbose
+
+min-port=49152
+max-port=49252
+
+# Uncomment if you have TLS cert for turns: (recommended for strict mobile networks)
+# cert=/etc/letsencrypt/live/dev.panunkaergar.com/fullchain.pem
+# pkey=/etc/letsencrypt/live/dev.panunkaergar.com/privkey.pem
+
+log-file=/var/log/turnserver.log

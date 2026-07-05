@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\DB;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingIgnore;
 use Modules\BusinessSettingsModule\Entities\PackageSubscriber;
@@ -37,6 +36,7 @@ class Provider extends Model
         'commission_tier_setup' => 'array',
         'is_active' => 'integer',
         'app_availability' => 'integer',
+        'allow_advertisement' => 'integer',
         'is_approved' => 'integer',
         'coordinates' => 'json',
         'company_identity_images' => 'array',
@@ -279,6 +279,35 @@ class Provider extends Model
         return $resolved ?? (request()->is('api/*') ? null : $defaultPath);
     }
 
+    /**
+     * Avatar for admin lists: company logo when set, otherwise contact person photo.
+     */
+    public function getListAvatarFullPathAttribute(): ?string
+    {
+        $defaultPath = asset('assets/provider-module/img/user2x.png');
+
+        if ($this->hasStoredListAvatarFilename($this->logo)) {
+            return $this->logo_full_path ?? $defaultPath;
+        }
+
+        if ($this->hasStoredListAvatarFilename($this->contact_person_photo)) {
+            return $this->contact_person_photo_full_path ?? $defaultPath;
+        }
+
+        return $defaultPath;
+    }
+
+    private function hasStoredListAvatarFilename(mixed $filename): bool
+    {
+        if ($filename === null || $filename === '') {
+            return false;
+        }
+
+        $filename = (string) $filename;
+
+        return strlen($filename) >= 2 && $filename !== 'def.png';
+    }
+
     public function getCompanyIdentityImagesFullPathAttribute()
     {
         $path = 'provider/company-identity/';
@@ -302,12 +331,6 @@ class Provider extends Model
             // ... code here
         });
 
-        self::updating(function ($model) {
-            if ($model->isDirty('zone_id')) {
-                DB::table('subscribed_services')->where(['provider_id' => $model->id])->update(['is_subscribed' => 0]);
-            }
-        });
-
         self::updated(function ($model) {
             // ... code here
         });
@@ -324,8 +347,11 @@ class Provider extends Model
 
         static::saved(function ($model) {
             $storageType = getDisk();
-            if($model->isDirty('logo') && $storageType != 'public'){
-                saveSingleImageDataToStorage(model: $model, modelColumn : 'logo', storageType : $storageType);
+            if ($model->isDirty('logo') && $storageType != 'public') {
+                saveSingleImageDataToStorage(model: $model, modelColumn: 'logo', storageType: $storageType);
+            }
+            if ($model->isDirty('cover_image') && $storageType != 'public') {
+                saveSingleImageDataToStorage(model: $model, modelColumn: 'cover_image', storageType: $storageType);
             }
         });
     }

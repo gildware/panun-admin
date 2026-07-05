@@ -62,6 +62,18 @@
             margin: .45rem 0;
             border-top: 1px dashed rgba(0,0,0,.08);
         }
+        .overview-service-list {
+            max-height: 7.5rem;
+            overflow-y: auto;
+            padding-right: .25rem;
+        }
+        .overview-service-list::-webkit-scrollbar {
+            width: 4px;
+        }
+        .overview-service-list::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, .15);
+            border-radius: 4px;
+        }
         .booking-status-row {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -235,6 +247,9 @@
                         <a class="nav-link {{ $webPage == 'bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=bookings">{{ translate('Bookings') }}</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {{ $webPage == 'withdrawn_bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=withdrawn_bookings">{{ translate('Provider_withdrawals_and_rejections') }}</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {{ $webPage == 'special_bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=special_bookings">{{ translate('Special_Bookings') }}</a>
                     </li>
                     <li class="nav-item">
@@ -274,6 +289,9 @@
                                     <span class="booking-status-chip ongoing">{{ translate('Ongoing') }} ({{ $bookingStatusCounts['ongoing'] ?? 0 }})</span>
                                     <span class="booking-status-chip completed">{{ translate('Completed') }} ({{ $bookingStatusCounts['completed'] ?? 0 }})</span>
                                     <span class="booking-status-chip canceled">{{ translate('Canceled') }} ({{ $bookingStatusCounts['canceled'] ?? 0 }})</span>
+                                    <a href="{{ url()->current() }}?web_page=withdrawn_bookings" class="booking-status-chip canceled text-decoration-none">
+                                        {{ translate('Provider_withdrawals_and_rejections') }} ({{ $withdrawnBookingsCount ?? 0 }})
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -281,22 +299,17 @@
                             <div class="overview-widget-card widget-service">
                                 <h4 class="overview-widget-title mb-0">{{ translate('Total_Subscribed_Services') }} ({{ $totalSubscribedServices }})</h4>
                                 <div class="overview-widget-divider"></div>
-                                @php
-                                    $serviceBreakdown = collect($subscribedServiceCategoryCounts)->take(4);
-                                @endphp
-                                @forelse($serviceBreakdown as $catCount)
-                                    <div class="overview-stat-line">
-                                        <span class="text-truncate pe-2">{{ data_get($catCount, 'category_name', translate('Unknown')) }}</span>
-                                        <strong>{{ (int) $catCount->total }}</strong>
+                                @if(collect($subscribedServiceCategoryCounts)->isNotEmpty())
+                                    <div class="overview-service-list">
+                                        @foreach($subscribedServiceCategoryCounts as $catCount)
+                                            <div class="overview-stat-line">
+                                                <span class="text-truncate pe-2">{{ data_get($catCount, 'category_name', translate('Unknown')) }}</span>
+                                                <strong>{{ (int) $catCount->total }}</strong>
+                                            </div>
+                                        @endforeach
                                     </div>
-                                @empty
+                                @else
                                     <p class="mb-0 text-muted fs-12">{{ translate('No_data_found') }}</p>
-                                @endforelse
-                                @if(collect($subscribedServiceCategoryCounts)->count() > 4)
-                                    <div class="overview-stat-line text-muted">
-                                        <span>{{ translate('Others') }}</span>
-                                        <strong>{{ (int) collect($subscribedServiceCategoryCounts)->slice(4)->sum('total') }}</strong>
-                                    </div>
                                 @endif
                             </div>
                         </div>
@@ -430,8 +443,9 @@
                                 <div class="d-flex align-items-center gap-3">
                                     <img
                                         class="avatar-img radius-5"
-                                        src="{{ onErrorImage($provider->contact_person_photo, asset('storage/provider/contact_person_photo') . '/' . $provider->contact_person_photo, asset('assets/admin-module/img/placeholder.png'), 'provider/contact_person_photo/') }}"
-                                        alt="{{ translate('Contact_Person_Photo') }}">
+                                        src="{{ $provider->contact_person_photo_full_path }}"
+                                        alt="{{ translate('Contact_Person_Photo') }}"
+                                        onerror="this.onerror=null;this.src='{{ asset('assets/admin-module/img/placeholder.png') }}'">
                                     <div>
                                         <div class="overview-info-list">
                                             <div class="overview-info-item">

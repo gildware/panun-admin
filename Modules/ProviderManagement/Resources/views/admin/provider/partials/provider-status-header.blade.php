@@ -60,6 +60,20 @@
         </div>
 
         <div class="d-flex flex-wrap align-items-center gap-2">
+            @php
+                $suspensionSummary = \Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement::summarize($provider);
+                $suspensionItems = $suspensionSummary['items'] ?? [];
+            @endphp
+
+            @foreach($suspensionItems as $item)
+                <span class="status-pill status-pill--off" title="{{ $item['reason'] }}">
+                    {{ $item['label'] }}
+                    @if(!empty($item['until']))
+                        · {{ translate('Until') }} {{ $item['until'] }}
+                    @endif
+                </span>
+            @endforeach
+
             <span class="status-pill {{ !empty($provider->service_availability) ? 'status-pill--on' : 'status-pill--off' }}">
                 Service Availability {{ !empty($provider->service_availability) ? 'ON' : 'OFF' }}
             </span>
@@ -75,3 +89,5 @@
         </div>
     </div>
 </div>
+
+@include('providermanagement::admin.provider.partials._suspension-alert', ['provider' => $provider])

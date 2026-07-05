@@ -12,6 +12,14 @@ use Illuminate\Support\Facades\DB;
 class ProviderDashboardEarningStatsService
 {
     /**
+     * Lifetime provider earning from completed revenue-reporting jobs (same basis as dashboard cards).
+     */
+    public function lifetimeTotal(string $providerId): float
+    {
+        return round($this->sumProviderEarning($providerId), 2);
+    }
+
+    /**
      * @return array{this_week: array{total: float, change: float}, this_month: array{total: float, change: float}, this_year: array{total: float, change: float}}
      */
     public function forProvider(string $providerId): array
@@ -58,11 +66,8 @@ class ProviderDashboardEarningStatsService
         ];
     }
 
-    private function sumProviderEarning(string $providerId, Carbon $start, Carbon $end): float
+    private function sumProviderEarning(string $providerId, ?Carbon $start = null, ?Carbon $end = null): float
     {
-        $start = $start->copy()->startOfSecond();
-        $end = $end->copy()->endOfSecond();
-
         $oneTime = (float) DB::table('booking_details_amounts as bda')
             ->join('bookings as b', 'b.id', '=', 'bda.booking_id')
             ->where('b.provider_id', $providerId)
@@ -74,7 +79,12 @@ class ProviderDashboardEarningStatsService
                             ->where('b.after_visit_cancel', 1);
                     });
             })
-            ->whereBetween('bda.created_at', [$start, $end])
+            ->when($start !== null && $end !== null, function ($query) use ($start, $end) {
+                $query->whereBetween('bda.created_at', [
+                    $start->copy()->startOfSecond(),
+                    $end->copy()->endOfSecond(),
+                ]);
+            })
             ->sum('bda.provider_earning');
 
         $repeats = (float) DB::table('booking_details_amounts as bda')
@@ -82,7 +92,12 @@ class ProviderDashboardEarningStatsService
             ->join('bookings as b', 'b.id', '=', 'br.booking_id')
             ->where('b.provider_id', $providerId)
             ->where('br.booking_status', 'completed')
-            ->whereBetween('bda.created_at', [$start, $end])
+            ->when($start !== null && $end !== null, function ($query) use ($start, $end) {
+                $query->whereBetween('bda.created_at', [
+                    $start->copy()->startOfSecond(),
+                    $end->copy()->endOfSecond(),
+                ]);
+            })
             ->sum('bda.provider_earning');
 
         return $oneTime + $repeats;

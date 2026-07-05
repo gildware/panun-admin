@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\ReviewModule\Http\Controllers\Api\V1\Customer\ReviewController;
+use Modules\ReviewModule\Http\Controllers\Api\V1\Customer\ReceivedRatingController;
 use Modules\ReviewModule\Http\Controllers\Api\V1\Provider\ReviewController as ProviderReviewController;
 use Modules\ReviewModule\Http\Controllers\Api\V1\Provider\CustomerReviewController as ProviderCustomerReviewController;
 
@@ -23,4 +24,6 @@ Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V
         Route::get('/', [ReviewController::class, 'index']);
         Route::post('submit', [ReviewController::class, 'store']);
     });
+
+    Route::get('received-rating', [ReceivedRatingController::class, 'index']);
 });

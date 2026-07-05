@@ -1447,6 +1447,51 @@
                                             </div>
                                         </div>
                                     </div>
+                                    <!-- Provider Advertisement Setup --->
+                                    <div class="card p-20 mb-20">
+                                        <h3 class="mb-1">{{ translate('Advertisement') }}</h3>
+                                        <p class="fz-12 mb-20">{{ translate('Configure advertisement availability for providers.') }}</p>
+                                        <div class="card2 p-20">
+                                            <div class="row g-3">
+                                                <div class="col-md-6 col-lg-4">
+                                                    <div class="mb-2 text-dark">{{ translate('Advertisement Status') }}
+                                                        <i class="material-icons fz-14 text-light-gray" data-bs-toggle="tooltip"
+                                                           data-bs-placement="top"
+                                                           title="{{ translate('If enabled, providers can access advertisement features when they meet the minimum completed bookings requirement or are individually allowed.') }}">info</i>
+                                                    </div>
+                                                    <div class="border p-12 rounded d-flex justify-content-between bg-white">
+                                                        <span class="text-dark fz-14">{{ translate('Status') }}</span>
+                                                        <label class="switcher">
+                                                            <input class="switcher_input" type="checkbox"
+                                                                   id="advertisement_status"
+                                                                   name="advertisement_status"
+                                                                   value="1"
+                                                                {{$dataValues->where('key_name', 'advertisement_status')?->first()?->live_values ? 'checked' : ''}}>
+                                                            <span class="switcher_control"></span>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6 col-lg-4">
+                                                    <div class="mb-2 text-dark">{{ translate('Minimum Completed Bookings') }}
+                                                        <i class="material-icons fz-14 text-light-gray" data-bs-toggle="tooltip"
+                                                           data-bs-placement="top"
+                                                           title="{{ translate('Providers must complete at least this many bookings before they can access advertisement features.') }}">info</i>
+                                                    </div>
+                                                    <input type="hidden" name="advertisement_minimum_bookings" id="hidden_advertisement_minimum_bookings"
+                                                           value="{{$dataValues->where('key_name', 'advertisement_minimum_bookings')->first()->live_values ?? 0}}">
+                                                    <div class="position-relative w-100 advertisement-field-wrapper"
+                                                         data-bs-toggle="tooltip"
+                                                         data-bs-placement="top"
+                                                         title="{{ translate('This field is disabled because advertisement status is off') }}">
+                                                        <input type="number" class="form-control advertisement-fields"
+                                                               name="advertisement_minimum_bookings"
+                                                               min="0" step="1"
+                                                               value="{{$dataValues->where('key_name', 'advertisement_minimum_bookings')->first()->live_values ?? 0}}">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <!-- Provider Wallet--->
                                     <div class="card p-20 mb-20">
                                         <div class="border-bottom mb-3 pb-3">
@@ -1668,6 +1713,31 @@
                                                             <span class="switcher_control"></span>
                                                         </label>
                                                     </div>
+                                                </div>
+                                                <div class="col-lg-4 col-md-6">
+                                                    <?php ($welcomeBonus = $dataValues->where('key_name', 'customer_welcome_bonus')?->first()?->live_values ?? null); ?>
+                                                    <?php ($welcomeBonusAmount = $dataValues->where('key_name', 'customer_welcome_bonus_amount')?->first()?->live_values ?? 0); ?>
+
+                                                    <div class="mb-2 text-dark">{{translate('Welcome Bonus')}}
+                                                        <i class="material-icons fz-14 text-light-gray" data-bs-toggle="tooltip"
+                                                            data-bs-placement="top"
+                                                            title="{{translate('Credit new app customers with a one-time wallet bonus when they register')}}"
+                                                        >info</i>
+                                                    </div>
+                                                    <div class="border p-12 rounded d-flex justify-content-between bg-white mb-3">
+                                                        <span class="text-dark fz-14">{{ translate('Status') }}</span>
+                                                        <label class="switcher">
+                                                            <input class="switcher_input" type="checkbox"
+                                                                   id="customer_welcome_bonus"
+                                                                   name="customer_welcome_bonus"
+                                                                   value="1" {{$welcomeBonus ? 'checked' : ''}}>
+                                                            <span class="switcher_control"></span>
+                                                        </label>
+                                                    </div>
+                                                    <div class="mb-2 text-dark">{{translate('Welcome Bonus Amount')}} ({{currency_symbol()}}) <span class="text-danger">*</span></div>
+                                                    <input type="number" class="form-control"
+                                                           name="customer_welcome_bonus_amount" step="any"
+                                                           min="0" value="{{$welcomeBonusAmount}}" required="">
                                                 </div>
                                             </div>
                                         </div>
@@ -3899,6 +3969,41 @@
 
             // Keep hidden inputs in sync
             $('.cash-fields').on('input', function () {
+                const input = $(this);
+                const hiddenInputId = 'hidden_' + input.attr('name');
+                $('#' + hiddenInputId).val(input.val());
+            });
+        });
+
+        $(document).ready(function () {
+            const advertisementStatusSwitch = $('#advertisement_status');
+            const advertisementFields = $('.advertisement-fields');
+
+            function toggleAdvertisementFields(enable) {
+                advertisementFields.each(function () {
+                    const input = $(this);
+                    const wrapper = input.closest('.advertisement-field-wrapper');
+                    const value = input.val();
+                    const hiddenInputId = 'hidden_' + input.attr('name');
+                    $('#' + hiddenInputId).val(value);
+
+                    if (enable) {
+                        input.prop('disabled', false);
+                        wrapper.tooltip('dispose');
+                    } else {
+                        input.prop('disabled', true);
+                        wrapper.tooltip({ placement: 'top' });
+                    }
+                });
+            }
+
+            toggleAdvertisementFields(advertisementStatusSwitch.is(':checked'));
+
+            advertisementStatusSwitch.on('change', function () {
+                toggleAdvertisementFields($(this).is(':checked'));
+            });
+
+            $('.advertisement-fields').on('input', function () {
                 const input = $(this);
                 const hiddenInputId = 'hidden_' + input.attr('name');
                 $('#' + hiddenInputId).val(input.val());

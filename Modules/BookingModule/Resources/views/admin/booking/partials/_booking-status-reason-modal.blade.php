@@ -2,6 +2,8 @@
 @php
     use Carbon\Carbon;
     $bsrHoldByResp = ($bookingHoldReasons ?? collect())->groupBy('responsible')->map(fn ($rows) => $rows->map(fn ($r) => ['id' => $r->id, 'name' => $r->name])->values())->toArray();
+    $bsrHoldReasonsFlat = ($bookingHoldReasons ?? collect())->map(fn ($r) => ['id' => $r->id, 'name' => $r->name, 'responsible' => $r->responsible])->values()->toArray();
+    $bsrHoldReasonResponsible = ($bookingHoldReasons ?? collect())->mapWithKeys(fn ($r) => [(string) $r->id => (string) $r->responsible])->toArray();
     $bsrCancelByResp = ($bookingCancellationReasons ?? collect())->groupBy('responsible')->map(fn ($rows) => $rows->map(fn ($r) => ['id' => $r->id, 'name' => $r->name])->values())->toArray();
     $bsrRespOptions = \Modules\BookingModule\Entities\BookingCancellationReason::responsibleOptions();
     $bsrRespLabels = ['customer' => translate('Customer'), 'provider' => translate('Provider'), 'staff' => translate('Staff'), 'no_one' => translate('No_one')];
@@ -24,7 +26,8 @@
             <div class="modal-body pt-0">
                 <input type="hidden" id="bsr-target-status" value="">
                 <input type="hidden" id="bsr-previous-status" value="">
-                <div class="mb-3">
+                <input type="hidden" id="bsr-hold-reason-responsible" value="">
+                <div id="bsr-group-responsible" class="mb-3">
                     <label class="form-label">{{ translate('Who_is_responsible') }} <span class="text-danger">*</span></label>
                     <select id="bsr-responsible" class="form-select" autocomplete="off">
                         <option value="">{{ translate('Select') }}</option>
@@ -36,9 +39,10 @@
                 </div>
                 <div id="bsr-group-hold" class="d-none mb-3">
                     <label class="form-label">{{ translate('Booking_hold_reasons') }} <span class="text-danger">*</span></label>
-                    <select id="bsr-hold-reason-id" class="form-select" disabled>
-                        <option value="">{{ translate('Select_responsible_first') }}</option>
+                    <select id="bsr-hold-reason-id" class="form-select">
+                        <option value="">{{ translate('Select') }}</option>
                     </select>
+                    <div id="bsr-hold-no-reasons" class="form-text small text-danger d-none">{{ translate('No_hold_reasons_configured') }}</div>
                 </div>
                 <div id="bsr-group-hold-schedule" class="d-none mb-3">
                     <label class="form-label" for="bsr-hold-estimated-schedule">{{ translate('Hold_estimated_service_schedule') }} <span class="text-danger">*</span></label>
@@ -70,6 +74,8 @@
             const bsrStatusUpdateUrl = @json(route('admin.booking.status_update', [$booking->id]));
             const bsrCsrf = $('meta[name="csrf-token"]').attr('content');
             const bsrHoldByResp = @json($bsrHoldByResp);
+            const bsrHoldReasonsFlat = @json($bsrHoldReasonsFlat);
+            const bsrHoldReasonResponsible = @json($bsrHoldReasonResponsible);
             const bsrCancelByResp = @json($bsrCancelByResp);
             const bsrTitles = {
                 on_hold: @json(translate('Put_on_hold')),
@@ -91,45 +97,172 @@
             };
 
             function bsrResetGroups() {
+                var $ = window.jQuery;
+                if (!$) {
+                    return;
+                }
                 $('#bsr-responsible').val('');
+                $('#bsr-hold-reason-responsible').val('');
+                $('#bsr-group-responsible').removeClass('d-none');
                 $('#bsr-group-hold').addClass('d-none');
                 $('#bsr-group-hold-schedule').addClass('d-none');
                 $('#bsr-group-cancel').addClass('d-none');
-                $('#bsr-hold-reason-id').prop('disabled', true).val('');
+                $('#bsr-hold-reason-id').prop('disabled', false).val('');
                 $('#bsr-cancel-reason-id').prop('disabled', true).val('');
-                bsrFillReasonSelect($('#bsr-hold-reason-id'), [], '{{ translate('Select_responsible_first') }}');
+                bsrFillReasonSelect($('#bsr-hold-reason-id'), [], '{{ translate('Select') }}');
+                $('#bsr-hold-no-reasons').addClass('d-none');
                 bsrFillReasonSelect($('#bsr-cancel-reason-id'), [], '{{ translate('Select_responsible_first') }}');
                 $('#bsr-hold-estimated-schedule').val(bsrDefaultHoldSchedule || '');
                 $('#bsr-remarks').val('');
             }
 
-            $('#bsr-responsible').on('change', function () {
-                const resp = String($(this).val() || '');
-                const to = String($('#bsr-target-status').val() || '');
-                if (!resp) {
-                    if (to === 'on_hold') {
-                        $('#bsr-hold-reason-id').prop('disabled', true).val('');
-                        bsrFillReasonSelect($('#bsr-hold-reason-id'), [], '{{ translate('Select_responsible_first') }}');
-                    }
-                    if (to === 'canceled') {
-                        $('#bsr-cancel-reason-id').prop('disabled', true).val('');
-                        bsrFillReasonSelect($('#bsr-cancel-reason-id'), [], '{{ translate('Select_responsible_first') }}');
-                    }
+            function bsrPopulateHoldReasons() {
+                var $ = window.jQuery;
+                if (!$) {
                     return;
                 }
-                if (to === 'on_hold') {
-                    const rows = bsrHoldByResp[resp] || [];
-                    $('#bsr-hold-reason-id').prop('disabled', rows.length === 0);
-                    bsrFillReasonSelect($('#bsr-hold-reason-id'), rows, rows.length ? '{{ translate('Select') }}' : '{{ translate('No_reasons_for_this_party') }}');
+                const rows = bsrHoldReasonsFlat || [];
+                $('#bsr-hold-reason-id').prop('disabled', rows.length === 0);
+                bsrFillReasonSelect($('#bsr-hold-reason-id'), rows, rows.length ? '{{ translate('Select') }}' : '{{ translate('No_hold_reasons_configured') }}');
+                $('#bsr-hold-no-reasons').toggleClass('d-none', rows.length > 0);
+            }
+
+            function initBookingStatusReasonModalHandlers(root) {
+                var $ = window.jQuery;
+                if (!$ || typeof $.fn !== 'object') {
+                    return;
                 }
-                if (to === 'canceled') {
-                    const rows = bsrCancelByResp[resp] || [];
-                    $('#bsr-cancel-reason-id').prop('disabled', rows.length === 0);
-                    bsrFillReasonSelect($('#bsr-cancel-reason-id'), rows, rows.length ? '{{ translate('Select') }}' : '{{ translate('No_reasons_for_this_party') }}');
+
+                root = root || document;
+                var $root = $(root);
+                if (!$root.find('#bookingStatusReasonModal').length) {
+                    return;
                 }
-            });
+
+                $root.find('#bsr-hold-reason-id').off('change.bsrHoldReason').on('change.bsrHoldReason', function () {
+                    const reasonId = String($(this).val() || '');
+                    const resp = reasonId ? (bsrHoldReasonResponsible[reasonId] || '') : '';
+                    $('#bsr-hold-reason-responsible').val(resp);
+                });
+
+                $root.find('#bsr-responsible').off('change.bsrResponsible').on('change.bsrResponsible', function () {
+                    const resp = String($(this).val() || '');
+                    const to = String($('#bsr-target-status').val() || '');
+                    if (to === 'on_hold') {
+                        return;
+                    }
+                    if (!resp) {
+                        if (to === 'canceled') {
+                            $('#bsr-cancel-reason-id').prop('disabled', true).val('');
+                            bsrFillReasonSelect($('#bsr-cancel-reason-id'), [], '{{ translate('Select_responsible_first') }}');
+                        }
+                        return;
+                    }
+                    if (to === 'canceled') {
+                        const rows = bsrCancelByResp[resp] || [];
+                        $('#bsr-cancel-reason-id').prop('disabled', rows.length === 0);
+                        bsrFillReasonSelect($('#bsr-cancel-reason-id'), rows, rows.length ? '{{ translate('Select') }}' : '{{ translate('No_reasons_for_this_party') }}');
+                    }
+                });
+
+                $('#bsr-confirm-btn').off('click.bsrConfirm').on('click.bsrConfirm', function () {
+                    const to = $('#bsr-target-status').val();
+                    const from = $('#bsr-previous-status').val();
+                    let resp = String($('#bsr-responsible').val() || '');
+                    if (to === 'on_hold') {
+                        const reasonId = String($('#bsr-hold-reason-id').val() || '');
+                        resp = reasonId ? (bsrHoldReasonResponsible[reasonId] || '') : '';
+                        $('#bsr-hold-reason-responsible').val(resp);
+                    }
+                    if (!resp) {
+                        toastr.error(to === 'on_hold'
+                            ? '{{ translate('Booking_hold_reasons') }} {{ translate('is_required') }}'
+                            : '{{ translate('Who_is_responsible') }} {{ translate('is_required') }}');
+                        return;
+                    }
+                    const data = {
+                        _token: bsrCsrf,
+                        booking_status: to,
+                        reason_responsible: resp,
+                        status_change_remarks: $('#bsr-remarks').val() || ''
+                    };
+                    if (to === 'on_hold') {
+                        data.booking_hold_reopen_reason_id = $('#bsr-hold-reason-id').val();
+                        if (!data.booking_hold_reopen_reason_id) {
+                            toastr.error('{{ translate('Booking_hold_reasons') }} {{ translate('is_required') }}');
+                            return;
+                        }
+                        data.hold_estimated_service_schedule = $('#bsr-hold-estimated-schedule').val();
+                        if (!data.hold_estimated_service_schedule) {
+                            toastr.error('{{ translate('Hold_estimated_service_schedule') }} {{ translate('is_required') }}');
+                            return;
+                        }
+                    }
+                    if (to === 'canceled') {
+                        data.booking_cancellation_reason_id = $('#bsr-cancel-reason-id').val();
+                        if (!data.booking_cancellation_reason_id) {
+                            toastr.error('{{ translate('Booking_cancellation_reasons') }} {{ translate('is_required') }}');
+                            return;
+                        }
+                    }
+
+                    const $btn = $(this);
+                    $btn.prop('disabled', true);
+                    $.ajax({
+                        url: bsrStatusUpdateUrl,
+                        method: 'POST',
+                        dataType: 'json',
+                        data: data,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                    }).done(function (res) {
+                        const modalEl = document.getElementById('bookingStatusReasonModal');
+                        if (modalEl && bootstrap.Modal) {
+                            bootstrap.Modal.getInstance(modalEl)?.hide();
+                        }
+                        if (res && res.message && typeof toastr !== 'undefined') {
+                            toastr.success(res.message, { CloseButton: true, ProgressBar: true });
+                        }
+                        var finish = function () {
+                            if (to === 'completed' || to === 'canceled') {
+                                var bookingCurrentProviderId = typeof window.bookingCurrentProviderId !== 'undefined' ? window.bookingCurrentProviderId : null;
+                                if (bookingCurrentProviderId && typeof openProviderPerformanceFeedbackModal === 'function') {
+                                    if (typeof pendingPostFeedbackAction !== 'undefined') {
+                                        window.pendingPostFeedbackAction = 'reload';
+                                    }
+                                    openProviderPerformanceFeedbackModal(bookingCurrentProviderId, to === 'canceled' ? 'canceled' : 'completed');
+                                    $btn.prop('disabled', false);
+                                    return;
+                                }
+                            }
+                            location.reload();
+                        };
+                        if (typeof window.waAdminAfterAjaxWithOptionalWhatsAppPrompt === 'function') {
+                            window.waAdminAfterAjaxWithOptionalWhatsAppPrompt(res, finish);
+                        } else {
+                            finish();
+                        }
+                    }).fail(function (xhr) {
+                        $btn.prop('disabled', false);
+                        var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : '{{ translate('Something went wrong. Please try again.') }}';
+                        if (xhr.status === 422 && xhr.responseJSON && xhr.responseJSON.errors) {
+                            var errs = xhr.responseJSON.errors;
+                            if (typeof errs === 'object' && !Array.isArray(errs)) {
+                                var first = Object.values(errs)[0];
+                                if (Array.isArray(first) && first[0]) {
+                                    msg = first[0];
+                                }
+                            }
+                        }
+                        toastr.error(msg, { CloseButton: true, ProgressBar: true });
+                    });
+                });
+            }
 
             window.bookingAdminOpenStatusReasonModal = function (targetStatus, previousStatus) {
+                var $ = window.jQuery;
+                if (!$) {
+                    return;
+                }
                 bsrResetGroups();
                 const to = String(targetStatus);
                 $('#bsr-target-status').val(to);
@@ -140,8 +273,10 @@
                 }
                 $('#bsr-modal-title').text(bsrTitle);
                 if (to === 'on_hold') {
+                    $('#bsr-group-responsible').addClass('d-none');
                     $('#bsr-group-hold').removeClass('d-none');
                     $('#bsr-group-hold-schedule').removeClass('d-none');
+                    bsrPopulateHoldReasons();
                 }
                 if (to === 'canceled') {
                     $('#bsr-group-cancel').removeClass('d-none');
@@ -152,90 +287,16 @@
                 }
             };
 
-            $('#bsr-confirm-btn').on('click', function () {
-                const to = $('#bsr-target-status').val();
-                const from = $('#bsr-previous-status').val();
-                const resp = String($('#bsr-responsible').val() || '');
-                if (!resp) {
-                    toastr.error('{{ translate('Who_is_responsible') }} {{ translate('is_required') }}');
-                    return;
-                }
-                const data = {
-                    _token: bsrCsrf,
-                    booking_status: to,
-                    reason_responsible: resp,
-                    status_change_remarks: $('#bsr-remarks').val() || ''
-                };
-                if (to === 'on_hold') {
-                    data.booking_hold_reopen_reason_id = $('#bsr-hold-reason-id').val();
-                    if (!data.booking_hold_reopen_reason_id) {
-                        toastr.error('{{ translate('Booking_hold_reasons') }} {{ translate('is_required') }}');
-                        return;
-                    }
-                    data.hold_estimated_service_schedule = $('#bsr-hold-estimated-schedule').val();
-                    if (!data.hold_estimated_service_schedule) {
-                        toastr.error('{{ translate('Hold_estimated_service_schedule') }} {{ translate('is_required') }}');
-                        return;
-                    }
-                }
-                if (to === 'canceled') {
-                    data.booking_cancellation_reason_id = $('#bsr-cancel-reason-id').val();
-                    if (!data.booking_cancellation_reason_id) {
-                        toastr.error('{{ translate('Booking_cancellation_reasons') }} {{ translate('is_required') }}');
-                        return;
-                    }
-                }
-
-                const $btn = $(this);
-                $btn.prop('disabled', true);
-                $.ajax({
-                    url: bsrStatusUpdateUrl,
-                    method: 'POST',
-                    dataType: 'json',
-                    data: data,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-                }).done(function (res) {
-                    const modalEl = document.getElementById('bookingStatusReasonModal');
-                    if (modalEl && bootstrap.Modal) {
-                        bootstrap.Modal.getInstance(modalEl)?.hide();
-                    }
-                    if (res && res.message && typeof toastr !== 'undefined') {
-                        toastr.success(res.message, { CloseButton: true, ProgressBar: true });
-                    }
-                    var finish = function () {
-                        if (to === 'completed' || to === 'canceled') {
-                            var bookingCurrentProviderId = typeof window.bookingCurrentProviderId !== 'undefined' ? window.bookingCurrentProviderId : null;
-                            if (bookingCurrentProviderId && typeof openProviderPerformanceFeedbackModal === 'function') {
-                                if (typeof pendingPostFeedbackAction !== 'undefined') {
-                                    window.pendingPostFeedbackAction = 'reload';
-                                }
-                                openProviderPerformanceFeedbackModal(bookingCurrentProviderId, to === 'canceled' ? 'canceled' : 'completed');
-                                $btn.prop('disabled', false);
-                                return;
-                            }
-                        }
-                        location.reload();
-                    };
-                    if (typeof window.waAdminAfterAjaxWithOptionalWhatsAppPrompt === 'function') {
-                        window.waAdminAfterAjaxWithOptionalWhatsAppPrompt(res, finish);
-                    } else {
-                        finish();
-                    }
-                }).fail(function (xhr) {
-                    $btn.prop('disabled', false);
-                    var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : '{{ translate('Something went wrong. Please try again.') }}';
-                    if (xhr.status === 422 && xhr.responseJSON && xhr.responseJSON.errors) {
-                        var errs = xhr.responseJSON.errors;
-                        if (typeof errs === 'object' && !Array.isArray(errs)) {
-                            var first = Object.values(errs)[0];
-                            if (Array.isArray(first) && first[0]) {
-                                msg = first[0];
-                            }
-                        }
-                    }
-                    toastr.error(msg, { CloseButton: true, ProgressBar: true });
+            if (!window.__bookingStatusReasonModalHandlersBound) {
+                window.__bookingStatusReasonModalHandlersBound = true;
+                document.addEventListener('admin:page-loaded', function (event) {
+                    initBookingStatusReasonModalHandlers(event.detail && event.detail.root ? event.detail.root : document);
                 });
-            });
+            }
+
+            window.addEventListener('load', function () {
+                initBookingStatusReasonModalHandlers(document.getElementById('admin-main') || document);
+            }, { once: true });
         })();
     </script>
 @endpush

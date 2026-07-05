@@ -9,6 +9,8 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use App\Http\Middleware\{ApiHitLimitMiddleware,
     Authenticate,
     EncryptCookies,
@@ -34,6 +36,7 @@ use Illuminate\Routing\Middleware\ValidateSignature;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Modules\BidModule\Http\Middleware\EnsureBiddingIsActive;
+use Modules\InAppCallModule\Http\Middleware\EnsureInAppCallIsActive;
 use Modules\ProviderManagement\Http\Middleware\ProviderMiddleware;
 use Modules\UserManagement\Http\Middleware\AdminModulePermission;
 use Modules\UserManagement\Http\Middleware\DetectUser;
@@ -94,12 +97,30 @@ $app = Application::configure(basePath: dirname(__DIR__))
             'admin.api' => EnsureAdminApiUser::class,
             'provider' => ProviderMiddleware::class,
             'ensureBiddingIsActive' => EnsureBiddingIsActive::class,
+            'ensureInAppCallIsActive' => EnsureInAppCallIsActive::class,
             'subscription' => Subscription::class,
             'callcenter.service' => \Modules\CallCenterModule\Http\Middleware\EnsureCallCenterServiceToken::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        // You can customize exception handling here if needed
+        $exceptions->render(function (ValidationException $e, Request $request) {
+            if (!$request->is('api/*')) {
+                return null;
+            }
+
+            $errors = [];
+            foreach ($e->errors() as $field => $messages) {
+                $errors[] = [
+                    'error_code' => $field,
+                    'message' => translate($messages[0]),
+                ];
+            }
+
+            return response()->json(
+                response_formatter(DEFAULT_400, null, $errors),
+                400
+            );
+        });
     })
     ->create();
 

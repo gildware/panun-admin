@@ -49,6 +49,7 @@ class User extends Authenticatable
         'received_rating_count' => 'integer',
         'customer_app_access' => 'boolean',
         'last_seen_at' => 'datetime',
+        'admin_pinned_nav' => 'array',
     ];
 
     protected $appends = ['profile_image_full_path', 'identification_image_full_path'];
@@ -61,7 +62,7 @@ class User extends Authenticatable
         'uuid', 'first_name', 'last_name', 'email', 'phone', 'identification_number', 'identification_type', 'identification_image', 'date_of_birth', 'gender',
         'profile_image', 'fcm_token', 'is_phone_verified', 'is_email_verified', 'phone_verified_at', 'email_verified_at', 'password', 'is_active', 'provider_id', 'user_type', 'customer_app_access',
         'ref_code', 'referred_by',
-        'staff_presence_status', 'last_seen_at', 'last_visited_page',
+        'staff_presence_status', 'last_seen_at', 'last_visited_page', 'admin_pinned_nav',
     ];
 
     public function roles(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
@@ -72,6 +73,11 @@ class User extends Authenticatable
     public function bookings(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Booking::class, 'customer_id', 'id');
+    }
+
+    public function fcmDevices(): HasMany
+    {
+        return $this->hasMany(UserFcmDevice::class);
     }
 
     public function reviews(): \Illuminate\Database\Eloquent\Relations\HasMany
@@ -104,27 +110,15 @@ class User extends Authenticatable
      */
     public function scopeEligibleCustomerAppUsers(Builder $query): Builder
     {
-        return $query->where(function (Builder $q) {
-            $q->whereIn('user_type', CUSTOMER_USER_TYPES)
-                ->orWhere(function (Builder $q2) {
-                    $q2->where('user_type', 'provider-admin')
-                        ->where('customer_app_access', true);
-                });
-        });
+        return $query->whereIn('user_type', CUSTOMER_USER_TYPES);
     }
 
     /**
-     * Admin lists, booking customer pickers, coupons, marketing: anyone who acts as a customer in the business.
+     * Admin lists, booking customer pickers, coupons, marketing: customer accounts only.
      */
     public function scopeInCustomerDirectory(Builder $query): Builder
     {
-        return $query->where(function (Builder $q) {
-            $q->whereIn('user_type', CUSTOMER_USER_TYPES)
-                ->orWhere(function (Builder $q2) {
-                    $q2->where('user_type', 'provider-admin')
-                        ->where('customer_app_access', true);
-                });
-        });
+        return $query->whereIn('user_type', CUSTOMER_USER_TYPES);
     }
 
     public function qualifiesForCustomerToProviderUpgrade(): bool
@@ -272,21 +266,11 @@ class User extends Authenticatable
 
     /**
      * Existing customer row to attach a new provider to, or null to create a new owner user.
+     *
+     * Provider and customer accounts are always separate rows, even when the phone matches.
      */
     public static function resolveCustomerUserForProviderOnboarding(string $phone, string $email): ?self
     {
-        $byPhone = self::findByContactPhone($phone);
-        $byEmail = self::findByContactEmail($email);
-        if (self::providerContactRegistrationErrors($phone, $email) !== []) {
-            return null;
-        }
-        if ($byPhone && $byPhone->qualifiesForCustomerToProviderUpgrade()) {
-            return $byPhone;
-        }
-        if ($byEmail && $byEmail->qualifiesForCustomerToProviderUpgrade()) {
-            return $byEmail;
-        }
-
         return null;
     }
 
@@ -303,6 +287,11 @@ class User extends Authenticatable
     public function referred_by_user()
     {
         return $this->belongsTo(User::class, 'referred_by');
+    }
+
+    public function referred_users(): HasMany
+    {
+        return $this->hasMany(User::class, 'referred_by');
     }
 
     public function provider(): \Illuminate\Database\Eloquent\Relations\HasOne
@@ -357,7 +346,11 @@ class User extends Authenticatable
         }
 
         $image = $this->profile_image;
-        $defaultPath = $this->user_type == 'customer' ? asset('assets/admin-module/img/customer.png') : asset('assets/provider-module/img/user2x.png');
+        $defaultPath = match ($this->user_type) {
+            'customer' => asset('assets/admin-module/img/customer.png'),
+            'admin-employee', 'super-admin' => asset('assets/admin-module/img/customer.png'),
+            default => asset('assets/provider-module/img/user2x.png'),
+        };
 
         if (!$image) {
             if (request()->is('api/*')) {
@@ -431,6 +424,7 @@ class User extends Authenticatable
         self::updating(function ($model) {
             if ($model->isDirty('is_active')) {
                 if ($model->is_active == 0){
+                    UserFcmDevice::query()->where('user_id', $model->id)->delete();
                     $model->fcm_token = '';
                 }
             }
@@ -442,8 +436,8 @@ class User extends Authenticatable
                 if ($model->is_active == 0){
 
                     $title = translate('Your account has been deactivated! Please contact with admin');
-                    if ($model->fcm_token && $title) {
-                        device_notification($model->fcm_token, $title, null, null, null, 'logout', null, $model->id);
+                    if (user_has_fcm_devices($model) && $title) {
+                        device_notification_for_user($model, $title, null, null, null, 'logout', null, $model->id);
                     }
 
                     $model->tokens->each(function ($token, $key) {

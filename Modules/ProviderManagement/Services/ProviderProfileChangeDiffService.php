@@ -13,7 +13,7 @@ use Modules\ZoneManagement\Entities\Zone;
 class ProviderProfileChangeDiffService
 {
     /**
-     * @return array<int, array{field: string, from: string, to: string, type?: string, from_url?: ?string, to_url?: ?string}>
+     * @return array<int, array{field: string, field_key: string, from: string, to: string, type?: string, from_url?: ?string, to_url?: ?string, sub_category_id?: string, action?: string}>
      */
     public function build(ProviderChangeRequest $changeRequest): array
     {
@@ -34,7 +34,7 @@ class ProviderProfileChangeDiffService
     }
 
     /**
-     * @return array<int, array{field: string, from: string, to: string, type?: string, from_url?: ?string, to_url?: ?string}>
+     * @return array<int, array{field: string, field_key: string, from: string, to: string, type?: string, from_url?: ?string, to_url?: ?string}>
      */
     private function diffProfile(Provider $provider, ?User $owner, array $payload): array
     {
@@ -52,22 +52,34 @@ class ProviderProfileChangeDiffService
             'street' => [$provider->street, $payload['street'] ?? null, 'street'],
             'city' => [$provider->city, $payload['city'] ?? null, 'city'],
             'pincode' => [$provider->pincode, $payload['pincode'] ?? null, 'pincode'],
-            'latitude' => [$coords['latitude'] ?? null, $payload['latitude'] ?? null, 'latitude'],
-            'longitude' => [$coords['longitude'] ?? null, $payload['longitude'] ?? null, 'longitude'],
             'identity_type' => [$owner?->identification_type, $payload['identity_type'] ?? null, 'identity Type'],
             'identity_number' => [$owner?->identification_number, $payload['identity_number'] ?? null, 'Identity_Number'],
             'company_identity_type' => [$provider->company_identity_type, $payload['company_identity_type'] ?? null, 'Company_Identity_Type'],
             'company_identity_number' => [$provider->company_identity_number, $payload['company_identity_number'] ?? null, 'Company_Identity_Number'],
         ];
 
-        foreach ($scalarFields as $labelKey => [$from, $to, $translateKey]) {
-            $this->pushScalarChange($changes, translate($translateKey), $from, $to);
+        foreach ($scalarFields as $fieldKey => [$from, $to, $translateKey]) {
+            $this->pushScalarChange($changes, (string) $fieldKey, translate($translateKey), $from, $to);
+        }
+
+        $currentLat = $coords['latitude'] ?? null;
+        $currentLng = $coords['longitude'] ?? null;
+        $proposedLat = $payload['latitude'] ?? null;
+        $proposedLng = $payload['longitude'] ?? null;
+        if (! $this->valuesEqual($currentLat, $proposedLat) || ! $this->valuesEqual($currentLng, $proposedLng)) {
+            $changes[] = [
+                'field_key' => 'coordinates',
+                'field' => translate('coordinates'),
+                'from' => $this->formatScalar($currentLat).', '.$this->formatScalar($currentLng),
+                'to' => $this->formatScalar($proposedLat).', '.$this->formatScalar($proposedLng),
+            ];
         }
 
         $currentZoneIds = $provider->zones()->pluck('zones.id')->sort()->values()->all();
         $proposedZoneIds = collect($payload['leaf_zone_ids'] ?? [])->sort()->values()->all();
         if (!$this->valuesEqual($currentZoneIds, $proposedZoneIds)) {
             $changes[] = [
+                'field_key' => 'zone',
                 'field' => translate('zone'),
                 'from' => $this->formatZoneNames($currentZoneIds),
                 'to' => $this->formatZoneNames($proposedZoneIds),
@@ -76,6 +88,7 @@ class ProviderProfileChangeDiffService
 
         if (!empty($payload['password'])) {
             $changes[] = [
+                'field_key' => 'password',
                 'field' => translate('password'),
                 'from' => '********',
                 'to' => translate('Updated'),
@@ -84,6 +97,7 @@ class ProviderProfileChangeDiffService
 
         $this->pushImageChange(
             $changes,
+            'contact_person_photo',
             translate('contact_person_photo'),
             $provider->contact_person_photo_full_path,
             $payload['contact_person_photo'] ?? null,
@@ -93,6 +107,7 @@ class ProviderProfileChangeDiffService
         if ($owner) {
             $this->pushIdentityImagesChange(
                 $changes,
+                'identity_documents',
                 translate('Identity_documents'),
                 $owner->identification_image ?? [],
                 $payload['deleted_identity_images'] ?? [],
@@ -102,6 +117,7 @@ class ProviderProfileChangeDiffService
 
         $this->pushIdentityImagesChange(
             $changes,
+            'company_identity_documents',
             translate('Company_identity_documents'),
             $provider->company_identity_images ?? [],
             $payload['deleted_company_identity_images'] ?? [],
@@ -117,8 +133,8 @@ class ProviderProfileChangeDiffService
     private function diffBranding(Provider $provider, array $payload): array
     {
         $changes = [];
-        $this->pushImageChange($changes, translate('logo'), $provider->logo_full_path, $payload['logo'] ?? null, 'provider/logo/');
-        $this->pushImageChange($changes, translate('cover_image'), $provider->cover_image_full_path, $payload['cover_image'] ?? null, 'provider/logo/');
+        $this->pushImageChange($changes, 'logo', translate('logo'), $provider->logo_full_path, $payload['logo'] ?? null, 'provider/logo/');
+        $this->pushImageChange($changes, 'cover_image', translate('cover_image'), $provider->cover_image_full_path, $payload['cover_image'] ?? null, 'provider/logo/');
 
         return $changes;
     }
@@ -154,6 +170,7 @@ class ProviderProfileChangeDiffService
             }
 
             $changes[] = [
+                'field_key' => (string) $key,
                 'field' => $this->labelForSettingKey($key),
                 'from' => $this->formatSettingValue($key, $current),
                 'to' => $this->formatSettingValue($key, $proposed),
@@ -169,18 +186,24 @@ class ProviderProfileChangeDiffService
     private function diffServices(string $providerId, array $payload): array
     {
         $changes = [];
-        $ids = $payload['sub_category_id'] ?? [];
+        $subscriptionChanges = app(ProviderProfileChangeRequestService::class)
+            ->subscriptionChangesFromPayload($providerId, $payload);
+        $ids = array_column($subscriptionChanges, 'sub_category_id');
         $categories = Category::whereIn('id', $ids)->get()->keyBy('id');
 
-        foreach ($ids as $id) {
+        foreach ($subscriptionChanges as $item) {
+            $id = $item['sub_category_id'];
+            $action = $item['action'];
             $row = SubscribedService::where('sub_category_id', $id)->where('provider_id', $providerId)->first();
             $currentlySubscribed = (int) ($row?->is_subscribed ?? 0) === 1;
-            $willSubscribe = !$currentlySubscribed;
 
             $changes[] = [
+                'field_key' => (string) $id,
                 'field' => $categories->get($id)?->name ?? (string) $id,
                 'from' => $currentlySubscribed ? translate('Subscribed') : translate('Unsubscribed'),
-                'to' => $willSubscribe ? translate('Subscribed') : translate('Unsubscribed'),
+                'to' => $action === 'subscribe' ? translate('Subscribed') : translate('Unsubscribed'),
+                'sub_category_id' => $id,
+                'action' => $action,
             ];
         }
 
@@ -188,15 +211,16 @@ class ProviderProfileChangeDiffService
     }
 
     /**
-     * @param array<int, array{field: string, from: string, to: string, type?: string, from_url?: ?string, to_url?: ?string}> $changes
+     * @param array<int, array{field: string, field_key: string, from: string, to: string, type?: string, from_url?: ?string, to_url?: ?string}> $changes
      */
-    private function pushScalarChange(array &$changes, string $label, mixed $from, mixed $to): void
+    private function pushScalarChange(array &$changes, string $fieldKey, string $label, mixed $from, mixed $to): void
     {
         if ($this->valuesEqual($from, $to)) {
             return;
         }
 
         $changes[] = [
+            'field_key' => $fieldKey,
             'field' => $label,
             'from' => $this->formatScalar($from),
             'to' => $this->formatScalar($to),
@@ -204,9 +228,9 @@ class ProviderProfileChangeDiffService
     }
 
     /**
-     * @param array<int, array{field: string, from: string, to: string, type?: string, from_url?: ?string, to_url?: ?string}> $changes
+     * @param array<int, array{field: string, field_key: string, from: string, to: string, type?: string, from_url?: ?string, to_url?: ?string}> $changes
      */
-    private function pushImageChange(array &$changes, string $label, ?string $currentUrl, ?string $newFilename, string $folder): void
+    private function pushImageChange(array &$changes, string $fieldKey, string $label, ?string $currentUrl, ?string $newFilename, string $folder): void
     {
         if (empty($newFilename)) {
             return;
@@ -218,6 +242,7 @@ class ProviderProfileChangeDiffService
         }
 
         $changes[] = [
+            'field_key' => $fieldKey,
             'field' => $label,
             'from' => $currentUrl ? translate('Current_image') : translate('not_set'),
             'to' => translate('New_image_uploaded'),
@@ -228,13 +253,14 @@ class ProviderProfileChangeDiffService
     }
 
     /**
-     * @param array<int, array{field: string, from: string, to: string}> $changes
+     * @param array<int, array{field: string, field_key: string, from: string, to: string}> $changes
      * @param array<int, mixed> $currentImages
      * @param array<int, string> $deleted
      * @param array<int, array{image?: string}> $added
      */
     private function pushIdentityImagesChange(
         array &$changes,
+        string $fieldKey,
         string $label,
         array $currentImages,
         array $deleted,
@@ -274,6 +300,7 @@ class ProviderProfileChangeDiffService
         }
 
         $changes[] = [
+            'field_key' => $fieldKey,
             'field' => $label,
             'from' => $from,
             'to' => $to,

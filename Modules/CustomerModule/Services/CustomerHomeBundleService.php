@@ -19,10 +19,16 @@ class CustomerHomeBundleService
             ? 'user:'.auth('api')->id()
             : 'guest:'.(string) ($request->input('guest_id') ?? $request->header('guest_id') ?? 'anon');
 
-        $layoutHash = substr(md5(json_encode($this->mobileAppManagementService->homeSectionsForApi())), 0, 12);
-        $cacheKey = 'customer_home_bundle:v4:'.$layoutHash.':'.$zoneId.':'.$locale.':'.$authKey;
+        $layoutHash = $this->layoutHash();
+        $userId = auth('api')->id();
+        $contentVersion = CustomerHomeContentVersion::resolveForRequest(
+            $layoutHash,
+            is_numeric($userId) ? (int) $userId : null,
+        );
 
-        return CustomerApiResponseCache::remember(
+        $cacheKey = 'customer_home_bundle:v5:'.$contentVersion.':'.$zoneId.':'.$locale.':'.$authKey;
+
+        $bundle = CustomerApiResponseCache::remember(
             $cacheKey,
             fn () => array_merge(
                 $this->fetchPublicBundle($request),
@@ -30,6 +36,30 @@ class CustomerHomeBundleService
             ),
             CustomerApiResponseCache::HOME_BUNDLE_TTL
         );
+
+        return array_merge(['content_version' => $contentVersion], $bundle);
+    }
+
+    public function layoutHash(): string
+    {
+        return substr(md5(json_encode($this->mobileAppManagementService->homeSectionsForApi())), 0, 12);
+    }
+
+    /**
+     * @return array{version: string, layout_hash: string}
+     */
+    public function versionPayload(Request $request): array
+    {
+        $layoutHash = $this->layoutHash();
+        $userId = auth('api')->id();
+
+        return [
+            'version' => CustomerHomeContentVersion::resolveForRequest(
+                $layoutHash,
+                is_numeric($userId) ? (int) $userId : null,
+            ),
+            'layout_hash' => $layoutHash,
+        ];
     }
 
     private function fetchPublicBundle(Request $request): array

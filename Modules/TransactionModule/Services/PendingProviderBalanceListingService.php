@@ -3,7 +3,6 @@
 namespace Modules\TransactionModule\Services;
 
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Services\ProviderBookingSettlementNetResolver;
@@ -36,10 +35,7 @@ class PendingProviderBalanceListingService
      */
     public function buildRows(?string $search, ?string $categoryId, string $sort): array
     {
-        $candidateIds = $this->candidateProviderIds();
-
         $query = Provider::query()
-            ->whereIn('id', $candidateIds)
             ->where('is_approved', 1)
             ->with([
                 'owner.account',
@@ -84,12 +80,7 @@ class PendingProviderBalanceListingService
 
         $rows = [];
         foreach ($providers as $provider) {
-            $net = $this->settlementResolver->resolveForProviderId((string) $provider->id)['booking_settlement_net'];
-            $payable = (float) ($provider->owner?->account->account_payable ?? 0);
-            if (!$this->shouldInclude($net, $payable)) {
-                continue;
-            }
-            $balanceDue = $this->rowBalanceDue($net, $payable);
+            $balanceDue = $this->signedBalanceDue($provider);
             $last = $lastByProvider->get($provider->id);
             $categoryNames = $provider->subscribed_services
                 ? $provider->subscribed_services->pluck('category.name')->filter()->unique()->values()->all()
@@ -116,42 +107,30 @@ class PendingProviderBalanceListingService
     }
 
     /**
-     * @return list<string>
+     * Signed Net balance: positive when provider owes company, negative when company owes provider.
+     * Magnitude matches {@see provider_payment_net_balance_context()} display_amount.
      */
-    protected function candidateProviderIds(): array
+    protected function signedBalanceDue(Provider $provider): float
     {
-        $fromBookings = DB::table('bookings')->whereNotNull('provider_id')->distinct()->pluck('provider_id');
-        $fromLedger = DB::table('ledger_transactions')->whereNotNull('provider_id')->distinct()->pluck('provider_id');
-        $fromPayable = DB::table('providers')
-            ->join('users', 'users.id', '=', 'providers.user_id')
-            ->join('accounts', 'accounts.user_id', '=', 'users.id')
-            ->where('accounts.account_payable', '>', 0.01)
-            ->pluck('providers.id');
+        $providerId = (string) $provider->id;
+        $net = (float) $this->settlementResolver->resolveForProviderId($providerId)['booking_settlement_net'];
+        $context = provider_payment_net_balance_context(
+            $providerId,
+            (string) $provider->user_id,
+            $net,
+            (float) ($provider->owner?->account->account_receivable ?? 0),
+            (float) ($provider->owner?->account->account_payable ?? 0),
+        );
 
-        return collect()
-            ->merge($fromBookings)
-            ->merge($fromLedger)
-            ->merge($fromPayable)
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-    }
-
-    protected function shouldInclude(float $net, float $payable): bool
-    {
-        return max(0.0, -$net) > 0.009 || $payable > 0.009;
-    }
-
-    protected function rowBalanceDue(float $net, float $payable): float
-    {
-        if (max(0.0, -$net) > 0.009) {
-            return round(max(0.0, -$net), 2);
-        }
-        if ($payable > 0.009) {
-            return round($payable, 2);
+        $amount = round((float) $context['display_amount'], 2);
+        if ($amount <= 0.009) {
+            return 0.0;
         }
 
-        return 0.0;
+        if ($context['company_pays_provider']) {
+            return -$amount;
+        }
+
+        return $amount;
     }
 }

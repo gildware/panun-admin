@@ -162,8 +162,8 @@ class PostController extends Controller
 
         $description = get_push_notification_description('customized_booking_request', 'customer_notification', $request->user()?->current_language_key);
         $permission = isNotificationActive(null, 'booking', 'notification', 'user');
-        if ($title && $request->user()?->fcm_token && $permission) {
-            device_notification_for_bidding($request->user()->fcm_token, $title, $description, null, 'bidding', null, $post->id, null);
+        if ($title && user_has_fcm_devices($request->user()) && $permission) {
+            device_notification_for_bidding_user($request->user(), $title, $description, null, 'bidding', null, $post->id, null);
         }
 
         if (count($request['additional_instructions']) > 0) {
@@ -188,13 +188,15 @@ class PostController extends Controller
         $bookingNotificationStatus = business_config('booking', 'notification_settings')->live_values;
 
         foreach ($providers as $provider) {
-            $fcm_token = $provider->owner->fcm_token ?? null;
-            $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', $provider?->owner?->current_language_key);
-            $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', $provider?->owner?->current_language_key);
+            $owner = $provider->owner;
+            $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', $owner?->current_language_key);
+            $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', $owner?->current_language_key);
             $data_info = [
                 'user_name' => $request->user()?->first_name . ' ' . $request->user()?->last_name,
             ];
-            if (!is_null($fcm_token) && $provider?->service_availability && $title && isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking']) device_notification_for_bidding($fcm_token, $title, $description, null, 'bidding', null, $post->id, null, $data_info);
+            if ($owner && user_has_fcm_devices($owner) && $provider?->service_availability && $title && isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking']) {
+                device_notification_for_bidding_user($owner, $title, $description, null, 'bidding', null, $post->id, null, $data_info);
+            }
         }
 
         return response()->json(response_formatter(DEFAULT_STORE_200, null), 200);

@@ -24,6 +24,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('status-update/{id}', [ProviderController::class, 'statusUpdate'])->name('status_update');
         Route::any('service-availability/{id}', [ProviderController::class, 'serviceAvailability'])->name('service_availability');
         Route::any('app-availability/{id}', [ProviderController::class, 'appAvailability'])->name('app_availability');
+        Route::any('advertisement-availability/{id}', [ProviderController::class, 'advertisementAvailability'])->name('advertisement_availability');
         Route::any('suspend-update/{id}', [ProviderController::class, 'suspendUpdate'])->name('suspend_update');
         Route::post('commission-update/{id}', [ProviderController::class, 'commissionUpdate'])->name('commission_update');
 
@@ -92,6 +93,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('profile-change-request', [ProviderController::class, 'profileChangeRequest'])->name('profile_change_request');
         Route::get('profile-change-details/{id}', [ProviderController::class, 'profileChangeDetails'])->name('profile_change_details');
         Route::get('profile-change/update/{id}/{status}', [ProviderController::class, 'updateProfileChangeApproval'])->name('profile_change_update');
+        Route::post('profile-change/review/{id}', [ProviderController::class, 'reviewProfileChange'])->name('profile_change_review');
+        Route::post('profile-change/review-field/{id}', [ProviderController::class, 'reviewProfileChangeField'])->name('profile_change_review_field');
 
         Route::group(['prefix' => 'collect-cash', 'as' => 'collect_cash.'], function () {
             Route::get('/{id}', [CollectCashController::class, 'index'])->name('list');

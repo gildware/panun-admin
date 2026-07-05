@@ -335,11 +335,9 @@ class BookingTestMatrixOrchestrator
     {
         $phoneDigits = User::normalizeContactPhoneDigits(self::CUSTOMER_PHONE);
 
-        // Same digits can exist on multiple rows (e.g. 7889729790 vs +917889729790).
-        // Prefer the account the customer app actually logs into (+91 provider-admin with app access).
-        $customer = User::eligibleCustomerAppUsers()
+        // Same digits can exist on provider and customer rows; use the customer account only.
+        $customer = User::ofType(CUSTOMER_USER_TYPES)
             ->whereRaw("REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9]', '') LIKE ?", ['%' . $phoneDigits])
-            ->orderByRaw("CASE WHEN user_type = 'provider-admin' AND customer_app_access = 1 THEN 0 WHEN user_type = 'customer' THEN 1 ELSE 2 END")
             ->orderByRaw("CASE WHEN phone LIKE '+91%' THEN 0 ELSE 1 END")
             ->first();
 

@@ -1,43 +1,119 @@
 @php
-    $notificationRow = $dataValues->where('key_name', $notification['key'])->where('settings_type', $settingsType)->first();
-    $messageValue = $notificationRow?->live_values[$notification['key'] . '_message'] ?? '';
-    $descriptionValue = $notificationRow?->live_values[$notification['key'] . '_description'] ?? '';
+    $notificationKey = $notification['key'];
+    $variables = notification_message_variables_for_key($notificationKey);
+    $notificationRow = $dataValues->where('key_name', $notificationKey)->where('settings_type', $settingsType)->first();
+    $messageValue = $notificationRow?->live_values[$notificationKey . '_message'] ?? '';
+    $descriptionValue = $notificationRow?->live_values[$notificationKey . '_description'] ?? '';
 @endphp
 
+@once
+    @push('css_or_js')
+        <style>
+            .notification-toggle-btn {
+                font-size: 11px;
+                padding: 2px 10px;
+                line-height: 1.3;
+                min-height: 0;
+                height: auto;
+            }
+            .notification-var-chip {
+                font-size: 10px;
+                padding: 1px 7px;
+                line-height: 1.3;
+                min-height: 0;
+                height: auto;
+            }
+            .notification-preview-box {
+                background: #f8f9fa;
+                border: 1px dashed #dee2e6;
+            }
+            .notification-preview-title {
+                font-size: 14px;
+            }
+            .notification-preview-desc {
+                white-space: pre-wrap;
+            }
+            .notification-toggle-btn.active {
+                background-color: var(--bs-primary);
+                border-color: var(--bs-primary);
+                color: #fff;
+            }
+            .notification-trigger-info-btn {
+                line-height: 1;
+                min-width: 20px;
+                min-height: 20px;
+                cursor: pointer;
+            }
+            .notification-trigger-info-btn.active i {
+                font-variation-settings: 'FILL' 1;
+            }
+            .notification-trigger-panel:not(.d-none) {
+                display: block !important;
+            }
+        </style>
+    @endpush
+@endonce
+
 @if($language ?? null)
-    <div class="mb-30 lang-form default-form">
-        <div class="mb-20 d-flex justify-content-between">
-            <b>{{ translate($notification['value'] . '_Message') }}</b>
-            @can('notification_message_manage_status')
-                <label class="switcher">
-                    <input class="switcher_input update-message"
-                           name="status"
-                           id="{{$notification['key']}}_status"
-                           {{$notificationRow?->live_values[$notification['key'].'_status']?'checked':''}}
-                           data-key="{{$notification['key'] ?? ''}}"
-                           type="checkbox"
-                           value="1">
-                    <span class="switcher_control"></span>
-                </label>
-            @endcan
-        </div>
-        <input type="hidden" name="id" value="{{ $notification['key'] }}">
+    <div class="mb-30 lang-form default-form notification-message-form" data-notification-key="{{ $notificationKey }}">
+        @include('businesssettingsmodule::admin.partials.notification-scenario-context', ['scenarioContext' => $scenarioContext ?? null])
+        @if(empty($hideFormHeader))
+            @include('businesssettingsmodule::admin.partials.notification-form-header', [
+                'notification' => $notification,
+                'notificationKey' => $notificationKey,
+                'notificationRow' => $notificationRow,
+                'settingsType' => $settingsType,
+                'fieldSuffix' => 'default',
+            ])
+        @else
+            <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+                <div>
+                    <div class="fz-12 fw-semibold text-dark mb-0">{{ translate($notification['value'] . '_Message') }}</div>
+                    <code class="fz-11 text-muted">{{ $notificationKey }}</code>
+                </div>
+                @can('notification_message_manage_status')
+                    <label class="switcher flex-shrink-0">
+                <input class="switcher_input update-message"
+                       name="status"
+                       id="{{$notificationKey}}_status"
+                       {{$notificationRow?->live_values[$notificationKey.'_status']?'checked':''}}
+                       data-key="{{$notificationKey}}"
+                       data-message-type="{{ ($settingsType ?? '') === 'provider_notification' ? 'providers' : 'customers' }}"
+                       type="checkbox"
+                       value="1">
+                        <span class="switcher_control"></span>
+                    </label>
+                @endcan
+            </div>
+        @endif
+        <input type="hidden" name="id" value="{{ $notificationKey }}">
         <div class="message-textarea mb-3">
             <div class="mb-2 text-dark">{{ translate('Title') }}</div>
-            <textarea class="form-control block-size-initial"
-                      id="{{ $notification['key'] }}_message"
-                      name="{{ $notification['key'] ?? '' }}_message[]"
+            <textarea class="form-control block-size-initial notification-message-input"
+                      id="{{ $notificationKey }}_message"
+                      name="{{ $notificationKey }}_message[]"
                       rows="2"
-                      placeholder="{{ translate('Title') }}">{{ $messageValue }}</textarea>
+                      placeholder="{{ translate('Title') }}"
+                      data-preview-role="title">{{ $messageValue }}</textarea>
         </div>
-        <div class="message-textarea">
+        <div class="message-textarea mb-3">
             <div class="mb-2 text-dark">{{ translate('Description') }} ({{ translate('optional') }})</div>
-            <textarea class="form-control block-size-initial"
-                      id="{{ $notification['key'] }}_description"
-                      name="{{ $notification['key'] ?? '' }}_description[]"
+            <textarea class="form-control block-size-initial notification-message-input"
+                      id="{{ $notificationKey }}_description"
+                      name="{{ $notificationKey }}_description[]"
                       rows="3"
-                      placeholder="{{ translate('Description') }} ({{ translate('optional') }})">{{ $descriptionValue }}</textarea>
+                      placeholder="{{ translate('Description') }} ({{ translate('optional') }})"
+                      data-preview-role="description">{{ $descriptionValue }}</textarea>
         </div>
+        @include('businesssettingsmodule::admin.partials.notification-extras-panel', [
+            'variables' => $variables,
+            'notificationKey' => $notificationKey,
+            'titleFieldId' => $notificationKey . '_message',
+            'descriptionFieldId' => $notificationKey . '_description',
+            'fieldSuffix' => 'default',
+            'messageValue' => $messageValue,
+            'descriptionValue' => $descriptionValue,
+        ])
 
         @can('notification_message_update')
             <div class="d-flex justify-content-end mt-10 gap-2">
@@ -61,41 +137,48 @@
                     }
                 }
             }
+            $langMessage = $translate[$lang['code']][$notificationRow?->key_name] ?? '';
+            $langDescription = $translateDescription[$lang['code']][$notificationRow?->key_name . '_description'] ?? '';
         @endphp
-        <div class="mb-30 d-none lang-form {{$lang['code']}}-form">
-            <div class="mb-20 d-flex justify-content-between">
-                <b>{{ translate($notification['value'] . '_Message') }} ({{strtoupper($lang['code'])}})</b>
-
-                @can('notification_message_manage_status')
-                    <label class="switcher">
-                        <input class="switcher_input update-message"
-                               name="status"
-                               id="{{$notification['key']}}_status"
-                               {{$notificationRow?->live_values[$notification['key'].'_status']?'checked':''}}
-                               data-key="{{$notification['key'] ?? ''}}"
-                               type="checkbox"
-                               value="1">
-                        <span class="switcher_control"></span>
-                    </label>
-                @endcan
-            </div>
-            <input type="hidden" name="id" value="{{ $notification['key'] }}">
+        <div class="mb-30 d-none lang-form {{$lang['code']}}-form notification-message-form" data-notification-key="{{ $notificationKey }}">
+            @if(empty($hideFormHeader))
+                @include('businesssettingsmodule::admin.partials.notification-form-header', [
+                    'notification' => $notification,
+                    'notificationKey' => $notificationKey,
+                    'notificationRow' => $notificationRow,
+                    'settingsType' => $settingsType,
+                    'fieldSuffix' => $lang['code'],
+                    'langLabel' => $lang['code'],
+                ])
+            @endif
+            <input type="hidden" name="id" value="{{ $notificationKey }}">
             <div class="message-textarea mb-3">
                 <div class="mb-2 text-dark">{{ translate('Title') }}</div>
-                <textarea class="form-control block-size-initial"
-                          id="{{ $notification['key'] }}_message_{{ $lang['code'] }}"
-                          name="{{ $notification['key'] ?? '' }}_message[]"
+                <textarea class="form-control block-size-initial notification-message-input"
+                          id="{{ $notificationKey }}_message_{{ $lang['code'] }}"
+                          name="{{ $notificationKey }}_message[]"
                           rows="2"
-                          placeholder="{{ translate('Title') }}">{{$translate[$lang['code']][$notificationRow?->key_name] ?? ''}}</textarea>
+                          placeholder="{{ translate('Title') }}"
+                          data-preview-role="title">{{ $langMessage }}</textarea>
             </div>
-            <div class="message-textarea">
+            <div class="message-textarea mb-3">
                 <div class="mb-2 text-dark">{{ translate('Description') }} ({{ translate('optional') }})</div>
-                <textarea class="form-control block-size-initial"
-                          id="{{ $notification['key'] }}_description_{{ $lang['code'] }}"
-                          name="{{ $notification['key'] ?? '' }}_description[]"
+                <textarea class="form-control block-size-initial notification-message-input"
+                          id="{{ $notificationKey }}_description_{{ $lang['code'] }}"
+                          name="{{ $notificationKey }}_description[]"
                           rows="3"
-                          placeholder="{{ translate('Description') }} ({{ translate('optional') }})">{{$translateDescription[$lang['code']][$notificationRow?->key_name . '_description'] ?? ''}}</textarea>
+                          placeholder="{{ translate('Description') }} ({{ translate('optional') }})"
+                          data-preview-role="description">{{ $langDescription }}</textarea>
             </div>
+            @include('businesssettingsmodule::admin.partials.notification-extras-panel', [
+                'variables' => $variables,
+                'notificationKey' => $notificationKey,
+                'titleFieldId' => $notificationKey . '_message_' . $lang['code'],
+                'descriptionFieldId' => $notificationKey . '_description_' . $lang['code'],
+                'fieldSuffix' => $lang['code'],
+                'messageValue' => $langMessage,
+                'descriptionValue' => $langDescription,
+            ])
             @can('notification_message_update')
                 <div class="d-flex justify-content-end mt-10 gap-2">
                     <button type="reset" class="btn btn--secondary rounded">{{translate('reset')}}</button>
@@ -106,39 +189,65 @@
         <input type="hidden" name="lang[]" value="{{$lang['code']}}">
     @endforeach
 @else
-    <div class="mb-30 lang-form">
-        <div class="mb-20 d-flex justify-content-between">
-            <b>{{ translate($notification['value'] . '_Message') }}</b>
-            @can('notification_message_manage_status')
-                <label class="switcher">
-                    <input class="switcher_input update-message"
-                           name="status"
-                           id="{{$notification['key']}}_status"
-                           {{$notificationRow?->live_values[$notification['key'].'_status']?'checked':''}}
-                           data-key="{{$notification['key'] ?? ''}}"
-                           type="checkbox"
-                           value="1">
-                    <span class="switcher_control"></span>
-                </label>
-            @endcan
-        </div>
-        <input type="hidden" name="id" value="{{ $notification['key'] }}">
+    <div class="mb-30 lang-form notification-message-form" data-notification-key="{{ $notificationKey }}">
+        @include('businesssettingsmodule::admin.partials.notification-scenario-context', ['scenarioContext' => $scenarioContext ?? null])
+        @if(empty($hideFormHeader))
+            @include('businesssettingsmodule::admin.partials.notification-form-header', [
+                'notification' => $notification,
+                'notificationKey' => $notificationKey,
+                'notificationRow' => $notificationRow,
+                'settingsType' => $settingsType,
+                'fieldSuffix' => 'default',
+            ])
+        @else
+            <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+                <div>
+                    <div class="fz-12 fw-semibold text-dark mb-0">{{ translate($notification['value'] . '_Message') }}</div>
+                    <code class="fz-11 text-muted">{{ $notificationKey }}</code>
+                </div>
+                @can('notification_message_manage_status')
+                    <label class="switcher flex-shrink-0">
+                        <input class="switcher_input update-message"
+                               name="status"
+                               id="{{$notificationKey}}_status"
+                               {{$notificationRow?->live_values[$notificationKey.'_status']?'checked':''}}
+                               data-key="{{$notificationKey}}"
+                               data-message-type="{{ ($settingsType ?? '') === 'provider_notification' ? 'providers' : 'customers' }}"
+                               type="checkbox"
+                               value="1">
+                        <span class="switcher_control"></span>
+                    </label>
+                @endcan
+            </div>
+        @endif
+        <input type="hidden" name="id" value="{{ $notificationKey }}">
         <div class="message-textarea mb-3">
             <div class="mb-2 text-dark">{{ translate('Title') }}</div>
-            <textarea class="form-control block-size-initial"
-                      id="{{ $notification['key'] }}_message"
-                      name="{{ $notification['key'] ?? '' }}_message[]"
+            <textarea class="form-control block-size-initial notification-message-input"
+                      id="{{ $notificationKey }}_message"
+                      name="{{ $notificationKey }}_message[]"
                       rows="2"
-                      placeholder="{{ translate('Title') }}">{{ $messageValue }}</textarea>
+                      placeholder="{{ translate('Title') }}"
+                      data-preview-role="title">{{ $messageValue }}</textarea>
         </div>
-        <div class="message-textarea">
+        <div class="message-textarea mb-3">
             <div class="mb-2 text-dark">{{ translate('Description') }} ({{ translate('optional') }})</div>
-            <textarea class="form-control block-size-initial"
-                      id="{{ $notification['key'] }}_description"
-                      name="{{ $notification['key'] ?? '' }}_description[]"
+            <textarea class="form-control block-size-initial notification-message-input"
+                      id="{{ $notificationKey }}_description"
+                      name="{{ $notificationKey }}_description[]"
                       rows="3"
-                      placeholder="{{ translate('Description') }} ({{ translate('optional') }})">{{ $descriptionValue }}</textarea>
+                      placeholder="{{ translate('Description') }} ({{ translate('optional') }})"
+                      data-preview-role="description">{{ $descriptionValue }}</textarea>
         </div>
+        @include('businesssettingsmodule::admin.partials.notification-extras-panel', [
+            'variables' => $variables,
+            'notificationKey' => $notificationKey,
+            'titleFieldId' => $notificationKey . '_message',
+            'descriptionFieldId' => $notificationKey . '_description',
+            'fieldSuffix' => 'default',
+            'messageValue' => $messageValue,
+            'descriptionValue' => $descriptionValue,
+        ])
         @can('notification_message_update')
             <div class="d-flex justify-content-end mt-10 gap-2">
                 <button type="reset" class="btn btn--secondary rounded">{{translate('reset')}}</button>

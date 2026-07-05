@@ -4,6 +4,8 @@ $max_booking_amount = (business_config('max_booking_amount', 'booking_setup'))->
 $all_bookings_menu_count = $menuCounts['all_bookings'];
 $pending_booking_reviews_count = $menuCounts['pending_booking_reviews'];
 $special_scenarios_menu_count = $menuCounts['special_scenarios'];
+$cancelled_by_provider_menu_count = $menuCounts['cancelled_by_provider'];
+$cancelled_by_customer_menu_count = $menuCounts['cancelled_by_customer'];
 $pending_providers = $menuCounts['pending_providers'];
 $pending_showcase_items = $menuCounts['pending_showcase_items'];
 $pending_profile_changes = $menuCounts['pending_profile_changes'];
@@ -239,9 +241,25 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         </li>
                         <li>
                             <a href="{{ route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']) }}"
-                               class="{{ (request()->is('admin/booking/list') || request()->is('admin/booking/details*') || request()->is('admin/booking/repeat*') || request()->is('admin/booking/rebooking*') || request()->is('admin/booking/todays-followups*') || request()->is('admin/booking/success*')) && ! request()->is('admin/booking/list/verification') && ! request()->is('admin/booking/list/offline-payment') && ! request()->is('admin/booking/list/special-scenarios') && ! request()->is('admin/booking/reviews/list') ? 'active-menu' : '' }}">
+                               class="{{ (request()->is('admin/booking/list') || request()->is('admin/booking/details*') || request()->is('admin/booking/repeat*') || request()->is('admin/booking/rebooking*') || request()->is('admin/booking/todays-followups*') || request()->is('admin/booking/success*')) && ! request()->is('admin/booking/list/verification') && ! request()->is('admin/booking/list/offline-payment') && ! request()->is('admin/booking/list/special-scenarios') && ! request()->is('admin/booking/list/cancelled-by-provider') && ! request()->is('admin/booking/list/cancelled-by-customer') && ! request()->is('admin/booking/reviews/list') ? 'active-menu' : '' }}">
                                 <span class="link-title">{{ translate('Booking_Requests') }}
                                     <span class="count">{{ $all_bookings_menu_count }}</span>
+                                </span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.booking.list.cancelled_by_provider', ['service_type' => 'all']) }}"
+                               class="{{ request()->is('admin/booking/list/cancelled-by-provider') ? 'active-menu' : '' }}">
+                                <span class="link-title">{{ translate('Cancelled_by_provider') }}
+                                    <span class="count">{{ $cancelled_by_provider_menu_count }}</span>
+                                </span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.booking.list.cancelled_by_customer', ['service_type' => 'all']) }}"
+                               class="{{ request()->is('admin/booking/list/cancelled-by-customer') ? 'active-menu' : '' }}">
+                                <span class="link-title">{{ translate('Cancelled_by_customer') }}
+                                    <span class="count">{{ $cancelled_by_customer_menu_count }}</span>
                                 </span>
                             </a>
                         </li>
@@ -819,7 +837,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcan
 
-            @canany(['wallet_add','wallet_view'])
+            @canany(['wallet_add', 'wallet_view'])
                 <li class="has-sub-item {{request()->is('admin/customer/wallet*')?'sub-menu-opened':''}}">
                     <a href="#" class="{{request()->is('admin/customer/wallet*')?'active-menu':''}}">
                         <span class="material-icons" title="Customers">wallet</span>
@@ -846,6 +864,29 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcanany
 
+            @can('customer_view')
+                <li class="has-sub-item {{request()->is('admin/customer/welcome-bonus*') || (request()->is('admin/customer/settings') && request('web_page')=='welcome_bonus')?'sub-menu-opened':''}}">
+                    <a href="#" class="{{request()->is('admin/customer/welcome-bonus*') || (request()->is('admin/customer/settings') && request('web_page')=='welcome_bonus')?'active-menu':''}}">
+                        <span class="material-icons" title="Customers">redeem</span>
+                        <span class="link-title">{{translate('Welcome_Bonus')}}</span>
+                    </a>
+                    <ul class="nav sub-menu">
+                        <li>
+                            <a href="{{route('admin.customer.welcome-bonus.report')}}"
+                               class="{{request()->is('admin/customer/welcome-bonus/report')?'active-menu':''}}">
+                                {{translate('Welcome_Bonus_Report')}}
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{route('admin.customer.settings', ['web_page' => 'welcome_bonus'])}}"
+                               class="{{request()->is('admin/customer/settings') && request('web_page')=='welcome_bonus'?'active-menu':''}}">
+                                {{translate('Welcome_Bonus_Settings')}}
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            @endcan
+
             @can('point_view')
                 <li class="has-sub-item {{request()->is('admin/customer/loyalty-point*')?'sub-menu-opened':''}}">
                     <a href="#" class="{{request()->is('admin/customer/loyalty-point*')?'active-menu':''}}">
@@ -857,6 +898,29 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                             <a href="{{route('admin.customer.loyalty-point.report')}}"
                                class="{{request()->is('admin/customer/loyalty-point/report')?'active-menu':''}}">
                                 {{translate('Loyalty Points Transactions')}}
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            @endcan
+
+            @can('customer_view')
+                <li class="has-sub-item {{request()->is('admin/customer/referral-earning*')?'sub-menu-opened':''}}">
+                    <a href="#" class="{{request()->is('admin/customer/referral-earning*')?'active-menu':''}}">
+                        <span class="material-icons" title="Customers">share</span>
+                        <span class="link-title">{{translate('refer_and_earn')}}</span>
+                    </a>
+                    <ul class="nav sub-menu">
+                        <li>
+                            <a href="{{route('admin.customer.referral-earning.report')}}"
+                               class="{{request()->is('admin/customer/referral-earning/report')?'active-menu':''}}">
+                                {{translate('Referral_Report')}}
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{route('admin.customer.settings', ['web_page' => 'referral_earning'])}}"
+                               class="{{request()->is('admin/customer/settings') && request('web_page')=='referral_earning'?'active-menu':''}}">
+                                {{translate('Referral_Settings')}}
                             </a>
                         </li>
                     </ul>

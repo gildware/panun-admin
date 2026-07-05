@@ -10,6 +10,19 @@ use Modules\TransactionModule\Entities\Transaction;
 
 class OperationalDataResetService
 {
+    public function resetAllProviders(): int
+    {
+        return app(AdminProviderDeletionService::class)->deleteAllProviders();
+    }
+
+    /**
+     * @return array{deleted: int, skipped: int}
+     */
+    public function resetAllCustomers(): array
+    {
+        return app(AdminCustomerDeletionService::class)->deleteAllCustomers();
+    }
+
     /**
      * Full operational wipe: financial records first so foreign keys to bookings do not block deletes,
      * then bookings (and related tables), then leads.

@@ -21,6 +21,9 @@
                         <a class="nav-link {{ $webPage == 'bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=bookings">{{ translate('Bookings') }}</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {{ $webPage == 'withdrawn_bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=withdrawn_bookings">{{ translate('Provider_withdrawals_and_rejections') }}</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {{ $webPage == 'special_bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=special_bookings">{{ translate('Special_Bookings') }}</a>
                     </li>
                     <li class="nav-item">
@@ -101,6 +104,24 @@
                                            data-route="{{ route('admin.provider.app_availability', [$provider->id]) }}"
                                            data-message="{{ translate('want_to_update_status') }}"
                                            type="checkbox" {{ $provider->app_availability ? 'checked' : '' }}>
+                                    <span class="switcher_control"></span>
+                                </label>
+                            @endcan
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                            <div>
+                                <h5 class="mb-1">{{ translate('Allow_Advertisement') }}</h5>
+                                <p class="mb-0 text-muted">
+                                    {{ translate('If_on_provider_can_access_advertisement_features_even_when_minimum_completed_bookings_are_not_met._If_off_provider_cannot_access_advertisement_features_even_when_conditions_are_met.') }}
+                                </p>
+                            </div>
+                            @can('provider_manage_status')
+                                <label class="switcher" data-bs-toggle="modal" data-bs-target="#deactivateAlertModal">
+                                    <input class="switcher_input route-alert"
+                                           data-route="{{ route('admin.provider.advertisement_availability', [$provider->id]) }}"
+                                           data-message="{{ translate('want_to_update_status') }}"
+                                           type="checkbox" {{ (int) $provider->allow_advertisement === 1 ? 'checked' : '' }}>
                                     <span class="switcher_control"></span>
                                 </label>
                             @endcan

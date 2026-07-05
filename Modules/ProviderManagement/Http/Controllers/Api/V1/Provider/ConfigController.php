@@ -67,7 +67,7 @@ class ConfigController extends Controller
             CustomerApiResponseCache::CONFIG_TTL
         );
         $content['maintenance'] = $this->checkMaintenanceMode();
-        $content['mobile_app_icons'] = app(MobileAppManagementService::class)->iconsForApi()['provider'] ?? [];
+        $content['mobile_app_icons'] = $this->providerMobileAppIconsForApi();
 
         return response()
             ->json(response_formatter(DEFAULT_200, $content), 200)
@@ -196,6 +196,9 @@ class ConfigController extends Controller
             'phone_number_visibility_for_chatting' => (int)((business_config('phone_number_visibility_for_chatting', 'business_information'))->live_values ?? 0),
             'bid_offers_visibility_for_providers' => (int)((business_config('bid_offers_visibility_for_providers', 'bidding_system'))->live_values ?? 0),
             'bidding_status' => (int)((business_config('bidding_status', 'bidding_system'))->live_values ?? 0),
+            'advertisement_status' => (int)((business_config('advertisement_status', 'provider_config'))->live_values ?? 0),
+            'advertisement_minimum_bookings' => (int)((business_config('advertisement_minimum_bookings', 'provider_config'))->live_values ?? 0),
+            'in_app_call_status' => (int)((business_config('in_app_call_status', 'in_app_call_system'))?->live_values ?? 1),
             'digital_payment' => (int)((business_config('digital_payment', 'service_setup'))->live_values ?? 0),
             'phone_verification' => (((login_setup('phone_verification'))->value ?? 0 ) == 1 && $count == 1 ? 1 : 0),
             'email_verification' => (int)((login_setup('email_verification'))->value ?? 0),
@@ -226,8 +229,22 @@ class ConfigController extends Controller
             'serviceman_can_edit_booking' => (int)((business_config('serviceman_can_edit_booking', 'serviceman_config'))->live_values ?? 0 ),
             'max_image_upload_size' => uploadMaxFileSize('image'),
             'max_video_upload_size' => uploadMaxFileSize('file'),
-            'mobile_app_icons' => app(MobileAppManagementService::class)->iconsForApi()['provider'] ?? [],
+            'mobile_app_icons' => $this->providerMobileAppIconsForApi(),
         ]), 200);
+    }
+
+    /**
+     * @return array<string, array{light: ?string, dark: ?string}>
+     */
+    private function providerMobileAppIconsForApi(): array
+    {
+        $mobileAppIcons = app(MobileAppManagementService::class)->iconsForApi();
+        $providerMobileAppIcons = $mobileAppIcons['provider'] ?? [];
+        if (isset($mobileAppIcons['customer']['customer_app_logo'])) {
+            $providerMobileAppIcons['customer_app_logo'] = $mobileAppIcons['customer']['customer_app_logo'];
+        }
+
+        return $providerMobileAppIcons;
     }
 
     public function pageDetails($key)

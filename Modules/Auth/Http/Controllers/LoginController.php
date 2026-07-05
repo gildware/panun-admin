@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 use Modules\AdminModule\Services\StaffPresenceService;
+use Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement;
 use Modules\UserManagement\Entities\User;
 
 class LoginController extends Controller
@@ -83,31 +84,35 @@ class LoginController extends Controller
         }
 
 
-        $user = $this->user->where(['phone' => $request['email_or_phone']])
-            ->orWhere('email', $request['email_or_phone'])
-            ->ofType(ADMIN_USER_TYPES)->first();
+        $user = $this->user->where(function ($query) use ($request) {
+            $query->where('phone', $request['email_or_phone'])
+                ->orWhere('email', $request['email_or_phone']);
+        })->ofType(ADMIN_USER_TYPES)->first();
 
         if (isset($user) && Hash::check($request['password'], $user['password'])) {
-            if ($user->is_active && $user->roles->count() > 0 && $user->roles[0]->is_active || $user->user_type == 'super-admin') {
+            $canLogin = $user->is_active
+                && ($user->user_type === 'super-admin'
+                    || ($user->roles->count() > 0 && $user->roles[0]->is_active));
+
+            if ($canLogin) {
                 $remember = $request->has('remember');
-                if (auth()->attempt(['email' => $request->email_or_phone, 'password' => $request->password], $remember)) {
-                    if ($remember) {
-                        cookie()->queue('remember_email', $request->email_or_phone, 43200);
-                        cookie()->queue('remember_password', $request->password, 43200);
-                        cookie()->queue('remember_checked', true, 43200);
-                        setcookie('admin_logged_in', 'true', time() + (86400 * 30), "/");
-                    } else {
-                        cookie()->queue(cookie()->forget('remember_email'));
-                        cookie()->queue(cookie()->forget('remember_password'));
-                        cookie()->queue(cookie()->forget('remember_checked'));
-                    }
-                    if (!adminSetupGuideWelcomeAcknowledged($user->id)) {
-                        session(['admin_show_setup_welcome' => true]);
-                    }
-                    app(StaffPresenceService::class)->markOnlineOnLogin(auth()->user());
-                    app(\Modules\ChattingModule\Services\StaffGroupChannelService::class)->ensureGroupForUser(auth()->user());
-                    return redirect()->route('admin.dashboard');
+                auth()->login($user, $remember);
+                if ($remember) {
+                    cookie()->queue('remember_email', $request->email_or_phone, 43200);
+                    cookie()->queue('remember_password', $request->password, 43200);
+                    cookie()->queue('remember_checked', true, 43200);
+                    setcookie('admin_logged_in', 'true', time() + (86400 * 30), "/");
+                } else {
+                    cookie()->queue(cookie()->forget('remember_email'));
+                    cookie()->queue(cookie()->forget('remember_password'));
+                    cookie()->queue(cookie()->forget('remember_checked'));
                 }
+                if (!adminSetupGuideWelcomeAcknowledged($user->id)) {
+                    session(['admin_show_setup_welcome' => true]);
+                }
+                app(StaffPresenceService::class)->markOnlineOnLogin(auth()->user());
+                app(\Modules\ChattingModule\Services\StaffGroupChannelService::class)->ensureGroupForUser(auth()->user());
+                return redirect()->route('admin.dashboard');
             }
 
             Toastr::error(translate(ACCOUNT_DISABLED['message']));
@@ -160,8 +165,10 @@ class LoginController extends Controller
 
         $user = $this->user
             ->with(['provider'])
-            ->where(['phone' => $request['email_or_phone']])
-            ->orWhere('email', $request['email_or_phone'])
+            ->where(function ($query) use ($request) {
+                $query->where('phone', $request['email_or_phone'])
+                    ->orWhere('email', $request['email_or_phone']);
+            })
             ->ofType(PROVIDER_USER_TYPES)
             ->first();
 
@@ -223,7 +230,7 @@ class LoginController extends Controller
             return redirect(route('provider.auth.login'));
         }
 
-        if ($manualBlock = $this->resolveManualPerformanceBlockForProvider($user)) {
+        if ($manualBlock = ProviderManualPerformanceEnforcement::resolveLoginBlockMessage($user)) {
             self::update_user_hit_count($user);
             Toastr::error($manualBlock);
             return redirect(route('provider.auth.login'));
@@ -237,21 +244,18 @@ class LoginController extends Controller
 
         $remember = $request->has('remember_me');
 
-        if (auth()->attempt(['email' => $request->email_or_phone, 'password' => $request->password], $remember)) {
-            if ($remember) {
-                cookie()->queue('provider_remember_email', $request->email_or_phone, 43200);
-                cookie()->queue('provider_remember_password', $request->password, 43200);
-                cookie()->queue('provider_remember_checked', true, 43200);
-            } else {
-                cookie()->queue(cookie()->forget('provider_remember_email'));
-                cookie()->queue(cookie()->forget('provider_remember_password'));
-                cookie()->queue(cookie()->forget('provider_remember_checked'));
-            }
-            return redirect()->route('provider.dashboard');
+        auth()->login($user, $remember);
+        if ($remember) {
+            cookie()->queue('provider_remember_email', $request->email_or_phone, 43200);
+            cookie()->queue('provider_remember_password', $request->password, 43200);
+            cookie()->queue('provider_remember_checked', true, 43200);
         } else {
-            Toastr::error(translate(ACCESS_DENIED['message']));
-            return back();
+            cookie()->queue(cookie()->forget('provider_remember_email'));
+            cookie()->queue(cookie()->forget('provider_remember_password'));
+            cookie()->queue(cookie()->forget('provider_remember_checked'));
         }
+
+        return redirect()->route('provider.dashboard');
     }
 
     public function update_user_hit_count($user): void
@@ -277,7 +281,7 @@ class LoginController extends Controller
         $validator = Validator::make($request->all(), $this->validation_array);
         if ($validator->fails()) return response()->json(response_formatter(AUTH_LOGIN_403, null, error_processor($validator)), 403);
 
-        $user = $this->user->eligibleCustomerAppUsers()
+        $user = $this->user->ofType(CUSTOMER_USER_TYPES)
             ->where(function ($q) use ($request) {
                 $q->where('phone', $request['email_or_phone'])
                     ->orWhere('email', $request['email_or_phone']);
@@ -447,39 +451,6 @@ class LoginController extends Controller
                 return translate('Your account is suspended until') . ' ' . $until->format('Y-m-d H:i');
             }
 
-            $user->manual_performance_status = 'active';
-            $user->performance_suspended_until = null;
-            $user->save();
-        }
-
-        return null;
-    }
-
-    private function resolveManualPerformanceBlockForProvider(User $user): ?string
-    {
-        $provider = $user->provider;
-        $status = (string) ($provider?->manual_performance_status ?? $user->manual_performance_status ?? '');
-
-        if ($status === 'blacklisted') {
-            return translate('Provider account is blacklisted. Please contact with admin');
-        }
-
-        if ($status === 'suspended') {
-            $untilValue = $provider?->performance_suspended_until ?? $user->performance_suspended_until;
-            $until = $untilValue ? Carbon::parse($untilValue) : null;
-
-            if ($until && $until->isFuture()) {
-                return translate('Provider account is suspended until') . ' ' . $until->format('Y-m-d H:i');
-            }
-
-            if ($provider) {
-                $provider->manual_performance_status = 'active';
-                $provider->performance_suspended_until = null;
-                if ((int) $provider->is_active !== 0) {
-                    $provider->is_suspended = 0;
-                }
-                $provider->save();
-            }
             $user->manual_performance_status = 'active';
             $user->performance_suspended_until = null;
             $user->save();

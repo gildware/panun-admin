@@ -157,7 +157,7 @@ if (!function_exists('placeBookingTransactionForPartialCas')) {
 
             //customer transaction (wallet)
             $user = lock_customer_user_for_wallet((string) $booking['customer_id']);
-            $user = debit_customer_wallet_or_fail($user, $paid_amount);
+            $user = debit_customer_wallet_or_fail($user, $paid_amount, (string) $booking['id']);
 
             Transaction::create([
                 'ref_trx_id' => null,
@@ -256,7 +256,7 @@ if (!function_exists('placeBookingTransactionForPartialDigital')) {
                 ]);
 
                 $user = lock_customer_user_for_wallet((string) $freshBooking['customer_id']);
-                $user = debit_customer_wallet_or_fail($user, $walletPaid);
+                $user = debit_customer_wallet_or_fail($user, $walletPaid, (string) $freshBooking['id']);
 
                 $walletTransaction = Transaction::create([
                     'ref_trx_id' => null,
@@ -419,7 +419,7 @@ if (!function_exists('placeBookingTransactionForWalletPayment')) {
 
             //Customer wallet update
             $user = lock_customer_user_for_wallet((string) $freshBooking['customer_id']);
-            $user = debit_customer_wallet_or_fail($user, $receivedAmount);
+            $user = debit_customer_wallet_or_fail($user, $receivedAmount, (string) $freshBooking['id']);
 
             //customer transaction (wallet)
             $walletTransaction = Transaction::create([
@@ -1875,12 +1875,12 @@ if (!function_exists('completeBookingRepeatTransactionForDigitalPaymentAndExtraS
 
 //*** (admin) collect cash from provider ***
 if (!function_exists('collectCashTransaction')) {
-    function collectCashTransaction($provider_id, $collect_amount, ?string $transaction_id = null, ?string $reference_note = null, ?string $ledger_payment_method = null): void
+    function collectCashTransaction($provider_id, $collect_amount, ?string $transaction_id = null, ?string $reference_note = null, ?string $ledger_payment_method = null, bool $recordLedger = true): void
     {
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
         $provider_user_id = get_user_id($provider_id, PROVIDER_USER_TYPES[0]);
 
-        DB::transaction(function () use ($provider_id, $collect_amount, $admin_user_id, $provider_user_id, $transaction_id, $reference_note, $ledger_payment_method) {
+        DB::transaction(function () use ($provider_id, $collect_amount, $admin_user_id, $provider_user_id, $transaction_id, $reference_note, $ledger_payment_method, $recordLedger) {
 
             $account = Account::where('user_id', $provider_user_id)->first();
             $account->account_payable -= $collect_amount;
@@ -1937,17 +1937,19 @@ if (!function_exists('collectCashTransaction')) {
                 'to_user_account' => null
             ]);
 
-            ledger_record_in([
-                'amount' => $collect_amount,
-                'transaction_id' => $transaction_id,
-                'booking_id' => null,
-                'provider_id' => $provider_id,
-                'payment_method' => $ledger_payment_method ?: 'collect_from_provider',
-                'date' => now()->toDateString(),
-                'received_by' => \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY,
-                'reference_note' => $reference_note,
-                'created_by' => auth()->id(),
-            ]);
+            if ($recordLedger) {
+                ledger_record_in([
+                    'amount' => $collect_amount,
+                    'transaction_id' => $transaction_id,
+                    'booking_id' => null,
+                    'provider_id' => $provider_id,
+                    'payment_method' => $ledger_payment_method ?: 'collect_from_provider',
+                    'date' => now()->toDateString(),
+                    'received_by' => \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY,
+                    'reference_note' => $reference_note,
+                    'created_by' => auth()->id(),
+                ]);
+            }
         });
     }
 }
@@ -2132,6 +2134,11 @@ if (!function_exists('settleWithdrawRequestPayout')) {
                 $withdrawRequest->id
             );
         }
+
+        if (function_exists('send_provider_withdraw_settled_notification')) {
+            $withdrawRequest->refresh();
+            send_provider_withdraw_settled_notification($withdrawRequest);
+        }
     }
 }
 
@@ -2304,6 +2311,13 @@ if (!function_exists('recordPaymentToProvider')) {
                 'to_user_account' => ACCOUNT_STATES[2]['value'],
             ]);
         });
+
+        $resolvedProviderId = $provider_id;
+        if (! $resolvedProviderId) {
+            $resolvedProviderId = \Modules\ProviderManagement\Entities\Provider::where('user_id', $provider_user_id)->value('id');
+        }
+
+        send_provider_settlement_received_notification($resolvedProviderId, $amount);
     }
 }
 
@@ -2377,6 +2391,70 @@ if (!function_exists('addFundTransaction')) {
             ]);
 
         });
+    }
+}
+
+if (!function_exists('grant_customer_welcome_bonus')) {
+    function grant_customer_welcome_bonus(User $user): void
+    {
+        if ($user->user_type !== 'customer') {
+            return;
+        }
+
+        $walletEnabled = (int) (business_config('customer_wallet', 'customer_config')->live_values ?? 0);
+        $bonusEnabled = (int) (business_config('customer_welcome_bonus', 'customer_config')->live_values ?? 0);
+        $amount = (float) (business_config('customer_welcome_bonus_amount', 'customer_config')->live_values ?? 0);
+
+        if (!$walletEnabled || !$bonusEnabled || $amount <= 0) {
+            return;
+        }
+
+        $alreadyGranted = Transaction::query()
+            ->where('to_user_id', $user->id)
+            ->where('trx_type', TRX_TYPE['welcome_bonus'])
+            ->exists();
+
+        if ($alreadyGranted) {
+            return;
+        }
+
+        $adminUserId = User::where('user_type', ADMIN_USER_TYPES[0])->value('id');
+
+        DB::transaction(function () use ($user, $amount, $adminUserId) {
+            $user = lock_customer_user_for_wallet((string) $user->id);
+            $user = credit_customer_wallet($user, $amount);
+
+            Transaction::create([
+                'ref_trx_id' => null,
+                'booking_id' => null,
+                'trx_type' => TRX_TYPE['welcome_bonus'],
+                'debit' => 0,
+                'credit' => $amount,
+                'balance' => $user->wallet_balance,
+                'from_user_id' => $adminUserId,
+                'to_user_id' => $user->id,
+                'from_user_account' => null,
+                'to_user_account' => 'user_wallet',
+                'reference_note' => 'welcome_bonus',
+            ]);
+
+            if ($adminUserId) {
+                $account = Account::where('user_id', $adminUserId)->first();
+                if ($account) {
+                    $account->total_expense += $amount;
+                    $account->save();
+                }
+            }
+        });
+
+        $user = User::find($user->id);
+        if ($user) {
+            send_customer_welcome_bonus_notification($user, $amount);
+
+            if (function_exists('admin_inbox_notify_welcome_bonus')) {
+                admin_inbox_notify_welcome_bonus($user, $amount);
+            }
+        }
     }
 }
 
@@ -2546,7 +2624,7 @@ if (!function_exists('loyaltyPointWalletTransferTransaction')) {
 }
 
 if (!function_exists('loyaltyPointTransaction')) {
-    function loyaltyPointTransaction($user_id, $point) {
+    function loyaltyPointTransaction($user_id, $point, ?string $bookingId = null) {
 
         DB::transaction(function () use ($user_id, $point) {
 
@@ -2565,6 +2643,11 @@ if (!function_exists('loyaltyPointTransaction')) {
                 'transaction_type' => null,
             ]);
         });
+
+        $user = User::find($user_id);
+        if ($user) {
+            send_customer_loyalty_point_notification($user, (float) $point, 'loyalty_point', $bookingId);
+        }
     }
 }
 
@@ -2600,14 +2683,14 @@ if (!function_exists('addFundTransactions')) {
                 $user = credit_customer_wallet($user, (float) $bonus);
 
                 //send notification
-                $title =  with_currency_symbol($bonus) . ' ' . get_push_notification_message('add_fund_wallet_bonus', 'customer_notification', $user?->current_language_key);
-                $description = get_push_notification_description('add_fund_wallet_bonus', 'customer_notification', $user?->current_language_key);
+                $title =  with_currency_symbol($bonus) . ' ' . get_push_notification_message('add_fund_wallet', 'customer_notification', $user?->current_language_key);
+                $description = get_push_notification_description('add_fund_wallet', 'customer_notification', $user?->current_language_key);
                 $permission = isNotificationActive($user?->provider?->id, 'wallet', 'notification', 'user');
                 $data_info = [
                     'user_name' => $user?->first_name . ' '. $user->last_name
                 ];
-                if ($user->fcm_token && $title && $permission) {
-                    device_notification($user->fcm_token, $title, $description, null, null, NOTIFICATION_TYPE['wallet'], null, $customer_user_id, $data_info);
+                if (user_has_fcm_devices($user) && $title && $permission) {
+                    device_notification_for_user($user, $title, $description, null, null, NOTIFICATION_TYPE['wallet'], null, $customer_user_id, $data_info);
                 }
 
                 Transaction::create([
@@ -2635,64 +2718,35 @@ if (!function_exists('addFundTransactions')) {
 
 
 //*** Refund ***
-if (!function_exists('refundTransactionForCanceledBooking')) {
+if (!function_exists('processBookingWalletRefund')) {
     /**
-     * @param $booking
-     * @return void
+     * Credit customer wallet and record ledger OUT for an admin-initiated wallet refund on a canceled booking.
      */
-    function refundTransactionForCanceledBooking($booking): void
+    function processBookingWalletRefund($booking, float $refundAmount, ?string $referenceNote = null): void
     {
-        $refund_amount = 0;
-        if ($booking->booking_partial_payments->isEmpty()) {
-            //not partial
-            if ($booking->payment_method == 'offline_payment' && $booking->is_paid) {
-                $refund_amount = $booking['total_booking_amount'];
-            } elseif ($booking->payment_method != 'offline_payment' && $booking->payment_method != 'cash_after_service') {
-                $refund_amount = $booking['total_booking_amount'];
-            }
-        } else {
-            //partial
-            if ($booking->payment_method == 'offline_payment' && $booking->is_paid) {
-                $refund_amount = $booking->booking_partial_payments->sum('paid_amount');
-
-            } elseif ($booking->payment_method == 'offline_payment' && !$booking->is_paid) {
-                $refund_amount = $booking->booking_partial_payments->where('paid_with', '!=', 'offline_payment')->sum('paid_amount');
-
-            } elseif ($booking->payment_method != 'offline_payment') {
-                $refund_amount = booking_sum_partials_for_cancel_platform_auto_refund($booking->booking_partial_payments);
-            }
-        }
-
-        if ((string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL) {
-            $svc = app(\Modules\BookingModule\Services\BookingFinancialSettlementService::class);
-            $main = $svc->mainBookingFor($booking);
-            $config = is_array($main->settlement_config) ? $main->settlement_config : [];
-            $retained = $svc->resolveRetainedVisitAmount($main, $config);
-            $paid = $svc->totalPaidForMainBooking($main);
-            $refund_amount = booking_cap_refund_for_visit_retained((float) $refund_amount, $paid, $retained);
-        }
-
-        if ($refund_amount == 0) return;
-
-        $alreadyOnLedger = booking_ledger_refund_out_total((string) $booking->id);
-        if (round($alreadyOnLedger, 2) >= round((float) $refund_amount, 2)) {
+        $refundAmount = round(max(0.0, $refundAmount), 2);
+        if ($refundAmount < 0.01) {
             return;
         }
 
+        $referenceNote = trim((string) ($referenceNote ?? ''));
+        if ($referenceNote === '') {
+            $referenceNote = 'wallet_refund';
+        }
+
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
-        DB::transaction(function () use ($booking, $admin_user_id, $refund_amount) {
-            // Ledger OUT: refund
+        DB::transaction(function () use ($booking, $admin_user_id, $refundAmount, $referenceNote) {
             ledger_record_out([
-                'amount' => $refund_amount,
+                'amount' => $refundAmount,
                 'booking_id' => $booking['id'],
                 'reason' => \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND,
                 'date' => now()->toDateString(),
+                'reference_note' => $referenceNote,
             ]);
 
-            //Admin transaction
             $account = Account::where('user_id', $admin_user_id)->first();
-            if ($account->balance_pending >= $refund_amount) {
-                $account->balance_pending -= $refund_amount;
+            if ($account->balance_pending >= $refundAmount) {
+                $account->balance_pending -= $refundAmount;
             }
             $account->save();
 
@@ -2700,36 +2754,32 @@ if (!function_exists('refundTransactionForCanceledBooking')) {
                 'ref_trx_id' => null,
                 'booking_id' => $booking['id'],
                 'trx_type' => TRX_TYPE['booking_refund'],
-                'debit' => $refund_amount,
+                'debit' => $refundAmount,
                 'credit' => 0,
                 'balance' => $account->balance_pending,
                 'from_user_id' => $admin_user_id,
                 'to_user_id' => $admin_user_id,
                 'from_user_account' => ACCOUNT_STATES[0]['value'],
-                'to_user_account' => null
+                'to_user_account' => null,
             ]);
 
-            //customer transaction (wallet)
             $user = lock_customer_user_for_wallet((string) $booking['customer_id']);
-            $user = credit_customer_wallet($user, (float) $refund_amount);
+            $user = credit_customer_wallet($user, (float) $refundAmount);
 
             Transaction::create([
                 'ref_trx_id' => $primary_transaction->id,
                 'booking_id' => $booking['id'],
                 'trx_type' => TRX_TYPE['booking_refund'],
                 'debit' => 0,
-                'credit' => $refund_amount,
+                'credit' => $refundAmount,
                 'balance' => $user->wallet_balance,
                 'from_user_id' => $admin_user_id,
                 'to_user_id' => $booking->customer_id,
                 'from_user_account' => null,
-                'to_user_account' => 'user_wallet'
+                'to_user_account' => 'user_wallet',
             ]);
-            $title =  get_push_notification_message('refund', 'customer_notification', $booking?->customer?->current_language_key);
-            $description = get_push_notification_description('refund', 'customer_notification', $booking?->customer?->current_language_key);
-            if($title && $booking?->customer?->fcm_token){
-                device_notification($booking?->customer?->fcm_token, with_currency_symbol($refund_amount) . ' ' . $title, $description, null, $booking->id, 'booking');
-            }
+
+            send_customer_refund_notification($booking->fresh(['customer']), $refundAmount, 'refund');
         });
     }
 }

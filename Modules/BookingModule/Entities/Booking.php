@@ -81,6 +81,7 @@ class Booking extends Model
         'reopen_completion_allowed' => 'boolean',
         'reopen_disputed_snapshot' => 'array',
         'admin_commission_override' => 'float',
+        'provider_cancelled_at' => 'datetime',
     ];
 
     protected $fillable = [
@@ -139,6 +140,8 @@ class Booking extends Model
         'reopen_completion_allowed',
         'reopen_disputed_snapshot',
         'admin_commission_override',
+        'provider_cancelled_at',
+        'provider_cancelled_by_provider_id',
     ];
 
     protected $appends = ['evidence_photos_full_path'];
@@ -273,6 +276,101 @@ class Booking extends Model
     }
 
     /**
+     * Latest parent-row history when a provider withdrew (cancellation reason on history, booking stays active).
+     */
+    public function latestParentProviderCancellationStatusHistory(): HasOne
+    {
+        return $this->hasOne(BookingStatusHistory::class)
+            ->whereNull('booking_repeat_id')
+            ->whereNotNull('booking_provider_cancellation_reason_id')
+            ->latestOfMany(['created_at', 'id']);
+    }
+
+    /**
+     * Latest parent-row history when the customer canceled via the app.
+     */
+    public function latestParentCustomerCancellationStatusHistory(): HasOne
+    {
+        return $this->hasOne(BookingStatusHistory::class)
+            ->whereNull('booking_repeat_id')
+            ->whereNotNull('booking_customer_cancellation_reason_id')
+            ->latestOfMany(['created_at', 'id']);
+    }
+
+    /**
+     * Latest parent-row history for a provider cancellation request awaiting admin approval.
+     */
+    public function latestPendingCancellationRequestHistory(): HasOne
+    {
+        return $this->hasOne(BookingStatusHistory::class)
+            ->whereNull('booking_repeat_id')
+            ->where('booking_status', 'pending_cancellation')
+            ->whereNotNull('booking_provider_cancellation_reason_id')
+            ->latestOfMany(['created_at', 'id']);
+    }
+
+    /**
+     * Latest parent-row history when a provider rejected a pending booking request.
+     */
+    public function latestProviderRejectionHistory(): HasOne
+    {
+        return $this->hasOne(BookingStatusHistory::class)
+            ->whereNull('booking_repeat_id')
+            ->where('booking_status', 'pending')
+            ->whereNotNull('booking_provider_cancellation_reason_id')
+            ->latestOfMany(['created_at', 'id']);
+    }
+
+    public function isProviderRejectedPendingBooking(): bool
+    {
+        if ((string) ($this->booking_status ?? '') !== 'pending') {
+            return false;
+        }
+        if ($this->provider_cancelled_at === null || $this->provider_cancelled_by_provider_id === null) {
+            return false;
+        }
+
+        if ($this->relationLoaded('status_histories')) {
+            return ! $this->status_histories
+                ->whereNull('booking_repeat_id')
+                ->contains(fn ($h) => (string) ($h->booking_status ?? '') === 'pending_cancellation');
+        }
+
+        return ! $this->status_histories()
+            ->whereNull('booking_repeat_id')
+            ->where('booking_status', 'pending_cancellation')
+            ->exists();
+    }
+
+    /**
+     * Provider rejected or withdrew; booking is pending with no provider and awaits admin action.
+     */
+    public function isProviderWithdrawnAwaitingAdmin(): bool
+    {
+        if ((string) ($this->booking_status ?? '') === 'pending_cancellation') {
+            return true;
+        }
+
+        return $this->isProviderRejectedPendingBooking();
+    }
+
+    /**
+     * Parent-row histories where a provider rejected/withdrew from the booking.
+     */
+    public function providerWithdrawalStatusHistories(): HasMany
+    {
+        return $this->hasMany(BookingStatusHistory::class)
+            ->whereNull('booking_repeat_id')
+            ->whereNotNull('booking_provider_cancellation_reason_id')
+            ->orderByDesc('created_at');
+    }
+
+    public function providerCancelledByProvider(): BelongsTo
+    {
+        return $this->belongsTo(Provider::class, 'provider_cancelled_by_provider_id');
+    }
+
+    /**
      * Latest parent-row history when the booking was set to on_hold.
      */
     public function latestParentHoldStatusHistory(): HasOne
@@ -370,8 +468,60 @@ class Booking extends Model
 
     public function isReopenedTagged(): bool
     {
-        return $this->originated_from_booking_id !== null
-            || $this->last_reopen_event_at !== null;
+        return $this->last_reopen_event_at !== null
+            || $this->isReopenOriginatedFollowup();
+    }
+
+    /**
+     * Follow-up booking created through the reopen workflow (not provider-cancellation clone).
+     */
+    public function isReopenOriginatedFollowup(): bool
+    {
+        if (empty($this->originated_from_booking_id)) {
+            return false;
+        }
+
+        return BookingReopenEvent::query()
+            ->where('source_booking_id', $this->originated_from_booking_id)
+            ->where('child_booking_id', $this->id)
+            ->exists();
+    }
+
+    /**
+     * Replacement booking created after admin approved a provider cancellation request.
+     */
+    public function isProviderCancellationReplacement(): bool
+    {
+        return ! empty($this->originated_from_booking_id)
+            && ! $this->isReopenOriginatedFollowup();
+    }
+
+    /**
+     * Child bookings linked only via provider-cancellation clone (exclude from reopen UI).
+     */
+    public function providerCancellationReplacementBookings(): HasMany
+    {
+        return $this->hasMany(Booking::class, 'originated_from_booking_id')
+            ->whereNotExists(function ($q) {
+                $q->selectRaw('1')
+                    ->from('booking_reopen_events')
+                    ->whereColumn('booking_reopen_events.child_booking_id', 'bookings.id')
+                    ->whereColumn('booking_reopen_events.source_booking_id', 'bookings.originated_from_booking_id');
+            });
+    }
+
+    /**
+     * Child bookings created through the reopen workflow.
+     */
+    public function reopenLinkedSpawnedFollowupBookings(): HasMany
+    {
+        return $this->hasMany(Booking::class, 'originated_from_booking_id')
+            ->whereExists(function ($q) {
+                $q->selectRaw('1')
+                    ->from('booking_reopen_events')
+                    ->whereColumn('booking_reopen_events.child_booking_id', 'bookings.id')
+                    ->whereColumn('booking_reopen_events.source_booking_id', 'bookings.originated_from_booking_id');
+            });
     }
 
     /**
@@ -497,7 +647,7 @@ class Booking extends Model
             return false;
         }
 
-        $hasOriginated = $this->originated_from_booking_id !== null;
+        $hasOriginated = $this->isReopenOriginatedFollowup();
         $hasInPlaceEvent = $this->reopenEvents()
             ->where('resolution', BookingReopenEvent::RESOLUTION_REOPEN_IN_PLACE)
             ->exists();
@@ -543,7 +693,7 @@ class Booking extends Model
         if ($model->last_reopen_event_at !== null) {
             return true;
         }
-        if ($model->originated_from_booking_id !== null) {
+        if ($model->isReopenOriginatedFollowup()) {
             return true;
         }
 
@@ -705,7 +855,7 @@ class Booking extends Model
             if ($model->isDirty('booking_status')) {
                 $key = null;
                 if ($model->booking_status == 'pending') {
-                    if ($permission) {
+                    if ($permission && should_notify_customer_booking_placed_on_pending_status($model)) {
                         $notifications[] = [
                             'key' => 'booking_place',
                             'settings_type' => 'customer_notification'
@@ -714,13 +864,13 @@ class Booking extends Model
                 } elseif ($model->booking_status == 'ongoing') {
                     if ($permission) {
                         $notifications[] = [
-                            'key' => 'booking_ongoing',
+                            'key' => 'booking_status_change',
                             'settings_type' => 'customer_notification'
                         ];
                     }
                     if ($providerPermission){
                             $notifications[] = [
-                                'key' => 'ongoing_booking',
+                                'key' => 'booking_status_change',
                                 'settings_type' => 'provider_notification'
                             ];
                     }
@@ -730,16 +880,19 @@ class Booking extends Model
                             'settings_type' => 'serviceman_notification'
                         ];
                     }
+                    if (function_exists('admin_inbox_notify_booking_ongoing')) {
+                        admin_inbox_notify_booking_ongoing($model);
+                    }
             } elseif ($model->booking_status == 'accepted') {
                 if ($permission) {
                     $notifications[] = [
-                        'key' => 'booking_accepted',
+                        'key' => booking_customer_notification_key_for_accepted_status($model),
                         'settings_type' => 'customer_notification'
                     ];
                 }
-                if ($providerPermission && $model->is_repeated == 0) {
+                if ($providerPermission) {
                     $notifications[] = [
-                        'key' => 'booking_accepted',
+                        'key' => booking_provider_notification_key_for_accepted_status($model),
                         'settings_type' => 'provider_notification'
                     ];
                 }
@@ -793,7 +946,7 @@ class Booking extends Model
                 }
 
                 if (!$skipHeavyCompletionAccounting && !$model->is_guest && $model?->customer) {
-                    $model->referral_earning_calculation($model->customer_id, $model->zone_id);
+                    $model->referral_earning_calculation($model->customer_id, $model->zone_id, (string) $model->id);
 
                     $model->loyaltyPointCalculation($model->customer_id, $model);
 
@@ -858,10 +1011,8 @@ class Booking extends Model
                         $provider->save();
 
                         $notification = isNotificationActive($provider?->id, 'transaction', 'notification', 'provider');
-                        $title = get_push_notification_message('provider_suspend', 'provider_notification', $provider?->owner?->current_language_key);
-                        $description = get_push_notification_description('provider_suspend', 'provider_notification', $provider?->owner?->current_language_key);
-                        if ($provider?->owner?->fcm_token && $title && $notification) {
-                            device_notification($provider?->owner?->fcm_token, $title, $description, null, $model->id, 'suspend', null, $provider->id);
+                        if ($notification) {
+                            send_provider_suspended_notification($provider, true);
                         }
 
                         $emailStatus = business_config('email_config_status', 'email_config')->live_values;
@@ -880,13 +1031,13 @@ class Booking extends Model
             } elseif ($model->booking_status == 'canceled') {
                 if ($permission) {
                     $notifications[] = [
-                        'key' => 'booking_cancel',
+                        'key' => 'booking_status_change',
                         'settings_type' => 'customer_notification'
                     ];
                 }
                 if ($providerPermission) {
                     $notifications[] = [
-                        'key' => 'booking_cancel',
+                        'key' => 'booking_status_change',
                         'settings_type' => 'provider_notification'
                     ];
                 }
@@ -906,55 +1057,108 @@ class Booking extends Model
                         ->syncDetailsAmounts($model, $details);
                 }
 
-                if ($model?->customer) {
-                    refundTransactionForCanceledBooking($model);
-                }
+                // Refunds are processed manually by admin (wallet or bank transfer) after cancel.
 
             } elseif ($model->booking_status == 'refund_request') {
                 if ($permission) {
                     $notifications[] = [
-                        [
-                            'key' => 'refund',
-                            'settings_type' => 'customer_notification'
-                        ]
+                        'key' => 'refund',
+                        'settings_type' => 'customer_notification'
+                    ];
+                }
+            } elseif (! in_array($model->booking_status, ['pending', 'accepted', 'completed', 'canceled', 'refund_request'], true)) {
+                if ($permission) {
+                    $notifications[] = [
+                        'key' => 'booking_status_change',
+                        'settings_type' => 'customer_notification',
+                    ];
+                }
+                if ($providerPermission) {
+                    $notifications[] = [
+                        'key' => 'booking_status_change',
+                        'settings_type' => 'provider_notification',
+                    ];
+                }
+                if ($servicemanPermission) {
+                    $notifications[] = [
+                        'key' => 'ongoing_booking',
+                        'settings_type' => 'serviceman_notification',
                     ];
                 }
             }
 
 
             if (isset($booking_notification_status) && $booking_notification_status['push_notification_booking']) {
+                $pushBookingStatus = $model->isDirty('booking_status')
+                    ? (string) $model->booking_status
+                    : null;
+                $repeatOrRegular = (int) ($model->is_repeated ?? 0) ? 'repeat' : 'regular';
+                $notificationData = booking_notification_template_data($model);
+
                 foreach ($notifications ?? [] as $notification) {
                     $key = $notification['key'];
                     $settingsType = $notification['settings_type'];
 
                     if ($settingsType == 'customer_notification') {
                         $user = $model?->customer;
-                        $repeatOrRegular = $model?->is_repeated ? 'repeat' : 'regular';
                         $title = get_push_notification_message($key, $settingsType, $user?->current_language_key);
                         $description = get_push_notification_description($key, $settingsType, $user?->current_language_key);
                         $permission = isNotificationActive(null, 'booking', 'notification', 'user');
-                        if ($user?->fcm_token && $user?->is_active && $title && $permission) {
-                            device_notification($user?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular);
+                        if ($user?->is_active && $title && $permission) {
+                            scenario_push_notification(
+                                $user,
+                                $title,
+                                $description,
+                                $model->id,
+                                'booking',
+                                $user->id,
+                                $notificationData,
+                                $repeatOrRegular,
+                                $pushBookingStatus,
+                                'customer',
+                                $model->zone_id
+                            );
                         }
                     }
 
                     if ($settingsType == 'provider_notification') {
-
                         if ((!business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values || $model?->provider?->is_suspended == 0) && $model->booking_status == 'pending') {
                             $provider = $model?->provider?->owner;
-                            $repeatOrRegular = $model?->is_repeated ? 'repeat' : 'regular';
                             $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
                             $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
-                            if ($provider?->fcm_token && $title && sendDeviceNotificationPermission($model?->provider_id)) {
-                                device_notification($provider?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular);
+                            if ($title && sendDeviceNotificationPermission($model?->provider_id)) {
+                                scenario_push_notification(
+                                    $provider,
+                                    $title,
+                                    $description,
+                                    $model->id,
+                                    'booking',
+                                    $provider?->id,
+                                    $notificationData,
+                                    $repeatOrRegular,
+                                    $pushBookingStatus,
+                                    'provider-admin',
+                                    $model->zone_id
+                                );
                             }
                         } else {
                             $provider = $model?->provider?->owner;
-                            $repeatOrRegular = $model?->is_repeated ? 'repeat' : 'regular';
                             $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
                             $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
-                            if ($provider?->fcm_token && $title  && sendDeviceNotificationPermission($model?->provider_id)) {
-                                device_notification($provider?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular);
+                            if ($title && sendDeviceNotificationPermission($model?->provider_id)) {
+                                scenario_push_notification(
+                                    $provider,
+                                    $title,
+                                    $description,
+                                    $model->id,
+                                    'booking',
+                                    $provider?->id,
+                                    $notificationData,
+                                    $repeatOrRegular,
+                                    $pushBookingStatus,
+                                    'provider-admin',
+                                    $model->zone_id
+                                );
                             }
                         }
                     }
@@ -963,8 +1167,8 @@ class Booking extends Model
                         $serviceman = $model?->serviceman?->user;
                         $title = get_push_notification_message($key, $settingsType, $serviceman?->current_language_key);
                         $description = get_push_notification_description($key, $settingsType, $serviceman?->current_language_key);
-                        if ($serviceman?->fcm_token && $title) {
-                            device_notification($serviceman?->fcm_token, $title, $description, null, $model->id, 'booking');
+                        if (user_has_fcm_devices($serviceman) && $title) {
+                            device_notification_for_user($serviceman, $title, $description, null, $model->id, 'booking', null, null, $notificationData, null, $repeatOrRegular, null, null, null, $pushBookingStatus);
                         }
                     }
                 }
@@ -1041,13 +1245,22 @@ class Booking extends Model
             $notifications = [];
             $booking_notification_status = business_config('booking', 'notification_settings')->live_values;
 
-            if ($model->isDirty('serviceman_id') && !$model->is_repeted) {
+            if (booking_provider_assignment_changed($model, true) && $model->provider_id && ! $model->is_repeted && ! booking_skip_provider_assignment_notification_in_updated($model)) {
                 if ($bookingScheduleTimeChange) {
                     $notifications[] = [
-                        'key' => 'serviceman_assign',
+                        'key' => 'provider_assign',
                         'settings_type' => 'customer_notification'
                     ];
                 }
+                if ($bookingScheduleTimeChangeProvider) {
+                    $notifications[] = [
+                        'key' => 'booking_assigned_to_provider',
+                        'settings_type' => 'provider_notification'
+                    ];
+                }
+            }
+
+            if ($model->isDirty('serviceman_id') && !$model->is_repeted) {
                 if ($bookingScheduleTimeChangeProvider && !$model->is_repeted) {
                     $notifications[] = [
                         'key' => 'serviceman_assign',
@@ -1084,47 +1297,94 @@ class Booking extends Model
             }
 
             if (isset($booking_notification_status) && $booking_notification_status['push_notification_booking']) {
+                $notificationData = booking_notification_template_data($model);
+                $repeatOrRegular = $model?->is_repeated ? 'repeat' : 'regular';
+
                 foreach ($notifications ?? [] as $notification) {
                     $key = $notification['key'];
                     $settingsType = $notification['settings_type'];
 
                     if ($settingsType == 'customer_notification') {
                         $user = $model?->customer;
-                        $repeatOrRegular = $model?->is_repeated ? 'repeat' : 'regular';
                         $title = get_push_notification_message($key, $settingsType, $user?->current_language_key);
                         $description = get_push_notification_description($key, $settingsType, $user?->current_language_key);
-                        if ($user?->fcm_token && $title) {
-                            device_notification($user?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular);
+                        if (user_has_fcm_devices($user) && $title && $user->is_active) {
+                            scenario_push_notification(
+                                $user,
+                                $title,
+                                $description,
+                                $model->id,
+                                'booking',
+                                $user->id,
+                                $notificationData,
+                                $repeatOrRegular,
+                                null,
+                                'customer',
+                                $model->zone_id
+                            );
                         }
                     }
 
                     if ($settingsType == 'provider_notification') {
                         if ((!business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values || $model?->provider?->is_suspended == 0) && $model->booking_status == 'pending') {
                             $provider = $model?->provider?->owner;
-                            $repeatOrRegular = $model?->is_repeated ? 'repeat' : 'regular';
                             $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
                             $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
-                            if ($provider?->fcm_token && $title && sendDeviceNotificationPermission($model?->provider_id)) {
-                                device_notification($provider?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular);
+                            if (user_has_fcm_devices($provider) && $title && sendDeviceNotificationPermission($model?->provider_id)) {
+                                scenario_push_notification(
+                                    $provider,
+                                    $title,
+                                    $description,
+                                    $model->id,
+                                    'booking',
+                                    $provider->id,
+                                    $notificationData,
+                                    $repeatOrRegular,
+                                    null,
+                                    'provider-admin',
+                                    $model->zone_id
+                                );
                             }
                         } else {
                             $provider = $model?->provider?->owner;
-                            $repeatOrRegular = $model?->is_repeated ? 'repeat' : 'regular';
                             $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
                             $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
-                            if ($provider?->fcm_token && $title && sendDeviceNotificationPermission($model?->provider_id)) {
-                                device_notification($provider?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular);
+                            if (user_has_fcm_devices($provider) && $title && sendDeviceNotificationPermission($model?->provider_id)) {
+                                scenario_push_notification(
+                                    $provider,
+                                    $title,
+                                    $description,
+                                    $model->id,
+                                    'booking',
+                                    $provider->id,
+                                    $notificationData,
+                                    $repeatOrRegular,
+                                    null,
+                                    'provider-admin',
+                                    $model->zone_id
+                                );
                             }
                         }
                     }
 
                     if ($settingsType == 'serviceman_notification') {
                         $serviceman = $model?->serviceman?->user;
-                        $repeatOrRegular = $model?->is_repeated ? 'repeat' : 'regular';
                         $title = get_push_notification_message($key, $settingsType, $serviceman?->current_language_key);
                         $description = get_push_notification_description($key, $settingsType, $serviceman?->current_language_key);
-                        if ($serviceman?->fcm_token && $title) {
-                            device_notification($serviceman?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular);
+                        if (user_has_fcm_devices($serviceman) && $title) {
+                            scenario_push_notification(
+                                $serviceman,
+                                $title,
+                                $description,
+                                $model->id,
+                                'booking',
+                                $serviceman->id,
+                                $notificationData,
+                                $repeatOrRegular,
+                                null,
+                                'serviceman',
+                                $model->zone_id
+                            );
                         }
                     }
                 }

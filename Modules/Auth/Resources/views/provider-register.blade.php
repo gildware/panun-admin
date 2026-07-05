@@ -28,6 +28,8 @@
     <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/swiper/swiper-bundle.min.css')}}">
 
     <link rel="stylesheet" href="{{asset('assets/provider-module')}}/css/style.css"/>
+    <link rel="stylesheet" href="{{asset('assets/common')}}/plugins/cropperjs/cropper.min.css"/>
+    <link rel="stylesheet" href="{{asset('assets/common')}}/css/image-crop-upload.css"/>
 </head>
 
 <body>
@@ -453,6 +455,8 @@
 
     <script src="{{asset('assets/provider-module')}}/js/jquery-3.6.0.min.js"></script>
     <script src="{{asset('assets/provider-module')}}/js/bootstrap.bundle.min.js"></script>
+    <script src="{{asset('assets/common')}}/plugins/cropperjs/cropper.min.js"></script>
+    <script src="{{asset('assets/common')}}/js/image-crop-upload.js"></script>
     <script src="{{asset('assets/provider-module')}}/plugins/perfect-scrollbar/perfect-scrollbar.min.js"></script>
     <script src="{{asset('assets/provider-module')}}/js/main.js"></script>
     <script src="{{asset('assets/admin-module')}}/plugins/swiper/swiper-bundle.min.js"></script>
