@@ -38,27 +38,7 @@ class CatalogTreeService
             ];
         }
 
-        $variationZoneIds = array_values(array_unique(array_merge(
-            Variation::zoneIdsMatchingBookingSelection($zoneId),
-            Zone::selfAndAncestorIds($zoneId)
-        )));
-
         $categoryZoneIds = Zone::coverageMatchZoneIds($zoneId);
-
-        $servicesQuery = Service::query()
-            ->withoutGlobalScope('zone_wise_data')
-            ->with([
-                'serviceVariants' => fn ($q) => $q->with('storage_image'),
-            ])
-            ->whereHas('variations', fn ($query) => $query->whereIn('zone_id', $variationZoneIds));
-
-        if ($status === 'active') {
-            $servicesQuery->where('is_active', 1);
-        } elseif ($status === 'inactive') {
-            $servicesQuery->where('is_active', 0);
-        }
-
-        $services = $servicesQuery->orderBy('name')->get();
 
         $mainCategories = Category::query()
             ->ofType('main')
@@ -69,6 +49,23 @@ class CatalogTreeService
             ])
             ->orderBy('name')
             ->get();
+
+        $mainCategoryIds = $mainCategories->pluck('id')->filter()->values()->all();
+
+        $servicesQuery = Service::query()
+            ->withoutGlobalScope('zone_wise_data')
+            ->with([
+                'serviceVariants' => fn ($q) => $q->with('storage_image'),
+            ])
+            ->whereIn('category_id', $mainCategoryIds);
+
+        if ($status === 'active') {
+            $servicesQuery->where('is_active', 1);
+        } elseif ($status === 'inactive') {
+            $servicesQuery->where('is_active', 0);
+        }
+
+        $services = $servicesQuery->orderBy('name')->get();
 
         $bySubId = $services->groupBy(fn (Service $s) => (string) $s->sub_category_id);
         $directByMainId = $services
@@ -208,20 +205,15 @@ class CatalogTreeService
         $variantKeys = $service->serviceVariants
             ->sortBy('sort_order')
             ->pluck('variant_key')
+            ->merge(
+                Variation::query()
+                    ->withoutGlobalScopes()
+                    ->where('service_id', $service->id)
+                    ->pluck('variant_key')
+            )
             ->filter()
             ->unique()
             ->values();
-
-        if ($variantKeys->isEmpty()) {
-            $variantKeys = Variation::query()
-                ->withoutGlobalScopes()
-                ->where('service_id', $service->id)
-                ->whereIn('zone_id', Variation::zoneIdsMatchingBookingSelection($zoneId))
-                ->distinct()
-                ->pluck('variant_key')
-                ->filter()
-                ->values();
-        }
 
         $nodes = [];
         foreach ($variantKeys as $variantKey) {
