@@ -13,6 +13,7 @@
         (int) @filemtime(public_path('assets/admin-module/js/admin-pinned-nav.js')),
         (int) @filemtime(public_path('assets/admin-module/js/admin-image-fallback.js')),
         (int) @filemtime(public_path('assets/admin-module/js/admin-global-search.js')),
+        (int) @filemtime(public_path('assets/admin-module/js/bootstrap-jquery-modal-bridge.js')),
     ) ?: time();
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{$site_direction}}">
@@ -124,6 +125,8 @@
     @if($adminUsesPartialNav)
             {{-- Page scripts in the turbo frame need jQuery and Select2; the global bundle loads after </main>. --}}
             <script src="{{asset('assets/admin-module')}}/js/jquery-3.6.0.min.js"></script>
+            <script src="{{asset('assets/admin-module')}}/js/bootstrap.bundle.min.js"></script>
+            <script src="{{asset('assets/admin-module')}}/js/bootstrap-jquery-modal-bridge.js?v={{$adminAssetVersion}}"></script>
             <script src="{{asset('assets/admin-module')}}/plugins/select2/select2.min.js"></script>
             @stack('script')
         </turbo-frame>
@@ -133,6 +136,7 @@
 
 <script src="{{asset('assets/admin-module')}}/js/jquery-3.6.0.min.js"></script>
 <script src="{{asset('assets/admin-module')}}/js/bootstrap.bundle.min.js"></script>
+<script src="{{asset('assets/admin-module')}}/js/bootstrap-jquery-modal-bridge.js?v={{$adminAssetVersion}}"></script>
 <script src="{{asset('assets/common')}}/plugins/cropperjs/cropper.min.js"></script>
 <script src="{{asset('assets/common')}}/js/image-crop-upload.js?v={{ @filemtime(public_path('assets/common/js/image-crop-upload.js')) ?: time() }}"></script>
 <script src="{{asset('assets/admin-module')}}/plugins/perfect-scrollbar/perfect-scrollbar.min.js"></script>
