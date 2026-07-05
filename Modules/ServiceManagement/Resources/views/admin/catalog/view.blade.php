@@ -567,7 +567,7 @@
                         $zoneSelect.next('.select2').remove();
                     }
                 }
-                initZoneTreeSelect2($zoneSelect, { width: '100%' });
+                initZoneTreeSelect2($zoneSelect, { width: '100%', hideDescription: true });
                 bindCatalogZoneSelectChange();
             }
 
