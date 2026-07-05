@@ -3,7 +3,6 @@
 namespace Modules\TransactionModule\Services;
 
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Services\ProviderBookingSettlementNetResolver;
@@ -36,10 +35,7 @@ class PendingProviderBalanceListingService
      */
     public function buildRows(?string $search, ?string $categoryId, string $sort): array
     {
-        $candidateIds = $this->candidateProviderIds();
-
         $query = Provider::query()
-            ->whereIn('id', $candidateIds)
             ->where('is_approved', 1)
             ->with([
                 'owner.account',
@@ -85,9 +81,6 @@ class PendingProviderBalanceListingService
         $rows = [];
         foreach ($providers as $provider) {
             $balanceDue = $this->signedBalanceDue($provider);
-            if (abs($balanceDue) <= 0.009) {
-                continue;
-            }
             $last = $lastByProvider->get($provider->id);
             $categoryNames = $provider->subscribed_services
                 ? $provider->subscribed_services->pluck('category.name')->filter()->unique()->values()->all()
@@ -111,29 +104,6 @@ class PendingProviderBalanceListingService
         });
 
         return $rows;
-    }
-
-    /**
-     * @return list<string>
-     */
-    protected function candidateProviderIds(): array
-    {
-        $fromBookings = DB::table('bookings')->whereNotNull('provider_id')->distinct()->pluck('provider_id');
-        $fromLedger = DB::table('ledger_transactions')->whereNotNull('provider_id')->distinct()->pluck('provider_id');
-        $fromPayable = DB::table('providers')
-            ->join('users', 'users.id', '=', 'providers.user_id')
-            ->join('accounts', 'accounts.user_id', '=', 'users.id')
-            ->where('accounts.account_payable', '>', 0.01)
-            ->pluck('providers.id');
-
-        return collect()
-            ->merge($fromBookings)
-            ->merge($fromLedger)
-            ->merge($fromPayable)
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
     }
 
     /**
