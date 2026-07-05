@@ -24,6 +24,57 @@ class PendingProviderBalanceListingService
     }
 
     /**
+     * @return array{
+     *     rows: list<array{
+     *         provider_id: string,
+     *         provider_name: string,
+     *         category_label: string,
+     *         balance_due: float,
+     *         last_payment_amount: ?float,
+     *         last_payment_date: ?\Carbon\CarbonInterface
+     *     }>,
+     *     summary: array{
+     *         providers_owe_us: float,
+     *         we_owe_providers: float,
+     *         total_net: float
+     *     }
+     * }
+     */
+    public function buildListing(
+        ?string $search,
+        ?string $categoryId,
+        string $sort,
+        string $balanceFilter = 'all',
+    ): array {
+        $rows = $this->buildAllRows($search, $categoryId);
+        $summary = $this->summarizeBalances($rows);
+        $rows = $this->filterRowsByBalance($rows, $balanceFilter);
+
+        usort($rows, function ($a, $b) use ($sort) {
+            return match ($sort) {
+                'balance_asc' => $a['balance_due'] <=> $b['balance_due'],
+                'name_asc' => strcmp((string) $a['provider_name'], (string) $b['provider_name']),
+                default => $b['balance_due'] <=> $a['balance_due'],
+            };
+        });
+
+        return [
+            'rows' => $rows,
+            'summary' => $summary,
+        ];
+    }
+
+    /**
+     * @deprecated Use buildListing() — kept for callers that only need rows.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function buildRows(?string $search, ?string $categoryId, string $sort, string $balanceFilter = 'all'): array
+    {
+        return $this->buildListing($search, $categoryId, $sort, $balanceFilter)['rows'];
+    }
+
+    /**
      * @return list<array{
      *     provider_id: string,
      *     provider_name: string,
@@ -33,7 +84,7 @@ class PendingProviderBalanceListingService
      *     last_payment_date: ?\Carbon\CarbonInterface
      * }>
      */
-    public function buildRows(?string $search, ?string $categoryId, string $sort): array
+    protected function buildAllRows(?string $search, ?string $categoryId): array
     {
         $query = Provider::query()
             ->where('is_approved', 1)
@@ -95,15 +146,55 @@ class PendingProviderBalanceListingService
             ];
         }
 
-        usort($rows, function ($a, $b) use ($sort) {
-            return match ($sort) {
-                'balance_asc' => $a['balance_due'] <=> $b['balance_due'],
-                'name_asc' => strcmp((string) $a['provider_name'], (string) $b['provider_name']),
-                default => $b['balance_due'] <=> $a['balance_due'],
-            };
-        });
-
         return $rows;
+    }
+
+    /**
+     * @param  list<array{balance_due: float}>  $rows
+     * @return array{providers_owe_us: float, we_owe_providers: float, total_net: float}
+     */
+    public function summarizeBalances(array $rows): array
+    {
+        $providersOweUs = 0.0;
+        $weOweProviders = 0.0;
+
+        foreach ($rows as $row) {
+            $balance = (float) ($row['balance_due'] ?? 0);
+            if ($balance > 0.009) {
+                $providersOweUs += $balance;
+            } elseif ($balance < -0.009) {
+                $weOweProviders += abs($balance);
+            }
+        }
+
+        return [
+            'providers_owe_us' => round($providersOweUs, 2),
+            'we_owe_providers' => round($weOweProviders, 2),
+            'total_net' => round($providersOweUs - $weOweProviders, 2),
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array<string, mixed>>
+     */
+    protected function filterRowsByBalance(array $rows, string $balanceFilter): array
+    {
+        return match ($balanceFilter) {
+            'positive' => array_values(array_filter(
+                $rows,
+                fn ($row) => (float) ($row['balance_due'] ?? 0) > 0.009
+            )),
+            'negative' => array_values(array_filter(
+                $rows,
+                fn ($row) => (float) ($row['balance_due'] ?? 0) < -0.009
+            )),
+            'zero' => array_values(array_filter(
+                $rows,
+                fn ($row) => abs((float) ($row['balance_due'] ?? 0)) <= 0.009
+            )),
+            default => $rows,
+        };
     }
 
     /**

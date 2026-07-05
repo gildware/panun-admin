@@ -12,16 +12,15 @@
 
 @push('css_or_js')
     <style>
-        .pk-pending-balance-header-widget.statistics-card {
-            min-width: 11rem;
-            padding: 0.75rem 1rem 1rem;
-            flex-shrink: 0;
+        .pk-pending-summary-widgets .statistics-card {
+            padding: 0.875rem 1rem 1rem;
+            height: 100%;
         }
-        .pk-pending-balance-header-widget.statistics-card h2 {
+        .pk-pending-summary-widgets .statistics-card h2 {
             font-size: 1.35rem;
             margin-block-end: 0.25rem;
         }
-        .pk-pending-balance-header-widget.statistics-card h3 {
+        .pk-pending-summary-widgets .statistics-card h3 {
             font-size: 0.8125rem;
             margin: 0;
         }
@@ -31,11 +30,35 @@
 @section('content')
     <div class="main-content">
         <div class="container-fluid">
-            <div class="page-title-wrap d-flex justify-content-between flex-wrap align-items-center gap-3 mb-30">
+            <div class="page-title-wrap mb-30">
                 <h2 class="page-title mb-0">{{ translate('Pending_provider_balances') }}</h2>
-                <div class="statistics-card statistics-card__purple border pk-pending-balance-header-widget">
-                    <h2>{{ with_currency_symbol($total_pending_balance ?? 0) }}</h2>
-                    <h3>{{ translate('Total_pending_balance') }}</h3>
+            </div>
+
+            @php
+                $summary = $summary ?? ['providers_owe_us' => 0, 'we_owe_providers' => 0, 'total_net' => 0];
+            @endphp
+            <div class="row g-3 mb-30 pk-pending-summary-widgets">
+                <div class="col-md-4">
+                    <div class="statistics-card statistics-card__ongoing border h-100">
+                        <h2 class="text-success">{{ with_currency_symbol($summary['providers_owe_us'] ?? 0) }}</h2>
+                        <h3>{{ translate('Pending_provider_balances_providers_owe_us') }}</h3>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="statistics-card statistics-card__canceled border h-100">
+                        <h2 class="text-danger">{{ with_currency_symbol($summary['we_owe_providers'] ?? 0) }}</h2>
+                        <h3>{{ translate('Pending_provider_balances_we_owe_providers') }}</h3>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="statistics-card statistics-card__purple border h-100">
+                        @php $totalNet = (float) ($summary['total_net'] ?? 0); @endphp
+                        <h2 @class([
+                            'text-success' => $totalNet > 0.009,
+                            'text-danger' => $totalNet < -0.009,
+                        ])>{{ with_currency_symbol($totalNet) }}</h2>
+                        <h3>{{ translate('Pending_provider_balances_total_net') }}</h3>
+                    </div>
                 </div>
             </div>
 
@@ -44,12 +67,12 @@
             <div class="card mb-4">
                 <div class="card-body">
                     <form method="get" action="{{ route('admin.transaction.pending_provider_balances.index') }}" class="row g-3 align-items-end">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label">{{ translate('search') }}</label>
                             <input type="search" name="search" class="form-control theme-input-style" value="{{ $search }}"
                                    placeholder="{{ translate('Pending_provider_balances_search_placeholder') }}">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label class="form-label">{{ translate('Category') }}</label>
                             <select name="category_id" class="form-select theme-input-style">
                                 <option value="">{{ translate('all') }}</option>
@@ -58,7 +81,16 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
+                            <label class="form-label">{{ translate('Pending_provider_balances_balance_filter') }}</label>
+                            <select name="balance_filter" class="form-select theme-input-style">
+                                <option value="all" @selected(($balance_filter ?? 'all') === 'all')>{{ translate('all') }}</option>
+                                <option value="positive" @selected(($balance_filter ?? '') === 'positive')>{{ translate('Pending_provider_balances_filter_positive') }}</option>
+                                <option value="negative" @selected(($balance_filter ?? '') === 'negative')>{{ translate('Pending_provider_balances_filter_negative') }}</option>
+                                <option value="zero" @selected(($balance_filter ?? '') === 'zero')>{{ translate('Pending_provider_balances_filter_zero') }}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
                             <label class="form-label">{{ translate('sort') }}</label>
                             <select name="sort" class="form-select theme-input-style">
                                 <option value="balance_desc" @selected($sort === 'balance_desc')>{{ translate('Pending_provider_balances_sort_balance_high') }}</option>
@@ -66,8 +98,9 @@
                                 <option value="name_asc" @selected($sort === 'name_asc')>{{ translate('Pending_provider_balances_sort_name') }}</option>
                             </select>
                         </div>
-                        <div class="col-md-2 d-flex gap-2">
+                        <div class="col-md-3 d-flex gap-2">
                             <button type="submit" class="btn btn--primary flex-grow-1">{{ translate('search') }}</button>
+                            <a href="{{ route('admin.transaction.pending_provider_balances.index') }}" class="btn btn--secondary">{{ translate('Reset') }}</a>
                         </div>
                     </form>
                 </div>
@@ -252,6 +285,7 @@
                 var searchVal = @json($search);
                 var categoryVal = @json($category_id);
                 var sortVal = @json($sort);
+                var balanceFilterVal = @json($balance_filter ?? 'all');
 
                 function csrf() {
                     return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
@@ -505,6 +539,7 @@
                         fd.append('search', searchVal);
                         fd.append('category_id', categoryVal);
                         fd.append('sort', sortVal);
+                        fd.append('balance_filter', balanceFilterVal);
 
                         if (bulkMode === 'all_filtered') {
                             fd.append('mode', 'all_filtered');

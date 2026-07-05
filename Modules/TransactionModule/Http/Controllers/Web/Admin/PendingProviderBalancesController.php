@@ -28,19 +28,25 @@ class PendingProviderBalancesController extends Controller
             'search' => 'nullable|string|max:255',
             'category_id' => 'nullable|string',
             'sort' => 'nullable|in:balance_desc,balance_asc,name_asc',
+            'balance_filter' => 'nullable|in:all,positive,negative,zero',
         ]);
 
         $search = $request->input('search');
         $categoryId = $request->input('category_id');
         $sort = $request->input('sort', 'balance_desc');
+        $balanceFilter = $request->input('balance_filter', 'all');
+        if (!is_string($balanceFilter) || !in_array($balanceFilter, ['all', 'positive', 'negative', 'zero'], true)) {
+            $balanceFilter = 'all';
+        }
 
-        $rows = $listing->buildRows(
+        $listingResult = $listing->buildListing(
             is_string($search) ? $search : null,
             is_string($categoryId) ? $categoryId : null,
-            is_string($sort) ? $sort : 'balance_desc'
+            is_string($sort) ? $sort : 'balance_desc',
+            $balanceFilter,
         );
-
-        $totalPendingBalance = round(array_sum(array_column($rows, 'balance_due')), 2);
+        $rows = $listingResult['rows'];
+        $summary = $listingResult['summary'];
 
         $perPage = pagination_limit();
         $page = max(1, (int) $request->get('page', 1));
@@ -58,7 +64,8 @@ class PendingProviderBalancesController extends Controller
             'search' => is_string($search) ? $search : '',
             'category_id' => is_string($categoryId) ? $categoryId : '',
             'sort' => $sort,
-            'total_pending_balance' => $totalPendingBalance,
+            'balance_filter' => $balanceFilter,
+            'summary' => $summary,
         ]);
     }
 
@@ -71,6 +78,7 @@ class PendingProviderBalancesController extends Controller
             'search' => 'nullable|string|max:255',
             'category_id' => 'nullable|string',
             'sort' => 'nullable|in:balance_desc,balance_asc,name_asc',
+            'balance_filter' => 'nullable|in:all,positive,negative,zero',
         ];
         if ($request->input('mode') === 'selected') {
             $rules['provider_ids'] = 'required|array|min:1';
@@ -79,11 +87,16 @@ class PendingProviderBalancesController extends Controller
         $request->validate($rules);
 
         if ($request->input('mode') === 'all_filtered') {
+            $balanceFilter = $request->input('balance_filter', 'all');
+            if (!is_string($balanceFilter) || !in_array($balanceFilter, ['all', 'positive', 'negative', 'zero'], true)) {
+                $balanceFilter = 'all';
+            }
             $ids = array_column(
                 $listing->buildRows(
                     $request->input('search'),
                     $request->input('category_id'),
-                    $request->input('sort', 'balance_desc')
+                    $request->input('sort', 'balance_desc'),
+                    $balanceFilter,
                 ),
                 'provider_id'
             );
@@ -129,6 +142,6 @@ class PendingProviderBalancesController extends Controller
 
         Toastr::success($message);
 
-        return redirect()->route('admin.transaction.pending_provider_balances.index', $request->only(['search', 'category_id', 'sort', 'page']));
+        return redirect()->route('admin.transaction.pending_provider_balances.index', $request->only(['search', 'category_id', 'sort', 'balance_filter', 'page']));
     }
 }
