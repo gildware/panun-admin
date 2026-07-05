@@ -43,6 +43,8 @@ class CatalogTreeService
             Zone::selfAndAncestorIds($zoneId)
         )));
 
+        $categoryZoneIds = Zone::coverageMatchZoneIds($zoneId);
+
         $servicesQuery = Service::query()
             ->withoutGlobalScope('zone_wise_data')
             ->with([
@@ -58,11 +60,9 @@ class CatalogTreeService
 
         $services = $servicesQuery->orderBy('name')->get();
 
-        $mainIds = $services->pluck('category_id')->unique()->filter()->values();
-
         $mainCategories = Category::query()
             ->ofType('main')
-            ->whereIn('id', $mainIds)
+            ->whereHas('zonesBasicInfo', fn ($query) => $query->whereIn('zones.id', $categoryZoneIds))
             ->with([
                 'zonesBasicInfo:id,name',
                 'children' => fn ($q) => $q->ofType('sub')->orderBy('name'),
@@ -104,10 +104,6 @@ class CatalogTreeService
                 $svcList = $bySubId->get((string) $sub->id, collect());
                 $serviceNodes = $this->serviceNodes($svcList, $zoneId, $stats);
 
-                if ($serviceNodes === []) {
-                    continue;
-                }
-
                 $stats['sub_categories']++;
                 $subNodes[] = [
                     'type' => 'subcategory',
@@ -140,10 +136,6 @@ class CatalogTreeService
                         'children' => $directNodes,
                     ];
                 }
-            }
-
-            if ($subNodes === []) {
-                continue;
             }
 
             $stats['categories']++;
