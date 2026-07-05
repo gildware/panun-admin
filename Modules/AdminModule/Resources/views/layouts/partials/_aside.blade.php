@@ -696,13 +696,21 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcanany
             @canany(['category_add', 'category_view'])
-                <li class="has-sub-item {{(request()->is('admin/category/*') || request()->is('admin/sub-category/*'))?'sub-menu-opened':''}}">
+                <li class="has-sub-item {{(request()->is('admin/category/*') || request()->is('admin/sub-category/*') || request()->is('admin/catalog/view*'))?'sub-menu-opened':''}}">
                     <a href="#"
-                       class="{{(request()->is('admin/category/*') || request()->is('admin/sub-category/*'))?'active-menu':''}}">
+                       class="{{(request()->is('admin/category/*') || request()->is('admin/sub-category/*') || request()->is('admin/catalog/view*'))?'active-menu':''}}">
                         <span class="material-icons" title="Service Categories">category</span>
                         <span class="link-title">{{translate('Categories')}}</span>
                     </a>
                     <ul class="nav sub-menu">
+                        @canany(['category_view', 'service_view'])
+                            <li>
+                                <a href="{{route('admin.catalog.view')}}"
+                                   class="{{request()->is('admin/catalog/view*')?'active-menu':''}}">
+                                    {{translate('View_Catalog')}}
+                                </a>
+                            </li>
+                        @endcanany
                         <li>
                             <a href="{{route('admin.category.create')}}"
                                class="{{request()->is('admin/category/*')?'active-menu':''}}">

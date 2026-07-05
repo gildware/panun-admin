@@ -414,6 +414,7 @@ class AdminNavRegistry
 
         return [
             self::entry('catalog', $group, null, translate('Service Zones Setup'), route('admin.zone.create'), ['admin/zone/*']),
+            self::entry('catalog', $group, translate('Categories'), translate('View_Catalog'), route('admin.catalog.view'), ['admin/catalog/view*']),
             self::entry('catalog', $group, translate('Categories'), translate('Category Setup'), route('admin.category.create'), ['admin/category/*']),
             self::entry('catalog', $group, translate('Categories'), translate('Sub Category Setup'), route('admin.sub-category.create'), ['admin/sub-category/*']),
             self::entry('catalog', $group, translate('services'), translate('service_list'), route('admin.service.index'), ['admin/service/list*', 'admin/service/edit*', 'admin/service/details*']),

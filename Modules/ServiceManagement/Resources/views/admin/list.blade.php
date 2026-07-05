@@ -3,6 +3,7 @@
 @section('title',translate('service_list'))
 
 @push('css_or_js')
+    <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/select2/select2.min.css"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/dataTables/jquery.dataTables.min.css"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/dataTables/select.dataTables.min.css"/>
     <style>
@@ -14,6 +15,67 @@
 @endpush
 
 @section('content')
+    @php
+        $listQuery = array_filter([
+            'category_id' => $category_id ?? null,
+            'sub_category_id' => $sub_category_id ?? null,
+            'search' => $search ?: null,
+        ], fn ($value) => !is_null($value) && $value !== '');
+    @endphp
+
+    <div class="filter-aside">
+        <div class="filter-aside__header d-flex justify-content-between align-items-center">
+            <h3 class="filter-aside__title">{{ translate('Filter') }}</h3>
+            <button type="button" class="btn-close p-2 btn-close-white"></button>
+        </div>
+        <form action="{{ url()->current() }}?status={{ $status }}" method="POST" id="service-filter-form">
+            @csrf
+            @if($search)
+                <input type="hidden" name="search" value="{{ $search }}">
+            @endif
+            <div class="filter-aside__body d-flex flex-column">
+                <div class="filter-aside__category_select">
+                    <h4 class="fw-normal mb-2">{{ translate('category') }}</h4>
+                    <div class="mb-30">
+                        <select class="category-select theme-input-style w-100" name="category_id"
+                                id="service_list_category_select">
+                            <option value="">{{ translate('all') }}</option>
+                            @foreach($categories as $category)
+                                <option value="{{ $category->id }}"
+                                    {{ ($category_id ?? '') == $category->id ? 'selected' : '' }}>
+                                    {{ $category->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                <div class="filter-aside__category_select">
+                    <h4 class="fw-normal mb-2">{{ translate('sub_category') }}</h4>
+                    <div class="mb-30" id="service_list_sub_category_wrap">
+                        <select class="subcategory-select theme-input-style w-100" name="sub_category_id"
+                                id="service_list_sub_category_select">
+                            <option value="">{{ translate('all') }}</option>
+                            @foreach($subCategories as $subCategory)
+                                <option value="{{ $subCategory->id }}"
+                                    {{ ($sub_category_id ?? '') == $subCategory->id ? 'selected' : '' }}>
+                                    {{ $subCategory->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="filter-aside__bottom_btns p-20">
+                <div class="d-flex justify-content-center gap-20">
+                    <button class="btn btn--secondary text-capitalize" id="service-filter-reset-btn"
+                            type="reset">{{ translate('Clear_all_Filter') }}</button>
+                    <button class="btn btn--primary text-capitalize"
+                            type="submit">{{ translate('Filter') }}</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
     <div class="main-content">
         <div class="container-fluid">
             <div class="row">
@@ -36,19 +98,19 @@
                         <ul class="nav nav--tabs">
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='all'?'active':''}}"
-                                   href="{{url()->current()}}?status=all">
+                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($listQuery, ['status' => 'all'])) }}">
                                     {{translate('all')}}
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='active'?'active':''}}"
-                                   href="{{url()->current()}}?status=active">
+                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($listQuery, ['status' => 'active'])) }}">
                                     {{translate('active')}}
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='inactive'?'active':''}}"
-                                   href="{{url()->current()}}?status=inactive">
+                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($listQuery, ['status' => 'inactive'])) }}">
                                     {{translate('inactive')}}
                                 </a>
                             </li>
@@ -69,6 +131,12 @@
                                               class="search-form search-form_style-two"
                                               method="POST">
                                             @csrf
+                                            @if($category_id)
+                                                <input type="hidden" name="category_id" value="{{ $category_id }}">
+                                            @endif
+                                            @if($sub_category_id)
+                                                <input type="hidden" name="sub_category_id" value="{{ $sub_category_id }}">
+                                            @endif
                                             <div class="input-group search-form__input_group">
                                             <span class="search-form__icon">
                                                 <span class="material-icons">search</span>
@@ -80,6 +148,10 @@
                                             <button type="submit"
                                                     class="btn btn--primary">{{translate('search')}}</button>
                                         </form>
+                                        <button type="button" class="btn text-capitalize filter-btn border px-3">
+                                            <span class="material-icons">filter_list</span> {{ translate('Filter') }}
+                                            <span class="count">{{ $filterCounter ?? 0 }}</span>
+                                        </button>
                                     </div>
 
                                     <div class="table-responsive" id="ServiceListTableContainer">
@@ -88,6 +160,7 @@
                                             <tr>
                                                 <th>{{translate('name')}}</th>
                                                 <th>{{translate('category')}}</th>
+                                                <th>{{translate('sub_category')}}</th>
                                                 <th>{{translate('zones')}}</th>
                                                 <th>{{translate('Minimum Bidding Price')}}</th>
                                                 @can('service_manage_status')
@@ -133,6 +206,19 @@
                                                                 <i class="material-icons" data-bs-toggle="tooltip"
                                                                    data-bs-placement="top"
                                                                    title="{{translate('Update the service category')}}">info
+                                                                </i>
+                                                            </div>
+                                                        @endif
+                                                    </td>
+                                                    <td>
+                                                        @if($service->subCategory)
+                                                            {{ $service->subCategory->name }}
+                                                        @else
+                                                            <div class="d-flex">
+                                                                <span>{{ translate('Unavailable') }}</span>
+                                                                <i class="material-icons" data-bs-toggle="tooltip"
+                                                                   data-bs-placement="top"
+                                                                   title="{{ translate('Update the service sub category') }}">info
                                                                 </i>
                                                             </div>
                                                         @endif
@@ -204,7 +290,7 @@
                                                 </tr>
                                             @empty
                                                 <tr class="text-center">
-                                                    <td colspan="6">{{translate('no data available')}}</td>
+                                                    <td colspan="7">{{translate('no data available')}}</td>
                                                 </tr>
                                             @endforelse
                                             </tbody>
@@ -228,8 +314,60 @@
     <script>
         "use strict"
 
+        function initServiceListSubCategorySelect() {
+            const $select = $('#service_list_sub_category_select');
+            if (!$select.length) {
+                return;
+            }
+            if ($select.hasClass('select2-hidden-accessible')) {
+                $select.select2('destroy');
+            }
+            $select.select2({
+                placeholder: @json(translate('Select_sub_category')),
+                allowClear: true,
+            });
+        }
+
         $(document).ready(function () {
             $('.js-select').select2();
+            $('.category-select').select2({
+                placeholder: @json(translate('select_category')),
+                allowClear: true,
+            });
+            initServiceListSubCategorySelect();
+
+            $('#service_list_category_select').on('change', function () {
+                const id = this.value;
+                const $wrap = $('#service_list_sub_category_wrap');
+                const allOption = '<option value="">' + @json(translate('all')) + '</option>';
+
+                if (!id) {
+                    $wrap.html(
+                        '<select class="subcategory-select theme-input-style w-100" name="sub_category_id" id="service_list_sub_category_select">' +
+                        allOption +
+                        '</select>'
+                    );
+                    initServiceListSubCategorySelect();
+                    return;
+                }
+
+                $.get('{{ url('/') }}/admin/category/ajax-childes-only/' + id, function (response) {
+                    $wrap.html(response.template);
+                    const $select = $wrap.find('select');
+                    $select
+                        .removeClass('js-select')
+                        .addClass('subcategory-select theme-input-style w-100')
+                        .attr('id', 'service_list_sub_category_select')
+                        .attr('name', 'sub_category_id');
+                    $select.prepend(allOption);
+                    initServiceListSubCategorySelect();
+                });
+            });
+
+            $('#service-filter-reset-btn').on('click', function (e) {
+                e.preventDefault();
+                window.location.href = '{{ url()->current() }}?status={{ $status }}';
+            });
         });
     </script>
     <script src="{{asset('assets/admin-module')}}/plugins/dataTables/jquery.dataTables.min.js"></script>

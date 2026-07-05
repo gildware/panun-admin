@@ -382,6 +382,21 @@
                 if (btnShow) btnShow.addEventListener('click', showPanel);
                 if (btnCancel) btnCancel.addEventListener('click', hidePanel);
 
+                var params = new URLSearchParams(window.location.search);
+                var parentId = params.get('parent_id');
+                if (parentId) {
+                    var sel = document.getElementById('category_selector');
+                    if (sel) {
+                        sel.value = parentId;
+                        if (window.jQuery) {
+                            jQuery(sel).val(parentId).trigger('change');
+                        }
+                    }
+                }
+                if (params.get('open_add') === '1') {
+                    showPanel();
+                }
+
                 if (panel && !panel.classList.contains('d-none')) {
                     ensureSelect2();
                 }

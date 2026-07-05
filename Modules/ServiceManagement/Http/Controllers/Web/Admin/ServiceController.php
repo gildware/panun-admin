@@ -103,23 +103,50 @@ class ServiceController extends Controller
         $this->authorize('service_view');
         $request->validate([
             'status' => 'in:active,inactive,all',
-            'zone_id' => 'uuid'
+            'zone_id' => 'uuid',
+            'category_id' => 'nullable|uuid',
+            'sub_category_id' => 'nullable|uuid',
         ]);
 
-        $search = $request->has('search') ? $request['search'] : '';
-        $status = $request->has('status') ? $request['status'] : 'all';
-        $queryParam = ['search' => $search, 'status' => $status];
+        $search = $request->input('search', '');
+        $status = $request->input('status', 'all');
+        $category_id = $request->input('category_id', '');
+        $sub_category_id = $request->input('sub_category_id', '');
 
-        $services = $this->service->with(['category.zonesBasicInfo', 'storage_thumbnail'])->latest()
-            ->when($request->has('search'), function ($query) use ($request) {
+        $queryParams = [
+            'search' => $search,
+            'status' => $status,
+            'category_id' => $category_id,
+            'sub_category_id' => $sub_category_id,
+        ];
+
+        $filterCounter = collect($queryParams)->filter(function ($value, $key) {
+            if ($key === 'status' && ($value === 'all' || $value === null || $value === '')) {
+                return false;
+            }
+
+            return !is_null($value) && $value !== '';
+        })->count();
+
+        $categories = $this->category->ofStatus(1)->ofType('main')->latest()->get();
+        $subCategories = collect();
+        if ($category_id) {
+            $subCategories = $this->category->ofStatus(1)->ofType('sub')
+                ->where('parent_id', $category_id)
+                ->orderBy('name', 'asc')
+                ->get();
+        }
+
+        $services = $this->service->with(['category.zonesBasicInfo', 'subCategory', 'storage_thumbnail'])->latest()
+            ->when($request->filled('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request['search']);
                 foreach ($keys as $key) {
                     $query->orWhere('name', 'LIKE', '%' . $key . '%');
                 }
             })
-            ->when($request->has('category_id'), function ($query) use ($request) {
+            ->when($request->filled('category_id'), function ($query) use ($request) {
                 return $query->where('category_id', $request->category_id);
-            })->when($request->has('sub_category_id'), function ($query) use ($request) {
+            })->when($request->filled('sub_category_id'), function ($query) use ($request) {
                 return $query->where('sub_category_id', $request->sub_category_id);
             })->when($request->has('status') && $request['status'] != 'all', function ($query) use ($request) {
                 if ($request['status'] == 'active') {
@@ -131,9 +158,19 @@ class ServiceController extends Controller
                 return $query->whereHas('category.zonesBasicInfo', function ($queryZone) use ($request) {
                     $queryZone->where('zone_id', $request['zone_id']);
                 });
-            })->paginate(pagination_limit())->appends($queryParam);
+            })->paginate(pagination_limit())->appends($queryParams);
 
-        return view('servicemanagement::admin.list', compact('services', 'search', 'status'));
+        return view('servicemanagement::admin.list', compact(
+            'services',
+            'search',
+            'status',
+            'categories',
+            'subCategories',
+            'category_id',
+            'sub_category_id',
+            'queryParams',
+            'filterCounter'
+        ));
     }
 
     /**
