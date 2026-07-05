@@ -326,8 +326,12 @@
             margin-bottom: 0.25rem;
             color: var(--bs-secondary-color);
         }
-        .catalog-toolbar-field .form-select {
-            min-width: 10rem;
+        .catalog-toolbar-field--zone {
+            min-width: 14rem;
+            max-width: 20rem;
+        }
+        .catalog-toolbar-field--zone .select2-container {
+            min-width: 14rem;
         }
         .catalog-toolbar-search {
             flex: 1;
@@ -342,6 +346,8 @@
     </style>
 @endpush
 
+@include('zonemanagement::admin.partials._zone-select2-assets')
+
 @section('content')
     <div class="main-content">
         <div class="container-fluid">
@@ -349,13 +355,14 @@
                 <h2 class="page-title mb-0">{{ translate('View_Catalog') }}</h2>
                 <div class="catalog-toolbar">
                     <form method="get" action="{{ route('admin.catalog.view') }}" class="catalog-toolbar-form" id="catalog-zone-form">
-                        <div class="catalog-toolbar-field">
+                        <div class="catalog-toolbar-field catalog-toolbar-field--zone">
                             <label class="mb-0">{{ translate('zone') }} <span class="text-danger">*</span></label>
-                            <select name="zone_id" class="form-select theme-input-style" required>
-                                <option value="" disabled @selected(!filled($zoneId))>{{ translate('Select_zone') }}</option>
-                                @foreach ($zones as $zone)
-                                    <option value="{{ $zone['id'] }}" @selected($zoneId === $zone['id'])>{{ $zone['name'] }}</option>
-                                @endforeach
+                            <select name="zone_id" id="catalog-zone-select" class="form-select theme-input-style zone-tree-select" required>
+                                <option value="" @selected(!filled($zoneId))>{{ translate('Select_zone') }}</option>
+                                @include('zonemanagement::admin.partials._zone-select-options', [
+                                    'zoneTreeOptions' => $zoneTreeOptions,
+                                    'selected' => $zoneId,
+                                ])
                             </select>
                         </div>
                         <div class="catalog-toolbar-field">
@@ -505,14 +512,69 @@
     <script>
         (function () {
             const zoneForm = document.getElementById('catalog-zone-form');
+            const catalogViewUrl = @json(route('admin.catalog.view'));
+
+            function submitCatalogZoneForm() {
+                if (!zoneForm) {
+                    return;
+                }
+                const zoneSelect = zoneForm.querySelector('[name="zone_id"]');
+                const zoneId = zoneSelect ? zoneSelect.value : '';
+                if (!zoneId) {
+                    return;
+                }
+                const params = new URLSearchParams(new FormData(zoneForm));
+                window.location.href = catalogViewUrl + '?' + params.toString();
+            }
+
             if (zoneForm) {
                 zoneForm.addEventListener('change', function (e) {
-                    if (e.target.name === 'zone_id') {
-                        this.submit();
-                    } else if (e.target.name === 'status' && zoneForm.querySelector('[name="zone_id"]').value) {
-                        this.submit();
+                    if (e.target.name === 'status' && zoneForm.querySelector('[name="zone_id"]')?.value) {
+                        submitCatalogZoneForm();
                     }
                 });
+            }
+
+            function bindCatalogZoneSelectChange() {
+                if (typeof jQuery === 'undefined') {
+                    return;
+                }
+                jQuery(document)
+                    .off('change.catalogZone select2:select.catalogZone', '#catalog-zone-select')
+                    .on('change.catalogZone select2:select.catalogZone', '#catalog-zone-select', function () {
+                        if (this.value) {
+                            submitCatalogZoneForm();
+                        }
+                    });
+            }
+
+            function initCatalogZoneTreeSelect() {
+                if (typeof jQuery === 'undefined' || typeof initZoneTreeSelect2 !== 'function') {
+                    bindCatalogZoneSelectChange();
+                    return;
+                }
+                const $zoneSelect = jQuery('#catalog-zone-select');
+                if (!$zoneSelect.length) {
+                    return;
+                }
+                if ($zoneSelect.hasClass('select2-hidden-accessible')) {
+                    try {
+                        $zoneSelect.select2('destroy');
+                    } catch (e) {
+                        $zoneSelect.removeClass('select2-hidden-accessible');
+                        $zoneSelect.removeAttr('aria-hidden');
+                        $zoneSelect.removeAttr('tabindex');
+                        $zoneSelect.next('.select2').remove();
+                    }
+                }
+                initZoneTreeSelect2($zoneSelect, { width: '100%' });
+                bindCatalogZoneSelectChange();
+            }
+
+            if (document.readyState === 'complete') {
+                initCatalogZoneTreeSelect();
+            } else {
+                window.addEventListener('load', initCatalogZoneTreeSelect);
             }
 
             const zoneSelected = @json(filled($zoneId));

@@ -5,6 +5,7 @@ namespace Modules\ServiceManagement\Services;
 use Illuminate\Support\Collection;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ServiceManagement\Entities\Service;
+use Modules\ServiceManagement\Entities\Variation;
 use Modules\ZoneManagement\Entities\Zone;
 
 class CatalogTreeService
@@ -13,15 +14,14 @@ class CatalogTreeService
      * @return array{
      *     stats: array{categories: int, sub_categories: int, services: int, variations: int},
      *     tree: list<array<string, mixed>>,
-     *     zones: list<array{id: string, name: string}>
+     *     zoneTreeOptions: list<array{id: string, label: string, prefix: string, name: string, description: string}>
      * }
      */
     public function build(?string $zoneId = null, string $status = 'all'): array
     {
-        $zones = Zone::query()->orderBy('name')->get(['id', 'name'])->map(fn (Zone $z) => [
-            'id' => (string) $z->id,
-            'name' => (string) $z->name,
-        ])->values()->all();
+        $zoneTreeOptions = Zone::flatTreeOptionsForSelect(
+            Zone::query()->ofStatus(1)->orderBy('name')->get(['id', 'name', 'parent_id', 'description'])
+        );
 
         $emptyStats = [
             'categories' => 0,
@@ -34,40 +34,24 @@ class CatalogTreeService
             return [
                 'stats' => $emptyStats,
                 'tree' => [],
-                'zones' => $zones,
+                'zoneTreeOptions' => $zoneTreeOptions,
             ];
         }
 
-        $mainCategories = Category::query()
-            ->ofType('main')
-            ->whereHas('zonesBasicInfo', fn ($query) => $query->where('zones.id', $zoneId))
-            ->with([
-                'zonesBasicInfo:id,name',
-                'children' => fn ($q) => $q->ofType('sub')->orderBy('name'),
-            ])
-            ->orderBy('name')
-            ->get();
-
-        $subIds = $mainCategories->flatMap(fn (Category $c) => $c->children)->pluck('id')->filter()->values();
-        $mainIds = $mainCategories->pluck('id');
+        $variationZoneIds = array_values(array_unique(array_merge(
+            Variation::zoneIdsMatchingBookingSelection($zoneId),
+            Zone::selfAndAncestorIds($zoneId)
+        )));
 
         $servicesQuery = Service::query()
             ->withoutGlobalScope('zone_wise_data')
             ->with([
-                'variations.zone:id,name',
+                'variations' => fn ($query) => $query
+                    ->whereIn('zone_id', $variationZoneIds)
+                    ->with('zone:id,name'),
                 'serviceVariants' => fn ($q) => $q->with('storage_image'),
             ])
-            ->where(function ($q) use ($subIds, $mainIds) {
-                if ($subIds->isNotEmpty()) {
-                    $q->whereIn('sub_category_id', $subIds);
-                }
-                $q->orWhere(function ($q2) use ($mainIds) {
-                    $q2->whereIn('category_id', $mainIds)
-                        ->where(function ($q3) {
-                            $q3->whereNull('sub_category_id')->orWhere('sub_category_id', '');
-                        });
-                });
-            });
+            ->whereHas('variations', fn ($query) => $query->whereIn('zone_id', $variationZoneIds));
 
         if ($status === 'active') {
             $servicesQuery->where('is_active', 1);
@@ -75,9 +59,19 @@ class CatalogTreeService
             $servicesQuery->where('is_active', 0);
         }
 
-        $servicesQuery->whereHas('variations', fn ($query) => $query->where('zone_id', $zoneId));
-
         $services = $servicesQuery->orderBy('name')->get();
+
+        $mainIds = $services->pluck('category_id')->unique()->filter()->values();
+
+        $mainCategories = Category::query()
+            ->ofType('main')
+            ->whereIn('id', $mainIds)
+            ->with([
+                'zonesBasicInfo:id,name',
+                'children' => fn ($q) => $q->ofType('sub')->orderBy('name'),
+            ])
+            ->orderBy('name')
+            ->get();
 
         $bySubId = $services->groupBy(fn (Service $s) => (string) $s->sub_category_id);
         $directByMainId = $services
@@ -111,9 +105,9 @@ class CatalogTreeService
                 }
 
                 $svcList = $bySubId->get((string) $sub->id, collect());
-                $serviceNodes = $this->serviceNodes($svcList, $zoneId, $stats);
+                $serviceNodes = $this->serviceNodes($svcList, $stats);
 
-                if ($status !== 'all' && $serviceNodes === [] && $svcList->isEmpty()) {
+                if ($serviceNodes === []) {
                     continue;
                 }
 
@@ -133,7 +127,7 @@ class CatalogTreeService
 
             $direct = $directByMainId->get((string) $main->id, collect());
             if ($direct->isNotEmpty()) {
-                $directNodes = $this->serviceNodes($direct, $zoneId, $stats);
+                $directNodes = $this->serviceNodes($direct, $stats);
                 if ($directNodes !== []) {
                     $stats['sub_categories']++;
                     $subNodes[] = [
@@ -151,7 +145,7 @@ class CatalogTreeService
                 }
             }
 
-            if ($status !== 'all' && $subNodes === []) {
+            if ($subNodes === []) {
                 continue;
             }
 
@@ -173,7 +167,7 @@ class CatalogTreeService
         return [
             'stats' => $stats,
             'tree' => $tree,
-            'zones' => $zones,
+            'zoneTreeOptions' => $zoneTreeOptions,
         ];
     }
 
@@ -181,14 +175,14 @@ class CatalogTreeService
      * @param  Collection<int, Service>  $services
      * @return list<array<string, mixed>>
      */
-    private function serviceNodes(Collection $services, ?string $zoneId, array &$stats): array
+    private function serviceNodes(Collection $services, array &$stats): array
     {
         $nodes = [];
 
         foreach ($services as $service) {
-            $variationNodes = $this->variationNodes($service, $zoneId);
+            $variationNodes = $this->variationNodes($service);
 
-            if ($zoneId !== null && $zoneId !== '' && $variationNodes === []) {
+            if ($variationNodes === []) {
                 continue;
             }
 
@@ -218,17 +212,13 @@ class CatalogTreeService
     /**
      * @return list<array<string, mixed>>
      */
-    private function variationNodes(Service $service, ?string $zoneId): array
+    private function variationNodes(Service $service): array
     {
         $variantsByKey = $service->serviceVariants->keyBy('variant_key');
         $rows = $service->variations->sortBy(fn ($v) => ($v->variant_key ?? '').' '.($v->zone_id ?? ''))->values();
 
         $nodes = [];
         foreach ($rows as $variation) {
-            if ($zoneId !== null && $zoneId !== '' && (string) $variation->zone_id !== $zoneId) {
-                continue;
-            }
-
             $label = trim((string) ($variation->variant ?? ''));
             if ($this->looksLikeUuid($label)) {
                 $label = '';
