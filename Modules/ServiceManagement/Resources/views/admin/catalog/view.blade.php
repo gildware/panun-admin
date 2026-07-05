@@ -297,76 +297,87 @@
         }
         .catalog-page-header {
             display: flex;
-            align-items: center;
+            align-items: flex-end;
             justify-content: space-between;
             gap: 1rem;
             flex-wrap: wrap;
         }
-        .catalog-filter-toggle .material-icons {
-            font-size: 1.125rem;
+        .catalog-toolbar {
+            display: flex;
+            align-items: flex-end;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            flex: 1;
+            justify-content: flex-end;
+            min-width: 0;
         }
-        .catalog-filters-panel .card-body {
-            padding-top: 1rem;
-            padding-bottom: 1rem;
+        .catalog-toolbar-form {
+            display: flex;
+            align-items: flex-end;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .catalog-toolbar-field {
+            min-width: 0;
+        }
+        .catalog-toolbar-field label {
+            display: block;
+            font-size: 0.75rem;
+            margin-bottom: 0.25rem;
+            color: var(--bs-secondary-color);
+        }
+        .catalog-toolbar-field .form-select {
+            min-width: 10rem;
+        }
+        .catalog-toolbar-search {
+            flex: 1;
+            min-width: 12rem;
+            max-width: 20rem;
+        }
+        .catalog-zone-prompt .material-icons {
+            font-size: 2.5rem;
+            color: var(--bs-secondary-color);
+            margin-bottom: 0.5rem;
         }
     </style>
 @endpush
 
 @section('content')
-    @php
-        $catalogFiltersOpen = filled($zoneId) || ($status ?? 'all') !== 'all';
-    @endphp
     <div class="main-content">
         <div class="container-fluid">
             <div class="catalog-page-header mb-3">
                 <h2 class="page-title mb-0">{{ translate('View_Catalog') }}</h2>
-                <button type="button"
-                        class="btn btn--primary catalog-filter-toggle d-inline-flex align-items-center gap-2"
-                        data-bs-toggle="collapse"
-                        data-bs-target="#catalog-filters-panel"
-                        aria-expanded="{{ $catalogFiltersOpen ? 'true' : 'false' }}"
-                        aria-controls="catalog-filters-panel">
-                    <span class="material-icons">filter_list</span>
-                    {{ translate('filter') }}
-                </button>
-            </div>
-
-            <div class="collapse catalog-filters-panel mb-3 {{ $catalogFiltersOpen ? 'show' : '' }}" id="catalog-filters-panel">
-                <form method="get" action="{{ route('admin.catalog.view') }}" class="card border-0 shadow-sm">
-                    <div class="card-body">
-                        <div class="row g-2 align-items-end">
-                            <div class="col-md-4">
-                                <label class="form-label mb-1 fz-12">{{ translate('search') }}</label>
-                                <div class="catalog-search-wrap">
-                                    <span class="material-icons">search</span>
-                                    <input type="text" class="form-control" id="catalog-search" placeholder="{{ translate('Catalog_search_placeholder') }}" autocomplete="off">
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label mb-1 fz-12">{{ translate('zone') }}</label>
-                                <select name="zone_id" class="form-select theme-input-style">
-                                    <option value="">{{ translate('all') }}</option>
-                                    @foreach ($zones as $zone)
-                                        <option value="{{ $zone['id'] }}" @selected($zoneId === $zone['id'])>{{ $zone['name'] }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label mb-1 fz-12">{{ translate('status') }}</label>
-                                <select name="status" class="form-select theme-input-style">
-                                    <option value="all" @selected($status === 'all')>{{ translate('all') }}</option>
-                                    <option value="active" @selected($status === 'active')>{{ translate('active') }}</option>
-                                    <option value="inactive" @selected($status === 'inactive')>{{ translate('inactive') }}</option>
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <button type="submit" class="btn btn--primary w-100">{{ translate('filter') }}</button>
-                            </div>
+                <div class="catalog-toolbar">
+                    <form method="get" action="{{ route('admin.catalog.view') }}" class="catalog-toolbar-form" id="catalog-zone-form">
+                        <div class="catalog-toolbar-field">
+                            <label class="mb-0">{{ translate('zone') }} <span class="text-danger">*</span></label>
+                            <select name="zone_id" class="form-select theme-input-style" required>
+                                <option value="" disabled @selected(!filled($zoneId))>{{ translate('Select_zone') }}</option>
+                                @foreach ($zones as $zone)
+                                    <option value="{{ $zone['id'] }}" @selected($zoneId === $zone['id'])>{{ $zone['name'] }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="catalog-toolbar-field">
+                            <label class="mb-0">{{ translate('status') }}</label>
+                            <select name="status" class="form-select theme-input-style" id="catalog-status-filter">
+                                <option value="all" @selected($status === 'all')>{{ translate('all') }}</option>
+                                <option value="active" @selected($status === 'active')>{{ translate('active') }}</option>
+                                <option value="inactive" @selected($status === 'inactive')>{{ translate('inactive') }}</option>
+                            </select>
+                        </div>
+                    </form>
+                    <div class="catalog-toolbar-field catalog-toolbar-search">
+                        <label class="mb-0">{{ translate('search') }}</label>
+                        <div class="catalog-search-wrap">
+                            <span class="material-icons">search</span>
+                            <input type="text" class="form-control" id="catalog-search" placeholder="{{ translate('Catalog_search_placeholder') }}" autocomplete="off" @disabled(!filled($zoneId))>
                         </div>
                     </div>
-                </form>
+                </div>
             </div>
 
+            @if(filled($zoneId))
             <div class="catalog-columns">
                 {{-- Column 1: Categories --}}
                 <div class="catalog-column" data-col="category">
@@ -478,6 +489,14 @@
                     </div>
                 </div>
             </div>
+            @else
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5 catalog-zone-prompt">
+                    <span class="material-icons d-block">map</span>
+                    <p class="mb-0 text-muted">{{ translate('Select_zone') }}</p>
+                </div>
+            </div>
+            @endif
         </div>
     </div>
 @endsection
@@ -485,6 +504,22 @@
 @push('script')
     <script>
         (function () {
+            const zoneForm = document.getElementById('catalog-zone-form');
+            if (zoneForm) {
+                zoneForm.addEventListener('change', function (e) {
+                    if (e.target.name === 'zone_id') {
+                        this.submit();
+                    } else if (e.target.name === 'status' && zoneForm.querySelector('[name="zone_id"]').value) {
+                        this.submit();
+                    }
+                });
+            }
+
+            const zoneSelected = @json(filled($zoneId));
+            if (!zoneSelected) {
+                return;
+            }
+
             const catalogTree = @json($tree);
             const labels = {
                 active: @json(translate('active')),
