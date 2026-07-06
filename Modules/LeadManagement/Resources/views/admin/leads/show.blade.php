@@ -1401,27 +1401,49 @@
     <script>
         (function () {
             "use strict";
+            var $customerModal = $('#leadCustomerModal');
+
             function getCustomerSelects() {
-                var $m = $('#leadCustomerModal');
                 return {
-                    zone: $m.find('[name="zone_id"]'),
-                    category: $m.find('[name="service_category"]'),
-                    subcategory: $m.find('[name="service_subcategory"]'),
-                    service: $m.find('[name="service_name"]'),
-                    variant: $m.find('[name="variant_key"]')
+                    zone: $customerModal.find('[name="zone_id"]'),
+                    category: $customerModal.find('[name="service_category"]'),
+                    subcategory: $customerModal.find('[name="service_subcategory"]'),
+                    service: $customerModal.find('[name="service_name"]'),
+                    variant: $customerModal.find('[name="variant_key"]')
                 };
+            }
+
+            function destroyCustomerSelect2($el) {
+                if ($el.length && $el.hasClass('select2-hidden-accessible')) {
+                    $el.off('select2:select').select2('destroy');
+                }
+            }
+
+            function initCustomerSelect2($el) {
+                if (!$el.length || !$.fn.select2) {
+                    return;
+                }
+                destroyCustomerSelect2($el);
+                var opts = { width: '100%' };
+                if ($customerModal.length) {
+                    opts.dropdownParent = $customerModal;
+                }
+                $el.select2(opts);
+            }
+
+            function resetDependentSelect($el, placeholder, disabled) {
+                destroyCustomerSelect2($el);
+                $el.prop('disabled', !!disabled).empty()
+                    .append(new Option(placeholder, '', true, true));
+                initCustomerSelect2($el);
             }
 
             function resetCategorySubcategoryService(s) {
                 s = s || getCustomerSelects();
-                s.category.prop('disabled', true).empty()
-                    .append(new Option('{{ translate('Select_Category') }}', '', true, true)).trigger('change');
-                s.subcategory.prop('disabled', true).empty()
-                    .append(new Option('{{ translate('Select_Sub_Category') }}', '', true, true)).trigger('change');
-                s.service.prop('disabled', true).empty()
-                    .append(new Option('{{ translate('Select_Service') }}', '', true, true)).trigger('change');
-                s.variant.prop('disabled', true).empty()
-                    .append(new Option('{{ translate('Select_Service_Variant') }}', '', true, true)).trigger('change');
+                resetDependentSelect(s.category, '{{ translate('Select_Category') }}', true);
+                resetDependentSelect(s.subcategory, '{{ translate('Select_Sub_Category') }}', true);
+                resetDependentSelect(s.service, '{{ translate('Select_Service') }}', true);
+                resetDependentSelect(s.variant, '{{ translate('Select_Service_Variant') }}', true);
             }
 
             function loadCategories(onLoaded) {
@@ -1432,49 +1454,59 @@
                     if (onLoaded) onLoaded();
                     return;
                 }
+                destroyCustomerSelect2(s.category);
                 s.category.prop('disabled', false).empty()
-                    .append(new Option('{{ translate('Loading...') }}', '', true, true)).trigger('change');
+                    .append(new Option('{{ translate('Loading...') }}', '', true, true));
+                initCustomerSelect2(s.category);
+                resetDependentSelect(s.subcategory, '{{ translate('Select_Sub_Category') }}', true);
+                resetDependentSelect(s.service, '{{ translate('Select_Service') }}', true);
+                resetDependentSelect(s.variant, '{{ translate('Select_Service_Variant') }}', true);
                 $.get('{{ route('admin.booking.service.ajax-get-categories') }}', { zone_id: zoneId }, function (res) {
+                    destroyCustomerSelect2(s.category);
                     s.category.empty().append(new Option('{{ translate('Select_Category') }}', '', true, true));
                     (res.content || []).forEach(function (c) {
                         s.category.append(new Option(c.name, c.id, false, false));
                     });
+                    initCustomerSelect2(s.category);
                     if (onLoaded) onLoaded(); else s.category.trigger('change');
+                }).fail(function () {
+                    destroyCustomerSelect2(s.category);
+                    s.category.empty().append(new Option('{{ translate('Failed_to_load') }}', '', true, true));
+                    initCustomerSelect2(s.category);
+                    if (onLoaded) onLoaded();
                 });
-                s.subcategory.prop('disabled', true).empty()
-                    .append(new Option('{{ translate('Select_Sub_Category') }}', '', true, true)).trigger('change');
-                s.service.prop('disabled', true).empty()
-                    .append(new Option('{{ translate('Select_Service') }}', '', true, true)).trigger('change');
-                s.variant.prop('disabled', true).empty()
-                    .append(new Option('{{ translate('Select_Service_Variant') }}', '', true, true)).trigger('change');
             }
 
             function loadSubcategories(onLoaded) {
                 var s = getCustomerSelects();
                 var categoryId = (s.category.val() || '').toString().trim();
                 if (!categoryId) {
-                    s.subcategory.prop('disabled', true).empty()
-                        .append(new Option('{{ translate('Select_Sub_Category') }}', '', true, true)).trigger('change');
-                    s.service.prop('disabled', true).empty()
-                        .append(new Option('{{ translate('Select_Service') }}', '', true, true)).trigger('change');
-                    s.variant.prop('disabled', true).empty()
-                        .append(new Option('{{ translate('Select_Service_Variant') }}', '', true, true)).trigger('change');
+                    resetDependentSelect(s.subcategory, '{{ translate('Select_Sub_Category') }}', true);
+                    resetDependentSelect(s.service, '{{ translate('Select_Service') }}', true);
+                    resetDependentSelect(s.variant, '{{ translate('Select_Service_Variant') }}', true);
                     if (onLoaded) onLoaded();
                     return;
                 }
+                destroyCustomerSelect2(s.subcategory);
                 s.subcategory.prop('disabled', false).empty()
-                    .append(new Option('{{ translate('Loading...') }}', '', true, true)).trigger('change');
+                    .append(new Option('{{ translate('Loading...') }}', '', true, true));
+                initCustomerSelect2(s.subcategory);
+                resetDependentSelect(s.service, '{{ translate('Select_Service') }}', true);
+                resetDependentSelect(s.variant, '{{ translate('Select_Service_Variant') }}', true);
                 $.get('{{ route('admin.booking.service.ajax-get-subcategories') }}', { category_id: categoryId }, function (res) {
+                    destroyCustomerSelect2(s.subcategory);
                     s.subcategory.empty().append(new Option('{{ translate('Select_Sub_Category') }}', '', true, true));
                     (res.content || []).forEach(function (c) {
                         s.subcategory.append(new Option(c.name, c.id, false, false));
                     });
+                    initCustomerSelect2(s.subcategory);
                     if (onLoaded) onLoaded(); else s.subcategory.trigger('change');
+                }).fail(function () {
+                    destroyCustomerSelect2(s.subcategory);
+                    s.subcategory.empty().append(new Option('{{ translate('Failed_to_load') }}', '', true, true));
+                    initCustomerSelect2(s.subcategory);
+                    if (onLoaded) onLoaded();
                 });
-                s.service.prop('disabled', true).empty()
-                    .append(new Option('{{ translate('Select_Service') }}', '', true, true)).trigger('change');
-                s.variant.prop('disabled', true).empty()
-                    .append(new Option('{{ translate('Select_Service_Variant') }}', '', true, true)).trigger('change');
             }
 
             function loadServices(onLoaded) {
@@ -1482,22 +1514,30 @@
                 var subCategoryId = (s.subcategory.val() || '').toString().trim();
                 var zoneId = (s.zone.val() || '').toString().trim();
                 if (!subCategoryId || !zoneId) {
-                    s.service.prop('disabled', true).empty()
-                        .append(new Option('{{ translate('Select_Service') }}', '', true, true)).trigger('change');
-                    s.variant.prop('disabled', true).empty()
-                        .append(new Option('{{ translate('Select_Service_Variant') }}', '', true, true)).trigger('change');
+                    resetDependentSelect(s.service, '{{ translate('Select_Service') }}', true);
+                    resetDependentSelect(s.variant, '{{ translate('Select_Service_Variant') }}', true);
                     if (onLoaded) onLoaded();
                     return;
                 }
+                destroyCustomerSelect2(s.service);
                 s.service.prop('disabled', false).empty()
-                    .append(new Option('{{ translate('Loading...') }}', '', true, true)).trigger('change');
+                    .append(new Option('{{ translate('Loading...') }}', '', true, true));
+                initCustomerSelect2(s.service);
+                resetDependentSelect(s.variant, '{{ translate('Select_Service_Variant') }}', true);
                 $.get('{{ route('admin.booking.service.ajax-get-services') }}', { sub_category_id: subCategoryId, zone_id: zoneId }, function (res) {
+                    destroyCustomerSelect2(s.service);
                     s.service.empty()
                         .append(new Option('{{ translate('Select_Service_or_leave_for_custom') }}', '', true, true));
                     (res.content || []).forEach(function (c) {
                         s.service.append(new Option(c.name, c.id, false, false));
                     });
+                    initCustomerSelect2(s.service);
                     if (onLoaded) onLoaded(); else s.service.trigger('change');
+                }).fail(function () {
+                    destroyCustomerSelect2(s.service);
+                    s.service.empty().append(new Option('{{ translate('Failed_to_load') }}', '', true, true));
+                    initCustomerSelect2(s.service);
+                    if (onLoaded) onLoaded();
                 });
             }
 
@@ -1506,14 +1546,16 @@
                 var serviceId = (s.service.val() || '').toString().trim();
                 var zoneId = (s.zone.val() || '').toString().trim();
                 if (!serviceId || !zoneId) {
-                    s.variant.prop('disabled', true).empty()
-                        .append(new Option('{{ translate('Select_Service_Variant') }}', '', true, true)).trigger('change');
+                    resetDependentSelect(s.variant, '{{ translate('Select_Service_Variant') }}', true);
                     if (onLoaded) onLoaded();
                     return;
                 }
+                destroyCustomerSelect2(s.variant);
                 s.variant.prop('disabled', false).empty()
-                    .append(new Option('{{ translate('Loading...') }}', '', true, true)).trigger('change');
+                    .append(new Option('{{ translate('Loading...') }}', '', true, true));
+                initCustomerSelect2(s.variant);
                 $.get('{{ route('admin.booking.service.ajax-get-variant') }}', { service_id: serviceId, zone_id: zoneId }, function (response) {
+                    destroyCustomerSelect2(s.variant);
                     s.variant.empty()
                         .append(new Option('{{ translate('Select_Service_Variant') }}', '', true, true));
                     if (response.content && Array.isArray(response.content) && response.content.length > 0) {
@@ -1522,10 +1564,13 @@
                             s.variant.append(new Option(label, variation.variant_key, false, false));
                         });
                     }
+                    initCustomerSelect2(s.variant);
                     if (onLoaded) onLoaded(); else s.variant.trigger('change');
                 }).fail(function () {
+                    destroyCustomerSelect2(s.variant);
                     s.variant.empty()
-                        .append(new Option('{{ translate('Failed_to_load') }}', '', true, true)).trigger('change');
+                        .append(new Option('{{ translate('Failed_to_load') }}', '', true, true));
+                    initCustomerSelect2(s.variant);
                     if (onLoaded) onLoaded();
                 });
             }
@@ -1542,13 +1587,25 @@
                     window._customerModalPrefilling = true;
                     s.zone.val(String(editZone)).trigger('change');
                     loadCategories(function () {
-                        if (editCategory) { s.category.val(editCategory).trigger('change'); }
+                        if (editCategory) {
+                            s.category.val(String(editCategory));
+                            initCustomerSelect2(s.category);
+                        }
                         loadSubcategories(function () {
-                            if (editSubcategory) { s.subcategory.val(editSubcategory).trigger('change'); }
+                            if (editSubcategory) {
+                                s.subcategory.val(String(editSubcategory));
+                                initCustomerSelect2(s.subcategory);
+                            }
                             loadServices(function () {
-                                if (editService) { s.service.val(editService).trigger('change'); }
+                                if (editService) {
+                                    s.service.val(String(editService));
+                                    initCustomerSelect2(s.service);
+                                }
                                 loadVariants(function () {
-                                    if (editVariant) { s.variant.val(editVariant).trigger('change'); }
+                                    if (editVariant) {
+                                        s.variant.val(String(editVariant));
+                                        initCustomerSelect2(s.variant);
+                                    }
                                     window._customerModalPrefilling = false;
                                 });
                             });
