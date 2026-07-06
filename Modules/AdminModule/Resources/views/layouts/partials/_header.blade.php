@@ -129,9 +129,11 @@
                         </li>
                         <li class="nav-item max-sm-m-0">
                             @include('adminmodule::layouts.partials._home-cache-reset-btn', [
+                                'wrapperClass' => 'home-cache-reset-wrap home-cache-reset-wrap--legacy',
                                 'formClass' => 'd-inline',
                                 'buttonClass' => 'title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1',
                                 'labelClass' => 'd-none d-sm-inline',
+                                'reminderClass' => 'home-cache-reset-reminder home-cache-reset-reminder--legacy d-none d-xl-inline',
                             ])
                         </li>
                         <li class="nav-item max-sm-m-0">

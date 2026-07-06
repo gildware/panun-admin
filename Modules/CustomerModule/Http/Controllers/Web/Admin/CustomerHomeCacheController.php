@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Modules\CustomerModule\Services\CustomerHomeCacheManager;
+use Modules\CustomerModule\Services\CustomerHomeCacheWarmState;
 
 class CustomerHomeCacheController extends Controller
 {
@@ -27,6 +28,7 @@ class CustomerHomeCacheController extends Controller
                 'success' => true,
                 'warmed' => $warmed,
                 'message' => $message,
+                'needs_reset' => CustomerHomeCacheWarmState::needsAdminReminder(),
             ]);
         }
 

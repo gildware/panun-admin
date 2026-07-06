@@ -10,6 +10,7 @@ use App\Support\AdminPinnedNav;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Database\Eloquent\Factory;
+use Modules\CustomerModule\Services\CustomerHomeCacheWarmState;
 
 class AdminModuleServiceProvider extends ServiceProvider
 {
@@ -72,6 +73,7 @@ class AdminModuleServiceProvider extends ServiceProvider
                 ),
                 'adminDefaultPinKeys' => AdminNavRegistry::defaultPinKeys(),
                 'adminUserPinnedKeys' => AdminPinnedNav::pinnedKeysForUser(auth()->user()),
+                'homeCacheNeedsReset' => CustomerHomeCacheWarmState::needsAdminReminder(),
             ]);
         });
     }

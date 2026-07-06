@@ -9936,4 +9936,5 @@ _Message' => 'Customer notification for provider bid offer
   'Rebuilding_home_cache' => 'Rebuilding...',
   'Home_cache_reset_and_warmed_successfully' => 'Home cache reset and warmed successfully',
   'Home_cache_reset_rebuild_queued' => 'Home cache rebuild has been queued',
+  'Home_content_changed_reset_cache_reminder' => 'Home content changed — reset cache',
 );

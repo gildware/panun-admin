@@ -98,6 +98,10 @@ class CustomerHomeBaseBundleCache
             $warmed += self::warmZone((string) $id);
         }
 
+        if ($warmed > 0) {
+            CustomerHomeCacheWarmState::markWarmed();
+        }
+
         return $warmed;
     }
 
