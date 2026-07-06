@@ -8,21 +8,16 @@ use Modules\BusinessSettingsModule\Services\MobileAppManagementService;
 
 class CustomerHomeBundleService
 {
-    public const BUNDLE_CACHE_VERSION = 'v10';
-
     public const VERSION_CACHE_TTL = 30;
 
     public function __construct(
         protected MobileAppManagementService $mobileAppManagementService,
-        protected CustomerHomeBundleComposer $bundleComposer,
+        protected CustomerHomeBaseBundleCache $baseBundleCache,
+        protected CustomerHomeBundlePersonalizer $bundlePersonalizer,
     ) {}
 
     public function build(Request $request): array
     {
-        $zoneId = (string) ($request->header('zoneId') ?? $request->header('zoneid') ?? '');
-        $locale = strtolower((string) $request->header('X-localization', app()->getLocale()));
-        $authKey = $this->authCacheKey($request);
-
         $layoutHash = $this->layoutHash();
         $userId = auth('api')->id();
         $contentVersion = CustomerHomeContentVersion::resolveForRequest(
@@ -30,13 +25,11 @@ class CustomerHomeBundleService
             is_numeric($userId) ? (int) $userId : null,
         );
 
-        $cacheKey = 'customer_home_bundle:'.self::BUNDLE_CACHE_VERSION.':'.$contentVersion.':'.$zoneId.':'.$locale.':'.$authKey;
+        $base = $this->baseBundleCache->remember($request, $layoutHash);
 
-        $bundle = CustomerApiResponseCache::remember(
-            $cacheKey,
-            fn () => $this->bundleComposer->build($request),
-            CustomerApiResponseCache::HOME_BUNDLE_TTL
-        );
+        $bundle = auth('api')->check()
+            ? $this->bundlePersonalizer->apply($base, $request, (int) auth('api')->id())
+            : $base;
 
         return array_merge(['content_version' => $contentVersion], $bundle);
     }
@@ -56,7 +49,7 @@ class CustomerHomeBundleService
         $zoneId = (string) ($request->header('zoneId') ?? $request->header('zoneid') ?? 'no_zone');
         $authKey = $this->authCacheKey($request);
 
-        $cacheKey = 'customer_home_bundle_version:v1:'.$zoneId.':'.$authKey.':'.$layoutHash;
+        $cacheKey = 'customer_home_bundle_version:v2:'.$zoneId.':'.$authKey.':'.$layoutHash;
 
         return Cache::remember(
             $cacheKey,
@@ -80,4 +73,3 @@ class CustomerHomeBundleService
         return 'guest:shared';
     }
 }
-

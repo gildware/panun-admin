@@ -45,5 +45,7 @@ class CustomerApiResponseCache
             Cache::forget('customer_api_config:v2:'.$locale);
             Cache::forget('provider_api_config:v1:'.$locale);
         }
+
+        CustomerHomeCacheManager::warmAfterContentChange();
     }
 }

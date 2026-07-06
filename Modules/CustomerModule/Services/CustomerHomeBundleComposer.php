@@ -41,6 +41,58 @@ class CustomerHomeBundleComposer
 
     public function build(Request $request): array
     {
+        return $this->buildInternal($request, includeUserSections: auth('api')->check());
+    }
+
+    /**
+     * Shared zone payload cached for all guests; user-specific sections are merged later.
+     *
+     * @return array<string, mixed>
+     */
+    public function buildSharedBase(Request $request): array
+    {
+        return $this->buildInternal($request, includeUserSections: false);
+    }
+
+    public function layoutIncludesRecentlyViewed(): bool
+    {
+        foreach ($this->mobileAppManagementService->homeSectionsForApi()['sections'] ?? [] as $section) {
+            if (! ($section['enabled'] ?? false)) {
+                continue;
+            }
+
+            if (($section['key'] ?? '') === 'recently_viewed') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function fetchRecentlyViewedSection(Request $request): ?array
+    {
+        if (! auth('api')->check()) {
+            return null;
+        }
+
+        $task = $this->taskForBundleKey('recently_viewed_services', $request, includeUserSections: true);
+        if ($task === null) {
+            return null;
+        }
+
+        $content = $task();
+
+        return is_array($content) ? $content : null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildInternal(Request $request, bool $includeUserSections): array
+    {
         $this->applyRequestContext($request);
 
         if (Config::get('zone_id')) {
@@ -48,10 +100,10 @@ class CustomerHomeBundleComposer
         }
 
         $tasks = [];
-        $bundleKeysNeeded = $this->resolveBundleKeysToFetch($request);
+        $bundleKeysNeeded = $this->resolveBundleKeysToFetch($request, $includeUserSections);
 
         foreach ($bundleKeysNeeded as $bundleKey) {
-            $task = $this->taskForBundleKey($bundleKey, $request);
+            $task = $this->taskForBundleKey($bundleKey, $request, $includeUserSections);
             if ($task !== null) {
                 $tasks[$bundleKey] = $task;
             }
@@ -95,7 +147,7 @@ class CustomerHomeBundleComposer
     /**
      * @return list<string>
      */
-    private function resolveBundleKeysToFetch(Request $request): array
+    private function resolveBundleKeysToFetch(Request $request, bool $includeUserSections): array
     {
         $keys = [];
         $needsProviders = false;
@@ -117,7 +169,7 @@ class CustomerHomeBundleComposer
 
             if (isset(self::SECTION_TO_BUNDLE_KEY[$sectionKey])) {
                 $bundleKey = self::SECTION_TO_BUNDLE_KEY[$sectionKey];
-                if ($bundleKey === 'recently_viewed_services' && ! auth('api')->check()) {
+                if ($bundleKey === 'recently_viewed_services') {
                     continue;
                 }
                 if (in_array($bundleKey, ['providers', 'nearby_providers'], true)) {
@@ -140,7 +192,7 @@ class CustomerHomeBundleComposer
             $keys[] = 'offline_payment_methods';
         }
 
-        if (auth('api')->check()) {
+        if ($includeUserSections && auth('api')->check()) {
             $keys[] = 'recently_viewed_services';
         }
 
@@ -171,8 +223,10 @@ class CustomerHomeBundleComposer
         return (int) (business_config('offline_payment', 'service_setup')?->live_values ?? 0) === 1;
     }
 
-    private function taskForBundleKey(string $bundleKey, Request $request): ?callable
+    private function taskForBundleKey(string $bundleKey, Request $request, bool $includeUserSections): ?callable
     {
+        $customerUserId = $includeUserSections ? $this->customerUserId($request) : null;
+
         return match ($bundleKey) {
             'banners' => fn () => $this->invoke(BannerController::class, 'index', $request, ['limit' => 10, 'offset' => 1]),
             'categories' => fn () => $this->invoke(CategoryController::class, 'index', $request, ['limit' => 100, 'offset' => 1]),
@@ -183,14 +237,14 @@ class CustomerHomeBundleComposer
             'providers_full' => fn () => $this->paginatorContent(
                 app(CustomerProviderListFetcher::class)->paginate(
                     $this->listRequest($request, ['limit' => 30, 'offset' => 1, 'sort_by' => 'default', 'rating' => 0]),
-                    $this->customerUserId($request),
+                    $customerUserId,
                 )
             ),
             'campaigns' => fn () => $this->invoke(CampaignController::class, 'index', $request, ['limit' => 10, 'offset' => 1]),
             'advertisements' => fn () => $this->paginatorContent(
                 app(CustomerAdvertisementListFetcher::class)->paginate(
                     $this->listRequest($request, ['limit' => 15, 'offset' => 1]),
-                    $this->customerUserId($request),
+                    $customerUserId,
                 )
             ),
             'featured_categories' => fn () => $this->invoke(CategoryController::class, 'featured', $request, ['limit' => 100, 'offset' => 1]),

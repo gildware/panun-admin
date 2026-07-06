@@ -128,6 +128,19 @@
                             </div>
                         </li>
                         <li class="nav-item max-sm-m-0">
+                            <form method="POST" action="{{ route('admin.customer.home-cache.reset') }}" class="d-inline">
+                                @csrf
+                                <button type="submit"
+                                        class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1"
+                                        data-bs-toggle="tooltip"
+                                        data-bs-placement="bottom"
+                                        title="{{ translate('Reset_and_rebuild_customer_home_cache') }}">
+                                    <span class="material-symbols-outlined">cached</span>
+                                    <span class="d-none d-md-block">{{ translate('Reset_home_cache') }}</span>
+                                </button>
+                            </form>
+                        </li>
+                        <li class="nav-item max-sm-m-0">
                             <a href="{{ route('admin.business-ai.index') }}" class="btn btn--success border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none">
                                 <span class="material-symbols-outlined" aria-hidden="true">psychology</span>
                                 <span class="d-none d-md-block">{{ translate('Talk_With_AI') }}</span>
