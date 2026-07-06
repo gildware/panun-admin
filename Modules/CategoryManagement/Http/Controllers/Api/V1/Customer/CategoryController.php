@@ -48,7 +48,7 @@ class CategoryController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $categories = $this->category->with(['zones'])
+        $categories = $this->category->with(['zonesBasicInfo'])
             ->ofStatus(1)
             ->ofType('main')
             ->mainWithActiveCatalog()
@@ -124,7 +124,7 @@ class CategoryController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $categories = $this->category->with(['zones', 'services_by_category.variations', 'services_by_category' => function ($query) {
+        $categories = $this->category->with(['zonesBasicInfo', 'services_by_category.variations', 'services_by_category' => function ($query) {
             $query->ofStatus(1)
                 ->where(function ($query) {
                     $query->whereDoesntHave('service_discount')

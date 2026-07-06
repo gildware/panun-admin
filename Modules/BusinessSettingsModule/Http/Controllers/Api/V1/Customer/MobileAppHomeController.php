@@ -337,7 +337,7 @@ class MobileAppHomeController extends Controller
         $categoryType = $contentType === MobileAppManagementService::CONTENT_SUB_CATEGORIES ? 'sub' : 'main';
 
         if ($key === 'feathered_categories') {
-            $categories = $this->category->with(['zones', 'services_by_category.variations', 'services_by_category' => function ($query) {
+            $categories = $this->category->with(['zonesBasicInfo', 'services_by_category.variations', 'services_by_category' => function ($query) {
                 $query->ofStatus(1)
                     ->where(function ($query) {
                         $query->whereDoesntHave('service_discount')
