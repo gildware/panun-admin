@@ -6,6 +6,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Concurrency;
 use Modules\BusinessSettingsModule\Services\MobileAppManagementService;
 use Modules\CategoryManagement\Http\Controllers\Api\V1\Customer\CategoryController;
 use Modules\CategoryManagement\Http\Controllers\Api\V1\Customer\SubCategoryController;
@@ -310,12 +311,16 @@ class CustomerHomeBundleComposer
             return [];
         }
 
-        $results = [];
-        foreach ($tasks as $key => $task) {
-            $results[$key] = $task();
-        }
+        try {
+            return Concurrency::run($tasks);
+        } catch (\Throwable) {
+            $results = [];
+            foreach ($tasks as $key => $task) {
+                $results[$key] = $task();
+            }
 
-        return $results;
+            return $results;
+        }
     }
 
     private function customerUserId(Request $request): mixed
