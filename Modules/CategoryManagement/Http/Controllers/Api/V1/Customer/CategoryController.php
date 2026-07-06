@@ -84,26 +84,30 @@ class CategoryController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
+        $categoryId = $this->category->where(['slug' => $request['slug']])->first()?->id ?? null;
+
+        if ($categoryId == null) {
+            return response()->json(response_formatter(DEFAULT_404, null, [['code' => 'category', 'message' => translate('Category not found')]]), 404);
+        }
+
         $childes = $this->category->ofStatus(1)->ofType('sub')->withoutGlobalScopes(['zone_wise_data'])
+            ->withActiveServices()
             ->withCount(['services' => function ($query) {
                 $query->where('is_active', 1);
             }])
-            ->having('services_count', '>', 0)
-            ->whereHas('parent', function ($query) use ($request) {
-                $query->ofStatus(1)->where('slug', $request['slug']);
+            ->whereHas('parent', function ($query) {
+                $query->ofStatus(1);
             })
-            ->orderBy('name', 'asc')
+            ->where('parent_id', $categoryId)
+            ->orderBY('name', 'asc')
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
-        if ($childes->count() > 0) {
+        if (count($childes) > 0) {
             $authUser = auth('api')->user();
             if ($authUser) {
-                $categoryId = $childes->first()->parent_id;
-                if ($categoryId) {
-                    $recentView = $this->recentView->firstOrNew(['category_id' => $categoryId, 'user_id' => $authUser->id]);
-                    $recentView->total_category_view += 1;
-                    $recentView->save();
-                }
+                $recentView = $this->recentView->firstOrNew(['category_id' => $categoryId, 'user_id' => $authUser->id]);
+                $recentView->total_category_view += 1;
+                $recentView->save();
             }
 
             return response()->json(
