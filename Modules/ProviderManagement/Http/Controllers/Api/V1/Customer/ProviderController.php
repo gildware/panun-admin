@@ -19,6 +19,7 @@ use Modules\ProviderManagement\Services\ProviderPackageEligibilityResolver;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ServiceManagement\Entities\FavoriteService;
 use Modules\ServiceManagement\Entities\Service;
+use Modules\ServiceManagement\Entities\Variation;
 use Modules\ServiceManagement\Services\CustomerServiceResponseEnricher;
 
 class ProviderController extends Controller
