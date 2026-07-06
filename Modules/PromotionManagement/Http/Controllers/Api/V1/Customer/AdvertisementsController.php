@@ -3,7 +3,6 @@
 namespace Modules\PromotionManagement\Http\Controllers\Api\V1\Customer;
 
 
-use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -12,6 +11,7 @@ use Illuminate\Support\Facades\Validator;
 use Modules\PromotionManagement\Entities\Advertisement;
 use Modules\ProviderManagement\Entities\FavoriteProvider;
 use Modules\ProviderManagement\Entities\ProviderShowcaseItem;
+use Modules\ProviderManagement\Services\ProviderPackageEligibilityResolver;
 
 class AdvertisementsController extends Controller
 {
@@ -58,15 +58,12 @@ class AdvertisementsController extends Controller
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
         $collection = $advertisements->getCollection();
-        $eligibilityCache = [];
-        $filteredAdvertisement = $collection->filter(function ($advertisement) use (&$eligibilityCache) {
-            $providerId = $advertisement->provider_id;
-            if (! array_key_exists($providerId, $eligibilityCache)) {
-                $eligibilityCache[$providerId] = advertisementsEligibility($providerId);
-            }
+        $providerIds = $collection->pluck('provider_id')->filter()->unique()->map(fn ($id) => (string) $id)->values()->all();
+        $eligibility = app(ProviderPackageEligibilityResolver::class)->preload($providerIds);
 
-            return $eligibilityCache[$providerId];
-        });
+        $filteredAdvertisement = $collection->filter(
+            fn ($advertisement) => $eligibility->canShowAdvertisement((string) $advertisement->provider_id)
+        );
 
         $advertisements->setCollection($filteredAdvertisement->values());
 

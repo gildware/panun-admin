@@ -15,10 +15,11 @@ use Modules\ProviderManagement\Entities\FavoriteProvider;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderShowcaseItem;
 use Modules\ProviderManagement\Entities\SubscribedService;
+use Modules\ProviderManagement\Services\ProviderPackageEligibilityResolver;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ServiceManagement\Entities\FavoriteService;
 use Modules\ServiceManagement\Entities\Service;
-use Modules\ServiceManagement\Entities\Variation;
+use Modules\ServiceManagement\Services\CustomerServiceResponseEnricher;
 
 class ProviderController extends Controller
 {
@@ -75,12 +76,16 @@ class ProviderController extends Controller
             ->ofStatus(1)
             ->where('app_availability', 1)
             ->where('is_suspended', 0)
-            ->pluck('id');
-
-        $eligibleProviderIds = $zoneProviderIds
-            ->filter(fn ($id) => nextBookingEligibility($id))
-            ->values()
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id)
             ->all();
+
+        $eligibility = app(ProviderPackageEligibilityResolver::class)->preload($zoneProviderIds);
+
+        $eligibleProviderIds = array_values(array_filter(
+            $zoneProviderIds,
+            fn (string $id) => $eligibility->canAcceptNextBooking($id)
+        ));
 
         if ($eligibleProviderIds === []) {
             $empty = new LengthAwarePaginator([], 0, (int) $request['limit'], (int) $request['offset'], ['path' => '']);
@@ -182,8 +187,9 @@ class ProviderController extends Controller
         $provider['weekends'] = $weekEnds ?? [];
 
 
-        $provider['nextBookingEligibility'] = nextBookingEligibility($provider->id);
-        $provider['scheduleBookingEligibility'] = scheduleBookingEligibility($provider->id);
+        $eligibility = app(ProviderPackageEligibilityResolver::class)->preload([(string) $provider->id]);
+        $provider['nextBookingEligibility'] = $eligibility->canAcceptNextBooking((string) $provider->id);
+        $provider['scheduleBookingEligibility'] = $eligibility->canScheduleBooking((string) $provider->id);
 
 
         $limitStatus = provider_warning_amount_calculate($provider?->owner?->account->account_payable, $provider?->owner?->account->account_receivable);
@@ -214,6 +220,32 @@ class ProviderController extends Controller
             })
             ->whereIn('id', $subscribedSubCategoryIds)
             ->get();
+
+        if ($subscribedSubCategoryIds !== []) {
+            $services = $this->service
+                ->with(['variations', 'service_discount', 'category.category_discount'])
+                ->whereIn('sub_category_id', $subscribedSubCategoryIds)
+                ->where(function ($query) {
+                    $query->whereDoesntHave('service_discount')
+                        ->orWhereHas('service_discount');
+                })
+                ->where(function ($query) {
+                    $query->whereDoesntHave('category.category_discount')
+                        ->orWhereHas('category.category_discount');
+                })
+                ->ofStatus(1)
+                ->get();
+
+            CustomerServiceResponseEnricher::enrich($services, $this->customer_user_id);
+            $servicesBySubCategory = $services->groupBy('sub_category_id');
+
+            foreach ($subCategories as $subCategory) {
+                $subCategory->setAttribute(
+                    'services',
+                    $servicesBySubCategory->get($subCategory->id, collect())->values()
+                );
+            }
+        }
 
         $ratingGroupCount = DB::table('reviews')->where('provider_id', $provider->id)
             ->where('is_active', 1)
