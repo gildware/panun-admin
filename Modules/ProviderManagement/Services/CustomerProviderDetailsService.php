@@ -45,7 +45,7 @@ class CustomerProviderDetailsService
             ->exists() ? 1 : 0;
 
         $timeSchedule = provider_config('time_schedule', 'service_schedule', $provider['id'])?->live_values;
-        $weekEnds = provider_config('weekends', 'service_schedule', $provider['id'])->live_values ?? '';
+        $weekEnds = provider_config('weekends', 'service_schedule', $provider['id'])?->live_values ?? '';
         $provider['time_schedule'] = json_decode($timeSchedule) ?? null;
         $provider['weekends'] = json_decode($weekEnds) ?? [];
 
