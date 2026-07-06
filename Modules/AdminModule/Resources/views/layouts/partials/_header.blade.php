@@ -136,7 +136,7 @@
                                         data-bs-placement="bottom"
                                         title="{{ translate('Reset_and_rebuild_customer_home_cache') }}">
                                     <span class="material-symbols-outlined">cached</span>
-                                    <span class="d-none d-md-block">{{ translate('Reset_home_cache') }}</span>
+                                    <span class="d-none d-sm-inline">{{ translate('Reset_home_cache') }}</span>
                                 </button>
                             </form>
                         </li>

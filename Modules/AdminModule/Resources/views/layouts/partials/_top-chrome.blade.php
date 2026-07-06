@@ -65,6 +65,18 @@
                 </ul>
             </div>
 
+            <form method="POST" action="{{ route('admin.customer.home-cache.reset') }}" class="top-utility-item d-inline">
+                @csrf
+                <button type="submit"
+                        class="top-utility-action-btn"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="bottom"
+                        title="{{ translate('Reset_and_rebuild_customer_home_cache') }}">
+                    <span class="material-symbols-outlined">cached</span>
+                    <span class="top-utility-search-label d-none d-lg-inline">{{ translate('Reset_home_cache') }}</span>
+                </button>
+            </form>
+
             <button type="button" id="modalOpener" class="top-utility-action-btn top-utility-search-btn" data-bs-toggle="modal" data-bs-target="#staticBackdrop" title="{{ translate('Search') }} (Ctrl+K)">
                 <span class="material-symbols-outlined">search</span>
                 <span class="top-utility-search-label">{{ translate('Search') }}</span>
