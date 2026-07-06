@@ -7,6 +7,7 @@ use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Modules\LeadManagement\Entities\Lead;
+use Modules\LeadManagement\Entities\LeadFollowup;
 use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\UserManagement\Entities\User;
 
@@ -15,8 +16,20 @@ class LeadFollowupController extends Controller
     public function todaysFollowups(Request $request): Renderable
     {
         $selectedHandledById = (string) $request->input('handled_by', '');
+        $selectedLeadType = (string) $request->input('lead_type', '');
+        $selectedUrgency = (string) $request->input('urgency', '');
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
+
+        $leadTypeOptions = Lead::leadTypes();
+        $urgencyOptions = LeadFollowup::URGENCIES;
+
+        if (!array_key_exists($selectedLeadType, $leadTypeOptions)) {
+            $selectedLeadType = '';
+        }
+        if (!in_array($selectedUrgency, $urgencyOptions, true)) {
+            $selectedUrgency = '';
+        }
 
         $effectiveTo = Carbon::today()->toDateString();
         if ($dateTo) {
@@ -44,6 +57,28 @@ class LeadFollowupController extends Controller
                     });
                 } else {
                     $q->where('handled_by', $selectedHandledById);
+                }
+            })
+            ->when($selectedLeadType !== '', function ($q) use ($selectedLeadType) {
+                $q->where('lead_type', $selectedLeadType);
+            })
+            ->when($selectedUrgency !== '', function ($q) use ($selectedUrgency) {
+                if ($selectedUrgency === LeadFollowup::URGENCY_MEDIUM) {
+                    // Treat missing/null/empty latest urgency as medium to match list display defaults.
+                    $q->where(function ($sub) {
+                        $sub->whereDoesntHave('latestFollowup')
+                            ->orWhereHas('latestFollowup', function ($followupQuery) {
+                                $followupQuery->where(function ($urgencyQuery) {
+                                    $urgencyQuery->where('urgency', LeadFollowup::URGENCY_MEDIUM)
+                                        ->orWhereNull('urgency')
+                                        ->orWhere('urgency', '');
+                                });
+                            });
+                    });
+                } else {
+                    $q->whereHas('latestFollowup', function ($followupQuery) use ($selectedUrgency) {
+                        $followupQuery->where('urgency', $selectedUrgency);
+                    });
                 }
             });
 
@@ -84,6 +119,10 @@ class LeadFollowupController extends Controller
             'leads',
             'assignees',
             'selectedHandledById',
+            'selectedLeadType',
+            'selectedUrgency',
+            'leadTypeOptions',
+            'urgencyOptions',
             'dateFrom',
             'dateTo',
             'totalFollowups'

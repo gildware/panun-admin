@@ -498,7 +498,7 @@
                             <div class="card-header d-flex justify-content-between gap-10">
                                 <h5 class="dashboard-widget-title mb-0">
                                     <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">event_repeat</span>
-                                    Booking Follow-ups- Pending Till Today's
+                                    Booking Followups Pending Till Today
                                     <span class="text-muted">
                                         ({{ $data[6]['todays_pending_followups_total'] ?? 0 }})
                                     </span>
@@ -533,14 +533,15 @@
                                                                 @php($totalMinutes = (int) round(abs($due->diffInMinutes(\Carbon\Carbon::now()))))
                                                                 @php($dueDays = intdiv($totalMinutes, 1440))
                                                                 @php($dueHours = intdiv($totalMinutes % 1440, 60))
+                                                                @php($timeLabel = $due->isPast() ? translate('before') : translate('within'))
                                                                 @if($dueDays > 0 && $dueHours > 0)
-                                                                    {{ $dueDays }} {{ translate('days') }} {{ $dueHours }} {{ translate('hours') }} {{ translate('before') }}
+                                                                    {{ $timeLabel }} {{ $dueDays }} {{ translate('days') }} {{ $dueHours }} {{ translate('hours') }}
                                                                 @elseif($dueDays > 0)
-                                                                    {{ $dueDays }} {{ translate('days') }} {{ translate('before') }}
+                                                                    {{ $timeLabel }} {{ $dueDays }} {{ translate('days') }}
                                                                 @elseif($dueHours > 0)
-                                                                    {{ $dueHours }} {{ translate('hours') }} {{ translate('before') }}
+                                                                    {{ $timeLabel }} {{ $dueHours }} {{ translate('hours') }}
                                                                 @else
-                                                                    {{ translate('less_than_an_hour') }}
+                                                                    {{ $timeLabel }} {{ translate('less_than_an_hour') }}
                                                                 @endif
                                                                 <br><span class="small text-muted">{{ $due->format('d M Y, h:i A') }}</span>
                                                             @endif
@@ -596,7 +597,7 @@
                             <div class="card-header d-flex justify-content-between gap-10">
                                 <h5 class="dashboard-widget-title mb-0">
                                     <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">contact_phone</span>
-                                    Leads Follow-ups- Pending Till Today's
+                                    Leads Followups Pending Till Today
                                     <span class="text-muted">
                                         ({{ $data[7]['todays_pending_lead_followups_total'] ?? 0 }})
                                     </span>
@@ -631,14 +632,15 @@
                                                                 @php($totalMinutes = (int) round(abs($due->diffInMinutes(\Carbon\Carbon::now()))))
                                                                 @php($dueDays = intdiv($totalMinutes, 1440))
                                                                 @php($dueHours = intdiv($totalMinutes % 1440, 60))
+                                                                @php($timeLabel = $due->isPast() ? translate('before') : translate('within'))
                                                                 @if($dueDays > 0 && $dueHours > 0)
-                                                                    {{ $dueDays }} {{ translate('days') }} {{ $dueHours }} {{ translate('hours') }} {{ translate('before') }}
+                                                                    {{ $timeLabel }} {{ $dueDays }} {{ translate('days') }} {{ $dueHours }} {{ translate('hours') }}
                                                                 @elseif($dueDays > 0)
-                                                                    {{ $dueDays }} {{ translate('days') }} {{ translate('before') }}
+                                                                    {{ $timeLabel }} {{ $dueDays }} {{ translate('days') }}
                                                                 @elseif($dueHours > 0)
-                                                                    {{ $dueHours }} {{ translate('hours') }} {{ translate('before') }}
+                                                                    {{ $timeLabel }} {{ $dueHours }} {{ translate('hours') }}
                                                                 @else
-                                                                    {{ translate('less_than_an_hour') }}
+                                                                    {{ $timeLabel }} {{ translate('less_than_an_hour') }}
                                                                 @endif
                                                                 <br><span class="small text-muted">{{ $due->format('d M Y, h:i A') }}</span>
                                                             @endif

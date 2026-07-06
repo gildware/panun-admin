@@ -9427,6 +9427,7 @@ _Message' => 'Customer notification for provider bid offer
   'Estimated_value' => 'Estimated value',
   'No_carts_found' => 'No carts found',
   'before' => 'Before',
+  'within' => 'Within',
   'Unpin' => 'Unpin',
   'Pin' => 'Pin',
   'Pinned_Messages' => 'Pinned Messages',
@@ -9929,4 +9930,5 @@ _Message' => 'Customer notification for provider bid offer
   'disabled' => 'Disabled',
   'zone_wise_price' => 'Zone wise price',
   'sub_categories' => 'Sub categories',
+  'On Hold' => 'On Hold',
 );
