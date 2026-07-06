@@ -569,14 +569,18 @@ We may release future updates so it will overwrite this file. it's better and sa
     /*============================================
   12: Filter Aside Toggle
   ==============================================*/
-    $(".filter-btn").on("click", function () {
+    function closeFilterAside() {
+        $(".filter-aside, .offcanvas-overlay").removeClass("active");
+        $("body").removeClass("ov-hidden");
+    }
+
+    /* Delegated so filter works after partial (turbo-frame) navigation. */
+    $(document).on("click", ".filter-btn", function () {
         $(".filter-aside, .offcanvas-overlay").toggleClass("active");
         $("body").toggleClass("ov-hidden");
     });
-    $(".offcanvas-overlay, .filter-aside .btn-close").on("click", function () {
-        $(".filter-aside, .offcanvas-overlay").removeClass("active");
-        $("body").removeClass("ov-hidden");
-    });
+    $(document).on("click", ".filter-aside .btn-close", closeFilterAside);
+    $(document).on("click", ".offcanvas-overlay.active", closeFilterAside);
 
     /*============================================
   13: Edit Button Trigger Upload file
