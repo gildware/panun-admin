@@ -111,6 +111,9 @@ class CustomerHomeBundleComposer
 
             if (isset(self::SECTION_TO_BUNDLE_KEY[$sectionKey])) {
                 $bundleKey = self::SECTION_TO_BUNDLE_KEY[$sectionKey];
+                if ($bundleKey === 'recently_viewed_services' && ! auth('api')->check()) {
+                    continue;
+                }
                 if (in_array($bundleKey, ['providers', 'nearby_providers'], true)) {
                     $needsProviders = true;
                 } else {
@@ -156,7 +159,9 @@ class CustomerHomeBundleComposer
             'featured_categories' => fn () => $this->invoke(CategoryController::class, 'featured', $request, ['limit' => 100, 'offset' => 1]),
             'sub_categories' => fn () => $this->invoke(SubCategoryController::class, 'index', $request, ['limit' => 8, 'offset' => 1]),
             'offline_payment_methods' => fn () => $this->invoke(OfflinePaymentController::class, 'getMethods', $request, ['limit' => 100, 'offset' => 1]),
-            'recently_viewed_services' => fn () => $this->invoke(ServiceController::class, 'recentlyViewed', $request, ['limit' => 10, 'offset' => 1]),
+            'recently_viewed_services' => auth('api')->check()
+                ? fn () => $this->invoke(ServiceController::class, 'recentlyViewed', $request, ['limit' => 10, 'offset' => 1])
+                : null,
             default => null,
         };
     }
