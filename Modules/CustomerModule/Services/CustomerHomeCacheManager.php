@@ -13,7 +13,7 @@ class CustomerHomeCacheManager
      */
     public static function resetAndWarm(?string $zoneId = null, bool $dispatchAsync = true): int
     {
-        CustomerHomeContentVersion::bumpGlobal();
+        CustomerHomeContentInvalidator::bumpGlobal($zoneId, scheduleWarm: false);
         self::forgetZoneEligibility($zoneId);
 
         if ($dispatchAsync && self::shouldDispatchAsync()) {

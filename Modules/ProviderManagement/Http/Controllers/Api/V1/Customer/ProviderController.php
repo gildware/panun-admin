@@ -15,6 +15,7 @@ use Modules\ProviderManagement\Entities\FavoriteProvider;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderShowcaseItem;
 use Modules\ProviderManagement\Entities\SubscribedService;
+use Modules\ProviderManagement\Services\CustomerProviderDetailsService;
 use Modules\ProviderManagement\Services\CustomerProviderListFetcher;
 use Modules\ProviderManagement\Services\ProviderPackageEligibilityResolver;
 use Modules\ReviewModule\Entities\Review;
@@ -34,6 +35,9 @@ class ProviderController extends Controller
     private Variation $variation;
     private FavoriteProvider $favoriteProvider;
     private FavoriteService $favoriteService;
+    private Review $review;
+    private bool $is_customer_logged_in;
+    private string|int|null $customer_user_id;
 
     public function __construct(Provider $provider, Review $review, Category $category, SubscribedService $subscribed_service, Booking $booking, Service $service, Variation $variation, FavoriteProvider $favoriteProvider, FavoriteService $favoriteService, Request $request)
     {
@@ -94,125 +98,18 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $provider = $this->provider->with('owner')->withCount(['bookings as total_service_served' => function($query) {
-            $query->where('booking_status', 'completed');
-        }, 'subscribed_services'])->find($request['id']);
+        $detailsService = app(CustomerProviderDetailsService::class);
+        $provider = $detailsService->findProvider($request['id']);
 
-        if (!isset($provider)) return response()->json(response_formatter(DEFAULT_404), 404);
-
-        $provider['is_favorite'] = $this->favoriteProvider
-            ->where('customer_user_id', $this->customer_user_id)
-            ->where('provider_id', $provider->id)
-            ->exists() ? 1 : 0;
-
-        $review = $this->review
-            ->with('customer', 'reviewReply')
-            ->where('provider_id', $provider->id)
-            ->where('review_comment', '!=', null)
-            ->ofStatus(1)
-            ->latest()
-            ->paginate($request['limit'], ['*'], 'page', $request['offset'])
-            ->withPath('');
-
-        $timeSchedule = provider_config('time_schedule', 'service_schedule', $provider['id'])?->live_values;
-        $weekEnds = provider_config('weekends', 'service_schedule', $provider['id'])->live_values ?? '';
-        $weekEnds = json_decode($weekEnds);
-        $timeSchedule = json_decode($timeSchedule);
-
-        $provider['time_schedule'] = $timeSchedule ?? null;
-        $provider['weekends'] = $weekEnds ?? [];
-
-
-        $eligibility = app(ProviderPackageEligibilityResolver::class)->preload([(string) $provider->id]);
-        $provider['nextBookingEligibility'] = $eligibility->canAcceptNextBooking((string) $provider->id);
-        $provider['scheduleBookingEligibility'] = $eligibility->canScheduleBooking((string) $provider->id);
-
-
-        $limitStatus = provider_warning_amount_calculate($provider?->owner?->account->account_payable, $provider?->owner?->account->account_receivable);
-        $provider['cash_limit_status'] = $limitStatus == false ? 'available' : $limitStatus;
-
-        $subscribedSubCategoryIds = $this->subscribed_service
-            ->ofStatus(1)
-            ->where('provider_id', $provider->id)
-            ->pluck('sub_category_id')
-            ->toArray();
-
-        $subCategories = $this->category->withoutGlobalScopes()
-            ->select([
-                'id',
-                'parent_id',
-                'name',
-                'slug',
-                'image',
-                'position',
-                'description',
-                'is_active',
-                'is_featured',
-                'created_at',
-                'updated_at',
-            ])
-            ->whereHas('services', function ($query) {
-                $query->ofStatus(1);
-            })
-            ->whereIn('id', $subscribedSubCategoryIds)
-            ->get();
-
-        if ($subscribedSubCategoryIds !== []) {
-            $services = $this->service
-                ->with(['variations', 'service_discount', 'category.category_discount'])
-                ->whereIn('sub_category_id', $subscribedSubCategoryIds)
-                ->where(function ($query) {
-                    $query->whereDoesntHave('service_discount')
-                        ->orWhereHas('service_discount');
-                })
-                ->where(function ($query) {
-                    $query->whereDoesntHave('category.category_discount')
-                        ->orWhereHas('category.category_discount');
-                })
-                ->ofStatus(1)
-                ->get();
-
-            CustomerServiceResponseEnricher::enrich($services, $this->customer_user_id);
-            $servicesBySubCategory = $services->groupBy('sub_category_id');
-
-            foreach ($subCategories as $subCategory) {
-                $subCategory->setAttribute(
-                    'services',
-                    $servicesBySubCategory->get($subCategory->id, collect())->values()
-                );
-            }
+        if (!isset($provider)) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
         }
 
-        $ratingGroupCount = DB::table('reviews')->where('provider_id', $provider->id)
-            ->where('is_active', 1)
-            ->select('review_rating', DB::raw('count(review_comment) as total_comment'), DB::raw('count(*) as total'))
-            ->groupBy('review_rating')
-            ->get();
-
-        $totalRating = 0;
-        $ratingCount = 0;
-        $reviewCount = 0;
-
-        foreach ($ratingGroupCount as $count) {
-            $totalRating += round($count->review_rating * $count->total, 2);
-            $ratingCount += $count->total;
-            $reviewCount += $count->total_comment;
-        }
-
-        $ratingInfo = [
-            'rating_count' => $ratingCount,
-            'review_count' => $reviewCount,
-            'average_rating' => round(divnum($totalRating, $ratingCount), 2),
-            'rating_group_count' => $ratingGroupCount,
-        ];
-
-        $showcaseItems = ProviderShowcaseItem::where('provider_id', $provider->id)
-            ->with('storage')
-            ->where('is_active', 1)
-            ->where('is_approved', ProviderShowcaseItem::STATUS_APPROVED)
-            ->orderByDesc('sort_order')
-            ->orderByDesc('created_at')
-            ->get();
+        $provider = $detailsService->enrichProvider($provider, $this->customer_user_id);
+        $subCategories = $detailsService->getSubCategoriesWithServices($provider->id, $this->customer_user_id);
+        $review = $detailsService->getReviews($provider->id, (int) $request['limit'], (int) $request['offset']);
+        $ratingInfo = $detailsService->getRatingInfo($provider->id);
+        $showcaseItems = $detailsService->getShowcaseItems($provider->id);
 
         return response()->json(response_formatter(DEFAULT_200, [
             'provider' => $provider,
@@ -220,6 +117,100 @@ class ProviderController extends Controller
             'reviews' => $review,
             'rating' => $ratingInfo,
             'showcase_items' => $showcaseItems,
+        ]), 200);
+    }
+
+    public function getProviderDetailsSummary(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|uuid',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $detailsService = app(CustomerProviderDetailsService::class);
+        $provider = $detailsService->findProvider($request['id']);
+
+        if (!isset($provider)) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        $provider = $detailsService->enrichProvider($provider, $this->customer_user_id);
+
+        return response()->json(response_formatter(DEFAULT_200, [
+            'provider' => $provider,
+            'rating' => $detailsService->getRatingInfo($provider->id),
+        ]), 200);
+    }
+
+    public function getProviderDetailsServices(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|uuid',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $detailsService = app(CustomerProviderDetailsService::class);
+        $provider = $detailsService->findProvider($request['id']);
+
+        if (!isset($provider)) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        return response()->json(response_formatter(DEFAULT_200, [
+            'sub_categories' => $detailsService->getSubCategoriesWithServices($provider->id, $this->customer_user_id),
+        ]), 200);
+    }
+
+    public function getProviderDetailsReviews(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|uuid',
+            'limit' => 'required|numeric|min:1|max:200',
+            'offset' => 'required|numeric|min:1|max:100000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $detailsService = app(CustomerProviderDetailsService::class);
+        $provider = $detailsService->findProvider($request['id']);
+
+        if (!isset($provider)) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        return response()->json(response_formatter(DEFAULT_200, [
+            'reviews' => $detailsService->getReviews($provider->id, (int) $request['limit'], (int) $request['offset']),
+            'rating' => $detailsService->getRatingInfo($provider->id),
+        ]), 200);
+    }
+
+    public function getProviderDetailsShowcase(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|uuid',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $detailsService = app(CustomerProviderDetailsService::class);
+        $provider = $detailsService->findProvider($request['id']);
+
+        if (!isset($provider)) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        return response()->json(response_formatter(DEFAULT_200, [
+            'showcase_items' => $detailsService->getShowcaseItems($provider->id),
         ]), 200);
     }
 

@@ -9,8 +9,13 @@ use Modules\CustomerModule\Observers\CustomerHomeContentVersionObserver;
 use Modules\PromotionManagement\Entities\Advertisement;
 use Modules\PromotionManagement\Entities\Banner;
 use Modules\PromotionManagement\Entities\Campaign;
+use Modules\PromotionManagement\Entities\Discount;
 use Modules\ProviderManagement\Entities\Provider;
+use Modules\ProviderManagement\Entities\ProviderShowcaseItem;
 use Modules\ServiceManagement\Entities\Service;
+use Modules\ServiceManagement\Entities\ServiceVariant;
+use Modules\ServiceManagement\Entities\Variation;
+use Modules\ZoneManagement\Entities\Zone;
 
 class CustomerModuleServiceProvider extends ServiceProvider
 {
@@ -41,7 +46,19 @@ class CustomerModuleServiceProvider extends ServiceProvider
     private function registerHomeContentVersionObservers(): void
     {
         $observer = CustomerHomeContentVersionObserver::class;
-        foreach ([Banner::class, Campaign::class, Advertisement::class, Category::class, Service::class, Provider::class] as $model) {
+        foreach ([
+            Banner::class,
+            Campaign::class,
+            Advertisement::class,
+            Category::class,
+            Service::class,
+            Provider::class,
+            Variation::class,
+            ServiceVariant::class,
+            ProviderShowcaseItem::class,
+            Discount::class,
+            Zone::class,
+        ] as $model) {
             if (class_exists($model)) {
                 $model::observe($observer);
             }

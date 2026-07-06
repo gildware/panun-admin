@@ -128,17 +128,11 @@
                             </div>
                         </li>
                         <li class="nav-item max-sm-m-0">
-                            <form method="POST" action="{{ route('admin.customer.home-cache.reset') }}" class="d-inline">
-                                @csrf
-                                <button type="submit"
-                                        class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1"
-                                        data-bs-toggle="tooltip"
-                                        data-bs-placement="bottom"
-                                        title="{{ translate('Reset_and_rebuild_customer_home_cache') }}">
-                                    <span class="material-symbols-outlined">cached</span>
-                                    <span class="d-none d-sm-inline">{{ translate('Reset_home_cache') }}</span>
-                                </button>
-                            </form>
+                            @include('adminmodule::layouts.partials._home-cache-reset-btn', [
+                                'formClass' => 'd-inline',
+                                'buttonClass' => 'title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1',
+                                'labelClass' => 'd-none d-sm-inline',
+                            ])
                         </li>
                         <li class="nav-item max-sm-m-0">
                             <a href="{{ route('admin.business-ai.index') }}" class="btn btn--success border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none">

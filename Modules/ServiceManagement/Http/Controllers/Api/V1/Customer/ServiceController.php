@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Modules\BookingModule\Entities\Booking;
 use Modules\CategoryManagement\Entities\Category;
-use Modules\CustomerModule\Services\CustomerHomeContentVersion;
+use Modules\CustomerModule\Services\CustomerHomeContentInvalidator;
 use Modules\CustomerModule\Traits\CustomerSearchTrait;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ServiceManagement\Entities\FavoriteService;
@@ -728,7 +728,7 @@ class ServiceController extends Controller
                 $recentView = $this->recentView->firstOrNew(['service_id' => $service->id, 'user_id' => $authUser->id]);
                 $recentView->total_service_view += 1;
                 $recentView->save();
-                CustomerHomeContentVersion::bumpPersonal($authUser->id);
+                CustomerHomeContentInvalidator::bumpPersonal($authUser->id);
             }
 
             $service->loadMissing(['category', 'subCategory']);
