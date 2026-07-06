@@ -369,6 +369,59 @@ class Variation extends Model
         return $formatting;
     }
 
+    /**
+     * Batch-build customer variation payloads for list endpoints (favorites/search/home).
+     *
+     * @param  list<string>  $serviceIds
+     * @return array<string, array{zone_id: string|null, default_price: float, zone_wise_variations: list<array<string, mixed>>}>
+     */
+    public static function variationsAppFormatForManyServices(array $serviceIds, ?string $zoneId = null): array
+    {
+        $zoneId = $zoneId ?? Config::get('zone_id');
+        $candidates = static::parseZoneIdCandidates(is_string($zoneId) ? $zoneId : null);
+        $emptyTemplate = [
+            'zone_id' => $candidates[0] ?? (is_string($zoneId) ? $zoneId : null),
+            'default_price' => 0.0,
+            'zone_wise_variations' => [],
+        ];
+
+        $normalizedIds = array_values(array_unique(array_filter(array_map('strval', $serviceIds))));
+        if ($normalizedIds === [] || $candidates === []) {
+            return array_fill_keys($normalizedIds, $emptyTemplate);
+        }
+
+        $services = Service::query()
+            ->select('id', 'category_id', 'variation_pricing')
+            ->whereIn('id', $normalizedIds)
+            ->get()
+            ->keyBy(fn (Service $service) => (string) $service->id);
+
+        $categoryAvailability = [];
+        $result = [];
+
+        foreach ($normalizedIds as $serviceId) {
+            $service = $services->get($serviceId);
+            if (! $service) {
+                $result[$serviceId] = $emptyTemplate;
+                continue;
+            }
+
+            $categoryId = (string) $service->category_id;
+            if (! array_key_exists($categoryId, $categoryAvailability)) {
+                $categoryAvailability[$categoryId] = static::categoryAvailableForBookingZone($categoryId, $candidates[0]);
+            }
+
+            if (! $categoryAvailability[$categoryId]) {
+                $result[$serviceId] = $emptyTemplate;
+                continue;
+            }
+
+            $result[$serviceId] = static::variationsAppFormatForCustomer($serviceId, $zoneId);
+        }
+
+        return $result;
+    }
+
     protected static function booted()
     {
         static::addGlobalScope('zone_wise_data', function (Builder $builder) {
