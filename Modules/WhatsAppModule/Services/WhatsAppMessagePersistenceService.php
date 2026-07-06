@@ -13,6 +13,7 @@ use Modules\WhatsAppModule\Entities\WhatsAppUser;
 use Modules\WhatsAppModule\Services\LeadWhatsAppAssignmentSyncService;
 use Modules\WhatsAppModule\Support\SocialInboxChannel;
 use Modules\WhatsAppModule\Support\WhatsAppActiveChatsListCache;
+use Modules\WhatsAppModule\Support\WhatsAppAdminUnread;
 
 /**
  * Persists WhatsApp message rows. Inbound (direction IN) runs CRM bootstrap (WhatsApp user + open unknown lead).
@@ -180,6 +181,10 @@ class WhatsAppMessagePersistenceService
 
         WhatsAppActiveChatsListCache::forgetAll();
         WhatsAppActiveChatsListCache::forgetChatFull((string) $data['phone']);
+
+        if (($data['direction'] ?? null) === 'IN') {
+            WhatsAppAdminUnread::forgetCache();
+        }
 
         return $msg;
     }

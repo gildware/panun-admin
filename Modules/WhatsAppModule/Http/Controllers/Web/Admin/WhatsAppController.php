@@ -35,6 +35,7 @@ use Modules\WhatsAppModule\Services\MetaSocialOutboundService;
 use Modules\WhatsAppModule\Services\WhatsAppCloudService;
 use Modules\WhatsAppModule\Support\SocialInboxChannel;
 use Modules\WhatsAppModule\Support\WhatsAppActiveChatsListCache;
+use Modules\WhatsAppModule\Support\WhatsAppAdminUnread;
 use Modules\WhatsAppModule\Support\WhatsAppMessageTime;
 
 class WhatsAppController extends Controller
@@ -473,6 +474,7 @@ class WhatsAppController extends Controller
                     'admin_seen_at' => now(),
                 ]);
             WhatsAppActiveChatsListCache::forgetAll();
+            WhatsAppAdminUnread::forgetCache();
         } catch (\Throwable $e) {
             // non-fatal: header unread may lag until next poll
         }
@@ -1461,6 +1463,7 @@ class WhatsAppController extends Controller
                     ]);
                 // Clear active chats cache so unread counts refresh.
                 WhatsAppActiveChatsListCache::forgetAll();
+                WhatsAppAdminUnread::forgetCache();
             } catch (\Throwable $e) {
                 \Log::warning('Failed to mark whatsapp messages as admin seen', [
                     'phone' => $phone,

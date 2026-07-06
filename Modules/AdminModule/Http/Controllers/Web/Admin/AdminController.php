@@ -415,12 +415,6 @@ class AdminController extends Controller
                 })
                 ->count();
 
-            $whatsappUnreadChats = 0;
-            $whatsappUnreadMessages = 0;
-            if ($request->user()->can('whatsapp_chat_view')) {
-                [$whatsappUnreadChats, $whatsappUnreadMessages] = WhatsAppAdminUnread::counts();
-            }
-
             $notificationUnreadCount = $inboxNotificationService->unreadCount((string) $userId);
             $notificationReadCount = $inboxNotificationService->readCount((string) $userId);
             $notifications = $inboxNotificationService->recent((string) $userId, 10);
@@ -435,13 +429,17 @@ class AdminController extends Controller
                 'staff_message' => $staffMessage,
                 'staff_unread_messages' => $staffUnreadMessages,
                 'customer_provider_unread_messages' => $customerProviderUnreadMessages,
-                'whatsapp_unread_chats' => $whatsappUnreadChats,
-                'whatsapp_unread_messages' => $whatsappUnreadMessages,
                 'notification_unread_count' => $notificationUnreadCount,
                 'notification_read_count' => $notificationReadCount,
                 'notification_template' => $notificationTemplate,
             ];
         });
+
+        $whatsappUnreadChats = 0;
+        $whatsappUnreadMessages = 0;
+        if ($request->user()->can('whatsapp_chat_view')) {
+            [$whatsappUnreadChats, $whatsappUnreadMessages] = WhatsAppAdminUnread::counts();
+        }
 
         $newNotificationAlerts = UserNotification::query()
             ->where('user_id', $userId)
@@ -467,6 +465,8 @@ class AdminController extends Controller
         return response()->json([
             'status' => 1,
             'data' => array_merge($counts, [
+                'whatsapp_unread_chats' => $whatsappUnreadChats,
+                'whatsapp_unread_messages' => $whatsappUnreadMessages,
                 'new_notification_alerts' => $newNotificationAlerts,
                 'presence_status' => $presenceStatus,
                 'presence_label' => $presenceLabel,
