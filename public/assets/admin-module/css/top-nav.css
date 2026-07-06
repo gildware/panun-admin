@@ -337,6 +337,7 @@ body.nav-top.open-aside-folded .main-area {
     display: none;
     align-items: center;
     justify-content: center;
+    z-index: 2;
 }
 
 .top-utility-icon-btn .header-unread-dot,
@@ -350,6 +351,7 @@ body.nav-top.open-aside-folded .main-area {
     background: #FF6B6B;
     display: none;
     pointer-events: none;
+    z-index: 2;
 }
 
 .top-utility-icon-btn .header-unread-dot {

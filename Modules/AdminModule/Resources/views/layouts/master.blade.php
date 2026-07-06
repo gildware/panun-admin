@@ -424,14 +424,13 @@
 
         var waCountEl = document.getElementById("whatsapp_unread_count");
         if (waCountEl) {
-            var chats = parseInt(data.whatsapp_unread_chats, 10);
-            if (isNaN(chats)) chats = 0;
+            var waUnread = parseInt(data.whatsapp_unread_messages, 10);
+            if (isNaN(waUnread)) waUnread = 0;
             if (typeof window.pkUpdateHeaderUnreadBadge === 'function') {
-                window.pkUpdateHeaderUnreadBadge(waCountEl, chats);
+                window.pkUpdateHeaderUnreadBadge(waCountEl, waUnread);
             }
 
-            var msgTotal = parseInt(data.whatsapp_unread_messages, 10);
-            if (isNaN(msgTotal)) msgTotal = 0;
+            var msgTotal = waUnread;
             var waPrevKey = 'admin_whatsapp_unread_messages';
             var waPrevRaw = sessionStorage.getItem(waPrevKey);
             if (!skipSound && waPrevRaw !== null && waPrevRaw !== '') {

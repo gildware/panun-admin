@@ -95,7 +95,7 @@
 
             @can('whatsapp_chat_view')
                 <a href="{{ route('admin.whatsapp.conversations.index', ['channel' => 'whatsapp', 'tab' => 'chats']) }}"
-                   class="top-utility-icon-btn"
+                   class="top-utility-icon-btn count-btn"
                    @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif
                    data-bs-toggle="tooltip"
                    data-bs-placement="bottom"
