@@ -168,14 +168,14 @@ class CatalogTreeService
         foreach ($services as $service) {
             $variationNodes = $this->variationNodes($service, $zoneId);
 
-            if ($variationNodes === []) {
-                continue;
-            }
-
             $stats['services']++;
             $stats['variations'] += count($variationNodes);
 
             $prices = array_filter(array_column($variationNodes, 'price'), fn ($p) => $p !== null && $p !== '');
+            $minPrice = $prices !== [] ? min($prices) : null;
+            if ($minPrice === null && (float) ($service->min_bidding_price ?? 0) > 0) {
+                $minPrice = (float) $service->min_bidding_price;
+            }
 
             $nodes[] = [
                 'type' => 'service',
@@ -187,7 +187,7 @@ class CatalogTreeService
                 'edit_url' => route('admin.service.edit', $service->id),
                 'detail_url' => route('admin.service.detail', $service->id),
                 'variation_count' => count($variationNodes),
-                'min_price' => $prices !== [] ? min($prices) : null,
+                'min_price' => $minPrice,
                 'children' => $variationNodes,
             ];
         }
