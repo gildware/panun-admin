@@ -94,13 +94,15 @@ class CustomerHomeBundleComposer
     private function buildInternal(Request $request, bool $includeUserSections): array
     {
         $this->applyRequestContext($request);
+        Config::set('customer_home_bundle_active', true);
 
         if (Config::get('zone_id')) {
             app(ZoneProviderEligibilityService::class)->snapshot();
         }
 
+        $homeLayout = $this->homeLayout();
         $tasks = [];
-        $bundleKeysNeeded = $this->resolveBundleKeysToFetch($request, $includeUserSections);
+        $bundleKeysNeeded = $this->resolveBundleKeysToFetch($homeLayout, $includeUserSections);
 
         foreach ($bundleKeysNeeded as $bundleKey) {
             $task = $this->taskForBundleKey($bundleKey, $request, $includeUserSections);
@@ -109,7 +111,7 @@ class CustomerHomeBundleComposer
             }
         }
 
-        foreach ($this->curatedSectionTasks($request) as $taskKey => $task) {
+        foreach ($this->curatedSectionTasks($request, $homeLayout) as $taskKey => $task) {
             $tasks[$taskKey] = $task;
         }
 
@@ -145,14 +147,23 @@ class CustomerHomeBundleComposer
     }
 
     /**
+     * @return array{sections: list<array<string, mixed>>}
+     */
+    private function homeLayout(): array
+    {
+        return $this->mobileAppManagementService->homeSectionsForApi();
+    }
+
+    /**
+     * @param  array{sections: list<array<string, mixed>>}  $homeLayout
      * @return list<string>
      */
-    private function resolveBundleKeysToFetch(Request $request, bool $includeUserSections): array
+    private function resolveBundleKeysToFetch(array $homeLayout, bool $includeUserSections): array
     {
         $keys = [];
         $needsProviders = false;
 
-        foreach ($this->mobileAppManagementService->homeSectionsForApi()['sections'] ?? [] as $section) {
+        foreach ($homeLayout['sections'] ?? [] as $section) {
             if (! ($section['enabled'] ?? false)) {
                 continue;
             }
@@ -184,7 +195,7 @@ class CustomerHomeBundleComposer
             $keys[] = 'providers_full';
         }
 
-        if ($this->needsDefaultSubCategories()) {
+        if ($this->needsDefaultSubCategories($homeLayout)) {
             $keys[] = 'sub_categories';
         }
 
@@ -199,9 +210,12 @@ class CustomerHomeBundleComposer
         return array_values(array_unique($keys));
     }
 
-    private function needsDefaultSubCategories(): bool
+    /**
+     * @param  array{sections: list<array<string, mixed>>}  $homeLayout
+     */
+    private function needsDefaultSubCategories(array $homeLayout): bool
     {
-        foreach ($this->mobileAppManagementService->homeSectionsForApi()['sections'] ?? [] as $section) {
+        foreach ($homeLayout['sections'] ?? [] as $section) {
             if (! ($section['enabled'] ?? false)) {
                 continue;
             }
@@ -258,13 +272,14 @@ class CustomerHomeBundleComposer
     }
 
     /**
+     * @param  array{sections: list<array<string, mixed>>}  $homeLayout
      * @return array<string, callable(): mixed>
      */
-    private function curatedSectionTasks(Request $request): array
+    private function curatedSectionTasks(Request $request, array $homeLayout): array
     {
         $tasks = [];
 
-        foreach ($this->mobileAppManagementService->homeSectionsForApi()['sections'] ?? [] as $section) {
+        foreach ($homeLayout['sections'] ?? [] as $section) {
             if (! ($section['enabled'] ?? false) || ($section['data_mode'] ?? 'default') !== 'manual') {
                 continue;
             }
@@ -392,15 +407,6 @@ class CustomerHomeBundleComposer
     {
         if ($tasks === []) {
             return [];
-        }
-
-        if (config('cache.default') !== 'redis') {
-            $results = [];
-            foreach ($tasks as $key => $task) {
-                $results[$key] = $task();
-            }
-
-            return $results;
         }
 
         try {

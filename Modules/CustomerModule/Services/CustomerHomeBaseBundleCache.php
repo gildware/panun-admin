@@ -7,7 +7,7 @@ use Modules\ZoneManagement\Entities\Zone;
 
 class CustomerHomeBaseBundleCache
 {
-    public const BASE_VERSION = 'v11';
+    public const BASE_VERSION = 'v12';
 
     public const TTL = 300;
 
@@ -24,12 +24,16 @@ class CustomerHomeBaseBundleCache
         $locale = $this->resolveLocale($request);
 
         if ($zoneId === '') {
-            return $this->composer->buildSharedBase($request);
+            return CustomerHomeBundlePayloadSlimmer::slim(
+                $this->composer->buildSharedBase($request)
+            );
         }
 
         return CustomerApiResponseCache::remember(
             self::cacheKey($zoneId, $locale, $layoutHash),
-            fn () => $this->composer->buildSharedBase($request),
+            fn () => CustomerHomeBundlePayloadSlimmer::slim(
+                $this->composer->buildSharedBase($request)
+            ),
             self::TTL
         );
     }

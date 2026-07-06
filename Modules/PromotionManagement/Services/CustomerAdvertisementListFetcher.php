@@ -4,6 +4,7 @@ namespace Modules\PromotionManagement\Services;
 
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Config;
 use Modules\PromotionManagement\Entities\Advertisement;
 use Modules\ProviderManagement\Entities\FavoriteProvider;
 use Modules\ProviderManagement\Entities\Provider;
@@ -33,14 +34,27 @@ class CustomerAdvertisementListFetcher
             );
         }
 
-        $advertisements = $this->advertisement->with([
+        $bundleMode = (bool) Config::get('customer_home_bundle_active');
+
+        $relations = [
             'attachments',
             'attachment',
             'review',
             'rating',
             'showcase',
-            'provider.owner',
-        ])
+        ];
+
+        if ($bundleMode) {
+            $relations['provider'] = function ($query) {
+                $query->with(['subscribed_services.sub_category' => function ($subQuery) {
+                    $subQuery->withoutGlobalScopes();
+                }]);
+            };
+        } else {
+            $relations[] = 'provider.owner';
+        }
+
+        $advertisements = $this->advertisement->with($relations)
             ->orderByRaw('ISNULL(priority), priority')
             ->ofRunning()
             ->whereIn('provider_id', $eligibleProviderIds)
@@ -57,8 +71,9 @@ class CustomerAdvertisementListFetcher
     {
         $collection = $advertisements->getCollection();
         $providerIds = $collection->pluck('provider_id')->filter()->unique()->values()->all();
+        $bundleMode = (bool) Config::get('customer_home_bundle_active');
 
-        $providersById = $providerIds === []
+        $providersById = ($providerIds === [] || $bundleMode)
             ? collect()
             : $this->provider
                 ->with(['subscribed_services.sub_category' => function ($query) {
@@ -123,8 +138,12 @@ class CustomerAdvertisementListFetcher
             }
 
             if ($advertisement->provider) {
-                $enrichedProvider = $providersById->get($advertisement->provider_id);
-                if ($enrichedProvider) {
+                if ($bundleMode) {
+                    $advertisement->setRelation(
+                        'provider',
+                        $this->minimalProviderForBundle($advertisement->provider, $favoriteProviderIds)
+                    );
+                } elseif ($enrichedProvider = $providersById->get($advertisement->provider_id)) {
                     $enrichedProvider->is_favorite = isset($favoriteProviderIds[(string) $enrichedProvider->id]) ? 1 : 0;
                     $advertisement->setRelation('provider', $enrichedProvider);
                 } else {
@@ -136,5 +155,28 @@ class CustomerAdvertisementListFetcher
         }
 
         $advertisements->setCollection($collection->values());
+    }
+
+    /**
+     * @param  array<string, true>  $favoriteProviderIds
+     */
+    private function minimalProviderForBundle(Provider $provider, array $favoriteProviderIds): Provider
+    {
+        $provider->setRelation(
+            'subscribed_services',
+            $provider->relationLoaded('subscribed_services')
+                ? $provider->subscribed_services->map(function ($service) {
+                    $subCategory = $service->subCategory ?? $service->sub_category ?? null;
+
+                    return (object) [
+                        'sub_category' => $subCategory ? (object) ['name' => $subCategory->name ?? ''] : null,
+                    ];
+                })
+                : collect()
+        );
+        $provider['is_favorite'] = isset($favoriteProviderIds[(string) $provider->id]) ? 1 : 0;
+        $provider->unsetRelation('owner');
+
+        return $provider;
     }
 }

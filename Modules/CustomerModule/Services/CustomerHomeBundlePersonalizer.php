@@ -35,7 +35,10 @@ class CustomerHomeBundlePersonalizer
         if ($this->composer->layoutIncludesRecentlyViewed()) {
             $recentlyViewed = $this->composer->fetchRecentlyViewedSection($request);
             if ($recentlyViewed !== null) {
-                $bundle['recently_viewed_services'] = $recentlyViewed;
+                $slimmed = CustomerHomeBundlePayloadSlimmer::slim([
+                    'recently_viewed_services' => $recentlyViewed,
+                ]);
+                $bundle['recently_viewed_services'] = $slimmed['recently_viewed_services'];
             }
         }
 
