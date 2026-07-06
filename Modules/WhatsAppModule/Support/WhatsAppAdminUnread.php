@@ -2,13 +2,13 @@
 
 namespace Modules\WhatsAppModule\Support;
 
-use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
  * Unread counts for admin header (IN messages not yet marked seen).
+ * Uses the same channel-scoped rules as the WhatsApp active chats list.
  */
 final class WhatsAppAdminUnread
 {
@@ -19,25 +19,42 @@ final class WhatsAppAdminUnread
      */
     public static function counts(): array
     {
-        return Cache::remember(self::CACHE_KEY, 15, function () {
-            return self::countsUncached();
+        $stats = self::channelStats(SocialInboxChannel::WHATSAPP);
+
+        return [$stats['unread_chats'], $stats['unread_messages']];
+    }
+
+    /**
+     * @return array{total: int, unread_chats: int, unread_messages: int, read: int}
+     */
+    public static function channelStats(string $channel = SocialInboxChannel::WHATSAPP): array
+    {
+        if (! SocialInboxChannel::isValid($channel)) {
+            $channel = SocialInboxChannel::WHATSAPP;
+        }
+
+        return Cache::remember(self::CACHE_KEY.':'.$channel, 15, function () use ($channel) {
+            return self::channelStatsUncached($channel);
         });
     }
 
     public static function forgetCache(): void
     {
+        foreach (SocialInboxChannel::CHANNELS as $channel) {
+            Cache::forget(self::CACHE_KEY.':'.$channel);
+        }
         Cache::forget(self::CACHE_KEY);
     }
 
     /**
-     * @return array{0: int, 1: int} [unread_chats, unread_messages]
+     * @return array{total: int, unread_chats: int, unread_messages: int, read: int}
      */
-    private static function countsUncached(): array
+    private static function channelStatsUncached(string $channel): array
     {
         try {
             $table = config('whatsappmodule.tables.messages', 'whatsapp_messages');
             if (! is_string($table) || $table === '') {
-                return [0, 0];
+                return self::emptyStats();
             }
 
             static $tableExists = null;
@@ -45,39 +62,48 @@ final class WhatsAppAdminUnread
                 $tableExists = Schema::hasTable($table);
             }
             if (! $tableExists) {
-                return [0, 0];
+                return self::emptyStats();
             }
 
-            $unreadMessages = (int) self::unreadQuery($table)->count();
+            $total = (int) DB::table($table)
+                ->where('channel', $channel)
+                ->selectRaw('COUNT(DISTINCT phone) AS aggregate_count')
+                ->value('aggregate_count');
 
-            $unreadChats = (int) self::unreadQuery($table)
-                ->distinct()
-                ->count('phone');
+            $unreadChats = (int) DB::table($table)
+                ->where('channel', $channel)
+                ->where('direction', 'IN')
+                ->whereNull('admin_seen_at')
+                ->selectRaw('COUNT(DISTINCT phone) AS aggregate_count')
+                ->value('aggregate_count');
 
-            return [$unreadChats, $unreadMessages];
+            $unreadMessages = (int) DB::table($table)
+                ->where('channel', $channel)
+                ->where('direction', 'IN')
+                ->whereNull('admin_seen_at')
+                ->count();
+
+            return [
+                'total' => $total,
+                'unread_chats' => $unreadChats,
+                'unread_messages' => $unreadMessages,
+                'read' => max(0, $total - $unreadChats),
+            ];
         } catch (\Throwable) {
-            return [0, 0];
+            return self::emptyStats();
         }
     }
 
-    private static function unreadQuery(string $table): Builder
+    /**
+     * @return array{total: int, unread_chats: int, unread_messages: int, read: int}
+     */
+    private static function emptyStats(): array
     {
-        $query = DB::table($table)
-            ->whereRaw("UPPER(COALESCE(direction, '')) = 'IN'")
-            ->whereNull('admin_seen_at');
-
-        static $hasChannelColumn = null;
-        if ($hasChannelColumn === null) {
-            $hasChannelColumn = Schema::hasColumn($table, 'channel');
-        }
-
-        if ($hasChannelColumn) {
-            $query->where(function (Builder $inner) {
-                $inner->where('channel', SocialInboxChannel::WHATSAPP)
-                    ->orWhereNull('channel');
-            });
-        }
-
-        return $query;
+        return [
+            'total' => 0,
+            'unread_chats' => 0,
+            'unread_messages' => 0,
+            'read' => 0,
+        ];
     }
 }

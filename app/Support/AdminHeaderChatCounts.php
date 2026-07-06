@@ -84,12 +84,12 @@ final class AdminHeaderChatCounts
             ->count();
     }
 
-    public static function whatsappUnreadMessages(?User $user): int
+    public static function whatsappUnreadChats(?User $user): int
     {
         if (! $user || ! $user->can('whatsapp_chat_view')) {
             return 0;
         }
 
-        return WhatsAppAdminUnread::counts()[1];
+        return WhatsAppAdminUnread::counts()[0];
     }
 }
