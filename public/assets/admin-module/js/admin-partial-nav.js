@@ -64,6 +64,10 @@
     }
 
     function cleanupModalBackdrops() {
+        if (typeof window.pkAdminDisposeChromeDropdowns === 'function') {
+            window.pkAdminDisposeChromeDropdowns();
+        }
+
         if (window.bootstrap && typeof window.bootstrap.Modal === 'function') {
             document.querySelectorAll('.modal.show').forEach(function (modalEl) {
                 var instance = window.bootstrap.Modal.getInstance(modalEl);
@@ -82,6 +86,10 @@
         document.body.classList.remove('modal-open', 'offcanvas-backdrop');
         document.body.style.removeProperty('overflow');
         document.body.style.removeProperty('padding-right');
+
+        if (typeof window.pkAdminCleanupStaleOverlays === 'function') {
+            window.pkAdminCleanupStaleOverlays();
+        }
     }
 
     function runFlashToastsFromHtml(html) {
@@ -153,6 +161,10 @@
         var chrome = document.querySelector('.top-chrome');
         if (!newChrome || !chrome) {
             return;
+        }
+
+        if (typeof window.pkAdminDisposeChromeDropdowns === 'function') {
+            window.pkAdminDisposeChromeDropdowns(chrome);
         }
 
         chrome.innerHTML = newChrome.innerHTML;

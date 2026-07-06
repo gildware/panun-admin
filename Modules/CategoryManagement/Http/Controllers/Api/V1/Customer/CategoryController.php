@@ -8,6 +8,8 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Validator;
 use Modules\CategoryManagement\Entities\Category;
+use Modules\CustomerModule\Services\CustomerCategoryPayloadSlimmer;
+use Modules\CustomerModule\Services\CustomerServicePayloadSlimmer;
 use Modules\ServiceManagement\Entities\FavoriteService;
 use Modules\ServiceManagement\Entities\RecentView;
 use Modules\ServiceManagement\Entities\Variation;
@@ -48,12 +50,18 @@ class CategoryController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $categories = $this->category->with(['zonesBasicInfo'])
+        $categories = $this->category
             ->ofStatus(1)
             ->ofType('main')
             ->mainWithActiveCatalog()
             ->latest()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
+
+        $categories->setCollection(
+            $categories->getCollection()->map(function ($category) {
+                return CustomerCategoryPayloadSlimmer::slimGridItem($category->toArray());
+            })
+        );
 
         return response()->json(response_formatter(DEFAULT_200, $categories), 200);
     }
@@ -76,33 +84,32 @@ class CategoryController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $categoryId = $this->category->where(['slug' => $request['slug']])->first()?->id ?? null;
-
-        if ($categoryId == null) {
-            return response()->json(response_formatter(DEFAULT_404, null, [['code' => 'category', 'message' => translate('Category not found')]]), 404);
-        }
-
         $childes = $this->category->ofStatus(1)->ofType('sub')->withoutGlobalScopes(['zone_wise_data'])
-            ->withActiveServices()
             ->withCount(['services' => function ($query) {
                 $query->where('is_active', 1);
             }])
-            ->whereHas('parent', function ($query) {
-                $query->ofStatus(1);
+            ->having('services_count', '>', 0)
+            ->whereHas('parent', function ($query) use ($request) {
+                $query->ofStatus(1)->where('slug', $request['slug']);
             })
-            ->where('parent_id', $categoryId)
-            ->orderBY('name', 'asc')
+            ->orderBy('name', 'asc')
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
-        if (count($childes) > 0) {
+        if ($childes->count() > 0) {
             $authUser = auth('api')->user();
             if ($authUser) {
-                $recentView = $this->recentView->firstOrNew(['category_id' => $categoryId, 'user_id' => $authUser->id]);
-                $recentView->total_category_view += 1;
-                $recentView->save();
+                $categoryId = $childes->first()->parent_id;
+                if ($categoryId) {
+                    $recentView = $this->recentView->firstOrNew(['category_id' => $categoryId, 'user_id' => $authUser->id]);
+                    $recentView->total_category_view += 1;
+                    $recentView->save();
+                }
             }
 
-            return response()->json(response_formatter(DEFAULT_200, $childes), 200);
+            return response()->json(
+                response_formatter(DEFAULT_200, CustomerCategoryPayloadSlimmer::slimPaginator($childes)),
+                200
+            );
         }
 
         return response()->json(response_formatter(DEFAULT_204), 200);
@@ -124,18 +131,20 @@ class CategoryController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $categories = $this->category->with(['zonesBasicInfo', 'services_by_category.variations', 'services_by_category' => function ($query) {
-            $query->ofStatus(1)
-                ->where(function ($query) {
-                    $query->whereDoesntHave('service_discount')
-                        ->orWhereHas('service_discount');
-                })
-                ->where(function ($query) {
-                    $query->whereDoesntHave('category.category_discount')
-                        ->orWhereHas('category.category_discount');
-                })
-                ->with(['variations', 'service_discount', 'category.category_discount']);
-        }])
+        $categories = $this->category->with([
+            'services_by_category' => function ($query) {
+                $query->ofStatus(1)
+                    ->where(function ($query) {
+                        $query->whereDoesntHave('service_discount')
+                            ->orWhereHas('service_discount');
+                    })
+                    ->where(function ($query) {
+                        $query->whereDoesntHave('category.category_discount')
+                            ->orWhereHas('category.category_discount');
+                    })
+                    ->with(CustomerServicePayloadSlimmer::listEagerRelations());
+            },
+        ])
             ->ofStatus(1)
             ->ofFeatured(1)
             ->ofType('main')
@@ -146,6 +155,12 @@ class CategoryController extends Controller
         foreach ($categories as $category) {
             $category->services_by_category = self::variationMapper($category->services_by_category);
         }
+
+        $categories->setCollection(
+            $categories->getCollection()->map(function ($category) {
+                return CustomerCategoryPayloadSlimmer::slimFeaturedItem($category->toArray());
+            })
+        );
 
         return response()->json(response_formatter(DEFAULT_200, $categories), 200);
     }

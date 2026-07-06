@@ -15,6 +15,9 @@ use Modules\ProviderManagement\Entities\FavoriteProvider;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderShowcaseItem;
 use Modules\ProviderManagement\Entities\SubscribedService;
+use Modules\ProviderManagement\Services\CustomerProviderDetailsCache;
+use Modules\ProviderManagement\Services\CustomerProviderDetailsPayloadSlimmer;
+use Modules\CustomerModule\Services\CustomerProviderPayloadSlimmer;
 use Modules\ProviderManagement\Services\CustomerProviderDetailsService;
 use Modules\ProviderManagement\Services\CustomerProviderListFetcher;
 use Modules\ProviderManagement\Services\ProviderPackageEligibilityResolver;
@@ -77,7 +80,9 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $providers = app(CustomerProviderListFetcher::class)->paginate($request, $this->customer_user_id);
+        $providers = CustomerProviderPayloadSlimmer::slimPaginator(
+            app(CustomerProviderListFetcher::class)->paginate($request, $this->customer_user_id)
+        );
 
         return response()->json(response_formatter(DEFAULT_200, $providers), 200);
     }
@@ -130,25 +135,37 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $detailsService = app(CustomerProviderDetailsService::class);
-        $provider = $detailsService->findProvider($request['id']);
+        $providerId = (string) $request['id'];
+        $cacheKey = CustomerProviderDetailsCache::summaryCacheKey($request, $providerId, $this->customer_user_id);
 
-        if (!isset($provider)) {
+        $payload = CustomerProviderDetailsCache::rememberSummary($cacheKey, function () use ($providerId) {
+            $detailsService = app(CustomerProviderDetailsService::class);
+            $provider = $detailsService->findProviderForSummary($providerId);
+
+            if (! isset($provider)) {
+                return null;
+            }
+
+            $provider = $detailsService->enrichProviderForSummary($provider, $this->customer_user_id);
+
+            return [
+                'provider' => CustomerProviderPayloadSlimmer::slimSummaryItem($provider->toArray()),
+                'rating' => $detailsService->getRatingInfo($provider->id),
+            ];
+        });
+
+        if ($payload === null) {
             return response()->json(response_formatter(DEFAULT_404), 404);
         }
 
-        $provider = $detailsService->enrichProvider($provider, $this->customer_user_id);
-
-        return response()->json(response_formatter(DEFAULT_200, [
-            'provider' => $provider,
-            'rating' => $detailsService->getRatingInfo($provider->id),
-        ]), 200);
+        return response()->json(response_formatter(DEFAULT_200, $payload), 200);
     }
 
     public function getProviderDetailsServices(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'id' => 'required|uuid',
+            'limit_per_category' => 'nullable|integer|min:1|max:50',
         ]);
 
         if ($validator->fails()) {
@@ -156,15 +173,36 @@ class ProviderController extends Controller
         }
 
         $detailsService = app(CustomerProviderDetailsService::class);
-        $provider = $detailsService->findProvider($request['id']);
+        $providerId = (string) $request['id'];
 
-        if (!isset($provider)) {
+        if (! $detailsService->providerExists($providerId)) {
             return response()->json(response_formatter(DEFAULT_404), 404);
         }
 
-        return response()->json(response_formatter(DEFAULT_200, [
-            'sub_categories' => $detailsService->getSubCategoriesWithServices($provider->id, $this->customer_user_id),
-        ]), 200);
+        $limitPerCategory = $request->filled('limit_per_category')
+            ? (int) $request->query('limit_per_category')
+            : null;
+
+        $cacheKey = CustomerProviderDetailsCache::servicesCacheKey(
+            $request,
+            $providerId,
+            $this->customer_user_id,
+            $limitPerCategory
+        );
+
+        $payload = CustomerProviderDetailsCache::rememberServices($cacheKey, function () use ($detailsService, $providerId, $limitPerCategory) {
+            $subCategories = $detailsService->getSubCategoriesWithServices(
+                $providerId,
+                $this->customer_user_id,
+                $limitPerCategory
+            );
+
+            return [
+                'sub_categories' => CustomerProviderDetailsPayloadSlimmer::slimSubCategories($subCategories),
+            ];
+        });
+
+        return response()->json(response_formatter(DEFAULT_200, $payload), 200);
     }
 
     public function getProviderDetailsReviews(Request $request): JsonResponse
@@ -180,16 +218,32 @@ class ProviderController extends Controller
         }
 
         $detailsService = app(CustomerProviderDetailsService::class);
-        $provider = $detailsService->findProvider($request['id']);
 
-        if (!isset($provider)) {
+        if (! $detailsService->providerExists($request['id'])) {
             return response()->json(response_formatter(DEFAULT_404), 404);
         }
 
-        return response()->json(response_formatter(DEFAULT_200, [
-            'reviews' => $detailsService->getReviews($provider->id, (int) $request['limit'], (int) $request['offset']),
-            'rating' => $detailsService->getRatingInfo($provider->id),
-        ]), 200);
+        $providerId = (string) $request['id'];
+        $limit = (int) $request['limit'];
+        $offset = (int) $request['offset'];
+
+        $cacheKey = CustomerProviderDetailsCache::reviewsCacheKey($request, $providerId, $limit, $offset);
+
+        $payload = CustomerProviderDetailsCache::rememberReviews($cacheKey, function () use ($detailsService, $providerId, $limit, $offset) {
+            $reviews = $detailsService->getReviews($providerId, $limit, $offset);
+            $rating = $detailsService->getRatingInfo($providerId);
+
+            return CustomerProviderDetailsPayloadSlimmer::slimReviewsPayload(
+                $reviews->toArray(),
+                $rating
+            );
+        });
+
+        if ($payload === null) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        return response()->json(response_formatter(DEFAULT_200, $payload), 200);
     }
 
     public function getProviderDetailsShowcase(Request $request): JsonResponse
@@ -203,15 +257,25 @@ class ProviderController extends Controller
         }
 
         $detailsService = app(CustomerProviderDetailsService::class);
-        $provider = $detailsService->findProvider($request['id']);
+        $providerId = (string) $request['id'];
 
-        if (!isset($provider)) {
+        if (! $detailsService->providerExists($providerId)) {
             return response()->json(response_formatter(DEFAULT_404), 404);
         }
 
-        return response()->json(response_formatter(DEFAULT_200, [
-            'showcase_items' => $detailsService->getShowcaseItems($provider->id),
-        ]), 200);
+        $cacheKey = CustomerProviderDetailsCache::showcaseCacheKey($request, $providerId);
+
+        $payload = CustomerProviderDetailsCache::rememberShowcase($cacheKey, function () use ($detailsService, $providerId) {
+            $items = $detailsService->getShowcaseItems($providerId);
+
+            return [
+                'showcase_items' => CustomerProviderDetailsPayloadSlimmer::slimShowcaseItems(
+                    collect($items)->map(fn ($item) => is_array($item) ? $item : $item->toArray())->all()
+                ),
+            ];
+        });
+
+        return response()->json(response_formatter(DEFAULT_200, $payload), 200);
     }
 
     /**

@@ -16,19 +16,9 @@ class CustomerHomeBundlePayloadSlimmer
     ];
 
     /** @var list<string> */
-    private const SERVICE_ITEM_KEYS = [
-        'id',
-        'slug',
-        'name',
-        'thumbnail',
-        'thumbnail_full_path',
-        'is_favorite',
-        'avg_rating',
-        'rating_count',
-        'variations_app_format',
-        'service_discount',
-        'campaign_discount',
-        'category',
+    private const PROVIDER_LIST_KEYS = [
+        'providers',
+        'nearby_providers',
     ];
 
     /**
@@ -39,8 +29,26 @@ class CustomerHomeBundlePayloadSlimmer
     {
         foreach (self::SERVICE_LIST_KEYS as $key) {
             if (isset($bundle[$key]) && is_array($bundle[$key])) {
-                $bundle[$key] = self::slimServiceList($bundle[$key]);
+                $bundle[$key] = CustomerServicePayloadSlimmer::slimList($bundle[$key]);
             }
+        }
+
+        foreach (self::PROVIDER_LIST_KEYS as $key) {
+            if (isset($bundle[$key]) && is_array($bundle[$key])) {
+                $bundle[$key] = CustomerProviderPayloadSlimmer::slimList($bundle[$key]);
+            }
+        }
+
+        if (isset($bundle['categories']) && is_array($bundle['categories'])) {
+            $bundle['categories'] = CustomerCategoryPayloadSlimmer::slimGridList($bundle['categories']);
+        }
+
+        if (isset($bundle['sub_categories']) && is_array($bundle['sub_categories'])) {
+            $bundle['sub_categories'] = CustomerCategoryPayloadSlimmer::slimGridList($bundle['sub_categories']);
+        }
+
+        if (isset($bundle['featured_categories']) && is_array($bundle['featured_categories'])) {
+            $bundle['featured_categories'] = CustomerCategoryPayloadSlimmer::slimFeaturedList($bundle['featured_categories']);
         }
 
         if (isset($bundle['advertisements']) && is_array($bundle['advertisements'])) {
@@ -53,60 +61,18 @@ class CustomerHomeBundlePayloadSlimmer
                     continue;
                 }
 
-                if (self::looksLikeServiceList($content)) {
-                    $bundle['curated_sections'][$sectionKey] = self::slimServiceList($content);
+                if (CustomerServicePayloadSlimmer::looksLikeServiceList($content)) {
+                    $bundle['curated_sections'][$sectionKey] = CustomerServicePayloadSlimmer::slimList($content);
+                    continue;
+                }
+
+                if (self::looksLikeProviderList($content)) {
+                    $bundle['curated_sections'][$sectionKey] = CustomerProviderPayloadSlimmer::slimList($content);
                 }
             }
         }
 
         return $bundle;
-    }
-
-    /**
-     * @param  array<string, mixed>  $list
-     * @return array<string, mixed>
-     */
-    private static function slimServiceList(array $list): array
-    {
-        if (! isset($list['data']) || ! is_array($list['data'])) {
-            return $list;
-        }
-
-        $list['data'] = array_map(
-            fn ($item) => is_array($item) ? self::slimServiceItem($item) : $item,
-            $list['data'],
-        );
-
-        return $list;
-    }
-
-    /**
-     * @param  array<string, mixed>  $item
-     * @return array<string, mixed>
-     */
-    private static function slimServiceItem(array $item): array
-    {
-        $slim = [];
-
-        foreach (self::SERVICE_ITEM_KEYS as $key) {
-            if (! array_key_exists($key, $item)) {
-                continue;
-            }
-
-            if ($key === 'variations_app_format') {
-                $slim[$key] = self::slimVariationsAppFormat($item[$key]);
-                continue;
-            }
-
-            if ($key === 'category') {
-                $slim[$key] = self::slimServiceCategory($item[$key]);
-                continue;
-            }
-
-            $slim[$key] = $item[$key];
-        }
-
-        return $slim;
     }
 
     /**
@@ -125,7 +91,7 @@ class CustomerHomeBundlePayloadSlimmer
             }
 
             if (isset($item['provider']) && is_array($item['provider'])) {
-                $item['provider'] = self::slimAdvertisementProvider($item['provider']);
+                $item['provider'] = CustomerProviderPayloadSlimmer::slimAdvertisementProvider($item['provider']);
             }
 
             return $item;
@@ -135,89 +101,9 @@ class CustomerHomeBundlePayloadSlimmer
     }
 
     /**
-     * @param  array<string, mixed>  $provider
-     * @return array<string, mixed>
-     */
-    private static function slimAdvertisementProvider(array $provider): array
-    {
-        $subscribedServices = [];
-        foreach ($provider['subscribed_services'] ?? [] as $service) {
-            if (! is_array($service)) {
-                continue;
-            }
-
-            $subCategory = $service['sub_category'] ?? null;
-            if (! is_array($subCategory)) {
-                continue;
-            }
-
-            $name = $subCategory['name'] ?? null;
-            if ($name === null || $name === '') {
-                continue;
-            }
-
-            $subscribedServices[] = [
-                'sub_category' => ['name' => $name],
-            ];
-        }
-
-        return array_filter([
-            'id' => $provider['id'] ?? null,
-            'avg_rating' => $provider['avg_rating'] ?? null,
-            'rating_count' => $provider['rating_count'] ?? null,
-            'is_favorite' => $provider['is_favorite'] ?? 0,
-            'subscribed_services' => $subscribedServices,
-        ], fn ($value) => $value !== null);
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private static function slimVariationsAppFormat(mixed $format): ?array
-    {
-        if (! is_array($format)) {
-            return null;
-        }
-
-        $variations = [];
-        foreach ($format['zone_wise_variations'] ?? [] as $variation) {
-            if (! is_array($variation)) {
-                continue;
-            }
-
-            $variations[] = array_filter([
-                'variant_key' => $variation['variant_key'] ?? null,
-                'variant_name' => $variation['variant_name'] ?? null,
-                'price' => $variation['price'] ?? null,
-            ], fn ($value) => $value !== null);
-        }
-
-        return [
-            'zone_id' => $format['zone_id'] ?? null,
-            'default_price' => $format['default_price'] ?? 0,
-            'zone_wise_variations' => $variations,
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private static function slimServiceCategory(mixed $category): ?array
-    {
-        if (! is_array($category)) {
-            return null;
-        }
-
-        return array_filter([
-            'category_discount' => $category['category_discount'] ?? null,
-            'campaign_discount' => $category['campaign_discount'] ?? null,
-        ], fn ($value) => $value !== null);
-    }
-
-    /**
      * @param  array<string, mixed>  $content
      */
-    private static function looksLikeServiceList(array $content): bool
+    private static function looksLikeProviderList(array $content): bool
     {
         if (! isset($content['data']) || ! is_array($content['data']) || $content['data'] === []) {
             return false;
@@ -225,6 +111,6 @@ class CustomerHomeBundlePayloadSlimmer
 
         $first = $content['data'][0];
 
-        return is_array($first) && (isset($first['variations_app_format']) || isset($first['slug']));
+        return is_array($first) && isset($first['company_name']);
     }
 }

@@ -7,6 +7,48 @@
         return document.querySelector('.top-chrome');
     }
 
+    function disposeChromeBootstrapDropdowns(chrome) {
+        chrome = chrome || getChrome();
+        if (!chrome || !window.bootstrap || typeof window.bootstrap.Dropdown !== 'function') {
+            return;
+        }
+
+        chrome.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(function (toggle) {
+            var instance = window.bootstrap.Dropdown.getInstance(toggle);
+            if (!instance) {
+                return;
+            }
+
+            try {
+                instance.hide();
+            } catch (error) {}
+
+            instance.dispose();
+            toggle.setAttribute('aria-expanded', 'false');
+        });
+
+        chrome.querySelectorAll('.dropdown.show, .dropdown-menu.show').forEach(function (el) {
+            el.classList.remove('show');
+        });
+    }
+
+    function cleanupStaleAdminOverlays() {
+        if (!document.querySelector('.modal.show')) {
+            document.querySelectorAll('.modal-backdrop, .offcanvas-backdrop').forEach(function (el) {
+                el.remove();
+            });
+
+            if (!document.querySelector('.swal2-container.swal2-shown')) {
+                document.body.classList.remove('modal-open', 'offcanvas-backdrop');
+                document.body.style.removeProperty('overflow');
+                document.body.style.removeProperty('padding-right');
+            }
+        }
+    }
+
+    window.pkAdminDisposeChromeDropdowns = disposeChromeBootstrapDropdowns;
+    window.pkAdminCleanupStaleOverlays = cleanupStaleAdminOverlays;
+
     function resetDropdownPosition(dropdown) {
         if (!dropdown) {
             return;
@@ -129,6 +171,8 @@
             }
         });
 
+        document.addEventListener('hidden.bs.modal', cleanupStaleAdminOverlays);
+
         window.addEventListener('resize', closeDropdowns);
         window.addEventListener('scroll', onDocumentScroll, true);
     }
@@ -145,6 +189,8 @@
 
     document.addEventListener('admin:chrome-updated', function () {
         closeDropdowns();
+        disposeChromeBootstrapDropdowns();
+        cleanupStaleAdminOverlays();
         bindNavImageFallbacks(document.querySelector('.top-chrome'));
     });
 })();

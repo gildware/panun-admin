@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\FavoriteProvider;
 use Modules\ProviderManagement\Entities\Provider;
+use Modules\ProviderManagement\Entities\ProviderSetting;
 use Modules\ProviderManagement\Entities\ProviderShowcaseItem;
 use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\ReviewModule\Entities\Review;
@@ -24,6 +25,23 @@ class CustomerProviderDetailsService
     ) {
     }
 
+    public function providerExists(string $providerId): bool
+    {
+        return $this->provider->where('id', $providerId)->exists();
+    }
+
+    public function findProviderForSummary(string $providerId): ?Provider
+    {
+        return $this->provider
+            ->withCount([
+                'bookings as total_service_served' => function ($query) {
+                    $query->where('booking_status', 'completed');
+                },
+                'subscribed_services',
+            ])
+            ->find($providerId);
+    }
+
     public function findProvider(string $providerId): ?Provider
     {
         return $this->provider
@@ -37,6 +55,24 @@ class CustomerProviderDetailsService
             ->find($providerId);
     }
 
+    public function enrichProviderForSummary(Provider $provider, string|int|null $customerUserId): Provider
+    {
+        $provider['is_favorite'] = $this->favoriteProvider
+            ->where('customer_user_id', $customerUserId)
+            ->where('provider_id', $provider->id)
+            ->exists() ? 1 : 0;
+
+        $schedule = $this->loadProviderScheduleSettings((string) $provider->id);
+        $provider['time_schedule'] = $schedule['time_schedule'];
+        $provider['weekends'] = $schedule['weekends'];
+
+        $eligibility = app(ProviderPackageEligibilityResolver::class)->preload([(string) $provider->id]);
+        $provider['nextBookingEligibility'] = $eligibility->canAcceptNextBooking((string) $provider->id);
+        $provider['scheduleBookingEligibility'] = $eligibility->canScheduleBooking((string) $provider->id);
+
+        return $provider;
+    }
+
     public function enrichProvider(Provider $provider, string|int|null $customerUserId): Provider
     {
         $provider['is_favorite'] = $this->favoriteProvider
@@ -44,10 +80,9 @@ class CustomerProviderDetailsService
             ->where('provider_id', $provider->id)
             ->exists() ? 1 : 0;
 
-        $timeSchedule = provider_config('time_schedule', 'service_schedule', $provider['id'])?->live_values;
-        $weekEnds = provider_config('weekends', 'service_schedule', $provider['id'])?->live_values ?? '';
-        $provider['time_schedule'] = json_decode($timeSchedule) ?? null;
-        $provider['weekends'] = json_decode($weekEnds) ?? [];
+        $schedule = $this->loadProviderScheduleSettings((string) $provider->id);
+        $provider['time_schedule'] = $schedule['time_schedule'];
+        $provider['weekends'] = $schedule['weekends'];
 
         $eligibility = app(ProviderPackageEligibilityResolver::class)->preload([(string) $provider->id]);
         $provider['nextBookingEligibility'] = $eligibility->canAcceptNextBooking((string) $provider->id);
@@ -60,6 +95,27 @@ class CustomerProviderDetailsService
         $provider['cash_limit_status'] = $limitStatus == false ? 'available' : $limitStatus;
 
         return $provider;
+    }
+
+    /**
+     * @return array{time_schedule: mixed, weekends: array<int, mixed>}
+     */
+    private function loadProviderScheduleSettings(string $providerId): array
+    {
+        $settings = ProviderSetting::query()
+            ->where('provider_id', $providerId)
+            ->where('settings_type', 'service_schedule')
+            ->whereIn('key_name', ['time_schedule', 'weekends'])
+            ->get()
+            ->keyBy('key_name');
+
+        $timeRaw = $settings->get('time_schedule')?->live_values;
+        $weekendsRaw = $settings->get('weekends')?->live_values ?? [];
+
+        return [
+            'time_schedule' => is_string($timeRaw) ? (json_decode($timeRaw) ?? null) : $timeRaw,
+            'weekends' => is_string($weekendsRaw) ? (json_decode($weekendsRaw) ?? []) : ($weekendsRaw ?? []),
+        ];
     }
 
     public function getRatingInfo(string $providerId): array
@@ -102,8 +158,11 @@ class CustomerProviderDetailsService
             ->toArray();
     }
 
-    public function getSubCategoriesWithServices(string $providerId, string|int|null $customerUserId): array
-    {
+    public function getSubCategoriesWithServices(
+        string $providerId,
+        string|int|null $customerUserId,
+        ?int $limitPerCategory = null
+    ): array {
         $subscribedSubCategoryIds = $this->getSubscribedSubCategoryIds($providerId);
 
         $subCategories = $this->category->withoutGlobalScopes()
@@ -120,9 +179,6 @@ class CustomerProviderDetailsService
                 'created_at',
                 'updated_at',
             ])
-            ->whereHas('services', function ($query) {
-                $query->ofStatus(1);
-            })
             ->whereIn('id', $subscribedSubCategoryIds)
             ->get();
 
@@ -131,26 +187,23 @@ class CustomerProviderDetailsService
         }
 
         $services = $this->service
-            ->with(['variations', 'service_discount', 'category.category_discount'])
+            ->with(['service_discount', 'category.category_discount'])
             ->whereIn('sub_category_id', $subscribedSubCategoryIds)
-            ->where(function ($query) {
-                $query->whereDoesntHave('service_discount')
-                    ->orWhereHas('service_discount');
-            })
-            ->where(function ($query) {
-                $query->whereDoesntHave('category.category_discount')
-                    ->orWhereHas('category.category_discount');
-            })
             ->ofStatus(1)
             ->get();
 
-        CustomerServiceResponseEnricher::enrich($services, $customerUserId);
+        CustomerServiceResponseEnricher::enrich($services, $customerUserId, includeTax: false);
         $servicesBySubCategory = $services->groupBy('sub_category_id');
 
         foreach ($subCategories as $subCategory) {
+            $categoryServices = $servicesBySubCategory->get($subCategory->id, collect())->values();
+            if ($limitPerCategory !== null && $limitPerCategory > 0) {
+                $categoryServices = $categoryServices->take($limitPerCategory);
+            }
+
             $subCategory->setAttribute(
                 'services',
-                $servicesBySubCategory->get($subCategory->id, collect())->values()
+                $categoryServices
             );
         }
 
@@ -171,8 +224,17 @@ class CustomerProviderDetailsService
 
     public function getShowcaseItems(string $providerId)
     {
-        return ProviderShowcaseItem::where('provider_id', $providerId)
-            ->with('storage')
+        return ProviderShowcaseItem::query()
+            ->select([
+                'id',
+                'provider_id',
+                'title',
+                'description',
+                'media_type',
+                'file_name',
+                'sort_order',
+            ])
+            ->where('provider_id', $providerId)
             ->where('is_active', 1)
             ->where('is_approved', ProviderShowcaseItem::STATUS_APPROVED)
             ->orderByDesc('sort_order')

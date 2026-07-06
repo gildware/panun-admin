@@ -4,7 +4,7 @@ namespace Modules\BookingModule\Http\Controllers\Api\V1\Customer;
 
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
+use Modules\CustomerModule\Services\CustomerBookingListPayloadSlimmer;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -323,7 +323,11 @@ class BookingController extends Controller
         }
 
         $bookings = $this->booking
-            ->with(['customer', 'repeat', 'customizeBooking', 'extra_services'])
+            ->with([
+                'extra_services:id,booking_id,total',
+                'repeat:id,booking_id,readable_id,booking_status,service_schedule',
+            ])
+            ->with(['customizeBooking:id,booking_id'])
             ->where(['customer_id' => $request->user()->id])
             ->search(base64_decode($request['string']), ['readable_id'])
             ->when($request['booking_status'] != 'all', function ($query) use ($request) {
@@ -368,7 +372,7 @@ class BookingController extends Controller
 
         return response()->json(response_formatter(DEFAULT_200, [
             'bookings_count' => $bookings_count,
-            'bookings' => $bookings,
+            'bookings' => CustomerBookingListPayloadSlimmer::slimPaginator($bookings),
         ]), 200);
     }
 

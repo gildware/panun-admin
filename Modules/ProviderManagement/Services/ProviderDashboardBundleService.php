@@ -29,11 +29,11 @@ class ProviderDashboardBundleService
     {
         $userId = auth('api')->id();
         $locale = strtolower((string) $request->header('X-localization', app()->getLocale()));
-        $cacheKey = 'provider_dashboard_bundle:v1:'.$userId.':'.$locale;
+        $cacheKey = 'provider_dashboard_bundle:v2:'.$userId.':'.$locale;
 
         return ProviderApiResponseCache::remember(
             $cacheKey,
-            fn () => $this->fetchBundle($request),
+            fn () => ProviderDashboardPayloadSlimmer::slimBundle($this->fetchBundle($request)),
             ProviderApiResponseCache::DASHBOARD_BUNDLE_TTL
         );
     }

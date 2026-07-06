@@ -24,7 +24,10 @@ use Modules\ProviderManagement\Entities\BankDetail;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\ProviderManagement\Services\ProviderDashboardEarningStatsService;
+use Modules\ProviderManagement\Services\ProviderCustomizedPostPayloadSlimmer;
+use Modules\ProviderManagement\Services\ProviderDashboardPayloadSlimmer;
 use Modules\ProviderManagement\Services\ProviderProfileChangeRequestService;
+use Modules\ProviderManagement\Services\ProviderSubscriptionPayloadSlimmer;
 use Modules\ReviewModule\Entities\Review;
 use Modules\SMSModule\Lib\SMS_gateway;
 use Modules\TransactionModule\Entities\Account;
@@ -144,15 +147,30 @@ class ProviderController extends Controller
 
         if (in_array('recent_bookings', $request['sections'])) {
             $provider = $request->user()->provider;
-            $recentBookings = $this->booking->with(['detail.service' => function ($query) {
-                $query->select('id', 'name', 'thumbnail');
-            }])
+            $recentBookings = $this->booking
+                ->select([
+                    'id',
+                    'readable_id',
+                    'booking_status',
+                    'created_at',
+                    'is_repeated',
+                ])
+                ->with([
+                    'detail' => function ($query) {
+                        $query->select('id', 'booking_id', 'service_id');
+                    },
+                    'detail.service' => function ($query) {
+                        $query->select('id', 'name', 'thumbnail');
+                    },
+                ])
                 ->where('provider_id', $provider->id)
                 ->latest()
                 ->take(5)
                 ->get();
 
-            $data[] = ['recent_bookings' => $recentBookings];
+            $data[] = [
+                'recent_bookings' => ProviderDashboardPayloadSlimmer::slimRecentBookings($recentBookings->all()),
+            ];
         }
 
         if (in_array('my_subscriptions', $request['sections'])) {
@@ -163,7 +181,7 @@ class ProviderController extends Controller
                     $query->where('is_active', 1);
                 })
                 ->ofStatus(1)
-                ->with(['sub_category'])
+                ->with(ProviderSubscriptionPayloadSlimmer::subCategoryEagerRelations())
                 ->withCount(['services', 'completed_booking'])
                 ->where(['provider_id' => $request->user()->provider->id])->take(5)->get();
             $providerId = $request->user()->provider->id;
@@ -176,7 +194,9 @@ class ProviderController extends Controller
                     $changeRequestService->applySubscriptionPendingFlags($item->sub_category, $subCategoryId, $pendingActions);
                 }
             }
-            $data[] = ['subscriptions' => $subscriptions];
+            $data[] = [
+                'subscriptions' => ProviderSubscriptionPayloadSlimmer::slimList($subscriptions->all()),
+            ];
         }
 
         if (in_array('serviceman_list', $request['sections'])) {
@@ -203,7 +223,7 @@ class ProviderController extends Controller
             $ignoredPosts = $this->ignoredPost->where('provider_id', $request->user()->provider->id)->pluck('post_id')->toArray();
             $biddingPostValidity = (int)(business_config('bidding_post_validity', 'bidding_system'))->live_values;
             $posts = $this->post
-                ->with(['addition_instructions', 'service', 'category', 'sub_category', 'booking', 'customer'])
+                ->with(ProviderCustomizedPostPayloadSlimmer::listEagerRelations())
                 ->where('is_booked', 0)
                 ->whereNotIn('id', $ignoredPosts)
                 ->whereIn('sub_category_id', $subCategories)
@@ -221,7 +241,12 @@ class ProviderController extends Controller
                 ->latest()
                 ->take(5)->get();
 
-            $data[] = ['customized_post' => $posts];
+            $data[] = [
+                'customized_post' => ProviderCustomizedPostPayloadSlimmer::enrichAndSlimList(
+                    $posts,
+                    $request->user()->provider
+                ),
+            ];
             }
         }
 
@@ -833,14 +858,11 @@ class ProviderController extends Controller
         }
 
         $subscribed = $this->subscribedService->where('provider_id', $request->user()->provider->id)
-            ->with([
+            ->with(array_merge([
                 'category' => function ($query) {
                     return $query->select('id', 'name', 'parent_id', 'is_active');
                 },
-                'sub_category' => function ($query) {
-                    return $query->withCount('services')->with(['services']);
-                },
-            ])
+            ], ProviderSubscriptionPayloadSlimmer::subCategoryEagerRelations()))
             ->whereHas('category', function ($query) {
                 $query->where('is_active', 1);
             })
@@ -865,7 +887,7 @@ class ProviderController extends Controller
             }
         }
 
-        return response()->json(response_formatter(DEFAULT_200, $subscribed), 200);
+        return response()->json(response_formatter(DEFAULT_200, ProviderSubscriptionPayloadSlimmer::slimPaginator($subscribed)), 200);
     }
 
     /**

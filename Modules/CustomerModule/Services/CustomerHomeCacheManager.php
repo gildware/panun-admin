@@ -25,15 +25,28 @@ class CustomerHomeCacheManager
         return CustomerHomeBaseBundleCache::warmAll($zoneId);
     }
 
-    public static function warmAfterContentChange(?string $zoneId = null): void
+    public static function warmAfterContentChange(?string $zoneId = null, bool $blocking = false): void
     {
+        if ($blocking) {
+            CustomerHomeBaseBundleCache::warmAll($zoneId);
+
+            return;
+        }
+
         if (self::shouldDispatchAsync()) {
             WarmCustomerHomeBundleCacheJob::dispatch($zoneId);
 
             return;
         }
 
-        CustomerHomeBaseBundleCache::warmAll($zoneId);
+        if (app()->runningInConsole()) {
+            CustomerHomeBaseBundleCache::warmAll($zoneId);
+
+            return;
+        }
+
+        // QUEUE_CONNECTION=sync runs jobs inline; defer until after the HTTP response.
+        WarmCustomerHomeBundleCacheJob::dispatchAfterResponse($zoneId);
     }
 
     private static function forgetZoneEligibility(?string $zoneId): void

@@ -370,6 +370,270 @@ class Variation extends Model
     }
 
     /**
+     * @param  list<string>  $categoryIds
+     * @return array<string, bool>
+     */
+    public static function categoriesAvailableForBookingZoneMap(array $categoryIds, string $bookingZoneId): array
+    {
+        $zoneIds = static::zoneIdsMatchingBookingSelection($bookingZoneId);
+        $normalizedCategoryIds = array_values(array_unique(array_filter(array_map('strval', $categoryIds))));
+
+        if ($zoneIds === [] || $normalizedCategoryIds === []) {
+            return array_fill_keys($normalizedCategoryIds, false);
+        }
+
+        $availableIds = Category::query()
+            ->withoutGlobalScope('translate')
+            ->whereIn('id', $normalizedCategoryIds)
+            ->where('is_active', 1)
+            ->whereHas('zones', function ($query) use ($zoneIds) {
+                $query->whereIn('zones.id', $zoneIds);
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id)
+            ->flip()
+            ->all();
+
+        $availability = [];
+        foreach ($normalizedCategoryIds as $categoryId) {
+            $availability[$categoryId] = isset($availableIds[$categoryId]);
+        }
+
+        return $availability;
+    }
+
+    /**
+     * @return array{use_zone_pricing: bool, default_price: float}
+     */
+    private static function variationPricingConfigFromPreloaded(Service $service, string $variantKey, Collection $variantRows): array
+    {
+        $stored = $service->variation_pricing[$variantKey] ?? null;
+        if (is_array($stored) && array_key_exists('use_zone_pricing', $stored)) {
+            return [
+                'use_zone_pricing' => (bool) $stored['use_zone_pricing'],
+                'default_price' => (float) ($stored['default_price'] ?? 0),
+            ];
+        }
+
+        $prices = $variantRows
+            ->where('variant_key', $variantKey)
+            ->pluck('price')
+            ->map(fn ($price) => round((float) $price, 4));
+
+        if ($prices->isEmpty()) {
+            return [
+                'use_zone_pricing' => true,
+                'default_price' => 0,
+            ];
+        }
+
+        $unique = $prices->unique()->values();
+        if ($unique->count() <= 1) {
+            return [
+                'use_zone_pricing' => false,
+                'default_price' => (float) ($unique->first() ?? 0),
+            ];
+        }
+
+        $minPositive = $variantRows
+            ->where('variant_key', $variantKey)
+            ->where('price', '>', 0)
+            ->min('price');
+
+        return [
+            'use_zone_pricing' => true,
+            'default_price' => (float) ($minPositive ?? 0),
+        ];
+    }
+
+    private static function firstForBookingZonePreloaded(
+        Service $service,
+        string $variantKey,
+        string $zoneId,
+        bool $requirePositivePrice,
+        Collection $serviceVariationRows
+    ): ?self {
+        $serviceId = (string) $service->id;
+        $variantRows = $serviceVariationRows->where('variant_key', $variantKey)->values();
+        $config = static::variationPricingConfigFromPreloaded($service, $variantKey, $serviceVariationRows);
+        $base = $variantRows->first();
+
+        if (! $config['use_zone_pricing']) {
+            $price = $config['default_price'];
+            if ($requirePositivePrice && $price <= 0) {
+                return null;
+            }
+
+            return static::syntheticVariationFromBase($base, $serviceId, $variantKey, $zoneId, $price);
+        }
+
+        $zoneIds = static::zoneIdsMatchingBookingSelection($zoneId);
+
+        if ($zoneIds !== []) {
+            $hit = $variantRows
+                ->filter(fn (self $row) => in_array((string) $row->zone_id, $zoneIds, true) && $row->price > 0)
+                ->sortBy(fn (self $row) => [((string) $row->zone_id === $zoneId ? 0 : 1), (float) $row->price])
+                ->first();
+            if ($hit) {
+                return $hit;
+            }
+        }
+
+        $fallback = static::resolveDefaultPriceFromPreloaded($service, $variantKey, $config, $serviceVariationRows);
+        if ($fallback > 0) {
+            return static::syntheticVariationFromBase($base, $serviceId, $variantKey, $zoneId, $fallback);
+        }
+
+        if ($requirePositivePrice) {
+            return $variantRows
+                ->where('price', '>', 0)
+                ->sortBy('price')
+                ->first();
+        }
+
+        if ($zoneIds !== []) {
+            $zoneRow = $variantRows
+                ->filter(fn (self $row) => in_array((string) $row->zone_id, $zoneIds, true))
+                ->sortBy(fn (self $row) => [((string) $row->zone_id === $zoneId ? 0 : 1), ($row->price > 0 ? 0 : 1), (float) $row->price])
+                ->first();
+            if ($zoneRow && $zoneRow->price > 0) {
+                return $zoneRow;
+            }
+            if ($zoneRow && $zoneRow->price <= 0) {
+                $showPrice = static::resolveDefaultPriceFromPreloaded($service, $variantKey, $config, $serviceVariationRows);
+                if ($showPrice > 0) {
+                    return static::syntheticVariationFromBase($base, $serviceId, $variantKey, $zoneId, $showPrice);
+                }
+
+                return $zoneRow;
+            }
+        }
+
+        return $variantRows->sortBy('price')->first();
+    }
+
+    /**
+     * @param  array{use_zone_pricing: bool, default_price: float}  $config
+     */
+    private static function resolveDefaultPriceFromPreloaded(
+        Service $service,
+        string $variantKey,
+        array $config,
+        Collection $serviceVariationRows
+    ): float {
+        $default = (float) ($config['default_price'] ?? 0);
+        if ($default > 0) {
+            return $default;
+        }
+
+        $minPositive = $serviceVariationRows
+            ->where('variant_key', $variantKey)
+            ->where('price', '>', 0)
+            ->min('price');
+
+        return (float) ($minPositive ?? 0);
+    }
+
+    /**
+     * @return Collection<int, self>
+     */
+    private static function listForBookingZonePreloaded(
+        Service $service,
+        string $zoneId,
+        bool $categoryAvailable,
+        Collection $serviceVariationRows
+    ): Collection {
+        if (! $categoryAvailable) {
+            return collect();
+        }
+
+        $keys = $serviceVariationRows
+            ->pluck('variant_key')
+            ->filter()
+            ->unique()
+            ->values();
+
+        return $keys
+            ->map(fn ($variantKey) => static::firstForBookingZonePreloaded(
+                $service,
+                (string) $variantKey,
+                $zoneId,
+                false,
+                $serviceVariationRows
+            ))
+            ->filter()
+            ->sortBy('variant_key')
+            ->values();
+    }
+
+    /**
+     * @param  array<int, string>  $candidates
+     * @param  array{zone_id: string|null, default_price: float, zone_wise_variations: list<array<string, mixed>>}  $emptyTemplate
+     * @return array{zone_id: string|null, default_price: float, zone_wise_variations: list<array<string, mixed>>}
+     */
+    private static function variationsAppFormatFromPreloaded(
+        Service $service,
+        array $candidates,
+        Collection $serviceVariationRows,
+        Collection $serviceVariantsByKey,
+        array $emptyTemplate,
+        array &$categoryAvailabilityCache = []
+    ): array {
+        $formatting = $emptyTemplate;
+        $categoryId = (string) $service->category_id;
+
+        /** @var array<string, self> $seen */
+        $seen = [];
+        $resolvedZone = null;
+
+        foreach ($candidates as $candidate) {
+            $cacheKey = $categoryId.'|'.$candidate;
+            if (! array_key_exists($cacheKey, $categoryAvailabilityCache)) {
+                $categoryAvailabilityCache[$cacheKey] = static::categoryAvailableForBookingZone($categoryId, $candidate);
+            }
+            if (! $categoryAvailabilityCache[$cacheKey]) {
+                continue;
+            }
+
+            $list = static::listForBookingZonePreloaded($service, $candidate, true, $serviceVariationRows);
+            if ($list->isNotEmpty() && $resolvedZone === null) {
+                $resolvedZone = $candidate;
+            }
+
+            foreach ($list as $variation) {
+                $key = (string) $variation->variant_key;
+                if (! isset($seen[$key])) {
+                    $seen[$key] = $variation;
+                }
+            }
+        }
+
+        if ($seen === []) {
+            return $formatting;
+        }
+
+        $formatting['zone_id'] = $resolvedZone ?? $candidates[0];
+
+        foreach ($seen as $variation) {
+            $variantMeta = $serviceVariantsByKey->get((string) $variation->variant_key);
+            $formatting['zone_wise_variations'][] = [
+                'variant_key' => $variation->variant_key,
+                'variant_name' => $variantMeta?->title ?? $variation->variant,
+                'description' => $variantMeta?->description,
+                'image' => $variantMeta?->image,
+                'image_full_path' => $variantMeta?->image_full_path,
+                'price' => (float) $variation->price,
+            ];
+        }
+
+        if ($formatting['zone_wise_variations'] !== []) {
+            $formatting['default_price'] = (float) $formatting['zone_wise_variations'][0]['price'];
+        }
+
+        return $formatting;
+    }
+
+    /**
      * Batch-build customer variation payloads for list endpoints (favorites/search/home).
      *
      * @param  list<string>  $serviceIds
@@ -396,7 +660,19 @@ class Variation extends Model
             ->get()
             ->keyBy(fn (Service $service) => (string) $service->id);
 
-        $categoryAvailability = [];
+        $allVariations = static::variantQuery()
+            ->whereIn('service_id', $normalizedIds)
+            ->get()
+            ->groupBy(fn (self $variation) => (string) $variation->service_id);
+
+        $allServiceVariants = ServiceVariant::query()
+            ->whereIn('service_id', $normalizedIds)
+            ->where('is_active', true)
+            ->get()
+            ->groupBy(fn (ServiceVariant $variant) => (string) $variant->service_id)
+            ->map(fn (Collection $variants) => $variants->keyBy('variant_key'));
+
+        $categoryAvailabilityCache = [];
         $result = [];
 
         foreach ($normalizedIds as $serviceId) {
@@ -406,17 +682,14 @@ class Variation extends Model
                 continue;
             }
 
-            $categoryId = (string) $service->category_id;
-            if (! array_key_exists($categoryId, $categoryAvailability)) {
-                $categoryAvailability[$categoryId] = static::categoryAvailableForBookingZone($categoryId, $candidates[0]);
-            }
-
-            if (! $categoryAvailability[$categoryId]) {
-                $result[$serviceId] = $emptyTemplate;
-                continue;
-            }
-
-            $result[$serviceId] = static::variationsAppFormatForCustomer($serviceId, $zoneId);
+            $result[$serviceId] = static::variationsAppFormatFromPreloaded(
+                $service,
+                $candidates,
+                $allVariations->get($serviceId, collect()),
+                $allServiceVariants->get($serviceId, collect()),
+                $emptyTemplate,
+                $categoryAvailabilityCache
+            );
         }
 
         return $result;

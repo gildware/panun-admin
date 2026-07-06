@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Validator;
 use Modules\BookingModule\Entities\Booking;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\CustomerModule\Services\CustomerHomeContentInvalidator;
+use Modules\CustomerModule\Services\CustomerServicePayloadSlimmer;
 use Modules\CustomerModule\Traits\CustomerSearchTrait;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ServiceManagement\Entities\FavoriteService;
@@ -20,6 +21,9 @@ use Modules\ServiceManagement\Entities\RecentView;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\ServiceManagement\Entities\ServiceRequest;
 use Modules\ServiceManagement\Entities\Variation;
+use Modules\ProviderManagement\Services\CustomerProviderDetailsPayloadSlimmer;
+use Modules\ServiceManagement\Services\CustomerServiceDetailPayloadSlimmer;
+use Modules\ServiceManagement\Services\CustomerServiceDetailsCache;
 use Modules\ServiceManagement\Services\CustomerServiceResponseEnricher;
 use Modules\ServiceManagement\Traits\VisitedServiceTrait;
 use Modules\ZoneManagement\Entities\Zone;
@@ -76,7 +80,7 @@ class ServiceController extends Controller
         }
 
         $services = $this->service
-            ->with(['category.zonesBasicInfo', 'variations', 'service_discount', 'category.category_discount'])
+            ->with(CustomerServicePayloadSlimmer::listEagerRelations())
             ->where(function ($query) {
                 $query->whereDoesntHave('service_discount')
                     ->orWhereHas('service_discount');
@@ -90,9 +94,7 @@ class ServiceController extends Controller
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
             ->withPath('');
 
-        $this->variationMapper($services);
-
-        return response()->json(response_formatter(DEFAULT_200, $services), 200);
+        return response()->json(response_formatter(DEFAULT_200, $this->mapServiceList($services)), 200);
     }
 
     public function search(Request $request): JsonResponse
@@ -122,7 +124,7 @@ class ServiceController extends Controller
         $servicesQuery = $this->service
             ->select('services.*')
             ->selectRaw('CAST((SELECT MIN(variations.price) FROM variations WHERE variations.service_id = services.id AND variations.price > 0 AND variations.zone_id = ?) AS DECIMAL(24, 2)) as service_filter_min_price', [$zoneId])
-            ->with(['category.zonesBasicInfo', 'variations', 'tags', 'faqs', 'favorites', 'service_discount', 'category.category_discount'])
+            ->with(CustomerServicePayloadSlimmer::listEagerRelations())
             ->withCount('favorites', 'bookings')
             ->active()
             ->where(function ($query) use ($decodedString, $keys) {
@@ -280,13 +282,9 @@ class ServiceController extends Controller
         $initialMinPrice = Variation::min('price');
         $initialMaxPrice = Variation::max('price');
 
-        $services = $servicesQuery->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
-
-        foreach ($services as $service) {
-            unset($service->tags, $service->faqs, $service->favorites);
-        }
-
-        $this->variationMapper($services);
+        $services = $this->mapServiceList(
+            $servicesQuery->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('')
+        );
 
         return response()->json(response_formatter(DEFAULT_200, [
             'filter_min_price' => $filterMinPrice == $filterMaxPrice ? 0 : $filterMinPrice,
@@ -398,7 +396,7 @@ class ServiceController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $servicesQuery = $this->service->with(['category.zonesBasicInfo', 'variations', 'service_discount', 'category.category_discount'])
+        $servicesQuery = $this->service->with(CustomerServicePayloadSlimmer::listEagerRelations())
             ->where(function ($query) {
                 $query->whereDoesntHave('service_discount')
                     ->orWhereHas('service_discount');
@@ -417,9 +415,7 @@ class ServiceController extends Controller
 
         $services = $servicesQuery->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
-        $this->variationMapper($services);
-
-        return response()->json(response_formatter(DEFAULT_200, $services), 200);
+        return response()->json(response_formatter(DEFAULT_200, $this->mapServiceList($services)), 200);
     }
 
     /**
@@ -442,12 +438,7 @@ class ServiceController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $servicesQuery = $this->service->with([
-            'category.zonesBasicInfo',
-            'variations',
-            'service_discount',
-            'category.category_discount'
-        ])
+        $servicesQuery = $this->service->with(CustomerServicePayloadSlimmer::listEagerRelations())
         ->where(function ($query) {
             $query->whereDoesntHave('service_discount')
                 ->orWhereHas('service_discount');
@@ -480,9 +471,7 @@ class ServiceController extends Controller
                 ->withPath('');
         }
 
-        $this->variationMapper($services);
-
-        return response()->json(response_formatter(DEFAULT_200, $services), 200);
+        return response()->json(response_formatter(DEFAULT_200, $this->mapServiceList($services)), 200);
     }
 
     /**
@@ -496,8 +485,6 @@ class ServiceController extends Controller
             ->active()
             ->inRandomOrder()
             ->take(5)->get();
-
-        $this->variationMapper($services);
 
         return response()->json(response_formatter(DEFAULT_200, $services), 200);
     }
@@ -519,7 +506,7 @@ class ServiceController extends Controller
         }
 
         $servicesQuery = $this->service
-            ->with(['category.zonesBasicInfo', 'variations', 'service_discount', 'category.category_discount'])
+            ->with(CustomerServicePayloadSlimmer::listEagerRelations())
             ->where(function ($query) {
                 $query->whereDoesntHave('service_discount')
                     ->orWhereHas('service_discount');
@@ -542,9 +529,7 @@ class ServiceController extends Controller
 
         $services = $servicesQuery->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
-        $this->variationMapper($services);
-
-        return response()->json(response_formatter(DEFAULT_200, $services), 200);
+        return response()->json(response_formatter(DEFAULT_200, $this->mapServiceList($services)), 200);
     }
 
     /**
@@ -573,7 +558,7 @@ class ServiceController extends Controller
             ->pluck('service_id')
             ->toArray();
 
-        $services = $this->service->with(['category.zonesBasicInfo', 'variations', 'service_discount', 'category.category_discount'])
+        $services = $this->service->with(CustomerServicePayloadSlimmer::listEagerRelations())
             ->whereIn('id', $serviceIds)
             ->where(function ($query) {
                 $query->where(function ($query) {
@@ -589,9 +574,7 @@ class ServiceController extends Controller
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
             ->withPath('');
 
-        $this->variationMapper($services);
-
-        return response()->json(response_formatter(DEFAULT_200, $services), 200);
+        return response()->json(response_formatter(DEFAULT_200, $this->mapServiceList($services)), 200);
     }
 
     /**
@@ -675,16 +658,14 @@ class ServiceController extends Controller
         }
 
         $services = $this->service
-            ->with(['category.zonesBasicInfo', 'variations', 'service_discount', 'category.category_discount'])
+            ->with(CustomerServicePayloadSlimmer::listEagerRelations())
             ->whereHas('service_discount')
             ->orWhereHas('category.category_discount')
             ->active()
             ->orderBy('avg_rating', 'DESC')
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
-        $this->variationMapper($services);
-
-        return response()->json(response_formatter(DEFAULT_200, $services), 200);
+        return response()->json(response_formatter(DEFAULT_200, $this->mapServiceList($services)), 200);
     }
 
     private function variationMapper($services)
@@ -692,6 +673,13 @@ class ServiceController extends Controller
         CustomerServiceResponseEnricher::enrich($services, $this->customer_user_id);
 
         return $services;
+    }
+
+    private function mapServiceList(LengthAwarePaginator $services): LengthAwarePaginator
+    {
+        CustomerServiceResponseEnricher::enrich($services, $this->customer_user_id, includeTax: false);
+
+        return CustomerServicePayloadSlimmer::slimPaginator($services);
     }
 
     /**
@@ -703,40 +691,49 @@ class ServiceController extends Controller
     public function show(Request $request, string $slug): JsonResponse
     {
         $service = $this->service->where('slug', $slug)
-            ->with(['category', 'subCategory', 'category.children', 'variations', 'faqs' => function ($query) {
-                return $query->where('is_active', 1);
-            }])
+            ->with([
+                'category',
+                'subCategory',
+                'faqs' => function ($query) {
+                    return $query->where('is_active', 1);
+                },
+            ])
             ->ofStatus(1)
             ->first();
 
-        if (isset($service)) {
-            if ($request->has('attribute') && $request->attribute == 'service' && auth('api')->user()) {
-                $this->Searched_data_log(auth('api')->user()->id, 'service', $service->id, null);
-            }
-
-            if (auth('api')->user()) {
-                $this->visited_service_update(auth('api')->user()->id, $service->id);
-
-                //search log volume update
-                if ($request->has('attribute') && $request->attribute != 'service') {
-                    $this->search_log_volume_update(auth('api')->user()->id, $service->id);
-                }
-            }
-
-            $authUser = auth('api')->user();
-            if ($authUser) {
-                $recentView = $this->recentView->firstOrNew(['service_id' => $service->id, 'user_id' => $authUser->id]);
-                $recentView->total_service_view += 1;
-                $recentView->save();
-                CustomerHomeContentInvalidator::bumpPersonal($authUser->id);
-            }
-
-            $service->loadMissing(['category', 'subCategory']);
-            CustomerServiceResponseEnricher::enrich(collect([$service]), $this->customer_user_id);
-            return response()->json(response_formatter(DEFAULT_200, $service), 200);
+        if (! isset($service)) {
+            return response()->json(response_formatter(DEFAULT_204), 200);
         }
 
-        return response()->json(response_formatter(DEFAULT_204), 200);
+        if ($request->has('attribute') && $request->attribute == 'service' && auth('api')->user()) {
+            $this->Searched_data_log(auth('api')->user()->id, 'service', $service->id, null);
+        }
+
+        if (auth('api')->user()) {
+            $this->visited_service_update(auth('api')->user()->id, $service->id);
+
+            if ($request->has('attribute') && $request->attribute != 'service') {
+                $this->search_log_volume_update(auth('api')->user()->id, $service->id);
+            }
+        }
+
+        $authUser = auth('api')->user();
+        if ($authUser) {
+            $recentView = $this->recentView->firstOrNew(['service_id' => $service->id, 'user_id' => $authUser->id]);
+            $recentView->total_service_view += 1;
+            $recentView->save();
+            CustomerHomeContentInvalidator::bumpPersonal($authUser->id);
+        }
+
+        $cacheKey = CustomerServiceDetailsCache::detailCacheKey($request, $slug, $this->customer_user_id);
+        $payload = CustomerServiceDetailsCache::rememberDetail($cacheKey, function () use ($service) {
+            $service->loadMissing(['category', 'subCategory']);
+            CustomerServiceResponseEnricher::enrich(collect([$service]), $this->customer_user_id);
+
+            return CustomerServiceDetailPayloadSlimmer::slimDetail($service);
+        });
+
+        return response()->json(response_formatter(DEFAULT_200, $payload), 200);
     }
 
     /**
@@ -756,33 +753,48 @@ class ServiceController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $reviews = $this->review->with(['provider', 'customer','reviewReply'])->where('service_id', $serviceId)->ofStatus(1)->latest()
-            ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
+        $limit = (int) $request['limit'];
+        $offset = (int) $request['offset'];
+        $cacheKey = CustomerServiceDetailsCache::reviewsCacheKey($request, $serviceId, $limit, $offset);
 
-        $ratingGroupCount = DB::table('reviews')->where('service_id', $serviceId)
-            ->where('is_active', 1)
-            ->select('review_rating', DB::raw('count(review_comment) as total_comment'), DB::raw('count(*) as total'))
-            ->groupBy('review_rating')
-            ->get();
+        $payload = CustomerServiceDetailsCache::rememberReviews($cacheKey, function () use ($serviceId, $limit, $offset) {
+            $reviews = $this->review->with(['customer', 'reviewReply'])
+                ->where('service_id', $serviceId)
+                ->ofStatus(1)
+                ->latest()
+                ->paginate($limit, ['*'], 'offset', $offset)
+                ->withPath('');
 
-        $totalRating = 0;
-        $ratingCount = 0;
-        $reviewCount = 0;
+            $ratingGroupCount = DB::table('reviews')->where('service_id', $serviceId)
+                ->where('is_active', 1)
+                ->select('review_rating', DB::raw('count(review_comment) as total_comment'), DB::raw('count(*) as total'))
+                ->groupBy('review_rating')
+                ->get();
 
-        foreach ($ratingGroupCount as $count) {
-            $totalRating += round($count->review_rating * $count->total, 2);
-            $ratingCount += $count->total;
-            $reviewCount += $count->total_comment;
-        }
+            $totalRating = 0;
+            $ratingCount = 0;
+            $reviewCount = 0;
 
-        $ratingInfo = [
-            'rating_count' => $ratingCount,
-            'review_count' => $reviewCount,
-            'average_rating' => round(divnum($totalRating, $ratingCount), 2),
-            'rating_group_count' => $ratingGroupCount,
-        ];
+            foreach ($ratingGroupCount as $count) {
+                $totalRating += round($count->review_rating * $count->total, 2);
+                $ratingCount += $count->total;
+                $reviewCount += $count->total_comment;
+            }
 
-        return response()->json(response_formatter(DEFAULT_200, ['reviews' => $reviews, 'rating' => $ratingInfo]), 200);
+            $ratingInfo = [
+                'rating_count' => $ratingCount,
+                'review_count' => $reviewCount,
+                'average_rating' => round(divnum($totalRating, $ratingCount), 2),
+                'rating_group_count' => $ratingGroupCount,
+            ];
+
+            return CustomerProviderDetailsPayloadSlimmer::slimReviewsPayload(
+                $reviews->toArray(),
+                $ratingInfo
+            );
+        });
+
+        return response()->json(response_formatter(DEFAULT_200, $payload ?? ['reviews' => [], 'rating' => []]), 200);
     }
 
     /**
@@ -809,7 +821,7 @@ class ServiceController extends Controller
         }
 
         $servicesQuery = $this->service
-            ->with(['category.zonesBasicInfo', 'variations', 'service_discount', 'category.category_discount'])
+            ->with(CustomerServicePayloadSlimmer::listEagerRelations())
             ->where('sub_category_id', $subCategoryId)
             ->where('is_active', 1)
             ->where(function ($query) {
@@ -822,11 +834,11 @@ class ServiceController extends Controller
             })
             ->latest();
 
-        $services = $servicesQuery
-            ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
-            ->withPath('');
-
-        $this->variationMapper($services);
+        $services = $this->mapServiceList(
+            $servicesQuery
+                ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
+                ->withPath('')
+        );
 
         if (count($services) > 0) {
             $authUser = auth('api')->user();

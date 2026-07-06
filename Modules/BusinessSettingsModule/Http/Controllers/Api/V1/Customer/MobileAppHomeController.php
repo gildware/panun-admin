@@ -13,6 +13,7 @@ use Modules\PromotionManagement\Entities\Banner;
 use Modules\PromotionManagement\Entities\Campaign;
 use Modules\ProviderManagement\Entities\FavoriteProvider;
 use Modules\ProviderManagement\Entities\Provider;
+use Modules\ProviderManagement\Services\ZoneProviderEligibilityService;
 use Modules\ServiceManagement\Entities\FavoriteService;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\ServiceManagement\Entities\Variation;
@@ -69,34 +70,16 @@ class MobileAppHomeController extends Controller
 
         $limit = (int) $request['limit'];
         $offset = (int) $request['offset'];
-        $pageIds = array_slice($ids, ($offset - 1) * $limit, $limit);
 
-        if ($pageIds === []) {
+        $services = $this->resolveManualServicesForZone($ids);
+        if ($services->isEmpty()) {
             return response()->json(response_formatter(DEFAULT_200, $this->emptyPaginator($request)), 200);
         }
 
-        $orderSql = 'FIELD(id,'.implode(',', array_map(fn ($id) => "'".addslashes($id)."'", $pageIds)).')';
-
-        // Admin-picked service IDs must resolve regardless of customer zone (same as banners/categories).
-        $services = $this->service
-            ->withoutGlobalScope('zone_wise_data')
-            ->with(['category.zonesBasicInfo', 'variations', 'service_discount', 'category.category_discount'])
-            ->whereIn('id', $pageIds)
-            ->where(function ($query) {
-                $query->where(function ($query) {
-                    $query->whereDoesntHave('service_discount')
-                        ->orWhereHas('service_discount');
-                })->orWhere(function ($query) {
-                    $query->whereDoesntHave('category.category_discount')
-                        ->orWhereHas('category.category_discount');
-                });
-            })
-            ->active()
-            ->orderByRaw($orderSql)
-            ->get();
+        $matched = $services->slice(($offset - 1) * $limit, $limit)->values();
 
         $customerUserId = $this->customerContext($request)['user_id'];
-        foreach ($services as $service) {
+        foreach ($matched as $service) {
             $service['is_favorite'] = $customerUserId && $this->favoriteService
                 ->where('customer_user_id', $customerUserId)
                 ->where('service_id', $service->id)
@@ -104,8 +87,8 @@ class MobileAppHomeController extends Controller
         }
 
         $paginator = new \Illuminate\Pagination\LengthAwarePaginator(
-            $this->mapServices($services),
-            count($ids),
+            $this->mapServices($matched),
+            $services->count(),
             $limit,
             $offset,
             ['path' => '']
@@ -141,15 +124,16 @@ class MobileAppHomeController extends Controller
 
         $limit = (int) $request['limit'];
         $offset = (int) $request['offset'];
-        $pageIds = array_slice($ids, ($offset - 1) * $limit, $limit);
 
-        if ($pageIds === []) {
+        $zoneEligibleIds = $this->zoneEligibleProviderIds($ids);
+        if ($zoneEligibleIds === []) {
             return response()->json(response_formatter(DEFAULT_200, $this->emptyPaginator($request)), 200);
         }
 
+        $pageIds = array_slice($zoneEligibleIds, ($offset - 1) * $limit, $limit);
+
         $orderSql = 'FIELD(id,'.implode(',', array_map(fn ($id) => "'".addslashes($id)."'", $pageIds)).')';
 
-        // Admin-picked provider IDs must resolve regardless of customer zone.
         $providers = $this->provider
             ->with(['owner', 'subscribed_services.sub_category' => function ($query) {
                 $query->withoutGlobalScopes();
@@ -174,7 +158,7 @@ class MobileAppHomeController extends Controller
 
         $paginator = new \Illuminate\Pagination\LengthAwarePaginator(
             $providers,
-            count($ids),
+            count($zoneEligibleIds),
             $limit,
             $offset,
             ['path' => '']
@@ -210,24 +194,24 @@ class MobileAppHomeController extends Controller
 
         $limit = (int) $request['limit'];
         $offset = (int) $request['offset'];
-        $pageIds = array_slice($ids, ($offset - 1) * $limit, $limit);
 
-        if ($pageIds === []) {
+        $matchedBannerIds = $this->banner
+            ->ofStatus(1)
+            ->whereIn('id', $ids)
+            ->orderByRaw('FIELD(id,'.implode(',', array_map(fn ($id) => "'".addslashes($id)."'", $ids)).')')
+            ->pluck('id')
+            ->all();
+
+        if ($matchedBannerIds === []) {
             return response()->json(response_formatter(DEFAULT_200, $this->emptyPaginator($request)), 200);
         }
 
+        $pageIds = array_slice($matchedBannerIds, ($offset - 1) * $limit, $limit);
+
         $orderSql = 'FIELD(id,'.implode(',', array_map(fn ($id) => "'".addslashes($id)."'", $pageIds)).')';
 
-        // Admin-picked banners must not be dropped by zone scopes on banner/category/service.
-        $banners = $this->banner->withoutGlobalScope('zone_wise_data')
-            ->with([
-                'service' => function ($query) {
-                    $query->withoutGlobalScope('zone_wise_data');
-                },
-                'category' => function ($query) {
-                    $query->withoutGlobalScope('zone_wise_data');
-                },
-            ])
+        $banners = $this->banner
+            ->with(['service', 'category'])
             ->ofStatus(1)
             ->whereIn('id', $pageIds)
             ->orderByRaw($orderSql)
@@ -236,7 +220,7 @@ class MobileAppHomeController extends Controller
 
         $paginator = new \Illuminate\Pagination\LengthAwarePaginator(
             $banners,
-            count($ids),
+            count($matchedBannerIds),
             $limit,
             $offset,
             ['path' => '']
@@ -272,17 +256,23 @@ class MobileAppHomeController extends Controller
 
         $limit = (int) $request['limit'];
         $offset = (int) $request['offset'];
-        $pageIds = array_slice($ids, ($offset - 1) * $limit, $limit);
 
-        if ($pageIds === []) {
+        $matchedCampaignIds = CustomerCampaignApiQuery::withCustomerRelations($this->campaign->newQuery())
+            ->whereIn('id', $ids)
+            ->ofStatus(1)
+            ->orderByRaw('FIELD(id,'.implode(',', array_map(fn ($id) => "'".addslashes($id)."'", $ids)).')')
+            ->pluck('id')
+            ->all();
+
+        if ($matchedCampaignIds === []) {
             return response()->json(response_formatter(DEFAULT_200, $this->emptyPaginator($request)), 200);
         }
 
+        $pageIds = array_slice($matchedCampaignIds, ($offset - 1) * $limit, $limit);
+
         $orderSql = 'FIELD(id,'.implode(',', array_map(fn ($id) => "'".addslashes($id)."'", $pageIds)).')';
 
-        $campaigns = CustomerCampaignApiQuery::withCustomerRelations(
-            $this->campaign->withoutGlobalScope('zone_wise_data')
-        )
+        $campaigns = CustomerCampaignApiQuery::withCustomerRelations($this->campaign->newQuery())
             ->whereIn('id', $pageIds)
             ->ofStatus(1)
             ->orderByRaw($orderSql)
@@ -290,7 +280,7 @@ class MobileAppHomeController extends Controller
 
         $paginator = new \Illuminate\Pagination\LengthAwarePaginator(
             $campaigns,
-            count($ids),
+            count($matchedCampaignIds),
             $limit,
             $offset,
             ['path' => '']
@@ -326,18 +316,28 @@ class MobileAppHomeController extends Controller
 
         $limit = (int) $request['limit'];
         $offset = (int) $request['offset'];
-        $pageIds = array_slice($ids, ($offset - 1) * $limit, $limit);
-
-        if ($pageIds === []) {
-            return response()->json(response_formatter(DEFAULT_200, $this->emptyPaginator($request)), 200);
-        }
-
-        $orderSql = 'FIELD(id,'.implode(',', array_map(fn ($id) => "'".addslashes($id)."'", $pageIds)).')';
 
         $contentType = (string) ($section['content_type'] ?? '');
         $categoryType = $contentType === MobileAppManagementService::CONTENT_SUB_CATEGORIES ? 'sub' : 'main';
 
         if ($key === 'feathered_categories') {
+            $matchedCategoryIds = $this->category
+                ->ofStatus(1)
+                ->ofType('main')
+                ->mainWithActiveCatalog()
+                ->whereIn('id', $ids)
+                ->tap(fn ($query) => $this->applyCustomerZoneToCategoryQuery($query))
+                ->orderByRaw('FIELD(id,'.implode(',', array_map(fn ($id) => "'".addslashes($id)."'", $ids)).')')
+                ->pluck('id')
+                ->all();
+
+            if ($matchedCategoryIds === []) {
+                return response()->json(response_formatter(DEFAULT_200, $this->emptyPaginator($request)), 200);
+            }
+
+            $pageIds = array_slice($matchedCategoryIds, ($offset - 1) * $limit, $limit);
+            $orderSql = 'FIELD(id,'.implode(',', array_map(fn ($id) => "'".addslashes($id)."'", $pageIds)).')';
+
             $categories = $this->category->with(['zonesBasicInfo', 'services_by_category.variations', 'services_by_category' => function ($query) {
                 $query->ofStatus(1)
                     ->where(function ($query) {
@@ -349,11 +349,13 @@ class MobileAppHomeController extends Controller
                             ->orWhereHas('category.category_discount');
                     })
                     ->with(['variations', 'service_discount', 'category.category_discount']);
+                $this->applyCustomerZoneToServiceQuery($query);
             }])
                 ->ofStatus(1)
                 ->ofType('main')
                 ->mainWithActiveCatalog()
                 ->whereIn('id', $pageIds)
+                ->tap(fn ($query) => $this->applyCustomerZoneToCategoryQuery($query))
                 ->orderByRaw($orderSql)
                 ->get();
 
@@ -363,23 +365,45 @@ class MobileAppHomeController extends Controller
             }
 
             $collection = $categories;
+            $ids = $matchedCategoryIds;
         } else {
-            // Admin-picked IDs must resolve regardless of customer zone (same as category/childes APIs).
             $with = $categoryType === 'sub' ? ['parent'] : ['zones'];
-            $collectionQuery = $this->category->withoutGlobalScope('zone_wise_data')
+            $matchedCategoryIds = $this->category
                 ->withCount(['services' => function ($query) {
                     $query->where('is_active', 1);
                 }])
                 ->with($with)
                 ->ofStatus(1)
                 ->ofType($categoryType)
-                ->whereIn('id', $pageIds);
+                ->whereIn('id', $ids)
+                ->tap(fn ($query) => $this->applyCustomerZoneToCategoryQuery($query))
+                ->orderByRaw('FIELD(id,'.implode(',', array_map(fn ($id) => "'".addslashes($id)."'", $ids)).')')
+                ->pluck('id')
+                ->all();
+            $pageIds = array_slice($matchedCategoryIds, ($offset - 1) * $limit, $limit);
+
+            if ($pageIds === []) {
+                return response()->json(response_formatter(DEFAULT_200, $this->emptyPaginator($request)), 200);
+            }
+
+            $orderSql = 'FIELD(id,'.implode(',', array_map(fn ($id) => "'".addslashes($id)."'", $pageIds)).')';
+
+            $collectionQuery = $this->category
+                ->withCount(['services' => function ($query) {
+                    $query->where('is_active', 1);
+                }])
+                ->with($with)
+                ->ofStatus(1)
+                ->ofType($categoryType)
+                ->whereIn('id', $pageIds)
+                ->tap(fn ($query) => $this->applyCustomerZoneToCategoryQuery($query));
 
             if ($categoryType === 'sub') {
                 $collectionQuery->withActiveServices();
             }
 
             $collection = $collectionQuery->orderByRaw($orderSql)->get();
+            $ids = $matchedCategoryIds;
         }
 
         $paginator = new \Illuminate\Pagination\LengthAwarePaginator(
@@ -427,5 +451,94 @@ class MobileAppHomeController extends Controller
             (int) $request->input('offset', 1),
             ['path' => '']
         );
+    }
+
+    /**
+     * Resolve admin-picked services in display order, respecting the customer zone scope.
+     *
+     * @param  list<string>  $orderedIds
+     */
+    private function resolveManualServicesForZone(array $orderedIds): \Illuminate\Support\Collection
+    {
+        if ($orderedIds === []) {
+            return collect();
+        }
+
+        $orderSql = 'FIELD(id,'.implode(',', array_map(fn ($id) => "'".addslashes($id)."'", $orderedIds)).')';
+
+        $query = $this->service
+            ->with(['category.zonesBasicInfo', 'variations', 'service_discount', 'category.category_discount'])
+            ->whereIn('id', $orderedIds)
+            ->where(function ($query) {
+                $query->where(function ($query) {
+                    $query->whereDoesntHave('service_discount')
+                        ->orWhereHas('service_discount');
+                })->orWhere(function ($query) {
+                    $query->whereDoesntHave('category.category_discount')
+                        ->orWhereHas('category.category_discount');
+                });
+            })
+            ->active()
+            ->orderByRaw($orderSql);
+
+        $this->applyCustomerZoneToServiceQuery($query);
+
+        return $query->get();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function customerZoneIds(): array
+    {
+        $raw = Config::get('zone_id');
+
+        return Variation::parseZoneIdCandidates(is_string($raw) ? $raw : null);
+    }
+
+    private function applyCustomerZoneToServiceQuery($query): void
+    {
+        $zoneIds = $this->customerZoneIds();
+        if ($zoneIds === []) {
+            $query->whereRaw('0 = 1');
+
+            return;
+        }
+
+        $query->whereHas('category.zones', function ($zoneQuery) use ($zoneIds) {
+            $zoneQuery->whereIn('category_zone.zone_id', $zoneIds);
+        });
+    }
+
+    private function applyCustomerZoneToCategoryQuery($query): void
+    {
+        $zoneIds = $this->customerZoneIds();
+        if ($zoneIds === []) {
+            $query->whereRaw('0 = 1');
+
+            return;
+        }
+
+        $query->whereHas('zones', function ($zoneQuery) use ($zoneIds) {
+            $zoneQuery->whereIn('category_zone.zone_id', $zoneIds);
+        });
+    }
+
+    /**
+     * @param  list<string>  $orderedIds
+     * @return list<string>
+     */
+    private function zoneEligibleProviderIds(array $orderedIds): array
+    {
+        if ($orderedIds === []) {
+            return [];
+        }
+
+        $eligibleSet = array_flip(app(ZoneProviderEligibilityService::class)->bookingEligibleIds());
+
+        return array_values(array_filter(
+            $orderedIds,
+            static fn (string $id): bool => isset($eligibleSet[$id]),
+        ));
     }
 }

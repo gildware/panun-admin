@@ -7,7 +7,7 @@ use Modules\ZoneManagement\Entities\Zone;
 
 class CustomerHomeBaseBundleCache
 {
-    public const BASE_VERSION = 'v12';
+    public const BASE_VERSION = 'v16';
 
     public const TTL = 300;
 

@@ -7,6 +7,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Validator;
+use Modules\ServiceManagement\Services\ProviderServiceDetailsCache;
 use Modules\ServiceManagement\Entities\Faq;
 
 class FAQController extends Controller
@@ -36,13 +37,20 @@ class FAQController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $faq = $this->faq->latest()
-            ->when($request->has('service_id'), function ($query) use ($request) {
-                return $query->where('service_id', $request->service_id);
-            })
-            ->ofStatus(1)
-            ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
+        $serviceId = (string) $request['service_id'];
+        $limit = (int) $request['limit'];
+        $offset = (int) $request['offset'];
+        $cacheKey = ProviderServiceDetailsCache::faqCacheKey($serviceId, $limit, $offset);
 
-        return response()->json(response_formatter(DEFAULT_200, $faq), 200);
+        $payload = ProviderServiceDetailsCache::rememberFaq($cacheKey, function () use ($serviceId, $limit, $offset) {
+            return $this->faq->latest()
+                ->where('service_id', $serviceId)
+                ->ofStatus(1)
+                ->paginate($limit, ['*'], 'offset', $offset)
+                ->withPath('')
+                ->toArray();
+        });
+
+        return response()->json(response_formatter(DEFAULT_200, $payload ?? []), 200);
     }
 }

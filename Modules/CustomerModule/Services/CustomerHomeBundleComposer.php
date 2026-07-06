@@ -168,6 +168,10 @@ class CustomerHomeBundleComposer
                 continue;
             }
 
+            if (($section['data_mode'] ?? MobileAppManagementService::DATA_MODE_DEFAULT) === MobileAppManagementService::DATA_MODE_MANUAL) {
+                continue;
+            }
+
             $sectionKey = (string) ($section['key'] ?? '');
             if ($sectionKey === '') {
                 continue;
@@ -243,7 +247,7 @@ class CustomerHomeBundleComposer
 
         return match ($bundleKey) {
             'banners' => fn () => $this->invoke(BannerController::class, 'index', $request, ['limit' => 10, 'offset' => 1]),
-            'categories' => fn () => $this->invoke(CategoryController::class, 'index', $request, ['limit' => 100, 'offset' => 1]),
+            'categories' => fn () => $this->invoke(CategoryController::class, 'index', $request, ['limit' => 50, 'offset' => 1]),
             'popular_services' => fn () => $this->invoke(ServiceController::class, 'popular', $request, ['limit' => 10, 'offset' => 1]),
             'trending_services' => fn () => $this->invoke(ServiceController::class, 'trending', $request, ['limit' => 10, 'offset' => 1]),
             'recommended_services' => fn () => $this->invoke(ServiceController::class, 'recommended', $request, ['limit' => 10, 'offset' => 1]),
@@ -261,7 +265,7 @@ class CustomerHomeBundleComposer
                     $customerUserId,
                 )
             ),
-            'featured_categories' => fn () => $this->invoke(CategoryController::class, 'featured', $request, ['limit' => 100, 'offset' => 1]),
+            'featured_categories' => fn () => $this->invoke(CategoryController::class, 'featured', $request, ['limit' => 25, 'offset' => 1]),
             'sub_categories' => fn () => $this->invoke(SubCategoryController::class, 'index', $request, ['limit' => 8, 'offset' => 1]),
             'offline_payment_methods' => fn () => $this->invoke(OfflinePaymentController::class, 'getMethods', $request, ['limit' => 100, 'offset' => 1]),
             'recently_viewed_services' => auth('api')->check()
@@ -409,11 +413,28 @@ class CustomerHomeBundleComposer
             return [];
         }
 
+        $zoneId = Config::get('zone_id');
+        $locale = app()->getLocale();
+        $bundleActive = (bool) Config::get('customer_home_bundle_active');
+
+        $wrapped = [];
+        foreach ($tasks as $key => $task) {
+            $wrapped[$key] = static function () use ($task, $zoneId, $locale, $bundleActive) {
+                if ($zoneId) {
+                    Config::set('zone_id', $zoneId);
+                }
+                Config::set('customer_home_bundle_active', $bundleActive);
+                app()->setLocale($locale);
+
+                return $task();
+            };
+        }
+
         try {
-            return Concurrency::run($tasks);
+            return Concurrency::run($wrapped);
         } catch (\Throwable) {
             $results = [];
-            foreach ($tasks as $key => $task) {
+            foreach ($wrapped as $key => $task) {
                 $results[$key] = $task();
             }
 

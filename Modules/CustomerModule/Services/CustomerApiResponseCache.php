@@ -27,7 +27,6 @@ class CustomerApiResponseCache
      */
     public static function forgetConfigCaches(): void
     {
-        CustomerHomeContentInvalidator::bumpGlobal(scheduleWarm: false);
         BusinessConfigCache::forgetAll();
 
         $locales = [strtolower((string) app()->getLocale()), 'en'];
@@ -46,6 +45,7 @@ class CustomerApiResponseCache
             Cache::forget('provider_api_config:v1:'.$locale);
         }
 
-        CustomerHomeCacheManager::warmAfterContentChange();
+        // Bump version + schedule background warm (throttled). Do not block admin saves on warmAll().
+        CustomerHomeContentInvalidator::bumpGlobal(scheduleWarm: true);
     }
 }

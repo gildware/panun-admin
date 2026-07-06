@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Validator;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\ProviderManagement\Services\ProviderProfileChangeRequestService;
+use Modules\ProviderManagement\Services\ProviderSubCategoryPayloadSlimmer;
 
 class CategoryController extends Controller
 {
@@ -67,7 +68,10 @@ class CategoryController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $childes = $this->category->with('services')
+        $childes = $this->category
+            ->with(['services' => function ($query) {
+                $query->select('id', 'sub_category_id', 'is_active');
+            }])
             ->withCount(['services' => function ($query) {
                 $query->where('is_active', 1);
             }])
@@ -93,7 +97,7 @@ class CategoryController extends Controller
             $changeRequestService->applySubscriptionPendingFlags($child, (string) $child->id, $pendingActions);
         }
 
-        return response()->json(response_formatter(DEFAULT_200, $childes), 200);
+        return response()->json(response_formatter(DEFAULT_200, ProviderSubCategoryPayloadSlimmer::slimPaginator($childes)), 200);
     }
 
 

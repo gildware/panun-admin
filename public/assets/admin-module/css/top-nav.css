@@ -213,7 +213,9 @@ body.nav-top.open-aside-folded .main-area {
 }
 
 .top-utility-user-wrap .dropdown-menu {
+    z-index: 1085;
     margin-top: 0.35rem;
+    box-shadow: 0 8px 24px rgba(37, 39, 77, 0.18);
 }
 
 .top-utility-presence .staff-presence-menu {

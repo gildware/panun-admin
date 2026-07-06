@@ -97,6 +97,9 @@
 
 @include('adminmodule::layouts.partials._settings-sidebar')
 
+@if($adminUsesPartialNav)
+    @include('adminmodule::layouts.partials._core-js')
+@endif
 
 <main class="main-area">
     @if($adminUsesPartialNav)
@@ -130,20 +133,17 @@
     @include('adminmodule::layouts.partials._delete-modal')
 
     @if($adminUsesPartialNav)
-            {{-- Page scripts in the turbo frame need jQuery and Select2; the global bundle loads after </main>. --}}
-            <script src="{{asset('assets/admin-module')}}/js/jquery-3.6.0.min.js"></script>
-            <script src="{{asset('assets/admin-module')}}/js/bootstrap.bundle.min.js"></script>
-            <script src="{{asset('assets/admin-module')}}/js/bootstrap-jquery-modal-bridge.js?v={{$adminAssetVersion}}"></script>
-            <script src="{{asset('assets/admin-module')}}/plugins/select2/select2.min.js"></script>
             @stack('script')
         </turbo-frame>
     @endif
 </main>
 
 
+@if(!$adminUsesPartialNav)
 <script src="{{asset('assets/admin-module')}}/js/jquery-3.6.0.min.js"></script>
 <script src="{{asset('assets/admin-module')}}/js/bootstrap.bundle.min.js"></script>
 <script src="{{asset('assets/admin-module')}}/js/bootstrap-jquery-modal-bridge.js?v={{$adminAssetVersion}}"></script>
+@endif
 <script src="{{asset('assets/common')}}/plugins/cropperjs/cropper.min.js"></script>
 <script src="{{asset('assets/common')}}/js/image-crop-upload.js?v={{ @filemtime(public_path('assets/common/js/image-crop-upload.js')) ?: time() }}"></script>
 <script src="{{asset('assets/admin-module')}}/plugins/perfect-scrollbar/perfect-scrollbar.min.js"></script>
@@ -160,8 +160,9 @@
 @endif
 <script src="{{asset('assets/admin-module')}}/js/helper.js"></script>
 
-
+@if(!$adminUsesPartialNav)
 <script src="{{asset('assets/admin-module')}}/plugins/select2/select2.min.js"></script>
+@endif
 
 <script src="{{asset('assets/common')}}/js/common-image-upload.js?v={{ @filemtime(public_path('assets/common/js/common-image-upload.js')) ?: time() }}"></script>
 <script src="{{asset('assets/common')}}/js/common.js"></script>
