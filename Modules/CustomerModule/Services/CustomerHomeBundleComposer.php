@@ -4,16 +4,16 @@ namespace Modules\CustomerModule\Services;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Concurrency;
 use Modules\BusinessSettingsModule\Services\MobileAppManagementService;
 use Modules\CategoryManagement\Http\Controllers\Api\V1\Customer\CategoryController;
 use Modules\CategoryManagement\Http\Controllers\Api\V1\Customer\SubCategoryController;
 use Modules\PaymentModule\Http\Controllers\Api\V1\Customer\OfflinePaymentController;
-use Modules\PromotionManagement\Http\Controllers\Api\V1\Customer\AdvertisementsController;
 use Modules\PromotionManagement\Http\Controllers\Api\V1\Customer\BannerController;
 use Modules\PromotionManagement\Http\Controllers\Api\V1\Customer\CampaignController;
-use Modules\ProviderManagement\Http\Controllers\Api\V1\Customer\ProviderController;
+use Modules\PromotionManagement\Services\CustomerAdvertisementListFetcher;
+use Modules\ProviderManagement\Services\CustomerProviderListFetcher;
 use Modules\ServiceManagement\Http\Controllers\Api\V1\Customer\ServiceController;
 
 class CustomerHomeBundleComposer
@@ -145,17 +145,19 @@ class CustomerHomeBundleComposer
             'trending_services' => fn () => $this->invoke(ServiceController::class, 'trending', $request, ['limit' => 10, 'offset' => 1]),
             'recommended_services' => fn () => $this->invoke(ServiceController::class, 'recommended', $request, ['limit' => 10, 'offset' => 1]),
             'recommended_search' => fn () => $this->invoke(ServiceController::class, 'searchRecommended', $request),
-            'providers_full' => fn () => $this->invoke(
-                ProviderController::class,
-                'getProviderList',
-                $request,
-                ['limit' => 30, 'offset' => 1],
-                [],
-                'POST',
-                ['sort_by' => 'default', 'rating' => 0],
+            'providers_full' => fn () => $this->paginatorContent(
+                app(CustomerProviderListFetcher::class)->paginate(
+                    $this->listRequest($request, ['limit' => 30, 'offset' => 1, 'sort_by' => 'default', 'rating' => 0]),
+                    $this->customerUserId($request),
+                )
             ),
             'campaigns' => fn () => $this->invoke(CampaignController::class, 'index', $request, ['limit' => 10, 'offset' => 1]),
-            'advertisements' => fn () => $this->invoke(AdvertisementsController::class, 'AdsList', $request, ['limit' => 15, 'offset' => 1]),
+            'advertisements' => fn () => $this->paginatorContent(
+                app(CustomerAdvertisementListFetcher::class)->paginate(
+                    $this->listRequest($request, ['limit' => 15, 'offset' => 1]),
+                    $this->customerUserId($request),
+                )
+            ),
             'featured_categories' => fn () => $this->invoke(CategoryController::class, 'featured', $request, ['limit' => 100, 'offset' => 1]),
             'sub_categories' => fn () => $this->invoke(SubCategoryController::class, 'index', $request, ['limit' => 8, 'offset' => 1]),
             'offline_payment_methods' => fn () => $this->invoke(OfflinePaymentController::class, 'getMethods', $request, ['limit' => 100, 'offset' => 1]),
@@ -303,16 +305,30 @@ class CustomerHomeBundleComposer
             return [];
         }
 
-        try {
-            return Concurrency::run($tasks);
-        } catch (\Throwable) {
-            $results = [];
-            foreach ($tasks as $key => $task) {
-                $results[$key] = $task();
-            }
-
-            return $results;
+        $results = [];
+        foreach ($tasks as $key => $task) {
+            $results[$key] = $task();
         }
+
+        return $results;
+    }
+
+    private function customerUserId(Request $request): mixed
+    {
+        return auth('api')->id() ?? $request->input('guest_id') ?? $request->header('guest_id');
+    }
+
+    private function listRequest(Request $parent, array $params): Request
+    {
+        return $this->syntheticRequest($parent, $params, $params);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function paginatorContent(LengthAwarePaginator $paginator): array
+    {
+        return $paginator->toArray();
     }
 
     /**

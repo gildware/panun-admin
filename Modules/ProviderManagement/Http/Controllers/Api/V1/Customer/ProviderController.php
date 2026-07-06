@@ -15,6 +15,7 @@ use Modules\ProviderManagement\Entities\FavoriteProvider;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderShowcaseItem;
 use Modules\ProviderManagement\Entities\SubscribedService;
+use Modules\ProviderManagement\Services\CustomerProviderListFetcher;
 use Modules\ProviderManagement\Services\ProviderPackageEligibilityResolver;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ServiceManagement\Entities\FavoriteService;
@@ -72,75 +73,9 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $zoneProviderIds = $this->provider
-            ->coveringLeafZone(Config::get('zone_id'))
-            ->ofStatus(1)
-            ->where('app_availability', 1)
-            ->where('is_suspended', 0)
-            ->pluck('id')
-            ->map(fn ($id) => (string) $id)
-            ->all();
-
-        $eligibility = app(ProviderPackageEligibilityResolver::class)->preload($zoneProviderIds);
-
-        $eligibleProviderIds = array_values(array_filter(
-            $zoneProviderIds,
-            fn (string $id) => $eligibility->canAcceptNextBooking($id)
-        ));
-
-        if ($eligibleProviderIds === []) {
-            $empty = new LengthAwarePaginator([], 0, (int) $request['limit'], (int) $request['offset'], ['path' => '']);
-
-            return response()->json(response_formatter(DEFAULT_200, $empty), 200);
-        }
-
-        $providersQuery = $this->provider->with(['owner', 'subscribed_services.sub_category' => function ($query) {
-            $query->withoutGlobalScopes();
-        }])
-            ->whereIn('id', $eligibleProviderIds)
-            ->ofStatus(1)
-            ->where('app_availability', 1)
-            ->withCount(['bookings as total_service_served' => function ($query) {
-                $query->where('booking_status', 'completed');
-            }, 'subscribed_services'])
-            ->when($request->has('category_ids'), function ($query) use ($request) {
-                $query->whereHas('subscribed_services', function ($query) use ($request) {
-                    if ($request->has('category_ids')) $query->whereIn('category_id', $request['category_ids']);
-                });
-            })
-            ->when($request->has('rating'), function ($query) use ($request) {
-                $query->where('avg_rating', '>=', $request['rating']);
-            })
-            ->when($request->has('service_availability'), function ($query) use ($request) {
-                $query->where('service_availability', $request['service_availability']);
-            })
-            ->when($request->has('sort_by'), function ($query) use ($request) {
-                if ($request['sort_by'] == 'asc' || $request['sort_by'] == 'desc') {
-                    $query->orderBy('company_name', $request['sort_by']);
-                } elseif ($request['sort_by'] == 'popular') {
-                    $query->orderBy('avg_rating', 'desc');
-                }
-            })
-            ->when(!$request->has('sort_by') || $request['sort_by'] === 'default', function ($query) {
-                $query->latest();
-            })
-            ->where('is_suspended', 0);
-
-        $providers = $providersQuery->paginate($request['limit'], ['*'], 'page', $request['offset'])->withPath('');
-
-        $favoriteProviderIds = $this->favoriteProvider
-            ->where('customer_user_id', $this->customer_user_id)
-            ->whereIn('provider_id', $providers->getCollection()->pluck('id'))
-            ->pluck('provider_id')
-            ->mapWithKeys(fn ($id) => [(string) $id => true])
-            ->all();
-
-        foreach ($providers as $provider) {
-            $provider['is_favorite'] = isset($favoriteProviderIds[(string) $provider->id]) ? 1 : 0;
-        }
+        $providers = app(CustomerProviderListFetcher::class)->paginate($request, $this->customer_user_id);
 
         return response()->json(response_formatter(DEFAULT_200, $providers), 200);
-
     }
 
     /**

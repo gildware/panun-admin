@@ -24,6 +24,12 @@ class ProviderPackageEligibilityResolver
     /** @var array<string, int> */
     private array $subscriptionBookingCounts = [];
 
+    /** @var array<string, bool> */
+    private array $bookingEligibilityCache = [];
+
+    /** @var array<string, bool> */
+    private array $advertisementEligibilityCache = [];
+
     private bool $globalAdsEnabled;
 
     private int $minimumBookingsForAds;
@@ -52,12 +58,12 @@ class ProviderPackageEligibilityResolver
             ->get()
             ->keyBy(fn (PackageSubscriber $subscriber) => (string) $subscriber->provider_id);
 
-        if ($this->globalAdsEnabled) {
-            $this->providers = Provider::query()
-                ->whereIn('id', $providerIds)
-                ->get()
-                ->keyBy(fn (Provider $provider) => (string) $provider->id);
+        $this->providers = Provider::query()
+            ->whereIn('id', $providerIds)
+            ->get()
+            ->keyBy(fn (Provider $provider) => (string) $provider->id);
 
+        if ($this->globalAdsEnabled) {
             $needsBookingCount = $this->providers
                 ->filter(fn (Provider $provider) => $provider->allow_advertisement === null)
                 ->keys()
@@ -75,14 +81,26 @@ class ProviderPackageEligibilityResolver
             }
         }
 
+        $this->batchLoadSubscriptionBookingCounts($providerIds);
+
+        foreach ($providerIds as $providerId) {
+            $this->bookingEligibilityCache[$providerId] = $this->resolveCanAcceptNextBooking($providerId);
+            $this->advertisementEligibilityCache[$providerId] = $this->resolveCanShowAdvertisement($providerId);
+        }
+
+        return $this;
+    }
+
+    /**
+     * @param  list<string>  $providerIds
+     */
+    private function batchLoadSubscriptionBookingCounts(array $providerIds): void
+    {
+        $limitedMeta = [];
+
         foreach ($providerIds as $providerId) {
             $subscriber = $this->subscribers->get($providerId);
-            if (! $subscriber || ! $subscriber->payment_id) {
-                continue;
-            }
-
-            $isPaid = (bool) $subscriber->payment?->is_paid;
-            if (! $isPaid) {
+            if (! $subscriber || ! $subscriber->payment_id || ! $subscriber->payment?->is_paid) {
                 continue;
             }
 
@@ -100,22 +118,86 @@ class ProviderPackageEligibilityResolver
                 continue;
             }
 
-            $this->subscriptionBookingCounts[$providerId] = SubscriptionSubscriberBooking::query()
-                ->where('provider_id', $providerId)
-                ->where('package_subscriber_log_id', $subscriber->package_subscriber_log_id)
-                ->whereBetween(DB::raw('DATE(updated_at)'), [
-                    date('Y-m-d', strtotime($startDate)),
-                    date('Y-m-d', strtotime($endDate)),
-                ])
-                ->count();
+            $limitedMeta[$providerId] = [
+                'log_id' => (string) $subscriber->package_subscriber_log_id,
+                'start' => date('Y-m-d', strtotime($startDate)),
+                'end' => date('Y-m-d', strtotime($endDate)),
+            ];
         }
 
-        return $this;
+        if ($limitedMeta === []) {
+            return;
+        }
+
+        $providerIdsForQuery = array_keys($limitedMeta);
+        $logIds = array_values(array_unique(array_column($limitedMeta, 'log_id')));
+
+        $rows = SubscriptionSubscriberBooking::query()
+            ->select('provider_id', 'package_subscriber_log_id', DB::raw('DATE(updated_at) as usage_date'))
+            ->whereIn('provider_id', $providerIdsForQuery)
+            ->whereIn('package_subscriber_log_id', $logIds)
+            ->get();
+
+        foreach ($limitedMeta as $providerId => $meta) {
+            $this->subscriptionBookingCounts[$providerId] = $rows->filter(function ($row) use ($providerId, $meta) {
+                return (string) $row->provider_id === $providerId
+                    && (string) $row->package_subscriber_log_id === $meta['log_id']
+                    && (string) $row->usage_date >= $meta['start']
+                    && (string) $row->usage_date <= $meta['end'];
+            })->count();
+        }
     }
 
     public function canAcceptNextBooking(string $providerId): bool
     {
         $providerId = (string) $providerId;
+
+        return $this->bookingEligibilityCache[$providerId]
+            ?? ($this->bookingEligibilityCache[$providerId] = $this->resolveCanAcceptNextBooking($providerId));
+    }
+
+    public function canScheduleBooking(string $providerId): bool
+    {
+        $providerId = (string) $providerId;
+        $subscriber = $this->subscribers->get($providerId);
+
+        if (! $subscriber) {
+            return true;
+        }
+
+        if (! $subscriber->payment_id) {
+            return false;
+        }
+
+        if ($subscriber->is_canceled) {
+            return false;
+        }
+
+        $now = Carbon::now();
+        $startDate = $subscriber->package_start_date;
+        $endDate = $subscriber->package_end_date;
+
+        if (! $startDate || ! $endDate) {
+            return false;
+        }
+
+        if ($now > $endDate) {
+            return false;
+        }
+
+        return $subscriber->feature->contains(fn ($value) => $value->feature === 'schedule_service');
+    }
+
+    public function canShowAdvertisement(string $providerId): bool
+    {
+        $providerId = (string) $providerId;
+
+        return $this->advertisementEligibilityCache[$providerId]
+            ?? ($this->advertisementEligibilityCache[$providerId] = $this->resolveCanShowAdvertisement($providerId));
+    }
+
+    private function resolveCanAcceptNextBooking(string $providerId): bool
+    {
         $subscriber = $this->subscribers->get($providerId);
 
         if (! $subscriber || $subscriber->payment_id === null) {
@@ -160,45 +242,12 @@ class ProviderPackageEligibilityResolver
         return $leftBookingCount > 0;
     }
 
-    public function canScheduleBooking(string $providerId): bool
-    {
-        $providerId = (string) $providerId;
-        $subscriber = $this->subscribers->get($providerId);
-
-        if (! $subscriber) {
-            return true;
-        }
-
-        if (! $subscriber->payment_id) {
-            return false;
-        }
-
-        if ($subscriber->is_canceled) {
-            return false;
-        }
-
-        $now = Carbon::now();
-        $startDate = $subscriber->package_start_date;
-        $endDate = $subscriber->package_end_date;
-
-        if (! $startDate || ! $endDate) {
-            return false;
-        }
-
-        if ($now > $endDate) {
-            return false;
-        }
-
-        return $subscriber->feature->contains(fn ($value) => $value->feature === 'schedule_service');
-    }
-
-    public function canShowAdvertisement(string $providerId): bool
+    private function resolveCanShowAdvertisement(string $providerId): bool
     {
         if (! $this->providerCanUseAdvertisement($providerId)) {
             return false;
         }
 
-        $providerId = (string) $providerId;
         $subscriber = $this->subscribers->get($providerId);
 
         if (! $subscriber) {
@@ -235,7 +284,7 @@ class ProviderPackageEligibilityResolver
         }
 
         $providerId = (string) $providerId;
-        $provider = $this->providers->get($providerId) ?? Provider::query()->find($providerId);
+        $provider = $this->providers->get($providerId);
 
         if (! $provider) {
             return false;
@@ -253,14 +302,30 @@ class ProviderPackageEligibilityResolver
             return true;
         }
 
-        $completedBookings = $this->completedBookingCounts[$providerId] ?? null;
-        if ($completedBookings === null) {
-            $completedBookings = Booking::query()
-                ->where('provider_id', $providerId)
-                ->where('booking_status', 'completed')
-                ->count();
-        }
+        $completedBookings = $this->completedBookingCounts[$providerId] ?? 0;
 
         return $completedBookings >= $this->minimumBookingsForAds;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function filterBookingEligible(array $providerIds): array
+    {
+        return array_values(array_filter(
+            array_map('strval', $providerIds),
+            fn (string $id) => $this->canAcceptNextBooking($id)
+        ));
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function filterAdvertisementEligible(array $providerIds): array
+    {
+        return array_values(array_filter(
+            array_map('strval', $providerIds),
+            fn (string $id) => $this->canShowAdvertisement($id)
+        ));
     }
 }
