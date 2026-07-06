@@ -30,7 +30,7 @@
     <script src="{{ asset('assets/common/js/form-submit-once.js') }}"></script>
     @stack('script')
     <script>
-        $(document).ready(function () { $('.js-select').select2({ width: '100%' }); });
+        $(document).ready(function () { $('.js-select').not('.js-select-manual').select2({ width: '100%' }); });
     </script>
 </body>
 </html>

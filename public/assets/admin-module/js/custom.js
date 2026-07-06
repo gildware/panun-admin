@@ -127,7 +127,10 @@
             return true;
         }
 
-        return $(el).hasClass("zone-tree-select");
+        return (
+            $(el).hasClass("zone-tree-select") ||
+            $(el).hasClass("js-select-manual")
+        );
     }
 
     function adminSelect2OptionsFromElement($el) {
