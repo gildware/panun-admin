@@ -95,7 +95,8 @@ class Category extends Model
 
     public function zonesBasicInfo(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
-        return $this->belongsToMany(Zone::class, 'category_zone');
+        return $this->belongsToMany(Zone::class, 'category_zone')
+            ->select(['zones.id', 'zones.name', 'zones.parent_id']);
     }
 
     public function children(): \Illuminate\Database\Eloquent\Relations\HasMany
