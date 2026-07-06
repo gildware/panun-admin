@@ -3,6 +3,7 @@
 namespace Modules\CustomerModule\Services;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Concurrency;
 use Modules\BusinessSettingsModule\Services\MobileAppManagementService;
 
 class CustomerHomeBundleService
@@ -26,14 +27,11 @@ class CustomerHomeBundleService
             is_numeric($userId) ? (int) $userId : null,
         );
 
-        $cacheKey = 'customer_home_bundle:v5:'.$contentVersion.':'.$zoneId.':'.$locale.':'.$authKey;
+        $cacheKey = 'customer_home_bundle:v6:'.$contentVersion.':'.$zoneId.':'.$locale.':'.$authKey;
 
         $bundle = CustomerApiResponseCache::remember(
             $cacheKey,
-            fn () => array_merge(
-                $this->fetchPublicBundle($request),
-                array_filter($this->fetchPersonalBundle($request), fn ($value) => $value !== null)
-            ),
+            fn () => $this->fetchBundleConcurrently($request),
             CustomerApiResponseCache::HOME_BUNDLE_TTL
         );
 
@@ -62,56 +60,88 @@ class CustomerHomeBundleService
         ];
     }
 
-    private function fetchPublicBundle(Request $request): array
+    private function fetchBundleConcurrently(Request $request): array
     {
         $providerBody = ['sort_by' => 'default', 'rating' => 0];
 
-        return array_filter([
-            'banners' => $this->dispatchGet($request, '/api/v1/customer/banner', ['limit' => 10, 'offset' => 1]),
-            'categories' => $this->dispatchGet($request, '/api/v1/customer/category', ['limit' => 100, 'offset' => 1]),
-            'popular_services' => $this->dispatchGet($request, '/api/v1/customer/service/popular', ['limit' => 10, 'offset' => 1]),
-            'trending_services' => $this->dispatchGet($request, '/api/v1/customer/service/trending', ['limit' => 10, 'offset' => 1]),
-            'recommended_services' => $this->dispatchGet($request, '/api/v1/customer/service/recommended', ['limit' => 10, 'offset' => 1]),
-            'recommended_search' => $this->dispatchGet($request, '/api/v1/customer/service/search/recommended'),
-            'providers' => $this->dispatchPost(
-                $request,
-                '/api/v1/customer/provider/list',
-                $providerBody,
-                ['limit' => 10, 'offset' => 1]
-            ),
-            'nearby_providers' => $this->dispatchPost(
+        $tasks = [
+            'banners' => fn () => $this->dispatchGet($request, '/api/v1/customer/banner', ['limit' => 10, 'offset' => 1]),
+            'categories' => fn () => $this->dispatchGet($request, '/api/v1/customer/category', ['limit' => 100, 'offset' => 1]),
+            'popular_services' => fn () => $this->dispatchGet($request, '/api/v1/customer/service/popular', ['limit' => 10, 'offset' => 1]),
+            'trending_services' => fn () => $this->dispatchGet($request, '/api/v1/customer/service/trending', ['limit' => 10, 'offset' => 1]),
+            'recommended_services' => fn () => $this->dispatchGet($request, '/api/v1/customer/service/recommended', ['limit' => 10, 'offset' => 1]),
+            'recommended_search' => fn () => $this->dispatchGet($request, '/api/v1/customer/service/search/recommended'),
+            'providers_full' => fn () => $this->dispatchPost(
                 $request,
                 '/api/v1/customer/provider/list',
                 $providerBody,
                 ['limit' => 30, 'offset' => 1]
             ),
-            'campaigns' => $this->dispatchGet($request, '/api/v1/customer/campaign', ['limit' => 10, 'offset' => 1]),
-            'advertisements' => $this->dispatchGet($request, '/api/v1/customer/advertisements/ads-list', ['limit' => 50, 'offset' => 1]),
-            'featured_categories' => $this->dispatchGet($request, '/api/v1/customer/featured-categories', ['limit' => 100, 'offset' => 1]),
-            'sub_categories' => $this->dispatchGet($request, '/api/v1/customer/sub-categories', ['limit' => 8, 'offset' => 1]),
-            'offline_payment_methods' => $this->dispatchGet($request, '/api/v1/customer/offline-payment/methods', ['limit' => 100, 'offset' => 1]),
-            'curated_sections' => $this->fetchCuratedSections($request),
-        ], fn ($value) => $value !== null);
-    }
+            'campaigns' => fn () => $this->dispatchGet($request, '/api/v1/customer/campaign', ['limit' => 10, 'offset' => 1]),
+            'advertisements' => fn () => $this->dispatchGet($request, '/api/v1/customer/advertisements/ads-list', ['limit' => 15, 'offset' => 1]),
+            'featured_categories' => fn () => $this->dispatchGet($request, '/api/v1/customer/featured-categories', ['limit' => 100, 'offset' => 1]),
+            'sub_categories' => fn () => $this->dispatchGet($request, '/api/v1/customer/sub-categories', ['limit' => 8, 'offset' => 1]),
+            'offline_payment_methods' => fn () => $this->dispatchGet($request, '/api/v1/customer/offline-payment/methods', ['limit' => 100, 'offset' => 1]),
+        ];
 
-    private function fetchPersonalBundle(Request $request): array
-    {
-        if (! auth('api')->check()) {
-            return [];
-        }
-
-        return array_filter([
-            'recently_viewed_services' => $this->dispatchGet(
+        if (auth('api')->check()) {
+            $tasks['recently_viewed_services'] = fn () => $this->dispatchGet(
                 $request,
                 '/api/v1/customer/service/recently-viewed',
                 ['limit' => 10, 'offset' => 1]
-            ),
-        ], fn ($value) => $value !== null);
+            );
+        }
+
+        foreach ($this->curatedSectionTasks($request) as $taskKey => $task) {
+            $tasks[$taskKey] = $task;
+        }
+
+        $results = $this->runConcurrently($tasks);
+
+        $bundle = [];
+        foreach ([
+            'banners',
+            'categories',
+            'popular_services',
+            'trending_services',
+            'recommended_services',
+            'recommended_search',
+            'campaigns',
+            'advertisements',
+            'featured_categories',
+            'sub_categories',
+            'offline_payment_methods',
+            'recently_viewed_services',
+        ] as $key) {
+            if (($results[$key] ?? null) !== null) {
+                $bundle[$key] = $results[$key];
+            }
+        }
+
+        if (($results['providers_full'] ?? null) !== null) {
+            $bundle['providers'] = $this->sliceListContent($results['providers_full'], 10);
+            $bundle['nearby_providers'] = $results['providers_full'];
+        }
+
+        $curatedSections = [];
+        foreach ($results as $taskKey => $content) {
+            if (str_starts_with($taskKey, 'curated:') && $content !== null) {
+                $curatedSections[substr($taskKey, 8)] = $content;
+            }
+        }
+        if ($curatedSections !== []) {
+            $bundle['curated_sections'] = $curatedSections;
+        }
+
+        return $bundle;
     }
 
-    private function fetchCuratedSections(Request $request): array
+    /**
+     * @return array<string, callable(): mixed>
+     */
+    private function curatedSectionTasks(Request $request): array
     {
-        $sections = [];
+        $tasks = [];
 
         foreach ($this->mobileAppManagementService->homeSectionsForApi()['sections'] ?? [] as $section) {
             if (! ($section['enabled'] ?? false) || ($section['data_mode'] ?? 'default') !== 'manual') {
@@ -125,19 +155,20 @@ class CustomerHomeBundleService
 
             $limit = (int) ($section['item_limit'] ?? 10);
             $contentType = (string) ($section['content_type'] ?? '');
+            $taskKey = 'curated:'.$key;
 
-            $content = match (true) {
-                $contentType === MobileAppManagementService::CONTENT_SERVICES => $this->dispatchGet(
+            $tasks[$taskKey] = match (true) {
+                $contentType === MobileAppManagementService::CONTENT_SERVICES => fn () => $this->dispatchGet(
                     $request,
                     "/api/v1/customer/mobile-app-home/section/{$key}/services",
                     ['limit' => $limit, 'offset' => 1]
                 ),
-                $contentType === MobileAppManagementService::CONTENT_PROVIDERS => $this->dispatchGet(
+                $contentType === MobileAppManagementService::CONTENT_PROVIDERS => fn () => $this->dispatchGet(
                     $request,
                     "/api/v1/customer/mobile-app-home/section/{$key}/providers",
                     ['limit' => $limit, 'offset' => 1]
                 ),
-                $contentType === MobileAppManagementService::CONTENT_BANNERS => $this->dispatchGet(
+                $contentType === MobileAppManagementService::CONTENT_BANNERS => fn () => $this->dispatchGet(
                     $request,
                     "/api/v1/customer/mobile-app-home/section/{$key}/banners",
                     ['limit' => $limit, 'offset' => 1]
@@ -145,25 +176,65 @@ class CustomerHomeBundleService
                 in_array($contentType, [
                     MobileAppManagementService::CONTENT_CATEGORIES,
                     MobileAppManagementService::CONTENT_SUB_CATEGORIES,
-                ], true) => $this->dispatchGet(
+                ], true) => fn () => $this->dispatchGet(
                     $request,
                     "/api/v1/customer/mobile-app-home/section/{$key}/categories",
                     ['limit' => $limit, 'offset' => 1]
                 ),
-                $contentType === MobileAppManagementService::CONTENT_CAMPAIGNS => $this->dispatchGet(
+                $contentType === MobileAppManagementService::CONTENT_CAMPAIGNS => fn () => $this->dispatchGet(
                     $request,
                     "/api/v1/customer/mobile-app-home/section/{$key}/campaigns",
                     ['limit' => $limit, 'offset' => 1]
                 ),
-                default => null,
+                default => fn () => null,
             };
-
-            if ($content !== null) {
-                $sections[$key] = $content;
-            }
         }
 
-        return $sections;
+        return $tasks;
+    }
+
+    /**
+     * @param  array<string, callable(): mixed>  $tasks
+     * @return array<string, mixed>
+     */
+    private function runConcurrently(array $tasks): array
+    {
+        if ($tasks === []) {
+            return [];
+        }
+
+        try {
+            return Concurrency::run($tasks);
+        } catch (\Throwable) {
+            $results = [];
+            foreach ($tasks as $key => $task) {
+                $results[$key] = $task();
+            }
+
+            return $results;
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $content
+     * @return array<string, mixed>|null
+     */
+    private function sliceListContent(?array $content, int $limit): ?array
+    {
+        if ($content === null || ! isset($content['data']) || ! is_array($content['data'])) {
+            return $content;
+        }
+
+        $sliced = array_slice($content['data'], 0, $limit);
+        $content['data'] = $sliced;
+        if (isset($content['to'])) {
+            $content['to'] = min((int) $content['to'], count($sliced));
+        }
+        if (isset($content['per_page'])) {
+            $content['per_page'] = $limit;
+        }
+
+        return $content;
     }
 
     private function dispatchGet(Request $parent, string $path, array $query = []): mixed

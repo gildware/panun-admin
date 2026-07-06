@@ -4,6 +4,7 @@ namespace Modules\ProviderManagement\Http\Controllers\Api\V1\Customer;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -69,17 +70,27 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $providersIds =  $this->provider->ofStatus(1)->pluck('id');
+        $zoneProviderIds = $this->provider
+            ->coveringLeafZone(Config::get('zone_id'))
+            ->ofStatus(1)
+            ->where('app_availability', 1)
+            ->where('is_suspended', 0)
+            ->pluck('id');
 
-        $eligibleProviderIds = $providersIds->filter(function ($id) {
-            return nextBookingEligibility($id);
-        })->values()->all();
+        $eligibleProviderIds = $zoneProviderIds
+            ->filter(fn ($id) => nextBookingEligibility($id))
+            ->values()
+            ->all();
 
+        if ($eligibleProviderIds === []) {
+            $empty = new LengthAwarePaginator([], 0, (int) $request['limit'], (int) $request['offset'], ['path' => '']);
+
+            return response()->json(response_formatter(DEFAULT_200, $empty), 200);
+        }
 
         $providersQuery = $this->provider->with(['owner', 'subscribed_services.sub_category' => function ($query) {
             $query->withoutGlobalScopes();
         }])
-            ->coveringLeafZone(Config::get('zone_id'))
             ->whereIn('id', $eligibleProviderIds)
             ->ofStatus(1)
             ->where('app_availability', 1)
@@ -111,11 +122,15 @@ class ProviderController extends Controller
 
         $providers = $providersQuery->paginate($request['limit'], ['*'], 'page', $request['offset'])->withPath('');
 
+        $favoriteProviderIds = $this->favoriteProvider
+            ->where('customer_user_id', $this->customer_user_id)
+            ->whereIn('provider_id', $providers->getCollection()->pluck('id'))
+            ->pluck('provider_id')
+            ->mapWithKeys(fn ($id) => [(string) $id => true])
+            ->all();
+
         foreach ($providers as $provider) {
-            $provider['is_favorite'] = $this->favoriteProvider
-                ->where('customer_user_id', $this->customer_user_id)
-                ->where('provider_id', $provider->id)
-                ->exists() ? 1 : 0;
+            $provider['is_favorite'] = isset($favoriteProviderIds[(string) $provider->id]) ? 1 : 0;
         }
 
         return response()->json(response_formatter(DEFAULT_200, $providers), 200);

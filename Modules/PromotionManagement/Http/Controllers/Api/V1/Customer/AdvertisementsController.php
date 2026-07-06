@@ -48,9 +48,6 @@ class AdvertisementsController extends Controller
                 'showcase',
                 'provider',
                 'provider.owner',
-                'provider.subscribed_services.sub_category' => function ($query) {
-                    $query->withoutGlobalScopes();
-                },
             ])
             ->orderByRaw('ISNULL(priority), priority')
             ->ofRunning()
@@ -60,14 +57,52 @@ class AdvertisementsController extends Controller
             ->latest()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
-        $filteredAdvertisement = $advertisements->getCollection()->filter(function ($advertisement) {
-            return advertisementsEligibility($advertisement->provider_id);
+        $collection = $advertisements->getCollection();
+        $eligibilityCache = [];
+        $filteredAdvertisement = $collection->filter(function ($advertisement) use (&$eligibilityCache) {
+            $providerId = $advertisement->provider_id;
+            if (! array_key_exists($providerId, $eligibilityCache)) {
+                $eligibilityCache[$providerId] = advertisementsEligibility($providerId);
+            }
+
+            return $eligibilityCache[$providerId];
         });
 
         $advertisements->setCollection($filteredAdvertisement->values());
 
         $isCustomerLoggedIn = (bool)auth('api')->user();
         $customerUserId = $isCustomerLoggedIn ? auth('api')->user()->id : $request['guest_id'];
+        $providerIds = $advertisements->getCollection()->pluck('provider_id')->filter()->unique()->values()->all();
+
+        $favoriteProviderIds = [];
+        if ($customerUserId && $providerIds !== []) {
+            $favoriteProviderIds = $this->favoriteProvider
+                ->where('customer_user_id', $customerUserId)
+                ->whereIn('provider_id', $providerIds)
+                ->pluck('provider_id')
+                ->mapWithKeys(fn ($id) => [(string) $id => true])
+                ->all();
+        }
+
+        $showcaseProviderIds = $advertisements->getCollection()
+            ->filter(fn ($advertisement) => (int) ($advertisement?->showcase?->value ?? 0) === 1)
+            ->pluck('provider_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $showcaseItemsByProvider = $showcaseProviderIds === []
+            ? collect()
+            : ProviderShowcaseItem::query()
+                ->whereIn('provider_id', $showcaseProviderIds)
+                ->where('is_active', 1)
+                ->where('is_approved', ProviderShowcaseItem::STATUS_APPROVED)
+                ->orderByDesc('sort_order')
+                ->orderByDesc('created_at')
+                ->get()
+                ->groupBy('provider_id')
+                ->map(fn ($items) => $items->take(4)->values());
 
         foreach($advertisements as $advertisement){
             foreach ($advertisement->attachments as $attachment){
@@ -81,22 +116,14 @@ class AdvertisementsController extends Controller
             $advertisement->provider_showcase = $advertisement?->showcase?->value;
 
             if ((int) $advertisement->provider_showcase === 1) {
-                $advertisement->showcase_items = ProviderShowcaseItem::where('provider_id', $advertisement->provider_id)
-                    ->where('is_active', 1)
-                    ->where('is_approved', ProviderShowcaseItem::STATUS_APPROVED)
-                    ->orderByDesc('sort_order')
-                    ->orderByDesc('created_at')
-                    ->limit(4)
-                    ->get();
+                $advertisement->showcase_items = $showcaseItemsByProvider->get($advertisement->provider_id, collect())->values()->all();
             } else {
                 $advertisement->showcase_items = [];
             }
 
-            // Check if the provider is favorite
-            $advertisement->provider->is_favorite = $this->favoriteProvider
-                ->where('customer_user_id', $customerUserId)
-                ->where('provider_id', $advertisement->provider->id)
-                ->exists() ? 1 : 0;
+            if ($advertisement->provider) {
+                $advertisement->provider->is_favorite = isset($favoriteProviderIds[(string) $advertisement->provider->id]) ? 1 : 0;
+            }
 
             unset($advertisement->attachments, $advertisement->attachment, $advertisement->review, $advertisement->rating, $advertisement->showcase);
         }

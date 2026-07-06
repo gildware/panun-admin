@@ -20,6 +20,7 @@ use Modules\UserManagement\Entities\Guest;
 use Modules\UserManagement\Entities\User;
 use Modules\UserManagement\Entities\UserAddress;
 use Illuminate\Support\Facades\Mail;
+use Modules\CustomerModule\Services\CustomerApiResponseCache;
 use Modules\CustomerModule\Services\CustomerReferralEarningService;
 
 class CustomerController extends Controller
@@ -49,21 +50,48 @@ class CustomerController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        if (user_can_use_customer_app($request->user())) {
-            $customer = $this->customer->withCount('bookings')->where('id', auth()->user()->id)->first();
-
-            $lastIncompleteOfflineBooking = Booking::where('customer_id', auth()->user()->id)
-                ->where('payment_method', 'offline_payment')
-                ->whereNotIn('booking_status', ['completed', 'canceled'])
-                ->whereDoesntHave('booking_offline_payments')
-                ->with(['booking_offline_payments', 'booking_partial_payments'])
-                ->first();
-
-            $customer->last_incomplete_offline_booking = $lastIncompleteOfflineBooking;
-
-            return response()->json(response_formatter(DEFAULT_200, $customer), 200);
+        if (! user_can_use_customer_app($request->user())) {
+            return response()->json(response_formatter(DEFAULT_403), 401);
         }
-        return response()->json(response_formatter(DEFAULT_403), 401);
+
+        $userId = auth()->user()->id;
+
+        $customer = CustomerApiResponseCache::remember(
+            'customer_info:v1:'.$userId,
+            function () use ($userId) {
+                $customer = $this->customer
+                    ->withCount('bookings')
+                    ->where('id', $userId)
+                    ->first();
+
+                $lastIncompleteOfflineBooking = Booking::query()
+                    ->where('customer_id', $userId)
+                    ->where('payment_method', 'offline_payment')
+                    ->whereNotIn('booking_status', ['completed', 'canceled'])
+                    ->whereDoesntHave('booking_offline_payments')
+                    ->select([
+                        'id',
+                        'customer_id',
+                        'readable_id',
+                        'booking_status',
+                        'payment_method',
+                        'total_booking_amount',
+                        'created_at',
+                    ])
+                    ->with([
+                        'booking_partial_payments:id,booking_id,paid_with,paid_amount,due_amount',
+                    ])
+                    ->latest()
+                    ->first();
+
+                $customer->setAttribute('last_incomplete_offline_booking', $lastIncompleteOfflineBooking);
+
+                return $customer;
+            },
+            120
+        );
+
+        return response()->json(response_formatter(DEFAULT_200, $customer), 200);
     }
 
     /**
@@ -125,6 +153,8 @@ class CustomerController extends Controller
         }
 
         $customer->save();
+
+        CustomerApiResponseCache::forgetCustomerInfo($customer->id);
 
         return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
     }

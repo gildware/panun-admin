@@ -17,6 +17,11 @@ class CustomerApiResponseCache
         return Cache::remember($key, $ttl, $callback);
     }
 
+    public static function forgetCustomerInfo(int|string $userId): void
+    {
+        Cache::forget('customer_info:v1:'.$userId);
+    }
+
     /**
      * Clear cached customer/provider config payloads (e.g. after mobile app icons or home layout change).
      */
