@@ -132,14 +132,43 @@ class CustomerHomeBundleComposer
             $keys[] = 'providers_full';
         }
 
-        $keys[] = 'sub_categories';
-        $keys[] = 'offline_payment_methods';
+        if ($this->needsDefaultSubCategories()) {
+            $keys[] = 'sub_categories';
+        }
+
+        if ($this->needsOfflinePaymentMethods()) {
+            $keys[] = 'offline_payment_methods';
+        }
 
         if (auth('api')->check()) {
             $keys[] = 'recently_viewed_services';
         }
 
         return array_values(array_unique($keys));
+    }
+
+    private function needsDefaultSubCategories(): bool
+    {
+        foreach ($this->mobileAppManagementService->homeSectionsForApi()['sections'] ?? [] as $section) {
+            if (! ($section['enabled'] ?? false)) {
+                continue;
+            }
+
+            if (($section['data_mode'] ?? MobileAppManagementService::DATA_MODE_DEFAULT) !== MobileAppManagementService::DATA_MODE_DEFAULT) {
+                continue;
+            }
+
+            if (($section['content_type'] ?? '') === MobileAppManagementService::CONTENT_SUB_CATEGORIES) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function needsOfflinePaymentMethods(): bool
+    {
+        return (int) (business_config('offline_payment', 'service_setup')?->live_values ?? 0) === 1;
     }
 
     private function taskForBundleKey(string $bundleKey, Request $request): ?callable
@@ -309,6 +338,15 @@ class CustomerHomeBundleComposer
     {
         if ($tasks === []) {
             return [];
+        }
+
+        if (config('cache.default') !== 'redis') {
+            $results = [];
+            foreach ($tasks as $key => $task) {
+                $results[$key] = $task();
+            }
+
+            return $results;
         }
 
         try {

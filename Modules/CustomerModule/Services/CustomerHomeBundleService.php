@@ -3,10 +3,15 @@
 namespace Modules\CustomerModule\Services;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Modules\BusinessSettingsModule\Services\MobileAppManagementService;
 
 class CustomerHomeBundleService
 {
+    public const BUNDLE_CACHE_VERSION = 'v10';
+
+    public const VERSION_CACHE_TTL = 30;
+
     public function __construct(
         protected MobileAppManagementService $mobileAppManagementService,
         protected CustomerHomeBundleComposer $bundleComposer,
@@ -16,9 +21,7 @@ class CustomerHomeBundleService
     {
         $zoneId = (string) ($request->header('zoneId') ?? $request->header('zoneid') ?? '');
         $locale = strtolower((string) $request->header('X-localization', app()->getLocale()));
-        $authKey = auth('api')->check()
-            ? 'user:'.auth('api')->id()
-            : 'guest:'.(string) ($request->input('guest_id') ?? $request->header('guest_id') ?? 'anon');
+        $authKey = $this->authCacheKey($request);
 
         $layoutHash = $this->layoutHash();
         $userId = auth('api')->id();
@@ -27,7 +30,7 @@ class CustomerHomeBundleService
             is_numeric($userId) ? (int) $userId : null,
         );
 
-        $cacheKey = 'customer_home_bundle:v9:'.$contentVersion.':'.$zoneId.':'.$locale.':'.$authKey;
+        $cacheKey = 'customer_home_bundle:'.self::BUNDLE_CACHE_VERSION.':'.$contentVersion.':'.$zoneId.':'.$locale.':'.$authKey;
 
         $bundle = CustomerApiResponseCache::remember(
             $cacheKey,
@@ -50,13 +53,31 @@ class CustomerHomeBundleService
     {
         $layoutHash = $this->layoutHash();
         $userId = auth('api')->id();
+        $zoneId = (string) ($request->header('zoneId') ?? $request->header('zoneid') ?? 'no_zone');
+        $authKey = $this->authCacheKey($request);
 
-        return [
-            'version' => CustomerHomeContentVersion::resolveForRequest(
-                $layoutHash,
-                is_numeric($userId) ? (int) $userId : null,
-            ),
-            'layout_hash' => $layoutHash,
-        ];
+        $cacheKey = 'customer_home_bundle_version:v1:'.$zoneId.':'.$authKey.':'.$layoutHash;
+
+        return Cache::remember(
+            $cacheKey,
+            self::VERSION_CACHE_TTL,
+            fn () => [
+                'version' => CustomerHomeContentVersion::resolveForRequest(
+                    $layoutHash,
+                    is_numeric($userId) ? (int) $userId : null,
+                ),
+                'layout_hash' => $layoutHash,
+            ],
+        );
+    }
+
+    private function authCacheKey(Request $request): string
+    {
+        if (auth('api')->check()) {
+            return 'user:'.auth('api')->id();
+        }
+
+        return 'guest:shared';
     }
 }
+
