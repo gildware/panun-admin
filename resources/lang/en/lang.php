@@ -9931,4 +9931,7 @@ _Message' => 'Customer notification for provider bid offer
   'zone_wise_price' => 'Zone wise price',
   'sub_categories' => 'Sub categories',
   'On Hold' => 'On Hold',
+  'Reset_and_rebuild_customer_home_cache' => 'Reset and rebuild customer home cache',
+  'Reset_home_cache' => 'Reset home cache',
+  'Home_cache_reset_and_warmed_successfully' => 'Home cache reset and warmed successfully',
 );
