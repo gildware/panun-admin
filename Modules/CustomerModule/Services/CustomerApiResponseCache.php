@@ -17,12 +17,16 @@ class CustomerApiResponseCache
         return Cache::remember($key, $ttl, $callback);
     }
 
+    public static function forgetCustomerInfo(int|string $userId): void
+    {
+        Cache::forget('customer_info:v1:'.$userId);
+    }
+
     /**
      * Clear cached customer/provider config payloads (e.g. after mobile app icons or home layout change).
      */
     public static function forgetConfigCaches(): void
     {
-        CustomerHomeContentVersion::bumpGlobal();
         BusinessConfigCache::forgetAll();
 
         $locales = [strtolower((string) app()->getLocale()), 'en'];
@@ -40,5 +44,8 @@ class CustomerApiResponseCache
             Cache::forget('customer_api_config:v2:'.$locale);
             Cache::forget('provider_api_config:v1:'.$locale);
         }
+
+        // Bump version + schedule background warm (throttled). Do not block admin saves on warmAll().
+        CustomerHomeContentInvalidator::bumpGlobal(scheduleWarm: true);
     }
 }

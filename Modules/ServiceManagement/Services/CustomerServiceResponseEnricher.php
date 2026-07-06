@@ -25,6 +25,7 @@ class CustomerServiceResponseEnricher
             return;
         }
 
+        $includeTax = $includeTax && ! (bool) Config::get('customer_home_bundle_active');
         $serviceIds = $collection->pluck('id')->filter()->map(fn ($id) => (string) $id)->values()->all();
         $favoriteIds = self::favoriteServiceIds($customerUserId, $serviceIds);
         $variationFormats = Variation::variationsAppFormatForManyServices($serviceIds);

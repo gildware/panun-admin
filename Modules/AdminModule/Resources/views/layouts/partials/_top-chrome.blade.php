@@ -65,6 +65,8 @@
                 </ul>
             </div>
 
+            @include('adminmodule::layouts.partials._home-cache-reset-btn')
+
             <button type="button" id="modalOpener" class="top-utility-action-btn top-utility-search-btn" data-bs-toggle="modal" data-bs-target="#staticBackdrop" title="{{ translate('Search') }} (Ctrl+K)">
                 <span class="material-symbols-outlined">search</span>
                 <span class="top-utility-search-label">{{ translate('Search') }}</span>

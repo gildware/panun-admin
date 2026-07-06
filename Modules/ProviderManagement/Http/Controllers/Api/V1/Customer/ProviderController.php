@@ -4,6 +4,7 @@ namespace Modules\ProviderManagement\Http\Controllers\Api\V1\Customer;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -14,10 +15,17 @@ use Modules\ProviderManagement\Entities\FavoriteProvider;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderShowcaseItem;
 use Modules\ProviderManagement\Entities\SubscribedService;
+use Modules\ProviderManagement\Services\CustomerProviderDetailsCache;
+use Modules\ProviderManagement\Services\CustomerProviderDetailsPayloadSlimmer;
+use Modules\CustomerModule\Services\CustomerProviderPayloadSlimmer;
+use Modules\ProviderManagement\Services\CustomerProviderDetailsService;
+use Modules\ProviderManagement\Services\CustomerProviderListFetcher;
+use Modules\ProviderManagement\Services\ProviderPackageEligibilityResolver;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ServiceManagement\Entities\FavoriteService;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\ServiceManagement\Entities\Variation;
+use Modules\ServiceManagement\Services\CustomerServiceResponseEnricher;
 
 class ProviderController extends Controller
 {
@@ -30,6 +38,9 @@ class ProviderController extends Controller
     private Variation $variation;
     private FavoriteProvider $favoriteProvider;
     private FavoriteService $favoriteService;
+    private Review $review;
+    private bool $is_customer_logged_in;
+    private string|int|null $customer_user_id;
 
     public function __construct(Provider $provider, Review $review, Category $category, SubscribedService $subscribed_service, Booking $booking, Service $service, Variation $variation, FavoriteProvider $favoriteProvider, FavoriteService $favoriteService, Request $request)
     {
@@ -69,57 +80,11 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $providersIds =  $this->provider->ofStatus(1)->pluck('id');
-
-        $eligibleProviderIds = $providersIds->filter(function ($id) {
-            return nextBookingEligibility($id);
-        })->values()->all();
-
-
-        $providersQuery = $this->provider->with(['owner', 'subscribed_services.sub_category' => function ($query) {
-            $query->withoutGlobalScopes();
-        }])
-            ->coveringLeafZone(Config::get('zone_id'))
-            ->whereIn('id', $eligibleProviderIds)
-            ->ofStatus(1)
-            ->where('app_availability', 1)
-            ->withCount(['bookings as total_service_served' => function ($query) {
-                $query->where('booking_status', 'completed');
-            }, 'subscribed_services'])
-            ->when($request->has('category_ids'), function ($query) use ($request) {
-                $query->whereHas('subscribed_services', function ($query) use ($request) {
-                    if ($request->has('category_ids')) $query->whereIn('category_id', $request['category_ids']);
-                });
-            })
-            ->when($request->has('rating'), function ($query) use ($request) {
-                $query->where('avg_rating', '>=', $request['rating']);
-            })
-            ->when($request->has('service_availability'), function ($query) use ($request) {
-                $query->where('service_availability', $request['service_availability']);
-            })
-            ->when($request->has('sort_by'), function ($query) use ($request) {
-                if ($request['sort_by'] == 'asc' || $request['sort_by'] == 'desc') {
-                    $query->orderBy('company_name', $request['sort_by']);
-                } elseif ($request['sort_by'] == 'popular') {
-                    $query->orderBy('avg_rating', 'desc');
-                }
-            })
-            ->when(!$request->has('sort_by') || $request['sort_by'] === 'default', function ($query) {
-                $query->latest();
-            })
-            ->where('is_suspended', 0);
-
-        $providers = $providersQuery->paginate($request['limit'], ['*'], 'page', $request['offset'])->withPath('');
-
-        foreach ($providers as $provider) {
-            $provider['is_favorite'] = $this->favoriteProvider
-                ->where('customer_user_id', $this->customer_user_id)
-                ->where('provider_id', $provider->id)
-                ->exists() ? 1 : 0;
-        }
+        $providers = CustomerProviderPayloadSlimmer::slimPaginator(
+            app(CustomerProviderListFetcher::class)->paginate($request, $this->customer_user_id)
+        );
 
         return response()->json(response_formatter(DEFAULT_200, $providers), 200);
-
     }
 
     /**
@@ -138,98 +103,18 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $provider = $this->provider->with('owner')->withCount(['bookings as total_service_served' => function($query) {
-            $query->where('booking_status', 'completed');
-        }, 'subscribed_services'])->find($request['id']);
+        $detailsService = app(CustomerProviderDetailsService::class);
+        $provider = $detailsService->findProvider($request['id']);
 
-        if (!isset($provider)) return response()->json(response_formatter(DEFAULT_404), 404);
-
-        $provider['is_favorite'] = $this->favoriteProvider
-            ->where('customer_user_id', $this->customer_user_id)
-            ->where('provider_id', $provider->id)
-            ->exists() ? 1 : 0;
-
-        $review = $this->review
-            ->with('customer', 'reviewReply')
-            ->where('provider_id', $provider->id)
-            ->where('review_comment', '!=', null)
-            ->ofStatus(1)
-            ->latest()
-            ->paginate($request['limit'], ['*'], 'page', $request['offset'])
-            ->withPath('');
-
-        $timeSchedule = provider_config('time_schedule', 'service_schedule', $provider['id'])?->live_values;
-        $weekEnds = provider_config('weekends', 'service_schedule', $provider['id'])->live_values ?? '';
-        $weekEnds = json_decode($weekEnds);
-        $timeSchedule = json_decode($timeSchedule);
-
-        $provider['time_schedule'] = $timeSchedule ?? null;
-        $provider['weekends'] = $weekEnds ?? [];
-
-
-        $provider['nextBookingEligibility'] = nextBookingEligibility($provider->id);
-        $provider['scheduleBookingEligibility'] = scheduleBookingEligibility($provider->id);
-
-
-        $limitStatus = provider_warning_amount_calculate($provider?->owner?->account->account_payable, $provider?->owner?->account->account_receivable);
-        $provider['cash_limit_status'] = $limitStatus == false ? 'available' : $limitStatus;
-
-        $subscribedSubCategoryIds = $this->subscribed_service
-            ->ofStatus(1)
-            ->where('provider_id', $provider->id)
-            ->pluck('sub_category_id')
-            ->toArray();
-
-        $subCategories = $this->category->withoutGlobalScopes()
-            ->select([
-                'id',
-                'parent_id',
-                'name',
-                'slug',
-                'image',
-                'position',
-                'description',
-                'is_active',
-                'is_featured',
-                'created_at',
-                'updated_at',
-            ])
-            ->whereHas('services', function ($query) {
-                $query->ofStatus(1);
-            })
-            ->whereIn('id', $subscribedSubCategoryIds)
-            ->get();
-
-        $ratingGroupCount = DB::table('reviews')->where('provider_id', $provider->id)
-            ->where('is_active', 1)
-            ->select('review_rating', DB::raw('count(review_comment) as total_comment'), DB::raw('count(*) as total'))
-            ->groupBy('review_rating')
-            ->get();
-
-        $totalRating = 0;
-        $ratingCount = 0;
-        $reviewCount = 0;
-
-        foreach ($ratingGroupCount as $count) {
-            $totalRating += round($count->review_rating * $count->total, 2);
-            $ratingCount += $count->total;
-            $reviewCount += $count->total_comment;
+        if (!isset($provider)) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
         }
 
-        $ratingInfo = [
-            'rating_count' => $ratingCount,
-            'review_count' => $reviewCount,
-            'average_rating' => round(divnum($totalRating, $ratingCount), 2),
-            'rating_group_count' => $ratingGroupCount,
-        ];
-
-        $showcaseItems = ProviderShowcaseItem::where('provider_id', $provider->id)
-            ->with('storage')
-            ->where('is_active', 1)
-            ->where('is_approved', ProviderShowcaseItem::STATUS_APPROVED)
-            ->orderByDesc('sort_order')
-            ->orderByDesc('created_at')
-            ->get();
+        $provider = $detailsService->enrichProvider($provider, $this->customer_user_id);
+        $subCategories = $detailsService->getSubCategoriesWithServices($provider->id, $this->customer_user_id);
+        $review = $detailsService->getReviews($provider->id, (int) $request['limit'], (int) $request['offset']);
+        $ratingInfo = $detailsService->getRatingInfo($provider->id);
+        $showcaseItems = $detailsService->getShowcaseItems($provider->id);
 
         return response()->json(response_formatter(DEFAULT_200, [
             'provider' => $provider,
@@ -238,6 +123,159 @@ class ProviderController extends Controller
             'rating' => $ratingInfo,
             'showcase_items' => $showcaseItems,
         ]), 200);
+    }
+
+    public function getProviderDetailsSummary(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|uuid',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $providerId = (string) $request['id'];
+        $cacheKey = CustomerProviderDetailsCache::summaryCacheKey($request, $providerId, $this->customer_user_id);
+
+        $payload = CustomerProviderDetailsCache::rememberSummary($cacheKey, function () use ($providerId) {
+            $detailsService = app(CustomerProviderDetailsService::class);
+            $provider = $detailsService->findProviderForSummary($providerId);
+
+            if (! isset($provider)) {
+                return null;
+            }
+
+            $provider = $detailsService->enrichProviderForSummary($provider, $this->customer_user_id);
+
+            return [
+                'provider' => CustomerProviderPayloadSlimmer::slimSummaryItem($provider->toArray()),
+                'rating' => $detailsService->getRatingInfo($provider->id),
+            ];
+        });
+
+        if ($payload === null) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        return response()->json(response_formatter(DEFAULT_200, $payload), 200);
+    }
+
+    public function getProviderDetailsServices(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|uuid',
+            'limit_per_category' => 'nullable|integer|min:1|max:50',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $detailsService = app(CustomerProviderDetailsService::class);
+        $providerId = (string) $request['id'];
+
+        if (! $detailsService->providerExists($providerId)) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        $limitPerCategory = $request->filled('limit_per_category')
+            ? (int) $request->query('limit_per_category')
+            : null;
+
+        $cacheKey = CustomerProviderDetailsCache::servicesCacheKey(
+            $request,
+            $providerId,
+            $this->customer_user_id,
+            $limitPerCategory
+        );
+
+        $payload = CustomerProviderDetailsCache::rememberServices($cacheKey, function () use ($detailsService, $providerId, $limitPerCategory) {
+            $subCategories = $detailsService->getSubCategoriesWithServices(
+                $providerId,
+                $this->customer_user_id,
+                $limitPerCategory
+            );
+
+            return [
+                'sub_categories' => CustomerProviderDetailsPayloadSlimmer::slimSubCategories($subCategories),
+            ];
+        });
+
+        return response()->json(response_formatter(DEFAULT_200, $payload), 200);
+    }
+
+    public function getProviderDetailsReviews(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|uuid',
+            'limit' => 'required|numeric|min:1|max:200',
+            'offset' => 'required|numeric|min:1|max:100000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $detailsService = app(CustomerProviderDetailsService::class);
+
+        if (! $detailsService->providerExists($request['id'])) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        $providerId = (string) $request['id'];
+        $limit = (int) $request['limit'];
+        $offset = (int) $request['offset'];
+
+        $cacheKey = CustomerProviderDetailsCache::reviewsCacheKey($request, $providerId, $limit, $offset);
+
+        $payload = CustomerProviderDetailsCache::rememberReviews($cacheKey, function () use ($detailsService, $providerId, $limit, $offset) {
+            $reviews = $detailsService->getReviews($providerId, $limit, $offset);
+            $rating = $detailsService->getRatingInfo($providerId);
+
+            return CustomerProviderDetailsPayloadSlimmer::slimReviewsPayload(
+                $reviews->toArray(),
+                $rating
+            );
+        });
+
+        if ($payload === null) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        return response()->json(response_formatter(DEFAULT_200, $payload), 200);
+    }
+
+    public function getProviderDetailsShowcase(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|uuid',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $detailsService = app(CustomerProviderDetailsService::class);
+        $providerId = (string) $request['id'];
+
+        if (! $detailsService->providerExists($providerId)) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        $cacheKey = CustomerProviderDetailsCache::showcaseCacheKey($request, $providerId);
+
+        $payload = CustomerProviderDetailsCache::rememberShowcase($cacheKey, function () use ($detailsService, $providerId) {
+            $items = $detailsService->getShowcaseItems($providerId);
+
+            return [
+                'showcase_items' => CustomerProviderDetailsPayloadSlimmer::slimShowcaseItems(
+                    collect($items)->map(fn ($item) => is_array($item) ? $item : $item->toArray())->all()
+                ),
+            ];
+        });
+
+        return response()->json(response_formatter(DEFAULT_200, $payload), 200);
     }
 
     /**

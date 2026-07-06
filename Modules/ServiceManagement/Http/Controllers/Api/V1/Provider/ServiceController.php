@@ -9,8 +9,11 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Modules\ProviderManagement\Entities\SubscribedService;
+use Modules\ProviderManagement\Services\ProviderServicePayloadSlimmer;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ReviewModule\Entities\ReviewReply;
+use Modules\ProviderManagement\Services\CustomerProviderDetailsPayloadSlimmer;
+use Modules\ServiceManagement\Services\ProviderServiceDetailsCache;
 use Modules\ServiceManagement\Entities\Service;
 
 class ServiceController extends Controller
@@ -56,7 +59,7 @@ class ServiceController extends Controller
                 }
             })->pluck('sub_category_id')->toArray();
 
-        $services = $this->service->with(['category.zonesBasicInfo'])->latest()
+        $services = $this->service->with(ProviderServicePayloadSlimmer::listEagerRelations())->latest()
             ->whereIn('sub_category_id', $ids)
             ->orWhereIn('category_id', $ids)
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
@@ -65,7 +68,7 @@ class ServiceController extends Controller
             return response()->json(response_formatter(DEFAULT_204), 204);
         }
 
-        return response()->json(response_formatter(DEFAULT_200, $services), 200);
+        return response()->json(response_formatter(DEFAULT_200, ProviderServicePayloadSlimmer::slimPaginator($services)), 200);
     }
 
     /**
@@ -85,50 +88,73 @@ class ServiceController extends Controller
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
-        $reviews = $this->review->with(['booking.detail','provider', 'customer','reviewReply','service'])
-            ->where('service_id', $service_id)
-            ->where('provider_id', auth()->user()->provider->id)
-            ->latest()
-            ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
+        $limit = (int) $request['limit'];
+        $offset = (int) $request['offset'];
+        $status = (string) $request['status'];
+        $providerId = (string) auth()->user()->provider->id;
+        $cacheKey = ProviderServiceDetailsCache::reviewsCacheKey($service_id, $providerId, $status, $limit, $offset);
 
-        $ratingGroupCount = DB::table('reviews')->where('service_id', $service_id)
-            ->where('is_active', 1)
-            ->select('review_rating', DB::raw('count(review_comment) as total_comment'), DB::raw('count(*) as total'))
-            ->groupBy('review_rating')
-            ->get();
+        $payload = ProviderServiceDetailsCache::rememberReviews($cacheKey, function () use ($request, $service_id, $providerId, $status, $limit, $offset) {
+            $reviewsQuery = $this->review->with(['customer', 'reviewReply'])
+                ->where('service_id', $service_id)
+                ->where('provider_id', $providerId);
 
-        $activeReviews = DB::table('reviews')->where('service_id', $service_id)
-            ->where('is_active', 1)
-            ->select('review_rating', DB::raw('count(*) as total'))
-            ->groupBy('review_rating')
-            ->get();
+            if ($status === 'active') {
+                $reviewsQuery->where('is_active', 1);
+            } elseif ($status === 'inactive') {
+                $reviewsQuery->where('is_active', 0);
+            }
 
-        $totalRating = 0;
-        $ratingCount = 0;
-        $reviewCount = 0;
+            $reviews = $reviewsQuery->latest()
+                ->paginate($limit, ['*'], 'offset', $offset)
+                ->withPath('');
 
-        foreach ($ratingGroupCount as $count) {
-            $totalRating += round($count->review_rating * $count->total, 2);
-            $ratingCount += $count->total;
-            $reviewCount += $count->total_comment;
-        }
+            $ratingGroupCount = DB::table('reviews')->where('service_id', $service_id)
+                ->where('provider_id', $providerId)
+                ->where('is_active', 1)
+                ->select('review_rating', DB::raw('count(review_comment) as total_comment'), DB::raw('count(*) as total'))
+                ->groupBy('review_rating')
+                ->get();
 
-        $totalActiveRating = 0;
-        $activeRatingCount = 0;
+            $activeReviews = DB::table('reviews')->where('service_id', $service_id)
+                ->where('provider_id', $providerId)
+                ->where('is_active', 1)
+                ->select('review_rating', DB::raw('count(*) as total'))
+                ->groupBy('review_rating')
+                ->get();
 
-        foreach ($activeReviews as $activeReview) {
-            $totalActiveRating += round($activeReview->review_rating * $activeReview->total, 2);
-            $activeRatingCount += $activeReview->total;
-        }
+            $totalRating = 0;
+            $ratingCount = 0;
+            $reviewCount = 0;
 
-        $ratingInfo = [
-            'rating_count' => $ratingCount,
-            'review_count' => $reviewCount,
-            'average_rating' => $activeRatingCount > 0 ? round($totalActiveRating / $activeRatingCount, 2) : 0,
-            'rating_group_count' => $ratingGroupCount,
-        ];
+            foreach ($ratingGroupCount as $count) {
+                $totalRating += round($count->review_rating * $count->total, 2);
+                $ratingCount += $count->total;
+                $reviewCount += $count->total_comment;
+            }
 
-        return response()->json(response_formatter(DEFAULT_200, ['reviews' => $reviews, 'rating' => $ratingInfo]), 200);
+            $totalActiveRating = 0;
+            $activeRatingCount = 0;
+
+            foreach ($activeReviews as $activeReview) {
+                $totalActiveRating += round($activeReview->review_rating * $activeReview->total, 2);
+                $activeRatingCount += $activeReview->total;
+            }
+
+            $ratingInfo = [
+                'rating_count' => $ratingCount,
+                'review_count' => $reviewCount,
+                'average_rating' => $activeRatingCount > 0 ? round($totalActiveRating / $activeRatingCount, 2) : 0,
+                'rating_group_count' => $ratingGroupCount,
+            ];
+
+            return CustomerProviderDetailsPayloadSlimmer::slimReviewsPayload(
+                $reviews->toArray(),
+                $ratingInfo
+            );
+        });
+
+        return response()->json(response_formatter(DEFAULT_200, $payload ?? ['reviews' => [], 'rating' => []]), 200);
 
     }
 
@@ -140,15 +166,28 @@ class ServiceController extends Controller
      */
     public function show(string $id): JsonResponse
     {
-        $service = $this->service->where('id', $id)->with([
-            'category.children',
-            'variations',
-            'serviceVariants.storage_image',
-        ])->first();
-        if (isset($service)) {
+        $providerId = (string) auth()->user()->provider->id;
+        $cacheKey = ProviderServiceDetailsCache::detailCacheKey(request(), $id, $providerId);
+
+        $payload = ProviderServiceDetailsCache::rememberDetail($cacheKey, function () use ($id) {
+            $service = $this->service->where('id', $id)->with([
+                'variations',
+                'serviceVariants.storage_image',
+            ])->first();
+
+            if (! isset($service)) {
+                return null;
+            }
+
             $service = self::variationsReactFormat($service);
-            return response()->json(response_formatter(DEFAULT_200, $service), 200);
+
+            return is_array($service) ? $service : $service->toArray();
+        });
+
+        if ($payload !== null) {
+            return response()->json(response_formatter(DEFAULT_200, $payload), 200);
         }
+
         return response()->json(response_formatter(DEFAULT_204), 200);
     }
 
@@ -271,7 +310,7 @@ class ServiceController extends Controller
 
         if (!request()?->user()?->provider) return response()->json(response_formatter(DEFAULT_403), 403);
 
-        $services = $this->service->with(['variations', 'category.zonesBasicInfo'])->latest()
+        $services = $this->service->with(ProviderServicePayloadSlimmer::listEagerRelations())->latest()
             ->whereHas('subCategory', fn ($query) => $query->where('sub_category_id', $request['sub_category_id']))
             ->when($request->has('search'), function ($query) use ($request){
                 $keys = explode(' ', $request['search']);
@@ -287,7 +326,7 @@ class ServiceController extends Controller
 
         if (!isset($services)) return response()->json(response_formatter(DEFAULT_404), 404);
 
-        return response()->json(response_formatter(DEFAULT_200, $services), 200);
+        return response()->json(response_formatter(DEFAULT_200, ProviderServicePayloadSlimmer::slimPaginator($services)), 200);
     }
 
     /**

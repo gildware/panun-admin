@@ -45,7 +45,7 @@
                         <a href="{{ route('admin.dashboard') }}" class="btn btn-outline-secondary btn-sm">
                             <span class="material-icons">arrow_back</span>
                         </a>
-                        <h2 class="page-title mb-0">Booking Follow-ups- Pending Till Today's ({{ $totalFollowups ?? 0 }})</h2>
+                        <h2 class="page-title mb-0">Booking Followups Pending Till Today ({{ $totalFollowups ?? 0 }})</h2>
                     </div>
 
                     <div class="card mb-3">
@@ -71,6 +71,39 @@
                                                 @endphp
                                                 <option value="{{ $assignee->id }}" {{ (string) $assignee->id === (string) ($selectedAssigneeId ?? '') ? 'selected' : '' }}>
                                                     {{ $label }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6">
+                                        <label class="mb-2">{{ translate('Follow_up_for') }}</label>
+                                        <select name="for" class="form-select">
+                                            <option value="">{{ translate('All') }}</option>
+                                            @foreach($followUpForOptions ?? [] as $followUpFor)
+                                                <option value="{{ $followUpFor }}" {{ (string) $followUpFor === (string) ($selectedFollowUpFor ?? '') ? 'selected' : '' }}>
+                                                    {{ translate(ucfirst($followUpFor)) }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6">
+                                        <label class="mb-2">{{ translate('Booking_Status') }}</label>
+                                        <select name="booking_status" class="form-select">
+                                            <option value="">{{ translate('All') }}</option>
+                                            @foreach($bookingStatusOptions ?? [] as $bookingStatus)
+                                                <option value="{{ $bookingStatus }}" {{ (string) $bookingStatus === (string) ($selectedBookingStatus ?? '') ? 'selected' : '' }}>
+                                                    {{ translate(ucwords(str_replace('_', ' ', $bookingStatus))) }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6">
+                                        <label class="mb-2">{{ translate('Urgency') }}</label>
+                                        <select name="urgency" class="form-select">
+                                            <option value="">{{ translate('All') }}</option>
+                                            @foreach($urgencyOptions ?? [] as $urgency)
+                                                <option value="{{ $urgency }}" {{ (string) $urgency === (string) ($selectedUrgency ?? '') ? 'selected' : '' }}>
+                                                    {{ translate(ucfirst($urgency)) }}
                                                 </option>
                                             @endforeach
                                         </select>
@@ -151,14 +184,15 @@
                                                             @php($totalMinutes = (int) round(abs($due->diffInMinutes(\Carbon\Carbon::now()))))
                                                             @php($dueDays = intdiv($totalMinutes, 1440))
                                                             @php($dueHours = intdiv($totalMinutes % 1440, 60))
+                                                            @php($timeLabel = $due->isPast() ? translate('before') : translate('within'))
                                                             @if($dueDays > 0 && $dueHours > 0)
-                                                                {{ $dueDays }} {{ translate('days') }} {{ $dueHours }} {{ translate('hours') }} {{ translate('before') }}
+                                                                {{ $timeLabel }} {{ $dueDays }} {{ translate('days') }} {{ $dueHours }} {{ translate('hours') }}
                                                             @elseif($dueDays > 0)
-                                                                {{ $dueDays }} {{ translate('days') }} {{ translate('before') }}
+                                                                {{ $timeLabel }} {{ $dueDays }} {{ translate('days') }}
                                                             @elseif($dueHours > 0)
-                                                                {{ $dueHours }} {{ translate('hours') }} {{ translate('before') }}
+                                                                {{ $timeLabel }} {{ $dueHours }} {{ translate('hours') }}
                                                             @else
-                                                                {{ translate('less_than_an_hour') }}
+                                                                {{ $timeLabel }} {{ translate('less_than_an_hour') }}
                                                             @endif
                                                             <br><span class="small text-muted">{{ $due->format('d M Y, h:i A') }}</span>
                                                         @endif

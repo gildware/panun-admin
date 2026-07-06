@@ -2375,8 +2375,25 @@ class BookingController extends Controller
         $this->authorize('booking_view');
 
         $selectedAssigneeId = (string) $request->input('assignee_id', '');
+        $selectedFollowUpFor = (string) $request->input('for', '');
+        $selectedBookingStatus = (string) $request->input('booking_status', '');
+        $selectedUrgency = (string) $request->input('urgency', '');
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
+
+        $followUpForOptions = ['customer', 'provider'];
+        $bookingStatusOptions = Booking::STATUSES_FOR_SCHEDULED_FOLLOWUP_LISTS;
+        $urgencyOptions = \Modules\BookingModule\Entities\BookingFollowup::URGENCIES;
+
+        if (!in_array($selectedFollowUpFor, $followUpForOptions, true)) {
+            $selectedFollowUpFor = '';
+        }
+        if (!in_array($selectedBookingStatus, $bookingStatusOptions, true)) {
+            $selectedBookingStatus = '';
+        }
+        if (!in_array($selectedUrgency, $urgencyOptions, true)) {
+            $selectedUrgency = '';
+        }
 
         $effectiveTo = Carbon::today()->toDateString();
         if ($dateTo) {
@@ -2392,8 +2409,12 @@ class BookingController extends Controller
             ->where('status', 'scheduled')
             // Include missed follow-ups from previous days up to and including today.
             ->whereDate('date', '<=', $effectiveTo)
-            ->whereHas('booking', function ($bookingQuery) {
-                $bookingQuery->whereIn('booking_status', Booking::STATUSES_FOR_SCHEDULED_FOLLOWUP_LISTS);
+            ->whereHas('booking', function ($bookingQuery) use ($selectedBookingStatus, $bookingStatusOptions) {
+                if ($selectedBookingStatus !== '') {
+                    $bookingQuery->where('booking_status', $selectedBookingStatus);
+                } else {
+                    $bookingQuery->whereIn('booking_status', $bookingStatusOptions);
+                }
             })
             ->when($dateFrom, function ($q) use ($dateFrom) {
                 $q->whereDate('date', '>=', $dateFrom);
@@ -2402,6 +2423,21 @@ class BookingController extends Controller
                 $q->whereHas('booking', function ($bookingQuery) use ($selectedAssigneeId) {
                     $bookingQuery->where('assignee_id', $selectedAssigneeId);
                 });
+            })
+            ->when($selectedFollowUpFor !== '', function ($q) use ($selectedFollowUpFor) {
+                $q->where('for', $selectedFollowUpFor);
+            })
+            ->when($selectedUrgency !== '', function ($q) use ($selectedUrgency) {
+                if ($selectedUrgency === \Modules\BookingModule\Entities\BookingFollowup::URGENCY_MEDIUM) {
+                    // Treat null/empty urgency as medium to match list display defaults.
+                    $q->where(function ($sub) {
+                        $sub->where('urgency', \Modules\BookingModule\Entities\BookingFollowup::URGENCY_MEDIUM)
+                            ->orWhereNull('urgency')
+                            ->orWhere('urgency', '');
+                    });
+                } else {
+                    $q->where('urgency', $selectedUrgency);
+                }
             });
 
         $totalFollowups = (clone $baseQuery)->count();
@@ -2423,6 +2459,12 @@ class BookingController extends Controller
             'followups',
             'assignees',
             'selectedAssigneeId',
+            'selectedFollowUpFor',
+            'selectedBookingStatus',
+            'selectedUrgency',
+            'followUpForOptions',
+            'bookingStatusOptions',
+            'urgencyOptions',
             'dateFrom',
             'dateTo',
             'totalFollowups'

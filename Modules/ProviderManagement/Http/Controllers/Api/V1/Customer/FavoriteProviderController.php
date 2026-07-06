@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Validator;
+use Modules\CustomerModule\Services\CustomerProviderPayloadSlimmer;
 use Modules\ProviderManagement\Entities\FavoriteProvider;
 use Modules\ProviderManagement\Entities\Provider;
 
@@ -38,12 +39,10 @@ class FavoriteProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $providers = $this->provider->with(['owner', 'subscribed_services.sub_category'=>function($query){
-            $query->withoutGlobalScopes();
-        }])
-            ->withCount(['bookings as total_service_served' => function($query) {
+        $providers = $this->provider
+            ->withCount(['bookings as total_service_served' => function ($query) {
                 $query->where('booking_status', 'completed');
-                }, 'subscribed_services'])
+            }, 'subscribed_services'])
             ->coveringLeafZone(Config::get('zone_id'))
             ->ofStatus(1)
             ->when($request->has('category_ids'), function ($query) use($request) {
@@ -72,7 +71,14 @@ class FavoriteProviderController extends Controller
 
         $providers->setCollection($filteredProviders->values());
 
-        return response()->json(response_formatter(DEFAULT_200, $providers), 200);
+        foreach ($providers as $provider) {
+            $provider['is_favorite'] = 1;
+        }
+
+        return response()->json(
+            response_formatter(DEFAULT_200, CustomerProviderPayloadSlimmer::slimPaginator($providers)),
+            200
+        );
     }
 
     /**

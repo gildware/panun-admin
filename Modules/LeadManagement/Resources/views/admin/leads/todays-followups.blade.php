@@ -6,11 +6,11 @@
     <style>
         .missed-followup-row,
         .missed-followup-row > td {
-            background-color: #fff !important;
+            background-color: transparent !important;
             color: #dc3545 !important;
         }
         .table-hover > tbody > tr.missed-followup-row:hover > * {
-            background-color: #fff !important;
+            background-color: transparent !important;
             color: #dc3545 !important;
         }
         .missed-followup-row a,
@@ -46,7 +46,7 @@
                 <a href="{{ route('admin.dashboard') }}" class="btn btn-outline-secondary btn-sm">
                     <span class="material-icons">arrow_back</span>
                 </a>
-                <h2 class="page-title mb-0">Leads Follow-ups- Pending Till Today's ({{ $totalFollowups ?? 0 }})</h2>
+                <h2 class="page-title mb-0">Leads Followups Pending Till Today ({{ $totalFollowups ?? 0 }})</h2>
             </div>
 
             <div class="card mb-3">
@@ -73,6 +73,28 @@
                                         @endphp
                                         <option value="{{ $assignee->id }}" {{ (string) $assignee->id === (string) ($selectedHandledById ?? '') ? 'selected' : '' }}>
                                             {{ $label }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-lg-3 col-sm-6">
+                                <label class="mb-2">{{ translate('Lead_Type') }}</label>
+                                <select name="lead_type" class="form-select">
+                                    <option value="">{{ translate('All') }}</option>
+                                    @foreach($leadTypeOptions ?? [] as $typeValue => $typeLabel)
+                                        <option value="{{ $typeValue }}" {{ (string) $typeValue === (string) ($selectedLeadType ?? '') ? 'selected' : '' }}>
+                                            {{ translate($typeLabel) }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-lg-3 col-sm-6">
+                                <label class="mb-2">{{ translate('Urgency') }}</label>
+                                <select name="urgency" class="form-select">
+                                    <option value="">{{ translate('All') }}</option>
+                                    @foreach($urgencyOptions ?? [] as $urgency)
+                                        <option value="{{ $urgency }}" {{ (string) $urgency === (string) ($selectedUrgency ?? '') ? 'selected' : '' }}>
+                                            {{ translate(ucfirst($urgency)) }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -142,14 +164,15 @@
                                                     @php($totalMinutes = (int) round(abs($due->diffInMinutes(\Carbon\Carbon::now()))))
                                                     @php($dueDays = intdiv($totalMinutes, 1440))
                                                     @php($dueHours = intdiv($totalMinutes % 1440, 60))
+                                                    @php($timeLabel = $due->isPast() ? translate('before') : translate('within'))
                                                     @if($dueDays > 0 && $dueHours > 0)
-                                                        {{ $dueDays }} {{ translate('days') }} {{ $dueHours }} {{ translate('hours') }} {{ translate('before') }}
+                                                        {{ $timeLabel }} {{ $dueDays }} {{ translate('days') }} {{ $dueHours }} {{ translate('hours') }}
                                                     @elseif($dueDays > 0)
-                                                        {{ $dueDays }} {{ translate('days') }} {{ translate('before') }}
+                                                        {{ $timeLabel }} {{ $dueDays }} {{ translate('days') }}
                                                     @elseif($dueHours > 0)
-                                                        {{ $dueHours }} {{ translate('hours') }} {{ translate('before') }}
+                                                        {{ $timeLabel }} {{ $dueHours }} {{ translate('hours') }}
                                                     @else
-                                                        {{ translate('less_than_an_hour') }}
+                                                        {{ $timeLabel }} {{ translate('less_than_an_hour') }}
                                                     @endif
                                                     <br><span class="small text-muted">{{ $due->format('d M Y, h:i A') }}</span>
                                                 @endif

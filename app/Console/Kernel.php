@@ -16,6 +16,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         $schedule->command('notifications:send-booking-reminders')->everyFiveMinutes();
+        $schedule->command('customer:home-cache:warm')->everyFourMinutes();
     }
 
     /**

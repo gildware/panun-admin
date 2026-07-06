@@ -7,6 +7,7 @@ use Modules\CustomerModule\Http\Controllers\Web\Admin\WelcomeBonusController;
 use Modules\CustomerModule\Http\Controllers\Web\Admin\WalletController;
 use Modules\CustomerModule\Http\Controllers\Web\Admin\SubscribeNewsletterController;
 use Modules\CustomerModule\Http\Controllers\Web\Admin\CustomerController;
+use Modules\CustomerModule\Http\Controllers\Web\Admin\CustomerHomeCacheController;
 use Modules\CustomerModule\Http\Controllers\PagesController;
 
 Route::get('about-us', [PagesController::class, 'aboutUs'])->name('about-us');
@@ -18,6 +19,8 @@ Route::get('cancellation-policy', [PagesController::class, 'cancellationPolicy']
 
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
+    Route::post('customer/home-cache/reset', [CustomerHomeCacheController::class, 'resetAndWarm'])->name('customer.home-cache.reset');
+
     Route::group(['prefix' => 'customer', 'as' => 'customer.'], function () {
         Route::any('list', [CustomerController::class, 'index'])->name('index');
         Route::get('top-customers', [CustomerController::class, 'topCustomers'])->name('top-customers');

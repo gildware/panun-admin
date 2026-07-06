@@ -130,6 +130,10 @@ Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V
     });
 
     Route::get('provider-details', [ProviderController::class, 'getProviderDetails']);
+    Route::get('provider-details/summary', [ProviderController::class, 'getProviderDetailsSummary']);
+    Route::get('provider-details/services', [ProviderController::class, 'getProviderDetailsServices']);
+    Route::get('provider-details/reviews', [ProviderController::class, 'getProviderDetailsReviews']);
+    Route::get('provider-details/showcase', [ProviderController::class, 'getProviderDetailsShowcase']);
 
     Route::post('available-provider', [ProviderController::class, 'getAvailableProvider']);
     Route::post('available-service', [ProviderController::class, 'getAvailableService']);

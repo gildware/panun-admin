@@ -31,6 +31,7 @@ use Modules\BookingModule\Http\Traits\BookingTrait;
 use Modules\BookingModule\Services\ProviderBookingWithdrawalService;
 use Modules\CartModule\Entities\Cart;
 use Modules\ProviderManagement\Entities\SubscribedService;
+use Modules\ProviderManagement\Services\ProviderBookingListPayloadSlimmer;
 use Modules\ProviderManagement\Services\ProviderBookingTabCountCache;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\UserManagement\Entities\UserAddress;
@@ -121,10 +122,10 @@ class BookingController extends Controller
 
         //bookings list
         $bookings = $this->booking
-            ->with(['customer.storage', 'subCategory:id,name', 'repeat', 'extra_services', 'booking_offline_payments' => function ($query) {
-                    $query->first() ?? [];
-            }])
-            ->withCount('compensations')
+            ->with([
+                'subCategory:id,name,parent_id',
+                'repeat:id,booking_id,readable_id,booking_status,service_schedule',
+            ])
             ->when($bookingStatus === 'all', function ($query) use ($providerId) {
                 $query->where('provider_id', $providerId);
             })
@@ -163,7 +164,6 @@ class BookingController extends Controller
                 });
                 $booking->repeats = $sortedRepeats->values()->toArray();
             }
-            booking_prepare_mobile_api_user_for_json($booking->customer, true);
             $booking->setAppends([]);
             booking_append_provider_api_ui_fields($booking);
             $listDisplayTotal = get_customer_booking_list_display_total($booking);
@@ -171,12 +171,11 @@ class BookingController extends Controller
             $booking->setAttribute('list_display_total', $listDisplayTotal);
             $booking->setAttribute('payable_grand_total', $originalGrandTotal);
             unset($booking->repeat);
-            unset($booking->extra_services);
         }
 
         return response()->json(response_formatter(DEFAULT_200, [
             'bookings_count' => $bookings_count,
-            'bookings' => $bookings,
+            'bookings' => ProviderBookingListPayloadSlimmer::slimPaginator($bookings),
         ]), 200);
     }
 

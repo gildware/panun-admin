@@ -6,11 +6,11 @@ use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Validator;
+use Modules\CustomerModule\Services\CustomerServicePayloadSlimmer;
 use Modules\ServiceManagement\Entities\FavoriteService;
 use Modules\ServiceManagement\Entities\Service;
-use Modules\ServiceManagement\Entities\Variation;
+use Modules\ServiceManagement\Services\CustomerServiceResponseEnricher;
 
 class FavoriteServiceController extends Controller
 {
@@ -39,14 +39,22 @@ class FavoriteServiceController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $services = $this->service->with(['category.zonesBasicInfo', 'variations'])
-            ->whereHas('favorites', function($query){
+        $services = $this->service->with(CustomerServicePayloadSlimmer::listEagerRelations())
+            ->whereHas('favorites', function ($query) {
                 $query->where('customer_user_id', auth('api')->user()->id);
             })
             ->active()->latest()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
-        return response()->json(response_formatter(DEFAULT_200, self::variationMapper($services)), 200);
+        CustomerServiceResponseEnricher::enrich($services, auth('api')->id(), includeTax: false);
+        foreach ($services as $service) {
+            $service['is_favorite'] = 1;
+        }
+
+        return response()->json(
+            response_formatter(DEFAULT_200, CustomerServicePayloadSlimmer::slimPaginator($services)),
+            200
+        );
     }
 
     /**
@@ -64,12 +72,12 @@ class FavoriteServiceController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $favorite = $this->favoriteService->where('customer_user_id',$request->user()->id)->where('service_id', $request->service_id)->first();
+        $favorite = $this->favoriteService->where('customer_user_id', $request->user()->id)->where('service_id', $request->service_id)->first();
 
-        if ($favorite){
+        if ($favorite) {
             $favorite->delete();
             $status = 0;
-        }else {
+        } else {
             $favorite = $this->favoriteService;
             $favorite->customer_user_id = $request->user()->id;
             $favorite->service_id = $request->service_id;
@@ -77,11 +85,11 @@ class FavoriteServiceController extends Controller
             $status = 1;
         }
 
-        if($status){
-            return response()->json(response_formatter(SERVICE_ADD_TO_FAVORITE_200,  ['status' => $status]), 200);
-        }else{
-            return response()->json(response_formatter(SERVICE_REMOVE_FAVORITE_200,  ['status' => $status]), 200);
+        if ($status) {
+            return response()->json(response_formatter(SERVICE_ADD_TO_FAVORITE_200, ['status' => $status]), 200);
         }
+
+        return response()->json(response_formatter(SERVICE_REMOVE_FAVORITE_200, ['status' => $status]), 200);
     }
 
     /**
@@ -90,11 +98,11 @@ class FavoriteServiceController extends Controller
      * @param int $id
      * @return JsonResponse
      */
-    public function destroy(Request $request ,$id): JsonResponse
+    public function destroy(Request $request, $id): JsonResponse
     {
-        $favorite = $this->favoriteService->where('customer_user_id',$request->user()->id)->where('service_id',$id)->first();
+        $favorite = $this->favoriteService->where('customer_user_id', $request->user()->id)->where('service_id', $id)->first();
 
-        if ($favorite){
+        if ($favorite) {
 
             $favorite->delete();
 
@@ -102,19 +110,5 @@ class FavoriteServiceController extends Controller
         }
 
         return response()->json(response_formatter(DEFAULT_404), 400);
-    }
-
-    private function variationMapper($services)
-    {
-        $services->map(function ($service) {
-            $service['variations_app_format'] = self::variationsAppFormat($service);
-            return $service;
-        });
-        return $services;
-    }
-
-    private function variationsAppFormat($service): array
-    {
-        return Variation::variationsAppFormatForCustomer((string) $service->id);
     }
 }

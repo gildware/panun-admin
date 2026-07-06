@@ -2,17 +2,17 @@
 
 namespace Modules\CustomerModule\Observers;
 
-use Modules\CustomerModule\Services\CustomerHomeContentVersion;
+use Modules\CustomerModule\Services\CustomerHomeContentInvalidator;
 
 class CustomerHomeContentVersionObserver
 {
     public function saved(): void
     {
-        CustomerHomeContentVersion::bumpGlobal();
+        CustomerHomeContentInvalidator::bumpGlobal();
     }
 
     public function deleted(): void
     {
-        CustomerHomeContentVersion::bumpGlobal();
+        CustomerHomeContentInvalidator::bumpGlobal();
     }
 }
