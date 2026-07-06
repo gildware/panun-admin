@@ -2300,23 +2300,12 @@ class WhatsAppController extends Controller
      */
     private function countActiveChatPhoneStats(): array
     {
-        $table = config('whatsappmodule.tables.messages', 'whatsapp_messages');
-        $ch = SocialInboxChannel::current();
-        $total = (int) (DB::table($table)
-            ->where('channel', $ch)
-            ->selectRaw('COUNT(DISTINCT phone) AS aggregate_count')
-            ->value('aggregate_count') ?? 0);
-        $unread = (int) (DB::table($table)
-            ->where('channel', $ch)
-            ->where('direction', 'IN')
-            ->whereNull('admin_seen_at')
-            ->selectRaw('COUNT(DISTINCT phone) AS aggregate_count')
-            ->value('aggregate_count') ?? 0);
+        $stats = WhatsAppAdminUnread::channelStats(SocialInboxChannel::current());
 
         return [
-            'total' => $total,
-            'unread' => $unread,
-            'read' => max(0, $total - $unread),
+            'total' => $stats['total'],
+            'unread' => $stats['unread_chats'],
+            'read' => $stats['read'],
         ];
     }
 

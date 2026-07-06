@@ -340,6 +340,12 @@ body.nav-top.open-aside-folded .main-area {
     z-index: 2;
 }
 
+.top-utility-icon-btn .wa-header-whatsapp-icon + .count {
+    min-width: 1.1rem;
+    padding: 0 0.28rem;
+    font-size: 0.6rem;
+}
+
 .top-utility-icon-btn .header-unread-dot,
 .count-btn .header-unread-dot {
     position: absolute;
