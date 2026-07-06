@@ -14,6 +14,7 @@ use Modules\PromotionManagement\Http\Controllers\Api\V1\Customer\BannerControlle
 use Modules\PromotionManagement\Http\Controllers\Api\V1\Customer\CampaignController;
 use Modules\PromotionManagement\Services\CustomerAdvertisementListFetcher;
 use Modules\ProviderManagement\Services\CustomerProviderListFetcher;
+use Modules\ProviderManagement\Services\ZoneProviderEligibilityService;
 use Modules\ServiceManagement\Http\Controllers\Api\V1\Customer\ServiceController;
 
 class CustomerHomeBundleComposer
@@ -40,6 +41,10 @@ class CustomerHomeBundleComposer
     public function build(Request $request): array
     {
         $this->applyRequestContext($request);
+
+        if (Config::get('zone_id')) {
+            app(ZoneProviderEligibilityService::class)->snapshot();
+        }
 
         $tasks = [];
         $bundleKeysNeeded = $this->resolveBundleKeysToFetch($request);

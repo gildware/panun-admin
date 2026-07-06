@@ -133,18 +133,42 @@ class ProviderPackageEligibilityResolver
         $logIds = array_values(array_unique(array_column($limitedMeta, 'log_id')));
 
         $rows = SubscriptionSubscriberBooking::query()
-            ->select('provider_id', 'package_subscriber_log_id', DB::raw('DATE(updated_at) as usage_date'))
+            ->select(
+                'provider_id',
+                'package_subscriber_log_id',
+                DB::raw('COUNT(*) as usage_count'),
+                DB::raw('MIN(DATE(updated_at)) as min_usage_date'),
+                DB::raw('MAX(DATE(updated_at)) as max_usage_date'),
+            )
             ->whereIn('provider_id', $providerIdsForQuery)
             ->whereIn('package_subscriber_log_id', $logIds)
+            ->groupBy('provider_id', 'package_subscriber_log_id')
             ->get();
 
         foreach ($limitedMeta as $providerId => $meta) {
-            $this->subscriptionBookingCounts[$providerId] = $rows->filter(function ($row) use ($providerId, $meta) {
+            $row = $rows->first(function ($row) use ($providerId, $meta) {
                 return (string) $row->provider_id === $providerId
-                    && (string) $row->package_subscriber_log_id === $meta['log_id']
-                    && (string) $row->usage_date >= $meta['start']
-                    && (string) $row->usage_date <= $meta['end'];
-            })->count();
+                    && (string) $row->package_subscriber_log_id === $meta['log_id'];
+            });
+
+            if (! $row || (string) $row->max_usage_date < $meta['start'] || (string) $row->min_usage_date > $meta['end']) {
+                $this->subscriptionBookingCounts[$providerId] = 0;
+
+                continue;
+            }
+
+            if ((string) $row->min_usage_date >= $meta['start'] && (string) $row->max_usage_date <= $meta['end']) {
+                $this->subscriptionBookingCounts[$providerId] = (int) $row->usage_count;
+
+                continue;
+            }
+
+            $this->subscriptionBookingCounts[$providerId] = SubscriptionSubscriberBooking::query()
+                ->where('provider_id', $providerId)
+                ->where('package_subscriber_log_id', $meta['log_id'])
+                ->whereDate('updated_at', '>=', $meta['start'])
+                ->whereDate('updated_at', '<=', $meta['end'])
+                ->count();
         }
     }
 

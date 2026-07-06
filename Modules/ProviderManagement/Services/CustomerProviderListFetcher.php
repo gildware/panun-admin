@@ -4,7 +4,6 @@ namespace Modules\ProviderManagement\Services;
 
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Config;
 use Modules\ProviderManagement\Entities\FavoriteProvider;
 use Modules\ProviderManagement\Entities\Provider;
 
@@ -13,26 +12,12 @@ class CustomerProviderListFetcher
     public function __construct(
         private Provider $provider,
         private FavoriteProvider $favoriteProvider,
-        private ProviderPackageEligibilityResolver $eligibilityResolver,
+        private ZoneProviderEligibilityService $zoneEligibility,
     ) {}
 
-    /**
-     * @return LengthAwarePaginator|array<string, mixed>
-     */
     public function paginate(Request $request, mixed $customerUserId): LengthAwarePaginator
     {
-        $zoneProviderIds = $this->provider
-            ->coveringLeafZone(Config::get('zone_id'))
-            ->ofStatus(1)
-            ->where('app_availability', 1)
-            ->where('is_suspended', 0)
-            ->pluck('id')
-            ->map(fn ($id) => (string) $id)
-            ->all();
-
-        $eligibleProviderIds = $this->eligibilityResolver
-            ->preload($zoneProviderIds)
-            ->filterBookingEligible($zoneProviderIds);
+        $eligibleProviderIds = $this->zoneEligibility->bookingEligibleIds();
 
         if ($eligibleProviderIds === []) {
             return new LengthAwarePaginator(
@@ -44,9 +29,7 @@ class CustomerProviderListFetcher
             );
         }
 
-        $providersQuery = $this->provider->with(['owner', 'subscribed_services.sub_category' => function ($query) {
-            $query->withoutGlobalScopes();
-        }])
+        $providersQuery = $this->provider->with(['owner'])
             ->whereIn('id', $eligibleProviderIds)
             ->ofStatus(1)
             ->where('app_availability', 1)

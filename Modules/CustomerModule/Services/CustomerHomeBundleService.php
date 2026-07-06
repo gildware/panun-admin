@@ -27,7 +27,7 @@ class CustomerHomeBundleService
             is_numeric($userId) ? (int) $userId : null,
         );
 
-        $cacheKey = 'customer_home_bundle:v8:'.$contentVersion.':'.$zoneId.':'.$locale.':'.$authKey;
+        $cacheKey = 'customer_home_bundle:v9:'.$contentVersion.':'.$zoneId.':'.$locale.':'.$authKey;
 
         $bundle = CustomerApiResponseCache::remember(
             $cacheKey,

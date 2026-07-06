@@ -4,12 +4,11 @@ namespace Modules\PromotionManagement\Services;
 
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Config;
 use Modules\PromotionManagement\Entities\Advertisement;
 use Modules\ProviderManagement\Entities\FavoriteProvider;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderShowcaseItem;
-use Modules\ProviderManagement\Services\ProviderPackageEligibilityResolver;
+use Modules\ProviderManagement\Services\ZoneProviderEligibilityService;
 
 class CustomerAdvertisementListFetcher
 {
@@ -17,23 +16,12 @@ class CustomerAdvertisementListFetcher
         private Advertisement $advertisement,
         private Provider $provider,
         private FavoriteProvider $favoriteProvider,
-        private ProviderPackageEligibilityResolver $eligibilityResolver,
+        private ZoneProviderEligibilityService $zoneEligibility,
     ) {}
 
     public function paginate(Request $request, mixed $customerUserId): LengthAwarePaginator
     {
-        $zoneId = Config::get('zone_id');
-
-        $zoneProviderIds = $this->provider
-            ->coveringLeafZone($zoneId)
-            ->ofStatus(1)
-            ->pluck('id')
-            ->map(fn ($id) => (string) $id)
-            ->all();
-
-        $eligibleProviderIds = $this->eligibilityResolver
-            ->preload($zoneProviderIds)
-            ->filterAdvertisementEligible($zoneProviderIds);
+        $eligibleProviderIds = $this->zoneEligibility->advertisementEligibleIds();
 
         if ($eligibleProviderIds === []) {
             return new LengthAwarePaginator(
@@ -51,7 +39,6 @@ class CustomerAdvertisementListFetcher
             'review',
             'rating',
             'showcase',
-            'provider',
             'provider.owner',
         ])
             ->orderByRaw('ISNULL(priority), priority')
@@ -70,6 +57,16 @@ class CustomerAdvertisementListFetcher
     {
         $collection = $advertisements->getCollection();
         $providerIds = $collection->pluck('provider_id')->filter()->unique()->values()->all();
+
+        $providersById = $providerIds === []
+            ? collect()
+            : $this->provider
+                ->with(['subscribed_services.sub_category' => function ($query) {
+                    $query->withoutGlobalScopes();
+                }])
+                ->whereIn('id', $providerIds)
+                ->get()
+                ->keyBy('id');
 
         $favoriteProviderIds = [];
         if ($customerUserId && $providerIds !== []) {
@@ -126,7 +123,13 @@ class CustomerAdvertisementListFetcher
             }
 
             if ($advertisement->provider) {
-                $advertisement->provider->is_favorite = isset($favoriteProviderIds[(string) $advertisement->provider->id]) ? 1 : 0;
+                $enrichedProvider = $providersById->get($advertisement->provider_id);
+                if ($enrichedProvider) {
+                    $enrichedProvider->is_favorite = isset($favoriteProviderIds[(string) $enrichedProvider->id]) ? 1 : 0;
+                    $advertisement->setRelation('provider', $enrichedProvider);
+                } else {
+                    $advertisement->provider->is_favorite = isset($favoriteProviderIds[(string) $advertisement->provider->id]) ? 1 : 0;
+                }
             }
 
             unset($advertisement->attachments, $advertisement->attachment, $advertisement->review, $advertisement->rating, $advertisement->showcase);
