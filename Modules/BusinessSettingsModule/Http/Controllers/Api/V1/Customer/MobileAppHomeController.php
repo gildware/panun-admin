@@ -16,6 +16,7 @@ use Modules\ProviderManagement\Entities\Provider;
 use Modules\ServiceManagement\Entities\FavoriteService;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\ServiceManagement\Entities\Variation;
+use Modules\PromotionManagement\Support\CustomerCampaignApiQuery;
 
 class MobileAppHomeController extends Controller
 {
@@ -279,9 +280,9 @@ class MobileAppHomeController extends Controller
 
         $orderSql = 'FIELD(id,'.implode(',', array_map(fn ($id) => "'".addslashes($id)."'", $pageIds)).')';
 
-        $campaigns = $this->campaign
-            ->withoutGlobalScope('zone_wise_data')
-            ->with(['discount', 'discount.category_types.category', 'discount.service_types.service.category', 'discount.service_types.service.subCategory'])
+        $campaigns = CustomerCampaignApiQuery::withCustomerRelations(
+            $this->campaign->withoutGlobalScope('zone_wise_data')
+        )
             ->whereIn('id', $pageIds)
             ->ofStatus(1)
             ->orderByRaw($orderSql)

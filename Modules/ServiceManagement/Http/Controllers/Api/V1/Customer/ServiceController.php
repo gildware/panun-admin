@@ -20,6 +20,7 @@ use Modules\ServiceManagement\Entities\RecentView;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\ServiceManagement\Entities\ServiceRequest;
 use Modules\ServiceManagement\Entities\Variation;
+use Modules\ServiceManagement\Services\CustomerServiceResponseEnricher;
 use Modules\ServiceManagement\Traits\VisitedServiceTrait;
 use Modules\ZoneManagement\Entities\Zone;
 use Stevebauman\Location\Facades\Location;
@@ -89,11 +90,9 @@ class ServiceController extends Controller
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
             ->withPath('');
 
-        foreach ($services as $service){
-            $service['is_favorite'] = $this->favoriteService->where('customer_user_id',$this->customer_user_id)->where('service_id',$service->id)->exists() ? 1 : 0;
-        }
+        $this->variationMapper($services);
 
-        return response()->json(response_formatter(DEFAULT_200, self::variationMapper($services)), 200);
+        return response()->json(response_formatter(DEFAULT_200, $services), 200);
     }
 
     public function search(Request $request): JsonResponse
@@ -258,47 +257,43 @@ class ServiceController extends Controller
                 ");
             });
 
-        $variationPriceFilter = $servicesQuery->get();
+        $statsQuery = clone $servicesQuery;
+        $statsQuery->getQuery()->orders = [];
+        $statsQuery->getQuery()->limit = null;
+        $statsQuery->getQuery()->offset = null;
+
+        $priceStats = DB::query()
+            ->fromSub($statsQuery->toBase(), 'search_services')
+            ->selectRaw('MIN(service_filter_min_price) as filter_min_price, MAX(service_filter_min_price) as filter_max_price, COUNT(*) as result_count')
+            ->first();
 
         if ($authUser) {
             $recentSearch = RecentSearch::where('keyword', $decodedString)->oldest()->first();
-            $this->Searched_data_log($authUser->id, 'search', $recentSearch->id, count($variationPriceFilter));
-        }
-
-        $price = [];
-        foreach ($variationPriceFilter as $key => $service) {
-            $minPrice = null;
-            $minPriceVariation = null;
-            foreach ($service->variations as $variation) {
-                if ($minPrice === null || $variation->price < $minPrice) {
-                    $minPrice = $variation->price;
-                    $minPriceVariation = $variation;
-                }
-            }
-            if ($minPriceVariation !== null) {
-                $price[] = $minPriceVariation->price;
+            if ($recentSearch) {
+                $this->Searched_data_log($authUser->id, 'search', $recentSearch->id, (int) ($priceStats->result_count ?? 0));
             }
         }
 
-        $filterMinPrice = count($price) > 0 ? min($price) : 0;
-        $filterMaxPrice = count($price) > 0 ? max($price) : 0;
+        $filterMinPrice = (float) ($priceStats->filter_min_price ?? 0);
+        $filterMaxPrice = (float) ($priceStats->filter_max_price ?? 0);
 
         $initialMinPrice = Variation::min('price');
         $initialMaxPrice = Variation::max('price');
 
         $services = $servicesQuery->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
-        foreach ($services as $service){
-            $service['is_favorite'] = $this->favoriteService->where('customer_user_id',$this->customer_user_id)->where('service_id',$service->id)->exists() ? 1 : 0;
+        foreach ($services as $service) {
             unset($service->tags, $service->faqs, $service->favorites);
         }
+
+        $this->variationMapper($services);
 
         return response()->json(response_formatter(DEFAULT_200, [
             'filter_min_price' => $filterMinPrice == $filterMaxPrice ? 0 : $filterMinPrice,
             'filter_max_price' => $filterMaxPrice,
             'initial_min_price' => $initialMinPrice == $initialMaxPrice ? 0 : $initialMinPrice,
             'initial_max_price' => $initialMaxPrice,
-            'services' => self::variationMapper($services)
+            'services' => $services,
         ]), 200);
     }
 
@@ -416,20 +411,15 @@ class ServiceController extends Controller
             ->orderBy('bookings_count', 'desc')
             ->active();
 
-        if ($this->booking->count() > 0) {
+        if ($this->booking->query()->exists()) {
             $servicesQuery->has('bookings');
         }
 
         $services = $servicesQuery->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
-        foreach ($services as $service) {
-            $service['is_favorite'] = $this->favoriteService
-                ->where('customer_user_id', $this->customer_user_id)
-                ->where('service_id', $service->id)
-                ->exists() ? 1 : 0;
-        }
+        $this->variationMapper($services);
 
-        return response()->json(response_formatter(DEFAULT_200, self::variationMapper($services)), 200);
+        return response()->json(response_formatter(DEFAULT_200, $services), 200);
     }
 
     /**
@@ -482,29 +472,17 @@ class ServiceController extends Controller
                 ->latest()
                 ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
                 ->withPath('');
-
-            foreach ($services as $service) {
-                $service['is_favorite'] = $this->favoriteService
-                    ->where('customer_user_id', $user->id)
-                    ->where('service_id', $service->id)
-                    ->exists() ? 1 : 0;
-            }
         } else {
             $services = $servicesQuery->active()
                 ->inRandomOrder()
                 ->latest()
                 ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
                 ->withPath('');
-
-            foreach ($services as $service) {
-                $service['is_favorite'] = $this->favoriteService
-                    ->where('customer_user_id', $this->customer_user_id)
-                    ->where('service_id', $service->id)
-                    ->exists() ? 1 : 0;
-            }
         }
 
-        return response()->json(response_formatter(DEFAULT_200, self::variationMapper($services)), 200);
+        $this->variationMapper($services);
+
+        return response()->json(response_formatter(DEFAULT_200, $services), 200);
     }
 
     /**
@@ -519,11 +497,9 @@ class ServiceController extends Controller
             ->inRandomOrder()
             ->take(5)->get();
 
-        foreach ($services as $service){
-            $service['is_favorite'] = $this->favoriteService->where('customer_user_id', $this->customer_user_id)->where('service_id',$service->id)->exists() ? 1 : 0;
-        }
+        $this->variationMapper($services);
 
-        return response()->json(response_formatter(DEFAULT_200, self::variationMapper($services)), 200);
+        return response()->json(response_formatter(DEFAULT_200, $services), 200);
     }
 
     /**
@@ -558,7 +534,7 @@ class ServiceController extends Controller
             ->orderBy('bookings_count', 'desc')
             ->active();
 
-        if ($this->booking->count() > 0) {
+        if ($this->booking->query()->exists()) {
             $servicesQuery->whereHas('bookings', function ($query) {
                 $query->where('created_at', '>', now()->subDays(30)->endOfDay());
             });
@@ -566,14 +542,9 @@ class ServiceController extends Controller
 
         $services = $servicesQuery->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
-        foreach ($services as $service) {
-            $service['is_favorite'] = $this->favoriteService
-                ->where('customer_user_id', $this->customer_user_id)
-                ->where('service_id', $service->id)
-                ->exists() ? 1 : 0;
-        }
+        $this->variationMapper($services);
 
-        return response()->json(response_formatter(DEFAULT_200, self::variationMapper($services)), 200);
+        return response()->json(response_formatter(DEFAULT_200, $services), 200);
     }
 
     /**
@@ -618,11 +589,9 @@ class ServiceController extends Controller
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
             ->withPath('');
 
-        foreach ($services as $service){
-            $service['is_favorite'] = $this->favoriteService->where('customer_user_id', $this->customer_user_id)->where('service_id',$service->id)->exists() ? 1 : 0;
-        }
+        $this->variationMapper($services);
 
-        return response()->json(response_formatter(DEFAULT_200, self::variationMapper($services)), 200);
+        return response()->json(response_formatter(DEFAULT_200, $services), 200);
     }
 
     /**
@@ -713,28 +682,16 @@ class ServiceController extends Controller
             ->orderBy('avg_rating', 'DESC')
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
-        foreach ($services as $service){
-            $service['is_favorite'] = $this->favoriteService->where('customer_user_id', $this->customer_user_id)->where('service_id',$service->id)->exists() ? 1 : 0;
-        }
+        $this->variationMapper($services);
 
-        return response()->json(response_formatter(DEFAULT_200, self::variationMapper($services)), 200);
+        return response()->json(response_formatter(DEFAULT_200, $services), 200);
     }
 
     private function variationMapper($services)
     {
-        $services->map(function ($service) {
-            $service->loadMissing(['category', 'subCategory']);
-            $service->setAttribute('tax', effective_service_tax_percentage($service));
-            $service->setAttribute('tax_label', effective_service_tax_label($service));
-            $service['variations_app_format'] = self::variationsAppFormat($service);
-            return $service;
-        });
-        return $services;
-    }
+        CustomerServiceResponseEnricher::enrich($services, $this->customer_user_id);
 
-    private function variationsAppFormat($service): array
-    {
-        return Variation::variationsAppFormatForCustomer((string) $service->id);
+        return $services;
     }
 
     /**
@@ -775,9 +732,7 @@ class ServiceController extends Controller
             }
 
             $service->loadMissing(['category', 'subCategory']);
-            $service->setAttribute('tax', effective_service_tax_percentage($service));
-            $service->setAttribute('tax_label', effective_service_tax_label($service));
-            $service['variations_app_format'] = self::variationsAppFormat($service);
+            CustomerServiceResponseEnricher::enrich(collect([$service]), $this->customer_user_id);
             return response()->json(response_formatter(DEFAULT_200, $service), 200);
         }
 
@@ -871,9 +826,7 @@ class ServiceController extends Controller
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
             ->withPath('');
 
-        foreach ($services as $service){
-            $service['is_favorite'] = $this->favoriteService->where('customer_user_id', $this->customer_user_id)->where('service_id',$service->id)->exists() ? 1 : 0;
-        }
+        $this->variationMapper($services);
 
         if (count($services) > 0) {
             $authUser = auth('api')->user();
@@ -883,7 +836,7 @@ class ServiceController extends Controller
                 $recentView->save();
             }
 
-            return response()->json(response_formatter(DEFAULT_200, self::variationMapper($services)), 200);
+            return response()->json(response_formatter(DEFAULT_200, $services), 200);
         }
 
         return response()->json(response_formatter(DEFAULT_204), 200);

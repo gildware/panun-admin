@@ -181,36 +181,24 @@ class ProviderController extends Controller
             ->toArray();
 
         $subCategories = $this->category->withoutGlobalScopes()
-            ->with(['services' => function ($query) {
-                $query->ofStatus(1)
-                    ->where(function ($query) {
-                        $query->whereDoesntHave('service_discount')
-                            ->orWhereHas('service_discount');
-                    })
-                    ->where(function ($query) {
-                        $query->whereDoesntHave('category.category_discount')
-                            ->orWhereHas('category.category_discount');
-                    })
-                    ->with(['variations', 'service_discount', 'category.category_discount']);
-            }])
+            ->select([
+                'id',
+                'parent_id',
+                'name',
+                'slug',
+                'image',
+                'position',
+                'description',
+                'is_active',
+                'is_featured',
+                'created_at',
+                'updated_at',
+            ])
             ->whereHas('services', function ($query) {
                 $query->ofStatus(1);
             })
             ->whereIn('id', $subscribedSubCategoryIds)
             ->get();
-
-        foreach ($subCategories as $item) {
-            if ($item->services) {
-                $item->services = self::variationMapper($item->services);
-
-                foreach ($item->services as $service) {
-                    $service->is_favorite = $this->favoriteService
-                        ->where('customer_user_id', $this->customer_user_id)
-                        ->where('service_id', $service->id)
-                        ->exists() ? 1 : 0;
-                }
-            }
-        }
 
         $ratingGroupCount = DB::table('reviews')->where('provider_id', $provider->id)
             ->where('is_active', 1)
@@ -331,20 +319,6 @@ class ProviderController extends Controller
         }
 
         return response()->json(response_formatter(DEFAULT_200, $eligibleProviders), 200);
-    }
-
-    private function variationMapper($services)
-    {
-        $services->map(function ($service) {
-            $service['variations_app_format'] = self::variationsAppFormat($service);
-            return $service;
-        });
-        return $services;
-    }
-
-    private function variationsAppFormat($service): array
-    {
-        return Variation::variationsAppFormatForCustomer((string) $service->id);
     }
 
     public function getAvailableProvider(Request $request): \Illuminate\Http\JsonResponse

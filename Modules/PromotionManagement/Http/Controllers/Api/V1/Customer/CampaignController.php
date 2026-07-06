@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Validator;
 use Modules\PromotionManagement\Entities\Banner;
 use Modules\PromotionManagement\Entities\Campaign;
 use Modules\PromotionManagement\Entities\DiscountType;
+use Modules\PromotionManagement\Support\CustomerCampaignApiQuery;
 
 class CampaignController extends Controller
 {
@@ -38,8 +39,7 @@ class CampaignController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $campaigns = $this->campaign
-            ->with(['discount', 'discount.category_types.category', 'discount.service_types.service.category', 'discount.service_types.service.subCategory'])
+        $campaigns = CustomerCampaignApiQuery::query()
             ->where(function ($query) {
                 $query->whereDoesntHave('discount.category_types')
                     ->orWhereHas('discount.category_types', function ($query) {
