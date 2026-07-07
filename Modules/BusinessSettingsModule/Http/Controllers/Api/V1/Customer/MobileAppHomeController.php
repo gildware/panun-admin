@@ -13,6 +13,8 @@ use Modules\PromotionManagement\Entities\Banner;
 use Modules\PromotionManagement\Entities\Campaign;
 use Modules\ProviderManagement\Entities\FavoriteProvider;
 use Modules\ProviderManagement\Entities\Provider;
+use Modules\ProviderManagement\Services\ProviderCompletedServicesCounter;
+use Modules\ProviderManagement\Services\ProviderSubscribedServicesCounter;
 use Modules\ProviderManagement\Services\ZoneProviderEligibilityService;
 use Modules\ServiceManagement\Entities\FavoriteService;
 use Modules\ServiceManagement\Entities\Service;
@@ -142,11 +144,11 @@ class MobileAppHomeController extends Controller
             ->ofStatus(1)
             ->where('app_availability', 1)
             ->where('is_suspended', 0)
-            ->withCount(['bookings as total_service_served' => function ($query) {
-                $query->where('booking_status', 'completed');
-            }, 'subscribed_services'])
             ->orderByRaw($orderSql)
             ->get();
+
+        app(ProviderCompletedServicesCounter::class)->attachToProviders($providers);
+        app(ProviderSubscribedServicesCounter::class)->attachToProviders($providers);
 
         $customerUserId = $this->customerContext($request)['user_id'];
         foreach ($providers as $provider) {

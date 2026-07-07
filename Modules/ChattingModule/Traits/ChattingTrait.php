@@ -93,6 +93,29 @@ trait ChattingTrait
         return $this->createNewChannel($fromUser, $toUser, '', $referenceType);
     }
 
+    /**
+     * @return array{channel: ChannelList, created: bool}
+     */
+    protected function findOrCreateAdminSupportChannel(string $adminUserId, string $supportUserId, string $referenceType): array
+    {
+        return find_or_create_admin_support_channel($adminUserId, $supportUserId, $referenceType);
+    }
+
+    protected function supportReferenceTypeForUserType(?string $userType): ?string
+    {
+        return support_channel_reference_type_for_user_type($userType);
+    }
+
+    protected function ensureChannelUser(string $channelId, string $userId): void
+    {
+        ensure_support_channel_user($channelId, $userId);
+    }
+
+    protected function resolveAdminSupportChannelForSend(string $channelId, string $adminUserId): string
+    {
+        return resolve_admin_support_channel_for_send($channelId, $adminUserId);
+    }
+
     function formatConversations($channelList): void
     {
         $channelList->each(function ($channel) {

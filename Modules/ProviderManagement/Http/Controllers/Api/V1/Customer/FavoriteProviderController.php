@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Validator;
 use Modules\CustomerModule\Services\CustomerProviderPayloadSlimmer;
 use Modules\ProviderManagement\Entities\FavoriteProvider;
 use Modules\ProviderManagement\Entities\Provider;
+use Modules\ProviderManagement\Services\ProviderCompletedServicesCounter;
+use Modules\ProviderManagement\Services\ProviderSubscribedServicesCounter;
 
 class FavoriteProviderController extends Controller
 {
@@ -40,9 +42,6 @@ class FavoriteProviderController extends Controller
         }
 
         $providers = $this->provider
-            ->withCount(['bookings as total_service_served' => function ($query) {
-                $query->where('booking_status', 'completed');
-            }, 'subscribed_services'])
             ->coveringLeafZone(Config::get('zone_id'))
             ->ofStatus(1)
             ->when($request->has('category_ids'), function ($query) use($request) {
@@ -74,6 +73,10 @@ class FavoriteProviderController extends Controller
         foreach ($providers as $provider) {
             $provider['is_favorite'] = 1;
         }
+
+        $collection = $providers->getCollection();
+        app(ProviderCompletedServicesCounter::class)->attachToProviders($collection);
+        app(ProviderSubscribedServicesCounter::class)->attachToProviders($collection);
 
         return response()->json(
             response_formatter(DEFAULT_200, CustomerProviderPayloadSlimmer::slimPaginator($providers)),

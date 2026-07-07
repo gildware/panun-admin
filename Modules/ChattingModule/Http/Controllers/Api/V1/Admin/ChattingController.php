@@ -102,6 +102,18 @@ class ChattingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
+        $otherUser = \Modules\UserManagement\Entities\User::query()->find($request['to_user']);
+        $supportReferenceType = support_channel_reference_type_for_user_type($otherUser?->user_type);
+        if ($supportReferenceType !== null) {
+            $result = find_or_create_admin_support_channel(
+                (string) $request->user()->id,
+                (string) $request['to_user'],
+                $supportReferenceType
+            );
+
+            return response()->json(response_formatter(DEFAULT_200, $result['channel']), 200);
+        }
+
         $channelIds = $this->channel_user->where(['user_id' => $request->user()->id])->pluck('channel_id')->toArray();
         $findChannel = $this->channel_list->whereIn('id', $channelIds)->whereHas('channelUsers', function ($query) use ($request) {
             $query->where(['user_id' => $request['to_user']]);
@@ -153,17 +165,22 @@ class ChattingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        DB::transaction(function () use ($request) {
-            $this->channel_list->where('id', $request['channel_id'])->update([
+        $channelId = resolve_admin_support_channel_for_send(
+            (string) $request['channel_id'],
+            (string) $request->user()->id
+        );
+
+        DB::transaction(function () use ($request, $channelId) {
+            $this->channel_list->where('id', $channelId)->update([
                 'updated_at' => now()
             ]);
-            $this->channel_user->where('channel_id', $request['channel_id'])->where('user_id', '!=', $request->user()->id)
+            $this->channel_user->where('channel_id', $channelId)->where('user_id', '!=', $request->user()->id)
                 ->update([
                     'is_read' => 0
                 ]);
 
             $channelConversation = $this->channel_conversation;
-            $channelConversation->channel_id = $request->channel_id;
+            $channelConversation->channel_id = $channelId;
             $channelConversation->message = $request['message'];
             $channelConversation->user_id = $request->user()->id;
             $channelConversation->save();

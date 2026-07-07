@@ -34,6 +34,9 @@ class ChatNotificationE2eTest extends Command
     /** @var list<string> */
     private array $createdChannelIds = [];
 
+    /** @var array<string, mixed>|null */
+    private ?array $originalPushNotificationConfig = null;
+
     public function handle(): int
     {
         if (app()->environment('production')) {
@@ -147,6 +150,8 @@ class ChatNotificationE2eTest extends Command
 
     private function cleanupSeededData(): void
     {
+        $this->restorePushNotificationConfig();
+
         $since = $this->startedAt ?? now()->subHour();
 
         PushNotificationDeliveryLog::query()
@@ -509,6 +514,20 @@ class ChatNotificationE2eTest extends Command
 
     private function seedFakeFcmHttp(): void
     {
+        $existing = BusinessSettings::query()
+            ->where('key_name', 'push_notification')
+            ->where('settings_type', 'third_party')
+            ->first();
+
+        if ($existing) {
+            $this->originalPushNotificationConfig = [
+                'live_values' => $existing->live_values,
+                'test_values' => $existing->test_values,
+                'mode' => $existing->mode,
+                'is_active' => $existing->is_active,
+            ];
+        }
+
         $res = openssl_pkey_new([
             'private_key_bits' => 2048,
             'private_key_type' => OPENSSL_KEYTYPE_RSA,
@@ -540,5 +559,19 @@ class ChatNotificationE2eTest extends Command
             'https://oauth2.googleapis.com/token' => Http::response(['access_token' => 'e2e-fake-access-token'], 200),
             'https://fcm.googleapis.com/*' => Http::response(['name' => 'projects/chat-e2e/messages/e2e'], 200),
         ]);
+    }
+
+    private function restorePushNotificationConfig(): void
+    {
+        if ($this->originalPushNotificationConfig === null) {
+            return;
+        }
+
+        BusinessSettings::query()->updateOrCreate(
+            ['key_name' => 'push_notification', 'settings_type' => 'third_party'],
+            $this->originalPushNotificationConfig
+        );
+
+        $this->originalPushNotificationConfig = null;
     }
 }

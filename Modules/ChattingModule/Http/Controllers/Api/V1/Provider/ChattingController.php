@@ -237,7 +237,7 @@ class ChattingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        DB::transaction(function () use ($request) {
+        $channelConversation = DB::transaction(function () use ($request) {
             $this->channelList->where('id', $request['channel_id'])->update([
                 'updated_at' => now()
             ]);
@@ -265,9 +265,14 @@ class ChattingController extends Controller
                     ]);
                 }
             }
+
+            return $channelConversation;
         });
 
-        return response()->json(response_formatter(DEFAULT_STORE_200), 200);
+        $channelConversation->load($this->conversationApiEagerLoads());
+        $this->prepareConversationMessagesForApi(collect([$channelConversation]));
+
+        return response()->json(response_formatter(DEFAULT_STORE_200, $channelConversation), 200);
     }
 
     /**

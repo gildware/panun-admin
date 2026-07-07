@@ -25,6 +25,7 @@ class CustomerProviderPayloadSlimmerTest extends TestCase
             'nextBookingEligibility' => true,
             'scheduleBookingEligibility' => true,
             'total_service_served' => 20,
+            'subscribed_services_count' => 5,
             'owner' => ['id' => 'owner-1', 'account' => ['balance' => 1]],
             'storage' => ['id' => 'storage-1'],
             'commission_percentage' => 10,
@@ -32,6 +33,8 @@ class CustomerProviderPayloadSlimmerTest extends TestCase
 
         $list = CustomerProviderPayloadSlimmer::slimListItem($raw);
         $this->assertSame('Acme', $list['company_name']);
+        $this->assertSame(20, $list['total_service_served']);
+        $this->assertSame(5, $list['subscribed_services_count']);
         $this->assertArrayNotHasKey('owner', $list);
         $this->assertArrayNotHasKey('cover_image_full_path', $list);
 

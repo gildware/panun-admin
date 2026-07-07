@@ -18,6 +18,7 @@ use Modules\ChattingModule\Entities\ChannelList;
 use Modules\ChattingModule\Entities\ChannelUser;
 use Modules\ChattingModule\Entities\ConversationFile;
 use Modules\ChattingModule\Entities\ConversationReaction;
+use Modules\ChattingModule\Traits\ChattingTrait;
 use Modules\AdminModule\Services\StaffPresenceService;
 use Modules\BookingModule\Entities\Booking;
 use Modules\LeadManagement\Entities\Lead;
@@ -29,6 +30,8 @@ use Ramsey\Uuid\Nonstandard\Uuid;
 
 class ChattingController extends Controller
 {
+    use ChattingTrait;
+
     protected ChannelList $channelList;
     protected ChannelUser $channelUser;
     protected ChannelConversation $channelConversation;
@@ -254,6 +257,12 @@ class ChattingController extends Controller
      */
     private function findOrCreateChannelBetween(string $currentUserId, string $otherUserId): array
     {
+        $otherUser = $this->user->find($otherUserId);
+        $supportReferenceType = $this->supportReferenceTypeForUserType($otherUser?->user_type);
+        if ($supportReferenceType !== null) {
+            return $this->findOrCreateAdminSupportChannel($currentUserId, $otherUserId, $supportReferenceType);
+        }
+
         $channelIds = $this->channelUser->where('user_id', $currentUserId)->pluck('channel_id')->toArray();
 
         $existing = $this->channelList->whereIn('id', $channelIds)
@@ -437,8 +446,13 @@ class ChattingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
+        $channelId = $this->resolveAdminSupportChannelForSend(
+            (string) $request['channel_id'],
+            (string) $request->user()->id
+        );
+
         $replyToId = $this->resolveReplyToConversationId(
-            $request['channel_id'],
+            $channelId,
             $request->input('reply_to_conversation_id')
         );
 
@@ -448,17 +462,17 @@ class ChattingController extends Controller
             ]]), 400);
         }
 
-        DB::transaction(function () use ($request, $replyToId) {
-            $this->channelList->where('id', $request['channel_id'])->update([
+        DB::transaction(function () use ($request, $replyToId, $channelId) {
+            $this->channelList->where('id', $channelId)->update([
                 'updated_at' => now()
             ]);
-            $this->channelUser->where('channel_id', $request['channel_id'])->where('user_id', '!=', $request->user()->id)
+            $this->channelUser->where('channel_id', $channelId)->where('user_id', '!=', $request->user()->id)
                 ->update([
                     'is_read' => 0
                 ]);
 
             $channelConversation = new ChannelConversation();
-            $channelConversation->channel_id = $request->channel_id;
+            $channelConversation->channel_id = $channelId;
             $channelConversation->message = $request['message'];
             $channelConversation->user_id = $request->user()->id;
             $channelConversation->reply_to_conversation_id = $replyToId;
@@ -479,14 +493,14 @@ class ChattingController extends Controller
             }
         });
 
-        $conversation = $this->channelConversation->where(['channel_id' => $request['channel_id']])
+        $conversation = $this->channelConversation->where(['channel_id' => $channelId])
             ->with($this->conversationEagerLoads())->whereHas('channel.channelUsers', function ($query) use ($request) {
                 $query->where(['user_id' => $request->user()->id]);
             })->latest()->paginate(100, ['*'], 'offset', $request['offset']);
 
         $channel = $this->channelList->with($this->channelListEagerLoads())
-            ->find($request['channel_id']);
-        $fromUser = $this->channelUser->where('channel_id', $request['channel_id'])
+            ->find($channelId);
+        $fromUser = $this->channelUser->where('channel_id', $channelId)
             ->where('user_id', '!=', $request->user()->id)
             ->with($this->channelMemberEagerLoads())
             ->first();
@@ -495,7 +509,7 @@ class ChattingController extends Controller
             $channel['is_read'] = 1;
         }
 
-        $recipientChannelUsers = $this->recipientChannelUsersFor($request['channel_id'], (string) $request->user()->id);
+        $recipientChannelUsers = $this->recipientChannelUsersFor($channelId, (string) $request->user()->id);
 
         return response()->json([
             'template' => view('chattingmodule::admin.partials._conversation-messages-only', array_merge(
@@ -504,6 +518,7 @@ class ChattingController extends Controller
                 ['recipientChannelUsers' => $recipientChannelUsers],
             ))->render(),
             'sidebar' => $channel ? $this->sidebarChannelPayload($channel, (string) $request->user()->id, true) : null,
+            'channel_id' => $channelId !== (string) $request['channel_id'] ? $channelId : null,
             'active_conversation' => [
                 'changed' => true,
                 'last_message_at' => $conversation->first()?->created_at?->toIso8601String(),

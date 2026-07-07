@@ -1042,6 +1042,187 @@ if (! function_exists('support_channel_reference_type_for_app')) {
     }
 }
 
+if (! function_exists('support_channel_reference_type_for_user_type')) {
+    function support_channel_reference_type_for_user_type(?string $userType): ?string
+    {
+        return match ($userType) {
+            'customer' => 'support_customer',
+            'provider-admin' => 'support_provider',
+            'provider-serviceman' => 'support_serviceman',
+            default => null,
+        };
+    }
+}
+
+if (! function_exists('ensure_support_channel_user')) {
+    function ensure_support_channel_user(string $channelId, string $userId): void
+    {
+        $exists = \Modules\ChattingModule\Entities\ChannelUser::query()
+            ->where('channel_id', $channelId)
+            ->where('user_id', $userId)
+            ->exists();
+
+        if ($exists) {
+            return;
+        }
+
+        \Modules\ChattingModule\Entities\ChannelUser::query()->create([
+            'id' => \Ramsey\Uuid\Uuid::uuid4(),
+            'channel_id' => $channelId,
+            'user_id' => $userId,
+            'is_read' => 1,
+            'read_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+}
+
+if (! function_exists('find_support_channel_between_users')) {
+    function find_support_channel_between_users(string $userA, string $userB, string $referenceType): ?\Modules\ChattingModule\Entities\ChannelList
+    {
+        $channelIds = \Modules\ChattingModule\Entities\ChannelUser::query()
+            ->where('user_id', $userA)
+            ->pluck('channel_id')
+            ->toArray();
+
+        if ($channelIds === []) {
+            return null;
+        }
+
+        return \Modules\ChattingModule\Entities\ChannelList::query()
+            ->whereIn('id', $channelIds)
+            ->where('reference_type', $referenceType)
+            ->whereHas('channelUsers', fn ($query) => $query->where('user_id', $userB))
+            ->latest()
+            ->first();
+    }
+}
+
+if (! function_exists('find_or_create_admin_support_channel')) {
+    /**
+     * @return array{channel: \Modules\ChattingModule\Entities\ChannelList, created: bool}
+     */
+    function find_or_create_admin_support_channel(string $adminUserId, string $supportUserId, string $referenceType): array
+    {
+        $superAdminId = getSuperAdminId();
+        if (! $superAdminId) {
+            $channel = new \Modules\ChattingModule\Entities\ChannelList;
+            $channel->reference_id = null;
+            $channel->reference_type = null;
+            $channel->save();
+
+            \Modules\ChattingModule\Entities\ChannelUser::query()->insert([
+                [
+                    'id' => \Ramsey\Uuid\Uuid::uuid4(),
+                    'channel_id' => $channel->id,
+                    'user_id' => $adminUserId,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+                [
+                    'id' => \Ramsey\Uuid\Uuid::uuid4(),
+                    'channel_id' => $channel->id,
+                    'user_id' => $supportUserId,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+            ]);
+
+            return ['channel' => $channel->fresh(), 'created' => true];
+        }
+
+        $existing = find_support_channel_between_users($supportUserId, $superAdminId, $referenceType);
+
+        if (! $existing && $referenceType !== 'support') {
+            $legacy = find_support_channel_between_users($supportUserId, $superAdminId, 'support');
+            if ($legacy) {
+                $legacy->reference_type = $referenceType;
+                $legacy->save();
+                $existing = $legacy->fresh();
+            }
+        }
+
+        if ($existing) {
+            ensure_support_channel_user($existing->id, $adminUserId);
+
+            return ['channel' => $existing->fresh(), 'created' => false];
+        }
+
+        $channel = new \Modules\ChattingModule\Entities\ChannelList;
+        $channel->reference_id = '';
+        $channel->reference_type = $referenceType;
+        $channel->save();
+
+        $members = [
+            [
+                'id' => \Ramsey\Uuid\Uuid::uuid4(),
+                'channel_id' => $channel->id,
+                'user_id' => $superAdminId,
+                'is_read' => 1,
+                'read_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => \Ramsey\Uuid\Uuid::uuid4(),
+                'channel_id' => $channel->id,
+                'user_id' => $supportUserId,
+                'is_read' => 1,
+                'read_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ];
+
+        if ($adminUserId !== $superAdminId) {
+            $members[] = [
+                'id' => \Ramsey\Uuid\Uuid::uuid4(),
+                'channel_id' => $channel->id,
+                'user_id' => $adminUserId,
+                'is_read' => 1,
+                'read_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        \Modules\ChattingModule\Entities\ChannelUser::query()->insert($members);
+
+        return ['channel' => $channel->fresh(), 'created' => true];
+    }
+}
+
+if (! function_exists('resolve_admin_support_channel_for_send')) {
+    function resolve_admin_support_channel_for_send(string $channelId, string $adminUserId): string
+    {
+        $channel = \Modules\ChattingModule\Entities\ChannelList::query()
+            ->with('channelUsers.user')
+            ->find($channelId);
+
+        if (! $channel || is_support_channel_reference_type($channel->reference_type) || filled($channel->reference_type)) {
+            return $channelId;
+        }
+
+        $members = $channel->channelUsers;
+        if ($members->count() !== 2) {
+            return $channelId;
+        }
+
+        $otherMember = $members->firstWhere('user_id', '!=', $adminUserId);
+        $supportReferenceType = support_channel_reference_type_for_user_type($otherMember?->user?->user_type);
+        if (! $supportReferenceType) {
+            return $channelId;
+        }
+
+        return find_or_create_admin_support_channel(
+            $adminUserId,
+            (string) $otherMember->user_id,
+            $supportReferenceType
+        )['channel']->id;
+    }
+}
+
 if (! function_exists('support_chat_avatar_url')) {
     /**
      * Resolved avatar URL for a support-chat peer (sidebar list + conversation header).

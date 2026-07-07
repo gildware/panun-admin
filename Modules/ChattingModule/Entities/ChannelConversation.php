@@ -79,26 +79,34 @@ class ChannelConversation extends Model
         });
 
         self::created(function ($model) {
-            try {
-                dispatch_chat_message_push_notifications($model);
-            } catch (\Throwable $exception) {
-                \Illuminate\Support\Facades\Log::error('Chat message push dispatch failed', [
-                    'conversation_id' => $model->id,
-                    'message' => $exception->getMessage(),
-                ]);
-            }
+            $dispatch = function () use ($model) {
+                try {
+                    dispatch_chat_message_push_notifications($model);
+                } catch (\Throwable $exception) {
+                    \Illuminate\Support\Facades\Log::error('Chat message push dispatch failed', [
+                        'conversation_id' => $model->id,
+                        'message' => $exception->getMessage(),
+                    ]);
+                }
 
-            if (! function_exists('admin_inbox_notify_chat_message')) {
-                return;
-            }
+                if (! function_exists('admin_inbox_notify_chat_message')) {
+                    return;
+                }
 
-            try {
-                admin_inbox_notify_chat_message($model);
-            } catch (\Throwable $exception) {
-                \Illuminate\Support\Facades\Log::error('Admin inbox chat notify failed', [
-                    'conversation_id' => $model->id,
-                    'message' => $exception->getMessage(),
-                ]);
+                try {
+                    admin_inbox_notify_chat_message($model);
+                } catch (\Throwable $exception) {
+                    \Illuminate\Support\Facades\Log::error('Admin inbox chat notify failed', [
+                        'conversation_id' => $model->id,
+                        'message' => $exception->getMessage(),
+                    ]);
+                }
+            };
+
+            if (\Illuminate\Support\Facades\DB::transactionLevel() > 0) {
+                \Illuminate\Support\Facades\DB::afterCommit($dispatch);
+            } else {
+                $dispatch();
             }
         });
 

@@ -93,6 +93,7 @@ class CustomerProviderDetailsPayloadSlimmer
                 'title' => $row['title'] ?? null,
                 'description' => $row['description'] ?? null,
                 'media_type' => $row['media_type'] ?? null,
+                'file_name' => $row['file_name'] ?? null,
                 'media_full_path' => $row['media_full_path'] ?? null,
                 'sort_order' => $row['sort_order'] ?? null,
             ], fn ($value) => $value !== null);

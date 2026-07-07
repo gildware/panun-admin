@@ -23,6 +23,7 @@ use Modules\PromotionManagement\Entities\PushNotification;
 use Modules\ProviderManagement\Entities\BankDetail;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\SubscribedService;
+use Modules\ProviderManagement\Services\ProviderCompletedServicesCounter;
 use Modules\ProviderManagement\Services\ProviderDashboardEarningStatsService;
 use Modules\ProviderManagement\Services\ProviderCustomizedPostPayloadSlimmer;
 use Modules\ProviderManagement\Services\ProviderDashboardPayloadSlimmer;
@@ -114,7 +115,7 @@ class ProviderController extends Controller
                     ->ofStatus(1)
                     ->count(),
                 'total_service_man' => $this->serviceman->where(['provider_id' => $request->user()->provider->id])->count(),
-                'total_booking_served' => $request->user()->provider->bookings('completed')->count()
+                'total_booking_served' => app(ProviderCompletedServicesCounter::class)->countForProvider($providerId)
             ]];
         }
 
