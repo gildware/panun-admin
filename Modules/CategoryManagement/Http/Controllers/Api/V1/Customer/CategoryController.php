@@ -84,7 +84,12 @@ class CategoryController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $categoryId = $this->category->where(['slug' => $request['slug']])->first()?->id ?? null;
+        $identifier = trim((string) $request['slug']);
+        $categoryId = $this->category
+            ->where(function ($query) use ($identifier) {
+                $query->where('slug', $identifier)->orWhere('id', $identifier);
+            })
+            ->first()?->id ?? null;
 
         if ($categoryId == null) {
             return response()->json(response_formatter(DEFAULT_404, null, [['code' => 'category', 'message' => translate('Category not found')]]), 404);
