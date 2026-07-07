@@ -115,9 +115,15 @@ class CustomerProviderDetailsPayloadSlimmer
 
             $customer = is_array($review['customer'] ?? null) ? $review['customer'] : null;
             $reply = is_array($review['review_reply'] ?? null) ? $review['review_reply'] : null;
+            $booking = is_array($review['booking'] ?? null) ? $review['booking'] : null;
+            $service = is_array($review['service'] ?? null) ? $review['service'] : null;
 
             $reviewRows[] = array_filter([
                 'id' => $review['id'] ?? null,
+                'readable_id' => $review['readable_id'] ?? null,
+                'booking_id' => $review['booking_id'] ?? null,
+                'service_id' => $review['service_id'] ?? null,
+                'is_active' => $review['is_active'] ?? null,
                 'review_rating' => $review['review_rating'] ?? null,
                 'review_comment' => $review['review_comment'] ?? null,
                 'updated_at' => $review['updated_at'] ?? null,
@@ -125,6 +131,23 @@ class CustomerProviderDetailsPayloadSlimmer
                     'first_name' => $customer['first_name'] ?? null,
                     'last_name' => $customer['last_name'] ?? null,
                     'profile_image_full_path' => $customer['profile_image_full_path'] ?? null,
+                ], fn ($value) => $value !== null),
+                'booking' => $booking === null ? null : array_filter([
+                    'id' => $booking['id'] ?? null,
+                    'readable_id' => $booking['readable_id'] ?? null,
+                    'detail' => isset($booking['detail']) && is_array($booking['detail'])
+                        ? array_map(
+                            fn ($detail) => is_array($detail) ? array_filter([
+                                'service_id' => $detail['service_id'] ?? null,
+                                'variant_key' => $detail['variant_key'] ?? null,
+                            ], fn ($value) => $value !== null) : [],
+                            $booking['detail']
+                        )
+                        : null,
+                ], fn ($value) => $value !== null),
+                'service' => $service === null ? null : array_filter([
+                    'id' => $service['id'] ?? null,
+                    'name' => $service['name'] ?? null,
                 ], fn ($value) => $value !== null),
                 'review_reply' => $reply === null ? null : array_filter([
                     'reply' => $reply['reply'] ?? null,

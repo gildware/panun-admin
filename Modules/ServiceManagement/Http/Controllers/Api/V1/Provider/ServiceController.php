@@ -95,7 +95,7 @@ class ServiceController extends Controller
         $cacheKey = ProviderServiceDetailsCache::reviewsCacheKey($service_id, $providerId, $status, $limit, $offset);
 
         $payload = ProviderServiceDetailsCache::rememberReviews($cacheKey, function () use ($request, $service_id, $providerId, $status, $limit, $offset) {
-            $reviewsQuery = $this->review->with(['customer', 'reviewReply'])
+            $reviewsQuery = $this->review->with(['customer', 'booking.detail', 'service', 'reviewReply'])
                 ->where('service_id', $service_id)
                 ->where('provider_id', $providerId);
 

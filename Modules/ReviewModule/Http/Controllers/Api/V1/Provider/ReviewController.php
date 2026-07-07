@@ -35,18 +35,26 @@ class ReviewController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $reviews = $this->review->where('provider_id', $request->user()->provider->id)
+        $reviews = $this->review->with(['customer', 'booking.detail', 'service', 'reviewReply'])
+            ->where('provider_id', $request->user()->provider->id)
             ->when($request->has('status') && $request['status'] != 'all', function ($query) use ($request) {
                 return $query->ofStatus(($request['status'] == 'active') ? 1 : 0);
             })->latest()->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
         $ratingGroupCount = DB::table('reviews')->where('provider_id', $request->user()->provider->id)
-            ->select('review_rating', DB::raw('count(*) as total'))
+            ->where('is_active', 1)
+            ->select('review_rating', DB::raw('count(review_comment) as total_comment'), DB::raw('count(*) as total'))
             ->groupBy('review_rating')
             ->get();
 
+        $reviewCount = 0;
+        foreach ($ratingGroupCount as $count) {
+            $reviewCount += $count->total_comment;
+        }
+
         $ratingInfo = [
             'rating_count' => $request->user()->provider['rating_count'],
+            'review_count' => $reviewCount,
             'average_rating' => $request->user()->provider['avg_rating'],
             'rating_group_count' => $ratingGroupCount,
         ];
