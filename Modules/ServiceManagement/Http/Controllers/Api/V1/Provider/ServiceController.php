@@ -95,7 +95,13 @@ class ServiceController extends Controller
         $cacheKey = ProviderServiceDetailsCache::reviewsCacheKey($service_id, $providerId, $status, $limit, $offset);
 
         $payload = ProviderServiceDetailsCache::rememberReviews($cacheKey, function () use ($request, $service_id, $providerId, $status, $limit, $offset) {
-            $reviewsQuery = $this->review->with(['customer', 'booking.detail', 'service', 'reviewReply'])
+            $reviewsQuery = $this->review->with([
+                'customer:id,first_name,last_name,profile_image',
+                'service:id,name',
+                'reviewReply:id,review_id,reply,updated_at',
+                'booking:id,readable_id',
+                'booking.detail:id,booking_id,service_id,variant_key',
+            ])
                 ->where('service_id', $service_id)
                 ->where('provider_id', $providerId);
 
@@ -148,10 +154,7 @@ class ServiceController extends Controller
                 'rating_group_count' => $ratingGroupCount,
             ];
 
-            return CustomerProviderDetailsPayloadSlimmer::slimReviewsPayload(
-                $reviews->toArray(),
-                $ratingInfo
-            );
+            return CustomerProviderDetailsPayloadSlimmer::slimPaginatedReviews($reviews, $ratingInfo);
         });
 
         return response()->json(response_formatter(DEFAULT_200, $payload ?? ['reviews' => [], 'rating' => []]), 200);

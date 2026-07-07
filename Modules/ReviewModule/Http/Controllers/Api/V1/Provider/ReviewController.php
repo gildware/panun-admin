@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Modules\ProviderManagement\Services\CustomerProviderDetailsPayloadSlimmer;
 use Modules\ReviewModule\Entities\Review;
 
 class ReviewController extends Controller
@@ -35,13 +36,21 @@ class ReviewController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $reviews = $this->review->with(['customer', 'booking.detail', 'service', 'reviewReply'])
-            ->where('provider_id', $request->user()->provider->id)
+        $providerId = $request->user()->provider->id;
+
+        $reviews = $this->review->with([
+            'customer:id,first_name,last_name,profile_image',
+            'service:id,name',
+            'reviewReply:id,review_id,reply,updated_at',
+            'booking:id,readable_id',
+            'booking.detail:id,booking_id,service_id,variant_key',
+        ])
+            ->where('provider_id', $providerId)
             ->when($request->has('status') && $request['status'] != 'all', function ($query) use ($request) {
                 return $query->ofStatus(($request['status'] == 'active') ? 1 : 0);
             })->latest()->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
-        $ratingGroupCount = DB::table('reviews')->where('provider_id', $request->user()->provider->id)
+        $ratingGroupCount = DB::table('reviews')->where('provider_id', $providerId)
             ->where('is_active', 1)
             ->select('review_rating', DB::raw('count(review_comment) as total_comment'), DB::raw('count(*) as total'))
             ->groupBy('review_rating')
@@ -59,11 +68,9 @@ class ReviewController extends Controller
             'rating_group_count' => $ratingGroupCount,
         ];
 
-        if ($reviews->count() > 0) {
-            return response()->json(response_formatter(DEFAULT_200, ['reviews' => $reviews, 'rating' => $ratingInfo]), 200);
-        }
+        $payload = CustomerProviderDetailsPayloadSlimmer::slimPaginatedReviews($reviews, $ratingInfo);
 
-        return response()->json(response_formatter(DEFAULT_404), 200);
+        return response()->json(response_formatter(DEFAULT_200, $payload), 200);
     }
 
     /**
