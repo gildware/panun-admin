@@ -140,6 +140,10 @@ class CustomerProviderDetailsPayloadSlimmer
     {
         $customer = null;
         if ($review->relationLoaded('customer') && $review->customer) {
+            if (empty($review->customer->user_type)) {
+                $review->customer->user_type = 'customer';
+            }
+            $review->customer->loadMissing('storage');
             $review->customer->setAppends(['profile_image_full_path']);
             $customer = array_filter([
                 'first_name' => $review->customer->first_name,

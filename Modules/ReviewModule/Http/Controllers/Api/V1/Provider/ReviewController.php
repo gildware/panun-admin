@@ -39,7 +39,7 @@ class ReviewController extends Controller
         $providerId = $request->user()->provider->id;
 
         $reviews = $this->review->with([
-            'customer:id,first_name,last_name,profile_image',
+            'customer.storage',
             'service:id,name',
             'reviewReply:id,review_id,reply,updated_at',
             'booking' => function ($query) {
@@ -79,7 +79,10 @@ class ReviewController extends Controller
                 ->all(),
         ];
 
-        $payload = CustomerProviderDetailsPayloadSlimmer::slimPaginatedReviews($reviews, $ratingInfo);
+        $payload = CustomerProviderDetailsPayloadSlimmer::slimReviewsPayload(
+            $reviews->toArray(),
+            $ratingInfo
+        );
 
         return response()->json(response_formatter(DEFAULT_200, $payload), 200);
     }
