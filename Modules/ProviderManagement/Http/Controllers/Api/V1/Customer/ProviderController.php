@@ -20,6 +20,8 @@ use Modules\ProviderManagement\Services\CustomerProviderDetailsPayloadSlimmer;
 use Modules\CustomerModule\Services\CustomerProviderPayloadSlimmer;
 use Modules\ProviderManagement\Services\CustomerProviderDetailsService;
 use Modules\ProviderManagement\Services\CustomerProviderListFetcher;
+use Modules\ProviderManagement\Services\ProviderCompletedServicesCounter;
+use Modules\ProviderManagement\Services\ProviderSubscribedServicesCounter;
 use Modules\ProviderManagement\Services\ProviderPackageEligibilityResolver;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ServiceManagement\Entities\FavoriteService;
@@ -158,7 +160,27 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_404), 404);
         }
 
+        $payload = $this->overlayProviderStatsOnSummary($payload, $providerId);
+
         return response()->json(response_formatter(DEFAULT_200, $payload), 200);
+    }
+
+    /**
+     * @param  array{provider?: array<string, mixed>, rating?: array<string, mixed>}  $payload
+     * @return array{provider?: array<string, mixed>, rating?: array<string, mixed>}
+     */
+    private function overlayProviderStatsOnSummary(array $payload, string $providerId): array
+    {
+        if (! isset($payload['provider']) || ! is_array($payload['provider'])) {
+            return $payload;
+        }
+
+        $payload['provider']['total_service_served'] = app(ProviderCompletedServicesCounter::class)
+            ->countForProvider($providerId);
+        $payload['provider']['subscribed_services_count'] = app(ProviderSubscribedServicesCounter::class)
+            ->countForProvider($providerId);
+
+        return $payload;
     }
 
     public function getProviderDetailsServices(Request $request): JsonResponse
