@@ -163,7 +163,9 @@ class CustomerProviderDetailsPayloadSlimmer
 
             $booking = array_filter([
                 'id' => $review->booking->id,
-                'readable_id' => $review->booking->readable_id,
+                'readable_id' => $review->booking->readable_id !== null
+                    ? (string) $review->booking->readable_id
+                    : null,
                 'detail' => $detail,
             ], fn ($value) => $value !== null);
         }
@@ -180,7 +182,7 @@ class CustomerProviderDetailsPayloadSlimmer
         if ($review->relationLoaded('reviewReply') && $review->reviewReply) {
             $reply = array_filter([
                 'reply' => $review->reviewReply->reply,
-                'updated_at' => $review->reviewReply->updated_at,
+                'updated_at' => self::serializeDateTime($review->reviewReply->updated_at),
             ], fn ($value) => $value !== null);
         }
 
@@ -192,12 +194,21 @@ class CustomerProviderDetailsPayloadSlimmer
             'is_active' => $review->is_active,
             'review_rating' => $review->review_rating,
             'review_comment' => $review->review_comment,
-            'updated_at' => $review->updated_at,
+            'updated_at' => self::serializeDateTime($review->updated_at),
             'customer' => $customer,
             'booking' => $booking,
             'service' => $service,
             'review_reply' => $reply,
         ], fn ($value) => $value !== null);
+    }
+
+    private static function serializeDateTime(mixed $value): mixed
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d\TH:i:s.000000\Z');
+        }
+
+        return $value;
     }
 
     /**

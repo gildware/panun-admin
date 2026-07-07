@@ -38,13 +38,7 @@ class ReviewController extends Controller
 
         $providerId = $request->user()->provider->id;
 
-        $reviews = $this->review->with([
-            'customer:id,first_name,last_name,profile_image',
-            'service:id,name',
-            'reviewReply:id,review_id,reply,updated_at',
-            'booking:id,readable_id',
-            'booking.detail:id,booking_id,service_id,variant_key',
-        ])
+        $reviews = $this->review->with(['customer', 'booking.detail', 'service', 'reviewReply'])
             ->where('provider_id', $providerId)
             ->when($request->has('status') && $request['status'] != 'all', function ($query) use ($request) {
                 return $query->ofStatus(($request['status'] == 'active') ? 1 : 0);
@@ -65,7 +59,14 @@ class ReviewController extends Controller
             'rating_count' => $request->user()->provider['rating_count'],
             'review_count' => $reviewCount,
             'average_rating' => $request->user()->provider['avg_rating'],
-            'rating_group_count' => $ratingGroupCount,
+            'rating_group_count' => $ratingGroupCount
+                ->map(fn ($row) => [
+                    'review_rating' => $row->review_rating,
+                    'total_comment' => $row->total_comment ?? null,
+                    'total' => $row->total,
+                ])
+                ->values()
+                ->all(),
         ];
 
         $payload = CustomerProviderDetailsPayloadSlimmer::slimPaginatedReviews($reviews, $ratingInfo);
