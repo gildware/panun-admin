@@ -38,7 +38,13 @@ class ReviewController extends Controller
 
         $providerId = $request->user()->provider->id;
 
-        $reviews = $this->review->with(['customer', 'booking.detail', 'service', 'reviewReply'])
+        $reviews = $this->review->with([
+            'customer:id,first_name,last_name,profile_image',
+            'service:id,name',
+            'reviewReply:id,review_id,reply,updated_at',
+            'booking:id,readable_id',
+            'booking.detail:id,booking_id,service_id,variant_key',
+        ])
             ->where('provider_id', $providerId)
             ->when($request->has('status') && $request['status'] != 'all', function ($query) use ($request) {
                 return $query->ofStatus(($request['status'] == 'active') ? 1 : 0);
@@ -50,9 +56,11 @@ class ReviewController extends Controller
             ->groupBy('review_rating')
             ->get();
 
-        $reviewCount = 0;
-        foreach ($ratingGroupCount as $count) {
-            $reviewCount += $count->total_comment;
+        $reviewCount = (int) $reviews->total();
+        if ($reviewCount === 0) {
+            foreach ($ratingGroupCount as $count) {
+                $reviewCount += (int) ($count->total ?? 0);
+            }
         }
 
         $ratingInfo = [
