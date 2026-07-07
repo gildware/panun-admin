@@ -27,6 +27,7 @@ use Modules\ProviderManagement\Services\ProviderCompletedServicesCounter;
 use Modules\ProviderManagement\Services\ProviderDashboardEarningStatsService;
 use Modules\ProviderManagement\Services\ProviderCustomizedPostPayloadSlimmer;
 use Modules\ProviderManagement\Services\ProviderDashboardPayloadSlimmer;
+use Modules\ProviderManagement\Services\CustomerProviderDetailsPayloadSlimmer;
 use Modules\ProviderManagement\Services\ProviderProfileChangeRequestService;
 use Modules\ProviderManagement\Services\ProviderSubscriptionPayloadSlimmer;
 use Modules\ReviewModule\Entities\Review;
@@ -908,53 +909,42 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $reviews = $this->review->with(['booking.detail', 'provider', 'customer','reviewReply','service'])
-            ->where('provider_id', $request->user()->provider->id)
+        $providerId = (string) $request->user()->provider->id;
+
+        $reviews = $this->review->with(['customer', 'booking.detail', 'service', 'reviewReply'])
+            ->where('provider_id', $providerId)
             ->latest()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
         $ratingGroupCount = DB::table('reviews')
-            ->where('provider_id', $request->user()->provider->id)
+            ->where('provider_id', $providerId)
+            ->where('is_active', 1)
             ->select('review_rating', DB::raw('count(review_comment) as total_comment'), DB::raw('count(*) as total'))
             ->groupBy('review_rating')
             ->get();
 
-        $activeReviews = DB::table('reviews')
-            ->where('provider_id', $request->user()->provider->id)
-            ->where('is_active', 1)
-            ->select('review_rating', DB::raw('count(*) as total'))
-            ->groupBy('review_rating')
-            ->get();
-
-        $totalRating = 0;
-        $ratingCount = 0;
         $reviewCount = 0;
-
         foreach ($ratingGroupCount as $count) {
-            $ratingCount += $count->total;
             $reviewCount += $count->total_comment;
         }
 
-        $totalActiveRating = 0;
-        $activeRatingCount = 0;
-
-        foreach ($activeReviews as $activeReview) {
-            $totalActiveRating += round($activeReview->review_rating * $activeReview->total, 2);
-            $activeRatingCount += $activeReview->total;
-        }
-
         $ratingInfo = [
-            'rating_count' => $ratingCount,
+            'rating_count' => $request->user()->provider['rating_count'],
             'review_count' => $reviewCount,
-            'average_rating' => $activeRatingCount > 0 ? round($totalActiveRating / $activeRatingCount, 2) : 0,
-            'rating_group_count' => $ratingGroupCount,
+            'average_rating' => $request->user()->provider['avg_rating'],
+            'rating_group_count' => $ratingGroupCount
+                ->map(fn ($row) => [
+                    'review_rating' => $row->review_rating,
+                    'total_comment' => $row->total_comment ?? null,
+                    'total' => $row->total,
+                ])
+                ->values()
+                ->all(),
         ];
 
-        if ($reviews->count() > 0) {
-            return response()->json(response_formatter(DEFAULT_200, ['reviews' => $reviews, 'rating' => $ratingInfo]), 200);
-        }
+        $payload = CustomerProviderDetailsPayloadSlimmer::slimPaginatedReviews($reviews, $ratingInfo);
 
-        return response()->json(response_formatter(DEFAULT_404), 200);
+        return response()->json(response_formatter(DEFAULT_200, $payload), 200);
     }
 
 
