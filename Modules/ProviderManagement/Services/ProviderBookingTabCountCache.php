@@ -22,7 +22,9 @@ class ProviderBookingTabCountCache
 
     public static function forgetForProvider(string $providerId): void
     {
-        // File cache has no tag support; bumping is handled via short TTL.
-        Cache::forget("provider_booking_tab_counts:{$providerId}:all");
+        foreach (['all', 'regular', 'repeat'] as $serviceType) {
+            $filtersKey = md5(json_encode(['service_type' => $serviceType]));
+            Cache::forget("provider_booking_tab_counts:{$providerId}:{$filtersKey}");
+        }
     }
 }

@@ -96,15 +96,17 @@ class BookingController extends Controller
         }
 
         $provider = $request->user()->provider;
-        if (! provider_can_receive_bookings($provider)) {
-            return $this->emptyProviderBookingsListResponse($request);
-        }
-
         $providerId = $provider->id;
         $maxBookingAmount = business_config('max_booking_amount', 'booking_setup')->live_values;
         $serviceAtProviderPlace = (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0);
         $serviceLocations = getProviderSettings(providerId: $providerId, key: 'service_location', type: 'provider_config') ?? ['customer'];
         $bookingStatus = (string) $request['booking_status'];
+        $canReceiveBookings = provider_can_receive_bookings($provider);
+
+        // Assigned bookings stay visible on the All tab even when the provider cannot accept new requests.
+        if (! $canReceiveBookings && $bookingStatus !== 'all') {
+            return $this->emptyProviderBookingsListResponse($request);
+        }
         $tabOptions = [
             'max_booking_amount' => $maxBookingAmount,
             'provider' => $provider,
@@ -245,6 +247,7 @@ class BookingController extends Controller
             'provider_id' => $providerId,
         ];
         $counts = [];
+        $canReceiveBookings = provider_can_receive_bookings($provider);
 
         foreach (booking_api_list_filter_tab_order() as $tab) {
             if ($tab === 'all') {
@@ -254,6 +257,11 @@ class BookingController extends Controller
                         return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
                     })
                     ->count();
+                continue;
+            }
+
+            if (! $canReceiveBookings) {
+                $counts[$tab] = 0;
                 continue;
             }
 

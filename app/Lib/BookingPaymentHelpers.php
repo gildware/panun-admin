@@ -1241,6 +1241,19 @@ if (! function_exists('booking_clear_provider_ignore')) {
     }
 }
 
+if (! function_exists('booking_invalidate_provider_tab_counts')) {
+    function booking_invalidate_provider_tab_counts(?string $providerId): void
+    {
+        if ($providerId === null || $providerId === '') {
+            return;
+        }
+
+        if (class_exists(\Modules\ProviderManagement\Services\ProviderBookingTabCountCache::class)) {
+            \Modules\ProviderManagement\Services\ProviderBookingTabCountCache::forgetForProvider($providerId);
+        }
+    }
+}
+
 if (! function_exists('booking_reopen_combined_status_key')) {
     /**
      * Translation key for open reopen tickets, e.g. reopened_and_pending.
