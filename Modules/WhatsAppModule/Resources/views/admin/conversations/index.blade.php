@@ -1557,6 +1557,9 @@
     var activeListTimer = null;
     /** When set, loads a window around this message id and keeps it highlighted until another chat opens. */
     var stickyFocusMessageId = null;
+    var waLastMessagesFingerprint = null;
+    var waLastHandlerFingerprint = null;
+    var waLastPollPhone = null;
     var strNoResults = {!! json_encode(translate('No results')) !!};
     var strWaCustomer = {!! json_encode(translate('whatsapp_system_customer')) !!};
     var strWaProvider = {!! json_encode(translate('whatsapp_system_provider')) !!};
@@ -2299,6 +2302,9 @@
             chatPanel.classList.remove('d-flex');
         }
         currentPhone = null;
+        waLastMessagesFingerprint = null;
+        waLastHandlerFingerprint = null;
+        waLastPollPhone = null;
         if (pollTimer) {
             clearInterval(pollTimer);
             pollTimer = null;
@@ -2465,6 +2471,9 @@
         if (currentPhone !== phone) {
             waWabaTemplatesList = null;
             waWabaTemplatesLoading = false;
+            waLastMessagesFingerprint = null;
+            waLastHandlerFingerprint = null;
+            waLastPollPhone = null;
         }
         currentPhone = phone;
         waCustomerName = '';
@@ -3243,41 +3252,73 @@
         });
     }
 
-    function loadMessages(phone, isPoll) {
-        var panel = document.getElementById('whatsapp-chat-messages');
-        if (!panel) {
+    function waHandlerFingerprint(handler) {
+        handler = handler || {};
+        return String(handler.type || '') + ':' + String(handler.id != null ? handler.id : '');
+    }
+
+    function waMessagesFingerprint(res) {
+        var msgs = res.data || [];
+        var sigs = msgs.map(function (m) {
+            return [
+                m.id != null ? String(m.id) : '',
+                (m.status || '').toLowerCase(),
+                JSON.stringify(m.reactions || {}),
+            ].join(',');
+        });
+        var mw = res.messaging_window || {};
+        return msgs.length + '|' + sigs.join(';') + '|' + (mw.session_open ? '1' : '0');
+    }
+
+    function waCanAppendPollMessages(msgs, inner) {
+        if (!inner || !msgs || !msgs.length) {
+            return false;
+        }
+        var existing = inner.querySelectorAll('.wa-msg-row[data-message-id]');
+        var n = existing.length;
+        if (n === 0 || n >= msgs.length) {
+            return false;
+        }
+        for (var i = 0; i < n; i++) {
+            var domId = existing[i].getAttribute('data-message-id') || '';
+            var msg = msgs[i];
+            var msgId = msg && msg.id != null ? String(msg.id) : '';
+            if (domId !== msgId) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function waBindMessageMediaPreviews(scope) {
+        if (!scope) {
             return;
         }
-        var inner = waChatMessagesInner(panel);
-        var wasNearBottom = true;
-        if (isPoll && panel) {
-            var threshold = 100;
-            wasNearBottom = (panel.scrollHeight - panel.scrollTop - panel.clientHeight) <= threshold;
-        }
-        if (!isPoll && inner) {
-            inner.innerHTML = '<div class="text-center py-4 text-muted">Loading…</div>';
-        }
-        var url = messagesUrl + '?phone=' + encodeURIComponent(phone) + '&full=1&mark_seen=1';
-        if (stickyFocusMessageId) {
-            url += '&focus_message_id=' + encodeURIComponent(String(stickyFocusMessageId));
-        }
-        fetch(url)
-            .then(function(r) { return r.json(); })
-            .then(function(res) {
-                if (res.thread_phone) {
-                    var ctp = String(res.thread_phone).trim();
-                    if (ctp) {
-                        phone = ctp;
-                        currentPhone = ctp;
-                        var rpeSync = document.getElementById('whatsapp-reply-phone');
-                        if (rpeSync) {
-                            rpeSync.value = ctp;
-                        }
-                    }
-                }
-                waApplyMessagingWindow(res);
-                var html = '';
-                (res.data || []).forEach(function(m) {
+        scope.querySelectorAll('.whatsapp-video-thumb').forEach(function (btn) {
+            if (btn.dataset.waMediaBound === '1') {
+                return;
+            }
+            btn.dataset.waMediaBound = '1';
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                openVideoPreview(this.getAttribute('data-video-url'));
+            });
+        });
+        scope.querySelectorAll('.whatsapp-audio-thumb').forEach(function (btn) {
+            if (btn.dataset.waMediaBound === '1') {
+                return;
+            }
+            btn.dataset.waMediaBound = '1';
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                openAudioPreview(this.getAttribute('data-audio-url'));
+            });
+        });
+    }
+
+    function waBuildMessagesHtml(messages) {
+        var html = '';
+        (messages || []).forEach(function (m) {
                     var isOut = (m.direction || '').toUpperCase() === 'OUT';
                     var time = '';
                     if (m.created_at) {
@@ -3445,46 +3486,112 @@
                     }
                     html += '</div>';
                 });
-                if (inner) {
-                    inner.innerHTML = html || '<p class="text-muted text-center py-4">No messages yet</p>';
-                }
-                // Bind video preview buttons
-                panel.querySelectorAll('.whatsapp-video-thumb').forEach(function(btn) {
-                    btn.addEventListener('click', function (e) {
-                        e.preventDefault();
-                        var url = this.getAttribute('data-video-url');
-                        openVideoPreview(url);
-                    });
-                });
-                // Bind audio preview buttons
-                panel.querySelectorAll('.whatsapp-audio-thumb').forEach(function(btn) {
-                    btn.addEventListener('click', function (e) {
-                        e.preventDefault();
-                        var url = this.getAttribute('data-audio-url');
-                        openAudioPreview(url);
-                    });
-                });
-                if (!isPoll && stickyFocusMessageId) {
-                    requestAnimationFrame(function() {
-                        var hit = panel.querySelector('.wa-msg-row[data-message-id="' + String(stickyFocusMessageId) + '"]');
-                        if (hit) {
-                            hit.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        return html;
+    }
+
+    function loadMessages(phone, isPoll) {
+        var panel = document.getElementById('whatsapp-chat-messages');
+        if (!panel) {
+            return;
+        }
+        var inner = waChatMessagesInner(panel);
+        var wasNearBottom = true;
+        if (isPoll && panel) {
+            var threshold = 100;
+            wasNearBottom = (panel.scrollHeight - panel.scrollTop - panel.clientHeight) <= threshold;
+        }
+        if (!isPoll && inner) {
+            inner.innerHTML = '<div class="text-center py-4 text-muted">Loading…</div>';
+        }
+        var url = messagesUrl + '?phone=' + encodeURIComponent(phone) + '&full=1&mark_seen=1';
+        if (stickyFocusMessageId) {
+            url += '&focus_message_id=' + encodeURIComponent(String(stickyFocusMessageId));
+        }
+        fetch(url)
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                if (res.thread_phone) {
+                    var ctp = String(res.thread_phone).trim();
+                    if (ctp) {
+                        phone = ctp;
+                        currentPhone = ctp;
+                        var rpeSync = document.getElementById('whatsapp-reply-phone');
+                        if (rpeSync) {
+                            rpeSync.value = ctp;
                         }
-                    });
-                } else if (!isPoll || wasNearBottom) {
-                    panel.scrollTop = panel.scrollHeight;
+                    }
                 }
-                var sysPillsEl = document.getElementById('whatsapp-chat-system-pills');
-                if (sysPillsEl) {
-                    sysPillsEl.innerHTML = waRenderedSystemPills(res.system_link || {}, true);
+                waApplyMessagingWindow(res);
+
+                var handler = res.handler || currentHandler || { type: 'AI', id: null, name: 'AI' };
+                var msgFingerprint = waMessagesFingerprint(res);
+                var handlerFingerprint = waHandlerFingerprint(handler);
+                var phoneChanged = waLastPollPhone !== phone;
+                if (!isPoll || phoneChanged) {
+                    waLastPollPhone = phone;
                 }
-                var headerLineAfter = document.getElementById('whatsapp-chat-phone-line');
-                if (headerLineAfter && res.display_line) {
-                    headerLineAfter.textContent = res.display_line;
+                var msgsUnchanged = isPoll && !phoneChanged && msgFingerprint === waLastMessagesFingerprint;
+                var handlerUnchanged = isPoll && !phoneChanged && handlerFingerprint === waLastHandlerFingerprint;
+
+                if (isPoll && !phoneChanged && msgsUnchanged && handlerUnchanged) {
+                    currentHandler = handler;
+                    try {
+                        if (typeof window.pkAdminRefreshWhatsAppUnread === 'function') {
+                            window.pkAdminRefreshWhatsAppUnread({ skipSound: true });
+                        }
+                    } catch (e) {}
+                    return;
                 }
-                waCustomerName = (res.customer_name != null && res.customer_name !== undefined)
-                    ? String(res.customer_name).trim()
-                    : '';
+
+                var msgs = res.data || [];
+                var didUpdateMessages = false;
+                if (!msgsUnchanged) {
+                    var canAppend = isPoll && !phoneChanged && waCanAppendPollMessages(msgs, inner);
+                    if (canAppend) {
+                        var existingCount = inner.querySelectorAll('.wa-msg-row[data-message-id]').length;
+                        var appendHtml = waBuildMessagesHtml(msgs.slice(existingCount));
+                        if (appendHtml && inner) {
+                            inner.insertAdjacentHTML('beforeend', appendHtml);
+                            waBindMessageMediaPreviews(inner);
+                            didUpdateMessages = true;
+                        }
+                    } else {
+                        var html = waBuildMessagesHtml(msgs);
+                        if (inner) {
+                            inner.innerHTML = html || '<p class="text-muted text-center py-4">No messages yet</p>';
+                        }
+                        waBindMessageMediaPreviews(panel);
+                        didUpdateMessages = true;
+                    }
+                    waLastMessagesFingerprint = msgFingerprint;
+                }
+                if (didUpdateMessages) {
+                    if (!isPoll && stickyFocusMessageId) {
+                        requestAnimationFrame(function() {
+                            var hit = panel.querySelector('.wa-msg-row[data-message-id="' + String(stickyFocusMessageId) + '"]');
+                            if (hit) {
+                                hit.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                            }
+                        });
+                    } else if (!isPoll || wasNearBottom) {
+                        panel.scrollTop = panel.scrollHeight;
+                    }
+                }
+                var rebuildToolbar = !isPoll || phoneChanged || !handlerUnchanged;
+                if (!isPoll || phoneChanged) {
+                    var sysPillsEl = document.getElementById('whatsapp-chat-system-pills');
+                    if (sysPillsEl) {
+                        sysPillsEl.innerHTML = waRenderedSystemPills(res.system_link || {}, true);
+                    }
+                    var headerLineAfter = document.getElementById('whatsapp-chat-phone-line');
+                    if (headerLineAfter && res.display_line) {
+                        headerLineAfter.textContent = res.display_line;
+                    }
+                    waCustomerName = (res.customer_name != null && res.customer_name !== undefined)
+                        ? String(res.customer_name).trim()
+                        : '';
+                }
+                if (rebuildToolbar) {
                 var leadsViewSlot = document.getElementById('whatsapp-chat-view-leads-slot');
                 var overSlot = document.getElementById('whatsapp-chat-override-slot');
                 var overSlotMobile = document.getElementById('whatsapp-chat-override-slot-mobile');
@@ -3509,7 +3616,7 @@
                         !document.getElementById('wa-chat-status-select').classList.contains('d-none')) ||
                     (document.getElementById('wa-manage-tags-panel') &&
                         !document.getElementById('wa-manage-tags-panel').classList.contains('d-none'));
-                if (!skipMetaUi) {
+                if (!skipMetaUi && (!isPoll || phoneChanged)) {
                     waApplyChatHeaderMeta(phone, res);
                 }
                 var actions = document.getElementById('whatsapp-chat-actions');
@@ -3532,7 +3639,6 @@
                 }
 
                 // Handler UI: who owns this chat, and override/assign-back controls
-                var handler = res.handler || currentHandler || { type: 'AI', id: null, name: 'AI' };
                 currentHandler = handler;
                 var replyOpenBlock = document.getElementById('wa-reply-session-open-block');
                 var replyFooter = document.querySelector('.wa-chat-reply-footer');
@@ -3751,6 +3857,9 @@
                     if (delSlot) delSlot.appendChild(btnDel);
                     else if (actions) actions.appendChild(btnDel);
                 }
+                }
+                currentHandler = handler;
+                waLastHandlerFingerprint = handlerFingerprint;
                 try {
                     if (typeof window.pkAdminRefreshWhatsAppUnread === 'function') {
                         window.pkAdminRefreshWhatsAppUnread({ skipSound: true });
