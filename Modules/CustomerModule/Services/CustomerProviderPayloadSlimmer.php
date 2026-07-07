@@ -23,6 +23,8 @@ class CustomerProviderPayloadSlimmer
         'distance',
         'service_availability',
         'is_active',
+        'total_service_served',
+        'subscribed_services_count',
     ];
 
     /** @var list<string> */

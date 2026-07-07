@@ -34,27 +34,32 @@ class CustomerProviderDetailsService
 
     public function findProviderForSummary(string $providerId): ?Provider
     {
-        return $this->provider
-            ->withCount([
-                'bookings as total_service_served' => function ($query) {
-                    $query->where('booking_status', 'completed');
-                },
-                'subscribed_services',
-            ])
-            ->find($providerId);
+        $provider = $this->provider->find($providerId);
+
+        if ($provider !== null) {
+            $provider->total_service_served = app(ProviderCompletedServicesCounter::class)
+                ->countForProvider((string) $provider->id);
+            $provider->subscribed_services_count = app(ProviderSubscribedServicesCounter::class)
+                ->countForProvider((string) $provider->id);
+        }
+
+        return $provider;
     }
 
     public function findProvider(string $providerId): ?Provider
     {
-        return $this->provider
+        $provider = $this->provider
             ->with('owner')
-            ->withCount([
-                'bookings as total_service_served' => function ($query) {
-                    $query->where('booking_status', 'completed');
-                },
-                'subscribed_services',
-            ])
             ->find($providerId);
+
+        if ($provider !== null) {
+            $provider->total_service_served = app(ProviderCompletedServicesCounter::class)
+                ->countForProvider((string) $provider->id);
+            $provider->subscribed_services_count = app(ProviderSubscribedServicesCounter::class)
+                ->countForProvider((string) $provider->id);
+        }
+
+        return $provider;
     }
 
     public function enrichProviderForSummary(Provider $provider, string|int|null $customerUserId): Provider
@@ -251,6 +256,7 @@ class CustomerProviderDetailsService
                 'file_name',
                 'sort_order',
             ])
+            ->with('storage')
             ->where('provider_id', $providerId)
             ->where('is_active', 1)
             ->where('is_approved', ProviderShowcaseItem::STATUS_APPROVED)

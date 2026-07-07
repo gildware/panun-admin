@@ -300,6 +300,51 @@ if (! function_exists('admin_inbox_notify_welcome_bonus')) {
     }
 }
 
+if (! function_exists('admin_inbox_notify_customer_review_submitted')) {
+    function admin_inbox_notify_customer_review_submitted(\Modules\ReviewModule\Entities\Review $review): void
+    {
+        $review->loadMissing(['booking', 'customer', 'provider']);
+        $bookingReadableId = $review->booking?->readable_id ?? $review->booking_id;
+        $customerName = trim(($review->customer?->first_name ?? '') . ' ' . ($review->customer?->last_name ?? ''))
+            ?: translate('Customer');
+        $rating = (int) ($review->review_rating ?? 0);
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_REVIEW,
+            translate('New_booking_review_submitted'),
+            $customerName
+                . ' — #' . $bookingReadableId
+                . ($rating > 0 ? ' · ' . $rating . '/5' : '')
+                . ' · ' . translate('Customer_to_Provider'),
+            route('admin.booking.reviews.list'),
+            'customer_review_submitted',
+            (string) $review->id,
+        );
+    }
+}
+
+if (! function_exists('admin_inbox_notify_provider_customer_review_submitted')) {
+    function admin_inbox_notify_provider_customer_review_submitted(\Modules\ReviewModule\Entities\ProviderCustomerReview $review): void
+    {
+        $review->loadMissing(['booking', 'provider']);
+        $bookingReadableId = $review->booking?->readable_id ?? $review->booking_id;
+        $providerName = $review->provider?->company_name ?? translate('Provider');
+        $rating = (int) ($review->review_rating ?? 0);
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_REVIEW,
+            translate('New_booking_review_submitted'),
+            $providerName
+                . ' — #' . $bookingReadableId
+                . ($rating > 0 ? ' · ' . $rating . '/5' : '')
+                . ' · ' . translate('Provider_to_Customer'),
+            route('admin.booking.reviews.list'),
+            'provider_customer_review_submitted',
+            (string) $review->id,
+        );
+    }
+}
+
 if (! function_exists('admin_inbox_notify_profile_change_request')) {
     function admin_inbox_notify_profile_change_request(\Modules\ProviderManagement\Entities\ProviderChangeRequest $changeRequest): void
     {

@@ -238,6 +238,9 @@
                     window.clearChatReply();
                 }
                 if (window.ChatLiveSync) {
+                    if (response.channel_id) {
+                        $('#chat-channel-id').val(response.channel_id);
+                    }
                     window.ChatLiveSync.setActiveChannel($('#chat-channel-id').val(), { keepCursor: true });
                     window.ChatLiveSync.onSendSuccess(response);
                 }

@@ -264,8 +264,8 @@ trait BookingTrait
                 $schedule->save();
 
                 $statusHistory = new BookingStatusHistory();
-                $statusHistory->changed_by = $booking->id;
-                $statusHistory->booking_id = $userId;
+                $statusHistory->changed_by = $userId;
+                $statusHistory->booking_id = $booking->id;
                 $statusHistory->is_guest = $isGuest;
                 $statusHistory->booking_status = isset($booking->provider_id) ? 'accepted' : 'pending';
                 $statusHistory->save();
@@ -692,8 +692,8 @@ trait BookingTrait
             $schedule->save();
 
             $statusHistory = new BookingStatusHistory();
-            $statusHistory->changed_by = $booking->id;
-            $statusHistory->booking_id = $customerUserId;
+            $statusHistory->changed_by = $customerUserId;
+            $statusHistory->booking_id = $booking->id;
             $statusHistory->booking_status = isset($booking->provider_id) ? 'accepted' : 'pending';
             $statusHistory->save();
 

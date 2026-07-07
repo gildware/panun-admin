@@ -293,7 +293,8 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 @php
                     $reportsMenuOpen = (request()->is('admin/report/*') && !request()->is('admin/report/transaction*'))
                         || request()->routeIs('admin.lead.reports.index')
-                        || request()->routeIs('admin.lead.reports.user');
+                        || request()->routeIs('admin.lead.reports.user')
+                        || request()->routeIs('admin.report.daily-employee');
                 @endphp
                 <li class="has-sub-item {{ $reportsMenuOpen ? 'sub-menu-opened' : '' }}">
                     <a href="#" class="{{ $reportsMenuOpen ? 'active-menu' : '' }}">
@@ -332,6 +333,12 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                                 <a href="{{ route('admin.lead.reports.user', ['user_id' => auth()->id()]) }}"
                                    class="{{ request()->routeIs('admin.lead.reports.user') ? 'active-menu' : '' }}">
                                     {{ translate('User_Report') }}
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('admin.report.daily-employee') }}"
+                                   class="{{ request()->routeIs('admin.report.daily-employee') ? 'active-menu' : '' }}">
+                                    {{ translate('Daily_Employee_Report') }}
                                 </a>
                             </li>
                         @endcan

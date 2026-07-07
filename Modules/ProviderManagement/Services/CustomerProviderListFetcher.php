@@ -33,9 +33,6 @@ class CustomerProviderListFetcher
             ->whereIn('id', $eligibleProviderIds)
             ->ofStatus(1)
             ->where('app_availability', 1)
-            ->withCount(['bookings as total_service_served' => function ($query) {
-                $query->where('booking_status', 'completed');
-            }, 'subscribed_services'])
             ->when($request->has('category_ids'), function ($query) use ($request) {
                 $query->whereHas('subscribed_services', function ($query) use ($request) {
                     if ($request->has('category_ids')) {
@@ -66,6 +63,10 @@ class CustomerProviderListFetcher
             ->withPath('');
 
         $this->attachFavoriteFlags($providers, $customerUserId);
+
+        $collection = $providers->getCollection();
+        app(ProviderCompletedServicesCounter::class)->attachToProviders($collection);
+        app(ProviderSubscribedServicesCounter::class)->attachToProviders($collection);
 
         return $providers;
     }

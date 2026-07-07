@@ -3,9 +3,11 @@
 namespace Modules\BookingModule\Http\Controllers\Api\V1\Customer;
 
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\CustomerModule\Services\CustomerBookingListPayloadSlimmer;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -384,29 +386,42 @@ class BookingController extends Controller
      */
     public function show(Request $request, string $id): JsonResponse
     {
+        $lite = $request->boolean('lite');
+        $cacheKey = sprintf(
+            'customer_booking_show:%s:%s:%s',
+            $request->user()->id,
+            $id,
+            $lite ? 'lite' : 'full'
+        );
+
+        if ($cached = Cache::get($cacheKey)) {
+            return response()->json($cached, 200);
+        }
+
         $booking = $this->booking
             ->where(['customer_id' => $request->user()->id])
             ->with([
                 'detail.service',
-                'schedule_histories.user',
-                'status_histories.user',
-                'status_histories.holdReopenReason',
-                'change_logs.changedBy',
-                'customer',
+                'schedule_histories.user:id,first_name,last_name',
+                'status_histories.user:id,first_name,last_name',
+                'status_histories.holdReopenReason:id,name',
+                'change_logs.changedBy:id,first_name,last_name',
                 'provider',
-                'category',
+                'category:id,name',
                 'subCategory:id,name',
-                'serviceman.user',
+                'serviceman.user:id,first_name,last_name,phone,email,image,image_full_path',
                 'booking_partial_payments',
                 'booking_offline_payments',
                 'extra_services',
-                'repeat.scheduleHistories',
-                'repeat.repeatHistories'
             ])
             ->where(function ($query) use ($id) {
                 $query->where('id', $id)->orWhere('readable_id', $id);
             })
             ->first();
+
+        if (isset($booking) && (int) ($booking->is_repeated ?? 0) === 1) {
+            $booking->load(['repeat.scheduleHistories', 'repeat.repeatHistories']);
+        }
 
         if (isset($booking)) {
             $offlinePayment = $booking->booking_offline_payments?->first();
@@ -430,7 +445,7 @@ class BookingController extends Controller
                 $booking->provider->chatEligibility = chatEligibility($booking->provider_id);
             }
 
-            if ($booking->repeat->isNotEmpty()) {
+            if ((int) ($booking->is_repeated ?? 0) === 1 && $booking->repeat->isNotEmpty()) {
                 $repeatHistoryCollection = $booking->repeat->flatMap(function ($repeat) {
                     return $repeat->repeatHistories->map(function ($history) {
                         $history->log_details = json_decode($history->log_details);
@@ -487,11 +502,14 @@ class BookingController extends Controller
             $booking->is_customize_booking = $booking->customizeBooking ? 1 : 0;
             unset($booking->customizeBooking);
 
-            booking_append_customer_api_financial_fields($booking);
+            booking_append_customer_api_financial_fields($booking, $lite);
             booking_append_customer_api_ui_fields($booking);
             booking_attach_api_change_logs($booking);
 
-            return response()->json(response_formatter(DEFAULT_200, $booking), 200);
+            $payload = response_formatter(DEFAULT_200, $booking);
+            Cache::put($cacheKey, $payload, now()->addSeconds(90));
+
+            return response()->json($payload, 200);
         }
         return response()->json(response_formatter(DEFAULT_204), 204);
     }
@@ -504,16 +522,27 @@ class BookingController extends Controller
      */
     public function singleDetails(Request $request, string $id): JsonResponse
     {
+        $lite = $request->boolean('lite');
+        $cacheKey = sprintf(
+            'customer_booking_single:%s:%s:%s',
+            $request->user()->id,
+            $id,
+            $lite ? 'lite' : 'full'
+        );
+
+        if ($cached = Cache::get($cacheKey)) {
+            return response()->json($cached, 200);
+        }
+
         $booking = $this->bookingRepeat->with([
             'detail.service',
-            'scheduleHistories.user',
-            'statusHistories.user',
-            'booking.customer',
+            'scheduleHistories.user:id,first_name,last_name',
+            'statusHistories.user:id,first_name,last_name',
             'booking.booking_partial_payments',
             'booking.booking_offline_payments',
             'booking.extra_services',
             'provider',
-            'serviceman.user',
+            'serviceman.user:id,first_name,last_name,phone,email,image,image_full_path',
         ])->where(['id' => $id])->first();
 
         $booking->booking->service_address = $booking->booking->service_address_location != null ? json_decode($booking->booking->service_address_location) : $booking->booking->service_address;
@@ -522,10 +551,14 @@ class BookingController extends Controller
             if (isset($booking->provider)){
                 $booking->provider->chatEligibility = chatEligibility($booking->provider_id);
             }
-            booking_append_customer_api_financial_fields($booking);
+            booking_append_customer_api_financial_fields($booking, $lite);
             booking_append_customer_api_ui_fields($booking);
             booking_attach_api_change_logs($booking, (string) $booking->id);
-            return response()->json(response_formatter(DEFAULT_200, $booking), 200);
+
+            $payload = response_formatter(DEFAULT_200, $booking);
+            Cache::put($cacheKey, $payload, now()->addSeconds(90));
+
+            return response()->json($payload, 200);
         }
         return response()->json(response_formatter(DEFAULT_204), 204);
     }

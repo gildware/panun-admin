@@ -5,6 +5,7 @@ namespace Modules\ReviewModule\Http\Controllers\Api\V1\Customer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Modules\ReviewModule\Entities\ProviderCustomerReview;
 use Modules\UserManagement\Entities\User;
@@ -45,11 +46,26 @@ class ReceivedRatingController extends Controller
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
             ->withPath('');
 
+        $ratingGroupCount = DB::table('provider_customer_reviews')
+            ->where('customer_id', $request->user()->id)
+            ->where('is_active', 1)
+            ->select('review_rating', DB::raw('count(*) as total'))
+            ->groupBy('review_rating')
+            ->get();
+
         return response()->json(response_formatter(DEFAULT_200, [
             'reviews' => $reviews,
             'rating' => [
                 'average_rating' => (float) ($customer->received_avg_rating ?? 0),
                 'rating_count' => (int) ($customer->received_rating_count ?? 0),
+                'review_count' => (int) $reviews->total(),
+                'rating_group_count' => $ratingGroupCount
+                    ->map(fn ($row) => [
+                        'review_rating' => $row->review_rating,
+                        'total' => $row->total,
+                    ])
+                    ->values()
+                    ->all(),
             ],
         ]), 200);
     }

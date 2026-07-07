@@ -14,9 +14,26 @@ use Illuminate\Support\Facades\Http;
     $privateKey = data_get(collect(json_decode($key, true)), 'private_key', null);
     if (is_null($project_id) || is_null($clientEmail) || is_null($privateKey)) return false;
 
+    $accessToken = getAccessToken($clientEmail, $privateKey);
+    if (! filled($accessToken)) {
+        log_push_notification_delivery([
+            'fcm_token' => data_get($data, 'message.token'),
+            'topic' => data_get($data, 'message.topic'),
+            'notification_type' => data_get($data, 'message.data.type'),
+            'title' => data_get($data, 'message.data.title'),
+            'push_notification_id' => data_get($data, 'message.data.push_notification_id') ?: null,
+            'booking_id' => data_get($data, 'message.data.booking_id') ?: null,
+            'status' => 'failed',
+            'http_status' => null,
+            'error_message' => 'FCM OAuth access token could not be obtained. Check Firebase service account in admin third-party settings.',
+        ]);
+
+        return false;
+    }
+
     $url = 'https://fcm.googleapis.com/v1/projects/'. $project_id .'/messages:send';
     $headers = [
-        'Authorization' => 'Bearer ' . getAccessToken($clientEmail, $privateKey),
+        'Authorization' => 'Bearer ' . $accessToken,
         'Content-Type' => 'application/json',
     ];
 
@@ -50,6 +67,13 @@ use Illuminate\Support\Facades\Http;
     }
 }
 
+if (! function_exists('fcm_base64url_encode')) {
+    function fcm_base64url_encode(string $data): string
+    {
+        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+    }
+}
+
  function getAccessToken($clientEmail, $privateKey)
 {
     $jwtToken = [
@@ -59,16 +83,27 @@ use Illuminate\Support\Facades\Http;
         'exp' => time() + 3600,
         'iat' => time(),
     ];
-    $jwtHeader = base64_encode(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
-    $jwtPayload = base64_encode(json_encode($jwtToken));
+    $jwtHeader = fcm_base64url_encode(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
+    $jwtPayload = fcm_base64url_encode(json_encode($jwtToken));
     $unsignedJwt = $jwtHeader . '.' . $jwtPayload;
     openssl_sign($unsignedJwt, $signature, $privateKey, OPENSSL_ALGO_SHA256);
-    $jwt = $unsignedJwt . '.' . base64_encode($signature);
+    $jwt = $unsignedJwt . '.' . fcm_base64url_encode($signature);
 
     $response = Http::asForm()->post('https://oauth2.googleapis.com/token', [
         'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
         'assertion' => $jwt,
     ]);
+
+    if (! $response->successful()) {
+        \Illuminate\Support\Facades\Log::warning('FCM OAuth token request failed', [
+            'status' => $response->status(),
+            'body' => $response->body(),
+            'client_email' => $clientEmail,
+        ]);
+
+        return null;
+    }
+
     return $response->json('access_token');
 }
 

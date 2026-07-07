@@ -101,6 +101,14 @@ class PaymentResponse
             }
         }
 
+        if (($response['flag'] ?? '') !== 'success') {
+            return [
+                'flag' => 'fail',
+                'message' => $response['message'] ?? 'Booking creation failed',
+                'callback' => $request['callback'] ?? null,
+            ];
+        }
+
 //        if ($request['register_new_customer'] == 1){
 //            $user = new User();
 //            $user->first_name = $request['first_name'];
