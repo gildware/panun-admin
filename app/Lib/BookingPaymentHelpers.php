@@ -18,6 +18,66 @@ use Modules\ServiceManagement\Entities\Service;
 use Modules\TransactionModule\Entities\LedgerTransaction;
 use Modules\TransactionModule\Entities\Transaction;
 
+if (! function_exists('booking_request_cache')) {
+    /**
+     * Request-scoped memoization for expensive per-booking computations within one HTTP request.
+     */
+    function booking_request_cache(string $key, ?callable $resolver = null): mixed
+    {
+        static $cache = [];
+
+        if ($resolver === null) {
+            return array_key_exists($key, $cache) ? $cache[$key] : null;
+        }
+
+        if (! array_key_exists($key, $cache)) {
+            $cache[$key] = $resolver();
+        }
+
+        return $cache[$key];
+    }
+}
+
+if (! function_exists('booking_cached_ledger_transactions')) {
+    /**
+     * Single ledger query per booking per request (installments + refunds share this).
+     */
+    function booking_cached_ledger_transactions(string $bookingId): Collection
+    {
+        return booking_request_cache("ledger:{$bookingId}", function () use ($bookingId) {
+            return LedgerTransaction::query()
+                ->where('booking_id', $bookingId)
+                ->orderBy('created_at')
+                ->orderBy('id')
+                ->get();
+        });
+    }
+}
+
+if (! function_exists('booking_provider_api_payment_snapshot_cached')) {
+    function booking_provider_api_payment_snapshot_cached(Booking $booking): array
+    {
+        $cached = $booking->getAttribute('_payment_snapshot_cache');
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        $snapshot = booking_provider_api_payment_snapshot($booking);
+        $booking->setAttribute('_payment_snapshot_cache', $snapshot);
+
+        return $snapshot;
+    }
+}
+
+if (! function_exists('booking_financial_build_preview_cached')) {
+    function booking_financial_build_preview_cached(Booking $booking): array
+    {
+        return booking_request_cache('bfs_preview:'.$booking->id, function () use ($booking) {
+            return app(BookingFinancialSettlementService::class)->buildPreview($booking);
+        });
+    }
+}
+
 if (!function_exists('get_booking_total_amount')) {
     /**
      * Payable grand total for the booking: stored line total (total_booking_amount) + sum(extra_services.total) + extra_fee.
@@ -2137,8 +2197,8 @@ if (! function_exists('booking_api_loss_making_settlement_payload')) {
             return null;
         }
 
-        $preview = app(BookingFinancialSettlementService::class)->buildPreview($main);
-        $snapshot = booking_provider_api_payment_snapshot($main);
+        $preview = booking_financial_build_preview_cached($main);
+        $snapshot = booking_provider_api_payment_snapshot_cached($main);
         $totalBooking = round((float) ($snapshot['total'] ?? get_booking_total_amount($main)), 2);
         $amountPaid = round((float) ($snapshot['amount_paid_display'] ?? get_booking_total_paid($main)), 2);
         $pendingBalance = round((float) ($snapshot['due_balance'] ?? get_booking_customer_display_due_balance($main)), 2);
@@ -2929,7 +2989,7 @@ if (! function_exists('booking_installment_payments_payload')) {
      */
     function booking_installment_payments_payload(Booking $main, ?array $bfsScaledLive = null): array
     {
-        $main->loadMissing(['booking_partial_payments.ledgerTransactions', 'booking_offline_payments']);
+        $main->loadMissing(['booking_partial_payments', 'booking_offline_payments']);
 
         $cap = booking_installment_payable_cap($main, $bfsScaledLive);
 
@@ -2958,20 +3018,18 @@ if (! function_exists('booking_installment_payments_payload')) {
             $rows[] = booking_installment_row_from_partial($partial, $main, $cap - $runningPaid);
         }
 
-        $ledgerEntries = LedgerTransaction::query()
-            ->where('booking_id', $main->id)
-            ->where('type', LedgerTransaction::TYPE_IN)
-            ->where(function ($query) {
-                $query->whereNull('reason')
-                    ->orWhereNotIn('reason', [
-                        LedgerTransaction::REASON_REFUND,
-                        LedgerTransaction::REASON_PROVIDER_PAYOUT,
-                    ]);
+        $ledgerEntries = booking_cached_ledger_transactions((string) $main->id)
+            ->filter(function ($entry) {
+                if ($entry->type !== LedgerTransaction::TYPE_IN) {
+                    return false;
+                }
+                $reason = $entry->reason;
+                if ($reason === LedgerTransaction::REASON_REFUND || $reason === LedgerTransaction::REASON_PROVIDER_PAYOUT) {
+                    return false;
+                }
+
+                return round((float) ($entry->amount ?? 0), 2) != 0.0;
             })
-            ->orderBy('created_at')
-            ->orderBy('id')
-            ->get()
-            ->filter(fn ($entry) => round((float) ($entry->amount ?? 0), 2) != 0.0)
             ->values();
 
         foreach ($ledgerEntries as $entry) {
@@ -3140,7 +3198,7 @@ if (! function_exists('booking_append_customer_api_financial_fields')) {
      *
      * @param  Booking|BookingRepeat  $booking
      */
-    function booking_append_customer_api_financial_fields($booking): void
+    function booking_append_customer_api_financial_fields($booking, bool $lite = false): void
     {
         $main = $booking instanceof BookingRepeat
             ? ($booking->relationLoaded('booking') ? $booking->booking : $booking->booking()->first())
@@ -3186,7 +3244,7 @@ if (! function_exists('booking_append_customer_api_financial_fields')) {
             ->values()
             ->all();
 
-        $snapshot = booking_provider_api_payment_snapshot($main);
+        $snapshot = booking_provider_api_payment_snapshot_cached($main);
         $offline = $main->booking_offline_payments?->first();
         $offlineVerifyStatus = null;
         if ($main->payment_method === 'offline_payment' && $offline) {
@@ -3196,12 +3254,21 @@ if (! function_exists('booking_append_customer_api_financial_fields')) {
         $paymentPayload = array_merge($snapshot, [
             'payment_method_display' => format_booking_payment_method_for_admin_display($main),
             'offline_verify_status' => $offlineVerifyStatus,
-            'refund_channel_breakdown' => get_booking_customer_refund_channel_breakdown($main),
+            'refund_channel_breakdown' => $lite ? [
+                'wallet_paid' => 0.0,
+                'digital_paid' => 0.0,
+                'wallet_refund_amount' => 0.0,
+                'digital_refund_amount' => 0.0,
+                'total_refundable' => 0.0,
+                'has_mixed_payments' => false,
+                'requires_digital_refund_choice' => false,
+            ] : get_booking_customer_refund_channel_breakdown($main),
         ]);
 
-        if ((int) ($main->is_repeated ?? 0) === 0
+        if (! $lite
+            && (int) ($main->is_repeated ?? 0) === 0
             && trim((string) ($main->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
-            $bfsPreview = app(BookingFinancialSettlementService::class)->buildPreview($main);
+            $bfsPreview = booking_financial_build_preview_cached($main);
             $cfg = is_array($main->settlement_config) ? $main->settlement_config : [];
             $writeoff = round((float) ($bfsPreview['scaled_loss_writeoff_amount'] ?? 0), 2);
             if ($writeoff <= 0.009
@@ -3212,6 +3279,19 @@ if (! function_exists('booking_append_customer_api_financial_fields')) {
             $paymentPayload['write_off_amount'] = $writeoff > 0.009 ? $writeoff : null;
             $paymentPayload['settlement_amount'] = $writeoff > 0.009 ? $writeoff : null;
             $paymentPayload['is_writeoff_settled'] = $writeoff > 0.009;
+        }
+
+        $listDisplayTotal = get_customer_booking_list_display_total($main);
+        $originalGrandTotal = round((float) get_booking_total_amount($main), 2);
+        $target = $booking instanceof BookingRepeat ? $booking : $main;
+        $target->setAttribute('additional_charges_display', $acDisplay);
+        $target->setAttribute('extra_service_lines', $extraServiceLines);
+        $target->setAttribute('list_display_total', $listDisplayTotal);
+        $target->setAttribute('payable_grand_total', $originalGrandTotal);
+        $target->setAttribute('payment_details', $paymentPayload);
+
+        if ($lite) {
+            return;
         }
 
         foreach ($main->booking_partial_payments as $partial) {
@@ -3244,24 +3324,14 @@ if (! function_exists('booking_append_customer_api_financial_fields')) {
             ->values()
             ->all();
 
-        $refunds = LedgerTransaction::query()
-            ->where('booking_id', $main->id)
-            ->where('reason', LedgerTransaction::REASON_REFUND)
-            ->where('type', LedgerTransaction::TYPE_OUT)
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->get()
+        $refunds = booking_cached_ledger_transactions((string) $main->id)
+            ->filter(fn ($entry) => $entry->reason === LedgerTransaction::REASON_REFUND
+                && $entry->type === LedgerTransaction::TYPE_OUT)
+            ->sortByDesc(fn ($entry) => ($entry->created_at?->timestamp ?? 0).':'.$entry->id)
+            ->values()
             ->map(fn ($entry, $index) => booking_refund_ledger_row_payload($entry, $index + 1))
             ->all();
 
-        $listDisplayTotal = get_customer_booking_list_display_total($main);
-        $originalGrandTotal = round((float) get_booking_total_amount($main), 2);
-        $target = $booking instanceof BookingRepeat ? $booking : $main;
-        $target->setAttribute('additional_charges_display', $acDisplay);
-        $target->setAttribute('extra_service_lines', $extraServiceLines);
-        $target->setAttribute('list_display_total', $listDisplayTotal);
-        $target->setAttribute('payable_grand_total', $originalGrandTotal);
-        $target->setAttribute('payment_details', $paymentPayload);
         $target->setAttribute('payment_ledger', [
             'installments' => $installments,
             'refunds' => $refunds,

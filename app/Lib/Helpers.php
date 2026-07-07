@@ -2246,14 +2246,19 @@ if (!function_exists('scheduleBookingEligibility')) {
 if (!function_exists('chatEligibility')) {
     function chatEligibility($providerId): bool
     {
+        static $cache = [];
+        if (array_key_exists($providerId, $cache)) {
+            return $cache[$providerId];
+        }
+
         $now = \Carbon\Carbon::now();
-        $packageSubscriber = PackageSubscriber::where('provider_id', $providerId)->first();
+        $packageSubscriber = PackageSubscriber::where('provider_id', $providerId)->with('feature')->first();
 
         if ($packageSubscriber) {
             if ($packageSubscriber->payment_id) {
 
                 if ($packageSubscriber->is_canceled){
-                    return false;
+                    return $cache[$providerId] = false;
                 }
 
                 $startDate = $packageSubscriber->package_start_date;
@@ -2261,7 +2266,7 @@ if (!function_exists('chatEligibility')) {
 
                 if ($startDate && $endDate) {
                     if ($now > $endDate) {
-                        return false;
+                        return $cache[$providerId] = false;
                     }
 
                     $featureExists = $packageSubscriber->feature->contains(function ($value) {
@@ -2269,14 +2274,14 @@ if (!function_exists('chatEligibility')) {
                     });
 
                     if ($featureExists) {
-                        return true;
+                        return $cache[$providerId] = true;
                     }
                 }
             }
-            return false;
+            return $cache[$providerId] = false;
         }
 
-        return true;
+        return $cache[$providerId] = true;
     }
 }
 
