@@ -6,6 +6,7 @@ use Modules\AdminModule\Http\Controllers\Web\Admin\RoleController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\EmployeeController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\Analytics\SearchController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\Report\BookingReportController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\Report\DailyEmployeeReportController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\Report\Business\EarningReportController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\Report\Business\ExpenseReportController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\Report\Business\OverviewReportController;
@@ -99,6 +100,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
     Route::group(['prefix' => 'report', 'as' => 'report.', 'namespace' => 'Report'], function () {
         Route::any('transaction', [TransactionReportController::class, 'getTransactionReport'])->name('transaction');
         Route::any('transaction/download', [TransactionReportController::class, 'downloadTransactionReport'])->name('transaction.download');
+
+        Route::get('daily-employee', [DailyEmployeeReportController::class, 'index'])->name('daily-employee');
 
         Route::any('booking', [BookingReportController::class, 'getBookingReport'])->name('booking');
         Route::any('booking/download', [BookingReportController::class, 'getBookingReportDownload'])->name('booking.download');

@@ -350,6 +350,7 @@ class AdminNavRegistry
             self::entry('insights', $group, translate('Reports'), translate('Provider Reports'), route('admin.report.provider'), ['admin/report/provider']),
             self::entry('insights', $group, translate('Reports'), translate('Lead_Reports'), route('admin.lead.reports.index', ['tab' => 'inbound']), ['admin/lead/reports'], ['admin.lead.reports.index']),
             self::entry('insights', $group, translate('Reports'), translate('User_Report'), route('admin.lead.reports.user', ['user_id' => auth()->id()]), ['admin/lead/reports/user*'], ['admin.lead.reports.user']),
+            self::entry('insights', $group, translate('Reports'), translate('Daily_Employee_Report'), route('admin.report.daily-employee'), ['admin/report/daily-employee*'], ['admin.report.daily-employee']),
             self::entry('insights', $group, translate('Analytics'), translate('Keyword_Search'), route('admin.analytics.search.keyword'), ['admin/analytics/search/keyword']),
             self::entry('insights', $group, translate('Analytics'), translate('Customer_Search'), route('admin.analytics.search.customer'), ['admin/analytics/search/customer']),
         ];

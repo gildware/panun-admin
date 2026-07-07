@@ -546,6 +546,16 @@ trait AdminMenuWithRoutes
                 "sorting" => 6,
             ],
             [
+                'route_name' => 'Daily_Employee_Report',
+                'uri' => 'admin/report/daily-employee',
+                'full_route' => url('admin/report/daily-employee'),
+                "page_title" => 'Daily_Employee_Report',
+                "keywords" => 'Reports, Daily Employee Report, employee activity, leads, follow-ups, bookings',
+                "type" => 'menu',
+                "module" => "reports",
+                "sorting" => 7,
+            ],
+            [
                 'route_name' => 'Keyword_Search',
                 'uri' => 'admin/analytics/search/keyword',
                 'full_route' => url('admin/analytics/search/keyword'),

@@ -35,6 +35,11 @@
                     'label' => translate('User_Report'),
                     'active' => request()->routeIs('admin.lead.reports.user'),
                 ])
+                @include('adminmodule::layouts.partials.top-nav._link', [
+                    'href' => route('admin.report.daily-employee'),
+                    'label' => translate('Daily_Employee_Report'),
+                    'active' => request()->routeIs('admin.report.daily-employee'),
+                ])
             @endcan
         @endcanany
 
