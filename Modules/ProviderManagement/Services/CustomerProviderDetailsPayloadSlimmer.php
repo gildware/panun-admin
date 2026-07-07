@@ -190,6 +190,7 @@ class CustomerProviderDetailsPayloadSlimmer
             'id' => $review->id,
             'readable_id' => $review->readable_id,
             'booking_id' => $review->booking_id,
+            'booking_readable_id' => $review->booking?->readable_id,
             'service_id' => $review->service_id,
             'is_active' => $review->is_active,
             'review_rating' => $review->review_rating,
@@ -226,6 +227,8 @@ class CustomerProviderDetailsPayloadSlimmer
             'id' => $review['id'] ?? null,
             'readable_id' => $review['readable_id'] ?? null,
             'booking_id' => $review['booking_id'] ?? null,
+            'booking_readable_id' => $review['booking_readable_id']
+                ?? (is_array($booking) ? ($booking['readable_id'] ?? null) : null),
             'service_id' => $review['service_id'] ?? null,
             'is_active' => $review['is_active'] ?? null,
             'review_rating' => $review['review_rating'] ?? null,

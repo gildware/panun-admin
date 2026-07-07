@@ -42,8 +42,10 @@ class ReviewController extends Controller
             'customer:id,first_name,last_name,profile_image',
             'service:id,name',
             'reviewReply:id,review_id,reply,updated_at',
-            'booking:id,readable_id',
-            'booking.detail:id,booking_id,service_id,variant_key',
+            'booking' => function ($query) {
+                $query->select('id', 'readable_id')
+                    ->with(['detail:id,booking_id,service_id,variant_key']);
+            },
         ])
             ->where('provider_id', $providerId)
             ->when($request->has('status') && $request['status'] != 'all', function ($query) use ($request) {
