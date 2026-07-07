@@ -47,6 +47,21 @@ class SubscribedService extends Model
         return $this->providerScopedBookings('ongoing');
     }
 
+    public function pending_booking(): HasMany
+    {
+        return $this->providerScopedBookings('pending');
+    }
+
+    public function accepted_booking(): HasMany
+    {
+        return $this->providerScopedBookings('accepted');
+    }
+
+    public function on_hold_booking(): HasMany
+    {
+        return $this->providerScopedBookings('on_hold');
+    }
+
     public function completed_booking(): HasMany
     {
         return $this->providerScopedBookings('completed');

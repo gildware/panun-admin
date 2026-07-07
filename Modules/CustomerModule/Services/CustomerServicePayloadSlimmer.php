@@ -14,6 +14,7 @@ class CustomerServicePayloadSlimmer
         'id',
         'slug',
         'name',
+        'short_description',
         'thumbnail',
         'thumbnail_full_path',
         'is_favorite',

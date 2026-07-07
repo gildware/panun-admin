@@ -44,6 +44,9 @@ class ProviderServiceAndSubscriptionPayloadSlimmerTest extends TestCase
             'is_subscribed' => 1,
             'created_at' => '2026-07-01',
             'services_count' => 3,
+            'pending_booking_count' => 1,
+            'accepted_booking_count' => 2,
+            'on_hold_booking_count' => 1,
             'ongoing_booking_count' => 1,
             'completed_booking_count' => 10,
             'canceled_booking_count' => 2,
@@ -63,6 +66,9 @@ class ProviderServiceAndSubscriptionPayloadSlimmerTest extends TestCase
         ]);
 
         $this->assertSame('Home', $slim['category']['name']);
+        $this->assertSame(1, $slim['pending_booking_count']);
+        $this->assertSame(2, $slim['accepted_booking_count']);
+        $this->assertSame(1, $slim['on_hold_booking_count']);
         $this->assertArrayNotHasKey('description', $slim['category']);
         $this->assertCount(2, $slim['sub_category']['services']);
         $this->assertSame(1, $slim['sub_category']['services'][0]['is_active']);

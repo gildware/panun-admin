@@ -870,7 +870,7 @@ class ProviderController extends Controller
                 $query->where('is_active', 1);
             })
             ->ofStatus(1)
-            ->withCount(['ongoing_booking', 'completed_booking', 'canceled_booking'])
+            ->withCount(['pending_booking', 'accepted_booking', 'on_hold_booking', 'ongoing_booking', 'completed_booking', 'canceled_booking'])
             ->when(isset($request['category_id']) && ($request['category_id'] != null), function ($query) use ($request) {
                 $query->where('category_id', $request['category_id']);
             })
