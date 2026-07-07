@@ -138,6 +138,10 @@ class ReviewController extends Controller
 
         $review->save();
 
+        if ($isNewReview) {
+            admin_inbox_notify_customer_review_submitted($review);
+        }
+
         foreach (['service_id' => $request->service_id, 'provider_id' => $booking->provider_id] as $key => $value) {
             $ratingGroupCount = DB::table('reviews')
                 ->where($key, $value)

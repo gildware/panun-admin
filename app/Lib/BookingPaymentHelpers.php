@@ -6308,11 +6308,16 @@ if (! function_exists('booking_attach_api_change_logs')) {
                     ->orWhere('property_key', 'like', 'repeat.%')
                     ->orWhere('property_key', 'like', 'booking_repeat_detail.%');
             });
+            $logs = $query->orderByDesc('created_at')->get();
+        } elseif ($booking->relationLoaded('change_logs')) {
+            $logs = $booking->change_logs->sortByDesc('created_at')->values();
+        } else {
+            $logs = $query->orderByDesc('created_at')->get();
         }
 
         $booking->setRelation(
             'change_logs',
-            $query->orderByDesc('created_at')->get()
+            $logs
                 ->filter(fn ($log) => ! booking_change_log_hide_from_mobile_api($log))
                 ->map(function ($log) {
                 $log->event_title = booking_change_log_mobile_title((string) $log->property_key);

@@ -81,7 +81,9 @@ class CustomerReviewController extends Controller
             ->where('provider_id', $providerId)
             ->first();
 
-        if (!isset($review)) {
+        $isNewReview = ! isset($review);
+
+        if ($isNewReview) {
             $review = new ProviderCustomerReview();
         }
 
@@ -111,6 +113,10 @@ class CustomerReviewController extends Controller
         }
 
         $review->save();
+
+        if ($isNewReview) {
+            admin_inbox_notify_provider_customer_review_submitted($review);
+        }
 
         $this->customerRatingService->syncReceivedRatings((string) $booking->customer_id);
 

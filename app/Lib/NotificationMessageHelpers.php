@@ -900,7 +900,19 @@ if (! function_exists('notification_scenario_trigger_map')) {
                 ],
             ],
 
-            // Review (2)
+            // Review (4)
+            'review_customer_submitted' => [
+                'module' => 'review',
+                'checks' => [
+                    ['label' => 'Customer review submitted admin inbox', 'needles' => ['admin_inbox_notify_customer_review_submitted', 'ReviewController.php']],
+                ],
+            ],
+            'review_provider_submitted' => [
+                'module' => 'review',
+                'checks' => [
+                    ['label' => 'Provider review submitted admin inbox', 'needles' => ['admin_inbox_notify_provider_customer_review_submitted', 'CustomerReviewController.php']],
+                ],
+            ],
             'review_customer_to_provider_approved' => [
                 'module' => 'review',
                 'checks' => [
@@ -2379,6 +2391,26 @@ if (! function_exists('notification_scenario_registry')) {
             ],
 
             // --- Review ---
+            [
+                'id' => 'review_customer_submitted',
+                'module' => 'review',
+                'title' => 'Customer submits a booking review of provider',
+                'trigger_actor' => 'customer',
+                'trigger_action' => 'Submits a service review after a completed booking',
+                'audiences' => [
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true, 'note' => 'Admin inbox when customer submits a pending review'],
+                ],
+            ],
+            [
+                'id' => 'review_provider_submitted',
+                'module' => 'review',
+                'title' => 'Provider submits a booking review of customer',
+                'trigger_actor' => 'provider',
+                'trigger_action' => 'Submits a customer review after a completed booking',
+                'audiences' => [
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true, 'note' => 'Admin inbox when provider submits a pending review'],
+                ],
+            ],
             [
                 'id' => 'review_customer_to_provider_approved',
                 'module' => 'review',

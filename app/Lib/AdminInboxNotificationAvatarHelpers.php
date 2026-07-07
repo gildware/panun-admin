@@ -129,6 +129,22 @@ if (! function_exists('infer_admin_notification_sender_identity')) {
             return resolve_admin_notification_sender_from_user($referenceId);
         }
 
+        if ($referenceType === 'customer_review_submitted' && $referenceId !== '') {
+            $review = \Modules\ReviewModule\Entities\Review::query()->find($referenceId);
+
+            return $review?->customer_id
+                ? ['customer', (string) $review->customer_id]
+                : ['admin', null];
+        }
+
+        if ($referenceType === 'provider_customer_review_submitted' && $referenceId !== '') {
+            $review = \Modules\ReviewModule\Entities\ProviderCustomerReview::query()->find($referenceId);
+
+            return $review?->provider_id
+                ? ['provider', (string) $review->provider_id]
+                : ['admin', null];
+        }
+
         return ['admin', null];
     }
 }

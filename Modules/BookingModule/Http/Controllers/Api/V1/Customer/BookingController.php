@@ -401,13 +401,15 @@ class BookingController extends Controller
                 'booking_partial_payments',
                 'booking_offline_payments',
                 'extra_services',
-                'repeat.scheduleHistories',
-                'repeat.repeatHistories'
             ])
             ->where(function ($query) use ($id) {
                 $query->where('id', $id)->orWhere('readable_id', $id);
             })
             ->first();
+
+        if (isset($booking) && (int) ($booking->is_repeated ?? 0) === 1) {
+            $booking->load(['repeat.scheduleHistories', 'repeat.repeatHistories']);
+        }
 
         if (isset($booking)) {
             $offlinePayment = $booking->booking_offline_payments?->first();
@@ -431,7 +433,7 @@ class BookingController extends Controller
                 $booking->provider->chatEligibility = chatEligibility($booking->provider_id);
             }
 
-            if ($booking->repeat->isNotEmpty()) {
+            if ((int) ($booking->is_repeated ?? 0) === 1 && $booking->repeat->isNotEmpty()) {
                 $repeatHistoryCollection = $booking->repeat->flatMap(function ($repeat) {
                     return $repeat->repeatHistories->map(function ($history) {
                         $history->log_details = json_decode($history->log_details);

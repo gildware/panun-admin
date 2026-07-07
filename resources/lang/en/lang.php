@@ -5217,6 +5217,7 @@ _Message' => 'Customer notification for provider bid offer
   'approved_reviews' => 'approved reviews',
   'Booking_Review' => 'Booking Review',
   'Booking_review_pending_help' => 'Reviews submitted after completed bookings that are waiting for admin approval.',
+  'New_booking_review_submitted' => 'New booking review submitted',
   'Pending_Reviews' => 'Pending Reviews',
   'Review_Type' => 'Review Type',
   'Given_By' => 'Given By',

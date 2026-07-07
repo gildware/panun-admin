@@ -257,6 +257,8 @@ class SmokeTestNotificationScenarios extends Command
                 fn () => send_provider_settlement_received_notification($booking->provider, 120),
                 [$booking->provider?->owner?->id]
             ),
+            'review_customer_submitted' => $this->testCustomerReviewSubmitted(),
+            'review_provider_submitted' => $this->testProviderCustomerReviewSubmitted(),
             'review_customer_to_provider_approved' => $this->testReviewToProvider(),
             'review_provider_to_customer_approved' => $this->testReviewToCustomer(),
             'loyalty_referral_earned' => $this->dispatchInboxPushForCustomer($booking, 'referral_earning', 'general', 'Referral reward'),
@@ -388,6 +390,46 @@ class SmokeTestNotificationScenarios extends Command
         } finally {
             $withdraw->delete();
         }
+    }
+
+    /**
+     * @return array{status: string, detail: string}
+     */
+    private function testCustomerReviewSubmitted(): array
+    {
+        $review = Review::with(['booking', 'customer', 'provider'])->latest()->first();
+        if (! $review) {
+            return ['status' => 'fail', 'detail' => 'No customer review record found'];
+        }
+
+        return $this->testAdminInbox(
+            'admin_inbox_notify_customer_review_submitted',
+            fn () => admin_inbox_notify_customer_review_submitted($review),
+            fn () => UserNotification::query()
+                ->where('reference_type', 'customer_review_submitted')
+                ->where('reference_id', (string) $review->id)
+                ->delete()
+        );
+    }
+
+    /**
+     * @return array{status: string, detail: string}
+     */
+    private function testProviderCustomerReviewSubmitted(): array
+    {
+        $review = ProviderCustomerReview::with(['booking', 'provider'])->latest()->first();
+        if (! $review) {
+            return ['status' => 'fail', 'detail' => 'No provider-to-customer review record found'];
+        }
+
+        return $this->testAdminInbox(
+            'admin_inbox_notify_provider_customer_review_submitted',
+            fn () => admin_inbox_notify_provider_customer_review_submitted($review),
+            fn () => UserNotification::query()
+                ->where('reference_type', 'provider_customer_review_submitted')
+                ->where('reference_id', (string) $review->id)
+                ->delete()
+        );
     }
 
     /**
