@@ -3,6 +3,7 @@
 namespace Modules\BookingModule\Http\Controllers\Api\V1\Customer;
 
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\CustomerModule\Services\CustomerBookingListPayloadSlimmer;
 use Illuminate\Routing\Controller;
