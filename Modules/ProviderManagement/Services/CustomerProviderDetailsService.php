@@ -2,8 +2,10 @@
 
 namespace Modules\ProviderManagement\Services;
 
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Modules\CategoryManagement\Entities\Category;
+use Modules\CustomerModule\Services\CustomerServicePayloadSlimmer;
 use Modules\ProviderManagement\Entities\FavoriteProvider;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderSetting;
@@ -186,25 +188,40 @@ class CustomerProviderDetailsService
             return $subCategories->all();
         }
 
-        $services = $this->service
-            ->with(['service_discount', 'category.category_discount'])
+        $servicesQuery = $this->service
+            ->withoutGlobalScope('zone_wise_data')
+            ->with(CustomerServicePayloadSlimmer::listEagerRelations())
             ->whereIn('sub_category_id', $subscribedSubCategoryIds)
-            ->ofStatus(1)
-            ->get();
+            ->where('is_active', 1)
+            ->whereHas('subCategory', function ($query) {
+                $query->withoutGlobalScopes()->where('is_active', 1);
+            });
+
+        $zoneId = Config::get('zone_id');
+        if (is_string($zoneId) && $zoneId !== '') {
+            $servicesQuery->where(function ($query) use ($zoneId) {
+                $query
+                    ->whereHas('category.zones', function ($zoneQuery) use ($zoneId) {
+                        $zoneQuery->where('zone_id', $zoneId);
+                    })
+                    ->orWhereHas('subCategory.parent.zones', function ($zoneQuery) use ($zoneId) {
+                        $zoneQuery->where('zone_id', $zoneId);
+                    });
+            });
+        }
+
+        $services = $servicesQuery->latest()->get();
 
         CustomerServiceResponseEnricher::enrich($services, $customerUserId, includeTax: false);
-        $servicesBySubCategory = $services->groupBy('sub_category_id');
+        $servicesBySubCategory = $services->groupBy(fn ($service) => (string) $service->sub_category_id);
 
         foreach ($subCategories as $subCategory) {
-            $categoryServices = $servicesBySubCategory->get($subCategory->id, collect())->values();
+            $categoryServices = $servicesBySubCategory->get((string) $subCategory->id, collect())->values();
             if ($limitPerCategory !== null && $limitPerCategory > 0) {
                 $categoryServices = $categoryServices->take($limitPerCategory);
             }
 
-            $subCategory->setAttribute(
-                'services',
-                $categoryServices
-            );
+            $subCategory->setRelation('services', $categoryServices);
         }
 
         return $subCategories->all();
