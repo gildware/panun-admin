@@ -54,7 +54,7 @@ class ServiceController extends Controller
             ->whereHas('category.zones', function ($query) use ($pZoneIds) {
                 $query->whereIn('category_zone.zone_id', $pZoneIds);
             })
-            ->latest()
+            ->ordered()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
             ->withPath('');
 

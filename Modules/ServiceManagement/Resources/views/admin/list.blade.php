@@ -175,27 +175,16 @@
                                             @forelse($services as $key=>$service)
                                                 <tr>
                                                     <td>
-                                                        @can('service_update')
-                                                            <a href="{{ route('admin.service.edit', [$service->id]) }}"
-                                                               class="category-list-name-link d-flex align-items-center gap-3 text-decoration-none demo_check title-color">
-                                                                <div class="avatar avatar-sm flex-shrink-0">
-                                                                    <img class="avatar-img radius-5"
-                                                                         src="{{ $service->thumbnail_full_path }}"
-                                                                         alt="{{ $service->name }}">
-                                                                </div>
-                                                                <span class="fw-medium">{{ Str::limit($service->name, 50) }}</span>
-                                                            </a>
-                                                        @else
-                                                            <a href="{{ route('admin.service.detail', [$service->id]) }}"
-                                                               class="category-list-name-link d-flex align-items-center gap-3 text-decoration-none demo_check title-color">
-                                                                <div class="avatar avatar-sm flex-shrink-0">
-                                                                    <img class="avatar-img radius-5"
-                                                                         src="{{ $service->thumbnail_full_path }}"
-                                                                         alt="{{ $service->name }}">
-                                                                </div>
-                                                                <span class="fw-medium">{{ Str::limit($service->name, 50) }}</span>
-                                                            </a>
-                                                        @endcan
+                                                        <a href="{{ route('admin.service.detail', [$service->id]) }}"
+                                                           class="category-list-name-link d-flex align-items-center gap-3 text-decoration-none demo_check title-color"
+                                                           @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
+                                                            <div class="avatar avatar-sm flex-shrink-0">
+                                                                <img class="avatar-img radius-5"
+                                                                     src="{{ $service->thumbnail_full_path }}"
+                                                                     alt="{{ $service->name }}">
+                                                            </div>
+                                                            <span class="fw-medium">{{ Str::limit($service->name, 50) }}</span>
+                                                        </a>
                                                     </td>
                                                     <td>
                                                         @if($service->category)
@@ -252,7 +241,8 @@
                                                                 @can('service_update')
                                                                     <a href="{{route('admin.service.edit',[$service->id])}}"
                                                                        class="action-btn btn--light-primary demo_check"
-                                                                       style="--size: 30px">
+                                                                       style="--size: 30px"
+                                                                       @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
                                                                         <span class="material-icons">edit</span>
                                                                     </a>
                                                                 @endcan

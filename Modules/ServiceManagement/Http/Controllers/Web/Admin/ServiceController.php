@@ -84,7 +84,7 @@ class ServiceController extends Controller
     public function create(Request $request): View|Factory|Application
     {
         $this->authorize('service_add');
-        $categories = $this->category->ofStatus(1)->ofType('main')->latest()->get();
+        $categories = $this->category->ofStatus(1)->ofType('main')->ordered()->get();
         $zones = $this->zone->ofStatus(1)->latest()->get();
 
         session()->forget('variations');
@@ -128,18 +128,18 @@ class ServiceController extends Controller
             return !is_null($value) && $value !== '';
         })->count();
 
-        $categories = $this->category->ofStatus(1)->ofType('main')->latest()->get();
+        $categories = $this->category->ofStatus(1)->ofType('main')->ordered()->get();
         $subCategories = collect();
         if ($category_id) {
             $subCategories = $this->category->ofStatus(1)->ofType('sub')
                 ->where('parent_id', $category_id)
-                ->orderBy('name', 'asc')
+                ->ordered()
                 ->get();
         }
 
         $services = $this->service->with(['category', 'subCategory', 'storage_thumbnail'])
             ->withCount('variations')
-            ->latest()
+            ->ordered()
             ->when($request->filled('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request['search']);
                 foreach ($keys as $key) {
@@ -239,6 +239,9 @@ class ServiceController extends Controller
         );
         $this->applyServiceTaxFieldsFromRequest($request, $service);
         $service->min_bidding_price = $request->min_bidding_price;
+        $service->sort_order = (int) ($this->service
+            ->where('sub_category_id', $request->sub_category_id)
+            ->max('sort_order') ?? -1) + 1;
         $service->save();
         $service->tags()->sync($tagIds);
 
@@ -370,7 +373,7 @@ class ServiceController extends Controller
                 $query->ofStatus(1);
             },'subCategory' => function ($query) {
                 $query->ofStatus(1);
-            }, 'category.zones', 'category.children', 'variations.zone', 'serviceVariants', 'reviews'])
+            }, 'category.zones', 'category.children', 'variations.zone', 'serviceVariants.zonePrices', 'reviews', 'faqs'])
             ->withCount(['bookings'])
             ->first();
 
@@ -390,7 +393,7 @@ class ServiceController extends Controller
             ->where(['booking_status' => 'canceled'])
             ->count();
 
-        $faqs = $this->faq->latest()->where('service_id', $id)->get();
+        $faqs = $service->faqs;
 
         $search = $request->has('review_search') ? $request['review_search'] : '';
         $webPage = $request->has('review_page') || $request->has('review_search') ? 'review' : 'general';
@@ -435,7 +438,7 @@ class ServiceController extends Controller
         if (isset($service)) {
             $editingVariants = $service->variations->pluck('variant_key')->unique()->toArray();
             session()->put('editing_variants', $editingVariants);
-            $categories = $this->category->ofStatus(1)->ofType('main')->latest()->get();
+            $categories = $this->category->ofStatus(1)->ofType('main')->ordered()->get();
 
             $category = $this->category->where('id', $service->category_id)->with(['zones'])->first();
             $zones = $category->zones ?? [];

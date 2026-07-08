@@ -743,7 +743,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         @can('service_view')
                             <li>
                                 <a href="{{route('admin.service.index')}}"
-                                   class="{{request()->is('admin/service/list*') || request()->is('admin/service/edit*') || request()->is('admin/service/details*')?'active-menu':''}}">
+                                   class="{{request()->is('admin/service/list*') || request()->is('admin/service/edit*') || request()->is('admin/service/detail*')?'active-menu':''}}">
                                     {{translate('service_list')}}
                                 </a>
                             </li>

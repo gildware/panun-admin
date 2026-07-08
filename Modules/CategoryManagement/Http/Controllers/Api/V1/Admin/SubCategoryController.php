@@ -50,9 +50,9 @@ class SubCategoryController extends Controller
             ->when($request['status'] != 'all', function ($query) use ($request) {
                 return $query->ofStatus(($request['status'] == 'active') ? 1 : 0);
             })
-            ->ofType('sub')->latest()->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
+            ->ofType('sub')->ordered()->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
-        $main_categories = $this->category->ofType('main')->orderBy('name')->get(['id', 'name']);
+        $main_categories = $this->category->ofType('main')->ordered()->get(['id', 'name']);
 
         return response()->json(response_formatter(DEFAULT_200, ['sub_categories' => $sub_categories, 'main_categories' => $main_categories]), 200);
     }
@@ -118,7 +118,7 @@ class SubCategoryController extends Controller
     {
         $sub_category = $this->category->ofType('sub')->where('id', $id)->first();
         if (isset($sub_category)) {
-            $main_categories = $this->category->ofType('main')->orderBy('name')->get(['id', 'name']);
+            $main_categories = $this->category->ofType('main')->ordered()->get(['id', 'name']);
             return response()->json(response_formatter(DEFAULT_200, ['sub_category' => $sub_category, 'main_categories' => $main_categories]), 200);
         }
         return response()->json(response_formatter(DEFAULT_204), 200);

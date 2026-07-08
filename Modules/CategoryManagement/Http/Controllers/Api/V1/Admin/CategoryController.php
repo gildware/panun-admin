@@ -40,7 +40,7 @@ class CategoryController extends Controller
 
         $categories = $this->category->with(['zones','children'])->when($request['status'] != 'all', function ($query) use ($request) {
             return $query->ofStatus(($request['status'] == 'active') ? 1 : 0);
-        })->ofType('main')->latest()->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
+        })->ofType('main')->ordered()->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
         $zones = $this->zone->orderBy('name')->get(['id', 'name']);
 

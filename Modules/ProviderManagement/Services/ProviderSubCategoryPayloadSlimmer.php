@@ -16,6 +16,8 @@ class ProviderSubCategoryPayloadSlimmer
         'name',
         'image',
         'image_full_path',
+        'image_dark',
+        'image_dark_full_path',
         'description',
         'is_active',
         'is_subscribed',

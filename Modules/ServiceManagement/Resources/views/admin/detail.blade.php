@@ -8,52 +8,328 @@
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/dataTables/select.dataTables.min.css"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/wysiwyg-editor/froala_editor.min.css"/>
     <style>
-        .service-long-description-html img { max-width: 100%; height: auto; }
-        .service-long-description-html table { width: 100%; border-collapse: collapse; }
-        .service-long-description-html table td,
-        .service-long-description-html table th { border: 1px solid var(--bs-border-color); padding: 0.5rem; }
+        .service-detail-page .page-title-wrap { margin-bottom: 0.75rem !important; }
+        .service-detail-page .page-title { font-size: 1.125rem; }
+        .service-detail-page .service-detail-stats .statistics-card {
+            padding: 0.75rem 0.875rem;
+            min-height: 0;
+        }
+        .service-detail-page .service-detail-stats .statistics-card h2 {
+            font-size: 1.25rem;
+            margin-bottom: 0.125rem;
+        }
+        .service-detail-page .service-detail-stats .statistics-card h3 {
+            font-size: 0.75rem;
+            margin: 0;
+            line-height: 1.3;
+        }
+        .service-detail-page .service-detail-stats .statistics-card .absolute-img {
+            width: 2.5rem;
+            opacity: 0.35;
+        }
+        .service-detail-page .service-detail-card .card-body {
+            padding: 1rem 1.125rem;
+        }
+        .service-detail-page .service-detail-hero {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.875rem;
+            margin-bottom: 0.875rem;
+            padding-bottom: 0.875rem;
+            border-bottom: 1px solid var(--bs-border-color);
+        }
+        .service-detail-page .service-detail-hero-thumb {
+            width: 4.5rem;
+            height: 4.5rem;
+            border-radius: 0.5rem;
+            object-fit: cover;
+            flex-shrink: 0;
+            background: var(--bs-tertiary-bg);
+        }
+        .service-detail-page .service-detail-hero-cover {
+            width: 7.5rem;
+            height: 4.5rem;
+            border-radius: 0.5rem;
+            object-fit: cover;
+            flex-shrink: 0;
+            background: var(--bs-tertiary-bg);
+        }
+        .service-detail-page .service-detail-hero-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 0 0 0.25rem;
+            line-height: 1.35;
+        }
+        .service-detail-page .service-detail-hero-meta {
+            font-size: 0.75rem;
+            color: var(--bs-secondary-color);
+            margin-bottom: 0.25rem;
+        }
+        .service-detail-page .service-detail-hero-desc {
+            font-size: 0.8125rem;
+            color: var(--bs-body-color);
+            margin: 0;
+            line-height: 1.45;
+        }
+        .service-detail-page .nav--tabs .nav-link {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.8125rem;
+        }
+        .service-detail-page .nav--tabs__style2 {
+            margin-bottom: 0.75rem;
+        }
+        .service-detail-page .service-long-description-html {
+            font-size: 0.875rem;
+            line-height: 1.55;
+        }
+        .service-detail-page .service-long-description-html img { max-width: 100%; height: auto; }
+        .service-detail-page .service-long-description-html table { width: 100%; border-collapse: collapse; }
+        .service-detail-page .service-long-description-html table td,
+        .service-detail-page .service-long-description-html table th {
+            border: 1px solid var(--bs-border-color);
+            padding: 0.375rem 0.5rem;
+            font-size: 0.8125rem;
+        }
+        .service-detail-page .service-detail-price-table table {
+            font-size: 0.8125rem;
+        }
+        .service-detail-page .service-detail-price-table table th,
+        .service-detail-page .service-detail-price-table table td {
+            vertical-align: middle;
+            padding: 0.375rem 0.5rem;
+        }
+        .service-detail-page .service-detail-price-table thead th {
+            background: var(--bs-tertiary-bg);
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .service-detail-page .service-detail-price-table img {
+            width: 2rem;
+            height: 2rem;
+        }
+        .service-detail-page #faq-tab-pane .card-body {
+            padding: 1rem 1.125rem;
+        }
+        .service-detail-page #faq-tab-pane .service-detail-faq-compose {
+            background: var(--bs-tertiary-bg);
+            border: 1px solid var(--bs-border-color);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .service-detail-page #faq-tab-pane .service-detail-faq-compose-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin: 0 0 0.75rem;
+            color: var(--bs-body-color);
+        }
+        .service-detail-page #faq-tab-pane #faq-form .form-floating {
+            margin-bottom: 0.75rem;
+        }
+        .service-detail-page #faq-tab-pane #faq-form .form-floating > .form-control {
+            border-radius: 0.5rem;
+        }
+        .service-detail-page #faq-tab-pane #faq-form .form-floating > textarea {
+            min-height: 6.5rem;
+        }
+        .service-detail-page #faq-tab-pane #faq-submit-btn {
+            min-width: 9.5rem;
+            min-height: 2.75rem;
+            padding: 0.625rem 1.25rem;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            border-radius: 0.5rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.375rem;
+        }
+        .service-detail-page #faq-tab-pane #faq-submit-btn .spinner-border {
+            width: 1rem;
+            height: 1rem;
+            border-width: 0.15em;
+        }
+        .service-detail-page #faq-tab-pane .service-detail-faq-empty {
+            text-align: center;
+            padding: 2rem 1rem;
+        }
+        .service-detail-page #faq-tab-pane .service-detail-faq-empty img {
+            max-width: 4.5rem;
+            opacity: 0.45;
+            margin-bottom: 0.75rem;
+        }
+        .service-detail-page #faq-tab-pane .service-detail-faq-empty p {
+            font-size: 0.875rem;
+            margin: 0;
+        }
+        .service-detail-page #faq-tab-pane .accordion.mb-30 {
+            margin-bottom: 0.75rem !important;
+        }
+        .service-detail-page #faq-tab-pane .accordion-item {
+            border: 1px solid var(--bs-border-color);
+            border-radius: 0.625rem !important;
+            overflow: hidden;
+            margin-bottom: 0;
+            background: #fff;
+        }
+        .service-detail-page #faq-tab-pane .service-faq-item {
+            margin-bottom: 0.625rem;
+        }
+        .service-detail-page #faq-tab-pane .service-faq-item.is-dragging {
+            opacity: 0.55;
+        }
+        .service-detail-page #faq-tab-pane .service-faq-item.is-drag-over > .accordion-item {
+            outline: 2px dashed var(--bs-primary);
+            outline-offset: 1px;
+        }
+        .service-detail-page #faq-tab-pane .service-faq-drag-handle {
+            flex-shrink: 0;
+            color: var(--bs-secondary-color);
+            cursor: grab;
+            user-select: none;
+            padding: 0.25rem;
+            font-size: 1.25rem;
+            line-height: 1;
+        }
+        .service-detail-page #faq-tab-pane .service-faq-drag-handle:active {
+            cursor: grabbing;
+        }
+        .service-detail-page #faq-tab-pane .accordion-header {
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.25rem 0.5rem 0.25rem 0.375rem;
+            background: transparent;
+        }
+        .service-detail-page #faq-tab-pane .accordion-header .accordion-button {
+            position: relative;
+            flex: 1 1 auto;
+            min-width: 0;
+            padding: 0.75rem 0.875rem 0.75rem 2.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            box-shadow: none;
+            background: transparent;
+            text-align: start;
+        }
+        .service-detail-page #faq-tab-pane .accordion-header .accordion-button::after {
+            inset-inline-start: 0.625rem;
+            margin: 0;
+        }
+        .service-detail-page #faq-tab-pane .accordion-header .accordion-button:not(.collapsed) {
+            color: var(--bs-primary);
+            background: rgba(var(--bs-primary-rgb), 0.04);
+        }
+        .service-detail-page #faq-tab-pane .accordion-body {
+            padding: 0.75rem 0.875rem 1rem;
+            font-size: 0.8125rem;
+            color: var(--bs-secondary-color);
+            line-height: 1.5;
+            border-top: 1px solid var(--bs-border-color);
+        }
+        .service-detail-page #faq-tab-pane .accordion-header .btn-group {
+            flex-shrink: 0;
+            padding-right: 0.5rem;
+        }
+        .service-detail-page #faq-tab-pane .service-faq-edit-form {
+            border: 1px solid var(--bs-border-color);
+            border-radius: 0.625rem;
+            padding: 0.875rem;
+            margin-bottom: 0.75rem;
+            background: var(--bs-tertiary-bg);
+        }
+        .service-detail-page #faq-tab-pane .service-faq-edit-form .form-floating {
+            margin-bottom: 0.75rem !important;
+        }
+        .service-detail-page #faq-tab-pane .service-faq-update {
+            min-width: 8.5rem;
+            min-height: 2.5rem;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        .service-detail-page #review-tab-pane .card-body.p-30 {
+            padding: 1rem 1.125rem !important;
+        }
+        .service-detail-page #review-tab-pane .rating-review__title {
+            font-size: 1.5rem;
+        }
+        .service-detail-page #review-tab-pane .rating-review__out-of {
+            font-size: 1.75rem;
+        }
+        .service-detail-page #review-tab-pane .col-lg-5.mb-30 {
+            margin-bottom: 1rem !important;
+        }
+        .service-detail-page #review-tab-pane .card.mb-30 {
+            margin-bottom: 1rem !important;
+        }
+        .service-detail-page #review-tab-pane .table {
+            font-size: 0.8125rem;
+        }
+        .service-detail-page #review-tab-pane .table th,
+        .service-detail-page #review-tab-pane .table td {
+            padding: 0.5rem 0.625rem;
+        }
+        .service-detail-page .btn.btn-sm-compact {
+            padding: 0.3125rem 0.75rem;
+            font-size: 0.8125rem;
+        }
+        .service-detail-page .btn.btn-sm-compact .material-icons {
+            font-size: 1rem;
+        }
     </style>
 @endpush
 
 @section('content')
-    <div class="main-content">
+    <div class="main-content service-detail-page">
         <div class="container-fluid">
-            <div class="page-title-wrap mb-3">
-                <h2 class="page-title">{{translate('service_details')}}</h2>
+            <div class="page-title-wrap d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <h2 class="page-title mb-0">{{translate('service_details')}}</h2>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    @can('service_update')
+                        <a href="{{route('admin.service.edit',[$service->id])}}"
+                           class="btn btn--primary btn-sm-compact d-inline-flex align-items-center gap-1"
+                           @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
+                            <span class="material-icons">border_color</span>
+                            {{translate('edit')}}
+                        </a>
+                    @endcan
+                    <a href="{{ route('admin.service.index') }}"
+                       class="btn btn--secondary btn-sm-compact d-inline-flex align-items-center gap-1"
+                       @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
+                        <span class="material-icons">arrow_back</span>
+                        {{ translate('Back_to_Service_List') }}
+                    </a>
+                </div>
             </div>
 
-            <div class="row justify-content-center">
-                <div class="col-xl-10">
-                    <div class="row mb-4 g-4">
-                        <div class="col-lg-4 col-sm-12">
-                            <div class="statistics-card statistics-card__total-orders">
-                                <h2>{{$service->bookings_count}}</h2>
-                                <h3>{{translate('total_bookings')}}</h3>
-                                <img src="{{asset('assets/admin-module/img/icons/total-orders.png')}}"
-                                     class="absolute-img" alt="{{ translate('total-orders') }}">
-                            </div>
-                        </div>
-                        <div class="col-lg-4 col-sm-6">
-                            <div class="statistics-card statistics-card__ongoing">
-                                <h2>{{$service['ongoing_count']??0}}</h2>
-                                <h3>{{translate('ongoing')}}</h3>
-                                <img src="{{asset('assets/admin-module/img/icons/ongoing.png')}}"
-                                     class="absolute-img" alt="{{ translate('ongoing-orders') }}">
-                            </div>
-                        </div>
-                        <div class="col-lg-4 col-sm-6">
-                            <div class="statistics-card statistics-card__canceled">
-                                <h2>{{$service['canceled_count']??0}}</h2>
-                                <h3>{{translate('canceled')}}</h3>
-                                <img src="{{asset('assets/admin-module/img/icons/canceled.png')}}"
-                                     class="absolute-img" alt="{{ translate('canceled-orders') }}">
-                            </div>
-                        </div>
+            <div class="row g-2 mb-3 service-detail-stats">
+                <div class="col-md-4 col-sm-4">
+                    <div class="statistics-card statistics-card__total-orders">
+                        <h2>{{$service->bookings_count}}</h2>
+                        <h3>{{translate('total_bookings')}}</h3>
+                        <img src="{{asset('assets/admin-module/img/icons/total-orders.png')}}"
+                             class="absolute-img" alt="{{ translate('total-orders') }}">
+                    </div>
+                </div>
+                <div class="col-md-4 col-sm-4">
+                    <div class="statistics-card statistics-card__ongoing">
+                        <h2>{{$service['ongoing_count']??0}}</h2>
+                        <h3>{{translate('ongoing')}}</h3>
+                        <img src="{{asset('assets/admin-module/img/icons/ongoing.png')}}"
+                             class="absolute-img" alt="{{ translate('ongoing-orders') }}">
+                    </div>
+                </div>
+                <div class="col-md-4 col-sm-4">
+                    <div class="statistics-card statistics-card__canceled">
+                        <h2>{{$service['canceled_count']??0}}</h2>
+                        <h3>{{translate('canceled')}}</h3>
+                        <img src="{{asset('assets/admin-module/img/icons/canceled.png')}}"
+                             class="absolute-img" alt="{{ translate('canceled-orders') }}">
                     </div>
                 </div>
             </div>
 
-            <div class="mb-3">
+            <div class="mb-2">
                 <ul class="nav nav--tabs nav--tabs__style2">
                     <li class="nav-item">
                         <button class="nav-link {{!isset($webPage) || $webPage=='general'?'active':''}}"
@@ -77,42 +353,33 @@
             <div class="tab-content">
                 <div class="tab-pane fade {{!isset($webPage) || $webPage=='general'?'show active':''}}"
                      id="general-tab-pane">
-                    <div class="card">
-                        <div class="card-body p-30">
-                            <div class="media flex-column flex-md-row gap-3 mb-3">
-                                <div class="">
-                                    <img width="300"
-                                         src="{{$service->cover_image_full_path}}">
-                                </div>
-                                <div class="media-body ">
-                                    <div class="d-flex flex-wrap gap-3 align-items-center justify-content-between mb-3">
-                                        <h2 class="c1">{{$service->name}}</h2>
-                                        @can('service_update')
-                                            <a href="{{ route('admin.service.variants.index', $service->id) }}"
-                                               class="btn btn-outline-primary">
-                                                {{ translate('manage_variants') }}
-                                            </a>
-                                            <a href="{{route('admin.service.edit',[$service->id])}}"
-                                               class="btn btn--primary">
-                                                <span class="material-icons">border_color</span>
-                                                {{translate('edit')}}
-                                            </a>
-                                        @endcan
+                    <div class="card service-detail-card">
+                        <div class="card-body">
+                            <div class="service-detail-hero">
+                                <img class="service-detail-hero-thumb d-none d-sm-block"
+                                     src="{{ $service->thumbnail_full_path }}"
+                                     alt="{{ $service->name }}">
+                                <img class="service-detail-hero-cover d-sm-none"
+                                     src="{{ $service->cover_image_full_path }}"
+                                     alt="{{ $service->name }}">
+                                <div class="min-w-0 flex-grow-1">
+                                    <h3 class="service-detail-hero-title c1">{{ $service->name }}</h3>
+                                    <div class="service-detail-hero-meta">
+                                        @if($service?->category)
+                                            {{ translate('category') }}: {{ $service->category->name ?? translate('Unavailable') }}
+                                        @endif
+                                        @if($service?->subCategory)
+                                            @if($service?->category) · @endif
+                                            {{ translate('sub-category') }}: {{ $service->subCategory->name ?? translate('Unavailable') }}
+                                        @endif
                                     </div>
-                                    <p class="text-secondary">@if($service?->category)
-                                            {{translate('category')}}
-                                            : {{$service?->category->name ?? translate('Unavailable')}} @if($service?->subCategory)
-                                                |
-                                            @endif
-                                        @endif  @if($service?->subCategory)
-                                            {{translate('sub-category')}}
-                                            : {{$service?->subCategory->name ?? translate('Unavailable')}}
-                                        @endif</p>
-                                    <p>{{$service->short_description}}</p>
+                                    @if($service->short_description)
+                                        <p class="service-detail-hero-desc">{{ $service->short_description }}</p>
+                                    @endif
                                 </div>
                             </div>
 
-                            <div class="mb-3">
+                            <div class="mb-2">
                                 <ul class="nav nav--tabs">
                                     <li class="nav-item">
                                         <button class="nav-link active" data-bs-toggle="tab"
@@ -134,88 +401,46 @@
                                     </div>
                                 </div>
                                 <div class="tab-pane fade" id="price-table-tab-pane">
-                                    <div class="row justify-content-center">
-                                        <div class="col-lg-10">
-                                            <div class="mt-3 mb-4">
-                                                <ul class="nav nav--tabs nav--tabs__style3">
-                                                    @php($count=0)
-                                                    @if($service->category && $service->category->zones)
-                                                        @foreach($service->category->zones as $index=>$zone)
-                                                            <li class="nav-item">
-                                                                <button class="nav-link {{$count==0?'active':''}}"
-                                                                        data-bs-toggle="tab"
-                                                                        data-bs-target="#tab-{{$zone->id}}">{{$zone->name??""}}
-                                                                </button>
-                                                            </li>
-                                                            @php($count++)
-                                                        @endforeach
-                                                    @endif
-                                                </ul>
-                                            </div>
-
-                                            <div class="tab-content">
-                                                @php($count=0)
-                                                @if($service->category && $service->category->zones)
-                                                    @foreach($service->category->zones as $index=>$zone)
-                                                        <div class="tab-pane fade show {{$count==0?'active':''}}"
-                                                             id="tab-{{$zone->id}}">
-                                                            <p class="text-center"><strong
-                                                                    class="c1 me-1">{{$service->variations->where('zone_id',$zone->id)->count()}}</strong>
-                                                                {{translate('available_variants')}}
-                                                            </p>
-                                                            <div class="service-price-list">
-                                                                @foreach($service->variations->where('zone_id',$zone->id)->all() as $variant)
-                                                                    @php($meta = $service->serviceVariants?->firstWhere('variant_key', $variant->variant_key))
-                                                                    <div class="service-price-list-item d-flex align-items-start gap-3 mb-3">
-                                                                        @if($meta?->image)
-                                                                            <img src="{{ $meta->image_full_path }}" alt="" width="48" height="48" class="rounded flex-shrink-0" style="object-fit:cover;">
-                                                                        @endif
-                                                                        <div class="flex-grow-1">
-                                                                            <p class="mb-1 fw-semibold">{{ $meta?->title ?? $variant->variant }}</p>
-                                                                            @if($meta?->description)
-                                                                                <p class="small text-muted mb-1">{{ Str::limit($meta->description, 120) }}</p>
-                                                                            @endif
-                                                                            <h3 class="c1 mb-0">{{with_currency_symbol($variant->price)}}</h3>
-                                                                        </div>
-                                                                    </div>
-                                                                @endforeach
-                                                            </div>
-                                                        </div>
-                                                        @php($count++)
-                                                    @endforeach
-                                                @endif
-                                            </div>
-                                        </div>
-                                    </div>
+                                    @include('servicemanagement::admin.partials._service-price-table', ['service' => $service])
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="tab-pane fade {{isset($webPage) && $webPage=='faq'?'show active':''}}" id="faq-tab-pane">
-                    <div class="card mb-30">
-                        <div class="card-body p-30">
-                            <form action="javascript:void(0)" method="POST" class="mb-30" id="faq-form">
-                                @csrf
-                                <div class="form-floating mb-30">
-                                    <input type="text" class="form-control" placeholder="{{translate('question')}}"
-                                           name="question" required="">
-                                    <label>{{translate('question')}}</label>
-                                </div>
-                                <div class="form-floating mb-30">
-                                    <textarea class="form-control" placeholder="{{translate('answer')}}" name="answer"
-                                              required=""></textarea>
-                                    <label>{{translate('answer')}}</label>
-                                </div>
-                                <div class="d-flex justify-content-end">
-                                    <button type="submit" class="btn btn--primary">{{translate('add_faq')}}</button>
-                                </div>
-                            </form>
+                    <div class="card service-detail-card mb-3">
+                        <div class="card-body">
+                            <div class="service-detail-faq-compose">
+                                <h6 class="service-detail-faq-compose-title">{{ translate('add_faq') }}</h6>
+                                <form action="javascript:void(0)" method="POST" id="faq-form" novalidate>
+                                    @csrf
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" id="faq-question-input"
+                                               placeholder="{{translate('question')}}"
+                                               name="question" required maxlength="500" autocomplete="off">
+                                        <label for="faq-question-input">{{translate('question')}}</label>
+                                    </div>
+                                    <div class="form-floating">
+                                        <textarea class="form-control" id="faq-answer-input"
+                                                  placeholder="{{translate('answer')}}" name="answer"
+                                                  required></textarea>
+                                        <label for="faq-answer-input">{{translate('answer')}}</label>
+                                    </div>
+                                    <div class="d-flex justify-content-end">
+                                        <button type="submit" class="btn btn--primary" id="faq-submit-btn"
+                                                data-label-idle="{{ translate('add_faq') }}"
+                                                data-label-loading="{{ translate('Loading') }}...">
+                                            <span class="faq-submit-label">{{ translate('add_faq') }}</span>
+                                            <span class="spinner-border text-light d-none" role="status" aria-hidden="true"></span>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
 
-                            <div class="text-center mb-30">
-                                <div class="" id="faq-list">
-                                    @include('servicemanagement::admin.partials._faq-list',['faqs'=>$faqs])
-                                </div>
+                            <div id="faq-list"
+                                 data-service-id="{{ $service->id }}"
+                                 data-reorder-url="{{ route('admin.faq.reorder', $service->id) }}">
+                                @include('servicemanagement::admin.partials._faq-list',['faqs'=>$faqs])
                             </div>
                         </div>
                     </div>
@@ -223,10 +448,10 @@
                 <div class="tab-pane fade {{isset($webPage) && $webPage=='review'?'show active':''}}" id="review-tab-pane">
 
                     @if($reviews->total() > 0)
-                        <div class="card mb-30">
-                            <div class="card-body p-30">
-                                <div class="row align-items-center">
-                                    <div class="col-lg-5 mb-30 mb-lg-0 d-flex justify-content-center">
+                        <div class="card service-detail-card mb-3">
+                            <div class="card-body">
+                                <div class="row align-items-center g-3">
+                                    <div class="col-lg-4 d-flex justify-content-center">
                                         <div class="rating-review">
                                             <h2 class="rating-review__title">
                                                 <span class="rating-review__out-of">{{$service->avg_rating}}</span>/5
@@ -251,7 +476,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="col-lg-7">
+                                    <div class="col-lg-8">
                                         <ul class="common-list common-list__style2 after-none gap-10">
                                             <li>
                                                 <span class="review-name">{{translate('excellent')}}</span>
@@ -320,15 +545,15 @@
                         </div>
                     @endif
 
-                    <div class="d-flex justify-content-end border-bottom pb-2 mb-10">
+                    <div class="d-flex justify-content-end border-bottom pb-2 mb-2">
                         <div class="d-flex gap-2 fw-medium">
                             <span class="opacity-75">{{translate('total_reviews')}}:</span>
                             <span class="title-color">{{$reviews->total()}}</span>
                         </div>
                     </div>
 
-                    <div class="card">
-                        <div class="card-body">
+                    <div class="card service-detail-card">
+                        <div class="card-body py-2 px-3">
                             <div class="data-table-top d-flex flex-wrap gap-10 justify-content-between">
                                 <div class="title-here"></div>
                                 <div class="d-flex flex-wrap align-items-center gap-3">
@@ -529,8 +754,163 @@
             modal.find('form').attr('action',action);
         });
 
-        $('#faq-form').on('submit', e => {
+        let faqSubmitting = false;
+        let faqDragItem = null;
+        let faqReorderSaving = false;
+
+        function getFaqReorderUrl() {
+            return $('#faq-list').data('reorder-url') || '';
+        }
+
+        function collectFaqOrder() {
+            return $('#faqAccordionList .service-faq-item').map(function () {
+                return $(this).data('faq-id');
+            }).get().filter(Boolean);
+        }
+
+        function saveFaqOrder() {
+            const url = getFaqReorderUrl();
+            const order = collectFaqOrder();
+            if (!url || order.length < 1 || faqReorderSaving) {
+                return;
+            }
+
+            faqReorderSaving = true;
+            $.ajaxSetup({
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                }
+            });
+
+            $.post({
+                url: url,
+                data: { order: order },
+                success: function () {
+                    toastr.success('{{ translate('successfully_updated') }}');
+                },
+                error: function () {
+                    toastr.error('{{ translate('something_went_wrong') }}');
+                },
+                complete: function () {
+                    faqReorderSaving = false;
+                }
+            });
+        }
+
+        function initFaqSortable() {
+            const list = document.getElementById('faqAccordionList');
+            if (!list) {
+                return;
+            }
+            list.dataset.faqSortInit = '1';
+
+            list.querySelectorAll('.service-faq-drag-handle').forEach(function (handle) {
+                if (handle.dataset.faqDragInit === '1') {
+                    return;
+                }
+                handle.dataset.faqDragInit = '1';
+
+                handle.addEventListener('dragstart', function (e) {
+                    faqDragItem = handle.closest('.service-faq-item');
+                    if (!faqDragItem) {
+                        return;
+                    }
+                    faqDragItem.classList.add('is-dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    try {
+                        e.dataTransfer.setData('text/plain', faqDragItem.dataset.faqId || '');
+                    } catch (err) {}
+                    e.stopPropagation();
+                });
+
+                handle.addEventListener('dragend', function () {
+                    if (faqDragItem) {
+                        faqDragItem.classList.remove('is-dragging');
+                    }
+                    list.querySelectorAll('.service-faq-item.is-drag-over').forEach(function (el) {
+                        el.classList.remove('is-drag-over');
+                    });
+                    faqDragItem = null;
+                    saveFaqOrder();
+                });
+
+                handle.addEventListener('mousedown', function (e) {
+                    e.stopPropagation();
+                });
+                handle.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+            });
+
+            if (list.dataset.faqListDragInit === '1') {
+                return;
+            }
+            list.dataset.faqListDragInit = '1';
+
+            list.addEventListener('dragover', function (e) {
+                e.preventDefault();
+                const target = e.target.closest('.service-faq-item');
+                if (!faqDragItem || !target || target === faqDragItem || !list.contains(target)) {
+                    return;
+                }
+
+                list.querySelectorAll('.service-faq-item.is-drag-over').forEach(function (el) {
+                    if (el !== target) {
+                        el.classList.remove('is-drag-over');
+                    }
+                });
+                target.classList.add('is-drag-over');
+
+                const rect = target.getBoundingClientRect();
+                const before = (e.clientY - rect.top) < (rect.height / 2);
+                if (before) {
+                    list.insertBefore(faqDragItem, target);
+                } else {
+                    list.insertBefore(faqDragItem, target.nextSibling);
+                }
+            });
+
+            list.addEventListener('drop', function (e) {
+                e.preventDefault();
+                list.querySelectorAll('.service-faq-item.is-drag-over').forEach(function (el) {
+                    el.classList.remove('is-drag-over');
+                });
+            });
+        }
+
+        function setFaqSubmitLoading(isLoading) {
+            const $btn = $('#faq-submit-btn');
+            const idleLabel = $btn.data('label-idle') || '{{ translate('add_faq') }}';
+            const loadingLabel = $btn.data('label-loading') || '{{ translate('Loading') }}...';
+
+            faqSubmitting = isLoading;
+            $btn.prop('disabled', isLoading);
+            $btn.find('.faq-submit-label').text(isLoading ? loadingLabel : idleLabel);
+            $btn.find('.spinner-border').toggleClass('d-none', !isLoading);
+            $('#faq-form').find('input[name="question"], textarea[name="answer"]').prop('disabled', isLoading);
+        }
+
+        $('#faq-form').on('submit', function (e) {
             e.preventDefault();
+
+            const form = this;
+            const question = (form.question.value || '').trim();
+            const answer = (form.answer.value || '').trim();
+
+            if (!question || !answer) {
+                form.reportValidity();
+                toastr.error('{{ translate('Please_complete_all_required_fields_before_proceeding') }}');
+                return;
+            }
+
+            if (faqSubmitting) {
+                return;
+            }
+
+            form.question.value = question;
+            form.answer.value = answer;
+            setFaqSubmitLoading(true);
 
             $.ajaxSetup({
                 headers: {
@@ -538,8 +918,10 @@
                 }
             });
 
-            var form = $('#faq-form')[0];
-            var data = new FormData(form);
+            const data = new FormData();
+            data.append('_token', $('meta[name="csrf-token"]').attr('content') || form._token?.value || '');
+            data.append('question', question);
+            data.append('answer', answer);
 
             $.post({
                 url: '{{route('admin.faq.store',[$service->id])}}',
@@ -549,23 +931,52 @@
                 cache: false,
                 timeout: 800000,
                 success: function (response) {
-                    console.log(response.template);
                     $('#faq-list').empty().html(response.template);
+                    form.reset();
+                    toastr.success('{{translate('successfully_added')}}');
+                    initFaqSortable();
+                },
+                error: function () {
+                    toastr.error('{{ translate('something_went_wrong') }}');
                 },
                 complete: function () {
-                    $("#faq-form")[0].reset();
-                    toastr.success('{{translate('successfully_added')}}')
+                    setFaqSubmitLoading(false);
                 }
             });
         });
 
-        $(".service-faq-update").on('click', function () {
+        $('#faq-list').on('click', '.service-faq-update', function () {
             let id = $(this).data('id');
-            ajax_post(id)
-        })
+            ajax_post(id, this);
+        });
 
-        function ajax_post(form_id) {
+        function ajax_post(form_id, triggerBtn) {
             "use strict";
+
+            const $btn = $(triggerBtn);
+            if ($btn.data('busy')) {
+                return;
+            }
+
+            const form = $('#' + form_id)[0];
+            if (!form) {
+                return;
+            }
+
+            const question = (form.question?.value || '').trim();
+            const answer = (form.answer?.value || '').trim();
+            if (!question || !answer) {
+                form.reportValidity();
+                toastr.error('{{ translate('Please_complete_all_required_fields_before_proceeding') }}');
+                return;
+            }
+
+            form.question.value = question;
+            form.answer.value = answer;
+
+            $btn.data('busy', true).prop('disabled', true);
+            const originalHtml = $btn.html();
+            $btn.html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>{{ translate('Loading') }}...');
 
             $.ajaxSetup({
                 headers: {
@@ -573,32 +984,34 @@
                 }
             });
 
-            var form = $('#' + form_id)[0];
-            var data = new FormData(form);
-            let route = $('#' + form_id).attr('action');
-
             $.post({
-                url: route,
-                data: data,
+                url: $('#' + form_id).attr('action'),
+                data: new FormData(form),
                 processData: false,
                 contentType: false,
                 cache: false,
                 timeout: 800000,
                 success: function (response) {
-                    console.log(response.template);
                     $('#faq-list').empty().html(response.template);
+                    toastr.success('{{translate('successfully_updated')}}');
+                    initFaqSortable();
                 },
-                complete: function () {
-                    $("#faq-form")[0].reset();
-                    toastr.success('{{translate('successfully_updated')}}')
+                error: function () {
+                    toastr.error('{{ translate('something_went_wrong') }}');
+                    $btn.data('busy', false).prop('disabled', false).html(originalHtml);
                 }
             });
         }
 
-        $(".faq-list-ajax-delete").on('click', function () {
+        $('#faq-list').on('click', '.faq-list-ajax-delete', function () {
             let route = $(this).data('route');
             ajax_delete(route)
-        })
+        });
+
+        $('#faq-list').on('click', '.show-service-edit-section', function () {
+            let id = $(this).data('id');
+            $(`#edit-${id}`).toggle();
+        });
 
         function ajax_delete(route) {
             "use strict";
@@ -624,6 +1037,7 @@
                         success: function (response) {
                             $('#faq-list').empty().html(response.template);
                             toastr.success('{{translate('successfully_deleted')}}');
+                            initFaqSortable();
                         },
                         complete: function () {
                         },
@@ -632,11 +1046,11 @@
             })
         }
 
-        $(".service-ajax-status-update").on('click', function () {
+        $('#faq-list').on('click', '.service-ajax-status-update', function () {
             let route = $(this).data('route');
             let id = $(this).data('id');
             ajax_status_update(route, id)
-        })
+        });
 
         function ajax_status_update(route, id) {
             "use strict";
@@ -668,10 +1082,7 @@
             })
         }
 
-        $(".show-service-edit-section").on('click', function () {
-            let id = $(this).data('id');
-            $(`#edit-${id}`).toggle();
-        })
+        initFaqSortable();
     </script>
 
 @endpush

@@ -314,7 +314,7 @@ class ServiceController extends Controller
 
         if (!request()?->user()?->provider) return response()->json(response_formatter(DEFAULT_403), 403);
 
-        $services = $this->service->with(ProviderServicePayloadSlimmer::listEagerRelations())->latest()
+        $services = $this->service->with(ProviderServicePayloadSlimmer::listEagerRelations())->ordered()
             ->whereHas('subCategory', fn ($query) => $query->where('sub_category_id', $request['sub_category_id']))
             ->when($request->has('search'), function ($query) use ($request){
                 $keys = explode(' ', $request['search']);

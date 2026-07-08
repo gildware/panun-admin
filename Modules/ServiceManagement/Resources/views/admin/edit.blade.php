@@ -30,10 +30,21 @@
                 <div class="col-12">
                     <div class="page-title-wrap mb-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
                         <h2 class="page-title mb-0">{{translate('update_service')}}</h2>
-                        <a href="{{ route('admin.service.index') }}" class="btn btn--secondary d-inline-flex align-items-center gap-2">
-                            <span class="material-icons fs-5 lh-1">arrow_back</span>
-                            {{ translate('Back_to_Service_List') }}
-                        </a>
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            @can('service_view')
+                                <a href="{{ route('admin.service.detail', $service->id) }}"
+                                   class="btn btn-outline-primary d-inline-flex align-items-center gap-2"
+                                   @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
+                                    <span class="material-icons fs-5 lh-1">visibility</span>
+                                    {{ translate('View_Details') }}
+                                </a>
+                            @endcan
+                            <a href="{{ route('admin.service.index') }}" class="btn btn--secondary d-inline-flex align-items-center gap-2"
+                               @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
+                                <span class="material-icons fs-5 lh-1">arrow_back</span>
+                                {{ translate('Back_to_Service_List') }}
+                            </a>
+                        </div>
                     </div>
 
                     @if(session('service_updated') || session('service_created'))

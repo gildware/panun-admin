@@ -16,6 +16,8 @@ class CustomerCategoryPayloadSlimmer
         'name',
         'image',
         'image_full_path',
+        'image_dark',
+        'image_dark_full_path',
         'services_count',
     ];
 
@@ -26,6 +28,8 @@ class CustomerCategoryPayloadSlimmer
         'name',
         'image',
         'image_full_path',
+        'image_dark',
+        'image_dark_full_path',
     ];
 
     /** @var list<string> */
@@ -36,6 +40,8 @@ class CustomerCategoryPayloadSlimmer
         'name',
         'image',
         'image_full_path',
+        'image_dark',
+        'image_dark_full_path',
         'description',
         'is_active',
         'services_count',

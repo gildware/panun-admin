@@ -695,7 +695,7 @@ class ServiceController extends Controller
                 'category',
                 'subCategory',
                 'faqs' => function ($query) {
-                    return $query->where('is_active', 1);
+                    return $query->where('is_active', 1)->ordered();
                 },
             ])
             ->ofStatus(1)
@@ -832,7 +832,7 @@ class ServiceController extends Controller
                             ->orWhereHas('category.category_discount');
                     });
             })
-            ->latest();
+            ->ordered();
 
         $services = $this->mapServiceList(
             $servicesQuery

@@ -23,6 +23,7 @@ class Category extends Model
 
     protected $casts = [
         'position'  => 'integer',
+        'sort_order' => 'integer',
         'is_active' => 'integer',
         'slug'      => 'string',
         'commission_custom' => 'integer',
@@ -31,9 +32,9 @@ class Category extends Model
         'tax_percentage' => 'float',
     ];
 
-    protected $appends = ['image_full_path'];
+    protected $appends = ['image_full_path', 'image_dark_full_path'];
 
-    protected $fillable = ['slug'];
+    protected $fillable = ['slug', 'sort_order'];
 
     public function scopeOfStatus($query, $status)
     {
@@ -101,7 +102,12 @@ class Category extends Model
 
     public function children(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(Category::class, 'parent_id');
+        return $this->hasMany(Category::class, 'parent_id')->ordered();
+    }
+
+    public function scopeOrdered($query)
+    {
+        return $query->orderBy('sort_order')->orderBy('name');
     }
 
     public function category_discount(): \Illuminate\Database\Eloquent\Relations\HasMany
@@ -138,12 +144,12 @@ class Category extends Model
 
     public function services(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(Service::class, 'sub_category_id');
+        return $this->hasMany(Service::class, 'sub_category_id')->ordered();
     }
 
     public function services_by_category(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(Service::class, 'category_id');
+        return $this->hasMany(Service::class, 'category_id')->ordered();
     }
 
     public function translations(): MorphMany
@@ -207,6 +213,32 @@ class Category extends Model
         return getSingleImageFullPath(imagePath: $imagePath, s3Storage: $s3Storage, defaultPath: $defaultPath);
     }
 
+    public function darkStorage()
+    {
+        return $this->hasOne(Storage::class, 'model_id')
+            ->where('model', self::class)
+            ->where('model_column', 'image_dark');
+    }
+
+    public function getImageDarkFullPathAttribute()
+    {
+        $image = $this->image_dark;
+        if (! $image) {
+            return request()->is('api/*') ? null : asset('assets/placeholder.png');
+        }
+
+        $imagePath = resolve_stored_media_key(
+            $image,
+            \App\Support\MediaStoragePath::legacyPrefixForCategory($this)
+        );
+
+        return getSingleImageFullPath(
+            imagePath: $imagePath,
+            s3Storage: $this->darkStorage,
+            defaultPath: request()->is('api/*') ? null : asset('assets/placeholder.png')
+        );
+    }
+
     protected static function generateUniqueSlug($name, $ignoreId = null)
     {
         $slug = Str::slug($name);
@@ -242,8 +274,11 @@ class Category extends Model
 
         static::saved(function ($model) {
             $storageType = getDisk();
-            if($model->isDirty('image') && $storageType != 'public'){
-                saveSingleImageDataToStorage(model: $model, modelColumn : 'image', storageType : $storageType);
+            if ($model->isDirty('image') && $storageType != 'public') {
+                saveSingleImageDataToStorage(model: $model, modelColumn: 'image', storageType: $storageType);
+            }
+            if ($model->isDirty('image_dark') && $storageType != 'public') {
+                saveSingleImageDataToStorage(model: $model, modelColumn: 'image_dark', storageType: $storageType);
             }
         });
 

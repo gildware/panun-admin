@@ -40,7 +40,7 @@
                 @include('adminmodule::layouts.partials.top-nav._link', [
                     'href' => route('admin.service.index'),
                     'label' => translate('service_list'),
-                    'active' => request()->is('admin/service/list*') || request()->is('admin/service/edit*') || request()->is('admin/service/details*'),
+                    'active' => request()->is('admin/service/list*') || request()->is('admin/service/edit*') || request()->is('admin/service/detail*'),
                 ])
             @endcan
             @can('service_add')

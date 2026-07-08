@@ -41,7 +41,7 @@ class SubCategoryController extends Controller
             ->ofStatus(1)
             ->ofType('sub')
             ->withActiveServices()
-            ->latest()
+            ->ordered()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
             ->withPath('');
 

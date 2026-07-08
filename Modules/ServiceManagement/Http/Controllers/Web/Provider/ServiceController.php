@@ -312,7 +312,7 @@ class ServiceController extends Controller
             $query->where('service_id', $id);
         })->where('provider_id', $request->user()->provider->id)->where(['booking_status' => 'canceled'])->count();
 
-        $faqs = $this->faq->latest()->where('service_id', $id)->get();
+        $faqs = $this->faq->ordered()->where('service_id', $id)->get();
 
         $search = $request->has('review_search') ? $request['review_search'] : '';
         $webPage = $request->has('review_page') || $request->has('review_search') ? 'review' : 'general';

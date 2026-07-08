@@ -350,7 +350,8 @@ class MobileAppHomeController extends Controller
                         $query->whereDoesntHave('category.category_discount')
                             ->orWhereHas('category.category_discount');
                     })
-                    ->with(['variations', 'service_discount', 'category.category_discount']);
+                    ->with(['variations', 'service_discount', 'category.category_discount'])
+                    ->ordered();
                 $this->applyCustomerZoneToServiceQuery($query);
             }])
                 ->ofStatus(1)
