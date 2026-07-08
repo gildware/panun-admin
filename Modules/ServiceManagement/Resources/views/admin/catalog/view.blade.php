@@ -153,6 +153,14 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+        .catalog-col-name-link {
+            color: inherit;
+            text-decoration: none;
+        }
+        .catalog-col-name-link:hover {
+            color: var(--bs-primary);
+            text-decoration: underline;
+        }
         .catalog-col-meta {
             font-size: 0.6875rem;
             color: var(--bs-secondary-color);
@@ -264,6 +272,25 @@
         }
         .catalog-col-edit .material-icons {
             font-size: 1rem;
+        }
+        .catalog-col-drag {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.5rem;
+            height: 1.5rem;
+            color: var(--bs-secondary-color);
+            cursor: grab;
+            user-select: none;
+            flex-shrink: 0;
+            border-radius: 0.375rem;
+        }
+        .catalog-col-drag:active { cursor: grabbing; }
+        .catalog-col-drag .material-icons { font-size: 1.125rem; }
+        .catalog-col-row.is-dragging { opacity: 0.5; }
+        .catalog-col-row.is-drag-over {
+            outline: 2px dashed var(--bs-primary);
+            outline-offset: 1px;
         }
         .catalog-column-header-tools {
             display: flex;
@@ -406,7 +433,7 @@
                             <span class="catalog-col-count" id="count-categories">{{ $stats['categories'] }}</span>
                         </div>
                     </div>
-                    <div class="catalog-column-body" id="col-categories"></div>
+                    <div class="catalog-column-body" id="col-categories" data-column-type="category"></div>
                 </div>
 
                 {{-- Column 2: Sub-categories --}}
@@ -430,7 +457,7 @@
                             <span class="catalog-col-count" id="count-subcategories">0</span>
                         </div>
                     </div>
-                    <div class="catalog-column-body" id="col-subcategories">
+                    <div class="catalog-column-body" id="col-subcategories" data-column-type="subcategory">
                         <div class="catalog-empty-col">
                             <span class="material-icons">touch_app</span>
                             <p>{{ translate('Catalog_pick_category') }}</p>
@@ -459,7 +486,7 @@
                             <span class="catalog-col-count" id="count-services">0</span>
                         </div>
                     </div>
-                    <div class="catalog-column-body" id="col-services">
+                    <div class="catalog-column-body" id="col-services" data-column-type="service">
                         <div class="catalog-empty-col">
                             <span class="material-icons">touch_app</span>
                             <p>{{ translate('Catalog_pick_subcategory') }}</p>
@@ -488,7 +515,7 @@
                             <span class="catalog-col-count" id="count-variations">0</span>
                         </div>
                     </div>
-                    <div class="catalog-column-body" id="col-variations">
+                    <div class="catalog-column-body" id="col-variations" data-column-type="variation">
                         <div class="catalog-empty-col">
                             <span class="material-icons">touch_app</span>
                             <p>{{ translate('Catalog_pick_service') }}</p>
@@ -599,11 +626,27 @@
                 pickService: @json(translate('Catalog_pick_service')),
                 noData: @json(translate('no_data_found')),
                 edit: @json(translate('edit')),
+                viewDetails: @json(translate('View_Details')),
+                dragToReorder: @json(translate('Drag_to_reorder')),
             };
+            const canReorderCategories = @json(\Illuminate\Support\Facades\Gate::allows('category_update'));
+            const canReorderServices = @json(\Illuminate\Support\Facades\Gate::allows('service_update'));
+            const reorderUrls = {
+                categories: @json(route('admin.catalog.reorder.categories')),
+                subcategories: @json(route('admin.catalog.reorder.subcategories')),
+                services: @json(route('admin.catalog.reorder.services')),
+                variations: @json(route('admin.catalog.reorder.variations')),
+            };
+            const csrfToken = @json(csrf_token());
             const currencySymbol = @json($currencySymbol);
             const currencyPosition = @json($currencyPosition);
             const currencyDecimalPoint = {{ (int) $currencyDecimalPoint }};
             const placeholderImage = @json(asset('assets/admin-module/img/media/upload-file.png'));
+
+            const usePartialNav = @json(admin_uses_partial_nav());
+            const partialNavAttrs = usePartialNav
+                ? ' data-turbo-frame="admin-main" data-turbo-action="advance"'
+                : '';
 
             const colCategories = document.getElementById('col-categories');
             const colSubcategories = document.getElementById('col-subcategories');
@@ -753,32 +796,314 @@
                 if (!url) {
                     return '';
                 }
-                return '<a href="' + escapeHtml(url) + '" class="catalog-col-edit" target="_blank" rel="noopener noreferrer" aria-label="' + escapeHtml(labels.edit) + '" title="' + escapeHtml(labels.edit) + '"><span class="material-icons">edit</span></a>';
+                return '<a href="' + escapeHtml(url) + '" class="catalog-col-edit"' + partialNavAttrs + ' aria-label="' + escapeHtml(labels.edit) + '" title="' + escapeHtml(labels.edit) + '"><span class="material-icons">edit</span></a>';
+            }
+
+            function canDragType(type) {
+                if (type === 'category' || type === 'subcategory') {
+                    return canReorderCategories;
+                }
+                if (type === 'service' || type === 'variation') {
+                    return canReorderServices;
+                }
+                return false;
+            }
+
+            function dragHandleHtml(type) {
+                if (!canDragType(type)) {
+                    return '';
+                }
+                return '<span class="catalog-col-drag" draggable="true" title="' + escapeHtml(labels.dragToReorder) + '" aria-label="' + escapeHtml(labels.dragToReorder) + '"><span class="material-icons">drag_indicator</span></span>';
             }
 
             function listItemHtml(node, type, id, meta, options) {
                 options = options || {};
                 const name = node.name || node.label || '';
                 const editUrl = options.editUrl || node.edit_url || '';
+                const detailUrl = options.detailUrl || node.detail_url || '';
                 const isActive = options.isActive !== undefined ? options.isActive : node.is_active;
+                const isSynthetic = !!node.synthetic;
+                const reorderable = options.reorderable !== undefined
+                    ? !!options.reorderable
+                    : (!isSynthetic && (type !== 'variation' || node.reorderable !== false));
                 const searchParts = [name, meta, options.description, options.searchExtra].filter(Boolean);
-                let html = '<div class="catalog-col-row" data-search="' + escapeHtml(searchParts.join(' ').toLowerCase()) + '">';
-                html += '<button type="button" class="catalog-col-item" data-type="' + escapeHtml(type) + '" data-id="' + escapeHtml(id) + '">';
+                const useDivItem = type === 'service' && !!detailUrl;
+                const itemTag = useDivItem ? 'div' : 'button';
+                const itemTypeAttr = useDivItem ? '' : ' type="button"';
+                let html = '<div class="catalog-col-row" data-type="' + escapeHtml(type) + '" data-id="' + escapeHtml(id) + '" data-search="' + escapeHtml(searchParts.join(' ').toLowerCase()) + '"'
+                    + (isSynthetic ? ' data-synthetic="1"' : '')
+                    + (reorderable ? ' data-reorderable="1"' : '')
+                    + '>';
+                if (reorderable && canDragType(type)) {
+                    html += dragHandleHtml(type);
+                } else {
+                    html += '<span style="width:1.5rem;flex-shrink:0" aria-hidden="true"></span>';
+                }
+                html += '<' + itemTag + itemTypeAttr + ' class="catalog-col-item" data-type="' + escapeHtml(type) + '" data-id="' + escapeHtml(id) + '">';
                 html += thumbOrIcon(node, type);
                 html += '<span class="catalog-col-label">';
-                html += '<div class="catalog-col-name">' + escapeHtml(name) + '</div>';
+                if (detailUrl && type === 'service') {
+                    html += '<div class="catalog-col-name"><a href="' + escapeHtml(detailUrl) + '" class="catalog-col-name-link"' + partialNavAttrs + ' title="' + escapeHtml(labels.viewDetails) + '">' + escapeHtml(name) + '</a></div>';
+                } else {
+                    html += '<div class="catalog-col-name">' + escapeHtml(name) + '</div>';
+                }
                 if (meta) html += '<div class="catalog-col-meta">' + meta + '</div>';
                 if (options.description) {
                     html += '<div class="catalog-col-desc">' + escapeHtml(options.description) + '</div>';
                 }
                 html += '</span>';
-                html += '</button>';
+                html += '</' + itemTag + '>';
                 html += '<div class="catalog-col-actions">';
                 html += statusPill(isActive);
                 html += editLink(editUrl);
                 html += '</div>';
                 html += '</div>';
                 return html;
+            }
+
+            let catalogDragItem = null;
+            let catalogReorderSaving = false;
+
+            function collectColumnOrder(container) {
+                return Array.from(container.querySelectorAll('.catalog-col-row[data-reorderable="1"]'))
+                    .map(function (row) {
+                        return row.getAttribute('data-id');
+                    })
+                    .filter(Boolean);
+            }
+
+            function reorderArrayByIds(items, orderedIds, getId) {
+                const byId = new Map();
+                items.forEach(function (item) {
+                    byId.set(String(getId(item)), item);
+                });
+                const next = [];
+                orderedIds.forEach(function (id) {
+                    const item = byId.get(String(id));
+                    if (item) {
+                        next.push(item);
+                        byId.delete(String(id));
+                    }
+                });
+                byId.forEach(function (item) {
+                    next.push(item);
+                });
+                return next;
+            }
+
+            function applyLocalOrder(type, orderedIds) {
+                if (type === 'category') {
+                    catalogTree.splice(0, catalogTree.length, ...reorderArrayByIds(catalogTree, orderedIds, function (c) {
+                        return c.id;
+                    }));
+                    return;
+                }
+                if (type === 'subcategory' && selectedCategoryId) {
+                    const cat = categoryMap.get(selectedCategoryId);
+                    if (!cat || !Array.isArray(cat.children)) {
+                        return;
+                    }
+                    const reorderable = cat.children.filter(function (c) {
+                        return !c.synthetic;
+                    });
+                    const synthetic = cat.children.filter(function (c) {
+                        return !!c.synthetic;
+                    });
+                    cat.children = reorderArrayByIds(reorderable, orderedIds, function (c) {
+                        return c.id;
+                    }).concat(synthetic);
+                    return;
+                }
+                if (type === 'service' && selectedSubcategoryId) {
+                    const entry = subcategoryMap.get(selectedSubcategoryId);
+                    if (!entry || !entry.node || !Array.isArray(entry.node.children)) {
+                        return;
+                    }
+                    entry.node.children = reorderArrayByIds(entry.node.children, orderedIds, function (s) {
+                        return s.id;
+                    });
+                    return;
+                }
+                if (type === 'variation' && selectedServiceId) {
+                    const entry = serviceMap.get(selectedServiceId);
+                    if (!entry || !entry.node || !Array.isArray(entry.node.children)) {
+                        return;
+                    }
+                    entry.node.children = reorderArrayByIds(entry.node.children, orderedIds, function (v) {
+                        return v.id;
+                    });
+                }
+            }
+
+            function buildReorderPayload(type, orderedIds) {
+                if (type === 'category') {
+                    return { url: reorderUrls.categories, data: { order: orderedIds } };
+                }
+                if (type === 'subcategory') {
+                    return {
+                        url: reorderUrls.subcategories,
+                        data: { parent_id: selectedCategoryId, order: orderedIds },
+                    };
+                }
+                if (type === 'service') {
+                    const entry = subcategoryMap.get(selectedSubcategoryId);
+                    if (!entry) {
+                        return null;
+                    }
+                    const data = { order: orderedIds };
+                    if (entry.node && entry.node.synthetic) {
+                        data.category_id = entry.parentId;
+                    } else {
+                        data.sub_category_id = selectedSubcategoryId;
+                    }
+                    return { url: reorderUrls.services, data: data };
+                }
+                if (type === 'variation') {
+                    return {
+                        url: reorderUrls.variations,
+                        data: { service_id: selectedServiceId, order: orderedIds },
+                    };
+                }
+                return null;
+            }
+
+            function saveColumnOrder(container) {
+                const type = container.getAttribute('data-column-type');
+                const orderedIds = collectColumnOrder(container);
+                if (!type || orderedIds.length < 1 || catalogReorderSaving) {
+                    return;
+                }
+                const payload = buildReorderPayload(type, orderedIds);
+                if (!payload || !payload.url) {
+                    return;
+                }
+
+                catalogReorderSaving = true;
+                fetch(payload.url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify(payload.data),
+                })
+                    .then(function (res) {
+                        return res.json().then(function (body) {
+                            return { ok: res.ok, body: body };
+                        });
+                    })
+                    .then(function (result) {
+                        if (result.ok && result.body && Number(result.body.flag) === 1) {
+                            applyLocalOrder(type, orderedIds);
+                            if (window.toastr) {
+                                toastr.success(@json(translate('successfully_updated')));
+                            }
+                            return;
+                        }
+                        if (window.toastr) {
+                            toastr.error(@json(translate('something_went_wrong')));
+                        }
+                    })
+                    .catch(function () {
+                        if (window.toastr) {
+                            toastr.error(@json(translate('something_went_wrong')));
+                        }
+                    })
+                    .finally(function () {
+                        catalogReorderSaving = false;
+                    });
+            }
+
+            function initColumnSortable(container) {
+                if (!container) {
+                    return;
+                }
+
+                container.querySelectorAll('.catalog-col-drag').forEach(function (handle) {
+                    if (handle.dataset.catalogDragInit === '1') {
+                        return;
+                    }
+                    handle.dataset.catalogDragInit = '1';
+
+                    handle.addEventListener('dragstart', function (e) {
+                        catalogDragItem = handle.closest('.catalog-col-row[data-reorderable="1"]');
+                        if (!catalogDragItem) {
+                            return;
+                        }
+                        catalogDragItem.classList.add('is-dragging');
+                        e.dataTransfer.effectAllowed = 'move';
+                        try {
+                            e.dataTransfer.setData('text/plain', catalogDragItem.getAttribute('data-id') || '');
+                        } catch (err) {}
+                        e.stopPropagation();
+                    });
+
+                    handle.addEventListener('dragend', function () {
+                        if (catalogDragItem) {
+                            catalogDragItem.classList.remove('is-dragging');
+                        }
+                        container.querySelectorAll('.catalog-col-row.is-drag-over').forEach(function (el) {
+                            el.classList.remove('is-drag-over');
+                        });
+                        catalogDragItem = null;
+                        saveColumnOrder(container);
+                    });
+
+                    handle.addEventListener('mousedown', function (e) {
+                        e.stopPropagation();
+                    });
+                    handle.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    });
+                });
+
+                if (container.dataset.catalogListDragInit === '1') {
+                    return;
+                }
+                container.dataset.catalogListDragInit = '1';
+
+                container.addEventListener('dragover', function (e) {
+                    e.preventDefault();
+                    const target = e.target.closest('.catalog-col-row[data-reorderable="1"]');
+                    if (!catalogDragItem || !target || target === catalogDragItem || !container.contains(target)) {
+                        return;
+                    }
+                    if (catalogDragItem.parentElement !== container || target.parentElement !== container) {
+                        return;
+                    }
+
+                    container.querySelectorAll('.catalog-col-row.is-drag-over').forEach(function (el) {
+                        if (el !== target) {
+                            el.classList.remove('is-drag-over');
+                        }
+                    });
+                    target.classList.add('is-drag-over');
+
+                    const rect = target.getBoundingClientRect();
+                    const before = (e.clientY - rect.top) < (rect.height / 2);
+                    if (before) {
+                        container.insertBefore(catalogDragItem, target);
+                    } else {
+                        container.insertBefore(catalogDragItem, target.nextSibling);
+                    }
+                });
+
+                container.addEventListener('drop', function (e) {
+                    e.preventDefault();
+                });
+
+                container.addEventListener('dragleave', function (e) {
+                    const related = e.relatedTarget;
+                    if (related && container.contains(related)) {
+                        return;
+                    }
+                    container.querySelectorAll('.catalog-col-row.is-drag-over').forEach(function (el) {
+                        el.classList.remove('is-drag-over');
+                    });
+                });
             }
 
             function renderCategories() {
@@ -794,6 +1119,7 @@
                 });
                 colCategories.innerHTML = html;
                 setColumnCount('count-categories', catalogTree.length);
+                initColumnSortable(colCategories);
             }
 
             function renderSubcategories(categoryId) {
@@ -820,6 +1146,7 @@
                 setColumnCount('count-services', 0);
                 setColumnCount('count-variations', 0);
                 updateAddLinks();
+                initColumnSortable(colSubcategories);
             }
 
             function renderServices(subcategoryId) {
@@ -849,6 +1176,7 @@
                 setColumnCount('count-services', services.length);
                 setColumnCount('count-variations', 0);
                 updateAddLinks();
+                initColumnSortable(colServices);
             }
 
             function renderVariations(serviceId) {
@@ -870,16 +1198,26 @@
                 variations.forEach(function (v) {
                     const meta = formatPrice(v.price);
                     html += listItemHtml(
-                        { label: v.label, image: v.image, is_active: v.is_active, edit_url: v.edit_url },
+                        {
+                            label: v.label,
+                            image: v.image,
+                            is_active: v.is_active,
+                            edit_url: v.edit_url,
+                            reorderable: v.reorderable !== false,
+                        },
                         'variation',
                         v.id,
                         meta,
-                        { description: v.description || '' }
+                        {
+                            description: v.description || '',
+                            reorderable: v.reorderable !== false,
+                        }
                     );
                 });
                 colVariations.innerHTML = html;
                 setColumnCount('count-variations', variations.length);
                 updateAddLinks();
+                initColumnSortable(colVariations);
             }
 
             function resetFromColumn(col) {
@@ -944,7 +1282,11 @@
             }
 
             document.addEventListener('click', function (e) {
-                if (e.target.closest('.catalog-col-edit')) {
+                if (
+                    e.target.closest('.catalog-col-edit')
+                    || e.target.closest('.catalog-col-name-link')
+                    || e.target.closest('.catalog-col-drag')
+                ) {
                     e.stopPropagation();
                 }
             });
@@ -976,6 +1318,9 @@
             });
 
             colServices.addEventListener('click', function (e) {
+                if (e.target.closest('.catalog-col-name-link')) {
+                    return;
+                }
                 const btn = e.target.closest('.catalog-col-item[data-type="service"]');
                 if (!btn) return;
                 const id = btn.getAttribute('data-id');

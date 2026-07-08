@@ -31,6 +31,7 @@ class Service extends Model
         'tax_label' => 'string',
         'order_count' => 'float',
         'is_active' => 'integer',
+        'sort_order' => 'integer',
         'rating_count' => 'integer',
         'avg_rating' => 'float',
         'slug'      => 'string',
@@ -40,7 +41,7 @@ class Service extends Model
         'additional_charge_overrides' => 'array',
     ];
 
-    protected $fillable = ['slug'];
+    protected $fillable = ['slug', 'sort_order'];
 
     protected $appends = ['thumbnail_full_path', 'cover_image_full_path'];
 
@@ -167,6 +168,11 @@ class Service extends Model
         $query->where(['is_active' => 0]);
     }
 
+    public function scopeOrdered($query)
+    {
+        return $query->orderBy('sort_order')->orderBy('name');
+    }
+
     public function scopeOfStatus($query, $status)
     {
         if($status == 1) {
@@ -185,7 +191,7 @@ class Service extends Model
 
     public function faqs(): HasMany
     {
-        return $this->hasMany(Faq::class);
+        return $this->hasMany(Faq::class)->ordered();
     }
 
     public function reviews(): HasMany

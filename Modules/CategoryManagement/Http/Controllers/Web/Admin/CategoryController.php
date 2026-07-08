@@ -109,7 +109,7 @@ class CategoryController extends Controller
                 $query->ofStatus($status == 'active' ? 1 : 0);
             })
             ->ofType('main')
-            ->latest()->paginate(pagination_limit())->appends($queryParams);
+            ->ordered()->paginate(pagination_limit())->appends($queryParams);
 
         $zones = $this->zone->where('is_active', 1)->withoutGlobalScope('translate')->get();
         $zoneTree = $this->zoneTreeForCategoryForm();
@@ -143,7 +143,7 @@ class CategoryController extends Controller
                 $query->ofStatus($status == 'active' ? 1 : 0);
             })
             ->ofType('main')
-            ->latest()
+            ->ordered()
             ->paginate(pagination_limit())
             ->appends($queryParams);
 
@@ -217,6 +217,7 @@ class CategoryController extends Controller
         $category->parent_id = 0;
         $category->position = 1;
         $category->description = null;
+        $category->sort_order = (int) ($this->category->ofType('main')->max('sort_order') ?? -1) + 1;
         $this->applyCategoryTaxFieldsFromRequest($request, $category);
         $category->save();
         $category->zones()->sync($request->zone_ids);

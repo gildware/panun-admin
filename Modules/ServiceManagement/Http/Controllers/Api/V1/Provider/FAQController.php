@@ -43,7 +43,7 @@ class FAQController extends Controller
         $cacheKey = ProviderServiceDetailsCache::faqCacheKey($serviceId, $limit, $offset);
 
         $payload = ProviderServiceDetailsCache::rememberFaq($cacheKey, function () use ($serviceId, $limit, $offset) {
-            return $this->faq->latest()
+            return $this->faq->ordered()
                 ->where('service_id', $serviceId)
                 ->ofStatus(1)
                 ->paginate($limit, ['*'], 'offset', $offset)

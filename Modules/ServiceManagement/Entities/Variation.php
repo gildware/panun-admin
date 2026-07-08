@@ -274,10 +274,17 @@ class Variation extends Model
             ->filter()
             ->values();
 
+        $sortMap = ServiceVariant::query()
+            ->where('service_id', $serviceId)
+            ->pluck('sort_order', 'variant_key');
+
         return $keys
             ->map(fn ($vk) => static::firstForBookingZone($serviceId, (string) $vk, $zoneId, false))
             ->filter()
-            ->sortBy('variant_key')
+            ->sortBy(fn (self $row) => [
+                (int) ($sortMap[(string) $row->variant_key] ?? 9999),
+                (string) $row->variant_key,
+            ])
             ->values();
     }
 
@@ -347,11 +354,21 @@ class Variation extends Model
             ->where('service_id', $serviceId)
             ->whereIn('variant_key', array_keys($seen))
             ->where('is_active', true)
+            ->orderBy('sort_order')
             ->get()
             ->keyBy('variant_key');
 
-        foreach ($seen as $variation) {
-            $variantMeta = $serviceVariants->get((string) $variation->variant_key);
+        $orderedKeys = $serviceVariants->keys()
+            ->merge(array_keys($seen))
+            ->unique()
+            ->values();
+
+        foreach ($orderedKeys as $variantKey) {
+            $variation = $seen[(string) $variantKey] ?? null;
+            if (! $variation) {
+                continue;
+            }
+            $variantMeta = $serviceVariants->get((string) $variantKey);
             $formatting['zone_wise_variations'][] = [
                 'variant_key' => $variation->variant_key,
                 'variant_name' => $variantMeta?->title ?? $variation->variant,
@@ -553,6 +570,10 @@ class Variation extends Model
             ->unique()
             ->values();
 
+        $sortMap = ServiceVariant::query()
+            ->where('service_id', $service->id)
+            ->pluck('sort_order', 'variant_key');
+
         return $keys
             ->map(fn ($variantKey) => static::firstForBookingZonePreloaded(
                 $service,
@@ -562,7 +583,10 @@ class Variation extends Model
                 $serviceVariationRows
             ))
             ->filter()
-            ->sortBy('variant_key')
+            ->sortBy(fn (self $row) => [
+                (int) ($sortMap[(string) $row->variant_key] ?? 9999),
+                (string) $row->variant_key,
+            ])
             ->values();
     }
 
@@ -614,8 +638,17 @@ class Variation extends Model
 
         $formatting['zone_id'] = $resolvedZone ?? $candidates[0];
 
-        foreach ($seen as $variation) {
-            $variantMeta = $serviceVariantsByKey->get((string) $variation->variant_key);
+        $orderedKeys = $serviceVariantsByKey->sortBy('sort_order')->keys()
+            ->merge(array_keys($seen))
+            ->unique()
+            ->values();
+
+        foreach ($orderedKeys as $variantKey) {
+            $variation = $seen[(string) $variantKey] ?? null;
+            if (! $variation) {
+                continue;
+            }
+            $variantMeta = $serviceVariantsByKey->get((string) $variantKey);
             $formatting['zone_wise_variations'][] = [
                 'variant_key' => $variation->variant_key,
                 'variant_name' => $variantMeta?->title ?? $variation->variant,
@@ -668,6 +701,7 @@ class Variation extends Model
         $allServiceVariants = ServiceVariant::query()
             ->whereIn('service_id', $normalizedIds)
             ->where('is_active', true)
+            ->orderBy('sort_order')
             ->get()
             ->groupBy(fn (ServiceVariant $variant) => (string) $variant->service_id)
             ->map(fn (Collection $variants) => $variants->keyBy('variant_key'));

@@ -79,9 +79,9 @@ class SubCategoryController extends Controller
             ->when($status != 'all', function ($query) use ($request) {
                 return $query->ofStatus(($request['status'] == 'active') ? 1 : 0);
             })
-            ->ofType('sub')->latest()->paginate(pagination_limit())->appends($queryParams);
+            ->ofType('sub')->ordered()->paginate(pagination_limit())->appends($queryParams);
 
-        $mainCategories = $this->category->ofType('main')->orderBy('name')->get(['id', 'name']);
+        $mainCategories = $this->category->ofType('main')->ordered()->get(['id', 'name']);
 
         return view('categorymanagement::admin.sub-category.create', compact('subCategories', 'mainCategories', 'status', 'search'));
     }
@@ -124,6 +124,10 @@ class SubCategoryController extends Controller
         $category->parent_id = $request['parent_id'];
         $category->position = 2;
         $category->description = $request->short_description[array_search('default', $request->lang)];
+        $category->sort_order = (int) ($this->category
+            ->ofType('sub')
+            ->where('parent_id', $request['parent_id'])
+            ->max('sort_order') ?? -1) + 1;
         $this->applyCategoryTaxFieldsFromRequest($request, $category);
         $category->save();
 
@@ -206,7 +210,7 @@ class SubCategoryController extends Controller
         $this->authorize('category_update');
         $subCategory = $this->category->withoutGlobalScope('translate')->ofType('sub')->where('id', $id)->first();
         if (isset($subCategory)) {
-            $mainCategories = $this->category->ofType('main')->orderBy('name')->get(['id', 'name']);
+            $mainCategories = $this->category->ofType('main')->ordered()->get(['id', 'name']);
             $commissionEntityUseCustom = (int) ($subCategory->commission_custom ?? 0) === 1;
             $commissionCtx = CommissionEntitySetup::tierFormContext(
                 is_array($subCategory->commission_tier_setup) ? $subCategory->commission_tier_setup : [],
@@ -448,7 +452,7 @@ class SubCategoryController extends Controller
                     }
                 });
             })
-            ->ofType('sub')->latest()->get();
+            ->ofType('sub')->ordered()->get();
 
         return (new FastExcel($items))->download(time() . '-file.xlsx');
     }

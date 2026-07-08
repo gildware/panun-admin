@@ -37,7 +37,7 @@ class FAQController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $faq = $this->faq->latest()
+        $faq = $this->faq->ordered()
             ->when($request->has('status') && $request['status'] != 'all', function ($query) use ($request) {
                 if ($request['status'] == 'active') {
                     return $query->where(['is_active' => 1]);
@@ -69,12 +69,17 @@ class FAQController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $faq = $this->faq;
-        $faq->question = $request->question;
-        $faq->answer = $request->answer;
-        $faq->service_id = $request->service_id;
-        $faq->is_active = 1;
-        $faq->save();
+        \Illuminate\Support\Facades\DB::transaction(function () use ($request) {
+            $this->faq->where('service_id', $request->service_id)->increment('sort_order');
+
+            $faq = new Faq;
+            $faq->question = $request->question;
+            $faq->answer = $request->answer;
+            $faq->service_id = $request->service_id;
+            $faq->is_active = 1;
+            $faq->sort_order = 0;
+            $faq->save();
+        });
 
         return response()->json(response_formatter(DEFAULT_STORE_200), 200);
     }

@@ -45,7 +45,7 @@ class CategoryController extends Controller
                 return $query->whereIn('category_zone.zone_id', $zoneIds);
             })
             ->mainWithActiveCatalog()
-            ->latest()
+            ->ordered()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
         return response()->json(response_formatter(DEFAULT_200, $categories), 200);
@@ -84,7 +84,7 @@ class CategoryController extends Controller
             ->ofStatus(1)
             ->ofType('sub')
             ->withActiveServices()
-            ->orderBY('name', 'asc')
+            ->ordered()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
         $providerId = $request->user()->provider->id;
@@ -134,7 +134,7 @@ class CategoryController extends Controller
                 });
             })
             ->whereIn('id', $subCategoryId)
-            ->ofStatus(1)->ofType('sub')->orderBY('name', 'asc')
+            ->ofStatus(1)->ofType('sub')->ordered()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
         $providerId = $request->user()->provider->id;

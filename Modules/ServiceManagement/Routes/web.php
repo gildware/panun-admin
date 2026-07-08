@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\ServiceManagement\Http\Controllers\Web\Admin\CatalogReorderController;
 use Modules\ServiceManagement\Http\Controllers\Web\Admin\CatalogViewController;
 use Modules\ServiceManagement\Http\Controllers\Web\Admin\ServiceController as AdminServiceController;
 use Modules\ServiceManagement\Http\Controllers\Web\Admin\ServiceRequestController;
@@ -12,6 +13,10 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
     Route::group(['prefix' => 'catalog', 'as' => 'catalog.'], function () {
         Route::get('view', [CatalogViewController::class, 'index'])->name('view');
         Route::get('tree', [CatalogViewController::class, 'tree'])->name('tree');
+        Route::post('reorder/categories', [CatalogReorderController::class, 'categories'])->name('reorder.categories');
+        Route::post('reorder/subcategories', [CatalogReorderController::class, 'subcategories'])->name('reorder.subcategories');
+        Route::post('reorder/services', [CatalogReorderController::class, 'services'])->name('reorder.services');
+        Route::post('reorder/variations', [CatalogReorderController::class, 'variations'])->name('reorder.variations');
     });
 
     Route::group(['prefix' => 'service', 'as' => 'service.'], function () {
@@ -59,6 +64,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('update/{id}', [FAQController::class, 'update'])->name('update');
         Route::any('status-update/{id}', [FAQController::class, 'statusUpdate'])->name('status-update');
         Route::any('delete/{id}/{service_id}', [FAQController::class, 'destroy'])->name('delete');
+        Route::post('reorder/{service_id}', [FAQController::class, 'reorder'])->name('reorder');
     });
 });
 

@@ -11,7 +11,7 @@ use Modules\CustomerModule\Services\CustomerApiResponseCache;
  */
 class ProviderServiceDetailsCache
 {
-    public const CACHE_VERSION = 'v2';
+    public const CACHE_VERSION = 'v3';
 
     public const DETAIL_TTL = 300;
 

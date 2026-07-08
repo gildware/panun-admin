@@ -54,7 +54,7 @@ class CategoryController extends Controller
             ->ofStatus(1)
             ->ofType('main')
             ->mainWithActiveCatalog()
-            ->latest()
+            ->ordered()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
         $categories->setCollection(
@@ -104,7 +104,7 @@ class CategoryController extends Controller
                 $query->ofStatus(1);
             })
             ->where('parent_id', $categoryId)
-            ->orderBY('name', 'asc')
+            ->ordered()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
         if (count($childes) > 0) {
@@ -151,14 +151,15 @@ class CategoryController extends Controller
                         $query->whereDoesntHave('category.category_discount')
                             ->orWhereHas('category.category_discount');
                     })
-                    ->with(CustomerServicePayloadSlimmer::listEagerRelations());
+                    ->with(CustomerServicePayloadSlimmer::listEagerRelations())
+                    ->ordered();
             },
         ])
             ->ofStatus(1)
             ->ofFeatured(1)
             ->ofType('main')
             ->mainWithActiveCatalog()
-            ->latest()
+            ->ordered()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
         foreach ($categories as $category) {

@@ -45,9 +45,9 @@ class CatalogTreeService
             ->whereHas('zonesBasicInfo', fn ($query) => $query->whereIn('zones.id', $categoryZoneIds))
             ->with([
                 'zonesBasicInfo:id,name',
-                'children' => fn ($q) => $q->ofType('sub')->orderBy('name'),
+                'children' => fn ($q) => $q->ofType('sub')->ordered(),
             ])
-            ->orderBy('name')
+            ->ordered()
             ->get();
 
         $mainCategoryIds = $mainCategories->pluck('id')->filter()->values()->all();
@@ -55,7 +55,7 @@ class CatalogTreeService
         $servicesQuery = Service::query()
             ->withoutGlobalScope('zone_wise_data')
             ->with([
-                'serviceVariants' => fn ($q) => $q->with('storage_image'),
+                'serviceVariants' => fn ($q) => $q->with('storage_image')->orderBy('sort_order'),
             ])
             ->whereIn('category_id', $mainCategoryIds);
 
@@ -65,7 +65,7 @@ class CatalogTreeService
             $servicesQuery->where('is_active', 0);
         }
 
-        $services = $servicesQuery->orderBy('name')->get();
+        $services = $servicesQuery->ordered()->get();
 
         $bySubId = $services->groupBy(fn (Service $s) => (string) $s->sub_category_id);
         $directByMainId = $services
@@ -110,6 +110,7 @@ class CatalogTreeService
                     'is_active' => (int) $sub->is_active === 1,
                     'image' => $sub->image_full_path,
                     'edit_url' => route('admin.sub-category.edit', $sub->id),
+                    'sort_order' => (int) ($sub->sort_order ?? 0),
                     'service_count' => count($serviceNodes),
                     'children' => $serviceNodes,
                 ];
@@ -144,6 +145,7 @@ class CatalogTreeService
                 'is_active' => (int) $main->is_active === 1,
                 'image' => $main->image_full_path,
                 'edit_url' => route('admin.category.edit', $main->id),
+                'sort_order' => (int) ($main->sort_order ?? 0),
                 'zone_names' => $main->zonesBasicInfo->pluck('name')->values()->all(),
                 'sub_count' => count($subNodes),
                 'children' => $subNodes,
@@ -186,6 +188,7 @@ class CatalogTreeService
                 'image' => $service->thumbnail_full_path ?? null,
                 'edit_url' => route('admin.service.edit', $service->id),
                 'detail_url' => route('admin.service.detail', $service->id),
+                'sort_order' => (int) ($service->sort_order ?? 0),
                 'variation_count' => count($variationNodes),
                 'min_price' => $minPrice,
                 'children' => $variationNodes,
@@ -248,7 +251,7 @@ class CatalogTreeService
 
             $nodes[] = [
                 'type' => 'variation',
-                'id' => (string) $variation->id,
+                'id' => (string) ($meta?->id ?? $variation->id),
                 'label' => $label,
                 'description' => $meta?->description ? trim((string) $meta->description) : null,
                 'image' => $meta?->image_full_path,
@@ -256,6 +259,8 @@ class CatalogTreeService
                 'price' => $variation->price,
                 'variant_key' => $variation->variant_key,
                 'service_id' => (string) $service->id,
+                'sort_order' => (int) ($meta?->sort_order ?? 0),
+                'reorderable' => $meta !== null,
                 'edit_url' => route('admin.service.edit', $service->id),
             ];
         }
