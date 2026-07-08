@@ -499,15 +499,23 @@ class StaffPresenceService
         Carbon $endedAt,
         ?Carbon $startedAtFallback = null
     ): void {
-        $period = StaffPresencePeriod::query()
+        $openPeriods = StaffPresencePeriod::query()
             ->where('user_id', $userId)
             ->where('status', $status)
             ->whereNull('ended_at')
-            ->latest('started_at')
-            ->first();
+            ->orderBy('started_at')
+            ->get();
 
-        if ($period) {
-            $period->update(['ended_at' => $endedAt]);
+        if ($openPeriods->isNotEmpty()) {
+            $primary = $openPeriods->sortByDesc('started_at')->first();
+
+            foreach ($openPeriods as $period) {
+                $period->update([
+                    'ended_at' => $period->id === $primary->id
+                        ? $endedAt
+                        : $period->started_at,
+                ]);
+            }
 
             return;
         }
@@ -550,63 +558,34 @@ class StaffPresenceService
             'total_online_today_seconds' => 0,
         ];
 
+        $intervals = $this->collectDayPresenceIntervals($user, $periods, $dayStart, $dayEnd, $isHistorical);
+        $totals = $this->partitionDayByPresenceStatus($intervals, $dayStart, $dayEnd);
+
         foreach (self::LAST_PERIOD_STATUSES as $status) {
-            $statusPeriods = $periods->where('status', $status);
-            $totalSeconds = 0;
-            $completed = [];
+            $prefix = $this->statsKeyPrefix($status);
+            $totalSeconds = (int) ($totals[$status] ?? 0);
 
-            foreach ($statusPeriods as $period) {
-                $start = $period->started_at->copy()->max($dayStart);
-                $end = $this->effectivePeriodEnd($user, $period, $dayEnd, $isHistorical)->copy()->min($dayEnd);
-
-                if (! $start->lt($end)) {
-                    continue;
-                }
-
-                $seconds = (int) $start->diffInSeconds($end);
-                $totalSeconds += $seconds;
-
-                if ($period->ended_at !== null && $period->ended_at->lte($dayEnd)) {
-                    $completed[] = [
-                        'seconds' => $seconds,
-                        'ended_at' => $period->ended_at,
-                    ];
-                }
-            }
-
-            if ($status === self::STATUS_OFFLINE && ! $isHistorical) {
-                $totalSeconds += $this->implicitInactiveOfflineSeconds($user, $statusPeriods, $dayStart, $dayEnd);
-            }
-
-            $result['total_'.$this->statsKeyPrefix($status).'_today_seconds'] = $totalSeconds;
-            $result['total_'.$this->statsKeyPrefix($status).'_today'] = $totalSeconds > 0
+            $result['total_'.$prefix.'_today_seconds'] = $totalSeconds;
+            $result['total_'.$prefix.'_today'] = $totalSeconds > 0
                 ? $this->formatDuration($totalSeconds)
                 : '—';
 
-            if ($completed !== []) {
-                usort($completed, fn (array $a, array $b) => $b['ended_at'] <=> $a['ended_at']);
-                $lastSeconds = (int) $completed[0]['seconds'];
-                $prefix = $this->statsKeyPrefix($status);
+            $lastSeconds = $this->lastPeriodSecondsBeforeMostRecentOnline(
+                $user,
+                $periods,
+                $status,
+                $dayStart,
+                $dayEnd,
+                $isHistorical
+            );
+
+            if ($lastSeconds !== null && $lastSeconds > 0) {
                 $result['last_'.$prefix.'_period_today_seconds'] = $lastSeconds;
                 $result['last_'.$prefix.'_period_today'] = $this->formatDuration($lastSeconds);
             }
         }
 
-        $onlinePeriods = $periods->where('status', self::STATUS_ONLINE);
-        $onlineSeconds = 0;
-
-        foreach ($onlinePeriods as $period) {
-            $start = $period->started_at->copy()->max($dayStart);
-            $end = $this->effectivePeriodEnd($user, $period, $dayEnd, $isHistorical)->copy()->min($dayEnd);
-
-            if ($start->lt($end)) {
-                $onlineSeconds += (int) $start->diffInSeconds($end);
-            }
-        }
-
-        if (! $isHistorical) {
-            $onlineSeconds += $this->uncountedOnlineSeconds($user, $onlinePeriods, $dayStart, $dayEnd);
-        }
+        $onlineSeconds = (int) ($totals[self::STATUS_ONLINE] ?? 0);
 
         $result['total_online_today_seconds'] = $onlineSeconds;
         $result['total_online_today'] = $onlineSeconds > 0
@@ -616,27 +595,230 @@ class StaffPresenceService
         return $result;
     }
 
-    private function uncountedOnlineSeconds(
+    /**
+     * @param  Collection<int, StaffPresencePeriod>  $periods
+     * @return array<int, array{start: int, end: int, status: string, priority: int}>
+     */
+    private function collectDayPresenceIntervals(
         User $user,
-        Collection $onlinePeriods,
+        Collection $periods,
         Carbon $dayStart,
-        Carbon $dayEnd
-    ): int {
-        if ($this->resolveDisplayStatus($user) !== self::STATUS_ONLINE) {
-            return 0;
+        Carbon $dayEnd,
+        bool $isHistorical
+    ): array {
+        $intervals = [];
+
+        foreach ($periods as $period) {
+            $start = $period->started_at->copy()->max($dayStart);
+            $end = $this->effectivePeriodEnd($user, $period, $dayEnd, $isHistorical)->copy()->min($dayEnd);
+
+            if (! $start->lt($end)) {
+                continue;
+            }
+
+            $intervals[] = [
+                'start' => $start->timestamp,
+                'end' => $end->timestamp,
+                'status' => (string) $period->status,
+                'priority' => $period->started_at->timestamp,
+            ];
         }
 
-        if ($onlinePeriods->contains(fn (StaffPresencePeriod $period) => $period->ended_at === null)) {
-            return 0;
+        if ($isHistorical) {
+            return $intervals;
         }
 
-        $start = $this->inferPeriodStart($user, $dayStart);
+        $displayStatus = $this->resolveDisplayStatus($user);
 
-        if (! $start->lt($dayEnd)) {
-            return 0;
+        if ($displayStatus === self::STATUS_ONLINE
+            && ! $periods->where('status', self::STATUS_ONLINE)->contains(fn (StaffPresencePeriod $period) => $period->ended_at === null)) {
+            $start = $this->inferPeriodStart($user, $dayStart)->copy()->max($dayStart);
+
+            if ($start->lt($dayEnd)) {
+                $intervals[] = [
+                    'start' => $start->timestamp,
+                    'end' => $dayEnd->timestamp,
+                    'status' => self::STATUS_ONLINE,
+                    'priority' => $start->timestamp,
+                ];
+            }
         }
 
-        return (int) $start->diffInSeconds($dayEnd);
+        if ($displayStatus === self::STATUS_OFFLINE
+            && ! $periods->where('status', self::STATUS_OFFLINE)->contains(fn (StaffPresencePeriod $period) => $period->ended_at === null)) {
+            $inactiveAt = $this->inactiveSince($user);
+
+            if ($inactiveAt) {
+                $start = $inactiveAt->copy()->max($dayStart);
+
+                if ($start->lt($dayEnd)) {
+                    $intervals[] = [
+                        'start' => $start->timestamp,
+                        'end' => $dayEnd->timestamp,
+                        'status' => self::STATUS_OFFLINE,
+                        'priority' => $start->timestamp,
+                    ];
+                }
+            }
+        }
+
+        if (in_array($displayStatus, [self::STATUS_AWAY, self::STATUS_ON_BREAK], true)
+            && ! $periods->where('status', $displayStatus)->contains(fn (StaffPresencePeriod $period) => $period->ended_at === null)) {
+            $start = $this->inferPeriodStart($user, $dayStart)->copy()->max($dayStart);
+
+            if ($start->lt($dayEnd)) {
+                $intervals[] = [
+                    'start' => $start->timestamp,
+                    'end' => $dayEnd->timestamp,
+                    'status' => $displayStatus,
+                    'priority' => $start->timestamp,
+                ];
+            }
+        }
+
+        return $intervals;
+    }
+
+    /**
+     * @param  array<int, array{start: int, end: int, status: string, priority: int}>  $intervals
+     * @return array<string, int>
+     */
+    private function partitionDayByPresenceStatus(array $intervals, Carbon $dayStart, Carbon $dayEnd): array
+    {
+        $totals = [
+            self::STATUS_OFFLINE => 0,
+            self::STATUS_AWAY => 0,
+            self::STATUS_ON_BREAK => 0,
+            self::STATUS_ONLINE => 0,
+        ];
+
+        $dayStartTs = $dayStart->timestamp;
+        $dayEndTs = $dayEnd->timestamp;
+        $daySeconds = max(0, $dayEndTs - $dayStartTs);
+
+        if ($daySeconds === 0) {
+            return $totals;
+        }
+
+        $points = [$dayStartTs, $dayEndTs];
+
+        foreach ($intervals as $interval) {
+            $start = max($dayStartTs, $interval['start']);
+            $end = min($dayEndTs, $interval['end']);
+
+            if ($start < $end) {
+                $points[] = $start;
+                $points[] = $end;
+            }
+        }
+
+        $points = array_values(array_unique($points));
+        sort($points);
+
+        for ($index = 0; $index < count($points) - 1; $index++) {
+            $segmentStart = $points[$index];
+            $segmentEnd = $points[$index + 1];
+
+            if ($segmentStart >= $segmentEnd) {
+                continue;
+            }
+
+            $active = null;
+
+            foreach ($intervals as $interval) {
+                if ($interval['start'] > $segmentStart || $interval['end'] < $segmentEnd) {
+                    continue;
+                }
+
+                if ($active === null || $interval['priority'] >= $active['priority']) {
+                    $active = $interval;
+                }
+            }
+
+            $status = $active['status'] ?? self::STATUS_OFFLINE;
+
+            if (! array_key_exists($status, $totals)) {
+                $status = self::STATUS_OFFLINE;
+            }
+
+            $totals[$status] += $segmentEnd - $segmentStart;
+        }
+
+        return $totals;
+    }
+
+    /**
+     * Duration of the most recent period for a status that ended when the user last came online.
+     *
+     * @param  Collection<int, StaffPresencePeriod>  $periods
+     */
+    private function lastPeriodSecondsBeforeMostRecentOnline(
+        User $user,
+        Collection $periods,
+        string $status,
+        Carbon $dayStart,
+        Carbon $dayEnd,
+        bool $isHistorical
+    ): ?int {
+        $lastOnlineStart = $this->mostRecentOnlineStart($user, $periods, $dayStart, $dayEnd, $isHistorical);
+
+        if (! $lastOnlineStart) {
+            return null;
+        }
+
+        $matchingPeriod = $periods
+            ->where('status', $status)
+            ->filter(function (StaffPresencePeriod $period) use ($lastOnlineStart) {
+                return $period->ended_at !== null
+                    && $period->ended_at->timestamp === $lastOnlineStart->timestamp;
+            })
+            ->sortByDesc('started_at')
+            ->first();
+
+        if (! $matchingPeriod) {
+            return null;
+        }
+
+        $start = $matchingPeriod->started_at->copy()->max($dayStart);
+        $end = $lastOnlineStart->copy()->min($dayEnd);
+
+        if (! $start->lt($end)) {
+            return null;
+        }
+
+        return (int) $start->diffInSeconds($end);
+    }
+
+    /**
+     * @param  Collection<int, StaffPresencePeriod>  $periods
+     */
+    private function mostRecentOnlineStart(
+        User $user,
+        Collection $periods,
+        Carbon $dayStart,
+        Carbon $dayEnd,
+        bool $isHistorical
+    ): ?Carbon {
+        $latest = $periods
+            ->where('status', self::STATUS_ONLINE)
+            ->sortByDesc('started_at')
+            ->first();
+
+        if ($latest) {
+            $start = $latest->started_at->copy()->max($dayStart);
+
+            if ($start->lte($dayEnd)) {
+                return $latest->started_at;
+            }
+        }
+
+        if ($isHistorical || $this->resolveDisplayStatus($user) !== self::STATUS_ONLINE) {
+            return null;
+        }
+
+        $inferredStart = $this->inferPeriodStart($user, $dayStart)->copy()->max($dayStart);
+
+        return $inferredStart->lte($dayEnd) ? $inferredStart : null;
     }
 
     private function syncOpenPeriodForDisplayStatus(
@@ -735,38 +917,6 @@ class StaffPresenceService
         }
 
         return $referenceEnd;
-    }
-
-    /**
-     * @param  Collection<int, StaffPresencePeriod>  $offlinePeriods
-     */
-    private function implicitInactiveOfflineSeconds(
-        User $user,
-        Collection $offlinePeriods,
-        Carbon $dayStart,
-        Carbon $dayEnd
-    ): int {
-        if ($this->resolveDisplayStatus($user) !== self::STATUS_OFFLINE) {
-            return 0;
-        }
-
-        if ($offlinePeriods->contains(fn (StaffPresencePeriod $period) => $period->ended_at === null)) {
-            return 0;
-        }
-
-        $inactiveAt = $this->inactiveSince($user);
-
-        if (! $inactiveAt) {
-            return 0;
-        }
-
-        $start = $inactiveAt->copy()->max($dayStart);
-
-        if (! $start->lt($dayEnd)) {
-            return 0;
-        }
-
-        return (int) $start->diffInSeconds($dayEnd);
     }
 
     private function inactiveSince(User $user): ?Carbon
