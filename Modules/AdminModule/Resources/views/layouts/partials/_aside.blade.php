@@ -734,8 +734,8 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcanany
             @canany(['service_view','service_add'])
-                <li class="has-sub-item {{request()->is('admin/service/*')?'sub-menu-opened':''}}">
-                    <a href="#" class="{{request()->is('admin/service/*')?'active-menu':''}}">
+                <li class="has-sub-item {{request()->is('admin/service/*') || request()->is('admin/service-overview/*')?'sub-menu-opened':''}}">
+                    <a href="#" class="{{request()->is('admin/service/*') || request()->is('admin/service-overview/*')?'active-menu':''}}">
                         <span class="material-icons" title="Services">design_services</span>
                         <span class="link-title">{{translate('services')}}</span>
                     </a>
@@ -761,6 +761,14 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                                 <a href="{{route('admin.service.request.list')}}"
                                    class="{{request()->is('admin/service/request/list*')?'active-menu':''}}">
                                     <span class="link-title">{{translate('New Service Requests')}}</span>
+                                </a>
+                            </li>
+                        @endcan
+                        @can('service_update')
+                            <li>
+                                <a href="{{ route('admin.service-overview.defaults') }}"
+                                   class="{{ request()->is('admin/service-overview/*') ? 'active-menu' : '' }}">
+                                    <span class="link-title">{{ translate('service_overview_defaults') }}</span>
                                 </a>
                             </li>
                         @endcan

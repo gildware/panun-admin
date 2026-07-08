@@ -27,6 +27,10 @@ use Modules\ServiceManagement\Entities\Service;
 use Modules\ServiceManagement\Entities\ServiceVariant;
 use Modules\ServiceManagement\Entities\Tag;
 use Modules\ServiceManagement\Entities\Variation;
+use Modules\ServiceManagement\Services\ServiceDetailPreviewPayloadBuilder;
+use Modules\ServiceManagement\Services\ServiceOverviewContentResolver;
+use Modules\ServiceManagement\Services\ServiceOverviewDefaultsService;
+use Modules\ServiceManagement\Support\ServiceOverviewIconPresets;
 use Modules\ZoneManagement\Entities\Zone;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -394,9 +398,14 @@ class ServiceController extends Controller
             ->count();
 
         $faqs = $service->faqs;
+        $overviewDefaults = ServiceOverviewDefaultsService::get();
+        $overviewIconOptions = ServiceOverviewIconPresets::options();
+        $overviewContent = $service->overview_content ?? [];
+        $resolvedOverviewContent = ServiceOverviewContentResolver::resolveForService($service);
+        $servicePreviewPayload = ServiceDetailPreviewPayloadBuilder::build($service, $resolvedOverviewContent, $faqs);
 
         $search = $request->has('review_search') ? $request['review_search'] : '';
-        $webPage = $request->has('review_page') || $request->has('review_search') ? 'review' : 'general';
+        $webPage = $request->has('review_page') || $request->has('review_search') ? 'review' : ($request->get('web_page', 'general'));
         $queryParam = ['search' => $search, 'web_page' => $webPage];
 
         $reviews = $this->review->with(['customer', 'booking'])
@@ -418,7 +427,7 @@ class ServiceController extends Controller
         if (isset($service)) {
             $service['ongoing_count'] = $ongoing;
             $service['canceled_count'] = $canceled;
-            return view('servicemanagement::admin.detail', compact('service', 'faqs', 'reviews', 'rating_group_count', 'webPage', 'search'));
+            return view('servicemanagement::admin.detail', compact('service', 'faqs', 'reviews', 'rating_group_count', 'webPage', 'search', 'overviewDefaults', 'overviewIconOptions', 'overviewContent', 'resolvedOverviewContent', 'servicePreviewPayload'));
         }
 
         Toastr::error(translate(DEFAULT_204['message']));
@@ -463,8 +472,12 @@ class ServiceController extends Controller
                 is_array($service->additional_charge_overrides) ? $service->additional_charge_overrides : null
             );
 
+            $overviewDefaults = ServiceOverviewDefaultsService::get();
+            $overviewIconOptions = ServiceOverviewIconPresets::options();
+            $overviewContent = $service->overview_content ?? [];
+
             return view('servicemanagement::admin.edit', array_merge(
-                compact('categories', 'zones', 'service', 'tagNames', 'commissionEntityUseCustom', 'additionalChargeOverrideRows'),
+                compact('categories', 'zones', 'service', 'tagNames', 'commissionEntityUseCustom', 'additionalChargeOverrideRows', 'overviewDefaults', 'overviewIconOptions', 'overviewContent'),
                 $commissionCtx
             ));
         }

@@ -31,6 +31,7 @@ class CustomerServiceDetailPayloadSlimmer
         'category',
         'sub_category',
         'faqs',
+        'overview_content',
     ];
 
     /**

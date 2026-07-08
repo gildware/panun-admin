@@ -6,6 +6,7 @@ use Modules\ServiceManagement\Http\Controllers\Web\Admin\CatalogViewController;
 use Modules\ServiceManagement\Http\Controllers\Web\Admin\ServiceController as AdminServiceController;
 use Modules\ServiceManagement\Http\Controllers\Web\Admin\ServiceRequestController;
 use Modules\ServiceManagement\Http\Controllers\Web\Admin\FAQController;
+use Modules\ServiceManagement\Http\Controllers\Web\Admin\ServiceOverviewContentController;
 use Modules\ServiceManagement\Http\Controllers\Web\Provider\ServiceController;
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
@@ -56,6 +57,12 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
             Route::put('/{variant}', [\Modules\ServiceManagement\Http\Controllers\Web\Admin\ServiceVariantController::class, 'update'])->name('update');
             Route::delete('/{variant}', [\Modules\ServiceManagement\Http\Controllers\Web\Admin\ServiceVariantController::class, 'destroy'])->name('destroy');
         });
+    });
+
+    Route::group(['prefix' => 'service-overview', 'as' => 'service-overview.'], function () {
+        Route::get('defaults', [ServiceOverviewContentController::class, 'defaults'])->name('defaults');
+        Route::post('defaults', [ServiceOverviewContentController::class, 'updateDefaults'])->name('defaults.update');
+        Route::post('update/{service_id}', [ServiceOverviewContentController::class, 'update'])->name('update');
     });
 
     Route::group(['prefix' => 'faq', 'as' => 'faq.'], function () {

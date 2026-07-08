@@ -338,6 +338,10 @@
                         </button>
                     </li>
                     <li class="nav-item">
+                        <button class="nav-link {{isset($webPage) && $webPage=='overview'?'active':''}}" data-bs-toggle="tab"
+                                data-bs-target="#overview-tab-pane">{{translate('overview_sections')}}</button>
+                    </li>
+                    <li class="nav-item">
                         <button class="nav-link {{isset($webPage) && $webPage=='faq'?'active':''}}" data-bs-toggle="tab"
                                 data-bs-target="#faq-tab-pane">{{translate('faq')}}</button>
                     </li>
@@ -388,6 +392,11 @@
                                     </li>
                                     <li class="nav-item">
                                         <button class="nav-link" data-bs-toggle="tab"
+                                                data-bs-target="#mobile-preview-tab-pane">{{translate('mobile_preview')}}
+                                        </button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button class="nav-link" data-bs-toggle="tab"
                                                 data-bs-target="#price-table-tab-pane">{{translate('price_table')}}
                                         </button>
                                     </li>
@@ -396,14 +405,55 @@
 
                             <div class="tab-content">
                                 <div class="tab-pane fade show active" id="long-description-tab-pane">
-                                    <div class="service-long-description-html">
-                                        {!! $service->description !!}
-                                    </div>
+                                    @include('servicemanagement::admin.partials._service-overview-styles')
+
+                                    @if(!empty($resolvedOverviewContent))
+                                        <div class="mb-4">
+                                            <h6 class="mb-2 fw-semibold">{{ translate('service_overview_sections') }}</h6>
+                                            @include('servicemanagement::admin.partials._service-overview-sections', [
+                                                'resolvedOverviewContent' => $resolvedOverviewContent,
+                                                'layout' => 'readonly',
+                                            ])
+                                        </div>
+                                    @endif
+
+                                    @if(!empty(trim(strip_tags((string) $service->description))))
+                                        <div class="{{ !empty($resolvedOverviewContent) ? 'pt-3 border-top' : '' }}">
+                                            @if(!empty($resolvedOverviewContent))
+                                                <h6 class="mb-2 fw-semibold">{{ translate('long_Description') }}</h6>
+                                            @endif
+                                            <div class="service-long-description-html">
+                                                {!! $service->description !!}
+                                            </div>
+                                        </div>
+                                    @elseif(empty($resolvedOverviewContent))
+                                        <div class="service-detail-overview-empty">
+                                            {{ translate('no_service_details_added_yet') }}
+                                        </div>
+                                    @endif
+                                </div>
+                                <div class="tab-pane fade" id="mobile-preview-tab-pane">
+                                    <p class="text-muted fs-12 mb-3">{{ translate('overview_mobile_preview_hint') }}</p>
+                                    @include('servicemanagement::admin.partials._service-detail-inline-mobile-preview', [
+                                        'servicePreviewPayload' => $servicePreviewPayload ?? [],
+                                    ])
                                 </div>
                                 <div class="tab-pane fade" id="price-table-tab-pane">
                                     @include('servicemanagement::admin.partials._service-price-table', ['service' => $service])
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-pane fade {{isset($webPage) && $webPage=='overview'?'show active':''}}" id="overview-tab-pane">
+                    <div class="card service-detail-card">
+                        <div class="card-body">
+                            @include('servicemanagement::admin.partials._overview-content-editor', [
+                                'service' => $service,
+                                'overviewContent' => $overviewContent ?? [],
+                                'overviewDefaults' => $overviewDefaults ?? [],
+                                'overviewIconOptions' => $overviewIconOptions ?? [],
+                            ])
                         </div>
                     </div>
                 </div>
@@ -712,6 +762,13 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <div class="d-none" aria-hidden="true">
+        @include('servicemanagement::admin.partials._service-mobile-preview-modal', [
+            'service' => $service,
+            'previewCurrencySymbol' => $servicePreviewPayload['currencySymbol'] ?? null,
+        ])
     </div>
 @endsection
 
@@ -1084,5 +1141,6 @@
 
         initFaqSortable();
     </script>
+    <script src="{{ asset('assets/admin-module/js/service-mobile-preview.js') }}?v={{ $adminAssetVersion ?? time() }}"></script>
 
 @endpush

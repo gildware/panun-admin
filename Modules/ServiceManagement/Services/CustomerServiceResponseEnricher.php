@@ -9,6 +9,7 @@ use Modules\ServiceManagement\Entities\FavoriteService;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\ServiceManagement\Entities\ServiceVariant;
 use Modules\ServiceManagement\Entities\Variation;
+use Modules\ServiceManagement\Services\ServiceOverviewContentResolver;
 
 class CustomerServiceResponseEnricher
 {
@@ -46,6 +47,11 @@ class CustomerServiceResponseEnricher
 
             $service['variations_app_format'] = $variationFormats[$serviceId]
                 ?? Variation::variationsAppFormatForCustomer($serviceId);
+
+            $service->setAttribute(
+                'overview_content',
+                ServiceOverviewContentResolver::resolveForService($service)
+            );
         }
     }
 

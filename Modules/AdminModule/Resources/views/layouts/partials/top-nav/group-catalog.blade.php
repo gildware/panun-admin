@@ -57,6 +57,13 @@
                     'active' => request()->is('admin/service/request/list*'),
                 ])
             @endcan
+            @can('service_update')
+                @include('adminmodule::layouts.partials.top-nav._link', [
+                    'href' => route('admin.service-overview.defaults'),
+                    'label' => translate('service_overview_defaults'),
+                    'active' => request()->is('admin/service-overview/*'),
+                ])
+            @endcan
         @endcanany
     </div>
 </div>

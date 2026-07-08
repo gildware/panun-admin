@@ -136,10 +136,215 @@
         return $('input[name="serviceAppPreviewTab"]:checked').val() || 'overview';
     }
 
-    function tabIndexForValue(tabValue, appType) {
+    function getActiveDetailPreviewTab() {
+        return $('input[name="serviceDetailPreviewTab"]:checked').val() || 'overview';
+    }
+
+    var OVERVIEW_ICON_MAP = {
+        verified: 'verified',
+        home: 'home',
+        sparkle: 'auto_awesome',
+        warranty: 'verified_user',
+        calendar: 'calendar_month',
+        location: 'location_on',
+        tools: 'build',
+        check: 'check_circle',
+        door: 'door_front',
+        building: 'apartment',
+        shop: 'storefront',
+        wood: 'forest',
+        quality: 'workspace_premium',
+        pricing: 'payments',
+        support: 'support_agent',
+    };
+
+    var OVERVIEW_COLOR_MAP = {
+        green: '#22C55E',
+        blue: '#3B82F6',
+        purple: '#8B5CF6',
+        orange: '#F97316',
+    };
+
+    function overviewIconMaterial(key) {
+        return OVERVIEW_ICON_MAP[key] || 'circle';
+    }
+
+    function overviewAccentColor(color) {
+        return OVERVIEW_COLOR_MAP[color] || '#3B82F6';
+    }
+
+    function buildStructuredOverviewHtml(overview) {
+        if (!overview || typeof overview !== 'object') {
+            return '';
+        }
+
+        var html = '';
+
+        if (overview.why_choose && overview.why_choose.items && overview.why_choose.items.length) {
+            html += '<h6 class="sov-title">' + escapeHtml(overview.why_choose.title || 'Why Choose Panun Kaergar') + '</h6>';
+            html += '<div class="sov-why-grid">';
+            overview.why_choose.items.forEach(function (item) {
+                var accent = overviewAccentColor(item.color);
+                html += '<div class="sov-why-card" style="--sov-accent:' + accent + '"><span class="material-icons">'
+                    + overviewIconMaterial(item.icon) + '</span><strong>'
+                    + escapeHtml(item.title || '') + '</strong><span>'
+                    + escapeHtml(item.description || '') + '</span></div>';
+            });
+            html += '</div>';
+        }
+
+        if (overview.service_process && overview.service_process.items && overview.service_process.items.length) {
+            html += '<h6 class="sov-title">' + escapeHtml(overview.service_process.title || 'Service Process') + '</h6>';
+            html += '<div class="sov-process-row">';
+            overview.service_process.items.forEach(function (step, index) {
+                html += '<div class="sov-process-step">';
+                if (step.image) {
+                    html += '<img src="' + escapeHtml(step.image) + '" alt="">';
+                } else {
+                    html += '<div class="sov-process-placeholder"><span class="material-icons">'
+                        + overviewIconMaterial(step.icon) + '</span></div>';
+                }
+                html += '<span class="sov-step-no">' + (index + 1) + '</span>';
+                html += '<span class="sov-step-label">' + escapeHtml(step.title || step.text || '') + '</span></div>';
+            });
+            html += '</div>';
+        }
+
+        if (overview.whats_included && overview.whats_included.items && overview.whats_included.items.length) {
+            html += '<h6 class="sov-title">' + escapeHtml(overview.whats_included.title || "What's Included") + '</h6>';
+            html += '<div class="sov-included-grid">';
+            overview.whats_included.items.forEach(function (item) {
+                html += '<div class="sov-included-item"><span class="material-icons">'
+                    + overviewIconMaterial(item.icon) + '</span><span>'
+                    + escapeHtml(item.text || item.title || '') + '</span></div>';
+            });
+            html += '</div>';
+        }
+
+        if (overview.perfect_for && overview.perfect_for.items && overview.perfect_for.items.length) {
+            html += '<h6 class="sov-title">' + escapeHtml(overview.perfect_for.title || 'Perfect For') + '</h6>';
+            html += '<div class="sov-chips">';
+            overview.perfect_for.items.forEach(function (chip) {
+                html += '<span class="sov-chip"><span class="material-icons">'
+                    + overviewIconMaterial(chip.icon) + '</span>'
+                    + escapeHtml(chip.text || '') + '</span>';
+            });
+            html += '</div>';
+        }
+
+        if ((overview.good_to_know && overview.good_to_know.items && overview.good_to_know.items.length)
+            || (overview.whats_not_included && overview.whats_not_included.items && overview.whats_not_included.items.length)) {
+            html += '<div class="sov-info-columns">';
+            if (overview.good_to_know && overview.good_to_know.items && overview.good_to_know.items.length) {
+                html += '<div class="sov-info-card sov-info-card--good"><div class="sov-info-head"><span class="material-icons">check_circle</span>'
+                    + escapeHtml(overview.good_to_know.title || 'Good To Know') + '</div>';
+                overview.good_to_know.items.forEach(function (item) {
+                    html += '<div class="sov-info-line"><span class="material-icons">check</span><span>'
+                        + escapeHtml(item.text || '') + '</span></div>';
+                });
+                html += '</div>';
+            }
+            if (overview.whats_not_included && overview.whats_not_included.items && overview.whats_not_included.items.length) {
+                html += '<div class="sov-info-card sov-info-card--bad"><div class="sov-info-head"><span class="material-icons">cancel</span>'
+                    + escapeHtml(overview.whats_not_included.title || 'Not Included') + '</div>';
+                overview.whats_not_included.items.forEach(function (item) {
+                    html += '<div class="sov-info-line"><span class="material-icons">close</span><span>'
+                        + escapeHtml(item.text || '') + '</span></div>';
+                });
+                html += '</div>';
+            }
+            html += '</div>';
+        }
+
+        return html;
+    }
+
+    function buildHeroInfoChipsHtml(data) {
+        var chips = [];
+        var rating = parseFloat(data.rating);
+        if (!isNaN(rating) && rating > 0) {
+            var count = parseInt(data.ratingCount, 10) || 0;
+            var countLabel = count >= 100 ? count + '+' : String(count);
+            chips.push({
+                icon: 'star',
+                color: '#F97316',
+                label: rating.toFixed(1) + ' (' + countLabel + ')',
+            });
+        }
+
+        var overview = data.overviewContent;
+        if (overview && overview.top_icons && overview.top_icons.length) {
+            overview.top_icons.forEach(function (item) {
+                if (chips.length >= 4) {
+                    return;
+                }
+                var text = (item.text || '').trim();
+                if (!text) {
+                    return;
+                }
+                chips.push({
+                    icon: overviewIconMaterial(item.icon),
+                    color: overviewAccentColor(item.color),
+                    label: text,
+                });
+            });
+        }
+
+        if (!chips.length) {
+            return '';
+        }
+
+        var html = '<div class="service-app-hero-chips">';
+        chips.forEach(function (chip) {
+            html += '<span class="service-app-hero-chip" style="--chip-color:' + chip.color + '">'
+                + '<span class="material-icons">' + chip.icon + '</span>'
+                + '<span>' + escapeHtml(chip.label) + '</span></span>';
+        });
+        html += '</div>';
+        return html;
+    }
+
+    function buildOverviewPanel(descriptionHtml, overviewContent) {
+        var structured = buildStructuredOverviewHtml(overviewContent);
+        var inner = descriptionHtml && descriptionHtml.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+        var hasLegacyText = inner && $.trim($('<div>').html(inner).text());
+
+        if (!structured && !hasLegacyText) {
+            inner = '<p class="service-app-overview-empty">' + escapeHtml('No description yet') + '</p>';
+        } else if (structured) {
+            inner = structured;
+        } else if (hasLegacyText) {
+            inner = '<div class="service-app-overview-html-legacy">' + inner + '</div>';
+        }
+
+        return (
+            '<div class="service-app-overview-panel">' +
+            '<div class="service-app-overview-html">' + inner + '</div>' +
+            '</div>'
+        );
+    }
+
+    function buildFaqPanel(emptyLabel, faqs) {
+        if (!faqs || !faqs.length) {
+            return (
+                '<div class="service-app-overview-panel">' +
+                '<p class="service-app-overview-empty">' + escapeHtml(emptyLabel) + '</p>' +
+                '</div>'
+            );
+        }
+
+        var items = faqs.map(function (faq) {
+            return '<div class="service-app-faq-item"><strong>' + escapeHtml(faq.question || '')
+                + '</strong><p>' + escapeHtml(faq.answer || '') + '</p></div>';
+        }).join('');
+
+        return '<div class="service-app-overview-panel">' + items + '</div>';
+    }
+
+    function tabIndexForValue(tabValue, appType, hasFaqs) {
         var order = appType === 'provider'
             ? ['overview', 'price_table', 'faq', 'reviews']
-            : ['overview', 'faq', 'reviews'];
+            : (hasFaqs ? ['overview', 'faq', 'reviews'] : ['overview', 'reviews']);
         var idx = order.indexOf(tabValue);
         return idx >= 0 ? idx : 0;
     }
@@ -148,7 +353,10 @@
         if (appType === 'provider') {
             return [data.labelOverview, data.labelPriceTable, data.labelFaq, data.labelReviews];
         }
-        return [data.labelOverview, data.labelFaq, data.labelReviews];
+        var hasFaqs = !!(data.faqs && data.faqs.length);
+        return hasFaqs
+            ? [data.labelOverview, data.labelFaq, data.labelReviews]
+            : [data.labelOverview, data.labelReviews];
     }
 
     function buildTabsHtml(labels, activeIndex, sticky) {
@@ -160,27 +368,6 @@
         });
         html += '</div>';
         return html;
-    }
-
-    function buildOverviewPanel(descriptionHtml) {
-        var inner = descriptionHtml && descriptionHtml.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-        var hasText = inner && $.trim($('<div>').html(inner).text());
-        if (!hasText) {
-            inner = '<p class="service-app-overview-empty">' + escapeHtml('No description yet') + '</p>';
-        }
-        return (
-            '<div class="service-app-overview-panel">' +
-            '<div class="service-app-overview-html">' + inner + '</div>' +
-            '</div>'
-        );
-    }
-
-    function buildFaqPanel(emptyLabel) {
-        return (
-            '<div class="service-app-overview-panel">' +
-            '<p class="service-app-overview-empty">' + escapeHtml(emptyLabel) + '</p>' +
-            '</div>'
-        );
     }
 
     function buildReviewsPanel(emptyLabel) {
@@ -216,14 +403,14 @@
     function buildTabContent(tabValue, data) {
         switch (tabValue) {
             case 'faq':
-                return buildFaqPanel(data.labelNoFaq);
+                return buildFaqPanel(data.labelNoFaq, data.faqs);
             case 'reviews':
                 return buildReviewsPanel(data.labelNoReviews);
             case 'price_table':
                 return buildPriceTablePanel(data.variants, data.currencySymbol, data.labelNoVariants);
             case 'overview':
             default:
-                return buildOverviewPanel(data.descriptionHtml);
+                return buildOverviewPanel(data.descriptionHtml, data.overviewContent);
         }
     }
 
@@ -239,14 +426,18 @@
         var coverStyle = data.coverUrl ? "background-image:url('" + safeCssUrl(data.coverUrl) + "')" : '';
         var thumbSrc = escapeHtml(data.thumbUrl || data.placeholder);
         var name = escapeHtml(data.name || 'Service name');
+        var hasFaqs = !!(data.faqs && data.faqs.length);
         var labels = tabLabelsForApp('customer', data);
-        var activeIndex = tabIndexForValue(activeTab, 'customer');
+        var activeIndex = tabIndexForValue(activeTab, 'customer', hasFaqs);
 
         var scrollHtml =
             '<div class="service-app-layout-customer">' +
             '<div class="service-app-customer-hero" style="' + coverStyle + '">' +
             '<div class="service-app-customer-hero-overlay"></div>' +
+            '<div class="service-app-customer-hero-bottom">' +
             '<div class="service-app-customer-hero-title"><span>' + name + '</span></div>' +
+            buildHeroInfoChipsHtml(data) +
+            '</div>' +
             '</div>' +
             '<div class="service-app-customer-body">' +
             '<div class="service-app-info-card">' +
@@ -275,7 +466,7 @@
         var coverStyle = data.coverUrl ? "background-image:url('" + safeCssUrl(data.coverUrl) + "')" : '';
         var thumbSrc = escapeHtml(data.thumbUrl || data.placeholder);
         var labels = tabLabelsForApp('provider', data);
-        var activeIndex = tabIndexForValue(activeTab, 'provider');
+        var activeIndex = tabIndexForValue(activeTab, 'provider', true);
 
         var scrollHtml =
             '<div class="service-app-layout-provider">' +
@@ -340,25 +531,60 @@
         });
     }
 
+    function collectPreviewDataFromDetailPayload($root) {
+        var $payloadEl = $('#serviceDetailPreviewPayload');
+        if (!$payloadEl.length) {
+            return null;
+        }
+
+        var payload;
+        try {
+            payload = JSON.parse($payloadEl.text() || '{}');
+        } catch (e) {
+            return null;
+        }
+
+        var symbol = payload.currencySymbol || $root.data('currency-symbol') || '₹';
+        var price = payload.price;
+
+        return {
+            name: payload.name || '',
+            shortDescription: payload.shortDescription || '',
+            descriptionHtml: payload.descriptionHtml || '',
+            overviewContent: payload.overviewContent || null,
+            faqs: payload.faqs || [],
+            coverUrl: payload.coverUrl || '',
+            thumbUrl: payload.thumbUrl || '',
+            placeholder: $root.data('placeholder') || '',
+            price: formatPrice(price, symbol),
+            currencySymbol: symbol,
+            variants: payload.variants || [],
+            rating: Number(payload.rating || 0).toFixed(2),
+            ratingCount: String(payload.ratingCount || 0),
+            labelOverview: $root.data('label-overview') || 'Overview',
+            labelFaq: $root.data('label-faq') || 'FAQ',
+            labelReviews: $root.data('label-reviews') || 'Reviews',
+            labelPriceTable: $root.data('label-price-table') || 'Price table',
+            labelStartFrom: $root.data('label-start-from') || 'Start from',
+            labelBookNow: $root.data('label-book-now') || 'Book now',
+            labelNoFaq: $root.data('label-no-faq') || 'No FAQ added yet',
+            labelNoReviews: $root.data('label-no-reviews') || 'No reviews yet',
+            labelNoVariants: $root.data('label-no-variants') || 'No variants added yet',
+        };
+    }
+
     function syncTabPillsActiveState() {
         $('.service-preview-tab-pill').each(function () {
             var $pill = $(this);
-            $pill.toggleClass('is-active', $pill.find('input[name="serviceAppPreviewTab"]').prop('checked'));
+            var checked = $pill.find('input[type="radio"]').prop('checked');
+            $pill.toggleClass('is-active', !!checked);
         });
     }
 
-    function updateProviderTabVisibility(appType) {
-        var isProvider = appType === 'provider';
-        $('.service-preview-tab-pill--provider-only').toggleClass('d-none', !isProvider);
-        if (!isProvider && $('input[name="serviceAppPreviewTab"]:checked').val() === 'price_table') {
-            $('#serviceAppPreviewTabOverview').prop('checked', true);
-        }
-    }
-
-    function updatePhoneScale() {
-        var $stage = $('#serviceAppPreviewStage');
-        var $outer = $('#serviceAppPreviewScaleOuter');
-        var $preview = $('#serviceAppPreviewRoot');
+    function updatePhoneScaleFor(stageId, outerId, rootId) {
+        var $stage = $('#' + stageId);
+        var $outer = $('#' + outerId);
+        var $preview = $('#' + rootId);
         if (!$stage.length || !$outer.length || !$preview.length) {
             return;
         }
@@ -383,7 +609,55 @@
         $preview.css('--service-preview-scale', String(scale));
     }
 
-    function refreshPreview() {
+    function updatePhoneScale() {
+        updatePhoneScaleFor('serviceAppPreviewStage', 'serviceAppPreviewScaleOuter', 'serviceAppPreviewRoot');
+        updatePhoneScaleFor('serviceDetailPreviewStage', 'serviceDetailPreviewScaleOuter', 'serviceDetailPreviewRoot');
+    }
+
+    function refreshDetailInlinePreview() {
+        var $root = $('#serviceDetailPreviewRoot');
+        var $screen = $('#serviceDetailPreviewScreen');
+        if (!$root.length || !$screen.length) {
+            return;
+        }
+
+        var data = collectPreviewDataFromDetailPayload($root);
+        if (!data) {
+            return;
+        }
+
+        var activeTab = getActiveDetailPreviewTab();
+        if (activeTab === 'faq' && !(data.faqs && data.faqs.length)) {
+            activeTab = 'overview';
+        }
+        $screen.html(renderCustomerPreview(data, activeTab));
+        $screen.scrollTop(0);
+        $screen.find('.service-app-screen-unified-scroll').scrollTop(0);
+        requestAnimationFrame(function () {
+            updatePhoneScaleFor('serviceDetailPreviewStage', 'serviceDetailPreviewScaleOuter', 'serviceDetailPreviewRoot');
+            requestAnimationFrame(function () {
+                updatePhoneScaleFor('serviceDetailPreviewStage', 'serviceDetailPreviewScaleOuter', 'serviceDetailPreviewRoot');
+            });
+        });
+    }
+
+    function initDetailInlinePreview() {
+        if (!$('#serviceDetailPreviewRoot').length) {
+            return;
+        }
+        syncTabPillsActiveState();
+        refreshDetailInlinePreview();
+    }
+
+    function updateProviderTabVisibility(appType) {
+        var isProvider = appType === 'provider';
+        $('.service-preview-tab-pill--provider-only').toggleClass('d-none', !isProvider);
+        if (!isProvider && $('input[name="serviceAppPreviewTab"]:checked').val() === 'price_table') {
+            $('#serviceAppPreviewTabOverview').prop('checked', true);
+        }
+    }
+
+    function updateProviderTabVisibility(appType) {
         var $root = $('#serviceAppPreviewRoot');
         var $screen = $('#serviceAppPreviewScreen');
         if (!$root.length || !$screen.length) {
@@ -455,8 +729,13 @@
         refreshPreview();
     });
 
+    $(document).on('change', 'input[name="serviceDetailPreviewTab"]', function () {
+        syncTabPillsActiveState();
+        refreshDetailInlinePreview();
+    });
+
     $(document).on('click', '.service-preview-tab-pill', function () {
-        var $radio = $(this).find('input[name="serviceAppPreviewTab"]');
+        var $radio = $(this).find('input[type="radio"]');
         if ($radio.length && !$radio.prop('checked')) {
             $radio.prop('checked', true).trigger('change');
         }
@@ -472,8 +751,7 @@
 
     var previewResizeObserver = null;
     function bindPreviewResizeObserver() {
-        var stageEl = document.getElementById('serviceAppPreviewStage');
-        if (!stageEl || typeof ResizeObserver === 'undefined') {
+        if (typeof ResizeObserver === 'undefined') {
             return;
         }
         if (previewResizeObserver) {
@@ -483,22 +761,37 @@
             if ($('#serviceMobilePreviewModal').hasClass('show')) {
                 updatePhoneScale();
             }
+            if ($('#serviceDetailPreviewStage').length) {
+                updatePhoneScaleFor('serviceDetailPreviewStage', 'serviceDetailPreviewScaleOuter', 'serviceDetailPreviewRoot');
+            }
         });
-        previewResizeObserver.observe(stageEl);
-        var colEl = stageEl.closest('.service-mobile-preview-preview-col');
-        if (colEl) {
-            previewResizeObserver.observe(colEl);
-        }
+
+        ['serviceAppPreviewStage', 'serviceDetailPreviewStage'].forEach(function (stageId) {
+            var stageEl = document.getElementById(stageId);
+            if (!stageEl) {
+                return;
+            }
+            previewResizeObserver.observe(stageEl);
+            var colEl = stageEl.closest('.service-mobile-preview-preview-col');
+            if (colEl) {
+                previewResizeObserver.observe(colEl);
+            }
+        });
     }
 
     bindPreviewResizeObserver();
 
     var resizeTimer;
     $(window).on('resize', function () {
-        if (!$('#serviceMobilePreviewModal').hasClass('show')) {
-            return;
-        }
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(updatePhoneScale, 80);
+    });
+
+    $(function () {
+        initDetailInlinePreview();
+    });
+
+    $(document).on('shown.bs.tab', 'button[data-bs-target="#mobile-preview-tab-pane"]', function () {
+        initDetailInlinePreview();
     });
 })(jQuery);
