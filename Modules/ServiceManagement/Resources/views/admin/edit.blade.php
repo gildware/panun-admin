@@ -67,6 +67,8 @@
                                 $variationsPaneActive = $activeTab === 'variations' ? 'show active' : '';
                                 $chargesTabActive = $activeTab === 'charges' ? 'active' : '';
                                 $chargesPaneActive = $activeTab === 'charges' ? 'show active' : '';
+                                $overviewTabActive = $activeTab === 'overview' ? 'active' : '';
+                                $overviewPaneActive = $activeTab === 'overview' ? 'show active' : '';
                             @endphp
                             <ul class="nav nav--tabs border-color-primary mb-4" id="service-edit-main-tabs" role="tablist">
                                 <li class="nav-item" role="presentation">
@@ -83,6 +85,11 @@
                                     <button class="nav-link {{ $chargesTabActive }}" id="service-edit-tab-charges" data-bs-toggle="tab"
                                             data-bs-target="#service-edit-pane-charges" type="button" role="tab"
                                             aria-controls="service-edit-pane-charges" aria-selected="{{ $activeTab === 'charges' ? 'true' : 'false' }}">{{ translate('Charges_and_Taxes') }}</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link {{ $overviewTabActive }}" id="service-edit-tab-overview" data-bs-toggle="tab"
+                                            data-bs-target="#service-edit-pane-overview" type="button" role="tab"
+                                            aria-controls="service-edit-pane-overview" aria-selected="{{ $activeTab === 'overview' ? 'true' : 'false' }}">{{ translate('overview_sections') }}</button>
                                 </li>
                             </ul>
 
@@ -570,6 +577,18 @@
                                                         </div>
                                                     </div>
                                                 </div>
+                                </div>
+
+                                <div class="tab-pane fade {{ $overviewPaneActive }}" id="service-edit-pane-overview" role="tabpanel"
+                                     aria-labelledby="service-edit-tab-overview" tabindex="0">
+                                    <div class="border rounded p-3 bg-white">
+                                        @include('servicemanagement::admin.partials._overview-content-editor', [
+                                            'service' => $service,
+                                            'overviewContent' => $overviewContent ?? [],
+                                            'overviewDefaults' => $overviewDefaults ?? [],
+                                            'overviewIconOptions' => $overviewIconOptions ?? [],
+                                        ])
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -39,6 +39,7 @@ class Service extends Model
         'commission_custom' => 'integer',
         'commission_tier_setup' => 'array',
         'additional_charge_overrides' => 'array',
+        'overview_content' => 'array',
     ];
 
     protected $fillable = ['slug', 'sort_order'];

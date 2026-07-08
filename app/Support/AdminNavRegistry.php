@@ -421,6 +421,7 @@ class AdminNavRegistry
             self::entry('catalog', $group, translate('services'), translate('service_list'), route('admin.service.index'), ['admin/service/list*', 'admin/service/edit*', 'admin/service/detail*']),
             self::entry('catalog', $group, translate('services'), translate('add_new_service'), route('admin.service.create'), ['admin/service/create']),
             self::entry('catalog', $group, translate('services'), translate('New Service Requests'), route('admin.service.request.list'), ['admin/service/request/list*']),
+            self::entry('catalog', $group, translate('services'), translate('service_overview_defaults'), route('admin.service-overview.defaults'), ['admin/service-overview/*']),
         ];
     }
 
