@@ -112,6 +112,9 @@ class CustomerServicePayloadSlimmer
         }
 
         $slim = array_filter([
+            'id' => $category['id'] ?? null,
+            'parent_id' => $category['parent_id'] ?? null,
+            'name' => $category['name'] ?? null,
             'category_discount' => $category['category_discount'] ?? null,
             'campaign_discount' => $category['campaign_discount'] ?? null,
         ], fn ($value) => $value !== null);
