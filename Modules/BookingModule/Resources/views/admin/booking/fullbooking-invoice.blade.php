@@ -439,13 +439,6 @@
                                 </tr>
                             @endif
                         @endif
-                        @if(isset($extraServicesTotal) && $extraServicesTotal > 0)
-                            <tr>
-                                <td colspan="3"></td>
-                                <td>{{ translate('Extra_Services') }}</td>
-                                <td>+ {{ with_currency_symbol($extraServicesTotal) }}</td>
-                            </tr>
-                        @endif
                         <tr>
                             <td colspan="3"></td>
                             <td class="fw-700 border-top">{{translate('Total')}}</td>

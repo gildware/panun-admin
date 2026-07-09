@@ -416,13 +416,6 @@ h1, h2,h3,h4, h5, h6 {
                                 </tr>
                             @endif
                         @endif
-                        @if($invExtraServicesServiceTotal > 0)
-                            <tr>
-                                <td colspan="3"></td>
-                                <td class="text-capitalize">{{ translate('Extra_Services') }}</td>
-                                <td class="text-right">{{ with_currency_symbol($invExtraServicesServiceTotal) }}</td>
-                            </tr>
-                        @endif
                         <tr>
                             <td colspan="3"></td>
                             <td class="fw-700 border-top">{{ translate('Grand_Total') }}</td>
