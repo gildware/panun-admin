@@ -73,18 +73,9 @@
                         @endif
                         <span class="sov-step-no">{{ $index + 1 }}</span>
                         <span class="sov-step-label">{{ $step['title'] ?? $step['text'] ?? '' }}</span>
-                    </div>
-                @endforeach
-            </div>
-        @endif
-
-        @if(!empty($overview['whats_included']['items']))
-            <h6 class="sov-title">{{ $overview['whats_included']['title'] ?? translate('whats_included') }}</h6>
-            <div class="sov-included-grid">
-                @foreach($overview['whats_included']['items'] as $item)
-                    <div class="sov-included-item">
-                        <span class="material-icons">{{ $iconMaterialMap[$item['icon'] ?? ''] ?? 'check_circle' }}</span>
-                        <span>{{ $item['text'] ?? $item['title'] ?? '' }}</span>
+                        @if(!empty($step['description']))
+                            <span class="sov-step-desc">{{ $step['description'] }}</span>
+                        @endif
                     </div>
                 @endforeach
             </div>
@@ -102,18 +93,18 @@
             </div>
         @endif
 
-        @if(!empty($overview['good_to_know']['items']) || !empty($overview['whats_not_included']['items']))
-            <div class="sov-info-columns">
-                @if(!empty($overview['good_to_know']['items']))
+        @if(!empty($overview['whats_included']['items']) || !empty($overview['whats_not_included']['items']) || !empty($overview['good_to_know']['items']))
+            <div class="sov-info-stack">
+                @if(!empty($overview['whats_included']['items']))
                     <div class="sov-info-card sov-info-card--good">
                         <div class="sov-info-head">
                             <span class="material-icons">check_circle</span>
-                            {{ $overview['good_to_know']['title'] ?? translate('good_to_know') }}
+                            {{ $overview['whats_included']['title'] ?? translate('whats_included') }}
                         </div>
-                        @foreach($overview['good_to_know']['items'] as $item)
+                        @foreach($overview['whats_included']['items'] as $item)
                             <div class="sov-info-line">
-                                <span class="material-icons">check</span>
-                                <span>{{ $item['text'] ?? '' }}</span>
+                                <span class="material-icons">{{ $iconMaterialMap[$item['icon'] ?? ''] ?? 'check' }}</span>
+                                <span>{{ $item['title'] ?? $item['text'] ?? '' }}</span>
                             </div>
                         @endforeach
                     </div>
@@ -126,8 +117,22 @@
                         </div>
                         @foreach($overview['whats_not_included']['items'] as $item)
                             <div class="sov-info-line">
-                                <span class="material-icons">close</span>
-                                <span>{{ $item['text'] ?? '' }}</span>
+                                <span class="material-icons">{{ $iconMaterialMap[$item['icon'] ?? ''] ?? 'close' }}</span>
+                                <span>{{ $item['title'] ?? $item['text'] ?? '' }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+                @if(!empty($overview['good_to_know']['items']))
+                    <div class="sov-info-card sov-info-card--neutral">
+                        <div class="sov-info-head">
+                            <span class="material-icons">info</span>
+                            {{ $overview['good_to_know']['title'] ?? translate('good_to_know') }}
+                        </div>
+                        @foreach($overview['good_to_know']['items'] as $item)
+                            <div class="sov-info-line">
+                                <span class="material-icons">{{ $iconMaterialMap[$item['icon'] ?? ''] ?? 'info' }}</span>
+                                <span>{{ $item['title'] ?? $item['text'] ?? '' }}</span>
                             </div>
                         @endforeach
                     </div>

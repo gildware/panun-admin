@@ -122,6 +122,7 @@
         font-size: 10px; font-weight: 700; align-items: center; justify-content: center;
     }
     .service-app-overview-html .sov-step-label { display: block; font-size: 10px; font-weight: 600; margin-top: 4px; }
+    .service-app-overview-html .sov-step-desc { display: block; font-size: 9px; color: #64748b; margin-top: 3px; line-height: 1.35; }
     .service-app-overview-html .sov-included-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
     .service-app-overview-html .sov-included-item {
         border: 1px solid #e5e7eb; border-radius: 8px; padding: 6px 4px; text-align: center; font-size: 9px;
@@ -132,12 +133,23 @@
         display: inline-flex; align-items: center; gap: 3px; padding: 4px 8px; border-radius: 999px;
         background: rgba(37, 39, 77, 0.07); font-size: 10px; font-weight: 600; color: #25274d;
     }
-    .service-app-overview-html .sov-info-columns { display: grid; grid-template-columns: 1fr; gap: 6px; }
+    .service-app-overview-html .sov-info-stack { display: flex; flex-direction: column; gap: 6px; }
     .service-app-overview-html .sov-info-card { border-radius: 10px; padding: 8px; font-size: 10px; }
     .service-app-overview-html .sov-info-card--good { background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.18); }
     .service-app-overview-html .sov-info-card--bad { background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.18); }
+    .service-app-overview-html .sov-info-card--neutral { background: rgba(100, 116, 139, 0.06); border: 1px solid rgba(100, 116, 139, 0.18); }
     .service-app-overview-html .sov-info-head { display: flex; align-items: center; gap: 4px; font-weight: 700; margin-bottom: 6px; }
+    .service-app-overview-html .sov-info-card--good .sov-info-head,
+    .service-app-overview-html .sov-info-card--good .sov-info-line .material-icons { color: #16a34a; }
+    .service-app-overview-html .sov-info-card--bad .sov-info-head,
+    .service-app-overview-html .sov-info-card--bad .sov-info-line .material-icons { color: #dc2626; }
+    .service-app-overview-html .sov-info-card--neutral .sov-info-head,
+    .service-app-overview-html .sov-info-card--neutral .sov-info-line .sov-info-bullet { color: #64748b; }
     .service-app-overview-html .sov-info-line { display: flex; gap: 4px; margin-bottom: 4px; }
+    .service-app-overview-html .sov-info-bullet {
+        width: 6px; height: 6px; border-radius: 999px; background: currentColor;
+        margin-top: 5px; flex: 0 0 6px;
+    }
     .service-app-overview-html .sov-why-row { display: flex; gap: 6px; overflow-x: auto; }
     .service-app-overview-html .sov-why-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
     .service-app-overview-html .sov-why-card {

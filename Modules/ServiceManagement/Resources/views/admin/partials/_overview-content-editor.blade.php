@@ -46,34 +46,29 @@
     @include('servicemanagement::admin.partials._overview-section-block', [
         'sectionKey' => 'whats_included',
         'sectionTitle' => translate('whats_included'),
-        'itemType' => 'icon_text',
+        'itemType' => 'icon_title',
         'items' => $overviewContent['whats_included']['items'] ?? [],
         'sectionLabel' => $overviewContent['whats_included']['title'] ?? translate('whats_included'),
         'overviewIconOptions' => $overviewIconOptions ?? [],
     ])
 
-    <div class="row g-3 mb-3">
-        <div class="col-md-6">
-            @include('servicemanagement::admin.partials._overview-section-block', [
-                'sectionKey' => 'good_to_know',
-                'sectionTitle' => translate('good_to_know'),
-                'itemType' => 'text_only',
-                'items' => $overviewContent['good_to_know']['items'] ?? [],
-                'sectionLabel' => $overviewContent['good_to_know']['title'] ?? translate('good_to_know'),
-                'overviewIconOptions' => $overviewIconOptions ?? [],
-            ])
-        </div>
-        <div class="col-md-6">
-            @include('servicemanagement::admin.partials._overview-section-block', [
-                'sectionKey' => 'whats_not_included',
-                'sectionTitle' => translate('whats_not_included'),
-                'itemType' => 'text_only',
-                'items' => $overviewContent['whats_not_included']['items'] ?? [],
-                'sectionLabel' => $overviewContent['whats_not_included']['title'] ?? translate('whats_not_included'),
-                'overviewIconOptions' => $overviewIconOptions ?? [],
-            ])
-        </div>
-    </div>
+    @include('servicemanagement::admin.partials._overview-section-block', [
+        'sectionKey' => 'whats_not_included',
+        'sectionTitle' => translate('whats_not_included'),
+        'itemType' => 'icon_title',
+        'items' => $overviewContent['whats_not_included']['items'] ?? [],
+        'sectionLabel' => $overviewContent['whats_not_included']['title'] ?? translate('whats_not_included'),
+        'overviewIconOptions' => $overviewIconOptions ?? [],
+    ])
+
+    @include('servicemanagement::admin.partials._overview-section-block', [
+        'sectionKey' => 'good_to_know',
+        'sectionTitle' => translate('good_to_know'),
+        'itemType' => 'icon_title',
+        'items' => $overviewContent['good_to_know']['items'] ?? [],
+        'sectionLabel' => $overviewContent['good_to_know']['title'] ?? translate('good_to_know'),
+        'overviewIconOptions' => $overviewIconOptions ?? [],
+    ])
 
     <div class="card mb-3">
         <div class="card-body">
@@ -180,7 +175,13 @@
                 inner += '<div class="row g-2">'
                     + '<div class="col-md-4">' + iconSelectHtml(data.icon || '') + '</div>'
                     + '<div class="col-md-8"><input type="text" class="form-control form-control-sm overview-item-title" placeholder="Step title" value="' + (data.title || '') + '"></div>'
-                    + '<div class="col-12"><input type="text" class="form-control form-control-sm overview-item-image" placeholder="Step image URL (optional)" value="' + (data.image || '') + '"></div>'
+                    + '<div class="col-12"><input type="text" class="form-control form-control-sm overview-item-image" placeholder="Step image URL (optional — use icon if empty)" value="' + (data.image || '') + '"></div>'
+                    + '<div class="col-12"><input type="text" class="form-control form-control-sm overview-item-description" placeholder="Step description" value="' + (data.description || '') + '"></div>'
+                    + '</div>';
+            } else if (type === 'icon_title') {
+                inner += '<div class="row g-2">'
+                    + '<div class="col-md-4">' + iconSelectHtml(data.icon || '') + '</div>'
+                    + '<div class="col-md-8"><input type="text" class="form-control form-control-sm overview-item-title" placeholder="Title" value="' + (data.title || data.text || '') + '"></div>'
                     + '</div>';
             } else if (type === 'chip' || type === 'icon_text') {
                 inner += '<div class="row g-2">'
@@ -254,9 +255,9 @@
                 override_why_choose: document.getElementById('override-why-choose').checked,
                 service_process: collectSection('service-process', 'process'),
                 perfect_for: collectSection('perfect-for', 'chip'),
-                whats_included: collectSection('whats-included', 'icon_text'),
-                whats_not_included: collectSection('whats-not-included', 'text_only'),
-                good_to_know: collectSection('good-to-know', 'text_only'),
+                whats_included: collectSection('whats-included', 'icon_title'),
+                whats_not_included: collectSection('whats-not-included', 'icon_title'),
+                good_to_know: collectSection('good-to-know', 'icon_title'),
                 top_icons: collectItems(document.getElementById('top-icons-list'), 'top_icon'),
                 why_choose: {
                     title: document.getElementById('why-choose-title').value.trim(),

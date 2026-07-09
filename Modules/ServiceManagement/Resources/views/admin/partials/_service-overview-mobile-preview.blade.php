@@ -63,18 +63,9 @@
                                 @endif
                                 <span class="sov-step-no">{{ $index + 1 }}</span>
                                 <span class="sov-step-label">{{ $step['title'] ?? $step['text'] ?? '' }}</span>
-                            </div>
-                        @endforeach
-                    </div>
-                @endif
-
-                @if(!empty($overview['whats_included']['items']))
-                    <h6 class="sov-title">{{ $overview['whats_included']['title'] ?? translate('whats_included') }}</h6>
-                    <div class="sov-included-grid">
-                        @foreach($overview['whats_included']['items'] as $item)
-                            <div class="sov-included-item">
-                                <span class="material-icons">{{ $iconMaterialMap[$item['icon'] ?? ''] ?? 'check_circle' }}</span>
-                                <span>{{ $item['text'] ?? $item['title'] ?? '' }}</span>
+                                @if(!empty($step['description']))
+                                    <span class="sov-step-desc">{{ $step['description'] }}</span>
+                                @endif
                             </div>
                         @endforeach
                     </div>
@@ -92,18 +83,18 @@
                     </div>
                 @endif
 
-                @if(!empty($overview['good_to_know']['items']) || !empty($overview['whats_not_included']['items']))
-                    <div class="sov-info-columns">
-                        @if(!empty($overview['good_to_know']['items']))
+                @if(!empty($overview['whats_included']['items']) || !empty($overview['whats_not_included']['items']) || !empty($overview['good_to_know']['items']))
+                    <div class="sov-info-stack">
+                        @if(!empty($overview['whats_included']['items']))
                             <div class="sov-info-card sov-info-card--good">
                                 <div class="sov-info-head">
                                     <span class="material-icons">check_circle</span>
-                                    {{ $overview['good_to_know']['title'] ?? translate('good_to_know') }}
+                                    {{ $overview['whats_included']['title'] ?? translate('whats_included') }}
                                 </div>
-                                @foreach($overview['good_to_know']['items'] as $item)
+                                @foreach($overview['whats_included']['items'] as $item)
                                     <div class="sov-info-line">
-                                        <span class="material-icons">check</span>
-                                        <span>{{ $item['text'] ?? '' }}</span>
+                                        <span class="material-icons">{{ $iconMaterialMap[$item['icon'] ?? ''] ?? 'check' }}</span>
+                                        <span>{{ $item['title'] ?? $item['text'] ?? '' }}</span>
                                     </div>
                                 @endforeach
                             </div>
@@ -116,8 +107,22 @@
                                 </div>
                                 @foreach($overview['whats_not_included']['items'] as $item)
                                     <div class="sov-info-line">
-                                        <span class="material-icons">close</span>
-                                        <span>{{ $item['text'] ?? '' }}</span>
+                                        <span class="material-icons">{{ $iconMaterialMap[$item['icon'] ?? ''] ?? 'close' }}</span>
+                                        <span>{{ $item['title'] ?? $item['text'] ?? '' }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                        @if(!empty($overview['good_to_know']['items']))
+                            <div class="sov-info-card sov-info-card--neutral">
+                                <div class="sov-info-head">
+                                    <span class="material-icons">info</span>
+                                    {{ $overview['good_to_know']['title'] ?? translate('good_to_know') }}
+                                </div>
+                                @foreach($overview['good_to_know']['items'] as $item)
+                                    <div class="sov-info-line">
+                                        <span class="material-icons">{{ $iconMaterialMap[$item['icon'] ?? ''] ?? 'info' }}</span>
+                                        <span>{{ $item['title'] ?? $item['text'] ?? '' }}</span>
                                     </div>
                                 @endforeach
                             </div>
@@ -176,6 +181,7 @@
                     border-radius: 999px; background: #25274d; color: #fff; font-size: 11px; font-weight: 700;
                 }
                 .sov-step-label { display: block; margin-top: 6px; font-weight: 600; font-size: 11px; }
+                .sov-step-desc { display: block; margin-top: 4px; font-size: 10px; color: #64748b; line-height: 1.35; }
                 .sov-included-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
                 .sov-included-item {
                     border: 1px solid #e2e8f0; border-radius: 12px; padding: 8px 4px; text-align: center; min-height: 72px;
@@ -188,15 +194,21 @@
                     background: rgba(37, 39, 77, 0.07); color: #25274d; font-weight: 600; font-size: 11px;
                 }
                 .sov-chip .material-icons { font-size: 14px; }
-                .sov-info-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+                .sov-info-stack { display: flex; flex-direction: column; gap: 8px; }
                 .sov-info-card { border-radius: 14px; padding: 10px; }
                 .sov-info-card--good { background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.18); }
                 .sov-info-card--bad { background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.18); }
+                .sov-info-card--neutral { background: rgba(100, 116, 139, 0.06); border: 1px solid rgba(100, 116, 139, 0.18); }
                 .sov-info-head { display: flex; align-items: center; gap: 6px; font-weight: 700; margin-bottom: 8px; font-size: 12px; }
                 .sov-info-card--good .sov-info-head, .sov-info-card--good .sov-info-line .material-icons { color: #16a34a; }
                 .sov-info-card--bad .sov-info-head, .sov-info-card--bad .sov-info-line .material-icons { color: #dc2626; }
+                .sov-info-card--neutral .sov-info-head, .sov-info-card--neutral .sov-info-line .sov-info-bullet { color: #64748b; }
                 .sov-info-line { display: flex; gap: 6px; margin-bottom: 6px; }
                 .sov-info-line .material-icons { font-size: 14px; margin-top: 1px; }
+                .sov-info-bullet {
+                    width: 6px; height: 6px; border-radius: 999px; background: currentColor;
+                    margin-top: 6px; flex: 0 0 6px;
+                }
                 .sov-why-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
                 .sov-why-card {
                     flex: 0 0 150px; border-radius: 14px; padding: 12px;

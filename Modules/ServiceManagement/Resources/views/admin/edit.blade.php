@@ -101,6 +101,7 @@
                                   id="service-edit-info-form">
                                 @csrf
                                 @method('PUT')
+                                <input type="hidden" name="active_lang" id="service-active-lang" value="default">
                                         <div class="row service-description-wrapper">
                                             <div class="col-xxl-9 col-lg-8 mb-5 mb-lg-0">
                                                 <div class="card h-100">
@@ -691,6 +692,8 @@
 
             let form_id = this.id;
             let lang = form_id.substring(0, form_id.length - 5);
+
+            $('#service-active-lang').val(lang);
 
             $("#" + lang + "-form").removeClass('d-none');
             $("#" + lang + "-form2").removeClass('d-none');
