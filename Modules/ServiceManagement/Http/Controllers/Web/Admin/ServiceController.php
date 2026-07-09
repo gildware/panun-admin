@@ -226,11 +226,11 @@ class ServiceController extends Controller
         }
 
         $service = $this->service;
-        $service->name = $request->name[array_search('default', $request->lang)];
+        $service->name = $this->resolveActiveLocalizedValue($request, 'name');
         $service->category_id = $request->category_id;
         $service->sub_category_id = $request->sub_category_id;
-        $service->short_description = $request->short_description[array_search('default', $request->lang)];
-        $service->description = $request->description[array_search('default', $request->lang)];
+        $service->short_description = $this->resolveActiveLocalizedValue($request, 'short_description');
+        $service->description = $this->resolveActiveLocalizedValue($request, 'description');
         $service->cover_image = media_file_uploader(
             \App\Support\MediaStoragePath::serviceDir($service->name ?? 'service'),
             'png',
@@ -275,84 +275,7 @@ class ServiceController extends Controller
 
         $service->variations()->createMany($variationFormat);
 
-        $defaultLang = str_replace('_', '-', app()->getLocale());
-
-        foreach ($request->lang as $index => $key) {
-            if ($defaultLang == $key && !($request->name[$index])) {
-                if ($key != 'default') {
-                    Translation::updateOrInsert(
-                        [
-                            'translationable_type' => 'Modules\ServiceManagement\Entities\Service',
-                            'translationable_id' => $service->id,
-                            'locale' => $key,
-                            'key' => 'name'],
-                        ['value' => $service->name]
-                    );
-                }
-            } else {
-
-                if ($request->name[$index] && $key != 'default') {
-                    Translation::updateOrInsert(
-                        [
-                            'translationable_type' => 'Modules\ServiceManagement\Entities\Service',
-                            'translationable_id' => $service->id,
-                            'locale' => $key,
-                            'key' => 'name'],
-                        ['value' => $request->name[$index]]
-                    );
-                }
-            }
-
-            if ($defaultLang == $key && !($request->short_description[$index])) {
-                if ($key != 'default') {
-                    Translation::updateOrInsert(
-                        [
-                            'translationable_type' => 'Modules\ServiceManagement\Entities\Service',
-                            'translationable_id' => $service->id,
-                            'locale' => $key,
-                            'key' => 'short_description'],
-                        ['value' => $service->short_description]
-                    );
-                }
-            } else {
-
-                if ($request->short_description[$index] && $key != 'default') {
-                    Translation::updateOrInsert(
-                        [
-                            'translationable_type' => 'Modules\ServiceManagement\Entities\Service',
-                            'translationable_id' => $service->id,
-                            'locale' => $key,
-                            'key' => 'short_description'],
-                        ['value' => $request->short_description[$index]]
-                    );
-                }
-            }
-
-            if ($defaultLang == $key && !($request->description[$index])) {
-                if ($key != 'default') {
-                    Translation::updateOrInsert(
-                        [
-                            'translationable_type' => 'Modules\ServiceManagement\Entities\Service',
-                            'translationable_id' => $service->id,
-                            'locale' => $key,
-                            'key' => 'description'],
-                        ['value' => $service->description]
-                    );
-                }
-            } else {
-
-                if ($request->description[$index] && $key != 'default') {
-                    Translation::updateOrInsert(
-                        [
-                            'translationable_type' => 'Modules\ServiceManagement\Entities\Service',
-                            'translationable_id' => $service->id,
-                            'locale' => $key,
-                            'key' => 'description'],
-                        ['value' => $request->description[$index]]
-                    );
-                }
-            }
-        }
+        $this->syncServiceTranslations($request, $service);
 
         Toastr::success(translate(SERVICE_STORE_200['message']));
 
@@ -536,11 +459,11 @@ class ServiceController extends Controller
         }
 
 
-        $service->name = $request->name[array_search('default', $request->lang)];
+        $service->name = $this->resolveActiveLocalizedValue($request, 'name');
         $service->category_id = $request->category_id;
         $service->sub_category_id = $request->sub_category_id;
-        $service->short_description = $request->short_description[array_search('default', $request->lang)];;
-        $service->description = $request->description[array_search('default', $request->lang)];
+        $service->short_description = $this->resolveActiveLocalizedValue($request, 'short_description');
+        $service->description = $this->resolveActiveLocalizedValue($request, 'description');
 
         if ($request->hasFile('cover_image')) {
             $service->cover_image = media_file_uploader(
@@ -615,11 +538,11 @@ class ServiceController extends Controller
             }
         }
 
-        $service->name = $request->name[array_search('default', $request->lang)];
+        $service->name = $this->resolveActiveLocalizedValue($request, 'name');
         $service->category_id = $request->category_id;
         $service->sub_category_id = $request->sub_category_id;
-        $service->short_description = $request->short_description[array_search('default', $request->lang)];
-        $service->description = $request->description[array_search('default', $request->lang)];
+        $service->short_description = $this->resolveActiveLocalizedValue($request, 'short_description');
+        $service->description = $this->resolveActiveLocalizedValue($request, 'description');
 
         if ($request->hasFile('cover_image')) {
             $service->cover_image = media_file_uploader(
@@ -669,6 +592,50 @@ class ServiceController extends Controller
         return redirect()
             ->route('admin.service.edit', ['id' => $id, 'tab' => 'variations'])
             ->with('service_updated', translate(DEFAULT_UPDATE_200['message']));
+    }
+
+    private function resolveActiveLocalizedValue(Request $request, string $field): string
+    {
+        $langKeys = $request->lang ?? [];
+        $values = $request->input($field, []);
+        $activeLang = (string) $request->input('active_lang', 'default');
+
+        if ($activeLang !== '' && $activeLang !== 'default') {
+            $activeIndex = array_search($activeLang, $langKeys, true);
+            if ($activeIndex !== false && array_key_exists($activeIndex, $values)) {
+                return (string) $values[$activeIndex];
+            }
+        }
+
+        $defaultIndex = array_search('default', $langKeys, true);
+
+        return (string) ($values[$defaultIndex !== false ? $defaultIndex : 0] ?? '');
+    }
+
+    private function syncDefaultLocaleTranslationsFromService(Service $service): void
+    {
+        $defaultLang = str_replace('_', '-', app()->getLocale());
+
+        if ($defaultLang === '' || $defaultLang === 'default') {
+            return;
+        }
+
+        foreach (['name', 'short_description', 'description'] as $field) {
+            $value = $service->getRawOriginal($field);
+            if ($value === null) {
+                continue;
+            }
+
+            Translation::updateOrInsert(
+                [
+                    'translationable_type' => Service::class,
+                    'translationable_id' => $service->id,
+                    'locale' => $defaultLang,
+                    'key' => $field,
+                ],
+                ['value' => $value]
+            );
+        }
     }
 
     private function syncServiceTranslations(Request $request, Service $service): void
@@ -742,6 +709,8 @@ class ServiceController extends Controller
                 );
             }
         }
+
+        $this->syncDefaultLocaleTranslationsFromService($service);
     }
 
     private function persistServiceVariations(Request $request, Service $service): void

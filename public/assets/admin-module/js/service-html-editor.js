@@ -16,6 +16,11 @@
 
     window.syncServiceDescriptionEditors = function () {
         if (typeof tinymce !== 'undefined') {
+            if (tinymce.editors) {
+                tinymce.editors.forEach(function (editor) {
+                    editor.save();
+                });
+            }
             tinymce.triggerSave();
         }
     };

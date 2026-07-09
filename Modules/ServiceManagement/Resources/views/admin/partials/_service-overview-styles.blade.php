@@ -31,6 +31,7 @@
         border-radius: 999px; background: #25274d; color: #fff; font-size: 11px; font-weight: 700;
     }
     .sov-step-label { display: block; margin-top: 6px; font-weight: 600; font-size: 12px; }
+    .sov-step-desc { display: block; margin-top: 4px; font-size: 11px; color: #64748b; line-height: 1.35; }
     .sov-included-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
     @media (min-width: 992px) {
         .sov-included-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -46,18 +47,21 @@
         background: rgba(37, 39, 77, 0.07); color: #25274d; font-weight: 600; font-size: 12px;
     }
     .sov-chip .material-icons { font-size: 14px; }
-    .sov-info-columns { display: grid; grid-template-columns: 1fr; gap: 8px; }
-    @media (min-width: 768px) {
-        .sov-info-columns { grid-template-columns: 1fr 1fr; }
-    }
+    .sov-info-stack { display: flex; flex-direction: column; gap: 8px; }
     .sov-info-card { border-radius: 14px; padding: 12px; }
     .sov-info-card--good { background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.18); }
     .sov-info-card--bad { background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.18); }
+    .sov-info-card--neutral { background: rgba(100, 116, 139, 0.06); border: 1px solid rgba(100, 116, 139, 0.18); }
     .sov-info-head { display: flex; align-items: center; gap: 6px; font-weight: 700; margin-bottom: 8px; font-size: 13px; }
     .sov-info-card--good .sov-info-head, .sov-info-card--good .sov-info-line .material-icons { color: #16a34a; }
     .sov-info-card--bad .sov-info-head, .sov-info-card--bad .sov-info-line .material-icons { color: #dc2626; }
+    .sov-info-card--neutral .sov-info-head, .sov-info-card--neutral .sov-info-line .sov-info-bullet { color: #64748b; }
     .sov-info-line { display: flex; gap: 6px; margin-bottom: 6px; }
     .sov-info-line .material-icons { font-size: 14px; margin-top: 1px; }
+    .sov-info-bullet {
+        width: 6px; height: 6px; border-radius: 999px; background: currentColor;
+        margin-top: 6px; flex: 0 0 6px;
+    }
     .sov-why-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
     .sov-why-card {
         flex: 0 0 180px; border-radius: 14px; padding: 12px;

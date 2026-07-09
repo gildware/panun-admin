@@ -156,6 +156,8 @@
         quality: 'workspace_premium',
         pricing: 'payments',
         support: 'support_agent',
+        close: 'close',
+        info: 'info',
     };
 
     var OVERVIEW_COLOR_MAP = {
@@ -205,18 +207,11 @@
                         + overviewIconMaterial(step.icon) + '</span></div>';
                 }
                 html += '<span class="sov-step-no">' + (index + 1) + '</span>';
-                html += '<span class="sov-step-label">' + escapeHtml(step.title || step.text || '') + '</span></div>';
-            });
-            html += '</div>';
-        }
-
-        if (overview.whats_included && overview.whats_included.items && overview.whats_included.items.length) {
-            html += '<h6 class="sov-title">' + escapeHtml(overview.whats_included.title || "What's Included") + '</h6>';
-            html += '<div class="sov-included-grid">';
-            overview.whats_included.items.forEach(function (item) {
-                html += '<div class="sov-included-item"><span class="material-icons">'
-                    + overviewIconMaterial(item.icon) + '</span><span>'
-                    + escapeHtml(item.text || item.title || '') + '</span></div>';
+                html += '<span class="sov-step-label">' + escapeHtml(step.title || step.text || '') + '</span>';
+                if (step.description) {
+                    html += '<span class="sov-step-desc">' + escapeHtml(step.description) + '</span>';
+                }
+                html += '</div>';
             });
             html += '</div>';
         }
@@ -232,15 +227,17 @@
             html += '</div>';
         }
 
-        if ((overview.good_to_know && overview.good_to_know.items && overview.good_to_know.items.length)
-            || (overview.whats_not_included && overview.whats_not_included.items && overview.whats_not_included.items.length)) {
-            html += '<div class="sov-info-columns">';
-            if (overview.good_to_know && overview.good_to_know.items && overview.good_to_know.items.length) {
+        if ((overview.whats_included && overview.whats_included.items && overview.whats_included.items.length)
+            || (overview.whats_not_included && overview.whats_not_included.items && overview.whats_not_included.items.length)
+            || (overview.good_to_know && overview.good_to_know.items && overview.good_to_know.items.length)) {
+            html += '<div class="sov-info-stack">';
+            if (overview.whats_included && overview.whats_included.items && overview.whats_included.items.length) {
                 html += '<div class="sov-info-card sov-info-card--good"><div class="sov-info-head"><span class="material-icons">check_circle</span>'
-                    + escapeHtml(overview.good_to_know.title || 'Good To Know') + '</div>';
-                overview.good_to_know.items.forEach(function (item) {
-                    html += '<div class="sov-info-line"><span class="material-icons">check</span><span>'
-                        + escapeHtml(item.text || '') + '</span></div>';
+                    + escapeHtml(overview.whats_included.title || "What's Included") + '</div>';
+                overview.whats_included.items.forEach(function (item) {
+                    html += '<div class="sov-info-line"><span class="material-icons">'
+                        + overviewIconMaterial(item.icon || 'check') + '</span><span>'
+                        + escapeHtml(item.title || item.text || '') + '</span></div>';
                 });
                 html += '</div>';
             }
@@ -248,8 +245,19 @@
                 html += '<div class="sov-info-card sov-info-card--bad"><div class="sov-info-head"><span class="material-icons">cancel</span>'
                     + escapeHtml(overview.whats_not_included.title || 'Not Included') + '</div>';
                 overview.whats_not_included.items.forEach(function (item) {
-                    html += '<div class="sov-info-line"><span class="material-icons">close</span><span>'
-                        + escapeHtml(item.text || '') + '</span></div>';
+                    html += '<div class="sov-info-line"><span class="material-icons">'
+                        + overviewIconMaterial(item.icon || 'close') + '</span><span>'
+                        + escapeHtml(item.title || item.text || '') + '</span></div>';
+                });
+                html += '</div>';
+            }
+            if (overview.good_to_know && overview.good_to_know.items && overview.good_to_know.items.length) {
+                html += '<div class="sov-info-card sov-info-card--neutral"><div class="sov-info-head"><span class="material-icons">info</span>'
+                    + escapeHtml(overview.good_to_know.title || 'Good To Know') + '</div>';
+                overview.good_to_know.items.forEach(function (item) {
+                    html += '<div class="sov-info-line"><span class="material-icons">'
+                        + overviewIconMaterial(item.icon || 'info') + '</span><span>'
+                        + escapeHtml(item.title || item.text || '') + '</span></div>';
                 });
                 html += '</div>';
             }

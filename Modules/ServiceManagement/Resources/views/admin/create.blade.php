@@ -34,6 +34,7 @@
                             <div>
                                 <form action="{{route('admin.service.store')}}" method="post" enctype="multipart/form-data" id="service-create-form">
                                     @csrf
+                                    <input type="hidden" name="active_lang" id="service-active-lang" value="default">
 
                                     <div class="card-offset-animation">
                                         <div class="row service-description-wrapper">
@@ -699,6 +700,8 @@
 
                 let form_id = this.id;
                 let lang = form_id.substring(0, form_id.length - 5);
+
+                $('#service-active-lang').val(lang);
 
                 // show the right input(s)
                 $("#" + lang + "-form").removeClass('d-none');
