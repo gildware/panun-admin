@@ -1807,15 +1807,7 @@ if (!function_exists('resolve_media_storage_url')) {
             }
         }
 
-        $logicalPath = $candidates[0] ?? $image;
-        $disk = $preferredStorage ?? (function_exists('getDisk') ? getDisk() : 'public');
-        if ($disk === 's3') {
-            return cloud_storage_public_url($logicalPath);
-        }
-
-        return public_storage_asset_url(
-            \App\Support\StoragePathPrefix::apply(\App\Support\StoragePathPrefix::strip($logicalPath))
-        );
+        return $defaultPath;
     }
 }
 
@@ -1909,7 +1901,7 @@ if (!function_exists('getBusinessSettingsImageFullPath')) {
             '',
             $preferred,
             $defaultPath ? asset($defaultPath) : null,
-            false
+            true
         );
 
         if ($resolved !== null) {

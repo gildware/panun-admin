@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
-    <title>{{translate('invoice')}}</title>
+    <title></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;700&display=swap" rel="stylesheet">
@@ -26,6 +26,14 @@
             a {
                 text-decoration: none !important;
                 -webkit-print-color-adjust: exact;
+            }
+
+            @page {
+                margin: 0;
+            }
+
+            body {
+                margin: 12mm;
             }
         }
 
@@ -196,9 +204,13 @@
                     </td>
                     <td class="company-details">
                         <a target="_blank" href="#">
-                            @php($logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'business_information', path: 'business/', defaultPath: 'assets/placeholder.png'))
-                            <img width="84" height="17"
-                                 src="{{$logo}}" alt="{{ translate('logo') }}"
+                            @php($invoiceLogoPlaceholder = asset('assets/admin-module/img/placeholder.png'))
+                            @php($logo = admin_nav_image_src(getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'business_information', path: 'business/', defaultPath: 'assets/admin-module/img/placeholder.png'), 'logo'))
+                            <img style="max-height: 48px; max-width: 160px; width: auto; height: auto;"
+                                 src="{{ $logo }}"
+                                 data-fallback="{{ $invoiceLogoPlaceholder }}"
+                                 onerror="this.onerror=null;this.src=this.dataset.fallback||'{{ $invoiceLogoPlaceholder }}'"
+                                 alt="{{ translate('logo') }}"
                                  data-holder-rendered="true"/>
                         </a>
                         @php($business_email = business_config('business_email','business_information'))
@@ -228,10 +240,6 @@
                                 <td>
                                     <div class="fs-9">{{translate('phone')}}</div>
                                     <div>{{$customer_phone}}</div>
-                                </td>
-                                <td>
-                                    <div class="fs-9">{{translate('email')}}</div>
-                                    <div>{{$booking?->customer?->email}}</div>
                                 </td>
                                 </tr>
                             </table>
@@ -459,30 +467,6 @@
             </div>
         </div>
 
-        <div style="padding:24px 0">
-            <div class="fw-700">{{translate('Terms & Conditions')}}</div>
-            <div>{{translate('Change of mind is not applicable as a reason for refund')}}</div>
-        </div>
-
-        <table class="footer">
-            <tr>
-                <td>
-                    <div class="text-left">
-                        {{Request()->getHttpHost()}}
-                    </div>
-                </td>
-                <td>
-                    <div class="text-center">
-                        {{$business_phone->live_values}}
-                    </div>
-                </td>
-                <td>
-                    <div class="text-right">
-                        {{$business_email->live_values}}
-                    </div>
-                </td>
-            </tr>
-        </table>
     </div>
 </div>
 
@@ -491,10 +475,44 @@
 
     function printContent(el) {
         var restorepage = $('body').html();
-        var printcontent = $('#' + el).clone();
-        $('body').empty().html(printcontent);
-        window.print();
-        $('body').html(restorepage);
+        var $source = $('#' + el);
+        var imgs = $source.find('img');
+
+        function doPrint() {
+            var oldTitle = document.title;
+            document.title = ' ';
+            var printcontent = $source.clone();
+            $('body').empty().html(printcontent);
+            window.print();
+            $('body').html(restorepage);
+            document.title = oldTitle;
+        }
+
+        if (!imgs.length) {
+            doPrint();
+            return;
+        }
+
+        var loaded = 0;
+        var total = imgs.length;
+
+        imgs.each(function () {
+            var img = this;
+            if (img.complete) {
+                loaded++;
+                if (loaded === total) {
+                    doPrint();
+                }
+                return;
+            }
+
+            $(img).one('load error', function () {
+                loaded++;
+                if (loaded === total) {
+                    doPrint();
+                }
+            });
+        });
     }
 
     printContent('invoice');

@@ -11,7 +11,7 @@ use Modules\CustomerModule\Services\CustomerApiResponseCache;
  */
 class CustomerServiceDetailsCache
 {
-    public const CACHE_VERSION = 'v3';
+    public const CACHE_VERSION = 'v4';
 
     public const DETAIL_TTL = 300;
 
