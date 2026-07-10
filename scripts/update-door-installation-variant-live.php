@@ -6,31 +6,14 @@
  * LIVE_DB_PASSWORD='...' php artisan tinker scripts/update-door-installation-variant-live.php
  */
 
-use App\Support\CloudStorageConfigurator;
-use App\Support\MediaStoragePath;
-use App\Support\StoragePathPrefix;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 use Modules\BusinessSettingsModule\Entities\BusinessSettings;
 use Modules\BusinessSettingsModule\Entities\Translation;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\ServiceManagement\Entities\ServiceVariant;
 use Modules\ServiceManagement\Entities\Variation;
-
-CloudStorageConfigurator::apply();
-
-$prefixSetting = BusinessSettings::query()
-    ->where('key_name', 'storage_path_prefix')
-    ->where('settings_type', 'storage_settings')
-    ->first();
-
-$originalPrefix = $prefixSetting?->live_values;
-if ($prefixSetting) {
-    $prefixSetting->update(['live_values' => 'prod', 'test_values' => 'prod']);
-}
-StoragePathPrefix::resetCache();
+use App\Support\StoragePathPrefix;
 
 $liveConnection = 'live_service_content';
 config(['database.connections.'.$liveConnection => [
@@ -57,8 +40,11 @@ if (! Schema::connection($liveConnection)->hasColumn('service_variants', 'note')
     echo "Added note column to service_variants on live.\n";
 }
 
-if (! defined('APPLICATION_IMAGE_FORMAT')) {
-    define('APPLICATION_IMAGE_FORMAT', 'webp');
+if (! Schema::connection($liveConnection)->hasColumn('service_variants', 'icon')) {
+    Schema::connection($liveConnection)->table('service_variants', function ($table) {
+        $table->string('icon', 64)->nullable()->after('image');
+    });
+    echo "Added icon column to service_variants on live.\n";
 }
 
 $serviceId = '7ae680f7-97ed-464e-87e1-5da2aaae55c5';
@@ -67,11 +53,7 @@ $newVariantKey = 'book-site-inspection';
 $title = 'Book Site Inspection';
 $description = 'Verified carpenter inspects your door opening, frame and measurements on site.';
 $note = 'This inspection fee will be adjusted against your final door installation bill if you proceed with the full service through Panun Kaergar.';
-
-$assetPath = base_path('scripts/assets/service-images/door-installation/variant-site-inspection.png');
-if (! is_file($assetPath)) {
-    throw new RuntimeException("Missing variant image asset: {$assetPath}");
-}
+$icon = 'location';
 
 $service = Service::on($liveConnection)->withoutGlobalScopes()->find($serviceId);
 if (! $service) {
@@ -100,40 +82,24 @@ if (! $variant) {
     throw new RuntimeException('Service variant not found for Door Installation.');
 }
 
-$storageDir = MediaStoragePath::serviceDir($service);
-$file = new UploadedFile($assetPath, basename($assetPath), 'image/png', null, true);
-$imageKey = media_file_uploader($storageDir, APPLICATION_IMAGE_FORMAT, $file, $variant->image);
+$previousImage = $variant->image;
+if ($previousImage) {
+    file_remover('service/', $previousImage);
+}
 
-$exists = DB::connection($liveConnection)->table('storages')
+DB::connection($liveConnection)->table('storages')
     ->where('model', ServiceVariant::class)
     ->where('model_id', $variant->id)
     ->where('model_column', 'image')
-    ->exists();
-
-if ($exists) {
-    DB::connection($liveConnection)->table('storages')
-        ->where('model', ServiceVariant::class)
-        ->where('model_id', $variant->id)
-        ->where('model_column', 'image')
-        ->update(['storage_type' => 's3', 'updated_at' => now()]);
-} else {
-    DB::connection($liveConnection)->table('storages')->insert([
-        'id' => (string) Str::uuid(),
-        'model' => ServiceVariant::class,
-        'model_id' => $variant->id,
-        'model_column' => 'image',
-        'storage_type' => 's3',
-        'created_at' => now(),
-        'updated_at' => now(),
-    ]);
-}
+    ->delete();
 
 ServiceVariant::on($liveConnection)->where('id', $variant->id)->update([
     'variant_key' => $newVariantKey,
     'title' => $title,
     'description' => $description,
     'note' => $note,
-    'image' => $imageKey,
+    'icon' => $icon,
+    'image' => null,
     'is_active' => true,
 ]);
 
@@ -172,15 +138,11 @@ foreach (['title' => $title, 'description' => $description, 'note' => $note] as 
     );
 }
 
-if ($prefixSetting && $originalPrefix !== null) {
-    $prefixSetting->update(['live_values' => $originalPrefix, 'test_values' => $originalPrefix]);
-    StoragePathPrefix::resetCache();
-}
-
 echo "Updated Door Installation variant on live.\n";
 echo "  title: {$title}\n";
 echo "  key: {$newVariantKey}\n";
 echo "  description: {$description}\n";
 echo "  note: {$note}\n";
-echo "  image: {$imageKey}\n";
+echo "  icon: {$icon}\n";
+echo "  image: cleared\n";
 echo '  zones: '.Variation::on($liveConnection)->where('service_id', $serviceId)->where('variant_key', $newVariantKey)->count()."\n";

@@ -81,6 +81,7 @@ class Service extends Model
                 'note' => $meta?->note,
                 'image' => $meta?->image,
                 'image_full_path' => $meta?->image_full_path,
+                'icon' => $meta?->icon,
                 'zoneWiseVariations' => [],
             ];
 

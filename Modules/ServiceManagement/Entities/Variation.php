@@ -377,6 +377,7 @@ class Variation extends Model
                 'note' => $variantMeta?->note,
                 'image' => $variantMeta?->image,
                 'image_full_path' => $variantMeta?->image_full_path,
+                'icon' => $variantMeta?->icon,
                 'price' => (float) $variation->price,
             ];
         }
@@ -658,6 +659,7 @@ class Variation extends Model
                 'note' => $variantMeta?->note,
                 'image' => $variantMeta?->image,
                 'image_full_path' => $variantMeta?->image_full_path,
+                'icon' => $variantMeta?->icon,
                 'price' => (float) $variation->price,
             ];
         }

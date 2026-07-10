@@ -15,6 +15,7 @@ use Modules\BusinessSettingsModule\Entities\Translation;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\ServiceManagement\Entities\ServiceVariant;
 use Modules\ServiceManagement\Entities\Variation;
+use Modules\ServiceManagement\Support\ServiceOverviewIconPresets;
 use Modules\ZoneManagement\Entities\Zone;
 use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
@@ -107,6 +108,7 @@ class ServiceVariantController extends Controller
             'title' => 'required|max:191',
             'description' => 'nullable|string|max:5000',
             'note' => 'nullable|string|max:1000',
+            'icon' => 'nullable|string|max:64|in:'.implode(',', ServiceOverviewIconPresets::keys()),
             'default_price' => 'required|numeric|min:0.01',
             'image' => 'nullable|image|max:'.uploadMaxFileSizeInKB('image').'|mimes:'.implode(',', array_column(IMAGEEXTENSION, 'key')),
         ]);
@@ -127,6 +129,7 @@ class ServiceVariantController extends Controller
         $variant->title = $request->title;
         $variant->description = $request->description;
         $variant->note = $request->note;
+        $variant->icon = $request->filled('icon') ? $request->icon : null;
         $variant->sort_order = ((int) $this->serviceVariant->where('service_id', $serviceId)->max('sort_order')) + 1;
         $variant->is_active = $request->boolean('is_active', true);
 
@@ -259,6 +262,7 @@ class ServiceVariantController extends Controller
             'title' => 'required|max:191',
             'description' => 'nullable|string|max:5000',
             'note' => 'nullable|string|max:1000',
+            'icon' => 'nullable|string|max:64|in:'.implode(',', ServiceOverviewIconPresets::keys()),
             'default_price' => 'required|numeric|min:0',
             'image' => 'nullable|image|max:'.uploadMaxFileSizeInKB('image').'|mimes:'.implode(',', array_column(IMAGEEXTENSION, 'key')),
         ]);
@@ -266,6 +270,7 @@ class ServiceVariantController extends Controller
         $variant->title = $request->title;
         $variant->description = $request->description;
         $variant->note = $request->note;
+        $variant->icon = $request->filled('icon') ? $request->icon : null;
         $variant->is_active = $request->boolean('is_active', true);
 
         if ($request->hasFile('image')) {
