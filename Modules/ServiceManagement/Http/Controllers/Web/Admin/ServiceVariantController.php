@@ -106,6 +106,7 @@ class ServiceVariantController extends Controller
         $request->validate([
             'title' => 'required|max:191',
             'description' => 'nullable|string|max:5000',
+            'note' => 'nullable|string|max:1000',
             'default_price' => 'required|numeric|min:0.01',
             'image' => 'nullable|image|max:'.uploadMaxFileSizeInKB('image').'|mimes:'.implode(',', array_column(IMAGEEXTENSION, 'key')),
         ]);
@@ -125,6 +126,7 @@ class ServiceVariantController extends Controller
         $variant->variant_key = $variantKey;
         $variant->title = $request->title;
         $variant->description = $request->description;
+        $variant->note = $request->note;
         $variant->sort_order = ((int) $this->serviceVariant->where('service_id', $serviceId)->max('sort_order')) + 1;
         $variant->is_active = $request->boolean('is_active', true);
 
@@ -256,12 +258,14 @@ class ServiceVariantController extends Controller
         $request->validate([
             'title' => 'required|max:191',
             'description' => 'nullable|string|max:5000',
+            'note' => 'nullable|string|max:1000',
             'default_price' => 'required|numeric|min:0',
             'image' => 'nullable|image|max:'.uploadMaxFileSizeInKB('image').'|mimes:'.implode(',', array_column(IMAGEEXTENSION, 'key')),
         ]);
 
         $variant->title = $request->title;
         $variant->description = $request->description;
+        $variant->note = $request->note;
         $variant->is_active = $request->boolean('is_active', true);
 
         if ($request->hasFile('image')) {
@@ -410,7 +414,7 @@ class ServiceVariantController extends Controller
                 continue;
             }
 
-            foreach (['title', 'description'] as $field) {
+            foreach (['title', 'description', 'note'] as $field) {
                 $values = $request->input($field);
                 if (! is_array($values) || ! isset($values[$index])) {
                     continue;

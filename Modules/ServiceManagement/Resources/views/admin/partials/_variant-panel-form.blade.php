@@ -57,6 +57,11 @@
                         <textarea name="description" class="form-control form-control-sm" rows="2">{{ $isEdit ? $variant->getRawOriginal('description') : old('description') }}</textarea>
                     </div>
                     <div class="col-12">
+                        <label class="form-label fs-12 mb-1">{{ translate('variant_note') }}</label>
+                        <textarea name="note" class="form-control form-control-sm" rows="2"
+                                  placeholder="{{ translate('variant_note_hint') }}">{{ $isEdit ? $variant->getRawOriginal('note') : old('note') }}</textarea>
+                    </div>
+                    <div class="col-12">
                         <div class="form-check form-switch">
                             <input class="form-check-input js-variant-zone-pricing-toggle" type="checkbox"
                                    name="variant_use_zone_pricing" value="1"

@@ -260,6 +260,8 @@
   'service_name' => 'Service name',
   'service_information' => 'Service information',
   'price_variation' => 'Price variation',
+  'variant_note' => 'Note',
+  'variant_note_hint' => 'Optional note shown on the variation card (e.g. fee adjustment message)',
   'manage_variants' => 'Manage variants',
   'The tax field is required.' => 'The tax field is required.',
   'default_price' => 'Default price',

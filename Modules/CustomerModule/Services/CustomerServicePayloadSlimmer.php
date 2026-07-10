@@ -91,8 +91,12 @@ class CustomerServicePayloadSlimmer
             $variations[] = array_filter([
                 'variant_key' => $variation['variant_key'] ?? null,
                 'variant_name' => $variation['variant_name'] ?? null,
+                'description' => $variation['description'] ?? null,
+                'note' => $variation['note'] ?? null,
+                'image' => $variation['image'] ?? null,
+                'image_full_path' => $variation['image_full_path'] ?? null,
                 'price' => $variation['price'] ?? null,
-            ], fn ($value) => $value !== null);
+            ], fn ($value) => $value !== null && $value !== '');
         }
 
         return [

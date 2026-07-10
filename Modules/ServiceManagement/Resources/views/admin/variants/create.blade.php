@@ -31,6 +31,10 @@
                                     <textarea name="description" class="form-control" style="min-height:120px;">{{ old('description') }}</textarea>
                                     <label>{{ translate('description') }}</label>
                                 </div>
+                                <div class="form-floating mb-3">
+                                    <textarea name="note" class="form-control" style="min-height:90px;" placeholder="{{ translate('variant_note_hint') }}">{{ old('note') }}</textarea>
+                                    <label>{{ translate('variant_note') }}</label>
+                                </div>
                                 <div class="form-check form-switch mb-3">
                                     <input class="form-check-input" type="checkbox" name="is_active" value="1" id="variant-active" checked>
                                     <label class="form-check-label" for="variant-active">{{ translate('active') }}</label>
