@@ -95,6 +95,7 @@ class CustomerServicePayloadSlimmer
                 'note' => $variation['note'] ?? null,
                 'image' => $variation['image'] ?? null,
                 'image_full_path' => $variation['image_full_path'] ?? null,
+                'icon' => $variation['icon'] ?? null,
                 'price' => $variation['price'] ?? null,
             ], fn ($value) => $value !== null && $value !== '');
         }

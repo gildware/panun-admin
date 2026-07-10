@@ -29,6 +29,7 @@ class CustomerHomeBundlePayloadSlimmerTest extends TestCase
                             'price' => 100,
                             'description' => 'ignored',
                             'image_full_path' => 'ignored',
+                            'icon' => 'location',
                         ]],
                     ],
                     'category' => [
@@ -65,7 +66,9 @@ class CustomerHomeBundlePayloadSlimmerTest extends TestCase
         $this->assertArrayNotHasKey('description', $service);
         $this->assertArrayNotHasKey('tax', $service);
         $this->assertSame('basic', $service['variations_app_format']['zone_wise_variations'][0]['variant_key']);
-        $this->assertArrayNotHasKey('description', $service['variations_app_format']['zone_wise_variations'][0]);
+        $this->assertSame('ignored', $service['variations_app_format']['zone_wise_variations'][0]['description']);
+        $this->assertSame('ignored', $service['variations_app_format']['zone_wise_variations'][0]['image_full_path']);
+        $this->assertSame('location', $service['variations_app_format']['zone_wise_variations'][0]['icon']);
 
         $provider = $slim['advertisements']['data'][0]['provider'];
         $this->assertSame('provider-1', $provider['id']);

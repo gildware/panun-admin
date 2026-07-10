@@ -22,6 +22,7 @@ class ServiceVariant extends Model
         'description',
         'note',
         'image',
+        'icon',
         'sort_order',
         'is_active',
     ];
