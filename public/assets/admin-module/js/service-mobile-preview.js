@@ -316,18 +316,21 @@
         var structured = buildStructuredOverviewHtml(overviewContent);
         var inner = descriptionHtml && descriptionHtml.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
         var hasLegacyText = inner && $.trim($('<div>').html(inner).text());
+        var parts = [];
 
-        if (!structured && !hasLegacyText) {
-            inner = '<p class="service-app-overview-empty">' + escapeHtml('No description yet') + '</p>';
-        } else if (structured) {
-            inner = structured;
-        } else if (hasLegacyText) {
-            inner = '<div class="service-app-overview-html-legacy">' + inner + '</div>';
+        if (hasLegacyText) {
+            parts.push('<div class="service-app-overview-html-legacy">' + inner + '</div>');
+        }
+        if (structured) {
+            parts.push(structured);
+        }
+        if (!parts.length) {
+            parts.push('<p class="service-app-overview-empty">' + escapeHtml('No description yet') + '</p>');
         }
 
         return (
             '<div class="service-app-overview-panel">' +
-            '<div class="service-app-overview-html">' + inner + '</div>' +
+            '<div class="service-app-overview-html">' + parts.join('') + '</div>' +
             '</div>'
         );
     }
@@ -367,11 +370,20 @@
             : [data.labelOverview, data.labelReviews];
     }
 
-    function buildTabsHtml(labels, activeIndex, sticky) {
+    function tabOrderForApp(appType, hasFaqs) {
+        if (appType === 'provider') {
+            return ['overview', 'price_table', 'faq', 'reviews'];
+        }
+        return hasFaqs ? ['overview', 'faq', 'reviews'] : ['overview', 'reviews'];
+    }
+
+    function buildTabsHtml(labels, activeIndex, sticky, tabValues) {
         var stickyClass = sticky ? ' service-app-tabs-sticky' : '';
         var html = '<div class="service-app-tabs' + stickyClass + '">';
         labels.forEach(function (label, i) {
-            html += '<span class="service-app-tab' + (i === activeIndex ? ' active' : '') + '" title="' + escapeHtml(label) + '">'
+            var tabValue = tabValues && tabValues[i] ? tabValues[i] : 'overview';
+            html += '<span class="service-app-tab' + (i === activeIndex ? ' active' : '') + '" data-preview-tab="'
+                + escapeHtml(tabValue) + '" role="button" tabindex="0" title="' + escapeHtml(label) + '">'
                 + escapeHtml(label) + '</span>';
         });
         html += '</div>';
@@ -430,13 +442,37 @@
         );
     }
 
+    function buildCardHighlightsHtml(overview) {
+        var highlights = overview && overview.card_highlights ? overview.card_highlights : [];
+        if (!highlights.length) {
+            return '';
+        }
+
+        var html = '<div class="service-app-info-highlights">';
+        highlights.slice(0, 3).forEach(function (item) {
+            var text = (item.text || '').trim();
+            if (!text) {
+                return;
+            }
+            html += '<span class="service-app-info-highlight"><span class="material-icons">'
+                + overviewIconMaterial(item.icon) + '</span><span>'
+                + escapeHtml(text) + '</span></span>';
+        });
+        html += '</div>';
+        return html;
+    }
+
     function renderCustomerPreview(data, activeTab) {
         var coverStyle = data.coverUrl ? "background-image:url('" + safeCssUrl(data.coverUrl) + "')" : '';
         var thumbSrc = escapeHtml(data.thumbUrl || data.placeholder);
         var name = escapeHtml(data.name || 'Service name');
         var hasFaqs = !!(data.faqs && data.faqs.length);
         var labels = tabLabelsForApp('customer', data);
+        var tabValues = tabOrderForApp('customer', hasFaqs);
         var activeIndex = tabIndexForValue(activeTab, 'customer', hasFaqs);
+        var heroSub = data.shortDescription
+            ? '<p class="service-app-customer-hero-sub">' + escapeHtml(data.shortDescription) + '</p>'
+            : '';
 
         var scrollHtml =
             '<div class="service-app-layout-customer">' +
@@ -444,6 +480,7 @@
             '<div class="service-app-customer-hero-overlay"></div>' +
             '<div class="service-app-customer-hero-bottom">' +
             '<div class="service-app-customer-hero-title"><span>' + name + '</span></div>' +
+            heroSub +
             buildHeroInfoChipsHtml(data) +
             '</div>' +
             '</div>' +
@@ -462,8 +499,9 @@
             '<span class="service-app-book-btn">' + escapeHtml(data.labelBookNow) + '</span>' +
             '</div>' +
             '<div class="service-app-short-desc">' + escapeHtml(data.shortDescription || '') + '</div>' +
+            buildCardHighlightsHtml(data.overviewContent) +
             '</div></div></div>' +
-            buildTabsHtml(labels, activeIndex, true) +
+            buildTabsHtml(labels, activeIndex, true, tabValues) +
             buildTabContent(activeTab, data) +
             '</div>';
 
@@ -474,6 +512,7 @@
         var coverStyle = data.coverUrl ? "background-image:url('" + safeCssUrl(data.coverUrl) + "')" : '';
         var thumbSrc = escapeHtml(data.thumbUrl || data.placeholder);
         var labels = tabLabelsForApp('provider', data);
+        var tabValues = tabOrderForApp('provider', true);
         var activeIndex = tabIndexForValue(activeTab, 'provider', true);
 
         var scrollHtml =
@@ -492,7 +531,7 @@
             '</div></div></div>' +
             '<p class="service-app-provider-short">' + escapeHtml(data.shortDescription || '') + '</p>' +
             '</div>' +
-            buildTabsHtml(labels, activeIndex, true) +
+            buildTabsHtml(labels, activeIndex, true, tabValues) +
             buildTabContent(activeTab, data) +
             '</div>';
 
@@ -634,9 +673,10 @@
             return;
         }
 
-        var activeTab = getActiveDetailPreviewTab();
+        var activeTab = $root.data('active-tab') || 'overview';
         if (activeTab === 'faq' && !(data.faqs && data.faqs.length)) {
             activeTab = 'overview';
+            $root.data('active-tab', activeTab);
         }
         $screen.html(renderCustomerPreview(data, activeTab));
         $screen.scrollTop(0);
@@ -653,7 +693,6 @@
         if (!$('#serviceDetailPreviewRoot').length) {
             return;
         }
-        syncTabPillsActiveState();
         refreshDetailInlinePreview();
     }
 
@@ -742,6 +781,15 @@
         refreshDetailInlinePreview();
     });
 
+    $(document).on('click', '#serviceDetailPreviewScreen .service-app-tab', function () {
+        var tab = $(this).data('preview-tab');
+        if (!tab) {
+            return;
+        }
+        $('#serviceDetailPreviewRoot').data('active-tab', tab);
+        refreshDetailInlinePreview();
+    });
+
     $(document).on('click', '.service-preview-tab-pill', function () {
         var $radio = $(this).find('input[type="radio"]');
         if ($radio.length && !$radio.prop('checked')) {
@@ -799,7 +847,9 @@
         initDetailInlinePreview();
     });
 
-    $(document).on('shown.bs.tab', 'button[data-bs-target="#mobile-preview-tab-pane"]', function () {
+    $(document).on('shown.bs.tab', 'button[data-bs-target="#preview-tab-pane"]', function () {
         initDetailInlinePreview();
     });
+
+    window.refreshDetailInlinePreview = refreshDetailInlinePreview;
 })(jQuery);

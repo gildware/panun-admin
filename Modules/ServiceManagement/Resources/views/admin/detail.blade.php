@@ -107,166 +107,26 @@
             width: 2rem;
             height: 2rem;
         }
-        .service-detail-page #faq-tab-pane .card-body {
-            padding: 1rem 1.125rem;
-        }
-        .service-detail-page #faq-tab-pane .service-detail-faq-compose {
-            background: var(--bs-tertiary-bg);
-            border: 1px solid var(--bs-border-color);
-            border-radius: 0.75rem;
-            padding: 1rem;
-            margin-bottom: 1rem;
-        }
-        .service-detail-page #faq-tab-pane .service-detail-faq-compose-title {
-            font-size: 0.875rem;
-            font-weight: 600;
-            margin: 0 0 0.75rem;
-            color: var(--bs-body-color);
-        }
-        .service-detail-page #faq-tab-pane #faq-form .form-floating {
-            margin-bottom: 0.75rem;
-        }
-        .service-detail-page #faq-tab-pane #faq-form .form-floating > .form-control {
-            border-radius: 0.5rem;
-        }
-        .service-detail-page #faq-tab-pane #faq-form .form-floating > textarea {
-            min-height: 6.5rem;
-        }
-        .service-detail-page #faq-tab-pane #faq-submit-btn {
-            min-width: 9.5rem;
-            min-height: 2.75rem;
-            padding: 0.625rem 1.25rem;
-            font-size: 0.9375rem;
-            font-weight: 600;
-            border-radius: 0.5rem;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.375rem;
-        }
-        .service-detail-page #faq-tab-pane #faq-submit-btn .spinner-border {
-            width: 1rem;
-            height: 1rem;
-            border-width: 0.15em;
-        }
-        .service-detail-page #faq-tab-pane .service-detail-faq-empty {
-            text-align: center;
-            padding: 2rem 1rem;
-        }
-        .service-detail-page #faq-tab-pane .service-detail-faq-empty img {
-            max-width: 4.5rem;
-            opacity: 0.45;
-            margin-bottom: 0.75rem;
-        }
-        .service-detail-page #faq-tab-pane .service-detail-faq-empty p {
-            font-size: 0.875rem;
-            margin: 0;
-        }
-        .service-detail-page #faq-tab-pane .accordion.mb-30 {
-            margin-bottom: 0.75rem !important;
-        }
-        .service-detail-page #faq-tab-pane .accordion-item {
-            border: 1px solid var(--bs-border-color);
-            border-radius: 0.625rem !important;
-            overflow: hidden;
-            margin-bottom: 0;
-            background: #fff;
-        }
-        .service-detail-page #faq-tab-pane .service-faq-item {
-            margin-bottom: 0.625rem;
-        }
-        .service-detail-page #faq-tab-pane .service-faq-item.is-dragging {
-            opacity: 0.55;
-        }
-        .service-detail-page #faq-tab-pane .service-faq-item.is-drag-over > .accordion-item {
-            outline: 2px dashed var(--bs-primary);
-            outline-offset: 1px;
-        }
-        .service-detail-page #faq-tab-pane .service-faq-drag-handle {
-            flex-shrink: 0;
-            color: var(--bs-secondary-color);
-            cursor: grab;
-            user-select: none;
-            padding: 0.25rem;
-            font-size: 1.25rem;
-            line-height: 1;
-        }
-        .service-detail-page #faq-tab-pane .service-faq-drag-handle:active {
-            cursor: grabbing;
-        }
-        .service-detail-page #faq-tab-pane .accordion-header {
-            align-items: center;
-            gap: 0.375rem;
-            padding: 0.25rem 0.5rem 0.25rem 0.375rem;
-            background: transparent;
-        }
-        .service-detail-page #faq-tab-pane .accordion-header .accordion-button {
-            position: relative;
-            flex: 1 1 auto;
-            min-width: 0;
-            padding: 0.75rem 0.875rem 0.75rem 2.5rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-            box-shadow: none;
-            background: transparent;
-            text-align: start;
-        }
-        .service-detail-page #faq-tab-pane .accordion-header .accordion-button::after {
-            inset-inline-start: 0.625rem;
-            margin: 0;
-        }
-        .service-detail-page #faq-tab-pane .accordion-header .accordion-button:not(.collapsed) {
-            color: var(--bs-primary);
-            background: rgba(var(--bs-primary-rgb), 0.04);
-        }
-        .service-detail-page #faq-tab-pane .accordion-body {
-            padding: 0.75rem 0.875rem 1rem;
-            font-size: 0.8125rem;
-            color: var(--bs-secondary-color);
-            line-height: 1.5;
-            border-top: 1px solid var(--bs-border-color);
-        }
-        .service-detail-page #faq-tab-pane .accordion-header .btn-group {
-            flex-shrink: 0;
-            padding-right: 0.5rem;
-        }
-        .service-detail-page #faq-tab-pane .service-faq-edit-form {
-            border: 1px solid var(--bs-border-color);
-            border-radius: 0.625rem;
-            padding: 0.875rem;
-            margin-bottom: 0.75rem;
-            background: var(--bs-tertiary-bg);
-        }
-        .service-detail-page #faq-tab-pane .service-faq-edit-form .form-floating {
-            margin-bottom: 0.75rem !important;
-        }
-        .service-detail-page #faq-tab-pane .service-faq-update {
-            min-width: 8.5rem;
-            min-height: 2.5rem;
-            padding: 0.5rem 1rem;
-            font-size: 0.875rem;
-            font-weight: 600;
-        }
-        .service-detail-page #review-tab-pane .card-body.p-30 {
+        .service-detail-page #reviews-tab-pane .card-body.p-30 {
             padding: 1rem 1.125rem !important;
         }
-        .service-detail-page #review-tab-pane .rating-review__title {
+        .service-detail-page #reviews-tab-pane .rating-review__title {
             font-size: 1.5rem;
         }
-        .service-detail-page #review-tab-pane .rating-review__out-of {
+        .service-detail-page #reviews-tab-pane .rating-review__out-of {
             font-size: 1.75rem;
         }
-        .service-detail-page #review-tab-pane .col-lg-5.mb-30 {
+        .service-detail-page #reviews-tab-pane .col-lg-5.mb-30 {
             margin-bottom: 1rem !important;
         }
-        .service-detail-page #review-tab-pane .card.mb-30 {
+        .service-detail-page #reviews-tab-pane .card.mb-30 {
             margin-bottom: 1rem !important;
         }
-        .service-detail-page #review-tab-pane .table {
+        .service-detail-page #reviews-tab-pane .table {
             font-size: 0.8125rem;
         }
-        .service-detail-page #review-tab-pane .table th,
-        .service-detail-page #review-tab-pane .table td {
+        .service-detail-page #reviews-tab-pane .table th,
+        .service-detail-page #reviews-tab-pane .table td {
             padding: 0.5rem 0.625rem;
         }
         .service-detail-page .btn.btn-sm-compact {
@@ -332,31 +192,28 @@
             <div class="mb-2">
                 <ul class="nav nav--tabs nav--tabs__style2">
                     <li class="nav-item">
-                        <button class="nav-link {{!isset($webPage) || $webPage=='general'?'active':''}}"
+                        <button class="nav-link {{!isset($webPage) || $webPage=='overview'?'active':''}}"
                                 data-bs-toggle="tab"
-                                data-bs-target="#general-tab-pane">{{translate('general_info')}}
+                                data-bs-target="#overview-tab-pane">{{translate('overview')}}
                         </button>
                     </li>
                     <li class="nav-item">
-                        <button class="nav-link {{isset($webPage) && $webPage=='overview'?'active':''}}" data-bs-toggle="tab"
-                                data-bs-target="#overview-tab-pane">{{translate('overview_sections')}}</button>
-                    </li>
-                    <li class="nav-item">
-                        <button class="nav-link {{isset($webPage) && $webPage=='faq'?'active':''}}" data-bs-toggle="tab"
-                                data-bs-target="#faq-tab-pane">{{translate('faq')}}</button>
-                    </li>
-                    <li class="nav-item">
-                        <button class="nav-link {{isset($webPage) && $webPage=='review'?'active':''}}"
+                        <button class="nav-link {{isset($webPage) && $webPage=='reviews'?'active':''}}"
                                 data-bs-toggle="tab"
-                                data-bs-target="#review-tab-pane">{{translate('reviews')}}
+                                data-bs-target="#reviews-tab-pane">{{translate('reviews')}}
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link {{isset($webPage) && $webPage=='preview'?'active':''}}" data-bs-toggle="tab"
+                                data-bs-target="#preview-tab-pane">{{translate('mobile_preview')}}
                         </button>
                     </li>
                 </ul>
             </div>
 
             <div class="tab-content">
-                <div class="tab-pane fade {{!isset($webPage) || $webPage=='general'?'show active':''}}"
-                     id="general-tab-pane">
+                <div class="tab-pane fade {{!isset($webPage) || $webPage=='overview'?'show active':''}}"
+                     id="overview-tab-pane">
                     <div class="card service-detail-card">
                         <div class="card-body">
                             <div class="service-detail-hero">
@@ -383,119 +240,41 @@
                                 </div>
                             </div>
 
-                            <div class="mb-2">
-                                <ul class="nav nav--tabs">
-                                    <li class="nav-item">
-                                        <button class="nav-link active" data-bs-toggle="tab"
-                                                data-bs-target="#long-description-tab-pane">{{translate('details')}}
-                                        </button>
-                                    </li>
-                                    <li class="nav-item">
-                                        <button class="nav-link" data-bs-toggle="tab"
-                                                data-bs-target="#mobile-preview-tab-pane">{{translate('mobile_preview')}}
-                                        </button>
-                                    </li>
-                                    <li class="nav-item">
-                                        <button class="nav-link" data-bs-toggle="tab"
-                                                data-bs-target="#price-table-tab-pane">{{translate('price_table')}}
-                                        </button>
-                                    </li>
-                                </ul>
-                            </div>
+                            @include('servicemanagement::admin.partials._service-overview-styles')
 
-                            <div class="tab-content">
-                                <div class="tab-pane fade show active" id="long-description-tab-pane">
-                                    @include('servicemanagement::admin.partials._service-overview-styles')
-
-                                    @if(!empty($resolvedOverviewContent))
-                                        <div class="mb-4">
-                                            <h6 class="mb-2 fw-semibold">{{ translate('service_overview_sections') }}</h6>
-                                            @include('servicemanagement::admin.partials._service-overview-sections', [
-                                                'resolvedOverviewContent' => $resolvedOverviewContent,
-                                                'layout' => 'readonly',
-                                            ])
-                                        </div>
-                                    @endif
-
-                                    @if(!empty(trim(strip_tags((string) $service->description))))
-                                        <div class="{{ !empty($resolvedOverviewContent) ? 'pt-3 border-top' : '' }}">
-                                            @if(!empty($resolvedOverviewContent))
-                                                <h6 class="mb-2 fw-semibold">{{ translate('long_Description') }}</h6>
-                                            @endif
-                                            <div class="service-long-description-html">
-                                                {!! $service->description !!}
-                                            </div>
-                                        </div>
-                                    @elseif(empty($resolvedOverviewContent))
-                                        <div class="service-detail-overview-empty">
-                                            {{ translate('no_service_details_added_yet') }}
-                                        </div>
-                                    @endif
-                                </div>
-                                <div class="tab-pane fade" id="mobile-preview-tab-pane">
-                                    <p class="text-muted fs-12 mb-3">{{ translate('overview_mobile_preview_hint') }}</p>
-                                    @include('servicemanagement::admin.partials._service-detail-inline-mobile-preview', [
-                                        'servicePreviewPayload' => $servicePreviewPayload ?? [],
+                            @if(!empty($resolvedOverviewContent))
+                                <div class="mb-4">
+                                    <h6 class="mb-2 fw-semibold">{{ translate('service_overview_sections') }}</h6>
+                                    @include('servicemanagement::admin.partials._service-overview-sections', [
+                                        'resolvedOverviewContent' => $resolvedOverviewContent,
+                                        'layout' => 'readonly',
                                     ])
                                 </div>
-                                <div class="tab-pane fade" id="price-table-tab-pane">
-                                    @include('servicemanagement::admin.partials._service-price-table', ['service' => $service])
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="tab-pane fade {{isset($webPage) && $webPage=='overview'?'show active':''}}" id="overview-tab-pane">
-                    <div class="card service-detail-card">
-                        <div class="card-body">
-                            @include('servicemanagement::admin.partials._overview-content-editor', [
-                                'service' => $service,
-                                'overviewContent' => $overviewContent ?? [],
-                                'overviewDefaults' => $overviewDefaults ?? [],
-                                'overviewIconOptions' => $overviewIconOptions ?? [],
-                            ])
-                        </div>
-                    </div>
-                </div>
-                <div class="tab-pane fade {{isset($webPage) && $webPage=='faq'?'show active':''}}" id="faq-tab-pane">
-                    <div class="card service-detail-card mb-3">
-                        <div class="card-body">
-                            <div class="service-detail-faq-compose">
-                                <h6 class="service-detail-faq-compose-title">{{ translate('add_faq') }}</h6>
-                                <form action="javascript:void(0)" method="POST" id="faq-form" novalidate>
-                                    @csrf
-                                    <div class="form-floating">
-                                        <input type="text" class="form-control" id="faq-question-input"
-                                               placeholder="{{translate('question')}}"
-                                               name="question" required maxlength="500" autocomplete="off">
-                                        <label for="faq-question-input">{{translate('question')}}</label>
-                                    </div>
-                                    <div class="form-floating">
-                                        <textarea class="form-control" id="faq-answer-input"
-                                                  placeholder="{{translate('answer')}}" name="answer"
-                                                  required></textarea>
-                                        <label for="faq-answer-input">{{translate('answer')}}</label>
-                                    </div>
-                                    <div class="d-flex justify-content-end">
-                                        <button type="submit" class="btn btn--primary" id="faq-submit-btn"
-                                                data-label-idle="{{ translate('add_faq') }}"
-                                                data-label-loading="{{ translate('Loading') }}...">
-                                            <span class="faq-submit-label">{{ translate('add_faq') }}</span>
-                                            <span class="spinner-border text-light d-none" role="status" aria-hidden="true"></span>
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
+                            @endif
 
-                            <div id="faq-list"
-                                 data-service-id="{{ $service->id }}"
-                                 data-reorder-url="{{ route('admin.faq.reorder', $service->id) }}">
-                                @include('servicemanagement::admin.partials._faq-list',['faqs'=>$faqs])
+                            @if(!empty(trim(strip_tags((string) $service->description))))
+                                <div class="{{ !empty($resolvedOverviewContent) ? 'pt-3 border-top' : '' }}">
+                                    @if(!empty($resolvedOverviewContent))
+                                        <h6 class="mb-2 fw-semibold">{{ translate('long_Description') }}</h6>
+                                    @endif
+                                    <div class="service-long-description-html">
+                                        {!! $service->description !!}
+                                    </div>
+                                </div>
+                            @elseif(empty($resolvedOverviewContent))
+                                <div class="service-detail-overview-empty">
+                                    {{ translate('no_service_details_added_yet') }}
+                                </div>
+                            @endif
+
+                            <div class="pt-4 mt-4 border-top">
+                                <h6 class="mb-3 fw-semibold">{{ translate('price_table') }}</h6>
+                                @include('servicemanagement::admin.partials._service-price-table', ['service' => $service])
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="tab-pane fade {{isset($webPage) && $webPage=='review'?'show active':''}}" id="review-tab-pane">
+                <div class="tab-pane fade {{isset($webPage) && $webPage=='reviews'?'show active':''}}" id="reviews-tab-pane">
 
                     @if($reviews->total() > 0)
                         <div class="card service-detail-card mb-3">
@@ -719,6 +498,15 @@
                         </div>
                     </div>
                 </div>
+                <div class="tab-pane fade {{isset($webPage) && $webPage=='preview'?'show active':''}}" id="preview-tab-pane">
+                    <div class="card service-detail-card border-0 shadow-none bg-transparent">
+                        <div class="card-body p-0">
+                            @include('servicemanagement::admin.partials._service-detail-inline-mobile-preview', [
+                                'servicePreviewPayload' => $servicePreviewPayload ?? [],
+                            ])
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -810,336 +598,6 @@
             modal.find('input[name=readable_id]').val(readableID);
             modal.find('form').attr('action',action);
         });
-
-        let faqSubmitting = false;
-        let faqDragItem = null;
-        let faqReorderSaving = false;
-
-        function getFaqReorderUrl() {
-            return $('#faq-list').data('reorder-url') || '';
-        }
-
-        function collectFaqOrder() {
-            return $('#faqAccordionList .service-faq-item').map(function () {
-                return $(this).data('faq-id');
-            }).get().filter(Boolean);
-        }
-
-        function saveFaqOrder() {
-            const url = getFaqReorderUrl();
-            const order = collectFaqOrder();
-            if (!url || order.length < 1 || faqReorderSaving) {
-                return;
-            }
-
-            faqReorderSaving = true;
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                }
-            });
-
-            $.post({
-                url: url,
-                data: { order: order },
-                success: function () {
-                    toastr.success('{{ translate('successfully_updated') }}');
-                },
-                error: function () {
-                    toastr.error('{{ translate('something_went_wrong') }}');
-                },
-                complete: function () {
-                    faqReorderSaving = false;
-                }
-            });
-        }
-
-        function initFaqSortable() {
-            const list = document.getElementById('faqAccordionList');
-            if (!list) {
-                return;
-            }
-            list.dataset.faqSortInit = '1';
-
-            list.querySelectorAll('.service-faq-drag-handle').forEach(function (handle) {
-                if (handle.dataset.faqDragInit === '1') {
-                    return;
-                }
-                handle.dataset.faqDragInit = '1';
-
-                handle.addEventListener('dragstart', function (e) {
-                    faqDragItem = handle.closest('.service-faq-item');
-                    if (!faqDragItem) {
-                        return;
-                    }
-                    faqDragItem.classList.add('is-dragging');
-                    e.dataTransfer.effectAllowed = 'move';
-                    try {
-                        e.dataTransfer.setData('text/plain', faqDragItem.dataset.faqId || '');
-                    } catch (err) {}
-                    e.stopPropagation();
-                });
-
-                handle.addEventListener('dragend', function () {
-                    if (faqDragItem) {
-                        faqDragItem.classList.remove('is-dragging');
-                    }
-                    list.querySelectorAll('.service-faq-item.is-drag-over').forEach(function (el) {
-                        el.classList.remove('is-drag-over');
-                    });
-                    faqDragItem = null;
-                    saveFaqOrder();
-                });
-
-                handle.addEventListener('mousedown', function (e) {
-                    e.stopPropagation();
-                });
-                handle.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                });
-            });
-
-            if (list.dataset.faqListDragInit === '1') {
-                return;
-            }
-            list.dataset.faqListDragInit = '1';
-
-            list.addEventListener('dragover', function (e) {
-                e.preventDefault();
-                const target = e.target.closest('.service-faq-item');
-                if (!faqDragItem || !target || target === faqDragItem || !list.contains(target)) {
-                    return;
-                }
-
-                list.querySelectorAll('.service-faq-item.is-drag-over').forEach(function (el) {
-                    if (el !== target) {
-                        el.classList.remove('is-drag-over');
-                    }
-                });
-                target.classList.add('is-drag-over');
-
-                const rect = target.getBoundingClientRect();
-                const before = (e.clientY - rect.top) < (rect.height / 2);
-                if (before) {
-                    list.insertBefore(faqDragItem, target);
-                } else {
-                    list.insertBefore(faqDragItem, target.nextSibling);
-                }
-            });
-
-            list.addEventListener('drop', function (e) {
-                e.preventDefault();
-                list.querySelectorAll('.service-faq-item.is-drag-over').forEach(function (el) {
-                    el.classList.remove('is-drag-over');
-                });
-            });
-        }
-
-        function setFaqSubmitLoading(isLoading) {
-            const $btn = $('#faq-submit-btn');
-            const idleLabel = $btn.data('label-idle') || '{{ translate('add_faq') }}';
-            const loadingLabel = $btn.data('label-loading') || '{{ translate('Loading') }}...';
-
-            faqSubmitting = isLoading;
-            $btn.prop('disabled', isLoading);
-            $btn.find('.faq-submit-label').text(isLoading ? loadingLabel : idleLabel);
-            $btn.find('.spinner-border').toggleClass('d-none', !isLoading);
-            $('#faq-form').find('input[name="question"], textarea[name="answer"]').prop('disabled', isLoading);
-        }
-
-        $('#faq-form').on('submit', function (e) {
-            e.preventDefault();
-
-            const form = this;
-            const question = (form.question.value || '').trim();
-            const answer = (form.answer.value || '').trim();
-
-            if (!question || !answer) {
-                form.reportValidity();
-                toastr.error('{{ translate('Please_complete_all_required_fields_before_proceeding') }}');
-                return;
-            }
-
-            if (faqSubmitting) {
-                return;
-            }
-
-            form.question.value = question;
-            form.answer.value = answer;
-            setFaqSubmitLoading(true);
-
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                }
-            });
-
-            const data = new FormData();
-            data.append('_token', $('meta[name="csrf-token"]').attr('content') || form._token?.value || '');
-            data.append('question', question);
-            data.append('answer', answer);
-
-            $.post({
-                url: '{{route('admin.faq.store',[$service->id])}}',
-                data: data,
-                processData: false,
-                contentType: false,
-                cache: false,
-                timeout: 800000,
-                success: function (response) {
-                    $('#faq-list').empty().html(response.template);
-                    form.reset();
-                    toastr.success('{{translate('successfully_added')}}');
-                    initFaqSortable();
-                },
-                error: function () {
-                    toastr.error('{{ translate('something_went_wrong') }}');
-                },
-                complete: function () {
-                    setFaqSubmitLoading(false);
-                }
-            });
-        });
-
-        $('#faq-list').on('click', '.service-faq-update', function () {
-            let id = $(this).data('id');
-            ajax_post(id, this);
-        });
-
-        function ajax_post(form_id, triggerBtn) {
-            "use strict";
-
-            const $btn = $(triggerBtn);
-            if ($btn.data('busy')) {
-                return;
-            }
-
-            const form = $('#' + form_id)[0];
-            if (!form) {
-                return;
-            }
-
-            const question = (form.question?.value || '').trim();
-            const answer = (form.answer?.value || '').trim();
-            if (!question || !answer) {
-                form.reportValidity();
-                toastr.error('{{ translate('Please_complete_all_required_fields_before_proceeding') }}');
-                return;
-            }
-
-            form.question.value = question;
-            form.answer.value = answer;
-
-            $btn.data('busy', true).prop('disabled', true);
-            const originalHtml = $btn.html();
-            $btn.html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>{{ translate('Loading') }}...');
-
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                }
-            });
-
-            $.post({
-                url: $('#' + form_id).attr('action'),
-                data: new FormData(form),
-                processData: false,
-                contentType: false,
-                cache: false,
-                timeout: 800000,
-                success: function (response) {
-                    $('#faq-list').empty().html(response.template);
-                    toastr.success('{{translate('successfully_updated')}}');
-                    initFaqSortable();
-                },
-                error: function () {
-                    toastr.error('{{ translate('something_went_wrong') }}');
-                    $btn.data('busy', false).prop('disabled', false).html(originalHtml);
-                }
-            });
-        }
-
-        $('#faq-list').on('click', '.faq-list-ajax-delete', function () {
-            let route = $(this).data('route');
-            ajax_delete(route)
-        });
-
-        $('#faq-list').on('click', '.show-service-edit-section', function () {
-            let id = $(this).data('id');
-            $(`#edit-${id}`).toggle();
-        });
-
-        function ajax_delete(route) {
-            "use strict";
-
-            Swal.fire({
-                title: "{{translate('are_you_sure')}}?",
-                text: '{{translate('want_to_delete_this_faq')}}',
-                type: 'warning',
-                showCancelButton: true,
-                cancelButtonColor: 'var(--bs-secondary)',
-                confirmButtonColor: 'var(--bs-primary)',
-                cancelButtonText: 'Cancel',
-                confirmButtonText: 'Yes',
-                reverseButtons: true
-            }).then((result) => {
-                if (result.value) {
-                    $.get({
-                        url: route,
-                        dataType: 'json',
-                        data: {},
-                        beforeSend: function () {
-                        },
-                        success: function (response) {
-                            $('#faq-list').empty().html(response.template);
-                            toastr.success('{{translate('successfully_deleted')}}');
-                            initFaqSortable();
-                        },
-                        complete: function () {
-                        },
-                    });
-                }
-            })
-        }
-
-        $('#faq-list').on('click', '.service-ajax-status-update', function () {
-            let route = $(this).data('route');
-            let id = $(this).data('id');
-            ajax_status_update(route, id)
-        });
-
-        function ajax_status_update(route, id) {
-            "use strict";
-            Swal.fire({
-                title: "{{translate('are_you_sure')}}?",
-                text: '{{translate('want_to_update_status_of_this_faq')}}',
-                type: 'warning',
-                showCancelButton: true,
-                cancelButtonColor: 'var(--bs-secondary)',
-                confirmButtonColor: 'var(--bs-primary)',
-                cancelButtonText: 'Cancel',
-                confirmButtonText: 'Yes',
-                reverseButtons: true
-            }).then((result) => {
-                if (result.value) {
-                    $.get({
-                        url: route,
-                        dataType: 'json',
-                        data: {},
-                        beforeSend: function () {
-                        },
-                        success: function (response) {
-                            toastr.success('{{translate('successfully_updated')}}');
-                        },
-                        complete: function () {
-                        },
-                    });
-                }
-            })
-        }
-
-        initFaqSortable();
     </script>
     <script src="{{ asset('assets/admin-module/js/service-mobile-preview.js') }}?v={{ $adminAssetVersion ?? time() }}"></script>
 

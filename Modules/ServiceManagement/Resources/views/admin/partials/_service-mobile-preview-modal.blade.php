@@ -490,7 +490,7 @@
     }
     .service-app-customer-hero {
         position: relative;
-        height: 182px;
+        height: 328px;
         flex-shrink: 0;
         background: #e0e0e0 center/cover no-repeat;
     }
@@ -529,6 +529,16 @@
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         width: 100%;
+    }
+    .service-app-customer-hero-sub {
+        margin: 0;
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 12px;
+        line-height: 1.35;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
     }
     .service-app-hero-chips {
         display: flex;
@@ -640,6 +650,31 @@
         font-weight: 600;
         white-space: nowrap;
         line-height: 1.2;
+    }
+    .service-app-info-highlights {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 6px;
+    }
+    .service-app-info-highlight {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 3px 6px;
+        border-radius: 6px;
+        background: rgba(var(--bs-primary-rgb), 0.08);
+        color: var(--bs-primary);
+        font-size: 9px;
+        font-weight: 600;
+        line-height: 1.2;
+    }
+    .service-app-info-highlight .material-icons {
+        font-size: 12px;
+    }
+    .service-app-tab {
+        cursor: pointer;
+        user-select: none;
     }
 
     /* —— Provider app —— */

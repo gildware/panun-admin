@@ -137,7 +137,7 @@
                                                             <div class="lang-form2" id="default-form2">
                                                                 <div class="mb-30">
                                                                     <div class="d-flex align-items-center justify-content-between gap-1 flex-wrap mb-3">
-                                                                        <label class="m-0 lh-1">{{translate('short_description')}}({{translate('default')}}) *</label>
+                                                                        <label class="m-0 lh-1">{{translate('service_tagline')}}({{translate('default')}}) *</label>
                                                                         <button type="button" class="btn bg-white mb-0 text-primary bg-transparent shadow-none border-0 opacity-1 generate_btn_wrapper p-0 auto_fill_short_description short-description-btn-wrapper"
                                                                                 id="short-description-default-action-btn"
                                                                                 data-lang="default"
@@ -184,7 +184,7 @@
                                                                     <div class="col-lg-12 mt-5">
                                                                         <div class="mb-30">
                                                                             <div class="d-flex align-items-center justify-content-between gap-1 flex-wrap mb-3">
-                                                                                <label class="m-0">{{translate('short_description')}}({{strtoupper($lang['code'])}}) *</label>
+                                                                                <label class="m-0">{{translate('service_tagline')}}({{strtoupper($lang['code'])}}) *</label>
                                                                                 <button type="button" class="btn bg-white text-primary bg-transparent shadow-none border-0 mb-0 opacity-1 generate_btn_wrapper p-0 auto_fill_short_description short-description-btn-wrapper"
                                                                                         id="short-description-{{ $lang['code'] }}-action-btn"  data-lang="{{ $lang['code'] }}"
                                                                                         data-route="{{ route('admin.product.short-description-auto-fill') }}">
@@ -232,7 +232,7 @@
                                                                         <div class="mb-30">
                                                                             <div class="">
                                                                                 <textarea type="text" class="form-control en_short_description" name="short_description[]" required></textarea>
-                                                                                <label>{{translate('short_description')}} *</label>
+                                                                                <label>{{translate('service_tagline')}} *</label>
                                                                             </div>
                                                                         </div>
                                                                     </div>
@@ -272,6 +272,12 @@
                                                                     </button>
                                                                 </div>
                                                             @endif
+
+                                                            @include('servicemanagement::admin.partials._service-card-highlights', [
+                                                                'overviewContent' => [],
+                                                                'overviewDefaults' => $overviewDefaults ?? [],
+                                                                'overviewIconOptions' => $overviewIconOptions ?? [],
+                                                            ])
                                                         </div>
                                                     </div>
                                                 </div>

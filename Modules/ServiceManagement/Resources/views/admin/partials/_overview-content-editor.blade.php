@@ -73,7 +73,7 @@
     <div class="card mb-3">
         <div class="card-body">
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                <h6 class="mb-0">{{ translate('top_icons') }}</h6>
+                <h6 class="mb-0">{{ translate('hero_top_icons') }}</h6>
                 <div class="form-check form-switch mb-0">
                     <input class="form-check-input" type="checkbox" id="override-top-icons"
                            {{ !empty($overviewContent['override_top_icons']) ? 'checked' : '' }}>
@@ -88,7 +88,7 @@
                     'overviewIconOptions' => $overviewIconOptions ?? [],
                 ])
             </div>
-            <p class="text-muted fs-12 mb-0 mt-2">{{ translate('uses_global_defaults_unless_overridden') }}</p>
+            <p class="text-muted fs-12 mb-0 mt-2">{{ translate('hero_top_icons_hint') }}</p>
         </div>
     </div>
 
