@@ -17,7 +17,7 @@
                 <div class="card mb-3">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h6 class="mb-0">{{ translate('top_icons') }}</h6>
+                            <h6 class="mb-0">{{ translate('hero_top_icons') }}</h6>
                             <button type="button" class="btn btn-sm btn-outline-primary"
                                     data-overview-add data-list-id="defaults-top-icons-list" data-item-type="top_icon">
                                 + {{ translate('add_item') }}

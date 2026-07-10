@@ -28,17 +28,20 @@ class ServiceOverviewContentResolver
       ? ($serviceContent['top_icons'] ?? [])
       : ($defaults['top_icons'] ?? []);
 
+    $cardHighlights = self::resolveCardHighlights($serviceContent);
+
     $whyChoose = $overrideWhyChoose
       ? ($serviceContent['why_choose'] ?? ['title' => '', 'items' => []])
       : ($defaults['why_choose'] ?? ['title' => '', 'items' => []]);
 
-    if (! $hasServiceSections && $topIcons === [] && ($whyChoose['items'] ?? []) === []) {
+    if (! $hasServiceSections && $topIcons === [] && $cardHighlights === [] && ($whyChoose['items'] ?? []) === []) {
       return null;
     }
 
     return [
       'intro' => $serviceContent['intro'] ?? null,
       'top_icons' => $topIcons,
+      'card_highlights' => $cardHighlights,
       'service_process' => $serviceContent['service_process'] ?? null,
       'perfect_for' => $serviceContent['perfect_for'] ?? null,
       'whats_included' => $serviceContent['whats_included'] ?? null,
@@ -59,6 +62,7 @@ class ServiceOverviewContentResolver
       'override_top_icons' => (bool) ($payload['override_top_icons'] ?? false),
       'override_why_choose' => (bool) ($payload['override_why_choose'] ?? false),
       'top_icons' => self::normalizeItems($payload['top_icons'] ?? []),
+      'card_highlights' => self::normalizeItems($payload['card_highlights'] ?? []),
       'why_choose' => [
         'title' => trim((string) ($payload['why_choose']['title'] ?? '')),
         'items' => self::normalizeItems($payload['why_choose']['items'] ?? []),
@@ -132,6 +136,27 @@ class ServiceOverviewContentResolver
     usort($normalized, fn ($a, $b) => ($a['sort_order'] ?? 0) <=> ($b['sort_order'] ?? 0));
 
     return $normalized;
+  }
+
+  /**
+   * Service-card highlights are per-service only (not global defaults).
+   *
+   * @param  array<string, mixed>  $serviceContent
+   * @return list<array<string, mixed>>
+   */
+  private static function resolveCardHighlights(array $serviceContent): array
+  {
+    $cardHighlights = self::normalizeItems($serviceContent['card_highlights'] ?? []);
+    if ($cardHighlights !== []) {
+      return $cardHighlights;
+    }
+
+    // Backward compatibility: basic-form highlights were previously stored in top_icons.
+    if ((bool) ($serviceContent['override_top_icons'] ?? false)) {
+      return self::normalizeItems($serviceContent['top_icons'] ?? []);
+    }
+
+    return [];
   }
 
   /**

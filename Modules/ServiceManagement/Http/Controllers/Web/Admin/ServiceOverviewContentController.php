@@ -63,6 +63,11 @@ class ServiceOverviewContentController extends Controller
       return response()->json(['flag' => 0, 'message' => translate(DEFAULT_400['message'])], 422);
     }
 
+    $existing = is_array($service->overview_content) ? $service->overview_content : [];
+    if (! array_key_exists('card_highlights', $payload) && ! empty($existing['card_highlights'])) {
+      $payload['card_highlights'] = $existing['card_highlights'];
+    }
+
     $normalized = ServiceOverviewContentResolver::normalizeServiceContent($payload);
     $service->overview_content = $normalized;
     $service->save();

@@ -93,7 +93,10 @@ class ServiceController extends Controller
 
         session()->forget('variations');
 
-        return view('servicemanagement::admin.create', compact('categories', 'zones'));
+        $overviewDefaults = ServiceOverviewDefaultsService::get();
+        $overviewIconOptions = ServiceOverviewIconPresets::options();
+
+        return view('servicemanagement::admin.create', compact('categories', 'zones', 'overviewDefaults', 'overviewIconOptions'));
     }
 
     /**
@@ -248,6 +251,7 @@ class ServiceController extends Controller
             ->max('sort_order') ?? -1) + 1;
         $service->save();
         $service->tags()->sync($tagIds);
+        $this->persistServiceCardTopIcons($request, $service);
 
         //decoding url encoded keys
         $data = $request->all();
@@ -321,14 +325,18 @@ class ServiceController extends Controller
             ->count();
 
         $faqs = $service->faqs;
-        $overviewDefaults = ServiceOverviewDefaultsService::get();
-        $overviewIconOptions = ServiceOverviewIconPresets::options();
-        $overviewContent = $service->overview_content ?? [];
         $resolvedOverviewContent = ServiceOverviewContentResolver::resolveForService($service);
         $servicePreviewPayload = ServiceDetailPreviewPayloadBuilder::build($service, $resolvedOverviewContent, $faqs);
 
         $search = $request->has('review_search') ? $request['review_search'] : '';
-        $webPage = $request->has('review_page') || $request->has('review_search') ? 'review' : ($request->get('web_page', 'general'));
+        $webPage = $request->has('review_page') || $request->has('review_search')
+            ? 'reviews'
+            : $request->get('web_page', 'overview');
+        $webPage = match ($webPage) {
+            'general', 'faq' => 'overview',
+            'review' => 'reviews',
+            default => $webPage,
+        };
         $queryParam = ['search' => $search, 'web_page' => $webPage];
 
         $reviews = $this->review->with(['customer', 'booking'])
@@ -350,7 +358,7 @@ class ServiceController extends Controller
         if (isset($service)) {
             $service['ongoing_count'] = $ongoing;
             $service['canceled_count'] = $canceled;
-            return view('servicemanagement::admin.detail', compact('service', 'faqs', 'reviews', 'rating_group_count', 'webPage', 'search', 'overviewDefaults', 'overviewIconOptions', 'overviewContent', 'resolvedOverviewContent', 'servicePreviewPayload'));
+            return view('servicemanagement::admin.detail', compact('service', 'faqs', 'reviews', 'rating_group_count', 'webPage', 'search', 'resolvedOverviewContent', 'servicePreviewPayload'));
         }
 
         Toastr::error(translate(DEFAULT_204['message']));
@@ -366,8 +374,9 @@ class ServiceController extends Controller
     public function edit(string $id): View|Factory|RedirectResponse|Application
     {
         $this->authorize('service_update');
-        $service = $this->service->withoutGlobalScope('translate')->where('id', $id)->with(['category.children', 'category.zones', 'variations', 'serviceVariants.zonePrices'])->first();
+        $service = $this->service->withoutGlobalScope('translate')->where('id', $id)->with(['category.children', 'category.zones', 'variations', 'serviceVariants.zonePrices', 'faqs'])->first();
         if (isset($service)) {
+            $faqs = $service->faqs;
             $editingVariants = $service->variations->pluck('variant_key')->unique()->toArray();
             session()->put('editing_variants', $editingVariants);
             $categories = $this->category->ofStatus(1)->ofType('main')->ordered()->get();
@@ -400,7 +409,7 @@ class ServiceController extends Controller
             $overviewContent = $service->overview_content ?? [];
 
             return view('servicemanagement::admin.edit', array_merge(
-                compact('categories', 'zones', 'service', 'tagNames', 'commissionEntityUseCustom', 'additionalChargeOverrideRows', 'overviewDefaults', 'overviewIconOptions', 'overviewContent'),
+                compact('categories', 'zones', 'service', 'faqs', 'tagNames', 'commissionEntityUseCustom', 'additionalChargeOverrideRows', 'overviewDefaults', 'overviewIconOptions', 'overviewContent'),
                 $commissionCtx
             ));
         }
@@ -565,6 +574,7 @@ class ServiceController extends Controller
         $service->min_bidding_price = $request->min_bidding_price;
         $service->save();
         $service->tags()->sync($tagIds);
+        $this->persistServiceCardTopIcons($request, $service);
         $this->syncServiceTranslations($request, $service);
 
         return redirect()
@@ -1089,6 +1099,47 @@ class ServiceController extends Controller
             }
         }
         return false;
+    }
+
+    private function persistServiceCardTopIcons(Request $request, Service $service): void
+    {
+        if (! $request->has('service_card_top_icons')) {
+            return;
+        }
+
+        $raw = $request->input('service_card_top_icons', []);
+        if (! is_array($raw)) {
+            return;
+        }
+
+        $cardHighlights = [];
+        foreach (array_values($raw) as $index => $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $text = trim((string) ($item['text'] ?? ''));
+            if ($text === '') {
+                continue;
+            }
+
+            $icon = trim((string) ($item['icon'] ?? ''));
+            $color = trim((string) ($item['color'] ?? 'blue'));
+
+            $cardHighlights[] = array_filter([
+                'icon' => $icon !== '' ? $icon : null,
+                'text' => $text,
+                'color' => in_array($color, ['green', 'blue', 'purple', 'orange'], true) ? $color : 'blue',
+                'sort_order' => $index,
+            ], fn ($value) => $value !== null && $value !== '');
+        }
+
+        $existing = is_array($service->overview_content) ? $service->overview_content : [];
+        $normalized = ServiceOverviewContentResolver::normalizeServiceContent(array_merge($existing, [
+            'card_highlights' => $cardHighlights,
+        ]));
+        $service->overview_content = $normalized;
+        $service->save();
     }
 
 

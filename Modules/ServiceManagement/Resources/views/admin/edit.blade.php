@@ -19,12 +19,33 @@
         .body-customize-editor .tox-tinymce { width: 100% !important; min-height: 300px !important; }
         .body-customize-editor .tox .tox-edit-area { min-height: 240px !important; }
         .body-customize-editor .tox .tox-edit-area__iframe { min-height: 240px !important; }
+        .service-edit-page #faq-tab-pane .service-detail-faq-compose {
+            background: var(--bs-tertiary-bg);
+            border: 1px solid var(--bs-border-color);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .service-edit-page #faq-tab-pane .service-faq-item.is-dragging { opacity: 0.55; }
+        .service-edit-page #faq-tab-pane .service-faq-item.is-drag-over > .accordion-item {
+            outline: 2px dashed var(--bs-primary);
+            outline-offset: 1px;
+        }
+        .service-edit-page #faq-tab-pane .service-faq-drag-handle {
+            flex-shrink: 0;
+            color: var(--bs-secondary-color);
+            cursor: grab;
+            user-select: none;
+            padding: 0.25rem;
+            font-size: 1.25rem;
+            line-height: 1;
+        }
     </style>
 
 @endpush
 
 @section('content')
-    <div class="main-content">
+    <div class="main-content service-edit-page">
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
@@ -65,10 +86,12 @@
                                 $infoPaneActive = $activeTab === 'info' ? 'show active' : '';
                                 $variationsTabActive = $activeTab === 'variations' ? 'active' : '';
                                 $variationsPaneActive = $activeTab === 'variations' ? 'show active' : '';
-                                $chargesTabActive = $activeTab === 'charges' ? 'active' : '';
-                                $chargesPaneActive = $activeTab === 'charges' ? 'show active' : '';
                                 $overviewTabActive = $activeTab === 'overview' ? 'active' : '';
                                 $overviewPaneActive = $activeTab === 'overview' ? 'show active' : '';
+                                $faqTabActive = $activeTab === 'faq' ? 'active' : '';
+                                $faqPaneActive = $activeTab === 'faq' ? 'show active' : '';
+                                $chargesTabActive = $activeTab === 'charges' ? 'active' : '';
+                                $chargesPaneActive = $activeTab === 'charges' ? 'show active' : '';
                             @endphp
                             <ul class="nav nav--tabs border-color-primary mb-4" id="service-edit-main-tabs" role="tablist">
                                 <li class="nav-item" role="presentation">
@@ -82,14 +105,19 @@
                                             aria-controls="service-edit-pane-variations" aria-selected="{{ $activeTab === 'variations' ? 'true' : 'false' }}">{{ translate('price_variation') }}</button>
                                 </li>
                                 <li class="nav-item" role="presentation">
-                                    <button class="nav-link {{ $chargesTabActive }}" id="service-edit-tab-charges" data-bs-toggle="tab"
-                                            data-bs-target="#service-edit-pane-charges" type="button" role="tab"
-                                            aria-controls="service-edit-pane-charges" aria-selected="{{ $activeTab === 'charges' ? 'true' : 'false' }}">{{ translate('Charges_and_Taxes') }}</button>
-                                </li>
-                                <li class="nav-item" role="presentation">
                                     <button class="nav-link {{ $overviewTabActive }}" id="service-edit-tab-overview" data-bs-toggle="tab"
                                             data-bs-target="#service-edit-pane-overview" type="button" role="tab"
                                             aria-controls="service-edit-pane-overview" aria-selected="{{ $activeTab === 'overview' ? 'true' : 'false' }}">{{ translate('overview_sections') }}</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link {{ $faqTabActive }}" id="service-edit-tab-faq" data-bs-toggle="tab"
+                                            data-bs-target="#service-edit-pane-faq" type="button" role="tab"
+                                            aria-controls="service-edit-pane-faq" aria-selected="{{ $activeTab === 'faq' ? 'true' : 'false' }}">{{ translate('faq') }}</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link {{ $chargesTabActive }}" id="service-edit-tab-charges" data-bs-toggle="tab"
+                                            data-bs-target="#service-edit-pane-charges" type="button" role="tab"
+                                            aria-controls="service-edit-pane-charges" aria-selected="{{ $activeTab === 'charges' ? 'true' : 'false' }}">{{ translate('Charges_and_Taxes') }}</button>
                                 </li>
                             </ul>
 
@@ -222,7 +250,7 @@
                                                             <div class="lang-form2" id="default-form2">
                                                                 <div class="mb-30">
                                                                     <div class="d-flex align-items-center justify-content-between gap-1 flex-wrap mb-3">
-                                                                        <label class="m-0 lh-1">{{translate('short_description')}}({{translate('default')}}) *</label>
+                                                                        <label class="m-0 lh-1">{{translate('service_tagline')}}({{translate('default')}}) *</label>
                                                                         <button type="button" class="btn bg-white mb-0 text-primary bg-transparent shadow-none border-0 opacity-1 generate_btn_wrapper p-0 auto_fill_short_description short-description-btn-wrapper"
                                                                                 id="short-description-default-action-btn"
                                                                                 data-lang="default"
@@ -283,7 +311,7 @@
                                                                     <div class="col-lg-12 mt-5">
                                                                         <div class="mb-30">
                                                                             <div class="d-flex align-items-center justify-content-between gap-1 flex-wrap mb-3">
-                                                                                <label class="m-0">{{translate('short_description')}}({{strtoupper($lang['code'])}}) *</label>
+                                                                                <label class="m-0">{{translate('service_tagline')}}({{strtoupper($lang['code'])}}) *</label>
                                                                                 <button type="button" class="btn bg-white text-primary bg-transparent shadow-none border-0 mb-0 opacity-1 generate_btn_wrapper p-0 auto_fill_short_description short-description-btn-wrapper"
                                                                                         id="short-description-{{ $lang['code'] }}-action-btn"
                                                                                         data-lang="{{ $lang['code'] }}"
@@ -333,7 +361,7 @@
                                                                         <div class="form-floating">
                                                                             <textarea type="text" class="form-control" required
                                                                                     name="short_description[]">{{old('short_description')}}</textarea>
-                                                                            <label>{{translate('short_description')}} *</label>
+                                                                            <label>{{translate('service_tagline')}} *</label>
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -370,6 +398,12 @@
                                                             </div>
                                                             @endif
                                                             <!-- ShotDescription End -->
+
+                                                            @include('servicemanagement::admin.partials._service-card-highlights', [
+                                                                'overviewContent' => $overviewContent ?? [],
+                                                                'overviewDefaults' => $overviewDefaults ?? [],
+                                                                'overviewIconOptions' => $overviewIconOptions ?? [],
+                                                            ])
                                                         </div>
                                                     </div>
                                                 </div>
@@ -529,6 +563,56 @@
                                     </div>
                                 </div>
 
+                                <div class="tab-pane fade {{ $overviewPaneActive }}" id="service-edit-pane-overview" role="tabpanel"
+                                     aria-labelledby="service-edit-tab-overview" tabindex="0">
+                                    <div class="border rounded p-3 bg-white">
+                                        @include('servicemanagement::admin.partials._overview-content-editor', [
+                                            'service' => $service,
+                                            'overviewContent' => $overviewContent ?? [],
+                                            'overviewDefaults' => $overviewDefaults ?? [],
+                                            'overviewIconOptions' => $overviewIconOptions ?? [],
+                                        ])
+                                    </div>
+                                </div>
+
+                                <div class="tab-pane fade {{ $faqPaneActive }}" id="service-edit-pane-faq" role="tabpanel"
+                                     aria-labelledby="service-edit-tab-faq" tabindex="0">
+                                    <div class="border rounded p-3 bg-white" id="faq-tab-pane">
+                                        <div class="service-detail-faq-compose">
+                                            <h6 class="mb-3 fw-semibold">{{ translate('add_faq') }}</h6>
+                                            <form action="javascript:void(0)" method="POST" id="faq-form" novalidate>
+                                                @csrf
+                                                <div class="form-floating mb-3">
+                                                    <input type="text" class="form-control" id="faq-question-input"
+                                                           placeholder="{{translate('question')}}"
+                                                           name="question" required maxlength="500" autocomplete="off">
+                                                    <label for="faq-question-input">{{translate('question')}}</label>
+                                                </div>
+                                                <div class="form-floating mb-3">
+                                                    <textarea class="form-control" id="faq-answer-input"
+                                                              placeholder="{{translate('answer')}}" name="answer"
+                                                              required style="min-height: 6.5rem;"></textarea>
+                                                    <label for="faq-answer-input">{{translate('answer')}}</label>
+                                                </div>
+                                                <div class="d-flex justify-content-end">
+                                                    <button type="submit" class="btn btn--primary" id="faq-submit-btn"
+                                                            data-label-idle="{{ translate('add_faq') }}"
+                                                            data-label-loading="{{ translate('Loading') }}...">
+                                                        <span class="faq-submit-label">{{ translate('add_faq') }}</span>
+                                                        <span class="spinner-border spinner-border-sm text-light d-none" role="status" aria-hidden="true"></span>
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+
+                                        <div id="faq-list"
+                                             data-service-id="{{ $service->id }}"
+                                             data-reorder-url="{{ route('admin.faq.reorder', $service->id) }}">
+                                            @include('servicemanagement::admin.partials._faq-list', ['faqs' => $faqs])
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="tab-pane fade {{ $chargesPaneActive }}" id="service-edit-pane-charges" role="tabpanel"
                                      aria-labelledby="service-edit-tab-charges" tabindex="0">
                                                 <div class="row mt-2">
@@ -578,18 +662,6 @@
                                                         </div>
                                                     </div>
                                                 </div>
-                                </div>
-
-                                <div class="tab-pane fade {{ $overviewPaneActive }}" id="service-edit-pane-overview" role="tabpanel"
-                                     aria-labelledby="service-edit-tab-overview" tabindex="0">
-                                    <div class="border rounded p-3 bg-white">
-                                        @include('servicemanagement::admin.partials._overview-content-editor', [
-                                            'service' => $service,
-                                            'overviewContent' => $overviewContent ?? [],
-                                            'overviewDefaults' => $overviewDefaults ?? [],
-                                            'overviewIconOptions' => $overviewIconOptions ?? [],
-                                        ])
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -771,6 +843,7 @@
         });
         })(jQuery);
     </script>
+    @include('servicemanagement::admin.partials._service-faq-admin-scripts')
     @can('commission_custom_service_update')
         @include('businesssettingsmodule::admin.partials.commission-entity-form-scripts', [
             'previewCurrencySymbol' => $previewCurrencySymbol,
