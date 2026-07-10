@@ -20,6 +20,7 @@ class ServiceVariant extends Model
         'variant_key',
         'title',
         'description',
+        'note',
         'image',
         'sort_order',
         'is_active',
@@ -70,6 +71,19 @@ class ServiceVariant extends Model
         if (count($this->translations) > 0) {
             foreach ($this->translations as $translation) {
                 if ($translation['key'] === 'description') {
+                    return $translation['value'];
+                }
+            }
+        }
+
+        return $value;
+    }
+
+    public function getNoteAttribute($value)
+    {
+        if (count($this->translations) > 0) {
+            foreach ($this->translations as $translation) {
+                if ($translation['key'] === 'note') {
                     return $translation['value'];
                 }
             }

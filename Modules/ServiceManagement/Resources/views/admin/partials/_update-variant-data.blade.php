@@ -27,6 +27,7 @@
             }
             $title = $meta?->title ?? str_replace('-', ' ', $item);
             $description = $meta?->getRawOriginal('description');
+            $variantNote = $meta?->getRawOriginal('note');
             $previewUrl = $meta?->image
                 ? $meta->image_full_path
                 : asset('assets/admin-module/img/img-upload-new.png');
@@ -61,6 +62,10 @@
                                   class="form-control"
                                   rows="2"
                                   placeholder="{{ translate('description') }}">{{ $description }}</textarea>
+                        <textarea name="variant_note[{{ $item }}]"
+                                  class="form-control mt-2"
+                                  rows="2"
+                                  placeholder="{{ translate('variant_note_hint') }}">{{ $variantNote }}</textarea>
                         <input name="variants[]" value="{{ $item }}" class="hide-div">
                     </div>
 

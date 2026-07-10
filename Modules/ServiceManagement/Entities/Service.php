@@ -78,6 +78,7 @@ class Service extends Model
                 'variationName' => $meta?->title ?? str_replace('-', ' ', (string) $variantKey),
                 'variationPrice' => $filtered->first()->price ?? 0,
                 'description' => $meta?->description,
+                'note' => $meta?->note,
                 'image' => $meta?->image,
                 'image_full_path' => $meta?->image_full_path,
                 'zoneWiseVariations' => [],

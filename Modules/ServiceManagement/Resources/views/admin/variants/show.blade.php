@@ -42,6 +42,10 @@
                                 <p class="mb-0 text-muted">{{ $variant->getRawOriginal('description') ?: '—' }}</p>
                             </div>
                             <div class="mb-3">
+                                <label class="form-label text-muted mb-1">{{ translate('variant_note') }}</label>
+                                <p class="mb-0 text-muted">{{ $variant->getRawOriginal('note') ?: '—' }}</p>
+                            </div>
+                            <div class="mb-3">
                                 <label class="form-label text-muted mb-1">{{ translate('default_price') }}</label>
                                 <p class="mb-0 fw-semibold c1">{{ with_currency_symbol($defaultPrice) }}</p>
                             </div>

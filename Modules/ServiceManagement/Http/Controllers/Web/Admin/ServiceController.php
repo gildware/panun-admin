@@ -749,6 +749,9 @@ class ServiceController extends Controller
                 'description' => $data['variant_description'][$item]
                     ?? $meta?->getRawOriginal('description')
                     ?? ($sessionMeta['description'] ?? null),
+                'note' => $data['variant_note'][$item]
+                    ?? $meta?->getRawOriginal('note')
+                    ?? ($sessionMeta['note'] ?? null),
             ];
         }
 
@@ -1032,6 +1035,7 @@ class ServiceController extends Controller
             $keyStr = $spec['variant_key'];
             $variantLabel = $spec['variant'] ?? str_replace('-', ' ', $keyStr);
             $description = $spec['description'] ?? ($data['variant_description'][$keyStr] ?? null);
+            $note = $spec['note'] ?? ($data['variant_note'][$keyStr] ?? null);
 
             $variant = ServiceVariant::query()
                 ->where('service_id', $serviceId)
@@ -1046,6 +1050,7 @@ class ServiceController extends Controller
 
             $variant->title = $variantLabel;
             $variant->description = $description;
+            $variant->note = $note;
             $variant->sort_order = $index;
             $variant->is_active = true;
 

@@ -354,6 +354,7 @@ class Variation extends Model
             ->where('service_id', $serviceId)
             ->whereIn('variant_key', array_keys($seen))
             ->where('is_active', true)
+            ->with('storage_image')
             ->orderBy('sort_order')
             ->get()
             ->keyBy('variant_key');
@@ -373,6 +374,7 @@ class Variation extends Model
                 'variant_key' => $variation->variant_key,
                 'variant_name' => $variantMeta?->title ?? $variation->variant,
                 'description' => $variantMeta?->description,
+                'note' => $variantMeta?->note,
                 'image' => $variantMeta?->image,
                 'image_full_path' => $variantMeta?->image_full_path,
                 'price' => (float) $variation->price,
@@ -653,6 +655,7 @@ class Variation extends Model
                 'variant_key' => $variation->variant_key,
                 'variant_name' => $variantMeta?->title ?? $variation->variant,
                 'description' => $variantMeta?->description,
+                'note' => $variantMeta?->note,
                 'image' => $variantMeta?->image,
                 'image_full_path' => $variantMeta?->image_full_path,
                 'price' => (float) $variation->price,
@@ -701,6 +704,7 @@ class Variation extends Model
         $allServiceVariants = ServiceVariant::query()
             ->whereIn('service_id', $normalizedIds)
             ->where('is_active', true)
+            ->with('storage_image')
             ->orderBy('sort_order')
             ->get()
             ->groupBy(fn (ServiceVariant $variant) => (string) $variant->service_id)
