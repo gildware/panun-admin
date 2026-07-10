@@ -1,42 +1,26 @@
 <?php
 
 /**
- * Seed Door Installation overview sections on live DB.
+ * Seed Door Installation tagline, card highlights, and overview sections (local DB).
  *
- * LIVE_DB_PASSWORD='...' php artisan tinker scripts/seed-door-installation-overview-live.php
+ * php artisan tinker scripts/seed-door-installation-content.php
  */
 
 use Modules\BusinessSettingsModule\Entities\Translation;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\ServiceManagement\Services\ServiceOverviewContentResolver;
 
-$liveConnection = 'live_service_content';
-config(['database.connections.'.$liveConnection => [
-    'driver' => 'mysql',
-    'host' => '82.25.121.201',
-    'port' => '3306',
-    'database' => 'u397782854_live_pk_dec',
-    'username' => 'u397782854_live_pk_usr',
-    'password' => env('LIVE_DB_PASSWORD', env('DB_PASSWORD', '')),
-    'charset' => 'utf8mb4',
-    'collation' => 'utf8mb4_unicode_ci',
-    'prefix' => '',
-    'strict' => true,
-]]);
-
-if ((string) config('database.connections.'.$liveConnection.'.password') === '') {
-    throw new RuntimeException('Set LIVE_DB_PASSWORD (or DB_PASSWORD) for live database.');
-}
-
 $serviceId = '7ae680f7-97ed-464e-87e1-5da2aaae55c5';
-$mediaBase = 'https://pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev/prod/';
-$coverUrl = $mediaBase.'service/door-installation/2026-07-08-6a4e58e7a1b82.webp';
-$thumbUrl = $mediaBase.'service/door-installation/2026-07-08-6a4e58dc3e9c1.webp';
 
-$service = Service::on($liveConnection)->withoutGlobalScopes()->find($serviceId);
+$service = Service::withoutGlobalScopes()->find($serviceId);
 if (! $service) {
     throw new RuntimeException("Service not found: {$serviceId}");
 }
+
+$coverUrl = $service->cover_image_full_path
+    ?: 'https://pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev/prod/service/door-installation/2026-07-08-6a4e58e7a1b82.webp';
+$thumbUrl = $service->thumbnail_full_path
+    ?: 'https://pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev/prod/service/door-installation/2026-07-08-6a4e58dc3e9c1.webp';
 
 $shortDescription = 'Expert door fitting by verified carpenters at your home.';
 
@@ -147,15 +131,11 @@ $overviewContent = [
 
 $normalized = ServiceOverviewContentResolver::normalizeServiceContent($overviewContent);
 
-Service::on($liveConnection)
-    ->withoutGlobalScopes()
-    ->where('id', $serviceId)
-    ->update([
-        'short_description' => $shortDescription,
-        'overview_content' => json_encode($normalized),
-    ]);
+$service->short_description = $shortDescription;
+$service->overview_content = $normalized;
+$service->save();
 
-Translation::on($liveConnection)->updateOrCreate(
+Translation::query()->updateOrCreate(
     [
         'translationable_type' => Service::class,
         'translationable_id' => $serviceId,
@@ -165,6 +145,7 @@ Translation::on($liveConnection)->updateOrCreate(
     ['value' => $shortDescription]
 );
 
-echo "Seeded Door Installation ({$serviceId}) on live.\n";
-echo "Tagline + card highlights + overview sections.\n";
-echo 'Sections: process (with descriptions), perfect_for, whats_included, good_to_know, whats_not_included (icon + title).'."\n";
+echo "Seeded Door Installation ({$serviceId}).\n";
+echo "Tagline: {$shortDescription}\n";
+echo 'Card highlights: '.count($normalized['card_highlights'])."\n";
+echo 'Overview sections: intro, service_process, perfect_for, whats_included, good_to_know, whats_not_included'."\n";

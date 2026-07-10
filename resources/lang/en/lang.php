@@ -9983,6 +9983,7 @@ _Message' => 'Customer notification for provider bid offer
   'perfect_for' => 'Perfect for',
   'whats_included' => 'Whats included',
   'good_to_know' => 'Good to know',
+  'service_terms_and_conditions_hint' => 'Service-specific terms shown in the overview. Uses global defaults unless overridden here.',
   'whats_not_included' => 'Whats not included',
   'top_icons' => 'Top icons',
   'service_card_highlights' => 'Service card highlights',

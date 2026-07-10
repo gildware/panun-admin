@@ -154,11 +154,14 @@ $longDescription =
 
     .'<div class="pk-card glass">'
     .'<h3 class="pk-h">How It Works</h3>'
-    .'<p class="pk-sub">Swipe through the installation journey</p>'
+    .'<p class="pk-sub">Your door installation journey in six simple steps</p>'
     .'<div class="pk-scroll-h pk-steps-h">'
-    .$stepCard(1, 'Book online', 'Choose consultation or installation and share your address and door details.')
-    .$stepCard(2, 'On-site fitting', 'Carpenter aligns the door, fixes hinges and adjusts gaps and hardware.', $thumbUrl)
-    .$stepCard(3, 'Test &amp; handover', 'Open/close check, latch test, cleanup and basic care tips.')
+    .$stepCard(1, 'Book your slot', 'Choose consultation or full installation, then share your address, door size and photos of the opening.')
+    .$stepCard(2, 'Carpenter assigned', 'A verified Panun Kaergar carpenter confirms your visit and arrives with professional fitting tools.')
+    .$stepCard(3, 'On-site visit', 'Technician reaches your home or office on schedule and inspects the door opening and frame condition.', $thumbUrl)
+    .$stepCard(4, 'Frame &amp; door check', 'Opening measurements, frame squareness and hinge positions are assessed before mounting begins.')
+    .$stepCard(5, 'Precision fitting', 'Door is level-aligned, hinges secured, gaps shimmed and lock hardware adjusted for smooth operation.', $coverUrl)
+    .$stepCard(6, 'Test &amp; handover', 'Open/close and latch checks completed, work area cleaned, and basic door care tips shared with you.')
     .'</div>'
     .'</div>'
 

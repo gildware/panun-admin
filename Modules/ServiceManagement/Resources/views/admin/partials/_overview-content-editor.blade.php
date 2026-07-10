@@ -73,6 +73,43 @@
     <div class="card mb-3">
         <div class="card-body">
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <div>
+                    <h6 class="mb-1">{{ translate('terms_and_conditions') }}</h6>
+                    <p class="text-muted fs-12 mb-0">{{ translate('service_terms_and_conditions_hint') }}</p>
+                </div>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="override-terms-and-conditions"
+                           {{ !empty($overviewContent['override_terms_and_conditions']) ? 'checked' : '' }}>
+                    <label class="form-check-label fs-12" for="override-terms-and-conditions">{{ translate('override_global_defaults') }}</label>
+                </div>
+            </div>
+            <div id="terms-and-conditions-section" class="{{ empty($overviewContent['override_terms_and_conditions']) ? 'opacity-50 pe-none' : '' }}">
+                <div class="d-flex justify-content-end mb-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary"
+                            data-overview-add
+                            data-list-id="terms-and-conditions-list"
+                            data-item-type="icon_title">
+                        + {{ translate('add_item') }}
+                    </button>
+                </div>
+                <div class="form-floating mb-3">
+                    <input type="text" class="form-control" id="terms-and-conditions-title"
+                           value="{{ $overviewContent['terms_and_conditions']['title'] ?? ($overviewDefaults['terms_and_conditions']['title'] ?? translate('terms_and_conditions')) }}">
+                    <label for="terms-and-conditions-title">{{ translate('section_title') }}</label>
+                </div>
+                @include('servicemanagement::admin.partials._overview-items-list', [
+                    'listId' => 'terms-and-conditions-list',
+                    'itemType' => 'icon_title',
+                    'items' => $overviewContent['terms_and_conditions']['items'] ?? ($overviewDefaults['terms_and_conditions']['items'] ?? []),
+                    'overviewIconOptions' => $overviewIconOptions ?? [],
+                ])
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                 <h6 class="mb-0">{{ translate('hero_top_icons') }}</h6>
                 <div class="form-check form-switch mb-0">
                     <input class="form-check-input" type="checkbox" id="override-top-icons"
@@ -258,6 +295,11 @@
                 whats_included: collectSection('whats-included', 'icon_title'),
                 whats_not_included: collectSection('whats-not-included', 'icon_title'),
                 good_to_know: collectSection('good-to-know', 'icon_title'),
+                override_terms_and_conditions: document.getElementById('override-terms-and-conditions').checked,
+                terms_and_conditions: {
+                    title: document.getElementById('terms-and-conditions-title').value.trim(),
+                    items: collectItems(document.getElementById('terms-and-conditions-list'), 'icon_title'),
+                },
                 top_icons: collectItems(document.getElementById('top-icons-list'), 'top_icon'),
                 why_choose: {
                     title: document.getElementById('why-choose-title').value.trim(),
@@ -292,6 +334,7 @@
 
         toggleOverrideSection('override-top-icons', 'top-icons-section');
         toggleOverrideSection('override-why-choose', 'why-choose-section');
+        toggleOverrideSection('override-terms-and-conditions', 'terms-and-conditions-section');
 
         document.getElementById('overview-content-save-btn').addEventListener('click', function () {
             if (saving) return;

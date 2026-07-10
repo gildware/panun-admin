@@ -229,7 +229,8 @@
 
         if ((overview.whats_included && overview.whats_included.items && overview.whats_included.items.length)
             || (overview.whats_not_included && overview.whats_not_included.items && overview.whats_not_included.items.length)
-            || (overview.good_to_know && overview.good_to_know.items && overview.good_to_know.items.length)) {
+            || (overview.good_to_know && overview.good_to_know.items && overview.good_to_know.items.length)
+            || (overview.terms_and_conditions && overview.terms_and_conditions.items && overview.terms_and_conditions.items.length)) {
             html += '<div class="sov-info-stack">';
             if (overview.whats_included && overview.whats_included.items && overview.whats_included.items.length) {
                 html += '<div class="sov-info-card sov-info-card--good"><div class="sov-info-head"><span class="material-icons">check_circle</span>'
@@ -255,6 +256,16 @@
                 html += '<div class="sov-info-card sov-info-card--neutral"><div class="sov-info-head"><span class="material-icons">info</span>'
                     + escapeHtml(overview.good_to_know.title || 'Good To Know') + '</div>';
                 overview.good_to_know.items.forEach(function (item) {
+                    html += '<div class="sov-info-line"><span class="material-icons">'
+                        + overviewIconMaterial(item.icon || 'info') + '</span><span>'
+                        + escapeHtml(item.title || item.text || '') + '</span></div>';
+                });
+                html += '</div>';
+            }
+            if (overview.terms_and_conditions && overview.terms_and_conditions.items && overview.terms_and_conditions.items.length) {
+                html += '<div class="sov-info-card sov-info-card--neutral"><div class="sov-info-head"><span class="material-icons">gavel</span>'
+                    + escapeHtml(overview.terms_and_conditions.title || 'Terms And Conditions') + '</div>';
+                overview.terms_and_conditions.items.forEach(function (item) {
                     html += '<div class="sov-info-line"><span class="material-icons">'
                         + overviewIconMaterial(item.icon || 'info') + '</span><span>'
                         + escapeHtml(item.title || item.text || '') + '</span></div>';
