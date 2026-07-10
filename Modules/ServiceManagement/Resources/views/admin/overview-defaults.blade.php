@@ -55,6 +55,29 @@
                     </div>
                 </div>
 
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0">{{ translate('terms_and_conditions') }}</h6>
+                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                    data-overview-add data-list-id="defaults-terms-list" data-item-type="icon_title">
+                                + {{ translate('add_item') }}
+                            </button>
+                        </div>
+                        <div class="form-floating mb-3">
+                            <input type="text" class="form-control" id="defaults-terms-title"
+                                   value="{{ $defaults['terms_and_conditions']['title'] ?? translate('terms_and_conditions') }}">
+                            <label for="defaults-terms-title">{{ translate('section_title') }}</label>
+                        </div>
+                        @include('servicemanagement::admin.partials._overview-items-list', [
+                            'listId' => 'defaults-terms-list',
+                            'itemType' => 'icon_title',
+                            'items' => $defaults['terms_and_conditions']['items'] ?? [],
+                            'overviewIconOptions' => $iconOptions,
+                        ])
+                    </div>
+                </div>
+
                 <div class="d-flex justify-content-end gap-2">
                     <a href="{{ route('admin.service.index') }}" class="btn btn-secondary">{{ translate('back') }}</a>
                     <button type="submit" class="btn btn--primary">{{ translate('save') }}</button>
@@ -115,6 +138,11 @@
                     + '<div class="col-md-6"><input type="text" class="form-control form-control-sm overview-item-title" placeholder="Title" value="' + (data.title || '') + '"></div>'
                     + '<div class="col-12"><input type="text" class="form-control form-control-sm overview-item-description" placeholder="Description" value="' + (data.description || '') + '"></div>'
                     + '</div>';
+            } else if (type === 'icon_title') {
+                inner += '<div class="row g-2">'
+                    + '<div class="col-md-4">' + iconSelectHtml(data.icon || '') + '</div>'
+                    + '<div class="col-md-8"><input type="text" class="form-control form-control-sm overview-item-title" placeholder="Title" value="' + (data.title || data.text || '') + '"></div>'
+                    + '</div>';
             }
 
             fields.innerHTML = inner;
@@ -162,6 +190,10 @@
                 why_choose: {
                     title: document.getElementById('defaults-why-choose-title').value.trim(),
                     items: collectItems(document.getElementById('defaults-why-choose-list')),
+                },
+                terms_and_conditions: {
+                    title: document.getElementById('defaults-terms-title').value.trim(),
+                    items: collectItems(document.getElementById('defaults-terms-list')),
                 },
             });
         });

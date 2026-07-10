@@ -76,6 +76,10 @@ class ServiceOverviewDefaultsService
           ],
         ],
       ],
+      'terms_and_conditions' => [
+        'title' => 'Terms And Conditions',
+        'items' => [],
+      ],
     ];
   }
 
@@ -128,6 +132,10 @@ class ServiceOverviewDefaultsService
       'why_choose' => [
         'title' => trim((string) ($payload['why_choose']['title'] ?? $base['why_choose']['title'])),
         'items' => self::normalizeItems($payload['why_choose']['items'] ?? $base['why_choose']['items']),
+      ],
+      'terms_and_conditions' => [
+        'title' => trim((string) ($payload['terms_and_conditions']['title'] ?? $base['terms_and_conditions']['title'])),
+        'items' => self::normalizeItems($payload['terms_and_conditions']['items'] ?? $base['terms_and_conditions']['items']),
       ],
     ];
   }

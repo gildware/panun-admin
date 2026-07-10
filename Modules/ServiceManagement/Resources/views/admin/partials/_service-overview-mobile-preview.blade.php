@@ -83,7 +83,7 @@
                     </div>
                 @endif
 
-                @if(!empty($overview['whats_included']['items']) || !empty($overview['whats_not_included']['items']) || !empty($overview['good_to_know']['items']))
+                @if(!empty($overview['whats_included']['items']) || !empty($overview['whats_not_included']['items']) || !empty($overview['good_to_know']['items']) || !empty($overview['terms_and_conditions']['items']))
                     <div class="sov-info-stack">
                         @if(!empty($overview['whats_included']['items']))
                             <div class="sov-info-card sov-info-card--good">
@@ -122,6 +122,20 @@
                                 @foreach($overview['good_to_know']['items'] as $item)
                                     <div class="sov-info-line">
                                         <span class="material-icons">{{ $iconMaterialMap[$item['icon'] ?? ''] ?? 'info' }}</span>
+                                        <span>{{ $item['title'] ?? $item['text'] ?? '' }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                        @if(!empty($overview['terms_and_conditions']['items']))
+                            <div class="sov-info-card sov-info-card--neutral">
+                                <div class="sov-info-head">
+                                    <span class="material-icons">gavel</span>
+                                    {{ $overview['terms_and_conditions']['title'] ?? translate('terms_and_conditions') }}
+                                </div>
+                                @foreach($overview['terms_and_conditions']['items'] as $item)
+                                    <div class="sov-info-line">
+                                        <span class="material-icons">{{ $iconMaterialMap[$item['icon'] ?? ''] ?? 'description' }}</span>
                                         <span>{{ $item['title'] ?? $item['text'] ?? '' }}</span>
                                     </div>
                                 @endforeach

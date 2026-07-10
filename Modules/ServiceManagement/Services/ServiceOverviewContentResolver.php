@@ -23,6 +23,7 @@ class ServiceOverviewContentResolver
     $hasServiceSections = self::hasAnyServiceSection($serviceContent);
     $overrideTopIcons = (bool) ($serviceContent['override_top_icons'] ?? false);
     $overrideWhyChoose = (bool) ($serviceContent['override_why_choose'] ?? false);
+    $overrideTermsAndConditions = (bool) ($serviceContent['override_terms_and_conditions'] ?? false);
 
     $topIcons = $overrideTopIcons
       ? ($serviceContent['top_icons'] ?? [])
@@ -34,7 +35,13 @@ class ServiceOverviewContentResolver
       ? ($serviceContent['why_choose'] ?? ['title' => '', 'items' => []])
       : ($defaults['why_choose'] ?? ['title' => '', 'items' => []]);
 
-    if (! $hasServiceSections && $topIcons === [] && $cardHighlights === [] && ($whyChoose['items'] ?? []) === []) {
+    $termsAndConditions = $overrideTermsAndConditions
+      ? ($serviceContent['terms_and_conditions'] ?? ['title' => '', 'items' => []])
+      : ($defaults['terms_and_conditions'] ?? ['title' => 'Terms And Conditions', 'items' => []]);
+
+    $resolvedTermsAndConditions = self::normalizeSection($termsAndConditions, 'Terms And Conditions');
+
+    if (! $hasServiceSections && $topIcons === [] && $cardHighlights === [] && ($whyChoose['items'] ?? []) === [] && $resolvedTermsAndConditions === null) {
       return null;
     }
 
@@ -47,6 +54,7 @@ class ServiceOverviewContentResolver
       'whats_included' => $serviceContent['whats_included'] ?? null,
       'whats_not_included' => $serviceContent['whats_not_included'] ?? null,
       'good_to_know' => $serviceContent['good_to_know'] ?? null,
+      'terms_and_conditions' => $resolvedTermsAndConditions,
       'why_choose' => $whyChoose,
     ];
   }
@@ -61,11 +69,16 @@ class ServiceOverviewContentResolver
       'intro' => trim((string) ($payload['intro'] ?? '')),
       'override_top_icons' => (bool) ($payload['override_top_icons'] ?? false),
       'override_why_choose' => (bool) ($payload['override_why_choose'] ?? false),
+      'override_terms_and_conditions' => (bool) ($payload['override_terms_and_conditions'] ?? false),
       'top_icons' => self::normalizeItems($payload['top_icons'] ?? []),
       'card_highlights' => self::normalizeItems($payload['card_highlights'] ?? []),
       'why_choose' => [
         'title' => trim((string) ($payload['why_choose']['title'] ?? '')),
         'items' => self::normalizeItems($payload['why_choose']['items'] ?? []),
+      ],
+      'terms_and_conditions' => [
+        'title' => trim((string) ($payload['terms_and_conditions']['title'] ?? '')),
+        'items' => self::normalizeItems($payload['terms_and_conditions']['items'] ?? []),
       ],
       'service_process' => self::normalizeSection($payload['service_process'] ?? null, 'Service Process'),
       'perfect_for' => self::normalizeSection($payload['perfect_for'] ?? null, 'Perfect For'),
