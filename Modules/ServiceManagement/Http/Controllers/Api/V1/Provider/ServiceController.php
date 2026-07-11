@@ -14,7 +14,9 @@ use Modules\ReviewModule\Entities\Review;
 use Modules\ReviewModule\Entities\ReviewReply;
 use Modules\ProviderManagement\Services\CustomerProviderDetailsPayloadSlimmer;
 use Modules\ServiceManagement\Services\ProviderServiceDetailsCache;
+use Modules\ServiceManagement\Services\ServiceOverviewContentResolver;
 use Modules\ServiceManagement\Entities\Service;
+use Modules\ServiceManagement\Entities\Variation;
 
 class ServiceController extends Controller
 {
@@ -184,6 +186,15 @@ class ServiceController extends Controller
             }
 
             $service = self::variationsReactFormat($service);
+            $providerZoneId = auth()->user()->provider->zone_id ?? null;
+            $service['variations_app_format'] = Variation::variationsAppFormatForCustomer(
+                (string) $service->id,
+                $providerZoneId ? (string) $providerZoneId : null
+            );
+            $service->setAttribute(
+                'overview_content',
+                ServiceOverviewContentResolver::resolveForService($service)
+            );
 
             return is_array($service) ? $service : $service->toArray();
         });

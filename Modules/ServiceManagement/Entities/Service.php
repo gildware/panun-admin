@@ -68,15 +68,23 @@ class Service extends Model
             $variantsByKey = $this->serviceVariants()->with('storage_image')->get()->keyBy('variant_key');
         }
 
-        $variantKeys = collect($this->variations)->pluck('variant_key')->unique();
+        $variantKeys = collect($this->variations)->pluck('variant_key')->filter()->unique();
+        $metaKeys = $variantsByKey->keys()->map(fn ($key) => (string) $key);
+        $variantKeys = $variantKeys->merge($metaKeys)->unique()->values();
         $storage = [];
 
         foreach ($variantKeys as $variantKey) {
-            $filtered = collect($this->variations)->where('variant_key', $variantKey);
-            $meta = $variantsByKey->get($variantKey);
+            $key = (string) $variantKey;
+            $filtered = collect($this->variations)->where('variant_key', $key);
+            $meta = $variantsByKey->get($key);
+            $pricing = Variation::variationPricingConfig($this, $key);
+            $price = $filtered->isNotEmpty()
+                ? (float) ($filtered->first()->price ?? 0)
+                : (float) ($pricing['default_price'] ?? 0);
+
             $formatting = [
-                'variationName' => $meta?->title ?? str_replace('-', ' ', (string) $variantKey),
-                'variationPrice' => $filtered->first()->price ?? 0,
+                'variationName' => $meta?->title ?? str_replace('-', ' ', $key),
+                'variationPrice' => $price,
                 'description' => $meta?->description,
                 'note' => $meta?->note,
                 'image' => $meta?->image,
