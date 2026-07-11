@@ -53,8 +53,6 @@ $newVariantKey = 'book-site-inspection';
 $title = 'Book Site Inspection';
 $description = 'Verified carpenter inspects your door opening, frame and measurements on site.';
 $note = 'This inspection fee will be adjusted against your final door installation bill if you proceed with the full service through Panun Kaergar.';
-$icon = 'location';
-
 $service = Service::on($liveConnection)->withoutGlobalScopes()->find($serviceId);
 if (! $service) {
     throw new RuntimeException("Service not found: {$serviceId}");
@@ -82,24 +80,11 @@ if (! $variant) {
     throw new RuntimeException('Service variant not found for Door Installation.');
 }
 
-$previousImage = $variant->image;
-if ($previousImage) {
-    file_remover('service/', $previousImage);
-}
-
-DB::connection($liveConnection)->table('storages')
-    ->where('model', ServiceVariant::class)
-    ->where('model_id', $variant->id)
-    ->where('model_column', 'image')
-    ->delete();
-
 ServiceVariant::on($liveConnection)->where('id', $variant->id)->update([
     'variant_key' => $newVariantKey,
     'title' => $title,
     'description' => $description,
     'note' => $note,
-    'icon' => $icon,
-    'image' => null,
     'is_active' => true,
 ]);
 
@@ -143,6 +128,5 @@ echo "  title: {$title}\n";
 echo "  key: {$newVariantKey}\n";
 echo "  description: {$description}\n";
 echo "  note: {$note}\n";
-echo "  icon: {$icon}\n";
-echo "  image: cleared\n";
+echo "  image: run upload-variant-icons-live.php to upload icon image\n";
 echo '  zones: '.Variation::on($liveConnection)->where('service_id', $serviceId)->where('variant_key', $newVariantKey)->count()."\n";
