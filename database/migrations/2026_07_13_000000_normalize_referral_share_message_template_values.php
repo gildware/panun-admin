@@ -28,13 +28,13 @@ return new class extends Migration
             $row->save();
         }
 
-        $rowsToKeep = DB::table('business_settings')
-            ->select('id')
+        $keepId = DB::table('business_settings')
             ->where('key_name', 'referral_share_message_template')
             ->where('settings_type', 'customer_config')
             ->orderByDesc('updated_at')
-            ->limit(1)
-            ->pluck('id');
+            ->value('id');
+
+        $rowsToKeep = $keepId ? collect([$keepId]) : collect();
 
         if ($rowsToKeep->isNotEmpty()) {
             DB::table('business_settings')

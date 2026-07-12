@@ -57,19 +57,17 @@
                                             <div class="discount-type">
                                                 <div class="row">
                                                     <div class="col-12 d-flex justify-content-start mb-3">
-                                                        @php($value=$data_values->where('key_name','customer_loyalty_point')->first())
                                                         <h4>{{translate('Customer Loyalty Point')}}</h4>
                                                         <label class="switcher mx-2">
                                                             <input class="switcher_input" type="checkbox" value="1"
                                                                    name="customer_loyalty_point"
-                                                                {{isset($value) && $value->live_values == '1' ? 'checked' : ''}}>
+                                                                {{ optional($data_values->where('key_name', 'customer_loyalty_point')->first())->live_values == '1' ? 'checked' : '' }}>
                                                             <span class="switcher_control"></span>
                                                         </label>
                                                     </div>
 
                                                     <div class="col-12 row">
                                                         <div class="col-md-4 col-12 mb-30">
-                                                            @php($value=$data_values->where('key_name','loyalty_point_percentage_per_booking')->first())
                                                             <label
                                                                 class="mb-1">{{translate('Percentage Of Loyalty Point per Booking Amount')}}
                                                                 <i class="material-icons" data-bs-toggle="tooltip"
@@ -79,9 +77,8 @@
                                                             <input type="number" class="form-control"
                                                                    name="loyalty_point_percentage_per_booking"
                                                                    min="0" max="100" step="any"
-                                                                   value="{{$value->live_values??''}}">
+                                                                   value="{{ optional($data_values->where('key_name', 'loyalty_point_percentage_per_booking')->first())->live_values ?? '' }}">
                                                         </div>
-                                                        @php($value=$data_values->where('key_name','loyalty_point_value_per_currency_unit')->first())
                                                         <div class="col-md-4 col-12 mb-30">
                                                             <label
                                                                 class="mb-1">1 {{currency_code()}} {{translate('equal to how many loyalty points')}}
@@ -89,17 +86,17 @@
                                                             <input type="number" class="form-control"
                                                                    name="loyalty_point_value_per_currency_unit"
                                                                    step="any"
-                                                                   min="0" value="{{$value->live_values??''}}">
+                                                                   min="0"
+                                                                   value="{{ optional($data_values->where('key_name', 'loyalty_point_value_per_currency_unit')->first())->live_values ?? '' }}">
                                                         </div>
                                                         <div class="col-md-4 col-12 mb-30">
-                                                            @php($value=$data_values->where('key_name','min_loyalty_point_to_transfer')->first())
                                                             <label
                                                                 class="mb-1">{{translate('Minimum Loyalty Points To Transfer Into Wallet')}}</label>
                                                             <input type="number" class="form-control"
                                                                    name="min_loyalty_point_to_transfer" step="any"
-                                                                   min="0" value="{{$value->live_values??''}}">
+                                                                   min="0"
+                                                                   value="{{ optional($data_values->where('key_name', 'min_loyalty_point_to_transfer')->first())->live_values ?? '' }}">
                                                         </div>
-                                                        @php($value=$data_values->where('key_name','min_grand_total_for_loyalty_point')->first())
                                                         <div class="col-md-4 col-12 mb-30">
                                                             <label class="mb-1">
                                                                 {{translate('Minimum grand total to receive loyalty points')}}
@@ -109,7 +106,8 @@
                                                             </label>
                                                             <input type="number" class="form-control"
                                                                    name="min_grand_total_for_loyalty_point" step="any"
-                                                                   min="0" value="{{$value->live_values ?? 0}}">
+                                                                   min="0"
+                                                                   value="{{ optional($data_values->where('key_name', 'min_grand_total_for_loyalty_point')->first())->live_values ?? 0 }}">
                                                         </div>
                                                     </div>
 
@@ -179,16 +177,14 @@
 
                                             <div class="row">
                                                 <div class="col-12 d-flex justify-content-start mb-3">
-                                                    @php($value=$data_values->where('key_name','customer_wallet')->first())
                                                     <h4>{{translate('Customer Wallet')}}</h4>
                                                     <label class="switcher mx-2">
                                                         <input class="switcher_input" type="checkbox" value="1"
                                                                name="customer_wallet"
-                                                            {{isset($value) && $value->live_values == '1' ? 'checked' : ''}}>
+                                                            {{ optional($data_values->where('key_name', 'customer_wallet')->first())->live_values == '1' ? 'checked' : '' }}>
                                                         <span class="switcher_control"></span>
                                                     </label>
                                                 </div>
-                                                @php($value=$data_values->where('key_name','max_wallet_spend_per_transaction')->first())
                                                 <div class="col-md-6 col-12 mb-30">
                                                     <label class="mb-1">
                                                         {{translate('Maximum wallet spend per transaction')}}
@@ -198,7 +194,8 @@
                                                     </label>
                                                     <input type="number" class="form-control"
                                                            name="max_wallet_spend_per_transaction" step="any"
-                                                           min="0" value="{{ $value->live_values ?? 0 }}">
+                                                           min="0"
+                                                           value="{{ optional($data_values->where('key_name', 'max_wallet_spend_per_transaction')->first())->live_values ?? 0 }}">
                                                 </div>
                                             </div>
 
@@ -235,7 +232,6 @@
 
                                             <div class="row">
                                                 <div class="col-12 d-flex justify-content-start align-items-center mb-3">
-                                                    @php($welcomeBonus=$data_values->where('key_name','customer_welcome_bonus')->first())
                                                     <div>
                                                         <h4 class="mb-1">{{translate('Welcome Bonus')}}</h4>
                                                         <p class="text-muted fz-12 mb-0">
@@ -245,13 +241,12 @@
                                                     <label class="switcher mx-3">
                                                         <input class="switcher_input" type="checkbox" value="1"
                                                                name="customer_welcome_bonus"
-                                                            {{isset($welcomeBonus) && $welcomeBonus->live_values == '1' ? 'checked' : ''}}>
+                                                            {{ optional($data_values->where('key_name', 'customer_welcome_bonus')->first())->live_values == '1' ? 'checked' : '' }}>
                                                         <span class="switcher_control"></span>
                                                     </label>
                                                 </div>
 
                                                 <div class="col-md-6 col-12 mb-30">
-                                                    @php($welcomeBonusAmount=$data_values->where('key_name','customer_welcome_bonus_amount')->first())
                                                     <label class="mb-1">
                                                         {{translate('Welcome Bonus Amount')}} ({{currency_symbol()}})
                                                         <i class="material-icons" data-bs-toggle="tooltip"
@@ -260,7 +255,8 @@
                                                     </label>
                                                     <input type="number" class="form-control"
                                                            name="customer_welcome_bonus_amount" step="any"
-                                                           min="0" value="{{ $welcomeBonusAmount->live_values ?? 0 }}">
+                                                           min="0"
+                                                           value="{{ optional($data_values->where('key_name', 'customer_welcome_bonus_amount')->first())->live_values ?? 0 }}">
                                                 </div>
                                             </div>
 
@@ -298,37 +294,25 @@
 
                                             <div class="row">
                                                 <div class="col-12 d-flex justify-content-start mb-3">
-                                                    @php($value=$data_values->where('key_name','customer_referral_earning')->first())
                                                     <h4>{{translate('Customer Referral Earning')}}</h4>
                                                     <label class="switcher mx-2">
                                                         <input class="switcher_input" type="checkbox" value="1"
                                                                name="customer_referral_earning"
-                                                            {{isset($value) && $value->live_values == '1' ? 'checked' : ''}}
-                                                        >
+                                                            {{ optional($data_values->where('key_name', 'customer_referral_earning')->first())->live_values == '1' ? 'checked' : '' }}>
                                                         <span class="switcher_control"></span>
                                                     </label>
                                                 </div>
 
                                                 <div class="col-12 row">
-                                                    @php($value=$data_values->where('key_name','referral_value_per_currency_unit')->first())
                                                     <div class="col-md-12 mb-30">
                                                         <label
                                                             class="mb-1">{{translate('One Referrer Equal To How Much') . ' ' . currency_code() . '?'}}</label>
                                                         <input type="number" class="form-control"
                                                                name="referral_value_per_currency_unit" step="any"
-                                                               min="0" value="{{$value->live_values??''}}">
+                                                               min="0"
+                                                               value="{{ optional($data_values->where('key_name', 'referral_value_per_currency_unit')->first())->live_values ?? '' }}">
                                                     </div>
 
-                                                    @php
-                                                        $shareTemplateValue = old(
-                                                            'referral_share_message_template',
-                                                            business_config_scalar(
-                                                                'referral_share_message_template',
-                                                                'customer_config',
-                                                                DEFAULT_REFERRAL_SHARE_MESSAGE_TEMPLATE
-                                                            )
-                                                        );
-                                                    @endphp
                                                     <div class="col-md-12 mb-30">
                                                         <label class="mb-1">
                                                             {{translate('Referral Share Message Template')}}
@@ -338,7 +322,7 @@
                                                         </label>
                                                         <textarea class="form-control" name="referral_share_message_template"
                                                                   rows="6"
-                                                                  placeholder="{{translate('Hi! Please use this {CODE} at time of registration to book services from {APP_NAME}.')}}&#10;{{translate('Download Android app: {ANDROID_APP_URL}')}}&#10;{{translate('Download iOS app: {IOS_APP_URL}')}}">{{ $shareTemplateValue }}</textarea>
+                                                                  placeholder="{{translate('Hi! Please use this {CODE} at time of registration to book services from {APP_NAME}.')}}&#10;{{translate('Download Android app: {ANDROID_APP_URL}')}}&#10;{{translate('Download iOS app: {IOS_APP_URL}')}}">{{ $referralShareMessageTemplate ?? '' }}</textarea>
                                                         <small class="text-muted d-block mt-2">
                                                             {{translate('Available placeholders')}}:
                                                             <code>{CODE}</code>,

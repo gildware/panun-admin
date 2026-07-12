@@ -955,12 +955,22 @@ class ConfigurationController extends Controller
                 : [];
         }
 
+        $referralShareMessageTemplate = old(
+            'referral_share_message_template',
+            business_config_scalar(
+                'referral_share_message_template',
+                'customer_config',
+                DEFAULT_REFERRAL_SHARE_MESSAGE_TEMPLATE
+            )
+        );
+
         return view('customermodule::admin.customer.settings', compact(
             'web_page',
             'data_values',
             'loyaltyCompletionOutcomeOptions',
             'loyaltyOutcomeFilterMode',
             'loyaltySelectedOutcomes',
+            'referralShareMessageTemplate',
         ));
     }
 
