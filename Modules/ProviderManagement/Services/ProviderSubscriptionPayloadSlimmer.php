@@ -42,8 +42,11 @@ class ProviderSubscriptionPayloadSlimmer
         'id',
         'parent_id',
         'name',
+        'slug',
         'image',
         'image_full_path',
+        'image_dark',
+        'image_dark_full_path',
         'subscription_pending',
         'pending_subscription_action',
         'services',
@@ -62,10 +65,14 @@ class ProviderSubscriptionPayloadSlimmer
     {
         return [
             'sub_category' => function ($query) {
-                $query->select('id', 'parent_id', 'name', 'image', 'is_active')
-                    ->with(['services' => function ($serviceQuery) {
-                        $serviceQuery->select('id', 'sub_category_id', 'is_active');
-                    }]);
+                $query->select('id', 'parent_id', 'name', 'slug', 'image', 'image_dark', 'is_active')
+                    ->with([
+                        'storage',
+                        'darkStorage',
+                        'services' => function ($serviceQuery) {
+                            $serviceQuery->select('id', 'sub_category_id', 'is_active');
+                        },
+                    ]);
             },
         ];
     }
