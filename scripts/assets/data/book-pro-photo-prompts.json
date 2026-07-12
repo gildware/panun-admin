@@ -1,0 +1,29 @@
+[
+  {
+    "slug": "book-a-carpenter",
+    "name": "Book Carpenter",
+    "category_slug": "carpentary",
+    "thumbnail_prompt": "Professional portrait photograph of a Kashmiri origin Indian carpenter handyman facing the camera directly with a warm confident smile, wearing clean work uniform, holding carpentry tools including a hammer and measuring tape, neutral soft studio background, natural lighting, photorealistic stock photo style. No text, no logos, no watermarks.",
+    "cover_prompt": "Wide landscape professional photograph of a Kashmiri origin Indian carpenter at work in a modern Indian home, facing slightly toward camera while fitting wooden panels, tools visible, natural daylight through windows, photorealistic home service photography. No text, no logos, no watermarks.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-a-carpenter-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-a-carpenter-cover.png"
+  },
+  {
+    "slug": "book-a-painter",
+    "name": "Book a Painter",
+    "category_slug": "painting",
+    "thumbnail_prompt": "Professional portrait photograph of a Kashmiri origin Indian painter handyman facing the camera directly with a friendly expression, wearing clean work clothes and cap, holding paint roller and brush with paint tray, neutral soft background, natural lighting, photorealistic stock photo style. No text, no logos, no watermarks.",
+    "cover_prompt": "Wide landscape professional photograph of a Kashmiri origin Indian painter working on interior walls in a modern Indian home, roller and brush in hand, fresh paint on wall, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-a-painter-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-a-painter-cover.png"
+  },
+  {
+    "slug": "book-a-mason",
+    "name": "Book a Mason",
+    "category_slug": "masonry",
+    "thumbnail_prompt": "Professional portrait photograph of a Kashmiri origin Indian mason handyman facing the camera directly with a confident look, wearing work uniform, holding trowel and spirit level with bricks nearby, neutral soft background, natural lighting, photorealistic stock photo style. No text, no logos, no watermarks.",
+    "cover_prompt": "Wide landscape professional photograph of a Kashmiri origin Indian mason laying bricks or tiles at a home construction site in Kashmir region style home, trowel and level visible, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-a-mason-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-a-mason-cover.png"
+  }
+]

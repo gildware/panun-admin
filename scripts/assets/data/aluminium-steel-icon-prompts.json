@@ -1,0 +1,200 @@
+{
+  "categories": [
+    {
+      "slug": "aluminium-steel-works",
+      "filename": "aluminium-steel-works.png",
+      "prompt": "Category icon: aluminium I-beam crossed with steel angle profile and small welding spark, representing aluminium and steel fabrication works. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "metal-works-installation",
+      "filename": "metal-works-installation.png",
+      "prompt": "Category icon: aluminium window frame with wrench and screwdriver, metal installation service. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "metal-works-repairs",
+      "filename": "metal-works-repairs.png",
+      "prompt": "Category icon: cracked metal railing with hammer and wrench, metal repair service. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "metal-works-fabrication",
+      "filename": "metal-works-fabrication.png",
+      "prompt": "Category icon: welding torch with steel gate frame silhouette, custom metal fabrication. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ],
+  "variants": [
+    {
+      "slug": "acp-cladding-installation",
+      "variant_key": "book-site-inspection",
+      "filename": "acp-cladding-installation-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: ACP cladding panel on building facade with magnifying glass and clipboard checklist, book on site inspection for ACP Cladding Installation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "aluminium-window-installation",
+      "variant_key": "book-site-inspection",
+      "filename": "aluminium-window-installation-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: aluminium sliding window frame with magnifying glass and clipboard checklist, book on site inspection for Aluminium Window Installation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "aluminium-door-installation",
+      "variant_key": "book-site-inspection",
+      "filename": "aluminium-door-installation-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: aluminium sliding door with magnifying glass and clipboard checklist, book on site inspection for Aluminium Door Installation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "upvc-window-installation",
+      "variant_key": "book-site-inspection",
+      "filename": "upvc-window-installation-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: white uPVC window frame with magnifying glass and clipboard checklist, book on site inspection for uPVC Window Installation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "upvc-door-installation",
+      "variant_key": "book-site-inspection",
+      "filename": "upvc-door-installation-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: white uPVC door with magnifying glass and clipboard checklist, book on site inspection for uPVC Door Installation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "balcony-railing-installation",
+      "variant_key": "book-site-inspection",
+      "filename": "balcony-railing-installation-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: stainless steel balcony railing with magnifying glass and clipboard checklist, book on site inspection for Balcony Railing Installation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "staircase-railing-installation",
+      "variant_key": "book-site-inspection",
+      "filename": "staircase-railing-installation-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: staircase metal handrail with magnifying glass and clipboard checklist, book on site inspection for Staircase Railing Installation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "pvc-wall-panelling-installation",
+      "variant_key": "book-site-inspection",
+      "filename": "pvc-wall-panelling-installation-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: PVC interior wall panels with magnifying glass and clipboard checklist, book on site inspection for PVC Wall Panelling Installation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "false-ceiling-installation",
+      "variant_key": "book-site-inspection",
+      "filename": "false-ceiling-installation-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: false ceiling T-grid panel with magnifying glass and clipboard checklist, book on site inspection for False Ceiling Installation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "ms-gate-installation",
+      "variant_key": "book-site-inspection",
+      "filename": "ms-gate-installation-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: mild steel main gate with magnifying glass and clipboard checklist, book on site inspection for MS Gate Installation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "ss-grill-installation",
+      "variant_key": "book-site-inspection",
+      "filename": "ss-grill-installation-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: stainless steel window grill with magnifying glass and clipboard checklist, book on site inspection for SS Grill Installation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "glass-partition-installation",
+      "variant_key": "book-site-inspection",
+      "filename": "glass-partition-installation-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: glass office partition with aluminium frame with magnifying glass and clipboard checklist, book on site inspection for Glass Partition Installation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "shop-shutter-installation",
+      "variant_key": "book-site-inspection",
+      "filename": "shop-shutter-installation-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: rolling metal shop shutter with magnifying glass and clipboard checklist, book on site inspection for Shop Shutter Installation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "pergola-car-porch-installation",
+      "variant_key": "book-site-inspection",
+      "filename": "pergola-car-porch-installation-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: aluminium pergola car porch structure with magnifying glass and clipboard checklist, book on site inspection for Pergola & Car Porch Installation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "signage-frame-installation",
+      "variant_key": "book-site-inspection",
+      "filename": "signage-frame-installation-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: shop signage aluminium frame with magnifying glass and clipboard checklist, book on site inspection for Signage Frame Installation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "acp-panel-repair",
+      "variant_key": "book-site-inspection",
+      "filename": "acp-panel-repair-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: ACP cladding panel on building facade with magnifying glass and clipboard checklist, book on site inspection for ACP Panel Repair. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "aluminium-window-repair",
+      "variant_key": "book-site-inspection",
+      "filename": "aluminium-window-repair-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: aluminium sliding window frame with magnifying glass and clipboard checklist, book on site inspection for Aluminium Window Repair. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "aluminium-door-repair",
+      "variant_key": "book-site-inspection",
+      "filename": "aluminium-door-repair-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: aluminium sliding door with magnifying glass and clipboard checklist, book on site inspection for Aluminium Door Repair. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "upvc-window-door-repair",
+      "variant_key": "book-site-inspection",
+      "filename": "upvc-window-door-repair-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: white uPVC window frame with magnifying glass and clipboard checklist, book on site inspection for uPVC Window & Door Repair. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "railing-repair",
+      "variant_key": "book-site-inspection",
+      "filename": "railing-repair-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: metal railing section with magnifying glass and clipboard checklist, book on site inspection for Railing Repair. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "gate-grill-repair",
+      "variant_key": "book-site-inspection",
+      "filename": "gate-grill-repair-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: gate and window grill with magnifying glass and clipboard checklist, book on site inspection for Gate & Grill Repair. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "false-ceiling-repair",
+      "variant_key": "book-site-inspection",
+      "filename": "false-ceiling-repair-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: false ceiling T-grid panel with magnifying glass and clipboard checklist, book on site inspection for False Ceiling Repair. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "pvc-panel-repair",
+      "variant_key": "book-site-inspection",
+      "filename": "pvc-panel-repair-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: PVC wall panel with magnifying glass and clipboard checklist, book on site inspection for PVC Panel Repair. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "shop-shutter-repair",
+      "variant_key": "book-site-inspection",
+      "filename": "shop-shutter-repair-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: rolling metal shop shutter with magnifying glass and clipboard checklist, book on site inspection for Shop Shutter Repair. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "custom-ms-gate-fabrication",
+      "variant_key": "book-site-inspection",
+      "filename": "custom-ms-gate-fabrication-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: mild steel main gate with magnifying glass and clipboard checklist, book on site inspection for Custom MS Gate Fabrication. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "custom-ss-grill-fabrication",
+      "variant_key": "book-site-inspection",
+      "filename": "custom-ss-grill-fabrication-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: stainless steel window grill with magnifying glass and clipboard checklist, book on site inspection for Custom SS Grill Fabrication. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "custom-railing-fabrication",
+      "variant_key": "book-site-inspection",
+      "filename": "custom-railing-fabrication-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: metal railing section with magnifying glass and clipboard checklist, book on site inspection for Custom Railing Fabrication. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "custom-aluminium-window-fabrication",
+      "variant_key": "book-site-inspection",
+      "filename": "custom-aluminium-window-fabrication-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: aluminium sliding window frame with magnifying glass and clipboard checklist, book on site inspection for Custom Aluminium Window Fabrication. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "steel-bracket-fabrication",
+      "variant_key": "book-site-inspection",
+      "filename": "steel-bracket-fabrication-book-site-inspection.png",
+      "prompt": "Variation icon for metal works site inspection: steel L-bracket support with magnifying glass and clipboard checklist, book on site inspection for Steel Bracket Fabrication. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ]
+}

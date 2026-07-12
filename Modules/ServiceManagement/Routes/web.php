@@ -22,6 +22,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
 
     Route::group(['prefix' => 'service', 'as' => 'service.'], function () {
         Route::any('list', [AdminServiceController::class, 'index'])->name('index');
+        Route::get('table', [AdminServiceController::class, 'getTable'])->name('table');
         Route::any('create', [AdminServiceController::class, 'create'])->name('create');
         Route::post('store', [AdminServiceController::class, 'store'])->name('store');
         Route::any('detail/{id}', [AdminServiceController::class, 'show'])->name('detail');

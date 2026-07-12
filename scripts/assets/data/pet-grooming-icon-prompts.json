@@ -1,0 +1,291 @@
+{
+    "categories": [
+        {
+            "slug": "pet-grooming",
+            "filename": "pet-grooming.png",
+            "prompt": "Category icon: dog and cat silhouette with grooming comb and scissors, professional pet grooming service. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-grooming",
+            "filename": "dog-grooming.png",
+            "prompt": "Category icon: friendly dog face with grooming comb and scissors, dog grooming service. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "cat-grooming",
+            "filename": "cat-grooming.png",
+            "prompt": "Category icon: cat face with grooming brush, cat grooming service. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        }
+    ],
+    "variants": [
+        {
+            "slug": "full-dog-grooming",
+            "variant_key": "small",
+            "filename": "full-dog-grooming-small.png",
+            "prompt": "Variation icon for pet grooming: small dog silhouette icon, compact pet size up to 10 kg for Small (up to 10 kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "full-dog-grooming",
+            "variant_key": "medium",
+            "filename": "full-dog-grooming-medium.png",
+            "prompt": "Variation icon for pet grooming: medium dog silhouette icon, mid-size pet 10 to 25 kg for Medium (10\u201325 kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "full-dog-grooming",
+            "variant_key": "large",
+            "filename": "full-dog-grooming-large.png",
+            "prompt": "Variation icon for pet grooming: large dog silhouette icon, big pet 25 to 40 kg for Large (25\u201340 kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "full-dog-grooming",
+            "variant_key": "extra-large",
+            "filename": "full-dog-grooming-extra-large.png",
+            "prompt": "Variation icon for pet grooming: extra large dog silhouette icon, giant breed over 40 kg for Extra large (40+ kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-bath-and-brush",
+            "variant_key": "small",
+            "filename": "dog-bath-and-brush-small.png",
+            "prompt": "Variation icon for pet grooming: small dog silhouette icon, compact pet size up to 10 kg for Small (up to 10 kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-bath-and-brush",
+            "variant_key": "medium",
+            "filename": "dog-bath-and-brush-medium.png",
+            "prompt": "Variation icon for pet grooming: medium dog silhouette icon, mid-size pet 10 to 25 kg for Medium (10\u201325 kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-bath-and-brush",
+            "variant_key": "large",
+            "filename": "dog-bath-and-brush-large.png",
+            "prompt": "Variation icon for pet grooming: large dog silhouette icon, big pet 25 to 40 kg for Large (25\u201340 kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-bath-and-brush",
+            "variant_key": "extra-large",
+            "filename": "dog-bath-and-brush-extra-large.png",
+            "prompt": "Variation icon for pet grooming: extra large dog silhouette icon, giant breed over 40 kg for Extra large (40+ kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-haircut-and-trim",
+            "variant_key": "small",
+            "filename": "dog-haircut-and-trim-small.png",
+            "prompt": "Variation icon for pet grooming: small dog silhouette icon, compact pet size up to 10 kg for Small (up to 10 kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-haircut-and-trim",
+            "variant_key": "medium",
+            "filename": "dog-haircut-and-trim-medium.png",
+            "prompt": "Variation icon for pet grooming: medium dog silhouette icon, mid-size pet 10 to 25 kg for Medium (10\u201325 kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-haircut-and-trim",
+            "variant_key": "large",
+            "filename": "dog-haircut-and-trim-large.png",
+            "prompt": "Variation icon for pet grooming: large dog silhouette icon, big pet 25 to 40 kg for Large (25\u201340 kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-haircut-and-trim",
+            "variant_key": "extra-large",
+            "filename": "dog-haircut-and-trim-extra-large.png",
+            "prompt": "Variation icon for pet grooming: extra large dog silhouette icon, giant breed over 40 kg for Extra large (40+ kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-nail-clipping",
+            "variant_key": "per-pet",
+            "filename": "dog-nail-clipping-per-pet.png",
+            "prompt": "Variation icon for pet grooming: single paw print icon representing one pet for Per pet. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-ear-cleaning",
+            "variant_key": "per-pet",
+            "filename": "dog-ear-cleaning-per-pet.png",
+            "prompt": "Variation icon for pet grooming: single paw print icon representing one pet for Per pet. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-teeth-brushing",
+            "variant_key": "per-pet",
+            "filename": "dog-teeth-brushing-per-pet.png",
+            "prompt": "Variation icon for pet grooming: single paw print icon representing one pet for Per pet. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-deshedding-treatment",
+            "variant_key": "short-coat",
+            "filename": "dog-deshedding-treatment-short-coat.png",
+            "prompt": "Variation icon for pet grooming: short coat dog icon with smooth fur for Short coat. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-deshedding-treatment",
+            "variant_key": "long-coat",
+            "filename": "dog-deshedding-treatment-long-coat.png",
+            "prompt": "Variation icon for pet grooming: long double coat dog icon with fluffy fur for Long / double coat. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-flea-tick-bath",
+            "variant_key": "small",
+            "filename": "dog-flea-tick-bath-small.png",
+            "prompt": "Variation icon for pet grooming: small dog silhouette icon, compact pet size up to 10 kg for Small (up to 10 kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-flea-tick-bath",
+            "variant_key": "medium",
+            "filename": "dog-flea-tick-bath-medium.png",
+            "prompt": "Variation icon for pet grooming: medium dog silhouette icon, mid-size pet 10 to 25 kg for Medium (10\u201325 kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-flea-tick-bath",
+            "variant_key": "large",
+            "filename": "dog-flea-tick-bath-large.png",
+            "prompt": "Variation icon for pet grooming: large dog silhouette icon, big pet 25 to 40 kg for Large (25\u201340 kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-paw-pad-trim",
+            "variant_key": "per-pet",
+            "filename": "dog-paw-pad-trim-per-pet.png",
+            "prompt": "Variation icon for pet grooming: single paw print icon representing one pet for Per pet. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "puppy-first-groom",
+            "variant_key": "puppy",
+            "filename": "puppy-first-groom-puppy.png",
+            "prompt": "Variation icon for pet grooming: small puppy dog icon under 6 months for Puppy (under 6 months). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "senior-dog-gentle-groom",
+            "variant_key": "small",
+            "filename": "senior-dog-gentle-groom-small.png",
+            "prompt": "Variation icon for pet grooming: small dog silhouette icon, compact pet size up to 10 kg for Small (up to 10 kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "senior-dog-gentle-groom",
+            "variant_key": "medium",
+            "filename": "senior-dog-gentle-groom-medium.png",
+            "prompt": "Variation icon for pet grooming: medium dog silhouette icon, mid-size pet 10 to 25 kg for Medium (10\u201325 kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "senior-dog-gentle-groom",
+            "variant_key": "large",
+            "filename": "senior-dog-gentle-groom-large.png",
+            "prompt": "Variation icon for pet grooming: large dog silhouette icon, big pet 25 to 40 kg for Large (25\u201340 kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-spa-package",
+            "variant_key": "small",
+            "filename": "dog-spa-package-small.png",
+            "prompt": "Variation icon for pet grooming: small dog silhouette icon, compact pet size up to 10 kg for Small (up to 10 kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-spa-package",
+            "variant_key": "medium",
+            "filename": "dog-spa-package-medium.png",
+            "prompt": "Variation icon for pet grooming: medium dog silhouette icon, mid-size pet 10 to 25 kg for Medium (10\u201325 kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-spa-package",
+            "variant_key": "large",
+            "filename": "dog-spa-package-large.png",
+            "prompt": "Variation icon for pet grooming: large dog silhouette icon, big pet 25 to 40 kg for Large (25\u201340 kg). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-monthly-grooming-plan",
+            "variant_key": "1-visit-per-month",
+            "filename": "dog-monthly-grooming-plan-1-visit-per-month.png",
+            "prompt": "Variation icon for pet grooming: calendar icon with number 1, one monthly visit for 1 visit per month. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "dog-monthly-grooming-plan",
+            "variant_key": "2-visits-per-month",
+            "filename": "dog-monthly-grooming-plan-2-visits-per-month.png",
+            "prompt": "Variation icon for pet grooming: calendar icon with number 2, two monthly visits for 2 visits per month. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "full-cat-grooming",
+            "variant_key": "short-hair",
+            "filename": "full-cat-grooming-short-hair.png",
+            "prompt": "Variation icon for pet grooming: short-haired cat silhouette icon with smooth coat for Short hair. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "full-cat-grooming",
+            "variant_key": "long-hair",
+            "filename": "full-cat-grooming-long-hair.png",
+            "prompt": "Variation icon for pet grooming: long-haired cat silhouette icon with fluffy coat for Long hair. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "cat-bath-and-brush",
+            "variant_key": "short-hair",
+            "filename": "cat-bath-and-brush-short-hair.png",
+            "prompt": "Variation icon for pet grooming: short-haired cat silhouette icon with smooth coat for Short hair. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "cat-bath-and-brush",
+            "variant_key": "long-hair",
+            "filename": "cat-bath-and-brush-long-hair.png",
+            "prompt": "Variation icon for pet grooming: long-haired cat silhouette icon with fluffy coat for Long hair. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "cat-mat-removal",
+            "variant_key": "mild-mats",
+            "filename": "cat-mat-removal-mild-mats.png",
+            "prompt": "Variation icon for pet grooming: cat with small tangle knot icon, mild matting for Mild mats. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "cat-mat-removal",
+            "variant_key": "severe-mats",
+            "filename": "cat-mat-removal-severe-mats.png",
+            "prompt": "Variation icon for pet grooming: cat with heavy matted fur icon, severe matting for Severe mats. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "cat-lion-cut",
+            "variant_key": "per-pet",
+            "filename": "cat-lion-cut-per-pet.png",
+            "prompt": "Variation icon for pet grooming: single paw print icon representing one pet for Per pet. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "cat-nail-trim",
+            "variant_key": "per-pet",
+            "filename": "cat-nail-trim-per-pet.png",
+            "prompt": "Variation icon for pet grooming: single paw print icon representing one pet for Per pet. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "cat-ear-cleaning",
+            "variant_key": "per-pet",
+            "filename": "cat-ear-cleaning-per-pet.png",
+            "prompt": "Variation icon for pet grooming: single paw print icon representing one pet for Per pet. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "kitten-first-groom",
+            "variant_key": "kitten",
+            "filename": "kitten-first-groom-kitten.png",
+            "prompt": "Variation icon for pet grooming: small kitten cat icon under 6 months for Kitten (under 6 months). Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "senior-cat-gentle-groom",
+            "variant_key": "short-hair",
+            "filename": "senior-cat-gentle-groom-short-hair.png",
+            "prompt": "Variation icon for pet grooming: short-haired cat silhouette icon with smooth coat for Short hair. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "senior-cat-gentle-groom",
+            "variant_key": "long-hair",
+            "filename": "senior-cat-gentle-groom-long-hair.png",
+            "prompt": "Variation icon for pet grooming: long-haired cat silhouette icon with fluffy coat for Long hair. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "cat-flea-tick-bath",
+            "variant_key": "per-pet",
+            "filename": "cat-flea-tick-bath-per-pet.png",
+            "prompt": "Variation icon for pet grooming: single paw print icon representing one pet for Per pet. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "cat-monthly-grooming-plan",
+            "variant_key": "1-visit-per-month",
+            "filename": "cat-monthly-grooming-plan-1-visit-per-month.png",
+            "prompt": "Variation icon for pet grooming: calendar icon with number 1, one monthly visit for 1 visit per month. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "cat-monthly-grooming-plan",
+            "variant_key": "2-visits-per-month",
+            "filename": "cat-monthly-grooming-plan-2-visits-per-month.png",
+            "prompt": "Variation icon for pet grooming: calendar icon with number 2, two monthly visits for 2 visits per month. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        }
+    ]
+}

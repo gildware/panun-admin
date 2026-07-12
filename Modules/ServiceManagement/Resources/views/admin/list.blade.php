@@ -4,12 +4,43 @@
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/select2/select2.min.css"/>
-    <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/dataTables/jquery.dataTables.min.css"/>
-    <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/dataTables/select.dataTables.min.css"/>
     <style>
         #ServiceListTableContainer a.category-list-name-link:hover,
         #ServiceListTableContainer a.category-list-name-link:focus {
             color: var(--bs-dark) !important;
+        }
+
+        .service-list-toolbar .search-form {
+            min-width: 12rem;
+        }
+
+        .service-list-toolbar .service-list-filter-select-wrap {
+            width: min(14rem, 100%);
+        }
+
+        .service-list-toolbar .service-list-filter-select-wrap.is-disabled {
+            opacity: 0.65;
+        }
+
+        #service-list-results {
+            position: relative;
+            min-height: 8rem;
+        }
+
+        #service-list-results.is-loading {
+            opacity: 0.55;
+            pointer-events: none;
+        }
+
+        #service-list-results.is-loading::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.35);
+        }
+
+        #service-list-results .service-list-pagination {
+            margin-top: 1rem;
         }
     </style>
 @endpush
@@ -22,59 +53,6 @@
             'search' => $search ?: null,
         ], fn ($value) => !is_null($value) && $value !== '');
     @endphp
-
-    <div class="filter-aside">
-        <div class="filter-aside__header d-flex justify-content-between align-items-center">
-            <h3 class="filter-aside__title">{{ translate('Filter') }}</h3>
-            <button type="button" class="btn-close p-2 btn-close-white"></button>
-        </div>
-        <form action="{{ url()->current() }}?status={{ $status }}" method="POST" id="service-filter-form">
-            @csrf
-            @if($search)
-                <input type="hidden" name="search" value="{{ $search }}">
-            @endif
-            <div class="filter-aside__body d-flex flex-column">
-                <div class="filter-aside__category_select">
-                    <h4 class="fw-normal mb-2">{{ translate('category') }}</h4>
-                    <div class="mb-30">
-                        <select class="category-select theme-input-style w-100" name="category_id"
-                                id="service_list_category_select">
-                            <option value="">{{ translate('all') }}</option>
-                            @foreach($categories as $category)
-                                <option value="{{ $category->id }}"
-                                    {{ ($category_id ?? '') == $category->id ? 'selected' : '' }}>
-                                    {{ $category->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                </div>
-                <div class="filter-aside__category_select">
-                    <h4 class="fw-normal mb-2">{{ translate('sub_category') }}</h4>
-                    <div class="mb-30" id="service_list_sub_category_wrap">
-                        <select class="subcategory-select theme-input-style w-100" name="sub_category_id"
-                                id="service_list_sub_category_select">
-                            <option value="">{{ translate('all') }}</option>
-                            @foreach($subCategories as $subCategory)
-                                <option value="{{ $subCategory->id }}"
-                                    {{ ($sub_category_id ?? '') == $subCategory->id ? 'selected' : '' }}>
-                                    {{ $subCategory->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                </div>
-            </div>
-            <div class="filter-aside__bottom_btns p-20">
-                <div class="d-flex justify-content-center gap-20">
-                    <button class="btn btn--secondary text-capitalize" id="service-filter-reset-btn"
-                            type="reset">{{ translate('Clear_all_Filter') }}</button>
-                    <button class="btn btn--primary text-capitalize"
-                            type="submit">{{ translate('Filter') }}</button>
-                </div>
-            </div>
-        </form>
-    </div>
 
     <div class="main-content">
         <div class="container-fluid">
@@ -95,22 +73,25 @@
 
                     <div
                         class="d-flex flex-wrap justify-content-between align-items-center border-bottom mx-lg-4 mb-10 gap-3">
-                        <ul class="nav nav--tabs">
+                        <ul class="nav nav--tabs service-list-status-tabs">
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='all'?'active':''}}"
-                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($listQuery, ['status' => 'all'])) }}">
+                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($listQuery, ['status' => 'all'])) }}"
+                                   data-status="all">
                                     {{translate('all')}}
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='active'?'active':''}}"
-                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($listQuery, ['status' => 'active'])) }}">
+                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($listQuery, ['status' => 'active'])) }}"
+                                   data-status="active">
                                     {{translate('active')}}
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='inactive'?'active':''}}"
-                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($listQuery, ['status' => 'inactive'])) }}">
+                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($listQuery, ['status' => 'inactive'])) }}"
+                                   data-status="inactive">
                                     {{translate('inactive')}}
                                 </a>
                             </li>
@@ -118,7 +99,7 @@
 
                         <div class="d-flex gap-2 fw-medium">
                             <span class="opacity-75">{{translate('Total_Services')}}:</span>
-                            <span class="title-color">{{$services->total()}}</span>
+                            <span class="title-color" id="service-list-total-count">{{$services->total()}}</span>
                         </div>
                     </div>
 
@@ -126,157 +107,62 @@
                         <div class="tab-pane fade show active" id="all-tab-pane">
                             <div class="card">
                                 <div class="card-body">
-                                    <div class="data-table-top d-flex flex-wrap gap-10 justify-content-between">
-                                        <form action="{{url()->current()}}?status={{$status}}"
-                                              class="search-form search-form_style-two"
-                                              method="POST">
-                                            @csrf
-                                            @if($category_id)
-                                                <input type="hidden" name="category_id" value="{{ $category_id }}">
-                                            @endif
-                                            @if($sub_category_id)
-                                                <input type="hidden" name="sub_category_id" value="{{ $sub_category_id }}">
-                                            @endif
-                                            <div class="input-group search-form__input_group">
-                                            <span class="search-form__icon">
-                                                <span class="material-icons">search</span>
-                                            </span>
+                                    <form action="{{ url()->current() }}"
+                                          method="GET"
+                                          id="service-list-toolbar-form"
+                                          class="data-table-top service-list-toolbar d-flex flex-wrap align-items-center gap-2 gap-sm-3 mb-3 w-100">
+                                        <input type="hidden" name="status" value="{{ $status }}">
+                                        <div class="search-form search-form_style-two d-flex flex-wrap align-items-center gap-2 flex-grow-1">
+                                            <div class="input-group search-form__input_group flex-grow-1" style="max-width: 28rem;">
+                                                <span class="search-form__icon">
+                                                    <span class="material-icons">search</span>
+                                                </span>
                                                 <input type="search" class="theme-input-style search-form__input"
-                                                       value="{{$search}}" name="search"
-                                                       placeholder="{{translate('search_here')}}">
+                                                       value="{{ $search }}" name="search"
+                                                       id="service_list_search_input"
+                                                       placeholder="{{ translate('search_here') }}"
+                                                       autocomplete="off">
                                             </div>
-                                            <button type="submit"
-                                                    class="btn btn--primary">{{translate('search')}}</button>
-                                        </form>
-                                        <button type="button" class="btn text-capitalize filter-btn border px-3">
-                                            <span class="material-icons">filter_list</span> {{ translate('Filter') }}
-                                            <span class="count">{{ $filterCounter ?? 0 }}</span>
-                                        </button>
-                                    </div>
+                                        </div>
+                                        <div class="service-list-filter-select-wrap flex-shrink-0">
+                                            <label class="visually-hidden" for="service_list_category_select">{{ translate('category') }}</label>
+                                            <select class="category-select theme-input-style w-100" name="category_id"
+                                                    id="service_list_category_select">
+                                                <option value="" {{ empty($category_id) ? 'selected' : '' }}>{{ translate('all') }}</option>
+                                                @foreach($categories as $category)
+                                                    <option value="{{ $category->id }}"
+                                                        {{ ($category_id ?? '') == $category->id ? 'selected' : '' }}>
+                                                        {{ $category->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="service-list-filter-select-wrap flex-shrink-0 {{ empty($category_id) ? 'is-disabled' : '' }}"
+                                             id="service_list_sub_category_wrap">
+                                            <label class="visually-hidden" for="service_list_sub_category_select">{{ translate('sub_category') }}</label>
+                                            <select class="subcategory-select theme-input-style w-100" name="sub_category_id"
+                                                    id="service_list_sub_category_select"
+                                                    @disabled(empty($category_id))>
+                                                <option value="" {{ empty($sub_category_id) ? 'selected' : '' }}>{{ translate('all') }}</option>
+                                                @foreach($subCategories as $subCategory)
+                                                    <option value="{{ $subCategory->id }}"
+                                                        {{ ($sub_category_id ?? '') == $subCategory->id ? 'selected' : '' }}>
+                                                        {{ $subCategory->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div id="service-list-clear-filters-wrap" class="{{ ($category_id || $sub_category_id) ? '' : 'd-none' }}">
+                                            <button type="button"
+                                                    id="service-list-clear-filters-btn"
+                                                    class="btn btn--secondary text-capitalize flex-shrink-0">
+                                                {{ translate('Clear_all_Filter') }}
+                                            </button>
+                                        </div>
+                                    </form>
 
-                                    <div class="table-responsive" id="ServiceListTableContainer">
-                                        <table id="example" class="table align-middle">
-                                            <thead>
-                                            <tr>
-                                                <th>{{translate('name')}}</th>
-                                                <th>{{translate('category')}}</th>
-                                                <th>{{translate('sub_category')}}</th>
-                                                <th>{{translate('variations')}}</th>
-                                                <th>{{translate('Minimum Bidding Price')}}</th>
-                                                @can('service_manage_status')
-                                                    <th>{{translate('status')}}</th>
-                                                @endcan
-                                                @canany(['service_delete', 'service_update'])
-                                                    <th>{{translate('action')}}</th>
-                                                @endcan
-                                            </tr>
-                                            </thead>
-                                            <tbody>
-                                            @forelse($services as $key=>$service)
-                                                <tr>
-                                                    <td>
-                                                        <a href="{{ route('admin.service.detail', [$service->id]) }}"
-                                                           class="category-list-name-link d-flex align-items-center gap-3 text-decoration-none demo_check title-color"
-                                                           @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
-                                                            <div class="avatar avatar-sm flex-shrink-0">
-                                                                <img class="avatar-img radius-5"
-                                                                     src="{{ $service->thumbnail_full_path }}"
-                                                                     alt="{{ $service->name }}">
-                                                            </div>
-                                                            <span class="fw-medium">{{ Str::limit($service->name, 50) }}</span>
-                                                        </a>
-                                                    </td>
-                                                    <td>
-                                                        @if($service->category)
-                                                            {{$service->category->name}}
-                                                        @else
-                                                            <div class="d-flex">
-                                                                <span>{{ translate('Unavailable') }}</span>
-                                                                <i class="material-icons" data-bs-toggle="tooltip"
-                                                                   data-bs-placement="top"
-                                                                   title="{{translate('Update the service category')}}">info
-                                                                </i>
-                                                            </div>
-                                                        @endif
-                                                    </td>
-                                                    <td>
-                                                        @if($service->subCategory)
-                                                            {{ $service->subCategory->name }}
-                                                        @else
-                                                            <div class="d-flex">
-                                                                <span>{{ translate('Unavailable') }}</span>
-                                                                <i class="material-icons" data-bs-toggle="tooltip"
-                                                                   data-bs-placement="top"
-                                                                   title="{{ translate('Update the service sub category') }}">info
-                                                                </i>
-                                                            </div>
-                                                        @endif
-                                                    </td>
-                                                    <td>{{ $service->variations_count }}</td>
-                                                    <td>
-                                                        {{with_currency_symbol($service->min_bidding_price)}}
-
-                                                        @if($service->min_bidding_price == 0)
-                                                            <i class="text-warning material-icons px-1"
-                                                               data-bs-toggle="tooltip" data-bs-placement="top"
-                                                               title="{{translate('Update the minimum bidding price')}}"
-                                                            >warning</i>
-                                                        @endif
-                                                    </td>
-                                                    @can('service_manage_status')
-                                                        <td>
-                                                            <label class="switcher" data-bs-toggle="modal"
-                                                                   data-bs-target="#deactivateAlertModal">
-                                                                <input class="switcher_input route-alert"
-                                                                       data-route="{{route('admin.service.status-update',[$service->id])}}"
-                                                                       data-message="{{translate('want_to_update_status')}}"
-                                                                       type="checkbox" {{$service->is_active?'checked':''}}>
-                                                                <span class="switcher_control"></span>
-                                                            </label>
-                                                        </td>
-                                                    @endcan
-                                                    @canany(['service_delete', 'service_update'])
-                                                        <td>
-                                                            <div class="d-flex gap-2">
-                                                                @can('service_update')
-                                                                    <a href="{{route('admin.service.edit',[$service->id])}}"
-                                                                       class="action-btn btn--light-primary demo_check"
-                                                                       style="--size: 30px"
-                                                                       @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
-                                                                        <span class="material-icons">edit</span>
-                                                                    </a>
-                                                                @endcan
-                                                                @can('service_delete')
-                                                                    <button type="button"
-                                                                            data-id="delete-{{$service->id}}"
-                                                                            data-message="{{translate('want_to_delete_this_service')}}?"
-                                                                            class="action-btn btn--danger {{ env('APP_ENV')!='demo' ? 'form-alert' : 'demo_check'}}"
-                                                                            style="--size: 30px">
-                                                                    <span
-                                                                        class="material-symbols-outlined">delete</span>
-                                                                    </button>
-                                                                    <form
-                                                                        action="{{route('admin.service.delete',[$service->id])}}"
-                                                                        method="post" id="delete-{{$service->id}}"
-                                                                        class="hidden">
-                                                                        @csrf
-                                                                        @method('DELETE')
-                                                                    </form>
-                                                                @endcan
-                                                            </div>
-                                                        </td>
-                                                    @endcan
-                                                </tr>
-                                            @empty
-                                                <tr class="text-center">
-                                                    <td colspan="7">{{translate('no data available')}}</td>
-                                                </tr>
-                                            @endforelse
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    <div class="d-flex justify-content-end">
-                                        {!! $services->links() !!}
+                                    <div id="service-list-results" data-turbo="false">
+                                        @include('servicemanagement::admin.partials._service-list-results', ['services' => $services])
                                     </div>
                                 </div>
                             </div>
@@ -293,6 +179,24 @@
     <script>
         "use strict"
 
+        const serviceListAllLabel = @json(translate('all'));
+        const serviceListSubCategoryLabel = @json(translate('sub_category'));
+        const serviceListTableUrl = @json(route('admin.service.table'));
+        const serviceListIndexUrl = @json(url()->current());
+        let serviceListXhr = null;
+        let serviceListRequestId = 0;
+        let serviceListIgnoreSubCategoryChange = false;
+
+        function buildServiceListSubCategorySelectHtml(disabled) {
+            return (
+                '<label class="visually-hidden" for="service_list_sub_category_select">' + serviceListSubCategoryLabel + '</label>' +
+                '<select class="subcategory-select theme-input-style w-100" name="sub_category_id" id="service_list_sub_category_select"' +
+                (disabled ? ' disabled' : '') + '>' +
+                '<option value="" selected>' + serviceListAllLabel + '</option>' +
+                '</select>'
+            );
+        }
+
         function initServiceListSubCategorySelect() {
             const $select = $('#service_list_sub_category_select');
             if (!$select.length) {
@@ -302,53 +206,254 @@
                 $select.select2('destroy');
             }
             $select.select2({
-                placeholder: @json(translate('Select_sub_category')),
-                allowClear: true,
+                placeholder: serviceListAllLabel,
+                allowClear: false,
+                width: '100%',
+            });
+            $select.prop('disabled', $select.is(':disabled'));
+        }
+
+        function setServiceListSubCategoryEnabled(enabled) {
+            const $wrap = $('#service_list_sub_category_wrap');
+            const $select = $('#service_list_sub_category_select');
+
+            $wrap.toggleClass('is-disabled', !enabled);
+            $select.prop('disabled', !enabled);
+
+            if ($select.hasClass('select2-hidden-accessible')) {
+                $select.select2('destroy');
+                initServiceListSubCategorySelect();
+            }
+        }
+
+        function resetServiceListSubCategoryToAll(disabled) {
+            serviceListIgnoreSubCategoryChange = true;
+            $('#service_list_sub_category_wrap').html(buildServiceListSubCategorySelectHtml(disabled));
+            initServiceListSubCategorySelect();
+            serviceListIgnoreSubCategoryChange = false;
+        }
+
+        function getServiceListFilterParams(page) {
+            const $search = $('#service_list_search_input');
+            const $category = $('#service_list_category_select');
+            const $subCategory = $('#service_list_sub_category_select');
+            const $status = $('#service-list-toolbar-form input[name="status"]');
+            const params = {
+                status: $status.val() || 'all',
+                page: page || 1,
+            };
+
+            const search = String($search.val() ?? '').trim();
+            const categoryId = String($category.val() ?? '').trim();
+            const subCategoryId = String($subCategory.val() ?? '').trim();
+
+            if (search) {
+                params.search = search;
+            }
+            if (categoryId) {
+                params.category_id = categoryId;
+            }
+            if (categoryId && subCategoryId) {
+                params.sub_category_id = subCategoryId;
+            }
+
+            return params;
+        }
+
+        function updateServiceListBrowserUrl(params) {
+            const urlParams = new URLSearchParams();
+            Object.keys(params).forEach(function (key) {
+                const value = params[key];
+                if (key === 'page' && Number(value) <= 1) {
+                    return;
+                }
+                if (value !== null && value !== undefined && String(value).trim() !== '') {
+                    urlParams.set(key, value);
+                }
+            });
+            const query = urlParams.toString();
+            const nextUrl = query ? (serviceListIndexUrl + '?' + query) : serviceListIndexUrl;
+            window.history.replaceState({}, '', nextUrl);
+        }
+
+        function updateServiceListClearFiltersButton() {
+            const hasCategory = $('#service_list_category_select').val() !== '';
+            const hasSubCategory = $('#service_list_sub_category_select').val() !== '';
+            $('#service-list-clear-filters-wrap').toggleClass('d-none', !(hasCategory || hasSubCategory));
+        }
+
+        function loadServiceListSubCategories(categoryId, selectedSubCategoryId) {
+            if (!categoryId) {
+                return;
+            }
+
+            $.get('{{ url('/') }}/admin/category/ajax-childes-only/' + categoryId, function (response) {
+                const $wrap = $('#service_list_sub_category_wrap');
+                const $ajaxSelect = $('<div>').html(response.template).find('select').first();
+
+                serviceListIgnoreSubCategoryChange = true;
+                $wrap.html(
+                    '<label class="visually-hidden" for="service_list_sub_category_select">' + serviceListSubCategoryLabel + '</label>'
+                );
+                $wrap.append($ajaxSelect);
+
+                const $select = $wrap.find('select');
+                $select
+                    .removeClass('js-select')
+                    .addClass('subcategory-select theme-input-style w-100')
+                    .attr('id', 'service_list_sub_category_select')
+                    .attr('name', 'sub_category_id')
+                    .prop('disabled', false);
+                $select.prepend('<option value="">' + serviceListAllLabel + '</option>');
+
+                if (selectedSubCategoryId) {
+                    $select.val(selectedSubCategoryId);
+                } else {
+                    $select.val('');
+                }
+
+                initServiceListSubCategorySelect();
+                serviceListIgnoreSubCategoryChange = false;
             });
         }
 
+        function applyServiceListResults(response) {
+            if (!response || typeof response.view !== 'string') {
+                return false;
+            }
+
+            $('#service-list-results').html(response.view);
+            $('#service-list-results .pagination a').attr('data-turbo', 'false');
+
+            if (typeof response.totalServices !== 'undefined') {
+                $('#service-list-total-count').text(response.totalServices);
+            }
+
+            return true;
+        }
+
+        function loadServiceList(page) {
+            const params = getServiceListFilterParams(page);
+            const requestId = ++serviceListRequestId;
+
+            if (serviceListXhr) {
+                serviceListXhr.abort();
+            }
+
+            updateServiceListBrowserUrl(params);
+            updateServiceListClearFiltersButton();
+            $('#service-list-results').addClass('is-loading');
+
+            serviceListXhr = $.ajax({
+                url: serviceListTableUrl,
+                type: 'GET',
+                data: params,
+                dataType: 'json',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                success: function (response) {
+                    if (requestId !== serviceListRequestId) {
+                        return;
+                    }
+
+                    if (!applyServiceListResults(response)) {
+                        return;
+                    }
+
+                    if (response.page && Number(response.page) !== Number(params.page)) {
+                        updateServiceListBrowserUrl(Object.assign({}, params, { page: response.page }));
+                    }
+                },
+                error: function (xhr) {
+                    if (xhr.statusText === 'abort' || requestId !== serviceListRequestId) {
+                        return;
+                    }
+                },
+                complete: function () {
+                    if (requestId === serviceListRequestId) {
+                        $('#service-list-results').removeClass('is-loading');
+                    }
+                }
+            });
+        }
+
+        function submitServiceListToolbarForm(page) {
+            loadServiceList(page || 1);
+        }
+
         $(document).ready(function () {
+            let filterSubmitTimer;
+            let searchSubmitTimer;
+            const searchDebounceMs = 250;
+
             $('.js-select').select2();
-            $('.category-select').select2({
-                placeholder: @json(translate('select_category')),
-                allowClear: true,
+            $('#service_list_category_select').select2({
+                placeholder: serviceListAllLabel,
+                allowClear: false,
+                width: '100%',
             });
             initServiceListSubCategorySelect();
+            $('#service-list-results .pagination a').attr('data-turbo', 'false');
+
+            $('#service-list-toolbar-form').on('submit', function (e) {
+                e.preventDefault();
+                submitServiceListToolbarForm(1);
+            });
+
+            $('#service_list_search_input').on('input', function () {
+                clearTimeout(searchSubmitTimer);
+                searchSubmitTimer = setTimeout(function () {
+                    submitServiceListToolbarForm(1);
+                }, searchDebounceMs);
+            });
 
             $('#service_list_category_select').on('change', function () {
                 const id = this.value;
-                const $wrap = $('#service_list_sub_category_wrap');
-                const allOption = '<option value="">' + @json(translate('all')) + '</option>';
 
                 if (!id) {
-                    $wrap.html(
-                        '<select class="subcategory-select theme-input-style w-100" name="sub_category_id" id="service_list_sub_category_select">' +
-                        allOption +
-                        '</select>'
-                    );
-                    initServiceListSubCategorySelect();
+                    resetServiceListSubCategoryToAll(true);
+                    setServiceListSubCategoryEnabled(false);
+                    submitServiceListToolbarForm(1);
                     return;
                 }
 
-                $.get('{{ url('/') }}/admin/category/ajax-childes-only/' + id, function (response) {
-                    $wrap.html(response.template);
-                    const $select = $wrap.find('select');
-                    $select
-                        .removeClass('js-select')
-                        .addClass('subcategory-select theme-input-style w-100')
-                        .attr('id', 'service_list_sub_category_select')
-                        .attr('name', 'sub_category_id');
-                    $select.prepend(allOption);
-                    initServiceListSubCategorySelect();
-                });
+                resetServiceListSubCategoryToAll(false);
+                setServiceListSubCategoryEnabled(true);
+                submitServiceListToolbarForm(1);
+                loadServiceListSubCategories(id);
             });
 
-            $('#service-filter-reset-btn').on('click', function (e) {
+            $(document).on('change', '#service_list_sub_category_select', function () {
+                if (serviceListIgnoreSubCategoryChange || $(this).is(':disabled')) {
+                    return;
+                }
+                clearTimeout(filterSubmitTimer);
+                filterSubmitTimer = setTimeout(function () {
+                    submitServiceListToolbarForm(1);
+                }, 150);
+            });
+
+            $('.service-list-status-tabs a').on('click', function (e) {
                 e.preventDefault();
-                window.location.href = '{{ url()->current() }}?status={{ $status }}';
+                const status = $(this).data('status') || 'all';
+                $('#service-list-toolbar-form input[name="status"]').val(status);
+                $('.service-list-status-tabs .nav-link').removeClass('active');
+                $(this).addClass('active');
+                submitServiceListToolbarForm(1);
+            });
+
+            $('#service-list-clear-filters-btn').on('click', function () {
+                $('#service_list_category_select').val('').trigger('change');
+            });
+
+            $(document).on('click', '#service-list-results .pagination a', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const page = new URL(this.href, window.location.origin).searchParams.get('page') || 1;
+                submitServiceListToolbarForm(page);
             });
         });
     </script>
-    <script src="{{asset('assets/admin-module')}}/plugins/dataTables/jquery.dataTables.min.js"></script>
-    <script src="{{asset('assets/admin-module')}}/plugins/dataTables/dataTables.select.min.js"></script>
 @endpush
