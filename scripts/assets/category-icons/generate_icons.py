@@ -166,6 +166,56 @@ def generic_tool(draw: ImageDraw.ImageDraw) -> None:
     draw.polygon([(236, 310), (276, 310), (286, 390), (226, 390)], fill=COLOR)
 
 
+def _draw_bug(draw: ImageDraw.ImageDraw, cx: int, cy: int, scale: float = 1.0) -> None:
+    s = scale
+    draw.ellipse((cx - int(36 * s), cy - int(30 * s), cx + int(36 * s), cy + int(30 * s)), fill=COLOR)
+    draw.line((cx - int(58 * s), cy - int(6 * s), cx - int(82 * s), cy + int(28 * s)), fill=COLOR, width=int(8 * s))
+    draw.line((cx + int(58 * s), cy - int(6 * s), cx + int(82 * s), cy + int(28 * s)), fill=COLOR, width=int(8 * s))
+    draw.line((cx - int(20 * s), cy + int(24 * s), cx - int(20 * s), cy + int(58 * s)), fill=COLOR, width=int(8 * s))
+    draw.line((cx, cy + int(24 * s), cx, cy + int(58 * s)), fill=COLOR, width=int(8 * s))
+    draw.line((cx + int(20 * s), cy + int(24 * s), cx + int(20 * s), cy + int(58 * s)), fill=COLOR, width=int(8 * s))
+
+
+def _draw_shield(draw: ImageDraw.ImageDraw, cx: int = 256, top: int = 90) -> None:
+    draw.polygon(
+        [(cx, top), (cx - 106, top + 50), (cx - 106, top + 190), (cx, top + 310), (cx + 106, top + 190), (cx + 106, top + 50)],
+        outline=COLOR,
+        width=14,
+    )
+
+
+def pest_control(draw: ImageDraw.ImageDraw) -> None:
+    _draw_shield(draw)
+    _draw_bug(draw, 256, 230)
+
+
+def home_pest_control(draw: ImageDraw.ImageDraw) -> None:
+    draw.polygon([(256, 118), (150, 188), (150, 330), (362, 330), (362, 188)], outline=COLOR, width=14)
+    draw.polygon([(256, 88), (130, 188), (382, 188)], outline=COLOR, width=14)
+    draw.rectangle((220, 250, 292, 330), fill=COLOR)
+    _draw_bug(draw, 256, 210, 0.72)
+
+
+def office_pest_control(draw: ImageDraw.ImageDraw) -> None:
+    draw.rectangle((130, 120, 382, 360), outline=COLOR, width=14)
+    for row in range(4):
+        y = 150 + row * 52
+        draw.line((130, y, 382, y), fill=COLOR, width=6)
+        for col in range(3):
+            x = 158 + col * 68
+            draw.rectangle((x, y + 10, x + 44, y + 36), fill=COLOR if (row + col) % 2 else "white", outline=COLOR, width=4)
+    _draw_bug(draw, 256, 286, 0.62)
+
+
+def restaurant_pest_control(draw: ImageDraw.ImageDraw) -> None:
+    draw.rectangle((150, 170, 362, 360), outline=COLOR, width=14)
+    draw.polygon([(256, 108), (150, 170), (362, 170)], outline=COLOR, width=14)
+    draw.line((150, 250, 362, 250), fill=COLOR, width=10)
+    draw.ellipse((210, 286, 250, 326), outline=COLOR, width=8)
+    draw.ellipse((272, 286, 312, 326), outline=COLOR, width=8)
+    _draw_bug(draw, 256, 318, 0.55)
+
+
 ICON_DRAWERS: dict[str, callable] = {
     "carpentary": carpentry,
     "carpentry-installation": carpentry,
@@ -207,14 +257,38 @@ ICON_DRAWERS: dict[str, callable] = {
     "plumbing": plumbing,
     "plumbing-fixtures": plumbing,
     "plumbing-installs": plumbing,
+    "pest-control": pest_control,
+    "home-pest-control": home_pest_control,
+    "office-pest-control": office_pest_control,
+    "restaurant-pest-control": restaurant_pest_control,
 }
+
+PEST_CONTROL_SLUGS = (
+    "pest-control",
+    "home-pest-control",
+    "office-pest-control",
+    "restaurant-pest-control",
+)
 
 
 def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Generate navy-blue category icons (512x512 PNG).")
+    parser.add_argument("--only", nargs="*", help="Generate only these slugs.")
+    parser.add_argument("--force", action="store_true", help="Overwrite existing icons.")
+    args = parser.parse_args()
+
     OUT.mkdir(parents=True, exist_ok=True)
-    for slug, drawer in ICON_DRAWERS.items():
+    targets = args.only if args.only else list(ICON_DRAWERS.keys())
+
+    for slug in targets:
+        drawer = ICON_DRAWERS.get(slug)
+        if drawer is None:
+            print(f"Skip unknown slug: {slug}")
+            continue
         path = OUT / f"{slug}.png"
-        if path.exists():
+        if path.exists() and not args.force:
             continue
         img, draw = canvas()
         drawer(draw)

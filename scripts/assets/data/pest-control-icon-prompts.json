@@ -1,0 +1,386 @@
+{
+  "categories": [
+    {
+      "slug": "pest-control",
+      "filename": "pest-control.png",
+      "prompt": "Category icon: protective shield with cockroach and spray nozzle, representing professional pest control service. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "home-pest-control",
+      "filename": "home-pest-control.png",
+      "prompt": "Category icon: Indian home house silhouette with small cockroach and shield, home pest control. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "office-pest-control",
+      "filename": "office-pest-control.png",
+      "prompt": "Category icon: office building with desks and cockroach shield, commercial office pest control. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "restaurant-pest-control",
+      "filename": "restaurant-pest-control.png",
+      "prompt": "Category icon: restaurant kitchen hood and dining table with pest shield, food business pest control. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ],
+  "variants": [
+    {
+      "slug": "apartment-cockroach-control",
+      "variant_key": "1-bhk",
+      "filename": "apartment-cockroach-control-1-bhk.png",
+      "prompt": "Variation icon for pest control: Indian apartment building floor plan icon showing one bedroom layout. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "apartment-cockroach-control",
+      "variant_key": "2-bhk",
+      "filename": "apartment-cockroach-control-2-bhk.png",
+      "prompt": "Variation icon for pest control: Indian apartment building icon showing two bedroom layout. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "apartment-cockroach-control",
+      "variant_key": "3-bhk",
+      "filename": "apartment-cockroach-control-3-bhk.png",
+      "prompt": "Variation icon for pest control: Indian apartment building icon showing three bedroom layout. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "apartment-cockroach-control",
+      "variant_key": "4-bhk",
+      "filename": "apartment-cockroach-control-4-bhk.png",
+      "prompt": "Variation icon for pest control: Indian apartment building icon showing four bedroom layout. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "apartment-cockroach-control",
+      "variant_key": "balcony",
+      "filename": "apartment-cockroach-control-balcony.png",
+      "prompt": "Variation icon for pest control: home balcony railing outdoor space icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "apartment-cockroach-control",
+      "variant_key": "bathroom",
+      "filename": "apartment-cockroach-control-bathroom.png",
+      "prompt": "Variation icon for pest control: bathroom with bathtub and shower icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "apartment-cockroach-control",
+      "variant_key": "bedroom",
+      "filename": "apartment-cockroach-control-bedroom.png",
+      "prompt": "Variation icon for pest control: bedroom with bed and pillow icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "apartment-cockroach-control",
+      "variant_key": "extra-room",
+      "filename": "apartment-cockroach-control-extra-room.png",
+      "prompt": "Variation icon for pest control: additional spare room with door icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "apartment-cockroach-control",
+      "variant_key": "not-required",
+      "filename": "apartment-cockroach-control-not-required.png",
+      "prompt": "Variation icon for pest control: circle with X mark meaning optional add-on not selected. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "apartment-cockroach-control",
+      "variant_key": "yes",
+      "filename": "apartment-cockroach-control-yes.png",
+      "prompt": "Variation icon for pest control: circle with checkmark meaning optional add-on selected. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "bungalow-cockroach-control",
+      "variant_key": "2000-3000-sq-ft",
+      "filename": "bungalow-cockroach-control-2000-3000-sq-ft.png",
+      "prompt": "Variation icon for pest control: large Indian bungalow home icon medium size. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "bungalow-cockroach-control",
+      "variant_key": "3000-4000-sq-ft",
+      "filename": "bungalow-cockroach-control-3000-4000-sq-ft.png",
+      "prompt": "Variation icon for pest control: large Indian bungalow home icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "bungalow-cockroach-control",
+      "variant_key": "4000-5000-sq-ft",
+      "filename": "bungalow-cockroach-control-4000-5000-sq-ft.png",
+      "prompt": "Variation icon for pest control: very large Indian bungalow home icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "bungalow-cockroach-control",
+      "variant_key": "5000-sq-ft",
+      "filename": "bungalow-cockroach-control-5000-sq-ft.png",
+      "prompt": "Variation icon for pest control: extra large luxury bungalow home icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "bungalow-cockroach-control",
+      "variant_key": "balcony",
+      "filename": "bungalow-cockroach-control-balcony.png",
+      "prompt": "Variation icon for pest control: home balcony railing outdoor space icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "bungalow-cockroach-control",
+      "variant_key": "bathroom",
+      "filename": "bungalow-cockroach-control-bathroom.png",
+      "prompt": "Variation icon for pest control: bathroom with bathtub and shower icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "bungalow-cockroach-control",
+      "variant_key": "bedroom",
+      "filename": "bungalow-cockroach-control-bedroom.png",
+      "prompt": "Variation icon for pest control: bedroom with bed and pillow icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "bungalow-cockroach-control",
+      "variant_key": "extra-room",
+      "filename": "bungalow-cockroach-control-extra-room.png",
+      "prompt": "Variation icon for pest control: additional spare room with door icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "bungalow-cockroach-control",
+      "variant_key": "not-required",
+      "filename": "bungalow-cockroach-control-not-required.png",
+      "prompt": "Variation icon for pest control: circle with X mark meaning optional add-on not selected. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "bungalow-cockroach-control",
+      "variant_key": "yes",
+      "filename": "bungalow-cockroach-control-yes.png",
+      "prompt": "Variation icon for pest control: circle with checkmark meaning optional add-on selected. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "kitchen-cockroach-control",
+      "variant_key": "1-bathroom-and-kitchen",
+      "filename": "kitchen-cockroach-control-1-bathroom-and-kitchen.png",
+      "prompt": "Variation icon for pest control: home kitchen and bathroom combined rooms icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "kitchen-cockroach-control",
+      "variant_key": "kitchen-only",
+      "filename": "kitchen-cockroach-control-kitchen-only.png",
+      "prompt": "Variation icon for pest control: home kitchen room with cabinets and stove icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "kitchen-cockroach-control",
+      "variant_key": "balcony",
+      "filename": "kitchen-cockroach-control-balcony.png",
+      "prompt": "Variation icon for pest control: home balcony railing outdoor space icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "kitchen-cockroach-control",
+      "variant_key": "bathroom",
+      "filename": "kitchen-cockroach-control-bathroom.png",
+      "prompt": "Variation icon for pest control: bathroom with bathtub and shower icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "kitchen-cockroach-control",
+      "variant_key": "extra-room",
+      "filename": "kitchen-cockroach-control-extra-room.png",
+      "prompt": "Variation icon for pest control: additional spare room with door icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "kitchen-cockroach-control",
+      "variant_key": "not-required",
+      "filename": "kitchen-cockroach-control-not-required.png",
+      "prompt": "Variation icon for pest control: circle with X mark meaning optional add-on not selected. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "kitchen-cockroach-control",
+      "variant_key": "yes",
+      "filename": "kitchen-cockroach-control-yes.png",
+      "prompt": "Variation icon for pest control: circle with checkmark meaning optional add-on selected. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "partial-home-cockroach-control",
+      "variant_key": "1-bedroom-kitchen",
+      "filename": "partial-home-cockroach-control-1-bedroom-kitchen.png",
+      "prompt": "Variation icon for pest control: one bedroom plus kitchen home layout icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "partial-home-cockroach-control",
+      "variant_key": "2-bedroom-kitchen",
+      "filename": "partial-home-cockroach-control-2-bedroom-kitchen.png",
+      "prompt": "Variation icon for pest control: two bedroom plus kitchen home layout icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "partial-home-cockroach-control",
+      "variant_key": "3-bedroom-kitchen",
+      "filename": "partial-home-cockroach-control-3-bedroom-kitchen.png",
+      "prompt": "Variation icon for pest control: three bedroom plus kitchen home layout icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "partial-home-cockroach-control",
+      "variant_key": "4-bedroom-kitchen",
+      "filename": "partial-home-cockroach-control-4-bedroom-kitchen.png",
+      "prompt": "Variation icon for pest control: four bedroom plus kitchen home layout icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "partial-home-cockroach-control",
+      "variant_key": "balcony",
+      "filename": "partial-home-cockroach-control-balcony.png",
+      "prompt": "Variation icon for pest control: home balcony railing outdoor space icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "partial-home-cockroach-control",
+      "variant_key": "bathroom",
+      "filename": "partial-home-cockroach-control-bathroom.png",
+      "prompt": "Variation icon for pest control: bathroom with bathtub and shower icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "partial-home-cockroach-control",
+      "variant_key": "extra-room",
+      "filename": "partial-home-cockroach-control-extra-room.png",
+      "prompt": "Variation icon for pest control: additional spare room with door icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "partial-home-cockroach-control",
+      "variant_key": "not-required",
+      "filename": "partial-home-cockroach-control-not-required.png",
+      "prompt": "Variation icon for pest control: circle with X mark meaning optional add-on not selected. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "partial-home-cockroach-control",
+      "variant_key": "yes",
+      "filename": "partial-home-cockroach-control-yes.png",
+      "prompt": "Variation icon for pest control: circle with checkmark meaning optional add-on selected. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "office-cockroach-control",
+      "variant_key": "up-to-500-sq-ft",
+      "filename": "office-cockroach-control-up-to-500-sq-ft.png",
+      "prompt": "Variation icon for pest control: small office floor plan icon labeled small area. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "office-cockroach-control",
+      "variant_key": "500-1000-sq-ft",
+      "filename": "office-cockroach-control-500-1000-sq-ft.png",
+      "prompt": "Variation icon for pest control: medium office floor plan icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "office-cockroach-control",
+      "variant_key": "1000-2000-sq-ft",
+      "filename": "office-cockroach-control-1000-2000-sq-ft.png",
+      "prompt": "Variation icon for pest control: large office floor plan icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "office-cockroach-control",
+      "variant_key": "2000-sq-ft",
+      "filename": "office-cockroach-control-2000-sq-ft.png",
+      "prompt": "Variation icon for pest control: extra large office floor plan icon XL. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "office-rodent-control",
+      "variant_key": "up-to-500-sq-ft",
+      "filename": "office-rodent-control-up-to-500-sq-ft.png",
+      "prompt": "Variation icon for pest control: office floor plan with mouse trap icon, Up to 500 sq. ft.. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "office-rodent-control",
+      "variant_key": "500-1000-sq-ft",
+      "filename": "office-rodent-control-500-1000-sq-ft.png",
+      "prompt": "Variation icon for pest control: office floor plan with mouse trap icon, 500-1000 sq. ft.. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "office-rodent-control",
+      "variant_key": "1000-2000-sq-ft",
+      "filename": "office-rodent-control-1000-2000-sq-ft.png",
+      "prompt": "Variation icon for pest control: office floor plan with mouse trap icon, 1000-2000 sq. ft.. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "office-rodent-control",
+      "variant_key": "2000-sq-ft",
+      "filename": "office-rodent-control-2000-sq-ft.png",
+      "prompt": "Variation icon for pest control: office floor plan with mouse trap icon, 2000+ sq. ft.. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "office-ant-control",
+      "variant_key": "up-to-500-sq-ft",
+      "filename": "office-ant-control-up-to-500-sq-ft.png",
+      "prompt": "Variation icon for pest control: office floor plan with ant trail icon, Up to 500 sq. ft.. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "office-ant-control",
+      "variant_key": "500-1000-sq-ft",
+      "filename": "office-ant-control-500-1000-sq-ft.png",
+      "prompt": "Variation icon for pest control: office floor plan with ant trail icon, 500-1000 sq. ft.. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "office-ant-control",
+      "variant_key": "1000-2000-sq-ft",
+      "filename": "office-ant-control-1000-2000-sq-ft.png",
+      "prompt": "Variation icon for pest control: office floor plan with ant trail icon, 1000-2000 sq. ft.. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "office-ant-control",
+      "variant_key": "2000-sq-ft",
+      "filename": "office-ant-control-2000-sq-ft.png",
+      "prompt": "Variation icon for pest control: office floor plan with ant trail icon, 2000+ sq. ft.. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "restaurant-kitchen-pest-control",
+      "variant_key": "small-kitchen",
+      "filename": "restaurant-kitchen-pest-control-small-kitchen.png",
+      "prompt": "Variation icon for pest control: small commercial restaurant kitchen icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "restaurant-kitchen-pest-control",
+      "variant_key": "medium-kitchen",
+      "filename": "restaurant-kitchen-pest-control-medium-kitchen.png",
+      "prompt": "Variation icon for pest control: medium commercial restaurant kitchen icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "restaurant-kitchen-pest-control",
+      "variant_key": "large-kitchen",
+      "filename": "restaurant-kitchen-pest-control-large-kitchen.png",
+      "prompt": "Variation icon for pest control: large commercial restaurant kitchen icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "restaurant-kitchen-pest-control",
+      "variant_key": "kitchen-storage",
+      "filename": "restaurant-kitchen-pest-control-kitchen-storage.png",
+      "prompt": "Variation icon for pest control: restaurant kitchen with storage pantry icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "restaurant-dining-pest-control",
+      "variant_key": "up-to-20-seats",
+      "filename": "restaurant-dining-pest-control-up-to-20-seats.png",
+      "prompt": "Variation icon for pest control: office floor plan with ant trail icon, Up to 20 seats. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "restaurant-dining-pest-control",
+      "variant_key": "21-50-seats",
+      "filename": "restaurant-dining-pest-control-21-50-seats.png",
+      "prompt": "Variation icon for pest control: medium restaurant dining room with multiple tables icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "restaurant-dining-pest-control",
+      "variant_key": "51-100-seats",
+      "filename": "restaurant-dining-pest-control-51-100-seats.png",
+      "prompt": "Variation icon for pest control: large restaurant dining hall icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "restaurant-dining-pest-control",
+      "variant_key": "100-plus-seats",
+      "filename": "restaurant-dining-pest-control-100-plus-seats.png",
+      "prompt": "Variation icon for pest control: very large restaurant banquet dining hall icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "restaurant-cockroach-control",
+      "variant_key": "up-to-500-sq-ft",
+      "filename": "restaurant-cockroach-control-up-to-500-sq-ft.png",
+      "prompt": "Variation icon for pest control: office floor plan with ant trail icon, Up to 500 sq. ft.. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "restaurant-cockroach-control",
+      "variant_key": "500-1000-sq-ft",
+      "filename": "restaurant-cockroach-control-500-1000-sq-ft.png",
+      "prompt": "Variation icon for pest control: office floor plan with ant trail icon, 500-1000 sq. ft.. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "restaurant-cockroach-control",
+      "variant_key": "1000-2000-sq-ft",
+      "filename": "restaurant-cockroach-control-1000-2000-sq-ft.png",
+      "prompt": "Variation icon for pest control: office floor plan with ant trail icon, 1000-2000 sq. ft.. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "restaurant-cockroach-control",
+      "variant_key": "2000-sq-ft",
+      "filename": "restaurant-cockroach-control-2000-sq-ft.png",
+      "prompt": "Variation icon for pest control: office floor plan with ant trail icon, 2000+ sq. ft.. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ]
+}

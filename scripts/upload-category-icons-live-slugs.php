@@ -34,11 +34,11 @@ StoragePathPrefix::resetCache();
 $liveConnection = 'live_category_upload';
 config(['database.connections.'.$liveConnection => [
     'driver' => 'mysql',
-    'host' => env('DB_HOST', '82.25.121.201'),
-    'port' => env('DB_PORT', '3306'),
-    'database' => env('DB_DATABASE', 'u397782854_live_pk_dec'),
-    'username' => env('DB_USERNAME', 'u397782854_live_pk_usr'),
-    'password' => env('DB_PASSWORD', ''),
+    'host' => env('LIVE_DB_HOST', '82.25.121.201'),
+    'port' => env('LIVE_DB_PORT', '3306'),
+    'database' => env('LIVE_DB_DATABASE', 'u397782854_live_pk_dec'),
+    'username' => env('LIVE_DB_USERNAME', 'u397782854_live_pk_usr'),
+    'password' => env('LIVE_DB_PASSWORD', env('DB_PASSWORD', '')),
     'charset' => 'utf8mb4',
     'collation' => 'utf8mb4_unicode_ci',
     'prefix' => '',

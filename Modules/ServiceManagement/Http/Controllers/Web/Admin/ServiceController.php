@@ -108,24 +108,10 @@ class ServiceController extends Controller
     public function index(Request $request): View|Factory|Application
     {
         $this->authorize('service_view');
-        $request->validate([
-            'status' => 'in:active,inactive,all',
-            'zone_id' => 'uuid',
-            'category_id' => 'nullable|uuid',
-            'sub_category_id' => 'nullable|uuid',
-        ]);
+        $this->validateServiceListRequest($request);
 
-        $search = $request->input('search', '');
-        $status = $request->input('status', 'all');
-        $category_id = $request->input('category_id', '');
-        $sub_category_id = $request->input('sub_category_id', '');
-
-        $queryParams = [
-            'search' => $search,
-            'status' => $status,
-            'category_id' => $category_id,
-            'sub_category_id' => $sub_category_id,
-        ];
+        $filters = $this->resolveServiceListFilters($request);
+        extract($filters);
 
         $filterCounter = collect($queryParams)->filter(function ($value, $key) {
             if ($key === 'status' && ($value === 'all' || $value === null || $value === '')) {
@@ -136,15 +122,105 @@ class ServiceController extends Controller
         })->count();
 
         $categories = $this->category->ofStatus(1)->ofType('main')->ordered()->get();
-        $subCategories = collect();
-        if ($category_id) {
-            $subCategories = $this->category->ofStatus(1)->ofType('sub')
-                ->where('parent_id', $category_id)
-                ->ordered()
-                ->get();
+        $subCategories = $this->subCategoriesForCategory($category_id);
+        $services = $this->paginateServices($request, $queryParams);
+        $services->withPath(route('admin.service.index'));
+
+        return view('servicemanagement::admin.list', compact(
+            'services',
+            'search',
+            'status',
+            'categories',
+            'subCategories',
+            'category_id',
+            'sub_category_id',
+            'queryParams',
+            'filterCounter'
+        ));
+    }
+
+    /**
+     * @throws AuthorizationException
+     */
+    public function getTable(Request $request): JsonResponse
+    {
+        $this->authorize('service_view');
+        $this->validateServiceListRequest($request);
+
+        $filters = $this->resolveServiceListFilters($request);
+        extract($filters);
+
+        $page = (int) $request->input('page', 1);
+        $request->merge(['page' => max($page, 1)]);
+
+        $services = $this->paginateServices($request, $queryParams);
+        $services->withPath(route('admin.service.index'));
+
+        if ($services->isEmpty() && $page > 1) {
+            $request->merge(['page' => $page - 1]);
+            $services = $this->paginateServices($request, $queryParams);
+            $services->withPath(route('admin.service.index'));
         }
 
-        $services = $this->service->with(['category', 'subCategory', 'storage_thumbnail'])
+        return response()->json([
+            'view' => view('servicemanagement::admin.partials._service-list-results', compact('services'))->render(),
+            'totalServices' => $services->total(),
+            'page' => $services->currentPage(),
+        ]);
+    }
+
+    private function validateServiceListRequest(Request $request): void
+    {
+        $request->validate([
+            'status' => 'in:active,inactive,all',
+            'zone_id' => 'uuid',
+            'category_id' => 'nullable|uuid',
+            'sub_category_id' => 'nullable|uuid',
+        ]);
+    }
+
+    private function resolveServiceListFilters(Request $request): array
+    {
+        $search = $request->input('search', '');
+        $status = $request->input('status', 'all');
+        $category_id = $request->input('category_id', '');
+        $sub_category_id = $request->input('sub_category_id', '');
+
+        if (!$category_id) {
+            $sub_category_id = '';
+        }
+
+        $queryParams = array_filter([
+            'search' => $search,
+            'status' => $status,
+            'category_id' => $category_id,
+            'sub_category_id' => $sub_category_id,
+        ], function ($value, $key) {
+            if ($key === 'status' && ($value === 'all' || $value === null || $value === '')) {
+                return true;
+            }
+
+            return !is_null($value) && $value !== '';
+        }, ARRAY_FILTER_USE_BOTH);
+
+        return compact('search', 'status', 'category_id', 'sub_category_id', 'queryParams');
+    }
+
+    private function subCategoriesForCategory(string $category_id)
+    {
+        if (!$category_id) {
+            return collect();
+        }
+
+        return $this->category->ofStatus(1)->ofType('sub')
+            ->where('parent_id', $category_id)
+            ->ordered()
+            ->get();
+    }
+
+    private function paginateServices(Request $request, array $queryParams)
+    {
+        return $this->service->with(['category', 'subCategory', 'storage_thumbnail'])
             ->withCount('variations')
             ->ordered()
             ->when($request->filled('search'), function ($query) use ($request) {
@@ -160,26 +236,14 @@ class ServiceController extends Controller
             })->when($request->has('status') && $request['status'] != 'all', function ($query) use ($request) {
                 if ($request['status'] == 'active') {
                     return $query->where(['is_active' => 1]);
-                } else {
-                    return $query->where(['is_active' => 0]);
                 }
+
+                return $query->where(['is_active' => 0]);
             })->when($request->has('zone_id'), function ($query) use ($request) {
                 return $query->whereHas('category.zonesBasicInfo', function ($queryZone) use ($request) {
                     $queryZone->where('zone_id', $request['zone_id']);
                 });
             })->paginate(pagination_limit())->appends($queryParams);
-
-        return view('servicemanagement::admin.list', compact(
-            'services',
-            'search',
-            'status',
-            'categories',
-            'subCategories',
-            'category_id',
-            'sub_category_id',
-            'queryParams',
-            'filterCounter'
-        ));
     }
 
     /**

@@ -1,0 +1,5062 @@
+{
+  "services": [
+    {
+      "name": "Tap repair",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Fixtures",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "f5f8fe4f-4feb-4389-8cb9-7a4c385451f8",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-fixtures",
+      "slug": "tap-repair",
+      "variants": [
+        {
+          "variant_key": "hot-cold-mixer",
+          "title": "Tap repair \u2014 Hot & cold mixer",
+          "variation_label": "Hot & cold mixer",
+          "price": 199.0
+        },
+        {
+          "variant_key": "regular",
+          "title": "Tap repair \u2014 Regular",
+          "variation_label": "Regular",
+          "price": 99.0
+        },
+        {
+          "variant_key": "shower-mixer-repair",
+          "title": "Tap repair \u2014 Shower mixer repair",
+          "variation_label": "Shower mixer repair",
+          "price": 229.0
+        },
+        {
+          "variant_key": "swan-tap-repair",
+          "title": "Tap repair \u2014 Swan Tap Repair",
+          "variation_label": "Swan Tap Repair",
+          "price": 99.0
+        }
+      ]
+    },
+    {
+      "name": "Wash basin blockage removal",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Fixtures",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "f5f8fe4f-4feb-4389-8cb9-7a4c385451f8",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-fixtures",
+      "slug": "wash-basin-blockage-removal",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Wash basin blockage removal",
+          "variation_label": "\u2014",
+          "price": 199.0
+        }
+      ]
+    },
+    {
+      "name": "Wash basin leakage repair",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Fixtures",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "f5f8fe4f-4feb-4389-8cb9-7a4c385451f8",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-fixtures",
+      "slug": "wash-basin-leakage-repair",
+      "variants": [
+        {
+          "variant_key": "bottle-trap",
+          "title": "Wash basin leakage repair \u2014 Bottle trap",
+          "variation_label": "Bottle trap",
+          "price": 199.0
+        },
+        {
+          "variant_key": "waste-pipe",
+          "title": "Wash basin leakage repair \u2014 Waste pipe",
+          "variation_label": "Waste pipe",
+          "price": 99.0
+        }
+      ]
+    },
+    {
+      "name": "Water tank repair",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Fixtures",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "f5f8fe4f-4feb-4389-8cb9-7a4c385451f8",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-fixtures",
+      "slug": "water-tank-repair",
+      "variants": [
+        {
+          "variant_key": "connection-leakage",
+          "title": "Water tank repair \u2014 Connection leakage",
+          "variation_label": "Connection leakage",
+          "price": 99.0
+        },
+        {
+          "variant_key": "cover-change",
+          "title": "Water tank repair \u2014 Cover change",
+          "variation_label": "Cover change",
+          "price": 99.0
+        },
+        {
+          "variant_key": "water-overflow",
+          "title": "Water tank repair \u2014 Water overflow",
+          "variation_label": "Water overflow",
+          "price": 149.0
+        }
+      ]
+    },
+    {
+      "name": "Western toilet repair (floor-mounted)",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Fixtures",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "f5f8fe4f-4feb-4389-8cb9-7a4c385451f8",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-fixtures",
+      "slug": "western-toilet-repair-floor-mounted",
+      "variants": [
+        {
+          "variant_key": "installationreplacement",
+          "title": "Western toilet repair (floor-mounted) \u2014 Installation/replacement",
+          "variation_label": "Installation/replacement",
+          "price": 1699.0
+        },
+        {
+          "variant_key": "pot-blockage-removal",
+          "title": "Western toilet repair (floor-mounted) \u2014 Pot blockage removal",
+          "variation_label": "Pot blockage removal",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "repair",
+          "title": "Western toilet repair (floor-mounted) \u2014 Repair",
+          "variation_label": "Repair",
+          "price": 699.0
+        }
+      ]
+    },
+    {
+      "name": "Western toilet repair (wall-mounted)",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Fixtures",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "f5f8fe4f-4feb-4389-8cb9-7a4c385451f8",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-fixtures",
+      "slug": "western-toilet-repair-wall-mounted",
+      "variants": [
+        {
+          "variant_key": "installationreplacement",
+          "title": "Western toilet repair (wall-mounted) \u2014 Installation/replacement",
+          "variation_label": "Installation/replacement",
+          "price": 1699.0
+        },
+        {
+          "variant_key": "pot-blockage-removal",
+          "title": "Western toilet repair (wall-mounted) \u2014 Pot blockage removal",
+          "variation_label": "Pot blockage removal",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "repair",
+          "title": "Western toilet repair (wall-mounted) \u2014 Repair",
+          "variation_label": "Repair",
+          "price": 699.0
+        }
+      ]
+    },
+    {
+      "name": "Connection hose installation",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Installs",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "acd7354b-4812-4869-b63a-2b4b2ea0ca57",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-installs",
+      "slug": "connection-hose-installation",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Connection hose installation",
+          "variation_label": "\u2014",
+          "price": 89.0
+        }
+      ]
+    },
+    {
+      "name": "Motor installation",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Installs",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "acd7354b-4812-4869-b63a-2b4b2ea0ca57",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-installs",
+      "slug": "motor-installation",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Motor installation",
+          "variation_label": "\u2014",
+          "price": 449.0
+        }
+      ]
+    },
+    {
+      "name": "Overhead water tank installation",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Installs",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "acd7354b-4812-4869-b63a-2b4b2ea0ca57",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-installs",
+      "slug": "overhead-water-tank-installation",
+      "variants": [
+        {
+          "variant_key": "500-to-2000l",
+          "title": "Overhead water tank installation \u2014 500 to 2000L",
+          "variation_label": "500 to 2000L",
+          "price": 1199.0
+        },
+        {
+          "variant_key": "upto-500l",
+          "title": "Overhead water tank installation \u2014 Upto 500L",
+          "variation_label": "Upto 500L",
+          "price": 699.0
+        }
+      ]
+    },
+    {
+      "name": "RO water connection installation",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Installs",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "acd7354b-4812-4869-b63a-2b4b2ea0ca57",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-installs",
+      "slug": "ro-water-connection-installation",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "RO water connection installation",
+          "variation_label": "\u2014",
+          "price": 99.0
+        }
+      ]
+    },
+    {
+      "name": "Shelf installation",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Installs",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "acd7354b-4812-4869-b63a-2b4b2ea0ca57",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-installs",
+      "slug": "shelf-installation",
+      "variants": [
+        {
+          "variant_key": "corner-shelf",
+          "title": "Shelf installation \u2014 Corner shelf",
+          "variation_label": "Corner shelf",
+          "price": 99.0
+        },
+        {
+          "variant_key": "floating-glass-shelf",
+          "title": "Shelf installation \u2014 Floating glass shelf",
+          "variation_label": "Floating glass shelf",
+          "price": 119.0
+        }
+      ]
+    },
+    {
+      "name": "Shower filter installation",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Installs",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "acd7354b-4812-4869-b63a-2b4b2ea0ca57",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-installs",
+      "slug": "shower-filter-installation",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Shower filter installation",
+          "variation_label": "\u2014",
+          "price": 99.0
+        }
+      ]
+    },
+    {
+      "name": "Shower installation",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Installs",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "acd7354b-4812-4869-b63a-2b4b2ea0ca57",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-installs",
+      "slug": "shower-installation",
+      "variants": [
+        {
+          "variant_key": "ceiling-mounted",
+          "title": "Shower installation \u2014 Ceiling mounted",
+          "variation_label": "Ceiling mounted",
+          "price": 149.0
+        },
+        {
+          "variant_key": "handheld",
+          "title": "Shower installation \u2014 Handheld",
+          "variation_label": "Handheld",
+          "price": 99.0
+        },
+        {
+          "variant_key": "wall-mounted",
+          "title": "Shower installation \u2014 Wall mounted",
+          "variation_label": "Wall mounted",
+          "price": 139.0
+        }
+      ]
+    },
+    {
+      "name": "Shower mixer tap installation",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Installs",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "acd7354b-4812-4869-b63a-2b4b2ea0ca57",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-installs",
+      "slug": "shower-mixer-tap-installation",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Shower mixer tap installation",
+          "variation_label": "\u2014",
+          "price": 228.0
+        }
+      ]
+    },
+    {
+      "name": "Soap holder installation",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Installs",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "acd7354b-4812-4869-b63a-2b4b2ea0ca57",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-installs",
+      "slug": "soap-holder-installation",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Soap holder installation",
+          "variation_label": "\u2014",
+          "price": 99.0
+        }
+      ]
+    },
+    {
+      "name": "Tap accessory installation",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Installs",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "acd7354b-4812-4869-b63a-2b4b2ea0ca57",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-installs",
+      "slug": "tap-accessory-installation",
+      "variants": [
+        {
+          "variant_key": "extender",
+          "title": "Tap accessory installation \u2014 Extender",
+          "variation_label": "Extender",
+          "price": 89.0
+        },
+        {
+          "variant_key": "filter",
+          "title": "Tap accessory installation \u2014 Filter",
+          "variation_label": "Filter",
+          "price": 79.0
+        },
+        {
+          "variant_key": "tap-double-connection",
+          "title": "Tap accessory installation \u2014 Tap double connection",
+          "variation_label": "Tap double connection",
+          "price": 99.0
+        },
+        {
+          "variant_key": "water-saving-nozzle",
+          "title": "Tap accessory installation \u2014 Water-saving nozzle",
+          "variation_label": "Water-saving nozzle",
+          "price": 99.0
+        }
+      ]
+    },
+    {
+      "name": "Tap installation/replacement",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Installs",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "acd7354b-4812-4869-b63a-2b4b2ea0ca57",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-installs",
+      "slug": "tap-installationreplacement",
+      "variants": [
+        {
+          "variant_key": "hot-cold-mixer",
+          "title": "Tap installation/replacement \u2014 Hot & cold mixer",
+          "variation_label": "Hot & cold mixer",
+          "price": 199.0
+        },
+        {
+          "variant_key": "regular",
+          "title": "Tap installation/replacement \u2014 Regular",
+          "variation_label": "Regular",
+          "price": 99.0
+        },
+        {
+          "variant_key": "shower-mixer-repair",
+          "title": "Tap installation/replacement \u2014 Shower mixer repair",
+          "variation_label": "Shower mixer repair",
+          "price": 229.0
+        },
+        {
+          "variant_key": "swan-tap-installationreplacement",
+          "title": "Tap installation/replacement \u2014 Swan Tap installation/replacement",
+          "variation_label": "Swan Tap installation/replacement",
+          "price": 249.0
+        }
+      ]
+    },
+    {
+      "name": "Toilet seat cover installation",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Installs",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "acd7354b-4812-4869-b63a-2b4b2ea0ca57",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-installs",
+      "slug": "toilet-seat-cover-installation",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Toilet seat cover installation",
+          "variation_label": "\u2014",
+          "price": 99.0
+        }
+      ]
+    },
+    {
+      "name": "Towel holder installation",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Installs",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "acd7354b-4812-4869-b63a-2b4b2ea0ca57",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-installs",
+      "slug": "towel-holder-installation",
+      "variants": [
+        {
+          "variant_key": "holding-rod",
+          "title": "Towel holder installation \u2014 Holding rod",
+          "variation_label": "Holding rod",
+          "price": 129.0
+        },
+        {
+          "variant_key": "small-holder",
+          "title": "Towel holder installation \u2014 Small holder",
+          "variation_label": "Small holder",
+          "price": 99.0
+        },
+        {
+          "variant_key": "towel-rack",
+          "title": "Towel holder installation \u2014 Towel rack",
+          "variation_label": "Towel rack",
+          "price": 149.0
+        }
+      ]
+    },
+    {
+      "name": "Wash basin installation",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Installs",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "acd7354b-4812-4869-b63a-2b4b2ea0ca57",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-installs",
+      "slug": "wash-basin-installation",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Wash basin installation",
+          "variation_label": "\u2014",
+          "price": 469.0
+        }
+      ]
+    },
+    {
+      "name": "Washing machine inlet installation",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Installs",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "acd7354b-4812-4869-b63a-2b4b2ea0ca57",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-installs",
+      "slug": "washing-machine-inlet-installation",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Washing machine inlet installation",
+          "variation_label": "\u2014",
+          "price": 99.0
+        }
+      ]
+    },
+    {
+      "name": "Waste coupling installation",
+      "category": "Plumbing Services",
+      "sub_category": "Plumbing Installs",
+      "category_id": "5c3bb171-b9eb-4b74-b455-1853da3b4887",
+      "sub_category_id": "acd7354b-4812-4869-b63a-2b4b2ea0ca57",
+      "category_slug": "plumbing",
+      "sub_slug": "plumbing-installs",
+      "slug": "waste-coupling-installation",
+      "variants": [
+        {
+          "variant_key": "bottle-trap-basin",
+          "title": "Waste coupling installation \u2014 Bottle trap basin",
+          "variation_label": "Bottle trap basin",
+          "price": 219.0
+        },
+        {
+          "variant_key": "waste-pipe-basin",
+          "title": "Waste coupling installation \u2014 Waste pipe basin",
+          "variation_label": "Waste pipe basin",
+          "price": 149.0
+        }
+      ]
+    },
+    {
+      "name": "AVL sea-algae manicure",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Beauty & Grooming",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "35d9c567-d70b-4c4f-8b3c-eb70eb02356f",
+      "category_slug": "womens-salon",
+      "sub_slug": "beauty-grooming",
+      "slug": "avl-sea-algae-manicure",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "AVL sea-algae manicure",
+          "variation_label": "\u2014",
+          "price": 999.0
+        }
+      ]
+    },
+    {
+      "name": "British rose manicure",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Beauty & Grooming",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "35d9c567-d70b-4c4f-8b3c-eb70eb02356f",
+      "category_slug": "womens-salon",
+      "sub_slug": "beauty-grooming",
+      "slug": "british-rose-manicure",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "British rose manicure",
+          "variation_label": "\u2014",
+          "price": 659.0
+        }
+      ]
+    },
+    {
+      "name": "Candle spa manicure",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Beauty & Grooming",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "35d9c567-d70b-4c4f-8b3c-eb70eb02356f",
+      "category_slug": "womens-salon",
+      "sub_slug": "beauty-grooming",
+      "slug": "candle-spa-manicure",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Candle spa manicure",
+          "variation_label": "\u2014",
+          "price": 1019.0
+        }
+      ]
+    },
+    {
+      "name": "Candle spa pedicure",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Beauty & Grooming",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "35d9c567-d70b-4c4f-8b3c-eb70eb02356f",
+      "category_slug": "womens-salon",
+      "sub_slug": "beauty-grooming",
+      "slug": "candle-spa-pedicure",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Candle spa pedicure",
+          "variation_label": "\u2014",
+          "price": 1269.0
+        }
+      ]
+    },
+    {
+      "name": "Crystal rose pedicure",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Beauty & Grooming",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "35d9c567-d70b-4c4f-8b3c-eb70eb02356f",
+      "category_slug": "womens-salon",
+      "sub_slug": "beauty-grooming",
+      "slug": "crystal-rose-pedicure",
+      "variants": [
+        {
+          "variant_key": "with-heel-peel",
+          "title": "Crystal rose pedicure \u2014 With heel peel",
+          "variation_label": "With heel peel",
+          "price": 819.0
+        },
+        {
+          "variant_key": "without-heel-peel",
+          "title": "Crystal rose pedicure \u2014 Without heel peel",
+          "variation_label": "Without heel peel",
+          "price": 709.0
+        }
+      ]
+    },
+    {
+      "name": "Cut, file & polish (feet)",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Beauty & Grooming",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "35d9c567-d70b-4c4f-8b3c-eb70eb02356f",
+      "category_slug": "womens-salon",
+      "sub_slug": "beauty-grooming",
+      "slug": "cut-file-polish-feet",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Cut, file & polish (feet)",
+          "variation_label": "\u2014",
+          "price": 349.0
+        },
+        {
+          "variant_key": "standard-2",
+          "title": "Cut, file & polish (feet)",
+          "variation_label": "\u2014",
+          "price": 349.0
+        }
+      ]
+    },
+    {
+      "name": "Cut, file & polish (hands)",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Beauty & Grooming",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "35d9c567-d70b-4c4f-8b3c-eb70eb02356f",
+      "category_slug": "womens-salon",
+      "sub_slug": "beauty-grooming",
+      "slug": "cut-file-polish-hands",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Cut, file & polish (hands)",
+          "variation_label": "\u2014",
+          "price": 299.0
+        },
+        {
+          "variant_key": "standard-2",
+          "title": "Cut, file & polish (hands)",
+          "variation_label": "\u2014",
+          "price": 299.0
+        }
+      ]
+    },
+    {
+      "name": "Essential Mani-Pedi Combo",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Beauty & Grooming",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "35d9c567-d70b-4c4f-8b3c-eb70eb02356f",
+      "category_slug": "womens-salon",
+      "sub_slug": "beauty-grooming",
+      "slug": "essential-mani-pedi-combo",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Essential Mani-Pedi Combo",
+          "variation_label": "\u2014",
+          "price": 1359.0
+        }
+      ]
+    },
+    {
+      "name": "Foot massage",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Beauty & Grooming",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "35d9c567-d70b-4c4f-8b3c-eb70eb02356f",
+      "category_slug": "womens-salon",
+      "sub_slug": "beauty-grooming",
+      "slug": "beauty-grooming-foot-massage",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Foot massage",
+          "variation_label": "\u2014",
+          "price": 249.0
+        }
+      ]
+    },
+    {
+      "name": "Ice cream delight manicure",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Beauty & Grooming",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "35d9c567-d70b-4c4f-8b3c-eb70eb02356f",
+      "category_slug": "womens-salon",
+      "sub_slug": "beauty-grooming",
+      "slug": "ice-cream-delight-manicure",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Ice cream delight manicure",
+          "variation_label": "\u2014",
+          "price": 1299.0
+        }
+      ]
+    },
+    {
+      "name": "Ice cream delight pedicure",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Beauty & Grooming",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "35d9c567-d70b-4c4f-8b3c-eb70eb02356f",
+      "category_slug": "womens-salon",
+      "sub_slug": "beauty-grooming",
+      "slug": "ice-cream-delight-pedicure",
+      "variants": [
+        {
+          "variant_key": "with-heel-peel",
+          "title": "Ice cream delight pedicure \u2014 With heel peel",
+          "variation_label": "With heel peel",
+          "price": 1399.0
+        },
+        {
+          "variant_key": "without-heel-peel",
+          "title": "Ice cream delight pedicure \u2014 Without heel peel",
+          "variation_label": "Without heel peel",
+          "price": 1289.0
+        }
+      ]
+    },
+    {
+      "name": "Mani-pedi delight",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Beauty & Grooming",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "35d9c567-d70b-4c4f-8b3c-eb70eb02356f",
+      "category_slug": "womens-salon",
+      "sub_slug": "beauty-grooming",
+      "slug": "mani-pedi-delight",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Mani-pedi delight",
+          "variation_label": "\u2014",
+          "price": 1368.0
+        }
+      ]
+    },
+    {
+      "name": "Rejuvenating crystal spa pedicure",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Beauty & Grooming",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "35d9c567-d70b-4c4f-8b3c-eb70eb02356f",
+      "category_slug": "womens-salon",
+      "sub_slug": "beauty-grooming",
+      "slug": "rejuvenating-crystal-spa-pedicure",
+      "variants": [
+        {
+          "variant_key": "with-heel-peel",
+          "title": "Rejuvenating crystal spa pedicure \u2014 With heel peel",
+          "variation_label": "With heel peel",
+          "price": 1399.0
+        },
+        {
+          "variant_key": "without-heel-peel",
+          "title": "Rejuvenating crystal spa pedicure \u2014 Without heel peel",
+          "variation_label": "Without heel peel",
+          "price": 1289.0
+        }
+      ]
+    },
+    {
+      "name": "Rejuvenating mani-pedi combo",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Beauty & Grooming",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "35d9c567-d70b-4c4f-8b3c-eb70eb02356f",
+      "category_slug": "womens-salon",
+      "sub_slug": "beauty-grooming",
+      "slug": "rejuvenating-mani-pedi-combo",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Rejuvenating mani-pedi combo",
+          "variation_label": "\u2014",
+          "price": 2189.0
+        }
+      ]
+    },
+    {
+      "name": "Signature mani-pedi combo",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Beauty & Grooming",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "35d9c567-d70b-4c4f-8b3c-eb70eb02356f",
+      "category_slug": "womens-salon",
+      "sub_slug": "beauty-grooming",
+      "slug": "signature-mani-pedi-combo",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Signature mani-pedi combo",
+          "variation_label": "\u2014",
+          "price": 1849.0
+        }
+      ]
+    },
+    {
+      "name": "Advanced buns",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "advanced-buns",
+      "variants": [
+        {
+          "variant_key": "messy",
+          "title": "Advanced buns \u2014 Messy",
+          "variation_label": "Messy",
+          "price": 1000.0
+        },
+        {
+          "variant_key": "side-low-high",
+          "title": "Advanced buns \u2014 Side, low & high",
+          "variation_label": "Side, low & high",
+          "price": 1000.0
+        },
+        {
+          "variant_key": "texture",
+          "title": "Advanced buns \u2014 Texture",
+          "variation_label": "Texture",
+          "price": 1000.0
+        }
+      ]
+    },
+    {
+      "name": "Advanced hairstyling",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "advanced-hairstyling",
+      "variants": [
+        {
+          "variant_key": "one-side-open-style",
+          "title": "Advanced hairstyling \u2014 One-side open style",
+          "variation_label": "One-side open style",
+          "price": 1000.0
+        },
+        {
+          "variant_key": "openhalf-tie-style",
+          "title": "Advanced hairstyling \u2014 Open/half tie style",
+          "variation_label": "Open/half tie style",
+          "price": 1000.0
+        },
+        {
+          "variant_key": "ponytailbraid",
+          "title": "Advanced hairstyling \u2014 Ponytail/braid",
+          "variation_label": "Ponytail/braid",
+          "price": 1000.0
+        }
+      ]
+    },
+    {
+      "name": "Ayurvedic strengthening hair spa",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "ayurvedic-strengthening-hair-spa",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Ayurvedic strengthening hair spa",
+          "variation_label": "\u2014",
+          "price": 1299.0
+        }
+      ]
+    },
+    {
+      "name": "Curls & waves",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "curls-waves",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Curls & waves",
+          "variation_label": "\u2014",
+          "price": 549.0
+        }
+      ]
+    },
+    {
+      "name": "Hair botox",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "hair-botox",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Hair botox",
+          "variation_label": "\u2014",
+          "price": 5499.0
+        }
+      ]
+    },
+    {
+      "name": "Hair colour (application only)",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "hair-colour-application-only",
+      "variants": [
+        {
+          "variant_key": "global-colour",
+          "title": "Hair colour (application only) \u2014 Global colour",
+          "variation_label": "Global colour",
+          "price": 699.0
+        },
+        {
+          "variant_key": "roots-colour",
+          "title": "Hair colour (application only) \u2014 Roots colour",
+          "variation_label": "Roots colour",
+          "price": 399.0
+        }
+      ]
+    },
+    {
+      "name": "Hair keratin",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "hair-keratin",
+      "variants": [
+        {
+          "variant_key": "long-length",
+          "title": "Hair keratin \u2014 Long-length",
+          "variation_label": "Long-length",
+          "price": 4999.0
+        },
+        {
+          "variant_key": "shoulder-length",
+          "title": "Hair keratin \u2014 Shoulder-length",
+          "variation_label": "Shoulder-length",
+          "price": 3999.0
+        }
+      ]
+    },
+    {
+      "name": "Hair straightening",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "hair-straightening",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Hair straightening",
+          "variation_label": "\u2014",
+          "price": 549.0
+        }
+      ]
+    },
+    {
+      "name": "Hair trim",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "hair-trim",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Hair trim",
+          "variation_label": "\u2014",
+          "price": 449.0
+        }
+      ]
+    },
+    {
+      "name": "Hair trim for mom & daughter",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "hair-trim-for-mom-daughter",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Hair trim for mom & daughter",
+          "variation_label": "\u2014",
+          "price": 849.0
+        }
+      ]
+    },
+    {
+      "name": "Haircut & botox/keratin",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "haircut-botoxkeratin",
+      "variants": [
+        {
+          "variant_key": "hair-trim",
+          "title": "Haircut & botox/keratin \u2014 Hair Trim",
+          "variation_label": "Hair Trim",
+          "price": 449.0
+        },
+        {
+          "variant_key": "haircut",
+          "title": "Haircut & botox/keratin \u2014 Haircut",
+          "variation_label": "Haircut",
+          "price": 5248.0
+        },
+        {
+          "variant_key": "long-length",
+          "title": "Haircut & botox/keratin \u2014 Long-length",
+          "variation_label": "Long-length",
+          "price": 4999.0
+        },
+        {
+          "variant_key": "one-length",
+          "title": "Haircut & botox/keratin \u2014 One- length",
+          "variation_label": "One- length",
+          "price": 5248.0
+        },
+        {
+          "variant_key": "shoulder-length",
+          "title": "Haircut & botox/keratin \u2014 Shoulder-length",
+          "variation_label": "Shoulder-length",
+          "price": 3999.0
+        }
+      ]
+    },
+    {
+      "name": "Haircut for girls",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "haircut-for-girls",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Haircut for girls",
+          "variation_label": "\u2014",
+          "price": 649.0
+        }
+      ]
+    },
+    {
+      "name": "Haircut for mom & daughter",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "haircut-for-mom-daughter",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Haircut for mom & daughter",
+          "variation_label": "\u2014",
+          "price": 1049.0
+        }
+      ]
+    },
+    {
+      "name": "Haircut for women",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "haircut-for-women",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Haircut for women",
+          "variation_label": "\u2014",
+          "price": 549.0
+        }
+      ]
+    },
+    {
+      "name": "In curl/out curl blow-dry",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "in-curlout-curl-blow-dry",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "In curl/out curl blow-dry",
+          "variation_label": "\u2014",
+          "price": 449.0
+        }
+      ]
+    },
+    {
+      "name": "Keratin hair spa",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "keratin-hair-spa",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Keratin hair spa",
+          "variation_label": "\u2014",
+          "price": 1299.0
+        }
+      ]
+    },
+    {
+      "name": "L'Oreal hair repair mask",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "loreal-hair-repair-mask",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "L'Oreal hair repair mask",
+          "variation_label": "\u2014",
+          "price": 649.0
+        }
+      ]
+    },
+    {
+      "name": "L'Oreal hair spa",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "loreal-hair-spa",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "L'Oreal hair spa",
+          "variation_label": "\u2014",
+          "price": 1299.0
+        }
+      ]
+    },
+    {
+      "name": "L'Or\u00e9al Inoa global color",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "lor\u00e9al-inoa-global-color",
+      "variants": [
+        {
+          "variant_key": "brown-shade-4",
+          "title": "L'Or\u00e9al Inoa global color \u2014 Brown (shade 4)",
+          "variation_label": "Brown (shade 4)",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "dark-brown-shade-3",
+          "title": "L'Or\u00e9al Inoa global color \u2014 Dark brown (shade 3)",
+          "variation_label": "Dark brown (shade 3)",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "darkest-brown-shade-2",
+          "title": "L'Or\u00e9al Inoa global color \u2014 Darkest brown (shade 2)",
+          "variation_label": "Darkest brown (shade 2)",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "light-brown-shade-5",
+          "title": "L'Or\u00e9al Inoa global color \u2014 Light brown (shade 5)",
+          "variation_label": "Light brown (shade 5)",
+          "price": 1299.0
+        }
+      ]
+    },
+    {
+      "name": "L'Or\u00e9al Inoa root touch-up",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "lor\u00e9al-inoa-root-touch-up",
+      "variants": [
+        {
+          "variant_key": "extra-burgundy-brown-shade-42",
+          "title": "L'Or\u00e9al Inoa root touch-up \u2014 Extra burgundy brown (shade 4.2)",
+          "variation_label": "Extra burgundy brown (shade 4.2)",
+          "price": 1499.0
+        },
+        {
+          "variant_key": "light-golden-mahogany-brown-shade-535",
+          "title": "L'Or\u00e9al Inoa root touch-up \u2014 Light golden mahogany brown (shade 5.35)",
+          "variation_label": "Light golden mahogany brown (shade 5.35)",
+          "price": 2999.0
+        },
+        {
+          "variant_key": "mahogany-ash-brown-shade-415",
+          "title": "L'Or\u00e9al Inoa root touch-up \u2014 Mahogany ash brown (shade 4.15)",
+          "variation_label": "Mahogany ash brown (shade 4.15)",
+          "price": 2999.0
+        },
+        {
+          "variant_key": "brown-shade-4",
+          "title": "L'Or\u00e9al Inoa root touch-up \u2014 Brown (shade 4)",
+          "variation_label": "Brown (shade 4)",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "dark-brown-shade-3",
+          "title": "L'Or\u00e9al Inoa root touch-up \u2014 Dark brown (shade 3)",
+          "variation_label": "Dark brown (shade 3)",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "darkest-brown-shade-2",
+          "title": "L'Or\u00e9al Inoa root touch-up \u2014 Darkest brown (shade 2)",
+          "variation_label": "Darkest brown (shade 2)",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "light-brown-shade-5",
+          "title": "L'Or\u00e9al Inoa root touch-up \u2014 Light brown (shade 5)",
+          "variation_label": "Light brown (shade 5)",
+          "price": 1299.0
+        }
+      ]
+    },
+    {
+      "name": "L'Or\u00e9al Inoa shades",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "lor\u00e9al-inoa-shades",
+      "variants": [
+        {
+          "variant_key": "extra-burgundy-brown-shade-420",
+          "title": "L'Or\u00e9al Inoa shades \u2014 Extra burgundy brown (shade 4.20)",
+          "variation_label": "Extra burgundy brown (shade 4.20)",
+          "price": 2999.0
+        },
+        {
+          "variant_key": "light-golden-mahogany-brown-shade-535",
+          "title": "L'Or\u00e9al Inoa shades \u2014 Light golden mahogany brown (shade 5.35)",
+          "variation_label": "Light golden mahogany brown (shade 5.35)",
+          "price": 2999.0
+        },
+        {
+          "variant_key": "mahogany-ash-brown-shade-415",
+          "title": "L'Or\u00e9al Inoa shades \u2014 Mahogany ash brown (shade 4.15)",
+          "variation_label": "Mahogany ash brown (shade 4.15)",
+          "price": 2999.0
+        }
+      ]
+    },
+    {
+      "name": "L'Or\u00e9al Majirel global colour",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "lor\u00e9al-majirel-global-colour",
+      "variants": [
+        {
+          "variant_key": "brown-shade-4",
+          "title": "L'Or\u00e9al Majirel global colour \u2014 Brown (shade 4)",
+          "variation_label": "Brown (shade 4)",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "dark-brown-shade-3",
+          "title": "L'Or\u00e9al Majirel global colour \u2014 Dark Brown (shade 3)",
+          "variation_label": "Dark Brown (shade 3)",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "light-brown-shade-5",
+          "title": "L'Or\u00e9al Majirel global colour \u2014 Light Brown (shade 5)",
+          "variation_label": "Light Brown (shade 5)",
+          "price": 1299.0
+        }
+      ]
+    },
+    {
+      "name": "L'Or\u00e9al Majirel root touch-up",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "lor\u00e9al-majirel-root-touch-up",
+      "variants": [
+        {
+          "variant_key": "extra-burgundy-brown-shade-42",
+          "title": "L'Or\u00e9al Majirel root touch-up \u2014 Extra burgundy brown (shade 4.2)",
+          "variation_label": "Extra burgundy brown (shade 4.2)",
+          "price": 1499.0
+        },
+        {
+          "variant_key": "light-golden-mahogany-brown-shade-535",
+          "title": "L'Or\u00e9al Majirel root touch-up \u2014 Light golden mahogany brown (shade 5.35)",
+          "variation_label": "Light golden mahogany brown (shade 5.35)",
+          "price": 2999.0
+        },
+        {
+          "variant_key": "mahogany-ash-brown-shade-415",
+          "title": "L'Or\u00e9al Majirel root touch-up \u2014 Mahogany ash brown (shade 4.15)",
+          "variation_label": "Mahogany ash brown (shade 4.15)",
+          "price": 2999.0
+        },
+        {
+          "variant_key": "brown-shade-4",
+          "title": "L'Or\u00e9al Majirel root touch-up \u2014 Brown (shade 4)",
+          "variation_label": "Brown (shade 4)",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "dark-brown-shade-3",
+          "title": "L'Or\u00e9al Majirel root touch-up \u2014 Dark brown (shade 3)",
+          "variation_label": "Dark brown (shade 3)",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "light-brown-shade-5",
+          "title": "L'Or\u00e9al Majirel root touch-up \u2014 Light brown (shade 5)",
+          "variation_label": "Light brown (shade 5)",
+          "price": 1299.0
+        }
+      ]
+    },
+    {
+      "name": "L'Or\u00e9al Majirel shades",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "lor\u00e9al-majirel-shades",
+      "variants": [
+        {
+          "variant_key": "extra-burgundy-brown-shade-420",
+          "title": "L'Or\u00e9al Majirel shades \u2014 Extra burgundy brown (shade 4.20)",
+          "variation_label": "Extra burgundy brown (shade 4.20)",
+          "price": 2999.0
+        },
+        {
+          "variant_key": "light-golden-mahogany-brown-shade-535",
+          "title": "L'Or\u00e9al Majirel shades \u2014 Light golden mahogany brown (shade 5.35)",
+          "variation_label": "Light golden mahogany brown (shade 5.35)",
+          "price": 2999.0
+        },
+        {
+          "variant_key": "mahogany-ash-brown-shade-415",
+          "title": "L'Or\u00e9al Majirel shades \u2014 Mahogany ash brown (shade 4.15)",
+          "variation_label": "Mahogany ash brown (shade 4.15)",
+          "price": 2999.0
+        }
+      ]
+    },
+    {
+      "name": "L'Or\u00e9al balayage/ombre color",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "lor\u00e9al-balayageombre-color",
+      "variants": [
+        {
+          "variant_key": "blonde-with-golden-iridescent-shade-723",
+          "title": "L'Or\u00e9al balayage/ombre color \u2014 Blonde with golden iridescent (shade 7.23)",
+          "variation_label": "Blonde with golden iridescent (shade 7.23)",
+          "price": 3899.0
+        },
+        {
+          "variant_key": "dark-golden-mahogany-blonde-shade-635",
+          "title": "L'Or\u00e9al balayage/ombre color \u2014 Dark golden mahogany blonde (shade 6.35)",
+          "variation_label": "Dark golden mahogany blonde (shade 6.35)",
+          "price": 3899.0
+        },
+        {
+          "variant_key": "magenta-red",
+          "title": "L'Or\u00e9al balayage/ombre color \u2014 Magenta red",
+          "variation_label": "Magenta red",
+          "price": 3899.0
+        },
+        {
+          "variant_key": "mocha-blonde-shade-78",
+          "title": "L'Or\u00e9al balayage/ombre color \u2014 Mocha blonde (shade 7.8)",
+          "variation_label": "Mocha blonde (shade 7.8)",
+          "price": 3899.0
+        }
+      ]
+    },
+    {
+      "name": "Nutri Pearl Hair Spa",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "nutri-pearl-hair-spa",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Nutri Pearl Hair Spa",
+          "variation_label": "\u2014",
+          "price": 1199.0
+        }
+      ]
+    },
+    {
+      "name": "Straight & smooth blow-dry",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Hair Care Services",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "0ec20bac-bef6-4ba1-90ab-1cc9d27d9f48",
+      "category_slug": "womens-salon",
+      "sub_slug": "hair-care-services",
+      "slug": "straight-smooth-blow-dry",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Straight & smooth blow-dry",
+          "variation_label": "\u2014",
+          "price": 449.0
+        }
+      ]
+    },
+    {
+      "name": "Abhyangam full body stress relief massage",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "abhyangam-full-body-stress-relief-massage",
+      "variants": [
+        {
+          "variant_key": "1-session",
+          "title": "Abhyangam full body stress relief massage \u2014 1 session",
+          "variation_label": "1 session",
+          "price": 1329.0
+        },
+        {
+          "variant_key": "2-sessions-all-days-in-6-months",
+          "title": "Abhyangam full body stress relief massage \u2014 2 sessions (All days) in 6 months",
+          "variation_label": "2 sessions (All days) in 6 months",
+          "price": 1329.0
+        },
+        {
+          "variant_key": "2-sessions-mon-sat-only-in-6-months",
+          "title": "Abhyangam full body stress relief massage \u2014 2 sessions (Mon-Sat only) in 6 months",
+          "variation_label": "2 sessions (Mon-Sat only) in 6 months",
+          "price": 1329.0
+        },
+        {
+          "variant_key": "60-mins",
+          "title": "Abhyangam full body stress relief massage \u2014 60 mins",
+          "variation_label": "60 mins",
+          "price": 1329.0
+        },
+        {
+          "variant_key": "90-mins",
+          "title": "Abhyangam full body stress relief massage \u2014 90 mins",
+          "variation_label": "90 mins",
+          "price": 1329.0
+        }
+      ]
+    },
+    {
+      "name": "Abhyangam neck-to-toe stress relief massage",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "abhyangam-neck-to-toe-stress-relief-massage",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Abhyangam neck-to-toe stress relief massage",
+          "variation_label": "\u2014",
+          "price": 899.0
+        }
+      ]
+    },
+    {
+      "name": "Abhyangam with foot massage",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "abhyangam-with-foot-massage",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Abhyangam with foot massage",
+          "variation_label": "\u2014",
+          "price": 1729.0
+        }
+      ]
+    },
+    {
+      "name": "Ainhoa Hydraboost facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "ainhoa-hydraboost-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Ainhoa Hydraboost facial",
+          "variation_label": "\u2014",
+          "price": 2449.0
+        }
+      ]
+    },
+    {
+      "name": "Ainhoa Multi-peptide anti-ageing facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "ainhoa-multi-peptide-anti-ageing-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Ainhoa Multi-peptide anti-ageing facial",
+          "variation_label": "\u2014",
+          "price": 2699.0
+        }
+      ]
+    },
+    {
+      "name": "Ainhoa Signature brightening facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "ainhoa-signature-brightening-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Ainhoa Signature brightening facial",
+          "variation_label": "\u2014",
+          "price": 2599.0
+        }
+      ]
+    },
+    {
+      "name": "Ainhoa oil-control facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "ainhoa-oil-control-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Ainhoa oil-control facial",
+          "variation_label": "\u2014",
+          "price": 2149.0
+        }
+      ]
+    },
+    {
+      "name": "Anti-Tan Brightening Cleanup",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "anti-tan-brightening-cleanup",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Anti-Tan Brightening Cleanup",
+          "variation_label": "\u2014",
+          "price": 899.0
+        }
+      ]
+    },
+    {
+      "name": "Aroma Magic instant glow facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "aroma-magic-instant-glow-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Aroma Magic instant glow facial",
+          "variation_label": "\u2014",
+          "price": 949.0
+        }
+      ]
+    },
+    {
+      "name": "Ashwagandha tan removal facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "ashwagandha-tan-removal-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Ashwagandha tan removal facial",
+          "variation_label": "\u2014",
+          "price": 1399.0
+        }
+      ]
+    },
+    {
+      "name": "Back waxing",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "back-waxing",
+      "variants": [
+        {
+          "variant_key": "honey",
+          "title": "Back waxing \u2014 Honey",
+          "variation_label": "Honey",
+          "price": 649.0
+        },
+        {
+          "variant_key": "rica",
+          "title": "Back waxing \u2014 RICA",
+          "variation_label": "RICA",
+          "price": 399.0
+        },
+        {
+          "variant_key": "rica-roll-on",
+          "title": "Back waxing \u2014 RICA roll-on",
+          "variation_label": "RICA roll-on",
+          "price": 1199.0
+        },
+        {
+          "variant_key": "roll-on-color-may-vary",
+          "title": "Back waxing \u2014 Roll-on (Color may vary)",
+          "variation_label": "Roll-on (Color may vary)",
+          "price": 849.0
+        },
+        {
+          "variant_key": "cirepil-mojito-roll-on-wax",
+          "title": "Back waxing \u2014 Cirepil mojito roll-on wax",
+          "variation_label": "Cirepil mojito roll-on wax",
+          "price": 1049.0
+        },
+        {
+          "variant_key": "crystal-green-wax",
+          "title": "Back waxing \u2014 Crystal green wax",
+          "variation_label": "Crystal green wax",
+          "price": 1249.0
+        },
+        {
+          "variant_key": "moroccan-honey-wax",
+          "title": "Back waxing \u2014 Moroccan honey wax",
+          "variation_label": "Moroccan honey wax",
+          "price": 599.0
+        },
+        {
+          "variant_key": "rica-black-charcoal-wax",
+          "title": "Back waxing \u2014 RICA black charcoal wax",
+          "variation_label": "RICA black charcoal wax",
+          "price": 819.0
+        },
+        {
+          "variant_key": "rica-gold-roll-on-wax",
+          "title": "Back waxing \u2014 RICA gold roll-on wax",
+          "variation_label": "RICA gold roll-on wax",
+          "price": 959.0
+        },
+        {
+          "variant_key": "rica-gold-wax",
+          "title": "Back waxing \u2014 RICA gold wax",
+          "variation_label": "RICA gold wax",
+          "price": 819.0
+        }
+      ]
+    },
+    {
+      "name": "Bhringadi head massage",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "bhringadi-head-massage",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Bhringadi head massage",
+          "variation_label": "\u2014",
+          "price": 399.0
+        }
+      ]
+    },
+    {
+      "name": "Bikini line waxing",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "bikini-line-waxing",
+      "variants": [
+        {
+          "variant_key": "honey",
+          "title": "Bikini line waxing \u2014 Honey",
+          "variation_label": "Honey",
+          "price": 649.0
+        },
+        {
+          "variant_key": "rica-peel-off",
+          "title": "Bikini line waxing \u2014 RICA peel-off",
+          "variation_label": "RICA peel-off",
+          "price": 1249.0
+        },
+        {
+          "variant_key": "cirepil-intimate-peel-off-wax",
+          "title": "Bikini line waxing \u2014 Cirepil intimate peel-off wax",
+          "variation_label": "Cirepil intimate peel-off wax",
+          "price": 1499.0
+        },
+        {
+          "variant_key": "moroccan-honey-wax",
+          "title": "Bikini line waxing \u2014 Moroccan honey wax",
+          "variation_label": "Moroccan honey wax",
+          "price": 599.0
+        }
+      ]
+    },
+    {
+      "name": "Bikini waxing",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "bikini-waxing",
+      "variants": [
+        {
+          "variant_key": "honey",
+          "title": "Bikini waxing \u2014 Honey",
+          "variation_label": "Honey",
+          "price": 649.0
+        },
+        {
+          "variant_key": "rica-peel-off",
+          "title": "Bikini waxing \u2014 RICA peel-off",
+          "variation_label": "RICA peel-off",
+          "price": 1249.0
+        },
+        {
+          "variant_key": "cirepil-intimate-peel-off-wax",
+          "title": "Bikini waxing \u2014 Cirepil intimate peel-off wax",
+          "variation_label": "Cirepil intimate peel-off wax",
+          "price": 1499.0
+        },
+        {
+          "variant_key": "moroccan-honey-wax",
+          "title": "Bikini waxing \u2014 Moroccan honey wax",
+          "variation_label": "Moroccan honey wax",
+          "price": 599.0
+        }
+      ]
+    },
+    {
+      "name": "Bleach",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "bleach",
+      "variants": [
+        {
+          "variant_key": "back-bleach",
+          "title": "Bleach \u2014 Back - Bleach",
+          "variation_label": "Back - Bleach",
+          "price": 599.0
+        },
+        {
+          "variant_key": "chest-bleach",
+          "title": "Bleach \u2014 Chest - Bleach",
+          "variation_label": "Chest - Bleach",
+          "price": 599.0
+        },
+        {
+          "variant_key": "face-neck-bleach",
+          "title": "Bleach \u2014 Face & neck - Bleach",
+          "variation_label": "Face & neck - Bleach",
+          "price": 549.0
+        },
+        {
+          "variant_key": "full-arms-bleach",
+          "title": "Bleach \u2014 Full arms - Bleach",
+          "variation_label": "Full arms - Bleach",
+          "price": 599.0
+        },
+        {
+          "variant_key": "full-body-bleach",
+          "title": "Bleach \u2014 Full body - Bleach",
+          "variation_label": "Full body - Bleach",
+          "price": 2599.0
+        },
+        {
+          "variant_key": "full-legs-bleach",
+          "title": "Bleach \u2014 Full legs - Bleach",
+          "variation_label": "Full legs - Bleach",
+          "price": 649.0
+        },
+        {
+          "variant_key": "back",
+          "title": "Bleach \u2014 Back",
+          "variation_label": "Back",
+          "price": 449.0
+        },
+        {
+          "variant_key": "chest",
+          "title": "Bleach \u2014 Chest",
+          "variation_label": "Chest",
+          "price": 449.0
+        },
+        {
+          "variant_key": "face-neck",
+          "title": "Bleach \u2014 Face & neck",
+          "variation_label": "Face & neck",
+          "price": 369.0
+        },
+        {
+          "variant_key": "full-arms",
+          "title": "Bleach \u2014 Full arms",
+          "variation_label": "Full arms",
+          "price": 399.0
+        },
+        {
+          "variant_key": "full-body",
+          "title": "Bleach \u2014 Full body",
+          "variation_label": "Full body",
+          "price": 1599.0
+        },
+        {
+          "variant_key": "full-legs",
+          "title": "Bleach \u2014 Full legs",
+          "variation_label": "Full legs",
+          "price": 599.0
+        }
+      ]
+    },
+    {
+      "name": "Butt waxing",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "butt-waxing",
+      "variants": [
+        {
+          "variant_key": "honey",
+          "title": "Butt waxing \u2014 Honey",
+          "variation_label": "Honey",
+          "price": 649.0
+        },
+        {
+          "variant_key": "rica",
+          "title": "Butt waxing \u2014 RICA",
+          "variation_label": "RICA",
+          "price": 399.0
+        },
+        {
+          "variant_key": "crystal-green-wax",
+          "title": "Butt waxing \u2014 Crystal green wax",
+          "variation_label": "Crystal green wax",
+          "price": 1249.0
+        },
+        {
+          "variant_key": "moroccan-honey",
+          "title": "Butt waxing \u2014 Moroccan honey",
+          "variation_label": "Moroccan honey",
+          "price": 349.0
+        },
+        {
+          "variant_key": "rica-gold",
+          "title": "Butt waxing \u2014 RICA gold",
+          "variation_label": "RICA gold",
+          "price": 1499.0
+        }
+      ]
+    },
+    {
+      "name": "Casmara anti-ageing facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "casmara-anti-ageing-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Casmara anti-ageing facial",
+          "variation_label": "\u2014",
+          "price": 3949.0
+        }
+      ]
+    },
+    {
+      "name": "Casmara brightening facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "casmara-brightening-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Casmara brightening facial",
+          "variation_label": "\u2014",
+          "price": 3959.0
+        }
+      ]
+    },
+    {
+      "name": "Casmara hydration facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "casmara-hydration-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Casmara hydration facial",
+          "variation_label": "\u2014",
+          "price": 3039.0
+        }
+      ]
+    },
+    {
+      "name": "Cherry blossom glow ritual",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "cherry-blossom-glow-ritual",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Cherry blossom glow ritual",
+          "variation_label": "\u2014",
+          "price": 1399.0
+        }
+      ]
+    },
+    {
+      "name": "Cirepil PR Visage face wax",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "cirepil-pr-visage-face-wax",
+      "variants": [
+        {
+          "variant_key": "chin",
+          "title": "Cirepil PR Visage face wax \u2014 Chin",
+          "variation_label": "Chin",
+          "price": 99.0
+        },
+        {
+          "variant_key": "forehead",
+          "title": "Cirepil PR Visage face wax \u2014 Forehead",
+          "variation_label": "Forehead",
+          "price": 99.0
+        },
+        {
+          "variant_key": "full-face",
+          "title": "Cirepil PR Visage face wax \u2014 Full face",
+          "variation_label": "Full face",
+          "price": 249.0
+        },
+        {
+          "variant_key": "jawline",
+          "title": "Cirepil PR Visage face wax \u2014 Jawline",
+          "variation_label": "Jawline",
+          "price": 149.0
+        },
+        {
+          "variant_key": "neck",
+          "title": "Cirepil PR Visage face wax \u2014 Neck",
+          "variation_label": "Neck",
+          "price": 199.0
+        },
+        {
+          "variant_key": "sidelocks",
+          "title": "Cirepil PR Visage face wax \u2014 Sidelocks",
+          "variation_label": "Sidelocks",
+          "price": 99.0
+        },
+        {
+          "variant_key": "upperlip",
+          "title": "Cirepil PR Visage face wax \u2014 Upperlip",
+          "variation_label": "Upperlip",
+          "price": 199.0
+        }
+      ]
+    },
+    {
+      "name": "Detan",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "detan",
+      "variants": [
+        {
+          "variant_key": "back-detan",
+          "title": "Detan \u2014 Back - detan",
+          "variation_label": "Back - detan",
+          "price": 599.0
+        },
+        {
+          "variant_key": "chest-detan",
+          "title": "Detan \u2014 Chest - detan",
+          "variation_label": "Chest - detan",
+          "price": 599.0
+        },
+        {
+          "variant_key": "face-neck",
+          "title": "Detan \u2014 Face & neck",
+          "variation_label": "Face & neck",
+          "price": 369.0
+        },
+        {
+          "variant_key": "full-arms-detan",
+          "title": "Detan \u2014 Full arms - detan",
+          "variation_label": "Full arms - detan",
+          "price": 599.0
+        },
+        {
+          "variant_key": "full-body-detan",
+          "title": "Detan \u2014 Full body - detan",
+          "variation_label": "Full body - detan",
+          "price": 1699.0
+        },
+        {
+          "variant_key": "full-legs-detan",
+          "title": "Detan \u2014 Full legs - detan",
+          "variation_label": "Full legs - detan",
+          "price": 649.0
+        },
+        {
+          "variant_key": "back",
+          "title": "Detan \u2014 Back",
+          "variation_label": "Back",
+          "price": 449.0
+        },
+        {
+          "variant_key": "chest",
+          "title": "Detan \u2014 Chest",
+          "variation_label": "Chest",
+          "price": 449.0
+        },
+        {
+          "variant_key": "face-neck-2",
+          "title": "Detan \u2014 Face & neck",
+          "variation_label": "Face & neck",
+          "price": 369.0
+        },
+        {
+          "variant_key": "full-arms",
+          "title": "Detan \u2014 Full arms",
+          "variation_label": "Full arms",
+          "price": 399.0
+        },
+        {
+          "variant_key": "full-body",
+          "title": "Detan \u2014 Full body",
+          "variation_label": "Full body",
+          "price": 1599.0
+        },
+        {
+          "variant_key": "full-legs",
+          "title": "Detan \u2014 Full legs",
+          "variation_label": "Full legs",
+          "price": 599.0
+        }
+      ]
+    },
+    {
+      "name": "Detox mud cleanup",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "detox-mud-cleanup",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Detox mud cleanup",
+          "variation_label": "\u2014",
+          "price": 1299.0
+        }
+      ]
+    },
+    {
+      "name": "Firming Wine glow facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "firming-wine-glow-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Firming Wine glow facial",
+          "variation_label": "\u2014",
+          "price": 1199.0
+        }
+      ]
+    },
+    {
+      "name": "Foot massage",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "skin-facial-care-foot-massage",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Foot massage",
+          "variation_label": "\u2014",
+          "price": 249.0
+        }
+      ]
+    },
+    {
+      "name": "Full arms & underarms waxing",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "full-arms-underarms-waxing",
+      "variants": [
+        {
+          "variant_key": "honey",
+          "title": "Full arms & underarms waxing \u2014 Honey",
+          "variation_label": "Honey",
+          "price": 649.0
+        },
+        {
+          "variant_key": "rica",
+          "title": "Full arms & underarms waxing \u2014 RICA",
+          "variation_label": "RICA",
+          "price": 399.0
+        },
+        {
+          "variant_key": "rica-roll-on",
+          "title": "Full arms & underarms waxing \u2014 RICA roll-on",
+          "variation_label": "RICA roll-on",
+          "price": 1199.0
+        },
+        {
+          "variant_key": "roll-on-color-may-vary",
+          "title": "Full arms & underarms waxing \u2014 Roll-on (Color may vary)",
+          "variation_label": "Roll-on (Color may vary)",
+          "price": 849.0
+        },
+        {
+          "variant_key": "cirepil-mojito-roll-on-wax",
+          "title": "Full arms & underarms waxing \u2014 Cirepil mojito roll-on wax",
+          "variation_label": "Cirepil mojito roll-on wax",
+          "price": 1049.0
+        },
+        {
+          "variant_key": "crystal-green-wax",
+          "title": "Full arms & underarms waxing \u2014 Crystal green wax",
+          "variation_label": "Crystal green wax",
+          "price": 1249.0
+        },
+        {
+          "variant_key": "moroccan-honey-wax",
+          "title": "Full arms & underarms waxing \u2014 Moroccan honey wax",
+          "variation_label": "Moroccan honey wax",
+          "price": 599.0
+        },
+        {
+          "variant_key": "rica-black-charcoal-wax",
+          "title": "Full arms & underarms waxing \u2014 RICA black charcoal wax",
+          "variation_label": "RICA black charcoal wax",
+          "price": 819.0
+        },
+        {
+          "variant_key": "rica-gold-roll-on-wax",
+          "title": "Full arms & underarms waxing \u2014 RICA gold roll-on wax",
+          "variation_label": "RICA gold roll-on wax",
+          "price": 959.0
+        },
+        {
+          "variant_key": "rica-gold-wax",
+          "title": "Full arms & underarms waxing \u2014 RICA gold wax",
+          "variation_label": "RICA gold wax",
+          "price": 819.0
+        }
+      ]
+    },
+    {
+      "name": "Full body waxing",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "full-body-waxing",
+      "variants": [
+        {
+          "variant_key": "honey",
+          "title": "Full body waxing \u2014 Honey",
+          "variation_label": "Honey",
+          "price": 649.0
+        },
+        {
+          "variant_key": "rica",
+          "title": "Full body waxing \u2014 RICA",
+          "variation_label": "RICA",
+          "price": 399.0
+        },
+        {
+          "variant_key": "rica-roll-on",
+          "title": "Full body waxing \u2014 RICA roll-on",
+          "variation_label": "RICA roll-on",
+          "price": 1199.0
+        },
+        {
+          "variant_key": "roll-on-color-may-vary",
+          "title": "Full body waxing \u2014 Roll-on (Color may vary)",
+          "variation_label": "Roll-on (Color may vary)",
+          "price": 849.0
+        },
+        {
+          "variant_key": "cirepil-mojito-roll-on-wax",
+          "title": "Full body waxing \u2014 Cirepil mojito roll-on wax",
+          "variation_label": "Cirepil mojito roll-on wax",
+          "price": 1049.0
+        },
+        {
+          "variant_key": "crystal-green-wax",
+          "title": "Full body waxing \u2014 Crystal green wax",
+          "variation_label": "Crystal green wax",
+          "price": 1249.0
+        },
+        {
+          "variant_key": "moroccan-honey-wax",
+          "title": "Full body waxing \u2014 Moroccan honey wax",
+          "variation_label": "Moroccan honey wax",
+          "price": 599.0
+        },
+        {
+          "variant_key": "rica-black-charcoal-wax",
+          "title": "Full body waxing \u2014 RICA black charcoal wax",
+          "variation_label": "RICA black charcoal wax",
+          "price": 819.0
+        },
+        {
+          "variant_key": "rica-gold-roll-on-wax",
+          "title": "Full body waxing \u2014 RICA gold roll-on wax",
+          "variation_label": "RICA gold roll-on wax",
+          "price": 959.0
+        },
+        {
+          "variant_key": "rica-gold-wax",
+          "title": "Full body waxing \u2014 RICA gold wax",
+          "variation_label": "RICA gold wax",
+          "price": 819.0
+        }
+      ]
+    },
+    {
+      "name": "Full legs waxing",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "full-legs-waxing",
+      "variants": [
+        {
+          "variant_key": "honey",
+          "title": "Full legs waxing \u2014 Honey",
+          "variation_label": "Honey",
+          "price": 649.0
+        },
+        {
+          "variant_key": "rica",
+          "title": "Full legs waxing \u2014 RICA",
+          "variation_label": "RICA",
+          "price": 399.0
+        },
+        {
+          "variant_key": "rica-roll-on",
+          "title": "Full legs waxing \u2014 RICA roll-on",
+          "variation_label": "RICA roll-on",
+          "price": 1199.0
+        },
+        {
+          "variant_key": "roll-on-color-may-vary",
+          "title": "Full legs waxing \u2014 Roll-on (Color may vary)",
+          "variation_label": "Roll-on (Color may vary)",
+          "price": 849.0
+        },
+        {
+          "variant_key": "cirepil-mojito-roll-on-wax",
+          "title": "Full legs waxing \u2014 Cirepil mojito roll-on wax",
+          "variation_label": "Cirepil mojito roll-on wax",
+          "price": 1049.0
+        },
+        {
+          "variant_key": "crystal-green-wax",
+          "title": "Full legs waxing \u2014 Crystal green wax",
+          "variation_label": "Crystal green wax",
+          "price": 1249.0
+        },
+        {
+          "variant_key": "moroccan-honey-wax",
+          "title": "Full legs waxing \u2014 Moroccan honey wax",
+          "variation_label": "Moroccan honey wax",
+          "price": 599.0
+        },
+        {
+          "variant_key": "rica-black-charcoal-wax",
+          "title": "Full legs waxing \u2014 RICA black charcoal wax",
+          "variation_label": "RICA black charcoal wax",
+          "price": 819.0
+        },
+        {
+          "variant_key": "rica-gold-roll-on-wax",
+          "title": "Full legs waxing \u2014 RICA gold roll-on wax",
+          "variation_label": "RICA gold roll-on wax",
+          "price": 959.0
+        },
+        {
+          "variant_key": "rica-gold-wax",
+          "title": "Full legs waxing \u2014 RICA gold wax",
+          "variation_label": "RICA gold wax",
+          "price": 819.0
+        }
+      ]
+    },
+    {
+      "name": "Hair colour/mehendi (only application)",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "hair-colourmehendi-only-application",
+      "variants": [
+        {
+          "variant_key": "hair-colour-root-touch-up",
+          "title": "Hair colour/mehendi (only application) \u2014 Hair colour - Root touch up",
+          "variation_label": "Hair colour - Root touch up",
+          "price": 269.0
+        },
+        {
+          "variant_key": "henna-mehendi-application",
+          "title": "Hair colour/mehendi (only application) \u2014 Henna mehendi application",
+          "variation_label": "Henna mehendi application",
+          "price": 419.0
+        }
+      ]
+    },
+    {
+      "name": "Hair spa & style",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "hair-spa-style",
+      "variants": [
+        {
+          "variant_key": "ayurvedic-strengthening-spa",
+          "title": "Hair spa & style \u2014 Ayurvedic strengthening spa",
+          "variation_label": "Ayurvedic strengthening spa",
+          "price": 1548.0
+        },
+        {
+          "variant_key": "blow-dry-in-curlout-curl",
+          "title": "Hair spa & style \u2014 Blow-dry : In-curl/out-curl",
+          "variation_label": "Blow-dry : In-curl/out-curl",
+          "price": 1548.0
+        },
+        {
+          "variant_key": "blow-dry-straight-smooth",
+          "title": "Hair spa & style \u2014 Blow-dry : Straight & smooth",
+          "variation_label": "Blow-dry : Straight & smooth",
+          "price": 1548.0
+        },
+        {
+          "variant_key": "curls-waves",
+          "title": "Hair spa & style \u2014 Curls & waves",
+          "variation_label": "Curls & waves",
+          "price": 549.0
+        },
+        {
+          "variant_key": "keratin-hair-spa",
+          "title": "Hair spa & style \u2014 Keratin hair spa",
+          "variation_label": "Keratin hair spa",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "loreal-hair-spa",
+          "title": "Hair spa & style \u2014 L'Oreal hair spa",
+          "variation_label": "L'Oreal hair spa",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "loreal-repair-mask",
+          "title": "Hair spa & style \u2014 L'Oreal repair mask",
+          "variation_label": "L'Oreal repair mask",
+          "price": 1548.0
+        },
+        {
+          "variant_key": "straightening",
+          "title": "Hair spa & style \u2014 Straightening",
+          "variation_label": "Straightening",
+          "price": 1548.0
+        }
+      ]
+    },
+    {
+      "name": "Hair trim & spa",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "hair-trim-spa",
+      "variants": [
+        {
+          "variant_key": "ayurvedic-strengthening-spa",
+          "title": "Hair trim & spa \u2014 Ayurvedic strengthening spa",
+          "variation_label": "Ayurvedic strengthening spa",
+          "price": 1548.0
+        },
+        {
+          "variant_key": "hair-trim",
+          "title": "Hair trim & spa \u2014 Hair trim",
+          "variation_label": "Hair trim",
+          "price": 449.0
+        },
+        {
+          "variant_key": "keratin-hair-spa",
+          "title": "Hair trim & spa \u2014 Keratin hair spa",
+          "variation_label": "Keratin hair spa",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "loreal-hair-spa",
+          "title": "Hair trim & spa \u2014 L'Oreal hair spa",
+          "variation_label": "L'Oreal hair spa",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "loreal-repair-mask",
+          "title": "Hair trim & spa \u2014 L'Oreal repair mask",
+          "variation_label": "L'Oreal repair mask",
+          "price": 1548.0
+        }
+      ]
+    },
+    {
+      "name": "Hair trim & styling",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "hair-trim-styling",
+      "variants": [
+        {
+          "variant_key": "blowdry-straight-smooth",
+          "title": "Hair trim & styling \u2014 Blowdry : Straight & smooth",
+          "variation_label": "Blowdry : Straight & smooth",
+          "price": 648.0
+        },
+        {
+          "variant_key": "blowdry-in-curl-out-curl",
+          "title": "Hair trim & styling \u2014 Blowdry: In-curl / out-curl",
+          "variation_label": "Blowdry: In-curl / out-curl",
+          "price": 648.0
+        },
+        {
+          "variant_key": "curls-waves",
+          "title": "Hair trim & styling \u2014 Curls & Waves",
+          "variation_label": "Curls & Waves",
+          "price": 549.0
+        },
+        {
+          "variant_key": "hair-trim",
+          "title": "Hair trim & styling \u2014 Hair trim",
+          "variation_label": "Hair trim",
+          "price": 449.0
+        },
+        {
+          "variant_key": "straightening",
+          "title": "Hair trim & styling \u2014 Straightening",
+          "variation_label": "Straightening",
+          "price": 648.0
+        }
+      ]
+    },
+    {
+      "name": "Haircut & color",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "skin-facial-care-haircut-color",
+      "variants": [
+        {
+          "variant_key": "haircut",
+          "title": "Haircut & color \u2014 Haircut",
+          "variation_label": "Haircut",
+          "price": 2697.0
+        },
+        {
+          "variant_key": "shade-2-darkest-brown",
+          "title": "Haircut & color \u2014 Shade 2: Darkest Brown",
+          "variation_label": "Shade 2: Darkest Brown",
+          "price": 2697.0
+        },
+        {
+          "variant_key": "shade-3-dark-brown",
+          "title": "Haircut & color \u2014 Shade 3: Dark Brown",
+          "variation_label": "Shade 3: Dark Brown",
+          "price": 2697.0
+        },
+        {
+          "variant_key": "shade-4-brown",
+          "title": "Haircut & color \u2014 Shade 4: Brown",
+          "variation_label": "Shade 4: Brown",
+          "price": 2697.0
+        },
+        {
+          "variant_key": "shade-5-light-brown",
+          "title": "Haircut & color \u2014 Shade 5: Light Brown",
+          "variation_label": "Shade 5: Light Brown",
+          "price": 2697.0
+        }
+      ]
+    },
+    {
+      "name": "Haircut & spa",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "haircut-spa",
+      "variants": [
+        {
+          "variant_key": "ayurvedic-strengthening-spa",
+          "title": "Haircut & spa \u2014 Ayurvedic strengthening spa",
+          "variation_label": "Ayurvedic strengthening spa",
+          "price": 1648.0
+        },
+        {
+          "variant_key": "haircut",
+          "title": "Haircut & spa \u2014 Haircut",
+          "variation_label": "Haircut",
+          "price": 1648.0
+        },
+        {
+          "variant_key": "keratin-hair-spa",
+          "title": "Haircut & spa \u2014 Keratin Hair spa",
+          "variation_label": "Keratin Hair spa",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "loreal-hair-spa",
+          "title": "Haircut & spa \u2014 L'Oreal hair spa",
+          "variation_label": "L'Oreal hair spa",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "loreal-repair-mask",
+          "title": "Haircut & spa \u2014 L'Oreal repair mask",
+          "variation_label": "L'Oreal repair mask",
+          "price": 1648.0
+        }
+      ]
+    },
+    {
+      "name": "Haircut & styling",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "haircut-styling",
+      "variants": [
+        {
+          "variant_key": "blow-dry-in-curlout-curl",
+          "title": "Haircut & styling \u2014 Blow-dry : In-curl/out-curl",
+          "variation_label": "Blow-dry : In-curl/out-curl",
+          "price": 698.0
+        },
+        {
+          "variant_key": "blow-dry-straight-smooth",
+          "title": "Haircut & styling \u2014 Blow-dry : Straight & smooth",
+          "variation_label": "Blow-dry : Straight & smooth",
+          "price": 698.0
+        },
+        {
+          "variant_key": "curls-waves",
+          "title": "Haircut & styling \u2014 Curls & waves",
+          "variation_label": "Curls & waves",
+          "price": 549.0
+        },
+        {
+          "variant_key": "haircut",
+          "title": "Haircut & styling \u2014 Haircut",
+          "variation_label": "Haircut",
+          "price": 698.0
+        },
+        {
+          "variant_key": "straightening",
+          "title": "Haircut & styling \u2014 Straightening",
+          "variation_label": "Straightening",
+          "price": 698.0
+        }
+      ]
+    },
+    {
+      "name": "Half legs waxing",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "half-legs-waxing",
+      "variants": [
+        {
+          "variant_key": "honey",
+          "title": "Half legs waxing \u2014 Honey",
+          "variation_label": "Honey",
+          "price": 649.0
+        },
+        {
+          "variant_key": "rica",
+          "title": "Half legs waxing \u2014 RICA",
+          "variation_label": "RICA",
+          "price": 399.0
+        },
+        {
+          "variant_key": "crystal-green-wax",
+          "title": "Half legs waxing \u2014 Crystal green wax",
+          "variation_label": "Crystal green wax",
+          "price": 1249.0
+        },
+        {
+          "variant_key": "moroccan-honey-wax",
+          "title": "Half legs waxing \u2014 Moroccan honey wax",
+          "variation_label": "Moroccan honey wax",
+          "price": 599.0
+        },
+        {
+          "variant_key": "rica-black-charcoal-wax",
+          "title": "Half legs waxing \u2014 RICA black charcoal wax",
+          "variation_label": "RICA black charcoal wax",
+          "price": 819.0
+        },
+        {
+          "variant_key": "rica-gold-wax",
+          "title": "Half legs waxing \u2014 RICA gold wax",
+          "variation_label": "RICA gold wax",
+          "price": 819.0
+        }
+      ]
+    },
+    {
+      "name": "Head massage",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "skin-facial-care-head-massage",
+      "variants": [
+        {
+          "variant_key": "10-mins",
+          "title": "Head massage \u2014 10 mins",
+          "variation_label": "10 mins",
+          "price": 219.0
+        },
+        {
+          "variant_key": "20-mins",
+          "title": "Head massage \u2014 20 mins",
+          "variation_label": "20 mins",
+          "price": 349.0
+        },
+        {
+          "variant_key": "standard",
+          "title": "Head massage",
+          "variation_label": "\u2014",
+          "price": 349.0
+        },
+        {
+          "variant_key": "10-mins-2",
+          "title": "Head massage \u2014 10 mins",
+          "variation_label": "10 mins",
+          "price": 219.0
+        },
+        {
+          "variant_key": "20-mins-2",
+          "title": "Head massage \u2014 20 mins",
+          "variation_label": "20 mins",
+          "price": 349.0
+        }
+      ]
+    },
+    {
+      "name": "Hot bed",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "skin-facial-care-hot-bed",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Hot bed",
+          "variation_label": "\u2014",
+          "price": 49.0
+        }
+      ]
+    },
+    {
+      "name": "Hydra mud glow cleanup",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "hydra-mud-glow-cleanup",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Hydra mud glow cleanup",
+          "variation_label": "\u2014",
+          "price": 1299.0
+        }
+      ]
+    },
+    {
+      "name": "KGlow age-rewind facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "kglow-age-rewind-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "KGlow age-rewind facial",
+          "variation_label": "\u2014",
+          "price": 1899.0
+        }
+      ]
+    },
+    {
+      "name": "Korean Glass hydration facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "korean-glass-hydration-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Korean Glass hydration facial",
+          "variation_label": "\u2014",
+          "price": 1699.0
+        }
+      ]
+    },
+    {
+      "name": "Korean Glass skin facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "korean-glass-skin-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Korean Glass skin facial",
+          "variation_label": "\u2014",
+          "price": 2149.0
+        }
+      ]
+    },
+    {
+      "name": "Korean Glow facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "korean-glow-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Korean Glow facial",
+          "variation_label": "\u2014",
+          "price": 1349.0
+        }
+      ]
+    },
+    {
+      "name": "Korean Plant-peptide brightening facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "korean-plant-peptide-brightening-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Korean Plant-peptide brightening facial",
+          "variation_label": "\u2014",
+          "price": 1799.0
+        }
+      ]
+    },
+    {
+      "name": "Korean Sea-algae Hydra-boost facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "korean-sea-algae-hydra-boost-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Korean Sea-algae Hydra-boost facial",
+          "variation_label": "\u2014",
+          "price": 2349.0
+        }
+      ]
+    },
+    {
+      "name": "Kumkumadi brightening face massage",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "kumkumadi-brightening-face-massage",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Kumkumadi brightening face massage",
+          "variation_label": "\u2014",
+          "price": 399.0
+        }
+      ]
+    },
+    {
+      "name": "Kumkumadi ubtan hydration facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "kumkumadi-ubtan-hydration-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Kumkumadi ubtan hydration facial",
+          "variation_label": "\u2014",
+          "price": 1299.0
+        }
+      ]
+    },
+    {
+      "name": "L'Or\u00e9al 10 signature highlights",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "lor\u00e9al-10-signature-highlights",
+      "variants": [
+        {
+          "variant_key": "blonde-with-golden-iridescent-shade-723",
+          "title": "L'Or\u00e9al 10 signature highlights \u2014 Blonde with golden iridescent (shade 7.23)",
+          "variation_label": "Blonde with golden iridescent (shade 7.23)",
+          "price": 3899.0
+        },
+        {
+          "variant_key": "dark-golden-mahogany-blonde-shade-635",
+          "title": "L'Or\u00e9al 10 signature highlights \u2014 Dark golden mahogany blonde (shade 6.35)",
+          "variation_label": "Dark golden mahogany blonde (shade 6.35)",
+          "price": 3899.0
+        },
+        {
+          "variant_key": "magenta-red",
+          "title": "L'Or\u00e9al 10 signature highlights \u2014 Magenta red",
+          "variation_label": "Magenta red",
+          "price": 3899.0
+        },
+        {
+          "variant_key": "mocha-blonde-shade-78",
+          "title": "L'Or\u00e9al 10 signature highlights \u2014 Mocha blonde (shade 7.8)",
+          "variation_label": "Mocha blonde (shade 7.8)",
+          "price": 3899.0
+        }
+      ]
+    },
+    {
+      "name": "Make your own package",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "skin-facial-care-make-your-own-package",
+      "variants": [
+        {
+          "variant_key": "ainhoa-multi-peptide-anti-aging-facial",
+          "title": "Make your own package \u2014 Ainhoa multi-peptide anti-aging facial",
+          "variation_label": "Ainhoa multi-peptide anti-aging facial",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "ainhoa-signature-brightening-facial",
+          "title": "Make your own package \u2014 Ainhoa signature brightening facial",
+          "variation_label": "Ainhoa signature brightening facial",
+          "price": 2599.0
+        },
+        {
+          "variant_key": "anti-tan-brightening-cleanup",
+          "title": "Make your own package \u2014 Anti-tan brightening cleanup",
+          "variation_label": "Anti-tan brightening cleanup",
+          "price": 899.0
+        },
+        {
+          "variant_key": "aroma-magic-instant-glow-facial",
+          "title": "Make your own package \u2014 Aroma Magic Instant Glow Facial",
+          "variation_label": "Aroma Magic Instant Glow Facial",
+          "price": 949.0
+        },
+        {
+          "variant_key": "avl-sea-algae-manicure",
+          "title": "Make your own package \u2014 AVL sea-algae manicure",
+          "variation_label": "AVL sea-algae manicure",
+          "price": 999.0
+        },
+        {
+          "variant_key": "back",
+          "title": "Make your own package \u2014 Back",
+          "variation_label": "Back",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "back-2",
+          "title": "Make your own package \u2014 Back",
+          "variation_label": "Back",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "bikini",
+          "title": "Make your own package \u2014 Bikini",
+          "variation_label": "Bikini",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "bikini-2",
+          "title": "Make your own package \u2014 Bikini",
+          "variation_label": "Bikini",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "bikini-line",
+          "title": "Make your own package \u2014 Bikini line",
+          "variation_label": "Bikini line",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "bikini-line-2",
+          "title": "Make your own package \u2014 Bikini line",
+          "variation_label": "Bikini line",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "british-rose-manicure",
+          "title": "Make your own package \u2014 British Rose manicure",
+          "variation_label": "British Rose manicure",
+          "price": 659.0
+        },
+        {
+          "variant_key": "candle-spa-manicure",
+          "title": "Make your own package \u2014 Candle Spa manicure",
+          "variation_label": "Candle Spa manicure",
+          "price": 1019.0
+        },
+        {
+          "variant_key": "candle-spa-pedicure",
+          "title": "Make your own package \u2014 Candle Spa pedicure",
+          "variation_label": "Candle Spa pedicure",
+          "price": 1269.0
+        },
+        {
+          "variant_key": "casmara-brightening-facial",
+          "title": "Make your own package \u2014 Casmara brightening facial",
+          "variation_label": "Casmara brightening facial",
+          "price": 3959.0
+        },
+        {
+          "variant_key": "cherry-blossom-glow-ritual",
+          "title": "Make your own package \u2014 Cherry blossom glow ritual",
+          "variation_label": "Cherry blossom glow ritual",
+          "price": 1399.0
+        },
+        {
+          "variant_key": "chest",
+          "title": "Make your own package \u2014 Chest",
+          "variation_label": "Chest",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "chest-2",
+          "title": "Make your own package \u2014 Chest",
+          "variation_label": "Chest",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "chin",
+          "title": "Make your own package \u2014 Chin",
+          "variation_label": "Chin",
+          "price": 99.0
+        },
+        {
+          "variant_key": "chin-2",
+          "title": "Make your own package \u2014 Chin",
+          "variation_label": "Chin",
+          "price": 99.0
+        },
+        {
+          "variant_key": "crystal-rose-pedicure",
+          "title": "Make your own package \u2014 Crystal Rose Pedicure",
+          "variation_label": "Crystal Rose Pedicure",
+          "price": 709.0
+        },
+        {
+          "variant_key": "crystal-rose-pedicure-with-heel-peel",
+          "title": "Make your own package \u2014 Crystal Rose Pedicure - with heel peel",
+          "variation_label": "Crystal Rose Pedicure - with heel peel",
+          "price": 3301.0
+        },
+        {
+          "variant_key": "cut-file-polish",
+          "title": "Make your own package \u2014 Cut, file & polish",
+          "variation_label": "Cut, file & polish",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "cut-file-polish-2",
+          "title": "Make your own package \u2014 Cut, file & polish",
+          "variation_label": "Cut, file & polish",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "eyebrow",
+          "title": "Make your own package \u2014 Eyebrow",
+          "variation_label": "Eyebrow",
+          "price": 59.0
+        },
+        {
+          "variant_key": "eyebrows",
+          "title": "Make your own package \u2014 Eyebrows",
+          "variation_label": "Eyebrows",
+          "price": 99.0
+        },
+        {
+          "variant_key": "face",
+          "title": "Make your own package \u2014 Face",
+          "variation_label": "Face",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "face-2",
+          "title": "Make your own package \u2014 Face",
+          "variation_label": "Face",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "face-neck",
+          "title": "Make your own package \u2014 Face & neck",
+          "variation_label": "Face & neck",
+          "price": 549.0
+        },
+        {
+          "variant_key": "face-neck-2",
+          "title": "Make your own package \u2014 Face & neck",
+          "variation_label": "Face & neck",
+          "price": 549.0
+        },
+        {
+          "variant_key": "firming-wine-glow-facial",
+          "title": "Make your own package \u2014 Firming wine glow facial",
+          "variation_label": "Firming wine glow facial",
+          "price": 1199.0
+        },
+        {
+          "variant_key": "foot-massage",
+          "title": "Make your own package \u2014 Foot massage",
+          "variation_label": "Foot massage",
+          "price": 249.0
+        },
+        {
+          "variant_key": "forehead",
+          "title": "Make your own package \u2014 Forehead",
+          "variation_label": "Forehead",
+          "price": 99.0
+        },
+        {
+          "variant_key": "forehead-2",
+          "title": "Make your own package \u2014 Forehead",
+          "variation_label": "Forehead",
+          "price": 99.0
+        },
+        {
+          "variant_key": "full-arms",
+          "title": "Make your own package \u2014 Full arms",
+          "variation_label": "Full arms",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "full-arms-2",
+          "title": "Make your own package \u2014 Full arms",
+          "variation_label": "Full arms",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "full-arms-including-underarms",
+          "title": "Make your own package \u2014 Full arms (including underarms)",
+          "variation_label": "Full arms (including underarms)",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "full-body",
+          "title": "Make your own package \u2014 Full body",
+          "variation_label": "Full body",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "full-body-2",
+          "title": "Make your own package \u2014 Full body",
+          "variation_label": "Full body",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "full-legs",
+          "title": "Make your own package \u2014 Full legs",
+          "variation_label": "Full legs",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "full-legs-2",
+          "title": "Make your own package \u2014 Full legs",
+          "variation_label": "Full legs",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "glass-skin-hydration-facial",
+          "title": "Make your own package \u2014 Glass skin hydration facial",
+          "variation_label": "Glass skin hydration facial",
+          "price": 3301.0
+        },
+        {
+          "variant_key": "hair-color-application",
+          "title": "Make your own package \u2014 Hair color application",
+          "variation_label": "Hair color application",
+          "price": 3301.0
+        },
+        {
+          "variant_key": "half-arms",
+          "title": "Make your own package \u2014 Half arms",
+          "variation_label": "Half arms",
+          "price": 3301.0
+        },
+        {
+          "variant_key": "half-legs",
+          "title": "Make your own package \u2014 Half legs",
+          "variation_label": "Half legs",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "half-legs-2",
+          "title": "Make your own package \u2014 Half legs",
+          "variation_label": "Half legs",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "head-massage-10-mins",
+          "title": "Make your own package \u2014 Head massage (10 mins)",
+          "variation_label": "Head massage (10 mins)",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "head-massage-10-mins-2",
+          "title": "Make your own package \u2014 Head massage (10 mins)",
+          "variation_label": "Head massage (10 mins)",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "head-massage-20-min",
+          "title": "Make your own package \u2014 Head massage (20 min)",
+          "variation_label": "Head massage (20 min)",
+          "price": 3301.0
+        },
+        {
+          "variant_key": "head-massage-20-mins",
+          "title": "Make your own package \u2014 Head massage (20 mins)",
+          "variation_label": "Head massage (20 mins)",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "henna-mehendi-application",
+          "title": "Make your own package \u2014 Henna mehendi application",
+          "variation_label": "Henna mehendi application",
+          "price": 419.0
+        },
+        {
+          "variant_key": "hydra-mud-glow-cleanup",
+          "title": "Make your own package \u2014 Hydra mud glow cleanup",
+          "variation_label": "Hydra mud glow cleanup",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "ice-cream-delight-manicure",
+          "title": "Make your own package \u2014 Ice cream delight manicure",
+          "variation_label": "Ice cream delight manicure",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "ice-cream-delight-pedicure-with-heel-peel",
+          "title": "Make your own package \u2014 Ice cream delight pedicure - with heel peel",
+          "variation_label": "Ice cream delight pedicure - with heel peel",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "ice-cream-delight-pedicure",
+          "title": "Make your own package \u2014 Ice-cream delight pedicure",
+          "variation_label": "Ice-cream delight pedicure",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "jawline",
+          "title": "Make your own package \u2014 Jawline",
+          "variation_label": "Jawline",
+          "price": 149.0
+        },
+        {
+          "variant_key": "jawline-2",
+          "title": "Make your own package \u2014 Jawline",
+          "variation_label": "Jawline",
+          "price": 149.0
+        },
+        {
+          "variant_key": "kglow-age-rewind-facial",
+          "title": "Make your own package \u2014 KGlow age rewind facial",
+          "variation_label": "KGlow age rewind facial",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "korean-glass-skin-facial",
+          "title": "Make your own package \u2014 Korean glass skin facial",
+          "variation_label": "Korean glass skin facial",
+          "price": 2149.0
+        },
+        {
+          "variant_key": "korean-glow-facial",
+          "title": "Make your own package \u2014 Korean glow facial",
+          "variation_label": "Korean glow facial",
+          "price": 1349.0
+        },
+        {
+          "variant_key": "korean-sea-algae-facial",
+          "title": "Make your own package \u2014 Korean sea algae facial",
+          "variation_label": "Korean sea algae facial",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "kumkumadi-ubtan-glow-facial",
+          "title": "Make your own package \u2014 Kumkumadi ubtan glow facial",
+          "variation_label": "Kumkumadi ubtan glow facial",
+          "price": 3301.0
+        },
+        {
+          "variant_key": "matcha-detox-ritual",
+          "title": "Make your own package \u2014 Matcha detox ritual",
+          "variation_label": "Matcha detox ritual",
+          "price": 1399.0
+        },
+        {
+          "variant_key": "neck",
+          "title": "Make your own package \u2014 Neck",
+          "variation_label": "Neck",
+          "price": 199.0
+        },
+        {
+          "variant_key": "neck-2",
+          "title": "Make your own package \u2014 Neck",
+          "variation_label": "Neck",
+          "price": 199.0
+        },
+        {
+          "variant_key": "o3-kumkumadi-ayurvedic-facial",
+          "title": "Make your own package \u2014 O3 Kumkumadi ayurvedic facial",
+          "variation_label": "O3 Kumkumadi ayurvedic facial",
+          "price": 1749.0
+        },
+        {
+          "variant_key": "o3-shine-glow-facial",
+          "title": "Make your own package \u2014 O3+ shine & glow facial",
+          "variation_label": "O3+ shine & glow facial",
+          "price": 1699.0
+        },
+        {
+          "variant_key": "plant-peptide-brightening-facial",
+          "title": "Make your own package \u2014 Plant peptide brightening facial",
+          "variation_label": "Plant peptide brightening facial",
+          "price": 3301.0
+        },
+        {
+          "variant_key": "power-glow-cleanup",
+          "title": "Make your own package \u2014 Power glow cleanup",
+          "variation_label": "Power glow cleanup",
+          "price": 649.0
+        },
+        {
+          "variant_key": "rejuvenating-crystal-spa-pedicure",
+          "title": "Make your own package \u2014 Rejuvenating crystal spa pedicure",
+          "variation_label": "Rejuvenating crystal spa pedicure",
+          "price": 1289.0
+        },
+        {
+          "variant_key": "rejuvenating-crystal-spa-pedicure-with-heel-peel",
+          "title": "Make your own package \u2014 Rejuvenating crystal spa pedicure - with heel peel",
+          "variation_label": "Rejuvenating crystal spa pedicure - with heel peel",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "repechage-brightening-cleanup",
+          "title": "Make your own package \u2014 Repechage brightening cleanup",
+          "variation_label": "Repechage brightening cleanup",
+          "price": 1749.0
+        },
+        {
+          "variant_key": "sara-fruit-cleanup",
+          "title": "Make your own package \u2014 Sara fruit cleanup",
+          "variation_label": "Sara fruit cleanup",
+          "price": 699.0
+        },
+        {
+          "variant_key": "sara-lightening-glow-facial",
+          "title": "Make your own package \u2014 Sara Lightening glow facial",
+          "variation_label": "Sara Lightening glow facial",
+          "price": 1099.0
+        },
+        {
+          "variant_key": "sidelocks",
+          "title": "Make your own package \u2014 Sidelocks",
+          "variation_label": "Sidelocks",
+          "price": 99.0
+        },
+        {
+          "variant_key": "sidelocks-2",
+          "title": "Make your own package \u2014 Sidelocks",
+          "variation_label": "Sidelocks",
+          "price": 99.0
+        },
+        {
+          "variant_key": "stomach",
+          "title": "Make your own package \u2014 Stomach",
+          "variation_label": "Stomach",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "stomach-2",
+          "title": "Make your own package \u2014 Stomach",
+          "variation_label": "Stomach",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "underarms",
+          "title": "Make your own package \u2014 Underarms",
+          "variation_label": "Underarms",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "underarms-2",
+          "title": "Make your own package \u2014 Underarms",
+          "variation_label": "Underarms",
+          "price": 5387.0
+        },
+        {
+          "variant_key": "upper-lip",
+          "title": "Make your own package \u2014 Upper lip",
+          "variation_label": "Upper lip",
+          "price": 99.0
+        },
+        {
+          "variant_key": "upper-lip-2",
+          "title": "Make your own package \u2014 Upper lip",
+          "variation_label": "Upper lip",
+          "price": 99.0
+        }
+      ]
+    },
+    {
+      "name": "Massage top-up (15 mins)",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "skin-facial-care-massage-top-up-15-mins",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Massage top-up (15 mins)",
+          "variation_label": "\u2014",
+          "price": 199.0
+        }
+      ]
+    },
+    {
+      "name": "Matcha detox ritual",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "matcha-detox-ritual",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Matcha detox ritual",
+          "variation_label": "\u2014",
+          "price": 1399.0
+        }
+      ]
+    },
+    {
+      "name": "Monthly maintenance package",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "monthly-maintenance-package",
+      "variants": [
+        {
+          "variant_key": "anti-tan-brightening-cleanup",
+          "title": "Monthly maintenance package \u2014 Anti-Tan Brightening Cleanup",
+          "variation_label": "Anti-Tan Brightening Cleanup",
+          "price": 899.0
+        },
+        {
+          "variant_key": "back",
+          "title": "Monthly maintenance package \u2014 Back",
+          "variation_label": "Back",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "back-2",
+          "title": "Monthly maintenance package \u2014 Back",
+          "variation_label": "Back",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "bikini",
+          "title": "Monthly maintenance package \u2014 Bikini",
+          "variation_label": "Bikini",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "bikini-2",
+          "title": "Monthly maintenance package \u2014 Bikini",
+          "variation_label": "Bikini",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "bikini-line",
+          "title": "Monthly maintenance package \u2014 Bikini line",
+          "variation_label": "Bikini line",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "bikini-line-2",
+          "title": "Monthly maintenance package \u2014 Bikini line",
+          "variation_label": "Bikini line",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "chin",
+          "title": "Monthly maintenance package \u2014 Chin",
+          "variation_label": "Chin",
+          "price": 99.0
+        },
+        {
+          "variant_key": "chin-2",
+          "title": "Monthly maintenance package \u2014 Chin",
+          "variation_label": "Chin",
+          "price": 99.0
+        },
+        {
+          "variant_key": "cut-file-polish-feet",
+          "title": "Monthly maintenance package \u2014 Cut, file & polish - feet",
+          "variation_label": "Cut, file & polish - feet",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "cut-file-polish-feet-2",
+          "title": "Monthly maintenance package \u2014 Cut, file & polish - feet",
+          "variation_label": "Cut, file & polish - feet",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "cut-file-polish-hands",
+          "title": "Monthly maintenance package \u2014 Cut, file & polish - hands",
+          "variation_label": "Cut, file & polish - hands",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "cut-file-polish-hands-2",
+          "title": "Monthly maintenance package \u2014 Cut, file & polish - hands",
+          "variation_label": "Cut, file & polish - hands",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "eyebrow",
+          "title": "Monthly maintenance package \u2014 Eyebrow",
+          "variation_label": "Eyebrow",
+          "price": 59.0
+        },
+        {
+          "variant_key": "eyebrows",
+          "title": "Monthly maintenance package \u2014 Eyebrows",
+          "variation_label": "Eyebrows",
+          "price": 99.0
+        },
+        {
+          "variant_key": "face",
+          "title": "Monthly maintenance package \u2014 Face",
+          "variation_label": "Face",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "face-2",
+          "title": "Monthly maintenance package \u2014 Face",
+          "variation_label": "Face",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "forehead",
+          "title": "Monthly maintenance package \u2014 Forehead",
+          "variation_label": "Forehead",
+          "price": 99.0
+        },
+        {
+          "variant_key": "forehead-2",
+          "title": "Monthly maintenance package \u2014 Forehead",
+          "variation_label": "Forehead",
+          "price": 99.0
+        },
+        {
+          "variant_key": "full-arms-including-underarms",
+          "title": "Monthly maintenance package \u2014 Full arms (including underarms)",
+          "variation_label": "Full arms (including underarms)",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "full-arms-including-underarms-2",
+          "title": "Monthly maintenance package \u2014 Full arms (including underarms)",
+          "variation_label": "Full arms (including underarms)",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "full-body",
+          "title": "Monthly maintenance package \u2014 Full body",
+          "variation_label": "Full body",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "full-body-2",
+          "title": "Monthly maintenance package \u2014 Full body",
+          "variation_label": "Full body",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "full-legs",
+          "title": "Monthly maintenance package \u2014 Full legs",
+          "variation_label": "Full legs",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "full-legs-2",
+          "title": "Monthly maintenance package \u2014 Full legs",
+          "variation_label": "Full legs",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "half-arms",
+          "title": "Monthly maintenance package \u2014 Half arms",
+          "variation_label": "Half arms",
+          "price": 1975.0
+        },
+        {
+          "variant_key": "half-legs",
+          "title": "Monthly maintenance package \u2014 Half legs",
+          "variation_label": "Half legs",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "half-legs-2",
+          "title": "Monthly maintenance package \u2014 Half legs",
+          "variation_label": "Half legs",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "hydra-mud-glow-cleanup",
+          "title": "Monthly maintenance package \u2014 Hydra Mud Glow Cleanup",
+          "variation_label": "Hydra Mud Glow Cleanup",
+          "price": 1299.0
+        },
+        {
+          "variant_key": "jawline",
+          "title": "Monthly maintenance package \u2014 Jawline",
+          "variation_label": "Jawline",
+          "price": 149.0
+        },
+        {
+          "variant_key": "jawline-2",
+          "title": "Monthly maintenance package \u2014 Jawline",
+          "variation_label": "Jawline",
+          "price": 149.0
+        },
+        {
+          "variant_key": "mintree-detox-mud-clean-up",
+          "title": "Monthly maintenance package \u2014 Mintree Detox Mud Clean up",
+          "variation_label": "Mintree Detox Mud Clean up",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "neck",
+          "title": "Monthly maintenance package \u2014 Neck",
+          "variation_label": "Neck",
+          "price": 199.0
+        },
+        {
+          "variant_key": "neck-2",
+          "title": "Monthly maintenance package \u2014 Neck",
+          "variation_label": "Neck",
+          "price": 199.0
+        },
+        {
+          "variant_key": "repechage-brightening-cleanup",
+          "title": "Monthly maintenance package \u2014 Repechage brightening cleanup",
+          "variation_label": "Repechage brightening cleanup",
+          "price": 1749.0
+        },
+        {
+          "variant_key": "repechage-hydra-boost-cleanup",
+          "title": "Monthly maintenance package \u2014 Repechage hydra boost cleanup",
+          "variation_label": "Repechage hydra boost cleanup",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "sara-fruit-cleanup",
+          "title": "Monthly maintenance package \u2014 Sara fruit cleanup",
+          "variation_label": "Sara fruit cleanup",
+          "price": 699.0
+        },
+        {
+          "variant_key": "sidelocks",
+          "title": "Monthly maintenance package \u2014 Sidelocks",
+          "variation_label": "Sidelocks",
+          "price": 99.0
+        },
+        {
+          "variant_key": "sidelocks-2",
+          "title": "Monthly maintenance package \u2014 Sidelocks",
+          "variation_label": "Sidelocks",
+          "price": 99.0
+        },
+        {
+          "variant_key": "stomach",
+          "title": "Monthly maintenance package \u2014 Stomach",
+          "variation_label": "Stomach",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "stomach-2",
+          "title": "Monthly maintenance package \u2014 Stomach",
+          "variation_label": "Stomach",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "underarms",
+          "title": "Monthly maintenance package \u2014 Underarms",
+          "variation_label": "Underarms",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "underarms-2",
+          "title": "Monthly maintenance package \u2014 Underarms",
+          "variation_label": "Underarms",
+          "price": 3001.0
+        },
+        {
+          "variant_key": "upper-lip",
+          "title": "Monthly maintenance package \u2014 Upper lip",
+          "variation_label": "Upper lip",
+          "price": 99.0
+        },
+        {
+          "variant_key": "upper-lip-2",
+          "title": "Monthly maintenance package \u2014 Upper lip",
+          "variation_label": "Upper lip",
+          "price": 99.0
+        }
+      ]
+    },
+    {
+      "name": "O3 Kumkumadi ayurvedic facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "o3-kumkumadi-ayurvedic-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "O3 Kumkumadi ayurvedic facial",
+          "variation_label": "\u2014",
+          "price": 1749.0
+        }
+      ]
+    },
+    {
+      "name": "O3+ Radiance luxury facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "o3-radiance-luxury-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "O3+ Radiance luxury facial",
+          "variation_label": "\u2014",
+          "price": 1649.0
+        }
+      ]
+    },
+    {
+      "name": "O3+ shine & glow facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "o3-shine-glow-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "O3+ shine & glow facial",
+          "variation_label": "\u2014",
+          "price": 1699.0
+        }
+      ]
+    },
+    {
+      "name": "Paada abhyanga relaxing foot massage",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "paada-abhyanga-relaxing-foot-massage",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Paada abhyanga relaxing foot massage",
+          "variation_label": "\u2014",
+          "price": 499.0
+        }
+      ]
+    },
+    {
+      "name": "Potli deep cleanse massage",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "potli-deep-cleanse-massage",
+      "variants": [
+        {
+          "variant_key": "1-session",
+          "title": "Potli deep cleanse massage \u2014 1 session",
+          "variation_label": "1 session",
+          "price": 1649.0
+        },
+        {
+          "variant_key": "2-sessions-all-days-in-6-months",
+          "title": "Potli deep cleanse massage \u2014 2 sessions (All days) in 6 months",
+          "variation_label": "2 sessions (All days) in 6 months",
+          "price": 1649.0
+        },
+        {
+          "variant_key": "2-sessions-mon-sat-only-in-6-months",
+          "title": "Potli deep cleanse massage \u2014 2 sessions (Mon-Sat only) in 6 months",
+          "variation_label": "2 sessions (Mon-Sat only) in 6 months",
+          "price": 1649.0
+        },
+        {
+          "variant_key": "60-mins",
+          "title": "Potli deep cleanse massage \u2014 60 mins",
+          "variation_label": "60 mins",
+          "price": 1649.0
+        },
+        {
+          "variant_key": "90-mins",
+          "title": "Potli deep cleanse massage \u2014 90 mins",
+          "variation_label": "90 mins",
+          "price": 1649.0
+        }
+      ]
+    },
+    {
+      "name": "Power glow cleanup",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "power-glow-cleanup",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Power glow cleanup",
+          "variation_label": "\u2014",
+          "price": 649.0
+        }
+      ]
+    },
+    {
+      "name": "RICA Brazilian stripless bikini waxing",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "rica-brazilian-stripless-bikini-waxing",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "RICA Brazilian stripless bikini waxing",
+          "variation_label": "\u2014",
+          "price": 1249.0
+        }
+      ]
+    },
+    {
+      "name": "RICA Peel-off face waxing",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "rica-peel-off-face-waxing",
+      "variants": [
+        {
+          "variant_key": "chin",
+          "title": "RICA Peel-off face waxing \u2014 Chin",
+          "variation_label": "Chin",
+          "price": 49.0
+        },
+        {
+          "variant_key": "forehead",
+          "title": "RICA Peel-off face waxing \u2014 Forehead",
+          "variation_label": "Forehead",
+          "price": 59.0
+        },
+        {
+          "variant_key": "full-face",
+          "title": "RICA Peel-off face waxing \u2014 Full face",
+          "variation_label": "Full face",
+          "price": 149.0
+        },
+        {
+          "variant_key": "jawline",
+          "title": "RICA Peel-off face waxing \u2014 Jawline",
+          "variation_label": "Jawline",
+          "price": 99.0
+        },
+        {
+          "variant_key": "neck",
+          "title": "RICA Peel-off face waxing \u2014 Neck",
+          "variation_label": "Neck",
+          "price": 149.0
+        },
+        {
+          "variant_key": "sidelocks",
+          "title": "RICA Peel-off face waxing \u2014 Sidelocks",
+          "variation_label": "Sidelocks",
+          "price": 49.0
+        },
+        {
+          "variant_key": "upper-lip",
+          "title": "RICA Peel-off face waxing \u2014 Upper lip",
+          "variation_label": "Upper lip",
+          "price": 59.0
+        }
+      ]
+    },
+    {
+      "name": "Remy Laure eternal radiance treatment",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "remy-laure-eternal-radiance-treatment",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Remy Laure eternal radiance treatment",
+          "variation_label": "\u2014",
+          "price": 4799.0
+        }
+      ]
+    },
+    {
+      "name": "Repechage Hydra-boost cleanup",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "repechage-hydra-boost-cleanup",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Repechage Hydra-boost cleanup",
+          "variation_label": "\u2014",
+          "price": 2199.0
+        }
+      ]
+    },
+    {
+      "name": "Repechage brightening cleanup",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "repechage-brightening-cleanup",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Repechage brightening cleanup",
+          "variation_label": "\u2014",
+          "price": 1749.0
+        }
+      ]
+    },
+    {
+      "name": "Roll-on waxing (Full arms & legs, underarm)",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "roll-on-waxing-full-arms-legs-underarm",
+      "variants": [
+        {
+          "variant_key": "cirepil-mojito-roll-on",
+          "title": "Roll-on waxing (Full arms & legs, underarm) \u2014 Cirepil mojito roll-on",
+          "variation_label": "Cirepil mojito roll-on",
+          "price": 1949.0
+        },
+        {
+          "variant_key": "rica-gold-roll-on",
+          "title": "Roll-on waxing (Full arms & legs, underarm) \u2014 RICA gold roll-on",
+          "variation_label": "RICA gold roll-on",
+          "price": 1699.0
+        }
+      ]
+    },
+    {
+      "name": "Roll-on waxing (Full arms, legs & underarms)",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "roll-on-waxing-full-arms-legs-underarms",
+      "variants": [
+        {
+          "variant_key": "rica-roll-on",
+          "title": "Roll-on waxing (Full arms, legs & underarms) \u2014 RICA roll-on",
+          "variation_label": "RICA roll-on",
+          "price": 1199.0
+        },
+        {
+          "variant_key": "roll-on-color-may-vary",
+          "title": "Roll-on waxing (Full arms, legs & underarms) \u2014 Roll-on (Color may vary)",
+          "variation_label": "Roll-on (Color may vary)",
+          "price": 849.0
+        }
+      ]
+    },
+    {
+      "name": "Sara Lightening glow facial",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "sara-lightening-glow-facial",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Sara Lightening glow facial",
+          "variation_label": "\u2014",
+          "price": 1099.0
+        }
+      ]
+    },
+    {
+      "name": "Sara fruit cleanup",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "sara-fruit-cleanup",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Sara fruit cleanup",
+          "variation_label": "\u2014",
+          "price": 699.0
+        }
+      ]
+    },
+    {
+      "name": "Scalp toppers",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "scalp-toppers",
+      "variants": [
+        {
+          "variant_key": "14-inches",
+          "title": "Scalp toppers \u2014 14 inches",
+          "variation_label": "14 inches",
+          "price": 6499.0
+        },
+        {
+          "variant_key": "16-inches",
+          "title": "Scalp toppers \u2014 16 inches",
+          "variation_label": "16 inches",
+          "price": 6499.0
+        },
+        {
+          "variant_key": "18-inches",
+          "title": "Scalp toppers \u2014 18 inches",
+          "variation_label": "18 inches",
+          "price": 6499.0
+        },
+        {
+          "variant_key": "20-inches",
+          "title": "Scalp toppers \u2014 20 inches",
+          "variation_label": "20 inches",
+          "price": 6499.0
+        },
+        {
+          "variant_key": "22-inches",
+          "title": "Scalp toppers \u2014 22 inches",
+          "variation_label": "22 inches",
+          "price": 6499.0
+        }
+      ]
+    },
+    {
+      "name": "Shiro abhyanga head, neck & shoulder massage",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "shiro-abhyanga-head-neck-shoulder-massage",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Shiro abhyanga head, neck & shoulder massage",
+          "variation_label": "\u2014",
+          "price": 699.0
+        }
+      ]
+    },
+    {
+      "name": "Spatula waxing (Full arms & legs, Underarm)",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "spatula-waxing-full-arms-legs-underarm",
+      "variants": [
+        {
+          "variant_key": "crystal-green-wax",
+          "title": "Spatula waxing (Full arms & legs, Underarm) \u2014 Crystal green wax",
+          "variation_label": "Crystal green wax",
+          "price": 1249.0
+        },
+        {
+          "variant_key": "moroccon-honey",
+          "title": "Spatula waxing (Full arms & legs, Underarm) \u2014 Moroccon honey",
+          "variation_label": "Moroccon honey",
+          "price": 1039.0
+        },
+        {
+          "variant_key": "rica-gold",
+          "title": "Spatula waxing (Full arms & legs, Underarm) \u2014 RICA gold",
+          "variation_label": "RICA gold",
+          "price": 1499.0
+        }
+      ]
+    },
+    {
+      "name": "Spatula waxing (Full arms, legs & underarms)",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "spatula-waxing-full-arms-legs-underarms",
+      "variants": [
+        {
+          "variant_key": "honey",
+          "title": "Spatula waxing (Full arms, legs & underarms) \u2014 Honey",
+          "variation_label": "Honey",
+          "price": 649.0
+        },
+        {
+          "variant_key": "rica-chocolate",
+          "title": "Spatula waxing (Full arms, legs & underarms) \u2014 RICA chocolate",
+          "variation_label": "RICA chocolate",
+          "price": 969.0
+        }
+      ]
+    },
+    {
+      "name": "Stomach waxing",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "stomach-waxing",
+      "variants": [
+        {
+          "variant_key": "honey",
+          "title": "Stomach waxing \u2014 Honey",
+          "variation_label": "Honey",
+          "price": 649.0
+        },
+        {
+          "variant_key": "rica",
+          "title": "Stomach waxing \u2014 RICA",
+          "variation_label": "RICA",
+          "price": 399.0
+        },
+        {
+          "variant_key": "rica-roll-on",
+          "title": "Stomach waxing \u2014 RICA roll-on",
+          "variation_label": "RICA roll-on",
+          "price": 1199.0
+        },
+        {
+          "variant_key": "roll-on-color-may-vary",
+          "title": "Stomach waxing \u2014 Roll-on (Color may vary)",
+          "variation_label": "Roll-on (Color may vary)",
+          "price": 849.0
+        },
+        {
+          "variant_key": "cirepil-mojito-roll-on-wax",
+          "title": "Stomach waxing \u2014 Cirepil mojito roll-on wax",
+          "variation_label": "Cirepil mojito roll-on wax",
+          "price": 1049.0
+        },
+        {
+          "variant_key": "crystal-green-wax",
+          "title": "Stomach waxing \u2014 Crystal green wax",
+          "variation_label": "Crystal green wax",
+          "price": 1249.0
+        },
+        {
+          "variant_key": "moroccan-honey-wax",
+          "title": "Stomach waxing \u2014 Moroccan honey wax",
+          "variation_label": "Moroccan honey wax",
+          "price": 599.0
+        },
+        {
+          "variant_key": "rica-black-charcoal-wax",
+          "title": "Stomach waxing \u2014 RICA black charcoal wax",
+          "variation_label": "RICA black charcoal wax",
+          "price": 819.0
+        },
+        {
+          "variant_key": "rica-gold-roll-on-wax",
+          "title": "Stomach waxing \u2014 RICA gold roll-on wax",
+          "variation_label": "RICA gold roll-on wax",
+          "price": 959.0
+        },
+        {
+          "variant_key": "rica-gold-wax",
+          "title": "Stomach waxing \u2014 RICA gold wax",
+          "variation_label": "RICA gold wax",
+          "price": 819.0
+        }
+      ]
+    },
+    {
+      "name": "Stretch therapy",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "skin-facial-care-stretch-therapy",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Stretch therapy",
+          "variation_label": "\u2014",
+          "price": 379.0
+        }
+      ]
+    },
+    {
+      "name": "Threading",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "threading",
+      "variants": [
+        {
+          "variant_key": "chin",
+          "title": "Threading \u2014 Chin",
+          "variation_label": "Chin",
+          "price": 49.0
+        },
+        {
+          "variant_key": "eyebrows",
+          "title": "Threading \u2014 Eyebrows",
+          "variation_label": "Eyebrows",
+          "price": 99.0
+        },
+        {
+          "variant_key": "forehead",
+          "title": "Threading \u2014 Forehead",
+          "variation_label": "Forehead",
+          "price": 59.0
+        },
+        {
+          "variant_key": "full-face",
+          "title": "Threading \u2014 Full face",
+          "variation_label": "Full face",
+          "price": 149.0
+        },
+        {
+          "variant_key": "jawline",
+          "title": "Threading \u2014 Jawline",
+          "variation_label": "Jawline",
+          "price": 99.0
+        },
+        {
+          "variant_key": "neck",
+          "title": "Threading \u2014 Neck",
+          "variation_label": "Neck",
+          "price": 149.0
+        },
+        {
+          "variant_key": "sidelocks",
+          "title": "Threading \u2014 Sidelocks",
+          "variation_label": "Sidelocks",
+          "price": 49.0
+        },
+        {
+          "variant_key": "upper-lip",
+          "title": "Threading \u2014 Upper lip",
+          "variation_label": "Upper lip",
+          "price": 59.0
+        },
+        {
+          "variant_key": "chin-2",
+          "title": "Threading \u2014 Chin",
+          "variation_label": "Chin",
+          "price": 49.0
+        },
+        {
+          "variant_key": "eyebrow",
+          "title": "Threading \u2014 Eyebrow",
+          "variation_label": "Eyebrow",
+          "price": 59.0
+        },
+        {
+          "variant_key": "forehead-2",
+          "title": "Threading \u2014 Forehead",
+          "variation_label": "Forehead",
+          "price": 59.0
+        },
+        {
+          "variant_key": "full-face-2",
+          "title": "Threading \u2014 Full face",
+          "variation_label": "Full face",
+          "price": 149.0
+        },
+        {
+          "variant_key": "jawline-2",
+          "title": "Threading \u2014 Jawline",
+          "variation_label": "Jawline",
+          "price": 99.0
+        },
+        {
+          "variant_key": "neck-2",
+          "title": "Threading \u2014 Neck",
+          "variation_label": "Neck",
+          "price": 149.0
+        },
+        {
+          "variant_key": "sidelocks-2",
+          "title": "Threading \u2014 Sidelocks",
+          "variation_label": "Sidelocks",
+          "price": 49.0
+        },
+        {
+          "variant_key": "upper-lip-2",
+          "title": "Threading \u2014 Upper lip",
+          "variation_label": "Upper lip",
+          "price": 59.0
+        }
+      ]
+    },
+    {
+      "name": "Underarms waxing",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "underarms-waxing",
+      "variants": [
+        {
+          "variant_key": "honey",
+          "title": "Underarms waxing \u2014 Honey",
+          "variation_label": "Honey",
+          "price": 649.0
+        },
+        {
+          "variant_key": "rica-peel-off",
+          "title": "Underarms waxing \u2014 RICA peel-off",
+          "variation_label": "RICA peel-off",
+          "price": 1249.0
+        },
+        {
+          "variant_key": "cirepil-intimate-peel-off-wax",
+          "title": "Underarms waxing \u2014 Cirepil intimate peel-off wax",
+          "variation_label": "Cirepil intimate peel-off wax",
+          "price": 1499.0
+        },
+        {
+          "variant_key": "moroccan-honey-wax",
+          "title": "Underarms waxing \u2014 Moroccan honey wax",
+          "variation_label": "Moroccan honey wax",
+          "price": 599.0
+        }
+      ]
+    },
+    {
+      "name": "Vedic signature massage",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "vedic-signature-massage",
+      "variants": [
+        {
+          "variant_key": "1-session",
+          "title": "Vedic signature massage \u2014 1 session",
+          "variation_label": "1 session",
+          "price": 1489.0
+        },
+        {
+          "variant_key": "2-sessions-all-days-in-6-months",
+          "title": "Vedic signature massage \u2014 2 sessions (All days) in 6 months",
+          "variation_label": "2 sessions (All days) in 6 months",
+          "price": 1489.0
+        },
+        {
+          "variant_key": "2-sessions-mon-sat-only-in-6-months",
+          "title": "Vedic signature massage \u2014 2 sessions (Mon-Sat only) in 6 months",
+          "variation_label": "2 sessions (Mon-Sat only) in 6 months",
+          "price": 1489.0
+        },
+        {
+          "variant_key": "60-mins",
+          "title": "Vedic signature massage \u2014 60 mins",
+          "variation_label": "60 mins",
+          "price": 1489.0
+        },
+        {
+          "variant_key": "90-mins",
+          "title": "Vedic signature massage \u2014 90 mins",
+          "variation_label": "90 mins",
+          "price": 1489.0
+        }
+      ]
+    },
+    {
+      "name": "Vedic signature with head massage",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "vedic-signature-with-head-massage",
+      "variants": [
+        {
+          "variant_key": "standard",
+          "title": "Vedic signature with head massage",
+          "variation_label": "\u2014",
+          "price": 1788.0
+        }
+      ]
+    },
+    {
+      "name": "Warm potli massage",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "warm-potli-massage",
+      "variants": [
+        {
+          "variant_key": "back",
+          "title": "Warm potli massage \u2014 Back",
+          "variation_label": "Back",
+          "price": 499.0
+        },
+        {
+          "variant_key": "legs",
+          "title": "Warm potli massage \u2014 Legs",
+          "variation_label": "Legs",
+          "price": 499.0
+        },
+        {
+          "variant_key": "neck-shoulder",
+          "title": "Warm potli massage \u2014 Neck & shoulder",
+          "variation_label": "Neck & shoulder",
+          "price": 499.0
+        }
+      ]
+    },
+    {
+      "name": "Wax & glow",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "wax-glow",
+      "variants": [
+        {
+          "variant_key": "ainhoa-signature-brightening-facial",
+          "title": "Wax & glow \u2014 Ainhoa signature brightening facial",
+          "variation_label": "Ainhoa signature brightening facial",
+          "price": 2599.0
+        },
+        {
+          "variant_key": "anti-tan-brightening-cleanup",
+          "title": "Wax & glow \u2014 Anti-tan brightening cleanup",
+          "variation_label": "Anti-tan brightening cleanup",
+          "price": 899.0
+        },
+        {
+          "variant_key": "aroma-magic-instant-glow-facial",
+          "title": "Wax & glow \u2014 Aroma Magic instant glow facial",
+          "variation_label": "Aroma Magic instant glow facial",
+          "price": 949.0
+        },
+        {
+          "variant_key": "back",
+          "title": "Wax & glow \u2014 Back",
+          "variation_label": "Back",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "back-2",
+          "title": "Wax & glow \u2014 Back",
+          "variation_label": "Back",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "bikini",
+          "title": "Wax & glow \u2014 Bikini",
+          "variation_label": "Bikini",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "bikini-2",
+          "title": "Wax & glow \u2014 Bikini",
+          "variation_label": "Bikini",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "bikini-line",
+          "title": "Wax & glow \u2014 Bikini line",
+          "variation_label": "Bikini line",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "bikini-line-2",
+          "title": "Wax & glow \u2014 Bikini line",
+          "variation_label": "Bikini line",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "casmara-brightening-facial",
+          "title": "Wax & glow \u2014 Casmara brightening facial",
+          "variation_label": "Casmara brightening facial",
+          "price": 3959.0
+        },
+        {
+          "variant_key": "cherry-blossom-glow-ritual",
+          "title": "Wax & glow \u2014 Cherry blossom glow ritual",
+          "variation_label": "Cherry blossom glow ritual",
+          "price": 1399.0
+        },
+        {
+          "variant_key": "chin",
+          "title": "Wax & glow \u2014 Chin",
+          "variation_label": "Chin",
+          "price": 99.0
+        },
+        {
+          "variant_key": "chin-2",
+          "title": "Wax & glow \u2014 Chin",
+          "variation_label": "Chin",
+          "price": 99.0
+        },
+        {
+          "variant_key": "eyebrow",
+          "title": "Wax & glow \u2014 Eyebrow",
+          "variation_label": "Eyebrow",
+          "price": 59.0
+        },
+        {
+          "variant_key": "eyebrows",
+          "title": "Wax & glow \u2014 Eyebrows",
+          "variation_label": "Eyebrows",
+          "price": 99.0
+        },
+        {
+          "variant_key": "face",
+          "title": "Wax & glow \u2014 Face",
+          "variation_label": "Face",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "face-2",
+          "title": "Wax & glow \u2014 Face",
+          "variation_label": "Face",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "firming-wine-glow-facial",
+          "title": "Wax & glow \u2014 Firming wine glow facial",
+          "variation_label": "Firming wine glow facial",
+          "price": 1199.0
+        },
+        {
+          "variant_key": "forehead",
+          "title": "Wax & glow \u2014 Forehead",
+          "variation_label": "Forehead",
+          "price": 99.0
+        },
+        {
+          "variant_key": "forehead-2",
+          "title": "Wax & glow \u2014 Forehead",
+          "variation_label": "Forehead",
+          "price": 99.0
+        },
+        {
+          "variant_key": "full-arms-including-underarms",
+          "title": "Wax & glow \u2014 Full arms (including underarms)",
+          "variation_label": "Full arms (including underarms)",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "full-arms-including-underarms-2",
+          "title": "Wax & glow \u2014 Full arms (including underarms)",
+          "variation_label": "Full arms (including underarms)",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "full-body",
+          "title": "Wax & glow \u2014 Full body",
+          "variation_label": "Full body",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "full-body-2",
+          "title": "Wax & glow \u2014 Full body",
+          "variation_label": "Full body",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "full-legs",
+          "title": "Wax & glow \u2014 Full legs",
+          "variation_label": "Full legs",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "full-legs-2",
+          "title": "Wax & glow \u2014 Full legs",
+          "variation_label": "Full legs",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "glass-skin-hydration-facial",
+          "title": "Wax & glow \u2014 Glass skin hydration facial",
+          "variation_label": "Glass skin hydration facial",
+          "price": 2529.0
+        },
+        {
+          "variant_key": "half-arms",
+          "title": "Wax & glow \u2014 Half arms",
+          "variation_label": "Half arms",
+          "price": 2529.0
+        },
+        {
+          "variant_key": "half-legs",
+          "title": "Wax & glow \u2014 Half legs",
+          "variation_label": "Half legs",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "half-legs-2",
+          "title": "Wax & glow \u2014 Half legs",
+          "variation_label": "Half legs",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "jawline",
+          "title": "Wax & glow \u2014 Jawline",
+          "variation_label": "Jawline",
+          "price": 149.0
+        },
+        {
+          "variant_key": "jawline-2",
+          "title": "Wax & glow \u2014 Jawline",
+          "variation_label": "Jawline",
+          "price": 149.0
+        },
+        {
+          "variant_key": "kglow-age-rewind",
+          "title": "Wax & glow \u2014 KGlow age rewind",
+          "variation_label": "KGlow age rewind",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "korean-glass-skin-facial",
+          "title": "Wax & glow \u2014 Korean glass skin facial",
+          "variation_label": "Korean glass skin facial",
+          "price": 2149.0
+        },
+        {
+          "variant_key": "korean-glow-facial",
+          "title": "Wax & glow \u2014 Korean glow facial",
+          "variation_label": "Korean glow facial",
+          "price": 1349.0
+        },
+        {
+          "variant_key": "kumkumadi-ubtan-glow-facial",
+          "title": "Wax & glow \u2014 Kumkumadi ubtan glow facial",
+          "variation_label": "Kumkumadi ubtan glow facial",
+          "price": 2529.0
+        },
+        {
+          "variant_key": "matcha-detox-ritual",
+          "title": "Wax & glow \u2014 Matcha detox ritual",
+          "variation_label": "Matcha detox ritual",
+          "price": 1399.0
+        },
+        {
+          "variant_key": "neck",
+          "title": "Wax & glow \u2014 Neck",
+          "variation_label": "Neck",
+          "price": 199.0
+        },
+        {
+          "variant_key": "neck-2",
+          "title": "Wax & glow \u2014 Neck",
+          "variation_label": "Neck",
+          "price": 199.0
+        },
+        {
+          "variant_key": "o3-kumkumadi-ayurvedic-facial",
+          "title": "Wax & glow \u2014 O3 Kumkumadi ayurvedic facial",
+          "variation_label": "O3 Kumkumadi ayurvedic facial",
+          "price": 1749.0
+        },
+        {
+          "variant_key": "o3-shine-glow-facial",
+          "title": "Wax & glow \u2014 O3+ shine & glow facial",
+          "variation_label": "O3+ shine & glow facial",
+          "price": 1699.0
+        },
+        {
+          "variant_key": "plant-peptide-brightening-facial",
+          "title": "Wax & glow \u2014 Plant peptide brightening facial",
+          "variation_label": "Plant peptide brightening facial",
+          "price": 2529.0
+        },
+        {
+          "variant_key": "power-glow-cleanup",
+          "title": "Wax & glow \u2014 Power glow cleanup",
+          "variation_label": "Power glow cleanup",
+          "price": 649.0
+        },
+        {
+          "variant_key": "repechage-brightening-cleanup",
+          "title": "Wax & glow \u2014 Repechage brightening cleanup",
+          "variation_label": "Repechage brightening cleanup",
+          "price": 1749.0
+        },
+        {
+          "variant_key": "sara-fruit-cleanup",
+          "title": "Wax & glow \u2014 Sara fruit cleanup",
+          "variation_label": "Sara fruit cleanup",
+          "price": 699.0
+        },
+        {
+          "variant_key": "sara-lightening-glow-facial",
+          "title": "Wax & glow \u2014 Sara Lightening glow facial",
+          "variation_label": "Sara Lightening glow facial",
+          "price": 1099.0
+        },
+        {
+          "variant_key": "sidelocks",
+          "title": "Wax & glow \u2014 Sidelocks",
+          "variation_label": "Sidelocks",
+          "price": 99.0
+        },
+        {
+          "variant_key": "sidelocks-2",
+          "title": "Wax & glow \u2014 Sidelocks",
+          "variation_label": "Sidelocks",
+          "price": 99.0
+        },
+        {
+          "variant_key": "stomach",
+          "title": "Wax & glow \u2014 Stomach",
+          "variation_label": "Stomach",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "stomach-2",
+          "title": "Wax & glow \u2014 Stomach",
+          "variation_label": "Stomach",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "underarms",
+          "title": "Wax & glow \u2014 Underarms",
+          "variation_label": "Underarms",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "underarms-2",
+          "title": "Wax & glow \u2014 Underarms",
+          "variation_label": "Underarms",
+          "price": 3261.0
+        },
+        {
+          "variant_key": "upper-lip",
+          "title": "Wax & glow \u2014 Upper lip",
+          "variation_label": "Upper lip",
+          "price": 99.0
+        },
+        {
+          "variant_key": "upper-lip-2",
+          "title": "Wax & glow \u2014 Upper lip",
+          "variation_label": "Upper lip",
+          "price": 99.0
+        }
+      ]
+    },
+    {
+      "name": "Wedding-ready group hairstyling",
+      "category": "Women\u2019s Salon",
+      "sub_category": "Skin & Facial Care",
+      "category_id": "55502172-e343-438a-a655-1b125d7c8103",
+      "sub_category_id": "a8d8bf3b-51de-4f12-ab32-69de468c8796",
+      "category_slug": "womens-salon",
+      "sub_slug": "skin-facial-care",
+      "slug": "wedding-ready-group-hairstyling",
+      "variants": [
+        {
+          "variant_key": "pack-of-3",
+          "title": "Wedding-ready group hairstyling \u2014 Pack of 3",
+          "variation_label": "Pack of 3",
+          "price": 1199.0
+        },
+        {
+          "variant_key": "pack-of-4",
+          "title": "Wedding-ready group hairstyling \u2014 Pack of 4",
+          "variation_label": "Pack of 4",
+          "price": 1599.0
+        },
+        {
+          "variant_key": "pack-of-5",
+          "title": "Wedding-ready group hairstyling \u2014 Pack of 5",
+          "variation_label": "Pack of 5",
+          "price": 1999.0
+        }
+      ]
+    }
+  ]
+}
