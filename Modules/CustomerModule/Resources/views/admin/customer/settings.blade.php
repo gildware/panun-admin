@@ -294,6 +294,7 @@
                                             method="POST">
                                             @csrf
                                             @method('PUT')
+                                            <input type="hidden" name="web_page" value="referral_earning">
 
                                             <div class="row">
                                                 <div class="col-12 d-flex justify-content-start mb-3">
@@ -318,7 +319,16 @@
                                                                min="0" value="{{$value->live_values??''}}">
                                                     </div>
 
-                                                    @php($shareTemplate=$data_values->where('key_name','referral_share_message_template')->first())
+                                                    @php
+                                                        $shareTemplateValue = old(
+                                                            'referral_share_message_template',
+                                                            business_config_scalar(
+                                                                'referral_share_message_template',
+                                                                'customer_config',
+                                                                DEFAULT_REFERRAL_SHARE_MESSAGE_TEMPLATE
+                                                            )
+                                                        );
+                                                    @endphp
                                                     <div class="col-md-12 mb-30">
                                                         <label class="mb-1">
                                                             {{translate('Referral Share Message Template')}}
@@ -328,7 +338,7 @@
                                                         </label>
                                                         <textarea class="form-control" name="referral_share_message_template"
                                                                   rows="6"
-                                                                  placeholder="{{translate('Hi! Please use this {CODE} at time of registration to book services from {APP_NAME}.')}}&#10;{{translate('Download Android app: {ANDROID_APP_URL}')}}&#10;{{translate('Download iOS app: {IOS_APP_URL}')}}">{{$shareTemplate->live_values ?? ''}}</textarea>
+                                                                  placeholder="{{translate('Hi! Please use this {CODE} at time of registration to book services from {APP_NAME}.')}}&#10;{{translate('Download Android app: {ANDROID_APP_URL}')}}&#10;{{translate('Download iOS app: {IOS_APP_URL}')}}">{{ $shareTemplateValue }}</textarea>
                                                         <small class="text-muted d-block mt-2">
                                                             {{translate('Available placeholders')}}:
                                                             <code>{CODE}</code>,

@@ -12,6 +12,8 @@ const SERVICEMAN_USER_TYPES = PROVIDER_USER_TYPES[2];
 
 const SOFTWARE_ID = 'NDAyMjQ3NzI=';
 
+const DEFAULT_REFERRAL_SHARE_MESSAGE_TEMPLATE = "Hi! Please use this {CODE} at time of registration to book services from {APP_NAME}.\n\nDownload Android app: {ANDROID_APP_URL}\nDownload iOS app: {IOS_APP_URL}";
+
 const USER_TYPES = [
     ['key' => 'super-admin', 'value' => ADMIN_USER_TYPES[0]],
     ['key' => 'admin-employee', 'value' => ADMIN_USER_TYPES[1]],

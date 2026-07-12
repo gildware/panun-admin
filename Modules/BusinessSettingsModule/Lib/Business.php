@@ -15,6 +15,49 @@ if (!function_exists('business_config')) {
     }
 }
 
+if (!function_exists('business_config_scalar')) {
+    /**
+     * Read a scalar business setting value. Handles legacy plain-text rows that
+     * predate JSON encoding on the live_values column cast.
+     */
+    function business_config_scalar(string $key, string $settingsType, string $default = ''): string
+    {
+        try {
+            $config = business_config($key, $settingsType);
+            if (!$config) {
+                return $default;
+            }
+
+            $value = $config->live_values;
+            if (is_string($value) && $value !== '') {
+                return $value;
+            }
+            if (is_numeric($value)) {
+                return (string) $value;
+            }
+
+            $raw = $config->getRawOriginal('live_values');
+            if (!is_string($raw) || $raw === '') {
+                return $default;
+            }
+
+            $decoded = json_decode($raw, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                if (is_string($decoded) && $decoded !== '') {
+                    return $decoded;
+                }
+                if (is_scalar($decoded)) {
+                    return (string) $decoded;
+                }
+            }
+
+            return $raw;
+        } catch (\Throwable) {
+            return $default;
+        }
+    }
+}
+
 if (!function_exists('login_setup')) {
     function login_setup($key)
     {
