@@ -1024,7 +1024,10 @@ class ConfigurationController extends Controller
         }
 
         foreach ($filter as $key => $value) {
-            $this->businessSetting->updateOrCreate(['key_name' => $key], [
+            $this->businessSetting->updateOrCreate([
+                'key_name' => $key,
+                'settings_type' => 'customer_config',
+            ], [
                 'key_name' => $key,
                 'live_values' => $value,
                 'test_values' => $value,
