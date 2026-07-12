@@ -9,9 +9,13 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('services', function (Blueprint $table) {
-            $table->unsignedInteger('sort_order')->default(0)->after('is_active');
-        });
+        if (! Schema::hasColumn('services', 'sort_order')) {
+            Schema::table('services', function (Blueprint $table) {
+                $table->unsignedInteger('sort_order')->default(0)->after('is_active');
+            });
+        } else {
+            return;
+        }
 
         // Services under a sub-category
         $subCategoryIds = DB::table('services')
@@ -60,8 +64,10 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('services', function (Blueprint $table) {
-            $table->dropColumn('sort_order');
-        });
+        if (Schema::hasColumn('services', 'sort_order')) {
+            Schema::table('services', function (Blueprint $table) {
+                $table->dropColumn('sort_order');
+            });
+        }
     }
 };
