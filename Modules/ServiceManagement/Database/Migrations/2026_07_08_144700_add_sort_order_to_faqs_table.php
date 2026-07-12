@@ -10,9 +10,13 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('faqs', function (Blueprint $table) {
-            $table->unsignedInteger('sort_order')->default(0)->after('is_active');
-        });
+        if (! Schema::hasColumn('faqs', 'sort_order')) {
+            Schema::table('faqs', function (Blueprint $table) {
+                $table->unsignedInteger('sort_order')->default(0)->after('is_active');
+            });
+        } else {
+            return;
+        }
 
         $serviceIds = Faq::query()
             ->whereNotNull('service_id')
@@ -34,8 +38,10 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('faqs', function (Blueprint $table) {
-            $table->dropColumn('sort_order');
-        });
+        if (Schema::hasColumn('faqs', 'sort_order')) {
+            Schema::table('faqs', function (Blueprint $table) {
+                $table->dropColumn('sort_order');
+            });
+        }
     }
 };
