@@ -19,6 +19,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('web-bookings/{id}', [WebBookingController::class, 'show'])->middleware(['can:booking_view'])->name('web-bookings.show');
         Route::get('app-custom-requests', [AppCustomRequestController::class, 'index'])->middleware(['can:booking_view'])->name('app-custom-requests.index');
         Route::get('app-custom-requests/{id}', [AppCustomRequestController::class, 'show'])->middleware(['can:booking_view'])->name('app-custom-requests.show');
+        Route::post('app-custom-requests/{id}/update', [AppCustomRequestController::class, 'update'])->middleware(['can:booking_view'])->name('app-custom-requests.update');
         Route::post('preview', [BookingController::class, 'preview'])->name('preview');
         Route::post('store', [BookingController::class, 'store'])->name('store');
         Route::post('whatsapp-automation-prompt/send', [BookingWhatsAppAdminPromptController::class, 'send'])->name('whatsapp_automation_prompt.send');

@@ -18,6 +18,15 @@ Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V
     Route::post('custom-request/submit', [AppCustomRequestController::class, 'submit'])
         ->middleware('throttle:20,1')
         ->name('custom-request.submit');
+    Route::get('custom-request/list', [AppCustomRequestController::class, 'index'])
+        ->name('custom-request.list');
+    Route::get('custom-request/{id}', [AppCustomRequestController::class, 'show'])
+        ->whereNumber('id')
+        ->name('custom-request.show');
+    Route::post('custom-request/{id}/reply', [AppCustomRequestController::class, 'reply'])
+        ->whereNumber('id')
+        ->middleware('throttle:30,1')
+        ->name('custom-request.reply');
 
     Route::group(['prefix' => 'booking', 'as' => 'booking.'], function () {
         Route::get('/', [BookingController::class, 'index']);
