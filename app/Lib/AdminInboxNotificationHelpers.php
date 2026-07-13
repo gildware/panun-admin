@@ -389,3 +389,20 @@ if (! function_exists('admin_inbox_notify_web_booking_submitted')) {
         );
     }
 }
+
+if (! function_exists('admin_inbox_notify_app_custom_request_submitted')) {
+    function admin_inbox_notify_app_custom_request_submitted(\Modules\BookingModule\Entities\AppCustomRequest $customRequest): void
+    {
+        $customRequest->loadMissing('lead');
+        $label = trim($customRequest->name . ' — ' . $customRequest->phone . ' — ' . ($customRequest->category_name ?: translate('Category')));
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_APP_CUSTOM_REQUEST,
+            translate('New_app_custom_request_submission'),
+            $label,
+            route('admin.booking.app-custom-requests.show', $customRequest->id),
+            'app_custom_request_submitted',
+            (string) $customRequest->id,
+        );
+    }
+}

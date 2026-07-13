@@ -13,6 +13,9 @@ class Source extends Model
     /** Canonical name for leads created from the marketing website booking form. */
     public const NAME_WEBSITE_DIRECT_BOOKING = 'Website Direct Booking';
 
+    /** Canonical name for leads created from the mobile app custom request form. */
+    public const NAME_APP_CUSTOM_REQUEST = 'App Custom Request';
+
     protected $fillable = [
         'name',
         'description',
@@ -69,6 +72,26 @@ class Source extends Model
         return static::create([
             'name' => self::NAME_WEBSITE_DIRECT_BOOKING,
             'description' => 'Leads created from the marketing website booking form.',
+            'is_active' => true,
+        ]);
+    }
+
+    /**
+     * Return the lead source used for mobile app custom request submissions; creates it if missing.
+     */
+    public static function ensureAppCustomRequestSource(): self
+    {
+        $found = static::query()
+            ->whereRaw('LOWER(TRIM(name)) = ?', [strtolower(self::NAME_APP_CUSTOM_REQUEST)])
+            ->first();
+
+        if ($found) {
+            return $found;
+        }
+
+        return static::create([
+            'name' => self::NAME_APP_CUSTOM_REQUEST,
+            'description' => 'Leads created from the mobile app custom request form.',
             'is_active' => true,
         ]);
     }
