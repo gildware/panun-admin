@@ -68,11 +68,30 @@ class CustomerHomeBundlePayloadSlimmer
 
                 if (self::looksLikeProviderList($content)) {
                     $bundle['curated_sections'][$sectionKey] = CustomerProviderPayloadSlimmer::slimList($content);
+                    continue;
+                }
+
+                if (self::looksLikeCategoryList($content)) {
+                    $bundle['curated_sections'][$sectionKey] = CustomerCategoryPayloadSlimmer::slimGridList($content);
                 }
             }
         }
 
         return $bundle;
+    }
+
+    /**
+     * @param  array<string, mixed>  $content
+     */
+    private static function looksLikeCategoryList(array $content): bool
+    {
+        if (! isset($content['data']) || ! is_array($content['data']) || $content['data'] === []) {
+            return false;
+        }
+
+        $first = $content['data'][0];
+
+        return is_array($first) && isset($first['name']) && ! isset($first['company_name']);
     }
 
     /**
