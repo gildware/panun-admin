@@ -5,9 +5,6 @@ namespace Modules\TransactionModule\Entities;
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Support\Facades\Mail;
-use Modules\BusinessSettingsModule\Emails\CashInHandOverflowMail;
-use Modules\ProviderManagement\Emails\AccountUnsuspendMail;
 use Modules\ProviderManagement\Entities\Provider;
 
 class Account extends Model
@@ -48,36 +45,9 @@ class Account extends Model
 
         self::updated(function ($model) {
             if ($model->isDirty('account_payable') || $model->isDirty('account_receivable')) {
-                $limit_status = provider_warning_amount_calculate($model->account_payable, $model->account_receivable);
                 $provider = Provider::where('user_id', $model->user_id)->first();
-                $emailStatus = business_config('email_config_status', 'email_config')->live_values;
-
-                if ($limit_status == '100_percent') {
-                    if ($provider){
-                        $provider->is_suspended = 1;
-                        $provider->save();
-
-                        if ($emailStatus){
-                            try {
-                                Mail::to($provider?->owner?->email)->send(new CashInHandOverflowMail($provider));
-                            } catch (\Exception $exception) {
-                                info($exception);
-                            }
-                        }
-                    }
-                }else{
-                    if ($provider){
-                        $provider->is_suspended = 0;
-                        $provider->save();
-
-                        if ($emailStatus){
-                            try {
-                                Mail::to($provider?->owner?->email)->send(new AccountUnsuspendMail($provider));
-                            } catch (\Exception $exception) {
-                                info($exception);
-                            }
-                        }
-                    }
+                if ($provider) {
+                    provider_apply_cash_limit_suspension_for_provider($provider);
                 }
             }
         });

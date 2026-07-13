@@ -244,26 +244,7 @@ class BookingRepeat extends Model
 //                            }
                         }
 
-                        $limit_status = provider_warning_amount_calculate($provider->owner->account->account_payable, $provider->owner->account->account_receivable);
-
-                        if ($limit_status == '100_percent' && business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values) {
-                            $provider->is_suspended = 1;
-                            $provider->save();
-
-                            $notification = isNotificationActive($provider?->id, 'transaction', 'notification', 'provider');
-                            send_provider_suspended_notification($provider, true);
-
-                            $emailStatus = business_config('email_config_status', 'email_config')->live_values;
-
-                            if ($emailStatus){
-                                try {
-                                    Mail::to($provider?->owner?->email)->send(new CashInHandOverflowMail($provider));
-                                } catch (\Exception $exception) {
-                                    info($exception);
-                                }
-                            }
-
-                        }
+                        provider_apply_cash_limit_suspension_for_provider($provider);
                     }
 
                 } elseif ($model->booking_status == 'canceled' && $model->skipNotification) {

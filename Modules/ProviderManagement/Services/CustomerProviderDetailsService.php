@@ -95,10 +95,7 @@ class CustomerProviderDetailsService
         $provider['nextBookingEligibility'] = $eligibility->canAcceptNextBooking((string) $provider->id);
         $provider['scheduleBookingEligibility'] = $eligibility->canScheduleBooking((string) $provider->id);
 
-        $limitStatus = provider_warning_amount_calculate(
-            $provider?->owner?->account->account_payable,
-            $provider?->owner?->account->account_receivable
-        );
+        $limitStatus = provider_warning_amount_calculate_for_provider($provider);
         $provider['cash_limit_status'] = $limitStatus == false ? 'available' : $limitStatus;
 
         return $provider;

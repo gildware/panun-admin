@@ -66,7 +66,10 @@ class AccountController extends Controller
             $provider->tutorial_options = $tutorialOptions;
         }
 
-        $limitStatus = provider_warning_amount_calculate($provider->owner->account->account_payable,$provider->owner->account->account_receivable);
+        provider_apply_cash_limit_suspension_for_provider($provider, sendNotifications: false);
+        $provider->refresh();
+
+        $limitStatus = provider_warning_amount_calculate_for_provider($provider);
         $provider['cash_limit_status'] = $limitStatus == false ? 'available' : $limitStatus;
         $provider['zone_ids'] = $provider->coveredLeafZoneIds();
         $bookingOverview = DB::table('bookings')->where('provider_id', $request->user()->provider->id)
