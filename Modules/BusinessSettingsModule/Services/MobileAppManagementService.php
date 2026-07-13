@@ -274,6 +274,20 @@ class MobileAppManagementService
                 'supports_manual_data' => true,
                 'content_type' => self::CONTENT_CATEGORIES,
             ],
+            [
+                'key' => 'app_custom_request_card',
+                'label' => 'App custom request card',
+                'description' => 'Call-to-action card for customers to submit a custom service request.',
+                'default_title' => 'Cannot find what you are looking for?',
+                'preview_type' => 'explore_card',
+                'icon' => 'help_outline',
+                'default_enabled' => true,
+                'fixed' => false,
+                'default_item_limit' => null,
+                'conditional' => null,
+                'supports_manual_data' => false,
+                'content_type' => null,
+            ],
         ];
     }
 

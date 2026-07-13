@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\BookingModule\Http\Controllers\Api\V1\Customer\AppCustomRequestController;
 use Modules\BookingModule\Http\Controllers\Api\V1\Customer\BookingController;
 use Modules\BookingModule\Http\Controllers\Api\V1\Public\WebBookingController as PublicWebBookingController;
 use Modules\BookingModule\Http\Controllers\Api\V1\Provider\BookingController as ProviderBookingController;
@@ -14,6 +15,10 @@ Route::group(['prefix' => 'public', 'as' => 'public.', 'namespace' => 'Api\V1\Pu
 });
 
 Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V1\Customer', 'middleware' => ['auth:api']], function () {
+    Route::post('custom-request/submit', [AppCustomRequestController::class, 'submit'])
+        ->middleware('throttle:20,1')
+        ->name('custom-request.submit');
+
     Route::group(['prefix' => 'booking', 'as' => 'booking.'], function () {
         Route::get('/', [BookingController::class, 'index']);
         Route::get('customer-cancellation-reasons', [BookingController::class, 'customerCancellationReasons']);

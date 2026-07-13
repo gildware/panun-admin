@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\BookingModule\Http\Controllers\Web\Admin\BookingConfigurationController;
 use Modules\BookingModule\Http\Controllers\Web\Admin\BookingController;
+use Modules\BookingModule\Http\Controllers\Web\Admin\AppCustomRequestController;
 use Modules\BookingModule\Http\Controllers\Web\Admin\WebBookingController;
 use Modules\ReviewModule\Http\Controllers\Web\Admin\BookingReviewController;
 use Modules\WhatsAppModule\Http\Controllers\Web\Admin\BookingWhatsAppAdminPromptController;
@@ -16,6 +17,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('create/from-whatsapp-booking/{booking_id}', [BookingController::class, 'createFromWhatsAppBooking'])->name('create-from-whatsapp-booking');
         Route::get('web-bookings', [WebBookingController::class, 'index'])->middleware(['can:booking_view'])->name('web-bookings.index');
         Route::get('web-bookings/{id}', [WebBookingController::class, 'show'])->middleware(['can:booking_view'])->name('web-bookings.show');
+        Route::get('app-custom-requests', [AppCustomRequestController::class, 'index'])->middleware(['can:booking_view'])->name('app-custom-requests.index');
+        Route::get('app-custom-requests/{id}', [AppCustomRequestController::class, 'show'])->middleware(['can:booking_view'])->name('app-custom-requests.show');
         Route::post('preview', [BookingController::class, 'preview'])->name('preview');
         Route::post('store', [BookingController::class, 'store'])->name('store');
         Route::post('whatsapp-automation-prompt/send', [BookingWhatsAppAdminPromptController::class, 'send'])->name('whatsapp_automation_prompt.send');

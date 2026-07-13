@@ -121,6 +121,12 @@
                     'count' => $web_bookings_pending_count ?? 0,
                 ])
                 @include('adminmodule::layouts.partials.top-nav._link', [
+                    'href' => route('admin.booking.app-custom-requests.index'),
+                    'label' => translate('App_Custom_Requests'),
+                    'active' => request()->is('admin/booking/app-custom-requests*'),
+                    'count' => $app_custom_requests_pending_count ?? 0,
+                ])
+                @include('adminmodule::layouts.partials.top-nav._link', [
                     'href' => route('admin.booking.post.create'),
                     'label' => translate('Add_New_Bidding'),
                     'active' => request()->is('admin/booking/post/create'),

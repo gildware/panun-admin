@@ -3339,21 +3339,21 @@ if (! function_exists('send_booking_edit_service_add_notifications')) {
 if (! function_exists('send_booking_payment_collected_notifications')) {
     function send_booking_payment_collected_notifications(Booking $booking, float $amount, string $receivedBy): void
     {
-        $config = business_config('booking', 'notification_settings');
-        if (! ($config->live_values['push_notification_booking'] ?? false)) {
-            return;
-        }
-
         $receivedBy = strtolower(trim($receivedBy));
-        $key = $receivedBy === 'provider' ? 'payment_collected_provider' : 'payment_collected_company';
-        $data = [
-            'amount' => with_currency_symbol($amount),
-            'booking_status' => ucfirst(str_replace('_', ' ', (string) ($booking->booking_status ?? ''))),
-        ];
 
-        $repeatOrRegular = (int) ($booking->is_repeated ?? 0) ? 'repeat' : 'regular';
+        $config = business_config('booking', 'notification_settings');
+        $pushEnabled = (bool) ($config->live_values['push_notification_booking'] ?? false);
 
-        if (isNotificationActive(null, 'booking', 'notification', 'user')) {
+        if ($pushEnabled) {
+            $key = $receivedBy === 'provider' ? 'payment_collected_provider' : 'payment_collected_company';
+            $data = [
+                'amount' => with_currency_symbol($amount),
+                'booking_status' => ucfirst(str_replace('_', ' ', (string) ($booking->booking_status ?? ''))),
+            ];
+
+            $repeatOrRegular = (int) ($booking->is_repeated ?? 0) ? 'repeat' : 'regular';
+
+            if (isNotificationActive(null, 'booking', 'notification', 'user')) {
             $user = $booking->customer;
             $title = get_push_notification_message($key, 'customer_notification', $user?->current_language_key);
             $description = get_push_notification_description($key, 'customer_notification', $user?->current_language_key);
@@ -3374,24 +3374,25 @@ if (! function_exists('send_booking_payment_collected_notifications')) {
             }
         }
 
-        if (isNotificationActive(null, 'booking', 'notification', 'provider') && $booking->provider_id) {
-            $providerOwner = $booking->provider?->owner;
-            $title = get_push_notification_message($key, 'provider_notification', $providerOwner?->current_language_key);
-            $description = get_push_notification_description($key, 'provider_notification', $providerOwner?->current_language_key);
-            if ($providerOwner && $title && sendDeviceNotificationPermission($booking->provider_id)) {
-                scenario_push_notification(
-                    $providerOwner,
-                    $title,
-                    $description,
-                    $booking->id,
-                    'booking',
-                    $providerOwner->id,
-                    $data,
-                    $repeatOrRegular,
-                    null,
-                    'provider-admin',
-                    $booking->zone_id
-                );
+            if (isNotificationActive(null, 'booking', 'notification', 'provider') && $booking->provider_id) {
+                $providerOwner = $booking->provider?->owner;
+                $title = get_push_notification_message($key, 'provider_notification', $providerOwner?->current_language_key);
+                $description = get_push_notification_description($key, 'provider_notification', $providerOwner?->current_language_key);
+                if ($providerOwner && $title && sendDeviceNotificationPermission($booking->provider_id)) {
+                    scenario_push_notification(
+                        $providerOwner,
+                        $title,
+                        $description,
+                        $booking->id,
+                        'booking',
+                        $providerOwner->id,
+                        $data,
+                        $repeatOrRegular,
+                        null,
+                        'provider-admin',
+                        $booking->zone_id
+                    );
+                }
             }
         }
 

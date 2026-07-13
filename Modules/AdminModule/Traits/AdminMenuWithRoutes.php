@@ -106,6 +106,16 @@ trait AdminMenuWithRoutes
                 'sorting' => 10.5,
             ],
             [
+                'route_name' => 'App_Custom_Requests',
+                'uri' => 'admin/booking/app-custom-requests',
+                'full_route' => url('admin/booking/app-custom-requests'),
+                'page_title' => 'App_Custom_Requests',
+                'keywords' => 'App Custom Requests, mobile app, customer request, custom service',
+                'type' => 'menu',
+                'module' => 'bookings',
+                'sorting' => 10.6,
+            ],
+            [
                 'route_name' => 'Add_New_Bidding',
                 'uri' => 'admin/booking/post/create',
                 'full_route' => url('admin/booking/post/create'),
