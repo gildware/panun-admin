@@ -63,6 +63,7 @@ class AdminModuleServiceProvider extends ServiceProvider
                 'pending_showcase_items' => $menuCounts['pending_showcase_items'],
                 'pending_profile_changes' => $menuCounts['pending_profile_changes'],
                 'denied_providers' => $menuCounts['denied_providers'],
+                'web_bookings_pending_count' => $menuCounts['web_bookings_pending'] ?? 0,
                 'max_booking_amount' => (business_config('max_booking_amount', 'booking_setup'))->live_values ?? 0,
                 'adminBreadcrumbs' => AdminBreadcrumb::resolve(),
                 'adminNavMatch' => AdminNavRegistry::match(),

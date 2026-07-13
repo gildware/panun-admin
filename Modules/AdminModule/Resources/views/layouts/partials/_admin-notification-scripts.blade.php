@@ -38,6 +38,8 @@
                     return { icon: 'info' };
                 case 'service_request':
                     return { icon: 'info' };
+                case 'web_booking':
+                    return { icon: 'info' };
                 case 'showcase':
                     return { icon: 'info' };
                 default:

@@ -372,3 +372,20 @@ if (! function_exists('admin_inbox_notify_profile_change_request')) {
         );
     }
 }
+
+if (! function_exists('admin_inbox_notify_web_booking_submitted')) {
+    function admin_inbox_notify_web_booking_submitted(\Modules\BookingModule\Entities\WebBooking $webBooking): void
+    {
+        $webBooking->loadMissing('lead');
+        $label = trim($webBooking->name . ' — ' . $webBooking->phone . ' — ' . ($webBooking->service_category ?: translate('Service')));
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_WEB_BOOKING,
+            translate('New_web_booking_submission'),
+            $label,
+            route('admin.booking.web-bookings.show', $webBooking->id),
+            'web_booking_submitted',
+            (string) $webBooking->id,
+        );
+    }
+}

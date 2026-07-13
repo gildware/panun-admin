@@ -2,9 +2,16 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\BookingModule\Http\Controllers\Api\V1\Customer\BookingController;
+use Modules\BookingModule\Http\Controllers\Api\V1\Public\WebBookingController as PublicWebBookingController;
 use Modules\BookingModule\Http\Controllers\Api\V1\Provider\BookingController as ProviderBookingController;
 use Modules\BookingModule\Http\Controllers\Api\V1\Serviceman\BookingController as ServicemanBookingController;
 use Modules\BookingModule\Http\Controllers\Api\V1\Admin\BookingController as AdminBookingController;
+
+Route::group(['prefix' => 'public', 'as' => 'public.', 'namespace' => 'Api\V1\Public'], function () {
+    Route::post('web-booking/submit', [PublicWebBookingController::class, 'submit'])
+        ->middleware('throttle:20,1')
+        ->name('web-booking.submit');
+});
 
 Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V1\Customer', 'middleware' => ['auth:api']], function () {
     Route::group(['prefix' => 'booking', 'as' => 'booking.'], function () {

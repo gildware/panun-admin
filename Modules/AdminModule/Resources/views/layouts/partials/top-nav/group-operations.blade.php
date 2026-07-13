@@ -115,6 +115,12 @@
                     'active' => request()->is('admin/booking/create'),
                 ])
                 @include('adminmodule::layouts.partials.top-nav._link', [
+                    'href' => route('admin.booking.web-bookings.index'),
+                    'label' => translate('Web_Bookings'),
+                    'active' => request()->is('admin/booking/web-bookings*'),
+                    'count' => $web_bookings_pending_count ?? 0,
+                ])
+                @include('adminmodule::layouts.partials.top-nav._link', [
                     'href' => route('admin.booking.post.create'),
                     'label' => translate('Add_New_Bidding'),
                     'active' => request()->is('admin/booking/post/create'),

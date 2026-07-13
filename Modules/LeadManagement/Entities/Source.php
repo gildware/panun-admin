@@ -10,6 +10,9 @@ class Source extends Model
     /** Canonical name for leads created by the WhatsApp / AI assistant. */
     public const NAME_AI_CHAT = 'AI Chat';
 
+    /** Canonical name for leads created from the marketing website booking form. */
+    public const NAME_WEBSITE_DIRECT_BOOKING = 'Website Direct Booking';
+
     protected $fillable = [
         'name',
         'description',
@@ -46,6 +49,26 @@ class Source extends Model
         return static::create([
             'name' => self::NAME_AI_CHAT,
             'description' => null,
+            'is_active' => true,
+        ]);
+    }
+
+    /**
+     * Return the lead source used for website booking form submissions; creates it if missing.
+     */
+    public static function ensureWebsiteDirectBookingSource(): self
+    {
+        $found = static::query()
+            ->whereRaw('LOWER(TRIM(name)) = ?', [strtolower(self::NAME_WEBSITE_DIRECT_BOOKING)])
+            ->first();
+
+        if ($found) {
+            return $found;
+        }
+
+        return static::create([
+            'name' => self::NAME_WEBSITE_DIRECT_BOOKING,
+            'description' => 'Leads created from the marketing website booking form.',
             'is_active' => true,
         ]);
     }
