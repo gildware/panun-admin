@@ -21,7 +21,7 @@ class AppCustomRequestSubmissionService
     }
 
     /**
-     * @param  array{customer_id?:string|null,name:string,phone:string,category_id?:int|null,category_name:string,description:string}  $payload
+     * @param  array{customer_id?:string|null,name:string,phone:string,category_id?:string|null,category_name:string,description:string}  $payload
      */
     public function submit(array $payload): AppCustomRequest
     {

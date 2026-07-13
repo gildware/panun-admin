@@ -1,0 +1,38 @@
+[
+    {
+        "slug": "room-layout-space-planning",
+        "name": "Room Layout & Space Planning",
+        "sub_category_slug": "home-decor-consultation",
+        "thumbnail_prompt": "Professional close-up photograph of interior decor specialist measuring room and sketching furniture layout on paper beside sofa, a warm modern Indian home living room in Srinagar with natural light, Kashmiri Indian interior decor consultant in smart casual attire, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
+        "cover_prompt": "Wide landscape professional photograph showing Room Layout & Space Planning service, a warm modern Indian home living room in Srinagar with natural light, interior decor consultant walking through space with client, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
+        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/room-layout-space-planning-thumbnail.png",
+        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/room-layout-space-planning-cover.png"
+    },
+    {
+        "slug": "home-makeover-consultation",
+        "name": "Home Makeover Consultation",
+        "sub_category_slug": "home-decor-consultation",
+        "thumbnail_prompt": "Professional close-up photograph of decor consultant discussing colour swatches and furniture placement with homeowner in living room, a warm modern Indian home living room in Srinagar with natural light, Kashmiri Indian interior decor consultant in smart casual attire, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
+        "cover_prompt": "Wide landscape professional photograph showing Home Makeover Consultation service, a warm modern Indian home living room in Srinagar with natural light, interior decor consultant walking through space with client, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
+        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/home-makeover-consultation-thumbnail.png",
+        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/home-makeover-consultation-cover.png"
+    },
+    {
+        "slug": "curtains-soft-furnishing-advice",
+        "name": "Curtains & Soft Furnishing Advice",
+        "sub_category_slug": "home-decor-consultation",
+        "thumbnail_prompt": "Professional close-up photograph of decor expert showing curtain fabric samples and cushion options near window, a warm modern Indian home living room in Srinagar with natural light, Kashmiri Indian interior decor consultant in smart casual attire, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
+        "cover_prompt": "Wide landscape professional photograph showing Curtains & Soft Furnishing Advice service, a warm modern Indian home living room in Srinagar with natural light, interior decor consultant walking through space with client, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
+        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/curtains-soft-furnishing-advice-thumbnail.png",
+        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/curtains-soft-furnishing-advice-cover.png"
+    },
+    {
+        "slug": "office-shop-interior-styling",
+        "name": "Office & Shop Interior Styling",
+        "sub_category_slug": "commercial-decor-styling",
+        "thumbnail_prompt": "Professional close-up photograph of interior stylist reviewing office desk layout and shop display arrangement with client, a modern Indian office or retail shop interior in Srinagar, Kashmiri Indian interior decor consultant in smart casual attire, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
+        "cover_prompt": "Wide landscape professional photograph showing Office & Shop Interior Styling service, a modern Indian office or retail shop interior in Srinagar, interior decor consultant walking through space with client, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
+        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/office-shop-interior-styling-thumbnail.png",
+        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/office-shop-interior-styling-cover.png"
+    }
+]

@@ -16,7 +16,7 @@ class AppCustomRequestController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'phone' => 'required|string|max:32',
-            'category_id' => 'required|integer|exists:categories,id',
+            'category_id' => 'required|uuid|exists:categories,id',
             'category_name' => 'required|string|max:255',
             'description' => 'required|string|max:5000',
         ]);
@@ -30,7 +30,7 @@ class AppCustomRequestController extends Controller
                 'customer_id' => $request->user()?->id,
                 'name' => trim((string) $request->input('name')),
                 'phone' => trim((string) $request->input('phone')),
-                'category_id' => (int) $request->input('category_id'),
+                'category_id' => (string) $request->input('category_id'),
                 'category_name' => trim((string) $request->input('category_name')),
                 'description' => trim((string) $request->input('description')),
             ]);

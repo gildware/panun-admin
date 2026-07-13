@@ -1,0 +1,45 @@
+{
+    "categories": [
+        {
+            "slug": "interior-decor",
+            "filename": "interior-decor.png",
+            "prompt": "Category icon: sofa with floor lamp and small potted plant, interior decor and home styling service. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "home-decor-consultation",
+            "filename": "home-decor-consultation.png",
+            "prompt": "Category icon: Indian home living room floor plan with sofa and coffee table, home decor consultation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "commercial-decor-styling",
+            "filename": "commercial-decor-styling.png",
+            "prompt": "Category icon: modern office desk with chair and shop display shelf, commercial interior styling. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        }
+    ],
+    "variants": [
+        {
+            "slug": "room-layout-space-planning",
+            "variant_key": "book-site-inspection",
+            "filename": "room-layout-space-planning-book-site-inspection.png",
+            "prompt": "Variation icon for interior decor: clipboard with house floor plan and pencil, book site visit for Room Layout & Space Planning. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "home-makeover-consultation",
+            "variant_key": "book-site-inspection",
+            "filename": "home-makeover-consultation-book-site-inspection.png",
+            "prompt": "Variation icon for interior decor: clipboard with house floor plan and pencil, book site visit for Home Makeover Consultation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "curtains-soft-furnishing-advice",
+            "variant_key": "book-site-inspection",
+            "filename": "curtains-soft-furnishing-advice-book-site-inspection.png",
+            "prompt": "Variation icon for interior decor: clipboard with house floor plan and pencil, book site visit for Curtains & Soft Furnishing Advice. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        },
+        {
+            "slug": "office-shop-interior-styling",
+            "variant_key": "book-site-inspection",
+            "filename": "office-shop-interior-styling-book-site-inspection.png",
+            "prompt": "Variation icon for interior decor: clipboard with house floor plan and pencil, book site visit for Office & Shop Interior Styling. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+        }
+    ]
+}

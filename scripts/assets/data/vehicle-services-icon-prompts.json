@@ -1,0 +1,66 @@
+{
+  "categories": [
+    {
+      "slug": "vehicle-services",
+      "filename": "vehicle-services.png",
+      "prompt": "Category icon: car and motorcycle silhouette together representing vehicle services. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "car-wash-detailing",
+      "filename": "car-wash-detailing.png",
+      "prompt": "Category icon: car side view with water spray droplets and sponge, car wash and detailing service. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "car-repair-maintenance",
+      "filename": "car-repair-maintenance.png",
+      "prompt": "Category icon: car with open hood and wrench tool, car repair and maintenance service. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "bike-scooter-service",
+      "filename": "bike-scooter-service.png",
+      "prompt": "Category icon: motorcycle and scooter silhouettes with wrench, two-wheeler service. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ],
+  "shared_variants": [
+    {
+      "variant_key": "book-site-inspection",
+      "filename": "book-site-inspection.png",
+      "prompt": "Variation icon for vehicle service: clipboard with checkmark and car wheel, book on-site inspection. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "variant_key": "hatchback",
+      "filename": "hatchback.png",
+      "prompt": "Variation icon for vehicle service: small compact hatchback car side profile icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "variant_key": "sedan",
+      "filename": "sedan.png",
+      "prompt": "Variation icon for vehicle service: mid-size sedan car side profile icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "variant_key": "suv",
+      "filename": "suv.png",
+      "prompt": "Variation icon for vehicle service: SUV car side profile icon with higher body. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "variant_key": "100-150cc",
+      "filename": "100-150cc.png",
+      "prompt": "Variation icon for vehicle service: small commuter motorcycle icon representing 100 to 150cc engine. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "variant_key": "150cc-plus",
+      "filename": "150cc-plus.png",
+      "prompt": "Variation icon for vehicle service: larger sport motorcycle icon representing 150cc plus engine. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "variant_key": "bike",
+      "filename": "bike.png",
+      "prompt": "Variation icon for vehicle service: motorcycle bike icon side view. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "variant_key": "scooter",
+      "filename": "scooter.png",
+      "prompt": "Variation icon for vehicle service: scooter moped icon side view. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ]
+}
