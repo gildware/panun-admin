@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate custom_request menu icons (light + dark) matching other menu icon style."""
+"""Generate custom_request menu icons: clipboard + pencil (request form)."""
 
 from __future__ import annotations
 
@@ -17,47 +17,48 @@ OUT_DIRS = [
 ]
 
 
-def draw_document_body(draw: ImageDraw.ImageDraw, fill: int) -> None:
-    left, top, right, bottom = 88, 96, 424, 416
-    fold = 56
-    radius = 28
+def draw_clipboard(draw: ImageDraw.ImageDraw, fill: int) -> None:
+    board = (108, 118, 404, 418)
+    draw.rounded_rectangle(board, radius=26, fill=fill)
 
-    draw.rounded_rectangle((left, top, right, bottom), radius=radius, fill=fill)
+    clip_w, clip_h = 92, 44
+    clip_x = SIZE // 2 - clip_w // 2
+    clip_y = 92
+    draw.rounded_rectangle((clip_x, clip_y, clip_x + clip_w, clip_y + clip_h), radius=10, fill=fill)
 
-    fold_x = right - fold
-    draw.polygon([(fold_x, top), (right, top + fold), (fold_x, top + fold)], fill=fill)
-
-    inner_left = left + 18
-    inner_top = top + 18
-    inner_right = right - fold - 10
-    inner_bottom = bottom - 18
-    draw.rounded_rectangle(
-        (inner_left, inner_top, inner_right, inner_bottom),
-        radius=18,
-        fill=fill,
-    )
+    line_left = 148
+    line_right = 364
+    line_h = 18
+    for y in (188, 248, 308):
+        draw.rounded_rectangle((line_left, y, line_right, y + line_h), radius=9, fill=0)
 
 
-def punch_question_mark(draw: ImageDraw.ImageDraw) -> None:
-    cx = 248
-    cy = 262
-    stroke = 34
+def draw_pencil(draw: ImageDraw.ImageDraw, fill: int) -> None:
+    body = [
+        (286, 286),
+        (392, 178),
+        (418, 204),
+        (312, 312),
+    ]
+    draw.polygon(body, fill=fill)
 
-    draw.arc((cx - 58, cy - 92, cx + 58, cy + 18), start=200, end=340, fill=0, width=stroke)
-    draw.rounded_rectangle(
-        (cx - stroke // 2, cy + 8, cx + stroke // 2, cy + 58),
-        radius=stroke // 2,
-        fill=0,
-    )
-    dot_r = 16
-    draw.ellipse((cx - dot_r, cy + 74, cx + dot_r, cy + 74 + dot_r * 2), fill=0)
+    tip = [
+        (392, 178),
+        (418, 204),
+        (438, 184),
+        (412, 158),
+    ]
+    draw.polygon(tip, fill=fill)
+
+    draw.rounded_rectangle((270, 302, 322, 354), radius=8, fill=fill)
+    draw.rounded_rectangle((276, 308, 316, 332), radius=4, fill=0)
 
 
 def build_alpha() -> Image.Image:
     alpha = Image.new('L', (SIZE, SIZE), 0)
     draw = ImageDraw.Draw(alpha)
-    draw_document_body(draw, 255)
-    punch_question_mark(draw)
+    draw_clipboard(draw, 255)
+    draw_pencil(draw, 255)
     return alpha
 
 

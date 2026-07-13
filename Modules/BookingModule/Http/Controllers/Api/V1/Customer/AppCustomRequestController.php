@@ -86,6 +86,14 @@ class AppCustomRequestController extends Controller
 
         $requests = AppCustomRequest::query()
             ->with(['messages' => fn ($q) => $q->latest()->limit(1)])
+            ->withCount([
+                'messages as unread_count' => fn ($q) => $q
+                    ->where('sender_type', AppCustomRequestMessage::SENDER_ADMIN)
+                    ->whereRaw(
+                        'app_custom_request_messages.created_at > COALESCE(app_custom_requests.customer_last_read_at, ?)',
+                        ['1970-01-01 00:00:00']
+                    ),
+            ])
             ->where('customer_id', $request->user()->id)
             ->latest('id')
             ->paginate((int) $request->input('limit'), ['*'], 'offset', (int) $request->input('offset'))
@@ -110,6 +118,8 @@ class AppCustomRequestController extends Controller
         if (! $customRequest) {
             return response()->json(response_formatter(DEFAULT_404), 404);
         }
+
+        $this->markAsReadByCustomer($customRequest);
 
         return response()->json(response_formatter(DEFAULT_200, $this->formatDetail($customRequest)), 200);
     }
@@ -139,6 +149,8 @@ class AppCustomRequestController extends Controller
             'message' => trim((string) $request->input('message')),
         ]);
 
+        $this->markAsReadByCustomer($customRequest);
+
         try {
             admin_inbox_notify_app_custom_request_customer_reply($customRequest, $message);
         } catch (\Throwable $e) {
@@ -153,6 +165,7 @@ class AppCustomRequestController extends Controller
     protected function formatSummary(AppCustomRequest $customRequest): array
     {
         $latestMessage = $customRequest->messages->first();
+        $unreadCount = (int) ($customRequest->unread_count ?? $this->getCustomerUnreadCount($customRequest));
 
         return [
             'id' => $customRequest->id,
@@ -164,7 +177,28 @@ class AppCustomRequestController extends Controller
             'latest_message' => $latestMessage?->message,
             'latest_message_sender_type' => $latestMessage?->sender_type,
             'latest_message_at' => $latestMessage?->created_at?->toIso8601String(),
+            'unread_count' => $unreadCount,
+            'has_unread' => $unreadCount > 0,
         ];
+    }
+
+    protected function getCustomerUnreadCount(AppCustomRequest $customRequest): int
+    {
+        $query = AppCustomRequestMessage::query()
+            ->where('app_custom_request_id', $customRequest->id)
+            ->where('sender_type', AppCustomRequestMessage::SENDER_ADMIN);
+
+        if ($customRequest->customer_last_read_at) {
+            $query->where('created_at', '>', $customRequest->customer_last_read_at);
+        }
+
+        return $query->count();
+    }
+
+    protected function markAsReadByCustomer(AppCustomRequest $customRequest): void
+    {
+        $customRequest->update(['customer_last_read_at' => now()]);
+        $customRequest->customer_last_read_at = now();
     }
 
     protected function formatDetail(AppCustomRequest $customRequest): array
