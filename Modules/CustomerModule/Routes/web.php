@@ -19,6 +19,7 @@ Route::get('cancellation-policy', [PagesController::class, 'cancellationPolicy']
 
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
+    Route::get('customer/home-cache/status', [CustomerHomeCacheController::class, 'status'])->name('customer.home-cache.status');
     Route::post('customer/home-cache/reset', [CustomerHomeCacheController::class, 'resetAndWarm'])->name('customer.home-cache.reset');
 
     Route::group(['prefix' => 'customer', 'as' => 'customer.'], function () {

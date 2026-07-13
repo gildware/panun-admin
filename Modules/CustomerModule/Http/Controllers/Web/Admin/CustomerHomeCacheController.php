@@ -12,12 +12,21 @@ use Modules\CustomerModule\Services\CustomerHomeCacheWarmState;
 
 class CustomerHomeCacheController extends Controller
 {
+    public function status(): JsonResponse
+    {
+        return response()->json([
+            'needs_reset' => CustomerHomeCacheWarmState::needsAdminReminder(),
+            'current_version' => CustomerHomeCacheWarmState::currentVersion(),
+            'last_warmed_version' => CustomerHomeCacheWarmState::lastWarmedVersion(),
+        ]);
+    }
+
     public function resetAndWarm(Request $request): RedirectResponse|JsonResponse
     {
         $zoneId = $request->input('zone_id');
         $zoneId = is_string($zoneId) && $zoneId !== '' ? $zoneId : null;
 
-        $warmed = CustomerHomeCacheManager::resetAndWarm($zoneId, dispatchAsync: false);
+        $warmed = CustomerHomeCacheManager::resetAndWarm($zoneId, dispatchAsync: true);
 
         $message = $warmed > 0
             ? translate('Home_cache_reset_and_warmed_successfully')
@@ -27,16 +36,13 @@ class CustomerHomeCacheController extends Controller
             return response()->json([
                 'success' => true,
                 'warmed' => $warmed,
+                'queued' => $warmed === 0,
                 'message' => $message,
                 'needs_reset' => CustomerHomeCacheWarmState::needsAdminReminder(),
             ]);
         }
 
-        if ($warmed > 0) {
-            Toastr::success($message);
-        } else {
-            Toastr::success($message);
-        }
+        Toastr::success($message);
 
         return back();
     }

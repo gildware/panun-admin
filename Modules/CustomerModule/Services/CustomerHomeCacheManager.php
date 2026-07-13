@@ -16,13 +16,20 @@ class CustomerHomeCacheManager
         CustomerHomeContentInvalidator::bumpGlobal($zoneId, scheduleWarm: false);
         self::forgetZoneEligibility($zoneId);
 
-        if ($dispatchAsync && self::shouldDispatchAsync()) {
+        if (! $dispatchAsync) {
+            return CustomerHomeBaseBundleCache::warmAll($zoneId);
+        }
+
+        if (self::shouldDispatchAsync()) {
             WarmCustomerHomeBundleCacheJob::dispatch($zoneId);
 
             return 0;
         }
 
-        return CustomerHomeBaseBundleCache::warmAll($zoneId);
+        // QUEUE_CONNECTION=sync: warm after the HTTP response so admin UI is not blocked.
+        WarmCustomerHomeBundleCacheJob::dispatchAfterResponse($zoneId);
+
+        return 0;
     }
 
     public static function warmAfterContentChange(?string $zoneId = null, bool $blocking = false): void
