@@ -14,6 +14,7 @@ class CustomerProviderPayloadSlimmerTest extends TestCase
             'company_name' => 'Acme',
             'company_address' => 'Main St',
             'logo_full_path' => 'https://example.test/logo.png',
+            'list_avatar_full_path' => 'https://example.test/avatar.png',
             'cover_image_full_path' => 'https://example.test/cover.png',
             'avg_rating' => 4.5,
             'rating_count' => 12,
@@ -33,12 +34,14 @@ class CustomerProviderPayloadSlimmerTest extends TestCase
 
         $list = CustomerProviderPayloadSlimmer::slimListItem($raw);
         $this->assertSame('Acme', $list['company_name']);
+        $this->assertSame('https://example.test/avatar.png', $list['list_avatar_full_path']);
         $this->assertSame(20, $list['total_service_served']);
         $this->assertSame(5, $list['subscribed_services_count']);
         $this->assertArrayNotHasKey('owner', $list);
         $this->assertArrayNotHasKey('cover_image_full_path', $list);
 
         $summary = CustomerProviderPayloadSlimmer::slimSummaryItem($raw);
+        $this->assertSame('https://example.test/avatar.png', $summary['list_avatar_full_path']);
         $this->assertSame('https://example.test/cover.png', $summary['cover_image_full_path']);
         $this->assertTrue($summary['nextBookingEligibility']);
         $this->assertArrayNotHasKey('owner', $summary);

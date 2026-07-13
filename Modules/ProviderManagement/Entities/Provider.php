@@ -47,7 +47,7 @@ class Provider extends Model
 
     protected $hidden = [];
 
-    protected $appends = ['logo_full_path', 'cover_image_full_path', 'company_identity_images_full_path', 'contact_person_photo_full_path'];
+    protected $appends = ['logo_full_path', 'cover_image_full_path', 'company_identity_images_full_path', 'contact_person_photo_full_path', 'list_avatar_full_path'];
 
     public function scopeOfStatus($query, $status)
     {
@@ -285,16 +285,17 @@ class Provider extends Model
     public function getListAvatarFullPathAttribute(): ?string
     {
         $defaultPath = asset('assets/provider-module/img/user2x.png');
+        $isApi = request()->is('api/*');
 
         if ($this->hasStoredListAvatarFilename($this->logo)) {
-            return $this->logo_full_path ?? $defaultPath;
+            return $this->logo_full_path ?? ($isApi ? null : $defaultPath);
         }
 
         if ($this->hasStoredListAvatarFilename($this->contact_person_photo)) {
-            return $this->contact_person_photo_full_path ?? $defaultPath;
+            return $this->contact_person_photo_full_path ?? ($isApi ? null : $defaultPath);
         }
 
-        return $defaultPath;
+        return $isApi ? null : $defaultPath;
     }
 
     private function hasStoredListAvatarFilename(mixed $filename): bool
