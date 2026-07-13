@@ -10034,4 +10034,8 @@ _Message' => 'Customer notification for provider bid offer
   'color' => 'Color',
   'label' => 'Label',
   'Welcome Bonus Wallet_Message' => 'Welcome Bonus Wallet Message',
+  'Custom Request Submitted_Message' => 'Custom Request Submitted Message',
+  'Custom Request Accepted_Message' => 'Custom Request Accepted Message',
+  'Custom Request Rejected_Message' => 'Custom Request Rejected Message',
+  'Custom Request Admin Reply_Message' => 'Custom Request Admin Reply Message',
 );
