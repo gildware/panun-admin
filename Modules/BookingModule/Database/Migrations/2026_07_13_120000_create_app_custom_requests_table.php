@@ -13,7 +13,7 @@ return new class extends Migration {
             $table->uuid('customer_id')->nullable()->index();
             $table->string('name');
             $table->string('phone', 32)->index();
-            $table->unsignedBigInteger('category_id')->nullable()->index();
+            $table->uuid('category_id')->nullable()->index();
             $table->string('category_name')->nullable();
             $table->text('description');
             $table->string('status', 50)->default('PENDING_REVIEW')->index();

@@ -1,0 +1,93 @@
+[
+  {
+    "slug": "exterior-car-wash",
+    "name": "Exterior Car Wash",
+    "sub_category_slug": "car-wash-detailing",
+    "thumbnail_prompt": "Professional close-up photograph of exterior car wash in progress, Indian technician in uniform foam-washing a sedan in a home parking area, water spray and sponge visible, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
+    "cover_prompt": "Wide landscape professional photograph showing exterior car wash service, technician washing a car in a residential parking lot in India, foam and rinse in progress, natural daylight, photorealistic vehicle service photography. No text, no logos, no watermarks."
+  },
+  {
+    "slug": "interior-car-cleaning",
+    "name": "Interior Car Cleaning",
+    "sub_category_slug": "car-wash-detailing",
+    "thumbnail_prompt": "Professional close-up photograph of interior car cleaning in progress, technician vacuuming car seats and wiping dashboard inside a sedan, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
+    "cover_prompt": "Wide landscape professional photograph showing interior car cleaning service, open car door with technician cleaning seats and dashboard, residential parking in India, natural daylight, photorealistic vehicle service photography. No text, no logos, no watermarks."
+  },
+  {
+    "slug": "full-car-detailing",
+    "name": "Full Car Detailing",
+    "sub_category_slug": "car-wash-detailing",
+    "thumbnail_prompt": "Professional close-up photograph of full car detailing in progress, technician polishing car exterior paint and cleaning interior surfaces, glossy finish visible, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
+    "cover_prompt": "Wide landscape professional photograph showing full car detailing service, shiny clean car after detailing in home parking, technician with polishing equipment, natural daylight, photorealistic vehicle service photography. No text, no logos, no watermarks."
+  },
+  {
+    "slug": "general-car-inspection",
+    "name": "General Car Inspection",
+    "sub_category_slug": "car-repair-maintenance",
+    "thumbnail_prompt": "Professional close-up photograph of general car inspection in progress, mechanic in uniform checking car engine bay and writing on clipboard, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
+    "cover_prompt": "Wide landscape professional photograph showing general car inspection service, mechanic inspecting car with hood open in parking area India, clipboard and tools visible, natural daylight, photorealistic vehicle service photography. No text, no logos, no watermarks."
+  },
+  {
+    "slug": "periodic-car-service",
+    "name": "Periodic Car Service",
+    "sub_category_slug": "car-repair-maintenance",
+    "thumbnail_prompt": "Professional close-up photograph of periodic car service in progress, mechanic changing engine oil and checking filters under car hood, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
+    "cover_prompt": "Wide landscape professional photograph showing periodic car service, mechanic servicing car with tools and oil can in residential parking India, natural daylight, photorealistic vehicle service photography. No text, no logos, no watermarks."
+  },
+  {
+    "slug": "car-battery-replacement",
+    "name": "Car Battery Replacement",
+    "sub_category_slug": "car-repair-maintenance",
+    "thumbnail_prompt": "Professional close-up photograph of car battery replacement in progress, technician testing and installing new car battery with wrench, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
+    "cover_prompt": "Wide landscape professional photograph showing car battery replacement service, technician replacing car battery in open hood parking area India, natural daylight, photorealistic vehicle service photography. No text, no logos, no watermarks."
+  },
+  {
+    "slug": "car-ac-service-gas-refill",
+    "name": "Car AC Service & Gas Refill",
+    "sub_category_slug": "car-repair-maintenance",
+    "thumbnail_prompt": "Professional close-up photograph of car AC service in progress, technician connecting AC gas refill gauge to car air conditioning system, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
+    "cover_prompt": "Wide landscape professional photograph showing car AC service and gas refill, technician servicing car air conditioning in parking area India, gauges and hoses visible, natural daylight, photorealistic vehicle service photography. No text, no logos, no watermarks."
+  },
+  {
+    "slug": "car-tyre-puncture-repair",
+    "name": "Car Tyre Puncture Repair",
+    "sub_category_slug": "car-repair-maintenance",
+    "thumbnail_prompt": "Professional close-up photograph of car tyre puncture repair in progress, technician plugging tubeless tyre puncture with repair kit on roadside parking, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
+    "cover_prompt": "Wide landscape professional photograph showing car tyre puncture repair service, technician repairing flat car tyre in residential parking India, jack and tools visible, natural daylight, photorealistic vehicle service photography. No text, no logos, no watermarks."
+  },
+  {
+    "slug": "bike-general-service",
+    "name": "Bike General Service",
+    "sub_category_slug": "bike-scooter-service",
+    "thumbnail_prompt": "Professional close-up photograph of bike general service in progress, mechanic lubricating motorcycle chain and checking brakes in home parking, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
+    "cover_prompt": "Wide landscape professional photograph showing bike general service, mechanic servicing motorcycle with tools and oil can in residential area India, natural daylight, photorealistic vehicle service photography. No text, no logos, no watermarks."
+  },
+  {
+    "slug": "scooter-periodic-service",
+    "name": "Scooter Periodic Service",
+    "sub_category_slug": "bike-scooter-service",
+    "thumbnail_prompt": "Professional close-up photograph of scooter periodic service in progress, technician changing scooter engine oil and checking air filter, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
+    "cover_prompt": "Wide landscape professional photograph showing scooter periodic service, technician servicing scooter with panel open in parking area India, natural daylight, photorealistic vehicle service photography. No text, no logos, no watermarks."
+  },
+  {
+    "slug": "bike-scooter-wash",
+    "name": "Bike & Scooter Wash",
+    "sub_category_slug": "bike-scooter-service",
+    "thumbnail_prompt": "Professional close-up photograph of bike and scooter wash in progress, technician foam-washing motorcycle with sponge and water hose, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
+    "cover_prompt": "Wide landscape professional photograph showing bike and scooter wash service, clean motorcycle after wash in residential parking India, technician with hose, natural daylight, photorealistic vehicle service photography. No text, no logos, no watermarks."
+  },
+  {
+    "slug": "two-wheeler-tyre-puncture-repair",
+    "name": "Two-Wheeler Tyre Puncture Repair",
+    "sub_category_slug": "bike-scooter-service",
+    "thumbnail_prompt": "Professional close-up photograph of two-wheeler tyre puncture repair in progress, technician repairing flat motorcycle tyre with puncture kit, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
+    "cover_prompt": "Wide landscape professional photograph showing two-wheeler tyre puncture repair service, technician fixing scooter or bike tyre in roadside parking India, natural daylight, photorealistic vehicle service photography. No text, no logos, no watermarks."
+  },
+  {
+    "slug": "two-wheeler-battery-replacement",
+    "name": "Two-Wheeler Battery Replacement",
+    "sub_category_slug": "bike-scooter-service",
+    "thumbnail_prompt": "Professional close-up photograph of two-wheeler battery replacement in progress, technician installing new scooter battery with tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
+    "cover_prompt": "Wide landscape professional photograph showing two-wheeler battery replacement service, technician replacing scooter battery in parking area India, natural daylight, photorealistic vehicle service photography. No text, no logos, no watermarks."
+  }
+]

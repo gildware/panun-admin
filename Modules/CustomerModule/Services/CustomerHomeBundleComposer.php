@@ -247,7 +247,7 @@ class CustomerHomeBundleComposer
 
         return match ($bundleKey) {
             'banners' => fn () => $this->invoke(BannerController::class, 'index', $request, ['limit' => 10, 'offset' => 1]),
-            'categories' => fn () => $this->invoke(CategoryController::class, 'index', $request, ['limit' => 50, 'offset' => 1]),
+            'categories' => fn () => $this->invoke(CategoryController::class, 'index', $request, ['limit' => 8, 'offset' => 1]),
             'popular_services' => fn () => $this->invoke(ServiceController::class, 'popular', $request, ['limit' => 10, 'offset' => 1]),
             'trending_services' => fn () => $this->invoke(ServiceController::class, 'trending', $request, ['limit' => 10, 'offset' => 1]),
             'recommended_services' => fn () => $this->invoke(ServiceController::class, 'recommended', $request, ['limit' => 10, 'offset' => 1]),
