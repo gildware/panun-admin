@@ -85,10 +85,6 @@ return [
             'signals' => ['iphone', 'android phone', 'mobile screen', 'phone repair', 'smartphone'],
         ],
         [
-            'label' => 'car or vehicle repair',
-            'signals' => ['car repair', 'bike repair', 'vehicle', 'automobile', 'mechanic car'],
-        ],
-        [
             'label' => 'TV or electronics repair',
             'signals' => ['tv repair', 'television', 'speaker', 'home theatre'],
         ],

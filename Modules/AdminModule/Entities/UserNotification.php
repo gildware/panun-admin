@@ -22,6 +22,7 @@ class UserNotification extends Model
     public const TYPE_PROFILE_CHANGE_REQUEST = 'profile_change_request';
     public const TYPE_WELCOME_BONUS = 'welcome_bonus';
     public const TYPE_REVIEW = 'review';
+    public const TYPE_WEB_BOOKING = 'web_booking';
 
     protected $fillable = [
         'user_id',
@@ -72,6 +73,7 @@ class UserNotification extends Model
             self::TYPE_PROFILE_CHANGE_REQUEST => 'manage_accounts',
             self::TYPE_WELCOME_BONUS => 'redeem',
             self::TYPE_REVIEW => 'rate_review',
+            self::TYPE_WEB_BOOKING => 'language',
             default => 'notifications',
         };
     }
@@ -90,6 +92,7 @@ class UserNotification extends Model
             self::TYPE_PROFILE_CHANGE_REQUEST => translate('Profile_Update_Requests'),
             self::TYPE_WELCOME_BONUS => translate('Welcome_Bonus'),
             self::TYPE_REVIEW => translate('Booking_Review'),
+            self::TYPE_WEB_BOOKING => translate('Web_Bookings'),
             default => translate('Notification'),
         };
     }
@@ -111,6 +114,7 @@ class UserNotification extends Model
             self::TYPE_PROFILE_CHANGE_REQUEST => translate('View_Requests'),
             self::TYPE_WELCOME_BONUS => translate('View_Welcome_Bonus_Report'),
             self::TYPE_REVIEW => translate('View_Details'),
+            self::TYPE_WEB_BOOKING => translate('View_Details'),
             default => translate('View_Details'),
         };
     }

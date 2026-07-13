@@ -323,6 +323,7 @@ class AdminNavRegistry
             self::entry('operations', $group, translate('WhatsApp_Marketing'), translate('Reports'), route('admin.whatsapp.marketing.reports.index', ['channel' => 'whatsapp']), ['admin/social-inbox/*/marketing/reports*']),
             self::entry('operations', $group, translate('booking_management'), translate('Booking_Configuration'), route('admin.booking.configuration.index'), ['admin/booking/configuration*']),
             self::entry('operations', $group, translate('booking_management'), translate('Add_New_Booking'), route('admin.booking.create'), ['admin/booking/create']),
+            self::entry('operations', $group, translate('booking_management'), translate('Web_Bookings'), route('admin.booking.web-bookings.index'), ['admin/booking/web-bookings*']),
             self::entry('operations', $group, translate('booking_management'), translate('Add_New_Bidding'), route('admin.booking.post.create'), ['admin/booking/post/create']),
             self::entry('operations', $group, translate('booking_management'), translate('Customized_Requests'), route('admin.booking.post.list', ['type' => 'all']), ['admin/booking/post', 'admin/booking/post/details*']),
             self::entry('operations', $group, translate('booking_management'), translate('verify_requests'), route('admin.booking.list.verification', ['booking_status' => 'pending', 'type' => 'pending']), ['admin/booking/list/verification*'], [], 'booking.verify'),

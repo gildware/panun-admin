@@ -96,6 +96,16 @@ trait AdminMenuWithRoutes
                 'sorting' => 10,
             ],
             [
+                'route_name' => 'Web_Bookings',
+                'uri' => 'admin/booking/web-bookings',
+                'full_route' => url('admin/booking/web-bookings'),
+                'page_title' => 'Web_Bookings',
+                'keywords' => 'Web Bookings, website booking, marketing form, direct booking',
+                'type' => 'menu',
+                'module' => 'bookings',
+                'sorting' => 10.5,
+            ],
+            [
                 'route_name' => 'Add_New_Bidding',
                 'uri' => 'admin/booking/post/create',
                 'full_route' => url('admin/booking/post/create'),

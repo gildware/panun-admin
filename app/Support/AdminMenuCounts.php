@@ -3,7 +3,9 @@
 namespace App\Support;
 
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 use Modules\BookingModule\Entities\Booking;
+use Modules\BookingModule\Entities\WebBooking;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderChangeRequest;
 use Modules\ProviderManagement\Entities\ProviderShowcaseItem;
@@ -33,6 +35,7 @@ final class AdminMenuCounts
                 'pending_showcase_items' => ProviderShowcaseItem::where('is_approved', 2)->count(),
                 'pending_profile_changes' => ProviderChangeRequest::where('status', 2)->count(),
                 'denied_providers' => Provider::ofApproval(0)->count(),
+                'web_bookings_pending' => self::safeCountPendingWebBookings(),
             ];
         });
     }
@@ -46,6 +49,21 @@ final class AdminMenuCounts
     {
         try {
             return Booking::query()->cancelledByCustomerPendingRefund()->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private static function safeCountPendingWebBookings(): int
+    {
+        try {
+            if (! Schema::hasTable('web_bookings')) {
+                return 0;
+            }
+
+            return WebBooking::query()
+                ->where('status', WebBooking::STATUS_PENDING_REVIEW)
+                ->count();
         } catch (\Throwable) {
             return 0;
         }

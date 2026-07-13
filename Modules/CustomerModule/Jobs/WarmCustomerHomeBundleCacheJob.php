@@ -13,6 +13,10 @@ class WarmCustomerHomeBundleCacheJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public int $timeout = 600;
+
+    public int $tries = 2;
+
     public function __construct(
         public ?string $zoneId = null,
     ) {}

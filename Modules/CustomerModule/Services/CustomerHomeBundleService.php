@@ -31,7 +31,34 @@ class CustomerHomeBundleService
             ? $this->bundlePersonalizer->apply($base, $request, (int) auth('api')->id())
             : $base;
 
-        return array_merge(['content_version' => $contentVersion], $bundle);
+        return array_merge(
+            ['content_version' => $contentVersion],
+            $this->normalizeForMobileClient($bundle),
+        );
+    }
+
+    /**
+     * Ensures core list keys exist so mobile clients do not treat a sparse bundle as a failure.
+     *
+     * @param  array<string, mixed>  $bundle
+     * @return array<string, mixed>
+     */
+    private function normalizeForMobileClient(array $bundle): array
+    {
+        $emptyList = [
+            'data' => [],
+            'total' => 0,
+            'per_page' => 10,
+            'current_page' => 1,
+        ];
+
+        foreach (['banners', 'categories', 'popular_services'] as $key) {
+            if (! array_key_exists($key, $bundle)) {
+                $bundle[$key] = $emptyList;
+            }
+        }
+
+        return $bundle;
     }
 
     public function layoutHash(): string

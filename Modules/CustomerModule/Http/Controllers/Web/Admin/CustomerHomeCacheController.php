@@ -14,10 +14,27 @@ class CustomerHomeCacheController extends Controller
 {
     public function resetAndWarm(Request $request): RedirectResponse|JsonResponse
     {
+        if ($request->boolean('check_only')) {
+            return $this->jsonStatus();
+        }
+
         $zoneId = $request->input('zone_id');
         $zoneId = is_string($zoneId) && $zoneId !== '' ? $zoneId : null;
 
-        $warmed = CustomerHomeCacheManager::resetAndWarm($zoneId, dispatchAsync: false);
+        try {
+            $warmed = CustomerHomeCacheManager::resetAndWarm($zoneId, dispatchAsync: true);
+        } catch (\Throwable $e) {
+            report($e);
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => translate('Failed_to_rebuild_home_cache'),
+                ], 500);
+            }
+
+            throw $e;
+        }
 
         $message = $warmed > 0
             ? translate('Home_cache_reset_and_warmed_successfully')
@@ -27,17 +44,29 @@ class CustomerHomeCacheController extends Controller
             return response()->json([
                 'success' => true,
                 'warmed' => $warmed,
+                'queued' => $warmed === 0,
                 'message' => $message,
                 'needs_reset' => CustomerHomeCacheWarmState::needsAdminReminder(),
             ]);
         }
 
-        if ($warmed > 0) {
-            Toastr::success($message);
-        } else {
-            Toastr::success($message);
-        }
+        Toastr::success($message);
 
         return back();
+    }
+
+    private function jsonStatus(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'needs_reset' => CustomerHomeCacheWarmState::needsAdminReminder(),
+            'current_version' => CustomerHomeCacheWarmState::currentVersion(),
+            'last_warmed_version' => CustomerHomeCacheWarmState::lastWarmedVersion(),
+        ]);
+    }
+
+    public function status(): JsonResponse
+    {
+        return $this->jsonStatus();
     }
 }

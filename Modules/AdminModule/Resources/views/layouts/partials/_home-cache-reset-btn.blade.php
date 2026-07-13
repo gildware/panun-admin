@@ -84,6 +84,20 @@
     @push('script')
         <script>
             (function () {
+                const POLL_INTERVAL_MS = 2000;
+                const POLL_TIMEOUT_MS = 5 * 60 * 1000;
+                const REQUEST_TIMEOUT_MS = 30000;
+                const labels = {
+                    success: @json(translate('Home_cache_reset_and_warmed_successfully')),
+                    queued: @json(translate('Home_cache_reset_rebuild_queued')),
+                    queuedRefresh: @json(translate('Home_cache_reset_rebuild_queued_refresh')),
+                    timeout: @json(translate('Home_cache_reset_rebuild_timeout')),
+                    requestTimeout: @json(translate('Home_cache_reset_request_timeout')),
+                    failed: @json(translate('Failed_to_rebuild_home_cache')),
+                    sessionExpired: 'Session expired. Please refresh the page and try again.',
+                    serverError: 'Server returned an unexpected response. Please refresh and try again.',
+                };
+
                 function setHomeCacheButtonLoading(button, loading) {
                     const label = button.querySelector('.js-home-cache-reset-label');
                     const icon = button.querySelector('.js-home-cache-reset-icon');
@@ -119,8 +133,9 @@
                 }
 
                 function showHomeCacheToast(message, type) {
-                    if (window.toastr && typeof window.toastr[type] === 'function') {
-                        window.toastr[type](message);
+                    const toastType = type === 'warning' ? 'warning' : type;
+                    if (window.toastr && typeof window.toastr[toastType] === 'function') {
+                        window.toastr[toastType](message);
                         return;
                     }
                     if (type === 'error') {
@@ -128,6 +143,102 @@
                     } else {
                         console.log(message);
                     }
+                }
+
+                function fetchWithTimeout(url, options, timeoutMs) {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(function () {
+                        controller.abort();
+                    }, timeoutMs);
+
+                    return fetch(url, Object.assign({}, options, { signal: controller.signal }))
+                        .finally(function () {
+                            clearTimeout(timeoutId);
+                        });
+                }
+
+                function parseJsonResponse(response) {
+                    return response.text().then(function (text) {
+                        let data = null;
+
+                        if (text) {
+                            try {
+                                data = JSON.parse(text);
+                            } catch (error) {
+                                data = null;
+                            }
+                        }
+
+                        if (!response.ok) {
+                            let message = data && data.message ? data.message : '';
+
+                            if (!message && response.status === 419) {
+                                message = labels.sessionExpired;
+                            }
+
+                            if (!message && text && text.indexOf('<') !== -1) {
+                                message = labels.serverError;
+                            }
+
+                            if (!message) {
+                                message = response.status >= 500 ? labels.serverError : labels.failed;
+                            }
+
+                            throw new Error(message);
+                        }
+
+                        if (!data) {
+                            throw new Error(labels.serverError);
+                        }
+
+                        if (data.success === false) {
+                            throw new Error(data.message || labels.failed);
+                        }
+
+                        return data;
+                    });
+                }
+
+                function pollHomeCacheStatus(resetUrl, csrf) {
+                    const startedAt = Date.now();
+
+                    return new Promise(function (resolve, reject) {
+                        function check() {
+                            if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
+                                reject(new Error(labels.timeout));
+                                return;
+                            }
+
+                            const statusFormData = new FormData();
+                            statusFormData.append('_token', csrf);
+                            statusFormData.append('check_only', '1');
+
+                            fetchWithTimeout(resetUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'X-CSRF-TOKEN': csrf,
+                                },
+                                body: statusFormData,
+                                credentials: 'same-origin',
+                            }, REQUEST_TIMEOUT_MS)
+                                .then(parseJsonResponse)
+                                .then(function (data) {
+                                    if (data.needs_reset === false) {
+                                        resolve(data);
+                                        return;
+                                    }
+
+                                    setTimeout(check, POLL_INTERVAL_MS);
+                                })
+                                .catch(function (error) {
+                                    reject(error);
+                                });
+                        }
+
+                        check();
+                    });
                 }
 
                 document.addEventListener('submit', function (event) {
@@ -149,7 +260,7 @@
 
                     setHomeCacheButtonLoading(button, true);
 
-                    fetch(form.action, {
+                    fetchWithTimeout(form.action, {
                         method: 'POST',
                         headers: {
                             'Accept': 'application/json',
@@ -158,23 +269,31 @@
                         },
                         body: formData,
                         credentials: 'same-origin',
-                    })
-                        .then(function (response) {
-                            return response.json().then(function (data) {
-                                if (!response.ok) {
-                                    throw new Error(data.message || 'Request failed');
-                                }
-                                return data;
-                            });
-                        })
+                    }, REQUEST_TIMEOUT_MS)
+                        .then(parseJsonResponse)
                         .then(function (data) {
                             if (data.needs_reset === false) {
                                 clearHomeCacheReminder();
+                                showHomeCacheToast(data.message || labels.success, 'success');
+                                return;
                             }
-                            showHomeCacheToast(data.message || 'Home cache rebuilt successfully.', 'success');
+
+                            if (data.queued) {
+                                return pollHomeCacheStatus(form.action, csrf).then(function () {
+                                    clearHomeCacheReminder();
+                                    showHomeCacheToast(labels.success, 'success');
+                                }).catch(function (pollError) {
+                                    showHomeCacheToast(pollError.message || labels.queuedRefresh, 'warning');
+                                });
+                            }
+
+                            showHomeCacheToast(data.message || labels.success, 'success');
                         })
                         .catch(function (error) {
-                            showHomeCacheToast(error.message || 'Failed to rebuild home cache.', 'error');
+                            const message = error.name === 'AbortError'
+                                ? labels.requestTimeout
+                                : (error.message || labels.failed);
+                            showHomeCacheToast(message, 'error');
                         })
                         .finally(function () {
                             setHomeCacheButtonLoading(button, false);
