@@ -25,9 +25,10 @@ class AppCustomRequestSubmissionService
      */
     public function submit(array $payload): AppCustomRequest
     {
-        return DB::transaction(function () use ($payload) {
+        $request = DB::transaction(function () use ($payload) {
             $phone = $this->normalizePhone($payload['phone']);
-            $lead = $this->ensureCustomerLead($phone, $payload);
+            $lead = $this->safeEnsureCustomerLead($phone, $payload);
+
             $request = AppCustomRequest::create([
                 'reference_id' => $this->generateReferenceId(),
                 'customer_id' => $payload['customer_id'] ?? null,
@@ -41,13 +42,39 @@ class AppCustomRequestSubmissionService
             ]);
 
             if ($lead) {
-                $this->syncLeadIntakeData($lead, $payload);
+                $this->safeSyncLeadIntakeData($lead, $payload);
             }
-
-            admin_inbox_notify_app_custom_request_submitted($request);
 
             return $request->fresh(['lead']);
         });
+
+        try {
+            admin_inbox_notify_app_custom_request_submitted($request);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return $request;
+    }
+
+    protected function safeEnsureCustomerLead(string $phone, array $payload): ?Lead
+    {
+        try {
+            return $this->ensureCustomerLead($phone, $payload);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
+    }
+
+    protected function safeSyncLeadIntakeData(Lead $lead, array $payload): void
+    {
+        try {
+            $this->syncLeadIntakeData($lead, $payload);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     protected function normalizePhone(string $phone): string

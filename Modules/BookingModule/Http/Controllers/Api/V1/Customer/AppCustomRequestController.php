@@ -37,8 +37,13 @@ class AppCustomRequestController extends Controller
         } catch (Throwable $e) {
             report($e);
 
+            $message = translate('Something_went_wrong');
+            if (str_contains($e->getMessage(), 'app_custom_requests')) {
+                $message = 'Custom request storage is not ready on the server. Please run database migrations.';
+            }
+
             return response()->json(response_formatter(DEFAULT_400, null, [
-                ['error_code' => 'app_custom_request_submit_failed', 'message' => translate('Something_went_wrong')],
+                ['error_code' => 'app_custom_request_submit_failed', 'message' => $message],
             ]), 500);
         }
 
