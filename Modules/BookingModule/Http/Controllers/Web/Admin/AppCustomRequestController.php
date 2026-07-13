@@ -64,8 +64,17 @@ class AppCustomRequestController extends Controller
         }
 
         $customRequest = AppCustomRequest::query()->findOrFail($id);
+        $previousStatus = $customRequest->status;
         $customRequest->status = (string) $request->input('status');
         $customRequest->save();
+
+        if ($previousStatus !== $customRequest->status) {
+            try {
+                send_app_custom_request_status_change_notification($customRequest, $previousStatus);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
 
         $adminMessage = trim((string) $request->input('admin_message', ''));
         if ($adminMessage !== '') {
@@ -75,6 +84,12 @@ class AppCustomRequestController extends Controller
                 'sender_id' => auth()->id(),
                 'message' => $adminMessage,
             ]);
+
+            try {
+                send_app_custom_request_admin_reply_notification($customRequest);
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));

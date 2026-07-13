@@ -2,6 +2,7 @@
 
 namespace Modules\AdminModule\Services;
 
+use App\Support\AdminHeaderChatCounts;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -172,5 +173,6 @@ class AdminInboxNotificationService
     {
         Cache::forget("admin_header_counts:{$userId}");
         Cache::forget("admin_inbox_notifications:{$userId}");
+        AdminHeaderChatCounts::forgetForUser($userId);
     }
 }

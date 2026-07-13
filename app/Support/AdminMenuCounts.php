@@ -38,6 +38,7 @@ final class AdminMenuCounts
                 'denied_providers' => Provider::ofApproval(0)->count(),
                 'web_bookings_pending' => self::safeCountPendingWebBookings(),
                 'app_custom_requests_pending' => self::safeCountPendingAppCustomRequests(),
+                'pending_verify_bookings' => self::safeCountPendingVerifyBookings(),
             ];
         });
     }
@@ -80,6 +81,22 @@ final class AdminMenuCounts
 
             return AppCustomRequest::query()
                 ->where('status', AppCustomRequest::STATUS_PENDING)
+                ->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private static function safeCountPendingVerifyBookings(): int
+    {
+        try {
+            $maxBookingAmount = (float) ((business_config('max_booking_amount', 'booking_setup'))->live_values ?? 0);
+
+            return Booking::query()
+                ->where('is_verified', '0')
+                ->where('payment_method', 'cash_after_service')
+                ->where('total_booking_amount', '>', $maxBookingAmount)
+                ->whereIn('booking_status', ['pending', 'accepted'])
                 ->count();
         } catch (\Throwable) {
             return 0;

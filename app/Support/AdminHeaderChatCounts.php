@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use Illuminate\Support\Facades\Cache;
 use Modules\ChattingModule\Entities\ChannelConversation;
 use Modules\ChattingModule\Entities\ChannelList;
 use Modules\UserManagement\Entities\User;
@@ -9,12 +10,51 @@ use Modules\WhatsAppModule\Support\WhatsAppAdminUnread;
 
 final class AdminHeaderChatCounts
 {
+    private const CACHE_TTL_SECONDS = 30;
+
     public static function supportUnreadMessages(?User $user): int
     {
         if (! $user) {
             return 0;
         }
 
+        return Cache::remember(
+            'admin_header_support_unread:'.$user->id,
+            self::CACHE_TTL_SECONDS,
+            fn () => self::computeSupportUnreadMessages($user)
+        );
+    }
+
+    public static function staffUnreadMessages(?User $user): int
+    {
+        if (! $user) {
+            return 0;
+        }
+
+        return Cache::remember(
+            'admin_header_staff_unread:'.$user->id,
+            self::CACHE_TTL_SECONDS,
+            fn () => self::computeStaffUnreadMessages($user)
+        );
+    }
+
+    public static function whatsappUnreadChats(?User $user): int
+    {
+        if (! $user || ! $user->can('whatsapp_chat_view')) {
+            return 0;
+        }
+
+        return WhatsAppAdminUnread::counts()[0];
+    }
+
+    public static function forgetForUser(int|string $userId): void
+    {
+        Cache::forget('admin_header_support_unread:'.$userId);
+        Cache::forget('admin_header_staff_unread:'.$userId);
+    }
+
+    private static function computeSupportUnreadMessages(User $user): int
+    {
         $userId = $user->id;
 
         $supportUnreadChannelIds = ChannelList::query()
@@ -47,12 +87,8 @@ final class AdminHeaderChatCounts
             ->count();
     }
 
-    public static function staffUnreadMessages(?User $user): int
+    private static function computeStaffUnreadMessages(User $user): int
     {
-        if (! $user) {
-            return 0;
-        }
-
         $userId = $user->id;
 
         $staffUnreadChannelIds = ChannelList::query()
@@ -82,14 +118,5 @@ final class AdminHeaderChatCounts
                     });
             })
             ->count();
-    }
-
-    public static function whatsappUnreadChats(?User $user): int
-    {
-        if (! $user || ! $user->can('whatsapp_chat_view')) {
-            return 0;
-        }
-
-        return WhatsAppAdminUnread::counts()[0];
     }
 }

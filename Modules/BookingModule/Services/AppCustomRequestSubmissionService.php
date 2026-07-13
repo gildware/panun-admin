@@ -57,7 +57,7 @@ class AppCustomRequestSubmissionService
         });
 
         try {
-            admin_inbox_notify_app_custom_request_submitted($request);
+            send_app_custom_request_submitted_notifications($request);
         } catch (\Throwable $e) {
             report($e);
         }

@@ -62,6 +62,7 @@
             "app/Lib/NotificationMessageHelpers.php",
             "app/Lib/UserFcmDeviceHelpers.php",
             "app/Lib/AdminInboxNotificationHelpers.php",
+            "app/Lib/AppCustomRequestNotificationHelpers.php",
             "app/Lib/BookingPaymentHelpers.php",
             "app/Lib/BookingStatusTransitions.php",
             "app/Lib/AdditionalChargeHelpers.php",

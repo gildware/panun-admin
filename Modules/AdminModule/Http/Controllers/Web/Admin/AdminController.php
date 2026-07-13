@@ -2,6 +2,7 @@
 
 namespace Modules\AdminModule\Http\Controllers\Web\Admin;
 
+use App\Support\AdminHeaderChatCounts;
 use App\Traits\UploadSizeHelperTrait;
 use Carbon\Carbon;
 use Modules\AdminModule\Traits\AdminMenuWithRoutes;
@@ -359,62 +360,10 @@ class AdminController extends Controller
      */
     public function getUpdatedData(Request $request, StaffPresenceService $staffPresenceService, AdminInboxNotificationService $inboxNotificationService): JsonResponse
     {
-        $userId = $request->user()->id;
+        $user = $request->user();
+        $userId = $user->id;
 
-        $counts = Cache::remember("admin_header_counts:{$userId}", 15, function () use ($userId, $request, $inboxNotificationService) {
-            $message = $this->channelList->wherehas('channelUsers', function ($query) use ($userId) {
-                $query->where('user_id', $userId)->where('is_read', 0);
-            })->count();
-
-            $staffUnreadChannelIds = $this->channelList
-                ->whereHas('channelUsers', fn ($query) => $query->where('user_id', $userId)->where('is_read', 0))
-                ->whereHas('channelUsers', function ($query) use ($userId) {
-                    $query->where('user_id', '!=', $userId)
-                        ->whereHas('user', fn ($uq) => $uq->whereIn('user_type', ADMIN_USER_TYPES));
-                })
-                ->pluck('id');
-
-            $staffMessage = $staffUnreadChannelIds->count();
-
-            $staffUnreadMessages = ChannelConversation::whereIn('channel_id', $staffUnreadChannelIds)
-                ->where('user_id', '!=', $userId)
-                ->whereExists(function ($query) use ($userId) {
-                    $query->selectRaw('1')
-                        ->from('channel_users')
-                        ->whereColumn('channel_users.channel_id', 'channel_conversations.channel_id')
-                        ->where('channel_users.user_id', $userId)
-                        ->whereNull('channel_users.deleted_at')
-                        ->where(function ($inner) {
-                            $inner->whereNull('channel_users.read_at')
-                                ->orWhereColumn('channel_conversations.created_at', '>', 'channel_users.read_at');
-                        });
-                })
-                ->count();
-
-            $customerProviderUnreadChannels = $this->channelList
-                ->whereIn('reference_type', support_channel_reference_types())
-                ->whereHas('channelUsers', fn ($query) => $query->where('user_id', $userId)->where('is_read', 0))
-                ->whereHas('channelUsers', function ($query) use ($userId) {
-                    $query->where('user_id', '!=', $userId)
-                        ->whereHas('user', fn ($uq) => $uq->whereIn('user_type', [USER_TYPES[2]['value'], USER_TYPES[4]['value']]));
-                })
-                ->pluck('id');
-
-            $customerProviderUnreadMessages = ChannelConversation::whereIn('channel_id', $customerProviderUnreadChannels)
-                ->where('user_id', '!=', $userId)
-                ->whereExists(function ($query) use ($userId) {
-                    $query->selectRaw('1')
-                        ->from('channel_users')
-                        ->whereColumn('channel_users.channel_id', 'channel_conversations.channel_id')
-                        ->where('channel_users.user_id', $userId)
-                        ->whereNull('channel_users.deleted_at')
-                        ->where(function ($inner) {
-                            $inner->whereNull('channel_users.read_at')
-                                ->orWhereColumn('channel_conversations.created_at', '>', 'channel_users.read_at');
-                        });
-                })
-                ->count();
-
+        $counts = Cache::remember("admin_header_counts:{$userId}", 30, function () use ($userId, $user, $inboxNotificationService) {
             $notificationUnreadCount = $inboxNotificationService->unreadCount((string) $userId);
             $notificationReadCount = $inboxNotificationService->readCount((string) $userId);
             $notifications = $inboxNotificationService->recent((string) $userId, 10);
@@ -424,9 +373,12 @@ class AdminController extends Controller
                 'readCount' => $notificationReadCount,
             ])->render();
 
+            $staffUnreadMessages = AdminHeaderChatCounts::staffUnreadMessages($user);
+            $customerProviderUnreadMessages = AdminHeaderChatCounts::supportUnreadMessages($user);
+
             return [
-                'message' => $message,
-                'staff_message' => $staffMessage,
+                'message' => $staffUnreadMessages,
+                'staff_message' => $staffUnreadMessages,
                 'staff_unread_messages' => $staffUnreadMessages,
                 'customer_provider_unread_messages' => $customerProviderUnreadMessages,
                 'notification_unread_count' => $notificationUnreadCount,
