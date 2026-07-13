@@ -326,10 +326,7 @@ class ProviderController extends Controller
                 continue;
             }
 
-            $limitStatus = provider_warning_amount_calculate(
-                $provider->owner->account->account_payable,
-                $provider->owner->account->account_receivable
-            );
+            $limitStatus = provider_warning_amount_calculate_for_provider($provider);
             $provider['cash_limit_status'] = $limitStatus === false ? 'available' : $limitStatus;
 
             $provider['is_favorite'] = $this->favoriteProvider

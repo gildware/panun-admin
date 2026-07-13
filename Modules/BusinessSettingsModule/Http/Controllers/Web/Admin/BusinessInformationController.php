@@ -698,21 +698,7 @@ class BusinessInformationController extends Controller
         if($oldMaximumLimitAmount && $oldMaximumLimitAmount != $currentMaxLimitAmount){
             foreach ($providers as $provider){
                 if ($provider){
-                    $payable = $provider?->owner?->account?->account_payable;
-                    $receivable = $provider?->owner?->account?->account_receivable;
-                    if ($payable > $receivable) {
-                        $cash_in_hand = $payable - $receivable;
-                        if ($cash_in_hand >= $currentMaxLimitAmount){
-                            $provider->is_suspended = 1;
-                            $provider->save();
-                        }else{
-                            $provider->is_suspended = 0;
-                            $provider->save();
-                        }
-                    }elseif($payable <= $receivable){
-                        $provider->is_suspended = 0;
-                        $provider->save();
-                    }
+                    provider_apply_cash_limit_suspension_for_provider($provider, sendNotifications: false);
                 }
             }
         }

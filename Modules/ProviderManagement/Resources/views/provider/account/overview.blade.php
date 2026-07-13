@@ -10,7 +10,7 @@
 
     <div class="main-content">
         <div class="container-fluid">
-            @if(provider_warning_amount_calculate($provider->owner->account->account_payable,$provider->owner->account->account_receivable) == '80_percent'
+            @if(provider_warning_amount_calculate_for_provider($provider) == '80_percent'
              && business_config('max_cash_in_hand_limit_provider', 'provider_config')->live_values > 0
              && business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)
                 <div class="alert alert-danger">

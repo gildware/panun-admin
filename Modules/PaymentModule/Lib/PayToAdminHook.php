@@ -29,13 +29,9 @@ if (!function_exists('pay_to_admin_success')) {
         //pay to admin
         collectCashTransaction($provider_id, $amount);
 
-        //send notification
         $user = Provider::where('id', $provider_id)->first();
-        if ($user){
-            $user->is_suspended = 0;
-            $user->save();
-
-            send_provider_suspension_removed_notification($user);
+        if ($user) {
+            provider_apply_cash_limit_suspension_for_provider($user);
         }
         $data_info = [
             'provider_name' => $user?->company_name

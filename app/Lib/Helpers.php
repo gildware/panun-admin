@@ -2,6 +2,7 @@
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingRepeat;
@@ -866,6 +867,9 @@ if (!function_exists('get_distance')) {
 }
 
 if (!function_exists('provider_warning_amount_calculate')) {
+    /**
+     * @deprecated Use {@see provider_warning_amount_calculate_for_provider()} — cash-limit checks now use net balance.
+     */
     function provider_warning_amount_calculate($payable, $receivable): bool|string
     {
         if ($payable > $receivable) {
@@ -887,6 +891,145 @@ if (!function_exists('provider_warning_amount_calculate')) {
             return $warningType;
         }
         return false;
+    }
+}
+
+if (!function_exists('provider_net_balance_due_for_cash_limit')) {
+    /**
+     * Net balance amount used for cash-limit warnings/suspension (provider owes company), matching the provider app.
+     */
+    function provider_net_balance_due_for_cash_limit(Provider|string|null $provider): float
+    {
+        if ($provider === null) {
+            return 0.0;
+        }
+        if (is_string($provider)) {
+            $provider = Provider::query()->with('owner.account')->find($provider);
+        }
+        if (! $provider instanceof Provider) {
+            return 0.0;
+        }
+
+        $providerId = (string) $provider->id;
+        $settlement = booking_settlement_net_with_provider_ledger_for_provider_id($providerId);
+        $bookingNet = (float) ($settlement['settlement_net'] ?? 0);
+        $context = provider_payment_net_balance_context(
+            $providerId,
+            (string) $provider->user_id,
+            $bookingNet,
+            (float) ($provider->owner?->account?->account_receivable ?? 0),
+            (float) ($provider->owner?->account?->account_payable ?? 0),
+        );
+
+        if (! ($context['provider_pays_company'] ?? false)) {
+            return 0.0;
+        }
+
+        return max(0.0, round((float) ($context['display_amount'] ?? 0), 2));
+    }
+}
+
+if (!function_exists('provider_warning_amount_calculate_for_provider')) {
+    /**
+     * Cash-limit warning level from net balance (80% / 100% of configured limit).
+     *
+     * @return false|'80_percent'|'100_percent'
+     */
+    function provider_warning_amount_calculate_for_provider(Provider|string|null $provider): bool|string
+    {
+        if ($provider === null) {
+            return false;
+        }
+
+        $limitAmount = (float) ((business_config('max_cash_in_hand_limit_provider', 'provider_config'))->live_values ?? 0);
+        if ($limitAmount <= 0.009) {
+            return false;
+        }
+
+        $amount = provider_net_balance_due_for_cash_limit($provider);
+        if ($amount <= 0.009) {
+            return false;
+        }
+
+        $warningType = '';
+        if ($amount >= 0.8 * $limitAmount) {
+            $warningType = '80_percent';
+        }
+        if ($amount >= $limitAmount) {
+            $warningType = '100_percent';
+        }
+
+        return $warningType ?: false;
+    }
+}
+
+if (!function_exists('provider_apply_cash_limit_suspension_for_provider')) {
+    /**
+     * Suspend or unsuspend a provider based on net balance vs cash-limit setting.
+     */
+    function provider_apply_cash_limit_suspension_for_provider(Provider|string|null $provider, bool $sendNotifications = true): void
+    {
+        if (! (business_config('suspend_on_exceed_cash_limit_provider', 'provider_config'))->live_values) {
+            return;
+        }
+
+        if ($provider === null) {
+            return;
+        }
+        if (is_string($provider)) {
+            $provider = Provider::query()->with('owner.account')->find($provider);
+        }
+        if (! $provider instanceof Provider) {
+            return;
+        }
+
+        if (\Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement::isPerformanceSuspended($provider)
+            || \Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement::isPerformanceBlacklisted($provider)) {
+            return;
+        }
+
+        $limitStatus = provider_warning_amount_calculate_for_provider($provider);
+        $wasSuspended = (int) ($provider->is_suspended ?? 0) === 1;
+        $emailStatus = business_config('email_config_status', 'email_config')->live_values;
+
+        if ($limitStatus === '100_percent') {
+            if (! $wasSuspended) {
+                $provider->is_suspended = 1;
+                $provider->save();
+
+                if ($sendNotifications) {
+                    $notification = isNotificationActive($provider?->id, 'transaction', 'notification', 'provider');
+                    if ($notification) {
+                        send_provider_suspended_notification($provider, true);
+                    }
+                    if ($emailStatus) {
+                        try {
+                            Mail::to($provider?->owner?->email)->send(new \Modules\BusinessSettingsModule\Emails\CashInHandOverflowMail($provider));
+                        } catch (\Exception $exception) {
+                            info($exception);
+                        }
+                    }
+                }
+            }
+
+            return;
+        }
+
+        if ($wasSuspended && \Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement::isCashLimitSuspended($provider)) {
+            $provider->is_suspended = 0;
+            $provider->save();
+
+            if ($sendNotifications) {
+                send_provider_suspension_removed_notification($provider);
+                if ($emailStatus) {
+                    try {
+                        Mail::to($provider?->owner?->email)->send(new \Modules\ProviderManagement\Emails\AccountUnsuspendMail($provider));
+                    } catch (\Exception $exception) {
+                        info($exception);
+                    }
+                }
+            }
+        }
     }
 }
 
