@@ -13,14 +13,22 @@
 
                     <div class="card mb-3">
                         <div class="card-body">
-                            <form method="GET" action="{{ route('admin.booking.app-custom-requests.index') }}">
+                                    <form method="GET" action="{{ route('admin.booking.app-custom-requests.index') }}">
                                 <div class="row g-3 align-items-center">
-                                    <div class="col-md-8">
+                                    <div class="col-md-5">
                                         <input type="text"
                                                name="search"
                                                class="form-control"
                                                value="{{ $search ?? '' }}"
                                                placeholder="{{ translate('Search_by_name_phone_category_or_reference') }}">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <select name="status" class="form-control">
+                                            <option value="">{{ translate('All_Status') }}</option>
+                                            @foreach(\Modules\BookingModule\Entities\AppCustomRequest::statusOptions() as $value => $label)
+                                                <option value="{{ $value }}" @selected(($status ?? '') === $value)>{{ $label }}</option>
+                                            @endforeach
+                                        </select>
                                     </div>
                                     <div class="col-md-4 d-flex justify-content-md-end gap-2">
                                         <button class="btn btn--primary" type="submit">
@@ -65,8 +73,15 @@
                                             <td>{{ $customRequest->phone }}</td>
                                             <td>{{ $customRequest->category_name ?: '—' }}</td>
                                             <td>
-                                                <span class="badge bg-info text-capitalize">
-                                                    {{ str_replace('_', ' ', strtolower($customRequest->status)) }}
+                                                @php
+                                                    $statusClass = match($customRequest->status) {
+                                                        'accepted' => 'bg-success',
+                                                        'rejected' => 'bg-danger',
+                                                        default => 'bg-warning text-dark',
+                                                    };
+                                                @endphp
+                                                <span class="badge {{ $statusClass }} text-capitalize">
+                                                    {{ $customRequest->status }}
                                                 </span>
                                             </td>
                                             <td>

@@ -79,7 +79,7 @@ final class AdminMenuCounts
             }
 
             return AppCustomRequest::query()
-                ->where('status', AppCustomRequest::STATUS_PENDING_REVIEW)
+                ->where('status', AppCustomRequest::STATUS_PENDING)
                 ->count();
         } catch (\Throwable) {
             return 0;

@@ -5,6 +5,7 @@ namespace Modules\BookingModule\Services;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\BookingModule\Entities\AppCustomRequest;
+use Modules\BookingModule\Entities\AppCustomRequestMessage;
 use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
@@ -37,8 +38,15 @@ class AppCustomRequestSubmissionService
                 'category_id' => $payload['category_id'] ?? null,
                 'category_name' => $payload['category_name'],
                 'description' => $payload['description'],
-                'status' => AppCustomRequest::STATUS_PENDING_REVIEW,
+                'status' => AppCustomRequest::STATUS_PENDING,
                 'lead_id' => $lead?->id,
+            ]);
+
+            AppCustomRequestMessage::create([
+                'app_custom_request_id' => $request->id,
+                'sender_type' => AppCustomRequestMessage::SENDER_CUSTOMER,
+                'sender_id' => $payload['customer_id'] ?? null,
+                'message' => $payload['description'],
             ]);
 
             if ($lead) {

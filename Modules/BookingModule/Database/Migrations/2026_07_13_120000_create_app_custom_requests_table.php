@@ -16,7 +16,7 @@ return new class extends Migration {
             $table->uuid('category_id')->nullable()->index();
             $table->string('category_name')->nullable();
             $table->text('description');
-            $table->string('status', 50)->default('PENDING_REVIEW')->index();
+            $table->string('status', 50)->default('pending')->index();
             $table->unsignedBigInteger('lead_id')->nullable()->index();
             $table->timestamps();
         });

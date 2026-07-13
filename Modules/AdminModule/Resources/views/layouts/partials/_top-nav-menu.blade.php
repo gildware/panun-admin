@@ -8,6 +8,7 @@
     </div>
 
     @include('adminmodule::layouts.partials.top-nav.group-operations')
+    @include('adminmodule::layouts.partials.top-nav.group-leads-and-bookings')
     @include('adminmodule::layouts.partials.top-nav.group-customers')
     @include('adminmodule::layouts.partials.top-nav.group-providers')
     @include('adminmodule::layouts.partials.top-nav.group-catalog')

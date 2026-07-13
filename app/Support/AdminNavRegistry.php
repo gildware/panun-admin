@@ -28,6 +28,7 @@ class AdminNavRegistry
         $items = array_merge(
             self::dashboardItems(),
             self::operationsItems(),
+            self::leadsAndBookingsItems(),
             self::insightsItems(),
             self::financeItems(),
             self::marketingItems(),
@@ -308,9 +309,6 @@ class AdminNavRegistry
         $group = translate('Operations');
 
         return [
-            self::entry('operations', $group, translate('Lead_Management'), translate('Leads'), route('admin.lead.index'), [
-                'admin/lead', 'admin/lead/show*', 'admin/lead/edit*',
-            ], ['admin.lead.index', 'admin.lead.show'], 'lead.index'),
             self::entry('operations', $group, translate('Lead_Management'), translate('Outbound_Enquiry'), route('admin.lead.outbound-enquiry.index'), ['admin/lead/outbound-enquiry*']),
             self::entry('operations', $group, translate('Lead_Management'), translate('Lead_Configuration'), route('admin.lead.configuration.index'), ['admin/lead/configuration*']),
             self::entry('operations', $group, translate('Voice'), translate('Voice_Calls'), route('admin.voice-call.index'), ['admin/voice-call*']),
@@ -323,15 +321,9 @@ class AdminNavRegistry
             self::entry('operations', $group, translate('WhatsApp_Marketing'), translate('Reports'), route('admin.whatsapp.marketing.reports.index', ['channel' => 'whatsapp']), ['admin/social-inbox/*/marketing/reports*']),
             self::entry('operations', $group, translate('booking_management'), translate('Booking_Configuration'), route('admin.booking.configuration.index'), ['admin/booking/configuration*']),
             self::entry('operations', $group, translate('booking_management'), translate('Add_New_Booking'), route('admin.booking.create'), ['admin/booking/create']),
-            self::entry('operations', $group, translate('booking_management'), translate('Web_Bookings'), route('admin.booking.web-bookings.index'), ['admin/booking/web-bookings*']),
-            self::entry('operations', $group, translate('booking_management'), translate('App_Custom_Requests'), route('admin.booking.app-custom-requests.index'), ['admin/booking/app-custom-requests*']),
             self::entry('operations', $group, translate('booking_management'), translate('Add_New_Bidding'), route('admin.booking.post.create'), ['admin/booking/post/create']),
             self::entry('operations', $group, translate('booking_management'), translate('Customized_Requests'), route('admin.booking.post.list', ['type' => 'all']), ['admin/booking/post', 'admin/booking/post/details*']),
             self::entry('operations', $group, translate('booking_management'), translate('verify_requests'), route('admin.booking.list.verification', ['booking_status' => 'pending', 'type' => 'pending']), ['admin/booking/list/verification*'], [], 'booking.verify'),
-            self::entry('operations', $group, translate('booking_management'), translate('Booking_Requests'), route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']), [
-                'admin/booking/list', 'admin/booking/details*', 'admin/booking/repeat*', 'admin/booking/rebooking*',
-                'admin/booking/todays-followups*', 'admin/booking/success*',
-            ], [], 'booking.requests'),
             self::entry('operations', $group, translate('booking_management'), translate('Cancelled_by_provider'), route('admin.booking.list.cancelled_by_provider', ['service_type' => 'all']), ['admin/booking/list/cancelled-by-provider*'], [], 'booking.cancelled_by_provider'),
             self::entry('operations', $group, translate('booking_management'), translate('Special_scenario_bookings'), route('admin.booking.list.special_scenarios', ['scenario' => 'all']), ['admin/booking/list/special-scenarios*']),
             self::entry('operations', $group, translate('booking_management'), translate('Booking_Review'), route('admin.booking.reviews.list'), ['admin/booking/reviews/list*']),
@@ -339,6 +331,23 @@ class AdminNavRegistry
             self::entry('operations', $group, translate('Messages'), translate('Staff_Conversation'), route('admin.chat.staff'), ['admin/chat/staff*'], ['admin.chat.staff'], 'chat.staff'),
             self::entry('operations', $group, translate('Messages'), translate('Support_Messages'), route('admin.chat.support'), ['admin/chat/support*'], ['admin.chat.support'], 'chat.support'),
             self::entry('operations', $group, null, translate('In_App_Call_Monitor'), route('admin.in-app-calls.index'), ['admin/in-app-calls*'], ['admin.in-app-calls.index']),
+        ];
+    }
+
+    private static function leadsAndBookingsItems(): array
+    {
+        $group = translate('Leads_and_bookings');
+
+        return [
+            self::entry('leads_and_bookings', $group, null, translate('Leads'), route('admin.lead.index'), [
+                'admin/lead', 'admin/lead/show*', 'admin/lead/edit*',
+            ], ['admin.lead.index', 'admin.lead.show'], 'lead.index'),
+            self::entry('leads_and_bookings', $group, null, translate('Booking_Requests'), route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']), [
+                'admin/booking/list', 'admin/booking/details*', 'admin/booking/repeat*', 'admin/booking/rebooking*',
+                'admin/booking/todays-followups*', 'admin/booking/success*',
+            ], [], 'booking.requests'),
+            self::entry('leads_and_bookings', $group, null, translate('Web_Bookings'), route('admin.booking.web-bookings.index'), ['admin/booking/web-bookings*']),
+            self::entry('leads_and_bookings', $group, null, translate('App_Custom_Requests'), route('admin.booking.app-custom-requests.index'), ['admin/booking/app-custom-requests*']),
         ];
     }
 

@@ -1,6 +1,6 @@
 @php($groupActive = \App\Support\AdminNavRegistry::groupIsActive('operations'))
 @if(
-    Gate::any(['lead_view', 'lead_outbound_enquiry_view', 'lead_configuration_view', 'whatsapp_chat_view', 'whatsapp_message_template_view', 'whatsapp_marketing_template_view', 'whatsapp_marketing_bulk_view', 'whatsapp_marketing_campaign_view', 'whatsapp_marketing_report_view', 'booking_view', 'booking_configuration_view'])
+    Gate::any(['lead_outbound_enquiry_view', 'lead_configuration_view', 'whatsapp_chat_view', 'whatsapp_message_template_view', 'whatsapp_marketing_template_view', 'whatsapp_marketing_bulk_view', 'whatsapp_marketing_campaign_view', 'whatsapp_marketing_report_view', 'booking_view', 'booking_configuration_view'])
     || (auth()->user() && in_array(auth()->user()->user_type, ADMIN_USER_TYPES, true))
 )
 <div class="top-nav-item">
@@ -8,15 +8,8 @@
         {{ translate('Operations') }} <span class="material-icons">expand_more</span>
     </button>
     <div class="top-nav-dropdown top-nav-dropdown--menu">
-        @canany(['lead_view', 'lead_outbound_enquiry_view', 'lead_configuration_view'])
+        @canany(['lead_outbound_enquiry_view', 'lead_configuration_view'])
             @include('adminmodule::layouts.partials.top-nav._section', ['label' => translate('Lead_Management')])
-            @can('lead_view')
-                @include('adminmodule::layouts.partials.top-nav._link', [
-                    'href' => route('admin.lead.index'),
-                    'label' => translate('Leads'),
-                    'active' => (request()->is('admin/lead') || request()->is('admin/lead/*')) && !request()->is('admin/lead/create*') && !request()->is('admin/lead/configuration*') && !request()->is('admin/lead/reports*') && !request()->is('admin/lead/outbound-enquiry*'),
-                ])
-            @endcan
             @can('lead_outbound_enquiry_view')
                 @include('adminmodule::layouts.partials.top-nav._link', [
                     'href' => route('admin.lead.outbound-enquiry.index'),
@@ -115,18 +108,6 @@
                     'active' => request()->is('admin/booking/create'),
                 ])
                 @include('adminmodule::layouts.partials.top-nav._link', [
-                    'href' => route('admin.booking.web-bookings.index'),
-                    'label' => translate('Web_Bookings'),
-                    'active' => request()->is('admin/booking/web-bookings*'),
-                    'count' => $web_bookings_pending_count ?? 0,
-                ])
-                @include('adminmodule::layouts.partials.top-nav._link', [
-                    'href' => route('admin.booking.app-custom-requests.index'),
-                    'label' => translate('App_Custom_Requests'),
-                    'active' => request()->is('admin/booking/app-custom-requests*'),
-                    'count' => $app_custom_requests_pending_count ?? 0,
-                ])
-                @include('adminmodule::layouts.partials.top-nav._link', [
                     'href' => route('admin.booking.post.create'),
                     'label' => translate('Add_New_Bidding'),
                     'active' => request()->is('admin/booking/post/create'),
@@ -142,12 +123,6 @@
                     'label' => translate('verify_requests'),
                     'active' => request()->is('admin/booking/list/verification') && request()->query('booking_status') == 'pending',
                     'count' => \Modules\BookingModule\Entities\Booking::where('is_verified', '0')->where('payment_method', 'cash_after_service')->where('total_booking_amount', '>', (float) $max_booking_amount)->whereIn('booking_status', ['pending', 'accepted'])->count(),
-                ])
-                @include('adminmodule::layouts.partials.top-nav._link', [
-                    'href' => route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']),
-                    'label' => translate('Booking_Requests'),
-                    'active' => (request()->is('admin/booking/list') || request()->is('admin/booking/details*') || request()->is('admin/booking/repeat*') || request()->is('admin/booking/rebooking*') || request()->is('admin/booking/todays-followups*') || request()->is('admin/booking/success*')) && !request()->is('admin/booking/list/verification') && !request()->is('admin/booking/list/offline-payment') && !request()->is('admin/booking/list/special-scenarios') && !request()->is('admin/booking/list/cancelled-by-provider') && !request()->is('admin/booking/list/cancelled-by-customer') && !request()->is('admin/booking/reviews/list'),
-                    'count' => $all_bookings_menu_count,
                 ])
                 @include('adminmodule::layouts.partials.top-nav._link', [
                     'href' => route('admin.booking.list.cancelled_by_provider', ['service_type' => 'all']),
