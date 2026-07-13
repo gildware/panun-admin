@@ -2,8 +2,6 @@
 
 namespace App\Support;
 
-use Modules\BookingModule\Entities\Booking;
-
 class AdminPinnedNav
 {
   /**
@@ -11,15 +9,9 @@ class AdminPinnedNav
      */
     public static function catalogForChrome(array $menuCounts, float $maxBookingAmount): array
     {
-        $verifyCount = Booking::where('is_verified', '0')
-            ->where('payment_method', 'cash_after_service')
-            ->where('total_booking_amount', '>', $maxBookingAmount)
-            ->whereIn('booking_status', ['pending', 'accepted'])
-            ->count();
-
         $counts = [
             'booking.requests' => (int) ($menuCounts['all_bookings'] ?? 0),
-            'booking.verify' => $verifyCount,
+            'booking.verify' => (int) ($menuCounts['pending_verify_bookings'] ?? 0),
         ];
 
         return collect(AdminNavRegistry::pinnableCatalog())

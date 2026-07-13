@@ -3794,6 +3794,10 @@ const NOTIFICATION_FOR_USER = [
     ['key' => 'refund_bank_transfer', 'value' => 'Bank Transfer Refund', 'category' => 'payments'],
     ['key' => 'customer_review_approved', 'value' => 'New Review Received', 'category' => 'review'],
     ['key' => 'review_published', 'value' => 'Your Review Approved', 'category' => 'review'],
+    ['key' => 'app_custom_request_submitted', 'value' => 'Custom Request Submitted', 'category' => 'service_updates'],
+    ['key' => 'app_custom_request_accepted', 'value' => 'Custom Request Accepted', 'category' => 'service_updates'],
+    ['key' => 'app_custom_request_rejected', 'value' => 'Custom Request Rejected', 'category' => 'service_updates'],
+    ['key' => 'app_custom_request_admin_reply', 'value' => 'Custom Request Admin Reply', 'category' => 'service_updates'],
 ];
 
 const NOTIFICATION_FOR_PROVIDER = [

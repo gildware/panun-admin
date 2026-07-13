@@ -132,12 +132,18 @@ class AppCustomRequestController extends Controller
             return response()->json(response_formatter(DEFAULT_404), 404);
         }
 
-        AppCustomRequestMessage::create([
+        $message = AppCustomRequestMessage::create([
             'app_custom_request_id' => $customRequest->id,
             'sender_type' => AppCustomRequestMessage::SENDER_CUSTOMER,
             'sender_id' => $request->user()->id,
             'message' => trim((string) $request->input('message')),
         ]);
+
+        try {
+            admin_inbox_notify_app_custom_request_customer_reply($customRequest, $message);
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         $customRequest->load(['messages.sender']);
 

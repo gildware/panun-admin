@@ -22,6 +22,7 @@ if (! function_exists('notification_message_variables_for_key')) {
             'loyalty_point', 'loyalty_point_convert' => ['{{amount}}', '{{userName}}', '{{bookingId}}'],
             'refund_bank_transfer' => array_merge($common, ['{{amount}}', '{{bookingStatus}}']),
             'customer_review_approved', 'review_published' => ['{{userName}}', '{{providerName}}', '{{bookingId}}'],
+            'app_custom_request_submitted', 'app_custom_request_accepted', 'app_custom_request_rejected', 'app_custom_request_admin_reply' => ['{{userName}}', '{{referenceId}}', '{{categoryName}}', '{{requestStatus}}'],
             'review_approved', 'provider_review_published' => ['{{userName}}', '{{providerName}}', '{{bookingId}}'],
             'withdraw_request_submitted' => ['{{amount}}', '{{providerName}}'],
             'provider_removed_from_booking' => array_merge($common, $bookingExtras),
@@ -208,6 +209,22 @@ if (! function_exists('notification_default_message_templates')) {
                 'review_published' => [
                     'title' => 'Your Review Is Approved',
                     'description' => 'Hi {{userName}}, your review for {{providerName}} on booking {{bookingId}} is approved and published.',
+                ],
+                'app_custom_request_submitted' => [
+                    'title' => 'Custom Request Submitted – {{referenceId}}',
+                    'description' => 'Hi {{userName}}, we received your custom request for {{categoryName}}. Reference: {{referenceId}}.',
+                ],
+                'app_custom_request_accepted' => [
+                    'title' => 'Custom Request Accepted – {{referenceId}}',
+                    'description' => 'Hi {{userName}}, your custom request {{referenceId}} for {{categoryName}} has been accepted.',
+                ],
+                'app_custom_request_rejected' => [
+                    'title' => 'Custom Request Rejected – {{referenceId}}',
+                    'description' => 'Hi {{userName}}, your custom request {{referenceId}} for {{categoryName}} was not accepted.',
+                ],
+                'app_custom_request_admin_reply' => [
+                    'title' => 'Reply on Custom Request – {{referenceId}}',
+                    'description' => 'Hi {{userName}}, admin replied to your custom request {{referenceId}}. Open the app to read and respond.',
                 ],
             ],
             'provider_notification' => [
@@ -1138,6 +1155,31 @@ if (! function_exists('notification_scenario_trigger_map')) {
                 'module' => 'admin_alerts',
                 'checks' => [
                     ['label' => 'Profile change admin inbox', 'needles' => ['admin_inbox_notify_profile_change_request']],
+                ],
+            ],
+            'app_custom_request_submitted' => [
+                'module' => 'app_custom_requests',
+                'checks' => [
+                    ['label' => 'Custom request submitted admin inbox', 'needles' => ['admin_inbox_notify_app_custom_request_submitted']],
+                    ['label' => 'Custom request submitted customer push', 'needles' => ['send_app_custom_request_submitted_notifications', "'app_custom_request_submitted'"]],
+                ],
+            ],
+            'app_custom_request_status_changed' => [
+                'module' => 'app_custom_requests',
+                'checks' => [
+                    ['label' => 'Custom request status customer push', 'needles' => ['send_app_custom_request_status_change_notification']],
+                ],
+            ],
+            'app_custom_request_admin_reply' => [
+                'module' => 'app_custom_requests',
+                'checks' => [
+                    ['label' => 'Custom request admin reply customer push', 'needles' => ['send_app_custom_request_admin_reply_notification', "'app_custom_request_admin_reply'"]],
+                ],
+            ],
+            'app_custom_request_customer_reply' => [
+                'module' => 'app_custom_requests',
+                'checks' => [
+                    ['label' => 'Custom request customer reply admin inbox', 'needles' => ['admin_inbox_notify_app_custom_request_customer_reply']],
                 ],
             ],
             'admin_alert_withdraw_request' => [
@@ -2805,6 +2847,48 @@ if (! function_exists('notification_scenario_registry')) {
                 'title' => 'Provider profile or subscription update request',
                 'trigger_actor' => 'provider',
                 'trigger_action' => 'Provider submits profile, branding, subscription, or business settings changes for admin review',
+                'audiences' => [
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'app_custom_request_submitted',
+                'module' => 'app_custom_requests',
+                'title' => 'Customer submits app custom request',
+                'trigger_actor' => 'customer',
+                'trigger_action' => 'Customer submits a custom service request from the mobile app',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'app_custom_request_submitted', 'settings_type' => 'customer_notification', 'wired' => true],
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'app_custom_request_status_changed',
+                'module' => 'app_custom_requests',
+                'title' => 'Admin updates custom request status',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Admin accepts or rejects a customer custom request',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'app_custom_request_accepted', 'settings_type' => 'customer_notification', 'wired' => true, 'note' => 'Accepted status'],
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'app_custom_request_rejected', 'settings_type' => 'customer_notification', 'wired' => true, 'note' => 'Rejected status'],
+                ],
+            ],
+            [
+                'id' => 'app_custom_request_admin_reply',
+                'module' => 'app_custom_requests',
+                'title' => 'Admin replies on custom request',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Admin sends a reply message on a custom request thread',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'app_custom_request_admin_reply', 'settings_type' => 'customer_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'app_custom_request_customer_reply',
+                'module' => 'app_custom_requests',
+                'title' => 'Customer replies on custom request',
+                'trigger_actor' => 'customer',
+                'trigger_action' => 'Customer sends a follow-up message on a custom request thread',
                 'audiences' => [
                     ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
                 ],

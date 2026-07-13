@@ -6,6 +6,11 @@ use Illuminate\Http\Request;
 
 class AdminNavRegistry
 {
+    private static ?array $cachedMatch = null;
+
+    private static ?array $cachedBreadcrumbs = null;
+
+    private static ?array $cachedGroupSubmenu = null;
     /**
      * @return array<int, array{
      *     group_key: string,
@@ -50,6 +55,11 @@ class AdminNavRegistry
     public static function match(?Request $request = null): ?array
     {
         $request = $request ?? request();
+
+        if (self::$cachedMatch !== null) {
+            return self::$cachedMatch;
+        }
+
         $best = null;
         $bestScore = -1;
 
@@ -65,6 +75,8 @@ class AdminNavRegistry
             }
         }
 
+        self::$cachedMatch = $best;
+
         return $best;
     }
 
@@ -73,17 +85,21 @@ class AdminNavRegistry
      */
     public static function breadcrumbs(?Request $request = null): array
     {
+        if (self::$cachedBreadcrumbs !== null) {
+            return self::$cachedBreadcrumbs;
+        }
+
         $request = $request ?? request();
 
         if ($request->is('admin/dashboard')) {
-            return [
+            return self::$cachedBreadcrumbs = [
                 ['label' => translate('dashboard'), 'url' => route('admin.dashboard')],
             ];
         }
 
         $match = self::match($request);
         if (! $match) {
-            return [
+            return self::$cachedBreadcrumbs = [
                 ['label' => translate('dashboard'), 'url' => route('admin.dashboard')],
             ];
         }
@@ -102,7 +118,7 @@ class AdminNavRegistry
 
         $crumbs[] = ['label' => $match['label'], 'url' => null];
 
-        return $crumbs;
+        return self::$cachedBreadcrumbs = $crumbs;
     }
 
     public static function groupIsActive(string $groupKey, ?Request $request = null): bool
@@ -160,12 +176,16 @@ class AdminNavRegistry
      */
     public static function groupSubmenu(?Request $request = null): ?array
     {
+        if (self::$cachedGroupSubmenu !== null) {
+            return self::$cachedGroupSubmenu;
+        }
+
         $request = $request ?? request();
         $match = self::match($request);
         $groupKey = $match['group_key'] ?? null;
 
         if (! $groupKey || $groupKey === 'dashboard') {
-            return null;
+            return self::$cachedGroupSubmenu = null;
         }
 
         $currentSectionKey = $match['section'] ?? '__root__';
@@ -189,10 +209,10 @@ class AdminNavRegistry
         }
 
         if ($items === []) {
-            return null;
+            return self::$cachedGroupSubmenu = null;
         }
 
-        return [
+        return self::$cachedGroupSubmenu = [
             'title' => $match['section'] ?? $match['group'],
             'group_key' => $groupKey,
             'items' => $items,

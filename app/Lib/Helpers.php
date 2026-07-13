@@ -1910,7 +1910,7 @@ if (!function_exists('resolve_media_storage_url')) {
             $preferredStorage,
             function_exists('getDisk') ? getDisk() : null,
             'public',
-            's3',
+            \App\Support\CloudStorageConfigurator::isConfigured() ? 's3' : null,
         ])));
 
         foreach ($candidates as $candidate) {
@@ -2044,7 +2044,7 @@ if (!function_exists('getBusinessSettingsImageFullPath')) {
             '',
             $preferred,
             $defaultPath ? asset($defaultPath) : null,
-            true
+            false
         );
 
         if ($resolved !== null) {
@@ -2070,27 +2070,24 @@ if (!function_exists('getDataSettingsImageFullPath')) {
         }
 
         $imagePath = $path . $image->value;
-        $s3Storage = $image->storage;
+        $preferred = ($image->storage && $image->storage->storage_type == 's3') ? 's3' : null;
+        $resolved = resolve_media_storage_url(
+            $imagePath,
+            '',
+            $preferred,
+            $defaultPath ? asset($defaultPath) : null,
+            false
+        );
 
-        try {
-            if ($s3Storage && $s3Storage->storage_type == 's3' && \Illuminate\Support\Facades\Storage::disk('s3')->exists($imagePath)) {
-                return Storage::disk('s3')->url($imagePath);
-//                $awsUrl = rtrim(config('filesystems.disks.s3.url'), '/');
-//                $awsBucket = config('filesystems.disks.s3.bucket');
-//                return $awsUrl . '/' . $awsBucket . '/' . $imagePath;
-            }
-        }catch(\Exception $exception){
-            //
+        if ($resolved !== null) {
+            return $resolved;
         }
 
-        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($imagePath)) {
-            return Storage::disk('public')->url($imagePath);
-        } else {
-            if (request()->is('api/*')) {
-                return null;
-            }
-            return asset($defaultPath);
+        if (request()->is('api/*')) {
+            return null;
         }
+
+        return asset($defaultPath);
     }
 }
 
@@ -2119,26 +2116,17 @@ if (!function_exists('getPaymentGatewayImageFullPath')) {
 
         $path = 'payment_modules/gateway_image/';
         $imagePath = $path . ($additionalData ? $additionalData->gateway_image : '');
+        $preferred = ($additionalData->storage ?? 'public') === 's3' ? 's3' : 'public';
+        $resolved = resolve_media_storage_url(
+            $imagePath,
+            '',
+            $preferred,
+            $defaultPath ? asset($defaultPath) : null,
+            false
+        );
 
-        $additionalData = [
-            'gateway_title' => $additionalData->gateway_title?? null,
-            'gateway_image' => $additionalData->gateway_image?? null,
-            'storage' => $additionalData->storage ?? 'public'
-        ];
-
-        try {
-            if ($additionalData['storage'] == 's3' && \Illuminate\Support\Facades\Storage::disk('s3')->exists($imagePath)) {
-                return Storage::disk('s3')->url($imagePath);
-//                $awsUrl = rtrim(config('filesystems.disks.s3.url'), '/');
-//                $awsBucket = config('filesystems.disks.s3.bucket');
-//                return $awsUrl . '/' . $awsBucket . '/' . $imagePath;
-            }
-        }catch(\Exception $exception){
-            //
-        }
-
-        if ($additionalData['storage'] == 'public' && \Illuminate\Support\Facades\Storage::disk('public')->exists($imagePath)) {
-            return Storage::disk('public')->url($imagePath);
+        if ($resolved !== null) {
+            return $resolved;
         }
 
         if (request()->is('api/*')) {
