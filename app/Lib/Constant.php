@@ -3741,6 +3741,7 @@ const NOTIFICATION_SCENARIO_MODULE_LABELS = [
     'refund' => 'Refund',
     'communication' => 'Communication',
     'service_requests' => 'Service Requests',
+    'app_custom_requests' => 'App_Custom_Requests',
     'provider_account' => 'Provider Account',
     'advertisement' => 'Advertisement',
     'provider_work_showcase' => 'Provider Work Showcase',

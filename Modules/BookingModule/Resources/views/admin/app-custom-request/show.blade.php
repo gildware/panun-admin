@@ -2,100 +2,32 @@
 
 @section('title', translate('App_Custom_Request_Details'))
 
-@push('css_or_js')
+@section('content')
     <style>
-        .acr-detail-layout {
-            --acr-chat-height: calc(100vh - 260px);
-        }
-
-        @media (max-width: 991.98px) {
-            .acr-detail-layout {
-                --acr-chat-height: 460px;
-            }
-        }
-
-        .acr-chat-panel {
-            display: flex;
-            flex-direction: column;
-            height: var(--acr-chat-height);
-            min-height: 360px;
-        }
-
-        .acr-chat-panel .card-body {
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-            min-height: 0;
-            padding: 0 !important;
-        }
-
-        .acr-chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 1rem;
-            background: #f8f9fa;
-        }
-
-        .acr-chat-messages-inner {
-            display: flex;
-            flex-direction: column;
-            gap: 0.6rem;
-        }
-
-        .acr-chat-bubble {
-            max-width: 78%;
-            padding: 0.5rem 0.75rem;
-            border-radius: 0.75rem;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-
-        .acr-chat-bubble--customer {
-            align-self: flex-start;
-            background: #fff;
-            border: 1px solid #e9ecef;
-        }
-
-        .acr-chat-bubble--admin {
-            align-self: flex-end;
-            background: var(--bs-primary, #0d6efd);
-            color: #fff;
-        }
-
-        .acr-chat-bubble--admin .acr-chat-meta {
-            color: rgba(255, 255, 255, 0.75);
-        }
-
-        .acr-chat-meta {
-            font-size: 0.7rem;
-            color: #6c757d;
-            margin-bottom: 0.2rem;
-        }
-
-        .acr-chat-compose {
-            border-top: 1px solid #e9ecef;
-            padding: 0.75rem 1rem;
-            background: #fff;
-        }
-
-        .acr-status-badge {
-            font-size: 0.75rem;
-            padding: 0.25rem 0.55rem;
-            border-radius: 999px;
-            text-transform: capitalize;
-        }
-
+        .acr-detail-layout { --acr-chat-height: calc(100vh - 260px); }
+        @media (max-width: 991.98px) { .acr-detail-layout { --acr-chat-height: 460px; } }
+        .acr-chat-panel { display: flex; flex-direction: column; height: var(--acr-chat-height); min-height: 360px; }
+        .acr-chat-panel .card-body { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 0 !important; }
+        .acr-chat-messages { flex: 1 1 auto; overflow-y: auto; display: flex; flex-direction: column; padding: 1rem; background: #f8f9fa; min-height: 0; }
+        .acr-chat-messages::before { content: ''; flex: 1 1 auto; min-height: 0; }
+        .acr-chat-messages-inner { display: block; width: 100%; flex: 0 0 auto; }
+        .acr-chat-row { display: flex; width: 100%; margin-bottom: 0.6rem; }
+        .acr-chat-row:last-child { margin-bottom: 0; }
+        .acr-chat-row--customer { justify-content: flex-start; }
+        .acr-chat-row--admin { justify-content: flex-end; }
+        .acr-chat-bubble { display: inline-block; max-width: 78%; padding: 0.45rem 0.7rem; border-radius: 0.75rem; word-break: break-word; line-height: 1.4; vertical-align: top; height: auto !important; min-height: 0 !important; flex: none !important; }
+        .acr-chat-bubble--customer { background: #fff; border: 1px solid #e9ecef; color: #212529; }
+        .acr-chat-bubble--admin { background: var(--bs-primary, #25274d); color: #fff; }
+        .acr-chat-bubble--admin .acr-chat-meta { color: rgba(255, 255, 255, 0.75); }
+        .acr-chat-meta { font-size: 0.7rem; color: #6c757d; margin-bottom: 0.15rem; line-height: 1.2; }
+        .acr-chat-text { margin: 0; line-height: 1.4; white-space: pre-line; }
+        .acr-chat-compose { border-top: 1px solid #e9ecef; padding: 0.75rem 1rem; background: #fff; }
+        .acr-status-badge { font-size: 0.75rem; padding: 0.25rem 0.55rem; border-radius: 999px; text-transform: capitalize; }
         .acr-status-badge--pending { background: #fff3cd; color: #856404; }
         .acr-status-badge--accepted { background: #d1e7dd; color: #0f5132; }
         .acr-status-badge--rejected { background: #f8d7da; color: #842029; }
-
-        .acr-side-card .card-body {
-            padding: 1.25rem !important;
-        }
+        .acr-side-card .card-body { padding: 1.25rem !important; }
     </style>
-@endpush
-
-@section('content')
     <div class="main-content">
         <div class="container-fluid">
             <div class="page-title-wrap d-flex justify-content-between flex-wrap align-items-center gap-3 mb-3">
@@ -195,12 +127,15 @@
                             <div class="acr-chat-messages" id="acr-chat-messages">
                                 <div class="acr-chat-messages-inner">
                                     @forelse($customRequest->messages as $message)
-                                        <div class="acr-chat-bubble acr-chat-bubble--{{ $message->sender_type === 'admin' ? 'admin' : 'customer' }}">
-                                            <div class="acr-chat-meta">
-                                                {{ $message->sender_type === 'admin' ? translate('Admin') : translate('Customer') }}
-                                                · {{ $message->created_at?->format('d M Y h:i a') }}
+                                        @php($isAdminMessage = $message->sender_type === 'admin')
+                                        <div class="acr-chat-row acr-chat-row--{{ $isAdminMessage ? 'admin' : 'customer' }}">
+                                            <div class="acr-chat-bubble acr-chat-bubble--{{ $isAdminMessage ? 'admin' : 'customer' }}">
+                                                <div class="acr-chat-meta">
+                                                    {{ $isAdminMessage ? translate('Admin') : translate('Customer') }}
+                                                    · {{ $message->created_at?->format('d M Y h:i a') }}
+                                                </div>
+                                                <p class="acr-chat-text mb-0">{{ trim((string) $message->message) }}</p>
                                             </div>
-                                            <div>{{ $message->message }}</div>
                                         </div>
                                     @empty
                                         <div class="text-muted text-center py-4">{{ translate('No_data_available') }}</div>
