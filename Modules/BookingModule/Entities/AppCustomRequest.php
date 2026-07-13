@@ -34,7 +34,12 @@ class AppCustomRequest extends Model
         'category_name',
         'description',
         'status',
+        'customer_last_read_at',
         'lead_id',
+    ];
+
+    protected $casts = [
+        'customer_last_read_at' => 'datetime',
     ];
 
     public function lead(): BelongsTo

@@ -2,6 +2,46 @@
 
 use Modules\AdminModule\Entities\UserNotification;
 use Modules\AdminModule\Services\AdminInboxNotificationService;
+
+if (! function_exists('admin_notification_normalize_action_url')) {
+    /**
+     * Persist admin notification links as app-relative paths so they work on live
+     * even when notifications were created with APP_URL=http://127.0.0.1:8000.
+     */
+    function admin_notification_normalize_action_url(?string $url): ?string
+    {
+        if ($url === null || $url === '') {
+            return null;
+        }
+
+        $url = trim($url);
+
+        if (str_starts_with($url, '/')) {
+            return $url;
+        }
+
+        $parsed = parse_url($url);
+        if (! is_array($parsed)) {
+            return $url;
+        }
+
+        $path = $parsed['path'] ?? '';
+        if ($path === '') {
+            return $url;
+        }
+
+        if (isset($parsed['query'])) {
+            $path .= '?'.$parsed['query'];
+        }
+
+        if (isset($parsed['fragment'])) {
+            $path .= '#'.$parsed['fragment'];
+        }
+
+        return $path;
+    }
+}
+
 use Modules\BookingModule\Entities\Booking;
 use Modules\ChattingModule\Entities\ChannelConversation;
 use Modules\ChattingModule\Entities\ChannelList;
