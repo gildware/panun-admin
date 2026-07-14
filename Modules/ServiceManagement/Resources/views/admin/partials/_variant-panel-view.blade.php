@@ -17,11 +17,11 @@
 
     <div class="row g-3 align-items-start">
         <div class="col-auto">
-            <img src="{{ $variant->image_full_path }}" alt="{{ $variant->title }}"
+            <img src="{{ $variant->image_full_path }}" alt="{{ $variant->getRawOriginal('title') }}"
                  class="rounded border" width="64" height="64" style="object-fit:cover;">
         </div>
         <div class="col">
-            <h6 class="mb-1 text-dark">{{ $variant->title }}</h6>
+            <h6 class="mb-1 text-dark">{{ $variant->getRawOriginal('title') }}</h6>
             <p class="fs-12 text-muted mb-2">{{ $variant->getRawOriginal('description') ?: '—' }}</p>
             <div class="d-flex flex-wrap gap-3 fs-12">
                 <span><span class="text-muted">{{ translate('default_price') }}:</span> <strong class="c1">{{ with_currency_symbol($defaultPrice) }}</strong></span>

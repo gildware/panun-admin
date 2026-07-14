@@ -142,6 +142,8 @@ class ServiceVariantController extends Controller
         }
 
         $variant->save();
+        $this->persistVariantTranslations($request, $variant);
+        $this->syncPanelLocaleFields($request, $variant);
         $this->persistVariantPricing($request, $service, $variant);
 
         $message = translate(SERVICE_STORE_200['message']);
@@ -281,6 +283,7 @@ class ServiceVariantController extends Controller
         $variant->save();
 
         $this->persistVariantTranslations($request, $variant);
+        $this->syncPanelLocaleFields($request, $variant);
         $this->persistVariantPricing($request, $service, $variant);
 
         $message = translate(DEFAULT_UPDATE_200['message']);
@@ -394,7 +397,7 @@ class ServiceVariantController extends Controller
             }
             $writtenPrices[] = round($price, 4);
             $rows[] = [
-                'variant' => $variant->title,
+                'variant' => $variant->getRawOriginal('title') ?: $variant->title,
                 'variant_key' => $variant->variant_key,
                 'service_variant_id' => $variant->id,
                 'zone_id' => $zone->id,
@@ -425,6 +428,42 @@ class ServiceVariantController extends Controller
         if ($rows !== []) {
             $service->variations()->createMany($rows);
         }
+    }
+
+    /**
+     * Panel forms send a single title/description/note (not lang[] arrays).
+     * Keep the current-locale translation rows in sync so list/view accessors update.
+     */
+    private function syncPanelLocaleFields(Request $request, ServiceVariant $variant): void
+    {
+        if ($request->has('lang') && is_array($request->lang)) {
+            return;
+        }
+
+        $locale = str_replace('_', '-', app()->getLocale());
+
+        foreach (['title', 'description', 'note'] as $field) {
+            if (! $request->exists($field) || is_array($request->input($field))) {
+                continue;
+            }
+
+            $value = (string) ($request->input($field) ?? '');
+            if ($field === 'title' && $value === '') {
+                continue;
+            }
+
+            Translation::updateOrInsert(
+                [
+                    'translationable_type' => ServiceVariant::class,
+                    'translationable_id' => $variant->id,
+                    'locale' => $locale,
+                    'key' => $field,
+                ],
+                ['value' => $value]
+            );
+        }
+
+        $variant->unsetRelation('translations');
     }
 
     private function persistVariantTranslations(Request $request, ServiceVariant $variant): void
