@@ -76,6 +76,8 @@ if (! function_exists('fcm_base64url_encode')) {
 
  function getAccessToken($clientEmail, $privateKey)
 {
+    $privateKey = str_replace('\\n', "\n", (string) $privateKey);
+
     $jwtToken = [
         'iss' => $clientEmail,
         'scope' => 'https://www.googleapis.com/auth/firebase.messaging',

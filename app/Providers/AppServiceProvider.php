@@ -30,7 +30,10 @@ class AppServiceProvider extends ServiceProvider
         require_once app_path('Lib/UserFcmDeviceHelpers.php');
         require_once app_path('Lib/NotificationMessageHelpers.php');
         require_once app_path('Lib/MobileInboxNotificationHelpers.php');
+        require_once app_path('Lib/AdminInboxNotificationHelpers.php');
+        require_once app_path('Lib/AppCustomRequestNotificationHelpers.php');
         require_once app_path('Lib/AdminInboxNotificationAvatarHelpers.php');
+        require_once base_path('Modules/PromotionManagement/Lib/Promotion.php');
     }
 
     /**

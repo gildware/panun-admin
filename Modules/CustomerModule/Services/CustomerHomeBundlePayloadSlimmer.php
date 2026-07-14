@@ -61,6 +61,13 @@ class CustomerHomeBundlePayloadSlimmer
                     continue;
                 }
 
+                // Prefer section keys for categories so slug-bearing category rows are not
+                // mis-classified as services (which would strip image_full_path).
+                if (self::isCategorySectionKey((string) $sectionKey)) {
+                    $bundle['curated_sections'][$sectionKey] = CustomerCategoryPayloadSlimmer::slimGridList($content);
+                    continue;
+                }
+
                 if (CustomerServicePayloadSlimmer::looksLikeServiceList($content)) {
                     $bundle['curated_sections'][$sectionKey] = CustomerServicePayloadSlimmer::slimList($content);
                     continue;
@@ -80,6 +87,15 @@ class CustomerHomeBundlePayloadSlimmer
         return $bundle;
     }
 
+    private static function isCategorySectionKey(string $sectionKey): bool
+    {
+        if (in_array($sectionKey, ['categories', 'sub_categories', 'featured_categories'], true)) {
+            return true;
+        }
+
+        return str_contains($sectionKey, 'categor');
+    }
+
     /**
      * @param  array<string, mixed>  $content
      */
@@ -90,8 +106,14 @@ class CustomerHomeBundlePayloadSlimmer
         }
 
         $first = $content['data'][0];
+        if (! is_array($first) || ! isset($first['name']) || isset($first['company_name'])) {
+            return false;
+        }
 
-        return is_array($first) && isset($first['name']) && ! isset($first['company_name']);
+        return array_key_exists('image_full_path', $first)
+            || array_key_exists('image', $first)
+            || array_key_exists('image_dark_full_path', $first)
+            || array_key_exists('services_count', $first);
     }
 
     /**

@@ -143,4 +143,49 @@ class CustomerHomeBundlePayloadSlimmerTest extends TestCase
         $this->assertArrayNotHasKey('description', $featured);
         $this->assertArrayNotHasKey('tax', $featured['services_by_category'][0]);
     }
+
+    public function test_it_keeps_image_fields_on_curated_category_sections(): void
+    {
+        $bundle = [
+            'curated_sections' => [
+                'categories' => [
+                    'data' => [[
+                        'id' => 'cat-1',
+                        'slug' => 'home-appliance',
+                        'name' => 'Home Appliances',
+                        'image' => 'cat.webp',
+                        'image_full_path' => 'https://cdn.example/cat.webp',
+                        'image_dark' => 'cat-dark.webp',
+                        'image_dark_full_path' => 'https://cdn.example/cat-dark.webp',
+                        'description' => 'should be stripped',
+                        'zones_basic_info' => [['id' => 'z1']],
+                    ]],
+                ],
+                'popular_services' => [
+                    'data' => [[
+                        'id' => 'svc-1',
+                        'slug' => 'washing-machine-repair',
+                        'name' => 'Washing Machine Repair',
+                        'thumbnail_full_path' => 'https://cdn.example/thumb.webp',
+                        'description' => 'Long description',
+                    ]],
+                ],
+            ],
+        ];
+
+        $slim = CustomerHomeBundlePayloadSlimmer::slim($bundle);
+
+        $category = $slim['curated_sections']['categories']['data'][0];
+        $this->assertSame('https://cdn.example/cat.webp', $category['image_full_path']);
+        $this->assertSame('cat.webp', $category['image']);
+        $this->assertSame('https://cdn.example/cat-dark.webp', $category['image_dark_full_path']);
+        $this->assertArrayNotHasKey('description', $category);
+        $this->assertArrayNotHasKey('zones_basic_info', $category);
+        $this->assertArrayNotHasKey('thumbnail_full_path', $category);
+
+        $service = $slim['curated_sections']['popular_services']['data'][0];
+        $this->assertSame('https://cdn.example/thumb.webp', $service['thumbnail_full_path']);
+        $this->assertArrayNotHasKey('description', $service);
+        $this->assertArrayNotHasKey('image_full_path', $service);
+    }
 }

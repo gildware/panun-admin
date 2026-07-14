@@ -107,7 +107,7 @@ if (! function_exists('send_app_custom_request_submitted_notifications')) {
         }
 
         try {
-            send_app_custom_request_customer_notification($customRequest, 'app_custom_request_submitted');
+            send_app_custom_request_customer_notification($customRequest, 'app_custom_request_submitted', 'submitted');
         } catch (\Throwable $e) {
             report($e);
         }
