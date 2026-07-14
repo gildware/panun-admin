@@ -35,7 +35,7 @@ class ServiceVariantController extends Controller
     public function index(string $serviceId): View|Factory|RedirectResponse|Application
     {
         $this->authorize('service_view');
-        $service = $this->service->with(['serviceVariants.zonePrices'])->find($serviceId);
+        $service = $this->service->with(['serviceVariants.zonePrices', 'variations'])->find($serviceId);
         if (! $service) {
             Toastr::error(translate(DEFAULT_204['message']));
 
@@ -48,7 +48,7 @@ class ServiceVariantController extends Controller
     public function panel(string $serviceId): View|Factory|JsonResponse|RedirectResponse|Application
     {
         $this->authorize('service_view');
-        $service = $this->service->with(['serviceVariants.zonePrices'])->find($serviceId);
+        $service = $this->service->with(['serviceVariants.zonePrices', 'variations'])->find($serviceId);
         if (! $service) {
             if ($this->wantsVariationsPanel()) {
                 return response()->json(['success' => false, 'message' => translate(DEFAULT_204['message'])], 404);
@@ -146,7 +146,7 @@ class ServiceVariantController extends Controller
 
         $message = translate(SERVICE_STORE_200['message']);
         if ($this->wantsVariationsPanel()) {
-            return $this->panelJsonList($service->fresh(['serviceVariants.zonePrices']), $message);
+            return $this->panelJsonList($service->fresh(['serviceVariants.zonePrices', 'variations']), $message);
         }
 
         Toastr::success($message);
@@ -157,7 +157,7 @@ class ServiceVariantController extends Controller
     public function show(string $serviceId, string $variantId): View|Factory|RedirectResponse|Application
     {
         $this->authorize('service_view');
-        $service = $this->service->withoutGlobalScope('translate')->find($serviceId);
+        $service = $this->service->withoutGlobalScope('translate')->with(['variations'])->find($serviceId);
         $variant = $this->serviceVariant->withoutGlobalScope('translate')
             ->where('service_id', $serviceId)
             ->where('id', $variantId)
@@ -170,6 +170,7 @@ class ServiceVariantController extends Controller
             return back();
         }
 
+        $variant->setRelation('zonePrices', $variant->liveVariationRows($service));
         $category = $service->category()->with(['zones'])->first();
         $zones = $this->resolveServiceZones($category);
         [$zonePricingOn, $defaultPrice] = $variant->resolveAdminPricing($service);
@@ -196,7 +197,7 @@ class ServiceVariantController extends Controller
     public function edit(string $serviceId, string $variantId): View|Factory|RedirectResponse|Application
     {
         $this->authorize('service_update');
-        $service = $this->service->withoutGlobalScope('translate')->find($serviceId);
+        $service = $this->service->withoutGlobalScope('translate')->with(['variations'])->find($serviceId);
         $variant = $this->serviceVariant->withoutGlobalScope('translate')
             ->where('service_id', $serviceId)
             ->where('id', $variantId)
@@ -209,6 +210,7 @@ class ServiceVariantController extends Controller
             return back();
         }
 
+        $variant->setRelation('zonePrices', $variant->liveVariationRows($service));
         $category = $service->category()->with(['zones'])->first();
         $zones = $this->resolveServiceZones($category);
         [$zonePricingOn, $defaultPrice] = $variant->resolveAdminPricing($service);
@@ -283,7 +285,7 @@ class ServiceVariantController extends Controller
 
         $message = translate(DEFAULT_UPDATE_200['message']);
         if ($this->wantsVariationsPanel()) {
-            return $this->panelJsonList($service->fresh(['serviceVariants.zonePrices']), $message);
+            return $this->panelJsonList($service->fresh(['serviceVariants.zonePrices', 'variations']), $message);
         }
 
         Toastr::success($message);
@@ -317,7 +319,7 @@ class ServiceVariantController extends Controller
 
         $message = translate(DEFAULT_DELETE_200['message']);
         if ($this->wantsVariationsPanel()) {
-            $service = $this->service->with(['serviceVariants.zonePrices'])->find($serviceId);
+            $service = $this->service->with(['serviceVariants.zonePrices', 'variations'])->find($serviceId);
 
             return $this->panelJsonList($service, $message);
         }
@@ -369,25 +371,28 @@ class ServiceVariantController extends Controller
 
     private function persistVariantPricing(Request $request, Service $service, ServiceVariant $variant): void
     {
-        $zones = $this->zone->latest()->get();
+        $category = $service->category()->with(['zones'])->first();
+        $zones = $this->resolveServiceZones($category);
+        if ($zones->isEmpty()) {
+            $zones = $this->zone->latest()->get();
+        }
+
         $useZone = $request->boolean('variant_use_zone_pricing');
         $defaultPrice = (float) $request->default_price;
-        $vp = is_array($service->variation_pricing) ? $service->variation_pricing : [];
-        $vp[$variant->variant_key] = [
-            'use_zone_pricing' => $useZone,
-            'default_price' => $defaultPrice,
-        ];
-        $service->variation_pricing = $vp;
-        $service->save();
-
-        $this->variation->where('service_id', $service->id)->where('variant_key', $variant->variant_key)->delete();
 
         $rows = [];
+        $writtenPrices = [];
         foreach ($zones as $zone) {
-            $price = $useZone
-                ? (float) ($request->input($variant->variant_key.'_'.$zone->id.'_price')
-                    ?? $request->input('zone_prices.'.$zone->id, 0))
-                : $defaultPrice;
+            $raw = $request->input($variant->variant_key.'_'.$zone->id.'_price');
+            if ($raw === null) {
+                $raw = $request->input('zone_prices.'.$zone->id);
+            }
+            if ($useZone) {
+                $price = ($raw !== null && $raw !== '') ? (float) $raw : $defaultPrice;
+            } else {
+                $price = $defaultPrice;
+            }
+            $writtenPrices[] = round($price, 4);
             $rows[] = [
                 'variant' => $variant->title,
                 'variant_key' => $variant->variant_key,
@@ -397,7 +402,29 @@ class ServiceVariantController extends Controller
                 'service_id' => $service->id,
             ];
         }
-        $service->variations()->createMany($rows);
+
+        // Keep JSON default aligned when every zone row shares one price.
+        $uniqueWritten = collect($writtenPrices)->unique()->values();
+        if ($uniqueWritten->count() === 1) {
+            $defaultPrice = (float) $uniqueWritten->first();
+        }
+
+        $vp = is_array($service->variation_pricing) ? $service->variation_pricing : [];
+        $vp[$variant->variant_key] = [
+            'use_zone_pricing' => $useZone,
+            'default_price' => $defaultPrice,
+        ];
+        $service->variation_pricing = $vp;
+        $service->save();
+
+        Variation::withoutGlobalScopes()
+            ->where('service_id', $service->id)
+            ->where('variant_key', $variant->variant_key)
+            ->delete();
+
+        if ($rows !== []) {
+            $service->variations()->createMany($rows);
+        }
     }
 
     private function persistVariantTranslations(Request $request, ServiceVariant $variant): void

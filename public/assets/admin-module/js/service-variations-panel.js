@@ -50,6 +50,17 @@
         initPanel(workspace);
     }
 
+    function syncDefaultToZoneInputs(panel) {
+        if (!panel) return;
+        var toggle = panel.querySelector('.js-variant-zone-pricing-toggle');
+        if (toggle && toggle.checked) return;
+        var defaultInput = panel.querySelector('input[name="default_price"]');
+        if (!defaultInput) return;
+        panel.querySelectorAll('.js-variant-zone-price-input').forEach(function (el) {
+            el.value = defaultInput.value;
+        });
+    }
+
     function initZonePricingToggle(root) {
         root.querySelectorAll('.js-variant-zone-pricing-toggle').forEach(function (toggle) {
             toggle.addEventListener('change', function () {
@@ -63,6 +74,19 @@
                 if (table) {
                     table.classList.toggle('opacity-50', !enabled);
                 }
+                if (!enabled) {
+                    syncDefaultToZoneInputs(panel);
+                }
+            });
+        });
+
+        root.querySelectorAll('.js-variations-panel-form').forEach(function (form) {
+            var panel = form.closest('.service-variations-panel') || form;
+            var defaultInput = form.querySelector('input[name="default_price"]');
+            if (!defaultInput) return;
+            syncDefaultToZoneInputs(panel);
+            defaultInput.addEventListener('input', function () {
+                syncDefaultToZoneInputs(panel);
             });
         });
     }
