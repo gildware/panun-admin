@@ -23,10 +23,10 @@
             <tr>
                 <td class="py-1 text-muted">{{ $index + 1 }}</td>
                 <td class="py-1">
-                    <img src="{{ $variant->image_full_path }}" alt="{{ $variant->title }}"
+                    <img src="{{ $variant->image_full_path }}" alt="{{ $variant->getRawOriginal('title') }}"
                          class="rounded" width="32" height="32" style="object-fit: cover;">
                 </td>
-                <td class="py-1 fw-medium text-dark fs-13">{{ $variant->title }}</td>
+                <td class="py-1 fw-medium text-dark fs-13">{{ $variant->getRawOriginal('title') }}</td>
                 <td class="py-1 fs-13">{{ with_currency_symbol($defaultPrice) }}</td>
                 <td class="py-1 text-muted fs-12 d-none d-md-table-cell" style="max-width: 180px;">
                     @if($variant->getRawOriginal('description'))
