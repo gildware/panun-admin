@@ -579,7 +579,7 @@
                                                                     <div class="form-floating form-floating__icon">
                                                                         <input type="number" class="form-control"
                                                                                name="min_bidding_price" min="0"
-                                                                               max="100" step="any"
+                                                                               step="any"
                                                                                placeholder="{{translate('min_bidding_price')}} *"
                                                                                required="" value="{{$service->min_bidding_price}}">
                                                                         <label>{{translate('min_bidding_price')}} *</label>
