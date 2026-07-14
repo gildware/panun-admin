@@ -3,20 +3,33 @@
 namespace Modules\CustomerModule\Services;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Modules\ZoneManagement\Entities\Zone;
 
+/**
+ * Shared (guest) home-bundle Redis cache.
+ *
+ * Request path NEVER composes. Cold misses used to call Cache::remember() and
+ * rebuild inline (~10–15s). Compose only runs from warm jobs / artisan / admin reset.
+ */
 class CustomerHomeBaseBundleCache
 {
     public const BASE_VERSION = 'v18';
 
-    public const TTL = 900;
+    /** Soft TTL for the current versioned key (version bumps already change the key). */
+    public const TTL = 86400;
+
+    /** Longer TTL for the zone "latest good" alias used after version bumps. */
+    public const LATEST_TTL = 604800;
 
     public function __construct(
         private CustomerHomeBundleComposer $composer,
     ) {}
 
     /**
-     * @return array<string, mixed>
+     * Serve cache only. Never builds on the customer request path.
+     *
+     * @return array{bundle: array<string, mixed>, fresh: bool, source: string}
      */
     public function remember(Request $request, string $layoutHash): array
     {
@@ -24,18 +37,72 @@ class CustomerHomeBaseBundleCache
         $locale = $this->resolveLocale($request);
 
         if ($zoneId === '') {
-            return CustomerHomeBundlePayloadSlimmer::slim(
-                $this->composer->buildSharedBase($request)
-            );
+            // No zone → nothing useful to cache; never block on compose.
+            return [
+                'bundle' => self::emptyPayload(),
+                'fresh' => false,
+                'source' => 'no_zone',
+            ];
         }
 
-        return CustomerApiResponseCache::remember(
-            self::cacheKey($zoneId, $locale, $layoutHash),
-            fn () => CustomerHomeBundlePayloadSlimmer::slim(
-                $this->composer->buildSharedBase($request)
-            ),
-            self::TTL
+        $versionedKey = self::cacheKey($zoneId, $locale, $layoutHash);
+        $cached = Cache::get($versionedKey);
+        if (is_array($cached)) {
+            return [
+                'bundle' => $cached,
+                'fresh' => true,
+                'source' => 'versioned',
+            ];
+        }
+
+        // After content-version bumps the versioned key is empty, but the previous
+        // successful warm is still under the latest alias — serve that immediately.
+        $latestKey = self::latestCacheKey($zoneId, $locale, $layoutHash);
+        $latest = Cache::get($latestKey);
+        if (is_array($latest)) {
+            self::scheduleMissWarm($zoneId);
+
+            return [
+                'bundle' => $latest,
+                'fresh' => false,
+                'source' => 'latest',
+            ];
+        }
+
+        self::scheduleMissWarm($zoneId);
+
+        return [
+            'bundle' => self::emptyPayload(),
+            'fresh' => false,
+            'source' => 'miss',
+        ];
+    }
+
+    /**
+     * Compose + store for one zone/locale. Warm jobs / artisan only.
+     *
+     * @return array<string, mixed>
+     */
+    public function buildAndStore(Request $request, string $layoutHash): array
+    {
+        $zoneId = (string) ($request->header('zoneId') ?? $request->header('zoneid') ?? '');
+        $locale = $this->resolveLocale($request);
+
+        $payload = CustomerHomeBundlePayloadSlimmer::slim(
+            $this->composer->buildSharedBase($request)
         );
+
+        if ($zoneId === '') {
+            return $payload;
+        }
+
+        $versionedKey = self::cacheKey($zoneId, $locale, $layoutHash);
+        $latestKey = self::latestCacheKey($zoneId, $locale, $layoutHash);
+
+        Cache::put($versionedKey, $payload, self::TTL);
+        Cache::put($latestKey, $payload, self::LATEST_TTL);
+
+        return $payload;
     }
 
     public static function cacheKey(string $zoneId, string $locale, string $layoutHash): string
@@ -45,6 +112,44 @@ class CustomerHomeBaseBundleCache
             .$layoutHash.':'
             .$zoneId.':'
             .$locale;
+    }
+
+    /**
+     * Non-versioned alias so customers keep getting the last good payload while
+     * the warm job rebuilds the new versioned key after a content bump.
+     */
+    public static function latestCacheKey(string $zoneId, string $locale, string $layoutHash): string
+    {
+        return 'customer_home_base_latest:'.self::BASE_VERSION.':'
+            .$layoutHash.':'
+            .$zoneId.':'
+            .$locale;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function emptyPayload(): array
+    {
+        $emptyList = [
+            'data' => [],
+            'total' => 0,
+            'per_page' => 10,
+            'current_page' => 1,
+        ];
+
+        return [
+            'banners' => $emptyList,
+            'categories' => $emptyList,
+            'popular_services' => $emptyList,
+            'trending_services' => $emptyList,
+            'recommended_services' => $emptyList,
+            'providers' => $emptyList,
+            'nearby_providers' => $emptyList,
+            'campaigns' => $emptyList,
+            'advertisements' => $emptyList,
+            'curated_sections' => [],
+        ];
     }
 
     /**
@@ -94,7 +199,7 @@ class CustomerHomeBaseBundleCache
             $request = Request::create('/api/v1/customer/home-bundle', 'GET');
             $request->headers->set('zoneId', $zoneId);
             $request->headers->set('X-localization', $loc);
-            $cache->remember($request, $layoutHash);
+            $cache->buildAndStore($request, $layoutHash);
             $warmed++;
 
             if ($onProgress !== null) {
@@ -135,6 +240,11 @@ class CustomerHomeBaseBundleCache
         CustomerHomeCacheWarmState::markRebuildComplete();
 
         return $warmed;
+    }
+
+    private static function scheduleMissWarm(string $zoneId): void
+    {
+        CustomerHomeCacheManager::ensureZoneWarm($zoneId);
     }
 
     private function resolveLocale(Request $request): string
