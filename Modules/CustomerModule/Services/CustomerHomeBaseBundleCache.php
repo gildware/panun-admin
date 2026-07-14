@@ -9,7 +9,7 @@ class CustomerHomeBaseBundleCache
 {
     public const BASE_VERSION = 'v18';
 
-    public const TTL = 300;
+    public const TTL = 900;
 
     public function __construct(
         private CustomerHomeBundleComposer $composer,
