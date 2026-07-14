@@ -52,11 +52,20 @@
 
     function syncDefaultToZoneInputs(panel) {
         if (!panel) return;
-        var toggle = panel.querySelector('.js-variant-zone-pricing-toggle');
-        if (toggle && toggle.checked) return;
         var defaultInput = panel.querySelector('input[name="default_price"]');
         if (!defaultInput) return;
-        panel.querySelectorAll('.js-variant-zone-price-input').forEach(function (el) {
+        var zoneInputs = panel.querySelectorAll('.js-variant-zone-price-input');
+        if (!zoneInputs.length) return;
+
+        var toggle = panel.querySelector('.js-variant-zone-pricing-toggle');
+        if (toggle && toggle.checked) {
+            // With zone pricing, only mirror default when all zones currently share one price.
+            var values = Array.prototype.map.call(zoneInputs, function (el) { return String(el.value); });
+            var unique = values.filter(function (v, i, arr) { return arr.indexOf(v) === i; });
+            if (unique.length !== 1) return;
+        }
+
+        zoneInputs.forEach(function (el) {
             el.value = defaultInput.value;
         });
     }
@@ -134,6 +143,8 @@
     function submitPanelForm(form) {
         var workspace = getWorkspace();
         if (!workspace || !form) return;
+
+        syncDefaultToZoneInputs(form.closest('.service-variations-panel') || form);
 
         var formData = new FormData(form);
         var method = (form.querySelector('input[name="_method"]') || {}).value || form.method || 'POST';

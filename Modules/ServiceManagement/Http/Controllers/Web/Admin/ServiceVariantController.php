@@ -381,7 +381,8 @@ class ServiceVariantController extends Controller
         }
 
         $useZone = $request->boolean('variant_use_zone_pricing');
-        $defaultPrice = (float) $request->default_price;
+        $requestDefault = (float) $request->default_price;
+        $defaultPrice = $requestDefault;
 
         $rows = [];
         $writtenPrices = [];
@@ -391,9 +392,10 @@ class ServiceVariantController extends Controller
                 $raw = $request->input('zone_prices.'.$zone->id);
             }
             if ($useZone) {
-                $price = ($raw !== null && $raw !== '') ? (float) $raw : $defaultPrice;
+                $price = ($raw !== null && $raw !== '') ? (float) $raw : $requestDefault;
             } else {
-                $price = $defaultPrice;
+                // Zone pricing off: always apply the submitted default to every zone.
+                $price = $requestDefault;
             }
             $writtenPrices[] = round($price, 4);
             $rows[] = [
@@ -406,10 +408,16 @@ class ServiceVariantController extends Controller
             ];
         }
 
-        // Keep JSON default aligned when every zone row shares one price.
-        $uniqueWritten = collect($writtenPrices)->unique()->values();
-        if ($uniqueWritten->count() === 1) {
-            $defaultPrice = (float) $uniqueWritten->first();
+        // Only derive default from zone rows when the submitted default is missing.
+        if ($requestDefault <= 0) {
+            $positive = collect($writtenPrices)->filter(fn ($p) => $p > 0)->unique()->values();
+            if ($positive->count() === 1) {
+                $defaultPrice = (float) $positive->first();
+            } elseif ($positive->isNotEmpty()) {
+                $defaultPrice = (float) $positive->min();
+            }
+        } else {
+            $defaultPrice = $requestDefault;
         }
 
         $vp = is_array($service->variation_pricing) ? $service->variation_pricing : [];
