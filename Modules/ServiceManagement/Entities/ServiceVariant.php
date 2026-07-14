@@ -78,29 +78,17 @@ class ServiceVariant extends Model
     }
 
     /**
-     * Price shown in admin variation lists — same basis as the edit form.
+     * Price shown in admin variation lists — same value as the edit form default price.
      */
     public function displayPrice(?Service $service = null): float
     {
-        [$zonePricingOn, $defaultPrice] = $this->resolveAdminPricing($service);
-        $live = $this->liveVariationRows($service);
-        $positive = $live->pluck('price')->map(fn ($p) => (float) $p)->filter(fn ($p) => $p > 0)->values();
-
-        if ($zonePricingOn && $positive->isNotEmpty()) {
-            $unique = $positive->map(fn ($p) => round($p, 4))->unique()->values();
-            if ($unique->count() === 1) {
-                return (float) $unique->first();
-            }
-
-            // Mixed zone prices: prefer admin default when set, else lowest zone price.
-            return $defaultPrice > 0 ? $defaultPrice : (float) $positive->min();
-        }
+        [, $defaultPrice] = $this->resolveAdminPricing($service);
 
         return $defaultPrice;
     }
 
     /**
-     * Default price for edit/view forms — keep in sync with live variations when they agree.
+     * Default price for edit/view forms.
      *
      * @return array{0: bool, 1: float} [use_zone_pricing, default_price]
      */
@@ -114,14 +102,22 @@ class ServiceVariant extends Model
         $live = $this->liveVariationRows($service);
         $livePrices = $live->pluck('price')->map(fn ($p) => round((float) $p, 4))->filter(fn ($p) => $p > 0)->values();
 
-        if ($livePrices->isNotEmpty()) {
-            $unique = $livePrices->unique()->values();
-            // Unanimous live rows beat stale JSON (both for zone-on and zone-off).
-            if ($unique->count() === 1) {
-                $defaultPrice = (float) $unique->first();
-            } elseif ($defaultPrice <= 0) {
-                $defaultPrice = (float) $livePrices->min();
+        if (! $zonePricingOn) {
+            // Zone pricing off: applied zone rows are the source of truth when they agree.
+            if ($livePrices->isNotEmpty()) {
+                $unique = $livePrices->unique()->values();
+                if ($unique->count() === 1) {
+                    $defaultPrice = (float) $unique->first();
+                } elseif ($defaultPrice <= 0) {
+                    $defaultPrice = (float) $livePrices->min();
+                }
             }
+        } elseif ($defaultPrice <= 0 && $livePrices->isNotEmpty()) {
+            // Zone pricing on: keep stored default; only fall back when missing.
+            $unique = $livePrices->unique()->values();
+            $defaultPrice = $unique->count() === 1
+                ? (float) $unique->first()
+                : (float) $livePrices->min();
         }
 
         return [$zonePricingOn, $defaultPrice];
