@@ -20,21 +20,36 @@ class CustomerHomeBundleService
     {
         $layoutHash = $this->layoutHash();
         $userId = auth('api')->id();
-        $contentVersion = CustomerHomeContentVersion::resolveForRequest(
-            $layoutHash,
-            is_numeric($userId) ? (int) $userId : null,
-        );
+        $numericUserId = is_numeric($userId) ? (int) $userId : null;
 
-        $base = $this->baseBundleCache->remember($request, $layoutHash);
+        $resolved = $this->baseBundleCache->remember($request, $layoutHash);
+        $base = $resolved['bundle'];
+        $fresh = (bool) ($resolved['fresh'] ?? false);
+
+        // Only stamp the live content_version on a fresh versioned hit. Stale/empty
+        // responses use a non-matching version so the app keeps polling until warm finishes.
+        $contentVersion = $fresh
+            ? CustomerHomeContentVersion::resolveForRequest($layoutHash, $numericUserId)
+            : $this->warmingContentVersion($layoutHash, $numericUserId, (string) ($resolved['source'] ?? 'miss'));
 
         $bundle = auth('api')->check()
             ? $this->bundlePersonalizer->apply($base, $request, (int) auth('api')->id())
             : $base;
 
         return array_merge(
-            ['content_version' => $contentVersion],
+            [
+                'content_version' => $contentVersion,
+                'cache_status' => $fresh ? 'hit' : (string) ($resolved['source'] ?? 'miss'),
+            ],
             $this->normalizeForMobileClient($bundle),
         );
+    }
+
+    private function warmingContentVersion(string $layoutHash, ?int $userId, string $source): string
+    {
+        // Version endpoint always returns the live global version — this prefix
+        // guarantees a mismatch so clients re-fetch after background warm.
+        return 'warming:'.$source.':'.CustomerHomeContentVersion::resolveForRequest($layoutHash, $userId);
     }
 
     /**

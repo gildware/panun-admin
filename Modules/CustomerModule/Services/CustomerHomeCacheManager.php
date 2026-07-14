@@ -72,8 +72,9 @@ class CustomerHomeCacheManager
 
     /**
      * Warm a single zone's shared home-bundle without bumping content version.
-     * Called from get-zone-id so the subsequent /home-bundle is usually a cache hit.
+     * Called from get-zone-id / cache-miss paths so /home-bundle stays cache-serve-only.
      * Throttled per zone so frequent map moves do not flood the queue.
+     * Never composes inline on the HTTP request path.
      */
     public static function ensureZoneWarm(string $zoneId): void
     {
@@ -87,7 +88,32 @@ class CustomerHomeCacheManager
             return;
         }
 
-        self::warmAfterContentChange($zoneId);
+        self::dispatchWarmOnly($zoneId);
+    }
+
+    /**
+     * Queue a warm job only — never call warmAll() inline (that is the 10–15s path).
+     */
+    public static function dispatchWarmOnly(?string $zoneId = null): void
+    {
+        if (self::shouldDispatchAsync()) {
+            WarmCustomerHomeBundleCacheJob::dispatch($zoneId);
+
+            return;
+        }
+
+        if (self::canFinishHttpResponseEarly()) {
+            WarmCustomerHomeBundleCacheJob::dispatchAfterResponse($zoneId);
+
+            return;
+        }
+
+        // sync queue + no FPM (php artisan serve / unit tests): still queue via
+        // after-response when available; otherwise rely on customer:home-cache:warm cron.
+        // Never warmAll() here — that would block the customer home API again.
+        if (! app()->runningInConsole()) {
+            WarmCustomerHomeBundleCacheJob::dispatchAfterResponse($zoneId);
+        }
     }
 
     private static function forgetZoneEligibility(?string $zoneId): void
