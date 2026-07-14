@@ -172,10 +172,7 @@ class ServiceVariantController extends Controller
 
         $category = $service->category()->with(['zones'])->first();
         $zones = $this->resolveServiceZones($category);
-        $vp = is_array($service->variation_pricing) ? $service->variation_pricing : [];
-        $stored = $vp[$variant->variant_key] ?? null;
-        $zonePricingOn = is_array($stored) ? (bool) ($stored['use_zone_pricing'] ?? false) : false;
-        $defaultPrice = is_array($stored) ? (float) ($stored['default_price'] ?? 0) : 0;
+        [$zonePricingOn, $defaultPrice] = $variant->resolveAdminPricing($service);
 
         if ($this->wantsVariationsPanel()) {
             return view('servicemanagement::admin.partials._variant-panel-view', compact(
@@ -214,10 +211,7 @@ class ServiceVariantController extends Controller
 
         $category = $service->category()->with(['zones'])->first();
         $zones = $this->resolveServiceZones($category);
-        $vp = is_array($service->variation_pricing) ? $service->variation_pricing : [];
-        $stored = $vp[$variant->variant_key] ?? null;
-        $zonePricingOn = is_array($stored) ? (bool) ($stored['use_zone_pricing'] ?? false) : false;
-        $defaultPrice = is_array($stored) ? (float) ($stored['default_price'] ?? 0) : 0;
+        [$zonePricingOn, $defaultPrice] = $variant->resolveAdminPricing($service);
 
         if ($this->wantsVariationsPanel()) {
             return view('servicemanagement::admin.partials._variant-panel-form', compact(

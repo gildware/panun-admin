@@ -15,10 +15,7 @@
 
     $resolveZonePrice = static function ($service, $variant, $zone) {
         $variantKey = $variant->variant_key;
-        $stored = is_array($service->variation_pricing) ? ($service->variation_pricing[$variantKey] ?? null) : null;
-        $defaultPrice = is_array($stored)
-            ? (float) ($stored['default_price'] ?? 0)
-            : (float) ($variant->zonePrices->first()->price ?? 0);
+        $defaultPrice = $variant->displayPrice($service);
 
         $zonePrice = $variant->zonePrices->firstWhere('zone_id', $zone->id)
             ?? $service->variations->first(function ($row) use ($variantKey, $zone) {

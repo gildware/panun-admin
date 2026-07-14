@@ -9,14 +9,12 @@
     @foreach($variant_keys as $key => $item)
         @php
             $meta = $serviceVariantsByKey->get($item);
-            $vp = [];
-            if (isset($service) && $service !== null) {
-                $vp = is_array($service->variation_pricing ?? null) ? $service->variation_pricing : [];
-            }
-            $stored = $vp[$item] ?? null;
-            if (is_array($stored) && array_key_exists('use_zone_pricing', $stored)) {
-                $zonePricingOn = (bool) $stored['use_zone_pricing'];
-                $defaultVal = (float) ($stored['default_price'] ?? 0);
+            if ($meta && isset($service)) {
+                $meta->setRelation(
+                    'zonePrices',
+                    $variants->where('variant_key', $item)->values()
+                );
+                [$zonePricingOn, $defaultVal] = $meta->resolveAdminPricing($service);
             } else {
                 $zonePrices = $variants->where('variant_key', $item)->pluck('price')->map(function ($p) {
                     return round((float) $p, 4);

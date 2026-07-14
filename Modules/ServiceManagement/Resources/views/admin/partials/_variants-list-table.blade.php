@@ -18,8 +18,7 @@
         <tbody>
         @forelse($variants as $index => $variant)
             @php
-                $vp = is_array($service->variation_pricing) ? ($service->variation_pricing[$variant->variant_key] ?? null) : null;
-                $defaultPrice = is_array($vp) ? (float) ($vp['default_price'] ?? 0) : (float) ($variant->zonePrices->first()->price ?? 0);
+                $defaultPrice = $variant->displayPrice($service);
             @endphp
             <tr>
                 <td class="py-1 text-muted">{{ $index + 1 }}</td>
