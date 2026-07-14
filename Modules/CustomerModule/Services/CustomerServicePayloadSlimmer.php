@@ -137,8 +137,14 @@ class CustomerServicePayloadSlimmer
         }
 
         $first = $content['data'][0];
+        if (! is_array($first)) {
+            return false;
+        }
 
-        return is_array($first) && (isset($first['variations_app_format']) || isset($first['slug']));
+        // Do not treat `slug` alone as a service signal — categories/subcategories also have slugs.
+        return array_key_exists('variations_app_format', $first)
+            || array_key_exists('thumbnail_full_path', $first)
+            || array_key_exists('thumbnail', $first);
     }
 
     /**

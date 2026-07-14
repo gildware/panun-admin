@@ -117,7 +117,8 @@ class ServiceController extends Controller
         $zoneId = Config::get('zone_id');
 
         $authUser = auth('api')->user();
-        if ($authUser) {
+        $isFirstPage = (int) $request['offset'] <= 1;
+        if ($authUser && $isFirstPage) {
             $this->recentSearch->Create(['user_id' => $authUser->id, 'keyword' => $decodedString]);
         }
 
@@ -259,28 +260,35 @@ class ServiceController extends Controller
                 ");
             });
 
-        $statsQuery = clone $servicesQuery;
-        $statsQuery->getQuery()->orders = [];
-        $statsQuery->getQuery()->limit = null;
-        $statsQuery->getQuery()->offset = null;
+        $filterMinPrice = 0;
+        $filterMaxPrice = 0;
+        $initialMinPrice = 0;
+        $initialMaxPrice = 0;
 
-        $priceStats = DB::query()
-            ->fromSub($statsQuery->toBase(), 'search_services')
-            ->selectRaw('MIN(service_filter_min_price) as filter_min_price, MAX(service_filter_min_price) as filter_max_price, COUNT(*) as result_count')
-            ->first();
+        if ($isFirstPage) {
+            $statsQuery = clone $servicesQuery;
+            $statsQuery->getQuery()->orders = [];
+            $statsQuery->getQuery()->limit = null;
+            $statsQuery->getQuery()->offset = null;
 
-        if ($authUser) {
-            $recentSearch = RecentSearch::where('keyword', $decodedString)->oldest()->first();
-            if ($recentSearch) {
-                $this->Searched_data_log($authUser->id, 'search', $recentSearch->id, (int) ($priceStats->result_count ?? 0));
+            $priceStats = DB::query()
+                ->fromSub($statsQuery->toBase(), 'search_services')
+                ->selectRaw('MIN(service_filter_min_price) as filter_min_price, MAX(service_filter_min_price) as filter_max_price, COUNT(*) as result_count')
+                ->first();
+
+            if ($authUser) {
+                $recentSearch = RecentSearch::where('keyword', $decodedString)->oldest()->first();
+                if ($recentSearch) {
+                    $this->Searched_data_log($authUser->id, 'search', $recentSearch->id, (int) ($priceStats->result_count ?? 0));
+                }
             }
+
+            $filterMinPrice = (float) ($priceStats->filter_min_price ?? 0);
+            $filterMaxPrice = (float) ($priceStats->filter_max_price ?? 0);
+
+            $initialMinPrice = Variation::min('price');
+            $initialMaxPrice = Variation::max('price');
         }
-
-        $filterMinPrice = (float) ($priceStats->filter_min_price ?? 0);
-        $filterMaxPrice = (float) ($priceStats->filter_max_price ?? 0);
-
-        $initialMinPrice = Variation::min('price');
-        $initialMaxPrice = Variation::max('price');
 
         $services = $this->mapServiceList(
             $servicesQuery->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('')
