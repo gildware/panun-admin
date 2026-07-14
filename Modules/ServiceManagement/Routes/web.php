@@ -64,6 +64,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('defaults', [ServiceOverviewContentController::class, 'defaults'])->name('defaults');
         Route::post('defaults', [ServiceOverviewContentController::class, 'updateDefaults'])->name('defaults.update');
         Route::post('update/{service_id}', [ServiceOverviewContentController::class, 'update'])->name('update');
+        Route::post('upload-image/{service_id}', [ServiceOverviewContentController::class, 'uploadImage'])->name('upload-image');
     });
 
     Route::group(['prefix' => 'faq', 'as' => 'faq.'], function () {

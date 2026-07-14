@@ -40,6 +40,47 @@
             font-size: 1.25rem;
             line-height: 1;
         }
+        .service-info-sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin: -4px -4px 16px;
+            padding: 12px 4px;
+            background: #fff;
+            border-bottom: 1px solid #eef0f3;
+        }
+        .service-info-save-bar {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1040;
+            display: none;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.96);
+            border-top: 1px solid #e5e7eb;
+            box-shadow: 0 -6px 20px rgba(15, 23, 42, 0.08);
+            backdrop-filter: blur(8px);
+        }
+        .service-info-save-bar.is-visible {
+            display: flex;
+        }
+        body.info-tab-active {
+            padding-bottom: 72px;
+        }
+        @media (max-width: 575.98px) {
+            .service-info-save-bar {
+                padding: 10px 16px;
+            }
+        }
     </style>
 
 @endpush
@@ -81,7 +122,11 @@
                                 $lang = $lang ?? ['code' => 'default'];
                                 $language = Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name','system_language')->first();
                                 $default_lang = str_replace('_', '-', app()->getLocale());
+                                $allowedTabs = ['info', 'variations', 'overview', 'faq', 'charges'];
                                 $activeTab = request('tab', 'info');
+                                if (! in_array($activeTab, $allowedTabs, true)) {
+                                    $activeTab = 'info';
+                                }
                                 $infoTabActive = $activeTab === 'info' ? 'active' : '';
                                 $infoPaneActive = $activeTab === 'info' ? 'show active' : '';
                                 $variationsTabActive = $activeTab === 'variations' ? 'active' : '';
@@ -96,27 +141,27 @@
                             <ul class="nav nav--tabs border-color-primary mb-4" id="service-edit-main-tabs" role="tablist">
                                 <li class="nav-item" role="presentation">
                                     <button class="nav-link {{ $infoTabActive }}" id="service-edit-tab-info" data-bs-toggle="tab"
-                                            data-bs-target="#service-edit-pane-info" type="button" role="tab"
+                                            data-bs-target="#service-edit-pane-info" data-service-tab="info" type="button" role="tab"
                                             aria-controls="service-edit-pane-info" aria-selected="{{ $activeTab === 'info' ? 'true' : 'false' }}">{{ translate('service_information') }}</button>
                                 </li>
                                 <li class="nav-item" role="presentation">
                                     <button class="nav-link {{ $variationsTabActive }}" id="service-edit-tab-variations" data-bs-toggle="tab"
-                                            data-bs-target="#service-edit-pane-variations" type="button" role="tab"
+                                            data-bs-target="#service-edit-pane-variations" data-service-tab="variations" type="button" role="tab"
                                             aria-controls="service-edit-pane-variations" aria-selected="{{ $activeTab === 'variations' ? 'true' : 'false' }}">{{ translate('price_variation') }}</button>
                                 </li>
                                 <li class="nav-item" role="presentation">
                                     <button class="nav-link {{ $overviewTabActive }}" id="service-edit-tab-overview" data-bs-toggle="tab"
-                                            data-bs-target="#service-edit-pane-overview" type="button" role="tab"
+                                            data-bs-target="#service-edit-pane-overview" data-service-tab="overview" type="button" role="tab"
                                             aria-controls="service-edit-pane-overview" aria-selected="{{ $activeTab === 'overview' ? 'true' : 'false' }}">{{ translate('overview_sections') }}</button>
                                 </li>
                                 <li class="nav-item" role="presentation">
                                     <button class="nav-link {{ $faqTabActive }}" id="service-edit-tab-faq" data-bs-toggle="tab"
-                                            data-bs-target="#service-edit-pane-faq" type="button" role="tab"
+                                            data-bs-target="#service-edit-pane-faq" data-service-tab="faq" type="button" role="tab"
                                             aria-controls="service-edit-pane-faq" aria-selected="{{ $activeTab === 'faq' ? 'true' : 'false' }}">{{ translate('faq') }}</button>
                                 </li>
                                 <li class="nav-item" role="presentation">
                                     <button class="nav-link {{ $chargesTabActive }}" id="service-edit-tab-charges" data-bs-toggle="tab"
-                                            data-bs-target="#service-edit-pane-charges" type="button" role="tab"
+                                            data-bs-target="#service-edit-pane-charges" data-service-tab="charges" type="button" role="tab"
                                             aria-controls="service-edit-pane-charges" aria-selected="{{ $activeTab === 'charges' ? 'true' : 'false' }}">{{ translate('Charges_and_Taxes') }}</button>
                                 </li>
                             </ul>
@@ -134,9 +179,17 @@
                                             <div class="col-xxl-9 col-lg-8 mb-5 mb-lg-0">
                                                 <div class="card h-100">
                                                     <div class="card-body">
-                                                        <div class="mb-20">
-                                                            <h3 class="mb-1 text-dark">{{ translate('Basic Setup') }}</h3>
-                                                            <p class="fs-12 text-color">{{ translate('Provide essential service details') }}</p>
+                                                        <div class="service-info-sticky-header mb-20">
+                                                            <div>
+                                                                <h3 class="mb-1 text-dark">{{ translate('Basic Setup') }}</h3>
+                                                                <p class="fs-12 text-color mb-0">{{ translate('Provide essential service details') }}</p>
+                                                            </div>
+                                                            <button type="submit" class="btn btn-sm btn--primary service-info-save-btn"
+                                                                    data-label-idle="{{ translate('save') }}"
+                                                                    data-label-loading="{{ translate('Loading') }}...">
+                                                                <span class="service-info-save-label">{{ translate('save') }}</span>
+                                                                <span class="spinner-border spinner-border-sm text-light d-none ms-1" role="status" aria-hidden="true"></span>
+                                                            </button>
                                                         </div>
                                                         <div class="bg-light p-xxl-20 p-12px rounded">
                                                             @if($language)
@@ -548,8 +601,13 @@
                                             </div>
                                         </div>
 
-                                <div class="d-flex justify-content-end mt-4 pt-3 border-top border-light">
-                                    <button type="submit" class="btn btn--primary">{{ translate('save') }}</button>
+                                <div class="service-info-save-bar" id="serviceInfoStickySaveBar" aria-hidden="true">
+                                    <button type="submit" class="btn btn--primary service-info-save-btn"
+                                            data-label-idle="{{ translate('save') }}"
+                                            data-label-loading="{{ translate('Loading') }}...">
+                                        <span class="service-info-save-label">{{ translate('save') }}</span>
+                                        <span class="spinner-border spinner-border-sm text-light d-none ms-1" role="status" aria-hidden="true"></span>
+                                    </button>
                                 </div>
                             </form>
                                 </div>
@@ -718,11 +776,81 @@
         "use strict";
 
         var serviceInfoForm = $("#service-edit-info-form");
+        var infoSaving = false;
+        var updatedSuccessfullyLabel = @json(translate('updated_successfully'));
+        var failedToUpdateLabel = @json(translate('failed_to_update'));
 
-        serviceInfoForm.on('submit', function () {
+        function setInfoSaveLoading(isLoading) {
+            infoSaving = isLoading;
+            document.querySelectorAll('.service-info-save-btn').forEach(function (btn) {
+                var idleLabel = btn.dataset.labelIdle || 'Save';
+                var loadingLabel = btn.dataset.labelLoading || 'Loading...';
+                var labelEl = btn.querySelector('.service-info-save-label');
+                var spinnerEl = btn.querySelector('.spinner-border');
+                btn.disabled = isLoading;
+                if (labelEl) labelEl.textContent = isLoading ? loadingLabel : idleLabel;
+                if (spinnerEl) spinnerEl.classList.toggle('d-none', !isLoading);
+            });
+        }
+
+        serviceInfoForm.on('submit', function (e) {
+            e.preventDefault();
+            if (infoSaving) return false;
+
             if (window.syncServiceDescriptionEditors) {
                 window.syncServiceDescriptionEditors();
             }
+
+            var formEl = this;
+            if (typeof formEl.reportValidity === 'function' && !formEl.reportValidity()) {
+                return false;
+            }
+
+            setInfoSaveLoading(true);
+            var formData = new FormData(formEl);
+            // Drop empty file inputs so Laravel never treats them as uploads.
+            ['thumbnail', 'cover_image'].forEach(function (field) {
+                var file = formData.get(field);
+                if (file instanceof File && file.size === 0) {
+                    formData.delete(field);
+                }
+            });
+
+            $.ajax({
+                url: formEl.action,
+                method: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+                success: function (response) {
+                    if (response && response.flag === 1) {
+                        toastr.success(response.message || updatedSuccessfullyLabel);
+                    } else {
+                        toastr.error((response && response.message) || failedToUpdateLabel);
+                    }
+                },
+                error: function (xhr) {
+                    var message = failedToUpdateLabel;
+                    if (xhr.responseJSON) {
+                        if (xhr.responseJSON.message) {
+                            message = xhr.responseJSON.message;
+                        } else if (xhr.responseJSON.errors) {
+                            var first = Object.values(xhr.responseJSON.errors)[0];
+                            if (Array.isArray(first) && first[0]) message = first[0];
+                        }
+                    }
+                    toastr.error(message);
+                },
+                complete: function () {
+                    setInfoSaveLoading(false);
+                }
+            });
+
+            return false;
         });
 
         $(document).ready(function () {
@@ -730,6 +858,91 @@
             if (typeof ajax_get === 'function') {
                 ajax_get('{{url('/')}}/admin/category/ajax-childes-only/{{$service->category_id}}?sub_category_id={{$service->sub_category_id}}', 'sub-category-selector');
             }
+
+            (function persistServiceEditTab() {
+                var tabsRoot = document.getElementById('service-edit-main-tabs');
+                if (!tabsRoot) return;
+
+                var allowedTabs = ['info', 'variations', 'overview', 'faq', 'charges'];
+                var storageKey = 'service-edit-tab:{{ $service->id }}';
+
+                function readTabFromUrl() {
+                    try {
+                        return new URLSearchParams(window.location.search).get('tab') || '';
+                    } catch (e) {
+                        return '';
+                    }
+                }
+
+                function writeTabToUrl(tab) {
+                    try {
+                        var url = new URL(window.location.href);
+                        if (tab && tab !== 'info') {
+                            url.searchParams.set('tab', tab);
+                        } else {
+                            url.searchParams.delete('tab');
+                        }
+                        window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+                    } catch (e) {}
+                }
+
+                function activateTab(tab) {
+                    if (!allowedTabs.includes(tab)) return;
+                    var trigger = tabsRoot.querySelector('[data-service-tab="' + tab + '"]');
+                    if (!trigger || trigger.classList.contains('active')) return;
+                    if (window.bootstrap && bootstrap.Tab) {
+                        bootstrap.Tab.getOrCreateInstance(trigger).show();
+                    } else {
+                        $(trigger).tab('show');
+                    }
+                }
+
+                tabsRoot.addEventListener('shown.bs.tab', function (event) {
+                    var tab = event.target?.getAttribute('data-service-tab') || 'info';
+                    if (!allowedTabs.includes(tab)) tab = 'info';
+                    writeTabToUrl(tab);
+                    try {
+                        sessionStorage.setItem(storageKey, tab);
+                    } catch (e) {}
+                });
+
+                var urlTab = readTabFromUrl();
+                if (urlTab && allowedTabs.includes(urlTab)) {
+                    activateTab(urlTab);
+                    try {
+                        sessionStorage.setItem(storageKey, urlTab);
+                    } catch (e) {}
+                    return;
+                }
+
+                var savedTab = '';
+                try {
+                    savedTab = sessionStorage.getItem(storageKey) || '';
+                } catch (e) {}
+                if (savedTab && allowedTabs.includes(savedTab) && savedTab !== 'info') {
+                    activateTab(savedTab);
+                    writeTabToUrl(savedTab);
+                }
+            })();
+
+            (function syncServiceInfoSaveBar() {
+                var infoPane = document.getElementById('service-edit-pane-info');
+                var stickySaveBar = document.getElementById('serviceInfoStickySaveBar');
+                var tabsRoot = document.getElementById('service-edit-main-tabs');
+                if (!infoPane || !stickySaveBar) return;
+
+                function update() {
+                    var isInfoActive = infoPane.classList.contains('active');
+                    stickySaveBar.classList.toggle('is-visible', isInfoActive);
+                    stickySaveBar.setAttribute('aria-hidden', isInfoActive ? 'false' : 'true');
+                    document.body.classList.toggle('info-tab-active', isInfoActive);
+                }
+
+                update();
+                if (tabsRoot) {
+                    tabsRoot.addEventListener('shown.bs.tab', update);
+                }
+            })();
         });
 
         $("#category-id").change(function () {

@@ -5,23 +5,30 @@
                 <span class="material-icons overview-drag-handle mt-1" draggable="true">drag_indicator</span>
                 <div class="flex-grow-1 overview-item-fields">
                     @if($itemType === 'process')
-                        <div class="row g-2">
-                            <div class="col-md-4">
-                                <select class="form-select form-select-sm overview-item-icon">
-                                    <option value="">{{ translate('select_icon') }}</option>
-                                    @foreach($overviewIconOptions ?? [] as $opt)
-                                        <option value="{{ $opt['key'] }}" {{ ($item['icon'] ?? '') === $opt['key'] ? 'selected' : '' }}>{{ $opt['label'] }}</option>
-                                    @endforeach
-                                </select>
+                        <div class="overview-process-card">
+                            <div class="overview-process-card__media">
+                                @include('servicemanagement::admin.partials._overview-image-uploader', [
+                                    'fieldClass' => 'overview-item-image',
+                                    'value' => $item['image'] ?? '',
+                                ])
                             </div>
-                            <div class="col-md-8">
-                                <input type="text" class="form-control form-control-sm overview-item-title" placeholder="Step title" value="{{ $item['title'] ?? '' }}">
-                            </div>
-                            <div class="col-12">
-                                <input type="text" class="form-control form-control-sm overview-item-image" placeholder="Step image URL (optional — use icon if empty)" value="{{ $item['image'] ?? '' }}">
-                            </div>
-                            <div class="col-12">
-                                <input type="text" class="form-control form-control-sm overview-item-description" placeholder="Step description" value="{{ $item['description'] ?? '' }}">
+                            <div class="overview-process-card__fields">
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <select class="form-select form-select-sm overview-item-icon">
+                                            <option value="">{{ translate('select_icon') }}</option>
+                                            @foreach($overviewIconOptions ?? [] as $opt)
+                                                <option value="{{ $opt['key'] }}" {{ ($item['icon'] ?? '') === $opt['key'] ? 'selected' : '' }}>{{ $opt['label'] }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <input type="text" class="form-control form-control-sm overview-item-title" placeholder="Step title" value="{{ $item['title'] ?? '' }}">
+                                    </div>
+                                    <div class="col-12">
+                                        <textarea class="form-control form-control-sm overview-item-description" rows="3" placeholder="Step description">{{ $item['description'] ?? '' }}</textarea>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     @elseif($itemType === 'icon_title')
@@ -39,20 +46,27 @@
                             </div>
                         </div>
                     @elseif($itemType === 'chip' || $itemType === 'icon_text')
-                        <div class="row g-2">
-                            <div class="col-md-4">
-                                <select class="form-select form-select-sm overview-item-icon">
-                                    <option value="">{{ translate('select_icon') }}</option>
-                                    @foreach($overviewIconOptions ?? [] as $opt)
-                                        <option value="{{ $opt['key'] }}" {{ ($item['icon'] ?? '') === $opt['key'] ? 'selected' : '' }}>{{ $opt['label'] }}</option>
-                                    @endforeach
-                                </select>
+                        <div class="overview-process-card">
+                            <div class="overview-process-card__media">
+                                @include('servicemanagement::admin.partials._overview-image-uploader', [
+                                    'fieldClass' => 'overview-item-icon-image',
+                                    'value' => $item['icon_image'] ?? '',
+                                ])
                             </div>
-                            <div class="col-md-4">
-                                <input type="text" class="form-control form-control-sm overview-item-icon-image" placeholder="Custom icon URL" value="{{ $item['icon_image'] ?? '' }}">
-                            </div>
-                            <div class="col-md-4">
-                                <input type="text" class="form-control form-control-sm overview-item-text" placeholder="Text" value="{{ $item['text'] ?? '' }}">
+                            <div class="overview-process-card__fields">
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <select class="form-select form-select-sm overview-item-icon">
+                                            <option value="">{{ translate('select_icon') }}</option>
+                                            @foreach($overviewIconOptions ?? [] as $opt)
+                                                <option value="{{ $opt['key'] }}" {{ ($item['icon'] ?? '') === $opt['key'] ? 'selected' : '' }}>{{ $opt['label'] }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <input type="text" class="form-control form-control-sm overview-item-text" placeholder="Text" value="{{ $item['text'] ?? '' }}">
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     @elseif($itemType === 'top_icon')

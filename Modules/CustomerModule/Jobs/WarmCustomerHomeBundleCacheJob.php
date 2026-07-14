@@ -8,6 +8,8 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Modules\CustomerModule\Services\CustomerHomeBaseBundleCache;
+use Modules\CustomerModule\Services\CustomerHomeCacheWarmState;
+use Throwable;
 
 class WarmCustomerHomeBundleCacheJob implements ShouldQueue
 {
@@ -23,6 +25,21 @@ class WarmCustomerHomeBundleCacheJob implements ShouldQueue
 
     public function handle(): void
     {
-        CustomerHomeBaseBundleCache::warmAll($this->zoneId);
+        try {
+            CustomerHomeBaseBundleCache::warmAll($this->zoneId);
+        } catch (Throwable $e) {
+            CustomerHomeCacheWarmState::markRebuildFailed(
+                $e->getMessage() !== '' ? $e->getMessage() : 'Failed to rebuild home cache'
+            );
+
+            throw $e;
+        }
+    }
+
+    public function failed(?Throwable $e = null): void
+    {
+        CustomerHomeCacheWarmState::markRebuildFailed(
+            $e && $e->getMessage() !== '' ? $e->getMessage() : 'Failed to rebuild home cache'
+        );
     }
 }

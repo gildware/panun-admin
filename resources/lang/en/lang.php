@@ -10038,4 +10038,9 @@ _Message' => 'Customer notification for provider bid offer
   'Custom Request Accepted_Message' => 'Custom Request Accepted Message',
   'Custom Request Rejected_Message' => 'Custom Request Rejected Message',
   'Custom Request Admin Reply_Message' => 'Custom Request Admin Reply Message',
+  'Upload image' => 'Upload image',
+  'Or paste image URL (optional)' => 'Or paste image URL (optional)',
+  'Or paste custom icon URL' => 'Or paste custom icon URL',
+  'Uploading...' => 'Uploading...',
+  'Upload failed' => 'Upload failed',
 );
