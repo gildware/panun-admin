@@ -1,5 +1,5 @@
 @php
-    $service->loadMissing(['serviceVariants.zonePrices']);
+    $service->loadMissing(['serviceVariants.zonePrices', 'variations']);
 @endphp
 <div class="service-variations-panel" data-panel="list">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">

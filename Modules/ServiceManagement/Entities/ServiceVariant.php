@@ -45,36 +45,62 @@ class ServiceVariant extends Model
     }
 
     /**
-     * Price shown in admin variation lists.
-     * Prefer live zone rows (same source as the edit form), not only JSON variation_pricing.
+     * Live variation rows for this key (booking/admin source of truth).
+     * Prefer service_id + variant_key — service_variant_id can be missing on older rows.
      */
-    public function displayPrice(?Service $service = null): float
+    public function liveVariationRows(?Service $service = null): \Illuminate\Support\Collection
     {
         $service = $service ?? $this->service;
-        $config = $service
-            ? Variation::variationPricingConfig($service, $this->variant_key)
-            : ['use_zone_pricing' => false, 'default_price' => 0.0];
-        $jsonDefault = (float) ($config['default_price'] ?? 0);
-        $live = $this->relationLoaded('zonePrices') ? $this->zonePrices : $this->zonePrices()->get();
+        $serviceId = $service?->id ?? $this->service_id;
 
-        if (! empty($config['use_zone_pricing'])) {
-            $minPositive = $live->where('price', '>', 0)->min('price');
-            if ($minPositive !== null) {
-                return (float) $minPositive;
+        if ($service && $service->relationLoaded('variations')) {
+            $rows = $service->variations->where('variant_key', $this->variant_key)->values();
+            if ($rows->isNotEmpty()) {
+                return $rows;
             }
-
-            return $jsonDefault > 0 ? $jsonDefault : (float) ($live->first()->price ?? 0);
         }
 
-        if ($live->isNotEmpty()) {
-            return (float) ($live->first()->price ?? $jsonDefault);
+        if ($serviceId) {
+            $rows = Variation::withoutGlobalScopes()
+                ->where('service_id', $serviceId)
+                ->where('variant_key', $this->variant_key)
+                ->get();
+            if ($rows->isNotEmpty()) {
+                return $rows;
+            }
         }
 
-        return $jsonDefault;
+        if ($this->relationLoaded('zonePrices')) {
+            return $this->zonePrices;
+        }
+
+        return $this->zonePrices()->withoutGlobalScopes()->get();
     }
 
     /**
-     * Default price for edit/view forms — keep in sync with live variations when zone pricing is off.
+     * Price shown in admin variation lists — same basis as the edit form.
+     */
+    public function displayPrice(?Service $service = null): float
+    {
+        [$zonePricingOn, $defaultPrice] = $this->resolveAdminPricing($service);
+        $live = $this->liveVariationRows($service);
+        $positive = $live->pluck('price')->map(fn ($p) => (float) $p)->filter(fn ($p) => $p > 0)->values();
+
+        if ($zonePricingOn && $positive->isNotEmpty()) {
+            $unique = $positive->map(fn ($p) => round($p, 4))->unique()->values();
+            if ($unique->count() === 1) {
+                return (float) $unique->first();
+            }
+
+            // Mixed zone prices: prefer admin default when set, else lowest zone price.
+            return $defaultPrice > 0 ? $defaultPrice : (float) $positive->min();
+        }
+
+        return $defaultPrice;
+    }
+
+    /**
+     * Default price for edit/view forms — keep in sync with live variations when they agree.
      *
      * @return array{0: bool, 1: float} [use_zone_pricing, default_price]
      */
@@ -85,20 +111,17 @@ class ServiceVariant extends Model
         $stored = $vp[$this->variant_key] ?? null;
         $zonePricingOn = is_array($stored) ? (bool) ($stored['use_zone_pricing'] ?? false) : false;
         $defaultPrice = is_array($stored) ? (float) ($stored['default_price'] ?? 0) : 0;
-        $live = $this->relationLoaded('zonePrices') ? $this->zonePrices : $this->zonePrices()->get();
-        $livePrices = $live->pluck('price')->map(fn ($p) => round((float) $p, 4));
+        $live = $this->liveVariationRows($service);
+        $livePrices = $live->pluck('price')->map(fn ($p) => round((float) $p, 4))->filter(fn ($p) => $p > 0)->values();
 
-        if (! $zonePricingOn && $livePrices->isNotEmpty()) {
+        if ($livePrices->isNotEmpty()) {
             $unique = $livePrices->unique()->values();
-            // When all zone rows share one price, that is the real default (may be ahead of JSON).
+            // Unanimous live rows beat stale JSON (both for zone-on and zone-off).
             if ($unique->count() === 1) {
                 $defaultPrice = (float) $unique->first();
             } elseif ($defaultPrice <= 0) {
-                $defaultPrice = (float) ($live->first()->price ?? 0);
+                $defaultPrice = (float) $livePrices->min();
             }
-        } elseif ($zonePricingOn && $defaultPrice <= 0) {
-            $minPositive = $live->where('price', '>', 0)->min('price');
-            $defaultPrice = (float) ($minPositive ?? $live->first()->price ?? 0);
         }
 
         return [$zonePricingOn, $defaultPrice];
