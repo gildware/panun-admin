@@ -49,4 +49,17 @@ class CustomerHomeCacheWarmStateTest extends TestCase
         $this->assertSame(CustomerHomeCacheWarmState::STATUS_FAILED, $failed['status']);
         $this->assertSame('Zone hydrate failed', $failed['error']);
     }
+
+    public function test_stale_running_rebuild_is_marked_failed(): void
+    {
+        Cache::flush();
+
+        CustomerHomeCacheWarmState::markRebuildStarted(10);
+        Cache::put('customer_home_cache_rebuild_updated_at', now()->subMinutes(11)->timestamp, now()->addHours(2));
+        Cache::put('customer_home_cache_rebuild_started_at', now()->subMinutes(11)->timestamp, now()->addHours(2));
+
+        $stale = CustomerHomeCacheWarmState::rebuildStatus();
+        $this->assertSame(CustomerHomeCacheWarmState::STATUS_FAILED, $stale['status']);
+        $this->assertNotNull($stale['error']);
+    }
 }

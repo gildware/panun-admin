@@ -93,6 +93,11 @@ class CustomerHomeCacheWarmState
     }
 
     /**
+     * Seconds without progress before a "running" rebuild is treated as failed.
+     */
+    private const STALE_RUNNING_SECONDS = 600;
+
+    /**
      * @return array{status: string, done: int, total: int, percent: int, error: string|null, updated_at: int|null, started_at: int|null}
      */
     public static function rebuildStatus(): array
@@ -103,6 +108,16 @@ class CustomerHomeCacheWarmState
         $error = Cache::get(self::REBUILD_ERROR_KEY);
         $updatedAt = Cache::get(self::REBUILD_UPDATED_AT_KEY);
         $startedAt = Cache::get(self::REBUILD_STARTED_AT_KEY);
+
+        if ($status === self::STATUS_RUNNING) {
+            $anchor = is_numeric($updatedAt) ? (int) $updatedAt : (is_numeric($startedAt) ? (int) $startedAt : null);
+            if ($anchor !== null && (now()->timestamp - $anchor) > self::STALE_RUNNING_SECONDS) {
+                self::markRebuildFailed('Home cache rebuild timed out. Please try again.');
+                $status = self::STATUS_FAILED;
+                $error = Cache::get(self::REBUILD_ERROR_KEY);
+                $updatedAt = Cache::get(self::REBUILD_UPDATED_AT_KEY);
+            }
+        }
 
         $percent = 0;
         if ($status === self::STATUS_COMPLETE) {

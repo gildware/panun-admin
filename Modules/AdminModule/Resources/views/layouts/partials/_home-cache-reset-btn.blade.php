@@ -39,7 +39,6 @@
             <div class="home-cache-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
                 <div class="js-home-cache-progress-bar home-cache-progress-bar" style="width: 0%;"></div>
             </div>
-            <div class="js-home-cache-progress-error home-cache-progress-error d-none" role="alert"></div>
         </div>
     </div>
 </div>
@@ -52,13 +51,13 @@
                 align-items: center;
                 gap: 0.5rem;
                 max-width: 100%;
+                flex-shrink: 1;
+                min-width: 0;
             }
 
             .home-cache-reset-control {
                 display: inline-flex;
-                flex-direction: column;
-                align-items: stretch;
-                gap: 0.35rem;
+                align-items: center;
                 min-width: 0;
             }
 
@@ -88,11 +87,12 @@
             }
 
             .home-cache-progress {
-                width: min(220px, 42vw);
-                padding: 0.35rem 0.5rem 0.4rem;
+                width: min(180px, 36vw);
+                padding: 0.3rem 0.45rem 0.35rem;
                 border-radius: 0.5rem;
                 background: rgba(15, 23, 42, 0.04);
                 border: 1px solid rgba(15, 23, 42, 0.08);
+                flex-shrink: 0;
             }
 
             .home-cache-progress-meta {
@@ -100,7 +100,7 @@
                 align-items: center;
                 justify-content: space-between;
                 gap: 0.5rem;
-                margin-bottom: 0.25rem;
+                margin-bottom: 0.2rem;
             }
 
             .home-cache-progress-label,
@@ -109,11 +109,12 @@
                 font-weight: 600;
                 line-height: 1.2;
                 color: #475569;
+                white-space: nowrap;
             }
 
             .home-cache-progress-track {
                 width: 100%;
-                height: 0.4rem;
+                height: 0.35rem;
                 overflow: hidden;
                 border-radius: 999px;
                 background: #e2e8f0;
@@ -127,23 +128,63 @@
                 transition: width 0.35s ease;
             }
 
-            .home-cache-progress.is-failed .home-cache-progress-bar {
-                background: linear-gradient(90deg, #ef4444, #dc2626);
+            .home-cache-alert {
+                width: 100%;
+                background: #fef2f2;
+                border-bottom: 1px solid #fecaca;
+                color: #991b1b;
             }
 
-            .home-cache-progress-error {
-                margin-top: 0.35rem;
-                padding: 0.35rem 0.45rem;
-                border-radius: 0.35rem;
-                background: #fef2f2;
-                border: 1px solid #fecaca;
-                color: #b91c1c;
-                font-size: 0.68rem;
+            .home-cache-alert-inner {
+                display: flex;
+                align-items: flex-start;
+                gap: 0.65rem;
+                max-width: 1400px;
+                margin: 0 auto;
+                padding: 0.7rem 1rem;
+            }
+
+            .home-cache-alert-icon {
+                flex-shrink: 0;
+                font-size: 1.25rem;
+                line-height: 1.3;
+                color: #dc2626;
+            }
+
+            .home-cache-alert-message {
+                flex: 1;
+                min-width: 0;
+                font-size: 0.875rem;
                 font-weight: 600;
-                line-height: 1.35;
+                line-height: 1.4;
                 word-break: break-word;
-                white-space: normal;
-                max-width: 280px;
+            }
+
+            .home-cache-alert-dismiss {
+                flex-shrink: 0;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 1.75rem;
+                height: 1.75rem;
+                margin: -0.15rem -0.25rem 0 0;
+                padding: 0;
+                border: 0;
+                border-radius: 0.35rem;
+                background: transparent;
+                color: #991b1b;
+                cursor: pointer;
+            }
+
+            .home-cache-alert-dismiss:hover,
+            .home-cache-alert-dismiss:focus-visible {
+                background: rgba(185, 28, 28, 0.1);
+                outline: none;
+            }
+
+            .home-cache-alert-dismiss .material-symbols-outlined {
+                font-size: 1.15rem;
+                line-height: 1;
             }
 
             @keyframes home-cache-reset-pulse {
@@ -165,7 +206,8 @@
             (function () {
                 const POLL_INTERVAL_MS = 800;
                 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
-                const REQUEST_TIMEOUT_MS = 30000;
+                // Sync warm (php artisan serve) can take several minutes across zones/locales.
+                const REQUEST_TIMEOUT_MS = 5 * 60 * 1000;
                 const SOFT_TICK_MS = 200;
                 const labels = {
                     success: @json(translate('Home_cache_reset_and_warmed_successfully')),
@@ -178,6 +220,36 @@
                     sessionExpired: 'Session expired. Please refresh the page and try again.',
                     serverError: 'Server returned an unexpected response. Please refresh and try again.',
                 };
+
+                function getAlertRoot() {
+                    return document.getElementById('js-home-cache-alert');
+                }
+
+                function hideHomeCacheAlert() {
+                    const root = getAlertRoot();
+                    if (!root) {
+                        return;
+                    }
+                    root.classList.add('d-none');
+                    root.setAttribute('hidden', 'hidden');
+                    const messageEl = root.querySelector('.js-home-cache-alert-message');
+                    if (messageEl) {
+                        messageEl.textContent = '';
+                    }
+                }
+
+                function showHomeCacheAlert(message) {
+                    const root = getAlertRoot();
+                    if (!root) {
+                        return;
+                    }
+                    const messageEl = root.querySelector('.js-home-cache-alert-message');
+                    if (messageEl) {
+                        messageEl.textContent = message || labels.failed;
+                    }
+                    root.classList.remove('d-none');
+                    root.removeAttribute('hidden');
+                }
 
                 function getProgressRoot(button) {
                     const wrap = button.closest('.home-cache-reset-wrap');
@@ -194,13 +266,9 @@
                     const percentEl = root.querySelector('.js-home-cache-progress-percent');
                     const barEl = root.querySelector('.js-home-cache-progress-bar');
                     const trackEl = root.querySelector('.home-cache-progress-track');
-                    const errorEl = root.querySelector('.js-home-cache-progress-error');
                     const percent = Math.max(0, Math.min(100, Math.round(Number(options.percent) || 0)));
-                    const failed = !!options.failed;
-                    const errorMessage = options.error || '';
 
                     root.classList.toggle('d-none', !options.visible);
-                    root.classList.toggle('is-failed', failed);
 
                     if (labelEl) {
                         labelEl.textContent = options.label || labels.rebuilding;
@@ -213,15 +281,6 @@
                     }
                     if (trackEl) {
                         trackEl.setAttribute('aria-valuenow', String(percent));
-                    }
-                    if (errorEl) {
-                        if (failed && errorMessage) {
-                            errorEl.textContent = errorMessage;
-                            errorEl.classList.remove('d-none');
-                        } else {
-                            errorEl.textContent = '';
-                            errorEl.classList.add('d-none');
-                        }
                     }
                 }
 
@@ -243,8 +302,6 @@
                                 visible: true,
                                 percent: this.displayPercent,
                                 label: labels.rebuilding,
-                                failed: false,
-                                error: '',
                             });
                         },
                         softEstimate: function () {
@@ -309,19 +366,15 @@
                                 visible: true,
                                 percent: 100,
                                 label: labels.success,
-                                failed: false,
-                                error: '',
                             });
                         },
-                        fail: function (message) {
+                        hide: function () {
                             this.stopSoft();
                             this.active = false;
                             setProgressUI(this.button, {
-                                visible: true,
-                                percent: Math.max(100, Math.round(this.displayPercent)),
-                                label: labels.failed,
-                                failed: true,
-                                error: message || labels.failed,
+                                visible: false,
+                                percent: 0,
+                                label: labels.rebuilding,
                             });
                         },
                         stopSoft: function () {
@@ -351,6 +404,7 @@
                     }
 
                     if (loading && tracker) {
+                        hideHomeCacheAlert();
                         tracker.start();
                     }
                 }
@@ -368,16 +422,17 @@
                 }
 
                 function showHomeCacheToast(message, type) {
+                    if (type === 'error') {
+                        // Errors use the persistent banner below the header — not auto-hiding toasts.
+                        showHomeCacheAlert(message);
+                        return;
+                    }
                     const toastType = type === 'warning' ? 'warning' : type;
                     if (window.toastr && typeof window.toastr[toastType] === 'function') {
                         window.toastr[toastType](message);
                         return;
                     }
-                    if (type === 'error') {
-                        console.error(message);
-                    } else {
-                        console.log(message);
-                    }
+                    console.log(message);
                 }
 
                 function fetchWithTimeout(url, options, timeoutMs) {
@@ -492,32 +547,42 @@
                     });
                 }
 
+                function restoreResetButton(button) {
+                    button.disabled = false;
+                    button.classList.remove('disabled', 'd-none');
+                    button.setAttribute('aria-busy', 'false');
+                }
+
                 function finishResetUi(button, tracker, options) {
                     const failed = !!options.failed;
                     const message = options.message || '';
 
                     if (failed) {
-                        tracker.fail(message || labels.failed);
-                        button.disabled = false;
-                        button.classList.remove('disabled', 'd-none');
-                        button.setAttribute('aria-busy', 'false');
+                        tracker.hide();
+                        restoreResetButton(button);
+                        showHomeCacheAlert(message || labels.failed);
                         return;
                     }
 
+                    hideHomeCacheAlert();
                     tracker.complete();
                     setTimeout(function () {
                         setProgressUI(button, {
                             visible: false,
                             percent: 0,
                             label: labels.rebuilding,
-                            failed: false,
-                            error: '',
                         });
-                        button.disabled = false;
-                        button.classList.remove('disabled', 'd-none');
-                        button.setAttribute('aria-busy', 'false');
+                        restoreResetButton(button);
                     }, 900);
                 }
+
+                document.addEventListener('click', function (event) {
+                    const dismissBtn = event.target.closest('.js-home-cache-alert-dismiss');
+                    if (!dismissBtn) {
+                        return;
+                    }
+                    hideHomeCacheAlert();
+                });
 
                 document.addEventListener('submit', function (event) {
                     const form = event.target.closest('.js-home-cache-reset-form');
@@ -553,7 +618,11 @@
                         .then(function (data) {
                             tracker.applyServer(data.rebuild);
 
-                            if (data.needs_reset === false && (!data.queued || (data.rebuild && data.rebuild.status === 'complete'))) {
+                            const finishedNow = data.needs_reset === false
+                                || (data.rebuild && data.rebuild.status === 'complete')
+                                || (typeof data.warmed === 'number' && data.warmed > 0);
+
+                            if (finishedNow) {
                                 clearHomeCacheReminder();
                                 showHomeCacheToast(data.message || labels.success, 'success');
                                 finishResetUi(button, tracker, { failed: false });
@@ -567,7 +636,6 @@
                                     finishResetUi(button, tracker, { failed: false });
                                 }).catch(function (pollError) {
                                     const message = pollError.message || labels.queuedRefresh;
-                                    showHomeCacheToast(message, pollError.message === labels.timeout ? 'warning' : 'error');
                                     finishResetUi(button, tracker, { failed: true, message: message });
                                 });
                             }
@@ -585,7 +653,6 @@
                                 tracker.applyServer(error.rebuild);
                             }
 
-                            showHomeCacheToast(message, 'error');
                             finishResetUi(button, tracker, { failed: true, message: message });
                         });
                 });

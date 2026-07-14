@@ -29,13 +29,17 @@ class CustomerHomeCacheManager
             return 0;
         }
 
-        // QUEUE_CONNECTION=sync: only warm after response when the SAPI can finish first.
-        // Otherwise mark for lazy rebuild (version already bumped).
+        // QUEUE_CONNECTION=sync: prefer after-response warm when the SAPI can flush first.
         if (self::canFinishHttpResponseEarly()) {
             WarmCustomerHomeBundleCacheJob::dispatchAfterResponse($zoneId);
+
+            return 0;
         }
 
-        return 0;
+        // `php artisan serve` / built-in PHP server cannot finish the response early, and a
+        // sync queue with no after-response dispatch left the UI "Rebuilding… 95%" forever.
+        // Explicit reset must warm inline so progress can reach complete.
+        return CustomerHomeBaseBundleCache::warmAll($zoneId);
     }
 
     public static function warmAfterContentChange(?string $zoneId = null, bool $blocking = false): void
