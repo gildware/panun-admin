@@ -10,7 +10,7 @@ class CustomerApiResponseCache
 {
     public const CONFIG_TTL = 600;
 
-    public const HOME_BUNDLE_TTL = 300;
+    public const HOME_BUNDLE_TTL = 900;
 
     public static function remember(string $key, Closure $callback, int $ttl = self::CONFIG_TTL): mixed
     {

@@ -70,6 +70,26 @@ class CustomerHomeCacheManager
         }
     }
 
+    /**
+     * Warm a single zone's shared home-bundle without bumping content version.
+     * Called from get-zone-id so the subsequent /home-bundle is usually a cache hit.
+     * Throttled per zone so frequent map moves do not flood the queue.
+     */
+    public static function ensureZoneWarm(string $zoneId): void
+    {
+        $zoneId = trim($zoneId);
+        if ($zoneId === '') {
+            return;
+        }
+
+        $throttleKey = 'customer_home_zone_warm:'.$zoneId;
+        if (! \Illuminate\Support\Facades\Cache::add($throttleKey, 1, 120)) {
+            return;
+        }
+
+        self::warmAfterContentChange($zoneId);
+    }
+
     private static function forgetZoneEligibility(?string $zoneId): void
     {
         if ($zoneId !== null && $zoneId !== '') {
