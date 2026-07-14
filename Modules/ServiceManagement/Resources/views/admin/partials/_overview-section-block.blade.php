@@ -1,6 +1,7 @@
 @php
-    $listId = $sectionKey . '-items-list';
-    $titleId = str_replace('_', '-', $sectionKey) . '-section-title';
+    $sectionDomId = str_replace('_', '-', $sectionKey);
+    $listId = $sectionDomId . '-items-list';
+    $titleId = $sectionDomId . '-section-title';
 @endphp
 
 <div class="card mb-3 overview-section-card" data-section="{{ $sectionKey }}">
