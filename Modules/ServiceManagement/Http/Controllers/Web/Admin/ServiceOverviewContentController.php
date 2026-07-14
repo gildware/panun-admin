@@ -49,7 +49,10 @@ class ServiceOverviewContentController extends Controller
   public function update(Request $request, string $serviceId): JsonResponse
   {
     $this->authorize('service_update');
-    $service = Service::query()->withoutGlobalScope('translate')->find($serviceId);
+    $service = Service::query()
+      ->withoutGlobalScope('translate')
+      ->select(['id', 'overview_content'])
+      ->find($serviceId);
     if (! $service) {
       return response()->json(['flag' => 0, 'message' => translate(DEFAULT_204['message'])], 404);
     }
@@ -70,15 +73,11 @@ class ServiceOverviewContentController extends Controller
 
     $normalized = ServiceOverviewContentResolver::normalizeServiceContent($payload);
     $service->overview_content = $normalized;
-    $service->save();
-
-    $resolved = ServiceOverviewContentResolver::resolveForService($service);
+    $service->saveQuietly();
 
     return response()->json([
       'flag' => 1,
       'message' => translate(DEFAULT_UPDATE_200['message']),
-      'overview_content' => $normalized,
-      'resolved_overview_content' => $resolved,
     ]);
   }
 }

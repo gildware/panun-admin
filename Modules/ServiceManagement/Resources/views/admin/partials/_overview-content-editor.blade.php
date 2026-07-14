@@ -156,8 +156,11 @@
     </div>
 
     <div class="d-flex justify-content-end">
-        <button type="button" class="btn btn--primary" id="overview-content-save-btn">
+        <button type="button" class="btn btn--primary" id="overview-content-save-btn"
+                data-label-idle="{{ translate('save_overview_content') }}"
+                data-label-loading="{{ translate('Loading') }}...">
             <span class="overview-save-label">{{ translate('save_overview_content') }}</span>
+            <span class="spinner-border spinner-border-sm text-light d-none ms-1" role="status" aria-hidden="true"></span>
         </button>
     </div>
 </div>
@@ -176,7 +179,23 @@
         const updatedSuccessfullyLabel = @json(translate('updated_successfully'));
         const failedToUpdateLabel = @json(translate('failed_to_update'));
         const saveUrl = editor.dataset.saveUrl;
+        const saveBtn = document.getElementById('overview-content-save-btn');
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+            || '{{ csrf_token() }}';
         let saving = false;
+
+        function setSaveLoading(isLoading) {
+            if (!saveBtn) return;
+            const idleLabel = saveBtn.dataset.labelIdle || 'Save';
+            const loadingLabel = saveBtn.dataset.labelLoading || 'Loading...';
+            const labelEl = saveBtn.querySelector('.overview-save-label');
+            const spinnerEl = saveBtn.querySelector('.spinner-border');
+
+            saving = isLoading;
+            saveBtn.disabled = isLoading;
+            if (labelEl) labelEl.textContent = isLoading ? loadingLabel : idleLabel;
+            if (spinnerEl) spinnerEl.classList.toggle('d-none', !isLoading);
+        }
 
         function iconSelectHtml(selected) {
             let html = '<select class="form-select form-select-sm overview-item-icon">';
@@ -249,6 +268,7 @@
 
         function collectItems(listEl, type) {
             const items = [];
+            if (!listEl) return items;
             listEl.querySelectorAll('.overview-item-row').forEach(function (row, index) {
                 const item = { sort_order: index };
                 const icon = row.querySelector('.overview-item-icon');
@@ -336,19 +356,29 @@
         toggleOverrideSection('override-why-choose', 'why-choose-section');
         toggleOverrideSection('override-terms-and-conditions', 'terms-and-conditions-section');
 
-        document.getElementById('overview-content-save-btn').addEventListener('click', function () {
+        saveBtn.addEventListener('click', function () {
             if (saving) return;
-            saving = true;
-            const btn = this;
-            btn.disabled = true;
+            setSaveLoading(true);
+
+            let payload;
+            try {
+                payload = buildPayload();
+            } catch (err) {
+                setSaveLoading(false);
+                toastr.error(failedToUpdateLabel);
+                return;
+            }
 
             $.ajax({
                 url: saveUrl,
                 method: 'POST',
-                data: {
-                    _token: '{{ csrf_token() }}',
-                    overview_content: JSON.stringify(buildPayload()),
+                contentType: 'application/json',
+                dataType: 'json',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
                 },
+                data: JSON.stringify({ overview_content: payload }),
                 success: function (response) {
                     if (response.flag === 1) {
                         toastr.success(response.message || updatedSuccessfullyLabel);
@@ -360,8 +390,7 @@
                     toastr.error(failedToUpdateLabel);
                 },
                 complete: function () {
-                    saving = false;
-                    btn.disabled = false;
+                    setSaveLoading(false);
                 }
             });
         });
