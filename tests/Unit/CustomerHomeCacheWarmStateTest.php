@@ -28,4 +28,25 @@ class CustomerHomeCacheWarmStateTest extends TestCase
 
         $this->assertFalse(CustomerHomeCacheWarmState::needsAdminReminder());
     }
+
+    public function test_rebuild_progress_and_failure_status(): void
+    {
+        Cache::flush();
+
+        CustomerHomeCacheWarmState::markRebuildStarted(10);
+        $running = CustomerHomeCacheWarmState::rebuildStatus();
+        $this->assertSame(CustomerHomeCacheWarmState::STATUS_RUNNING, $running['status']);
+        $this->assertSame(1, $running['percent']);
+        $this->assertNotNull($running['started_at']);
+
+        CustomerHomeCacheWarmState::markRebuildProgress(5, 10);
+        $halfway = CustomerHomeCacheWarmState::rebuildStatus();
+        $this->assertSame(50, $halfway['percent']);
+        $this->assertNull($halfway['error']);
+
+        CustomerHomeCacheWarmState::markRebuildFailed('Zone hydrate failed');
+        $failed = CustomerHomeCacheWarmState::rebuildStatus();
+        $this->assertSame(CustomerHomeCacheWarmState::STATUS_FAILED, $failed['status']);
+        $this->assertSame('Zone hydrate failed', $failed['error']);
+    }
 }

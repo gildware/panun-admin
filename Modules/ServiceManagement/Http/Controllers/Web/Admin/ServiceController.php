@@ -569,31 +569,53 @@ class ServiceController extends Controller
 
     }
 
-    public function updateBasic(Request $request, string $id): RedirectResponse
+    public function updateBasic(Request $request, string $id): RedirectResponse|JsonResponse
     {
         $this->authorize('service_update');
+        $wantsJson = $request->ajax() || $request->expectsJson() || $request->wantsJson();
 
         $check = $this->validateUploadedFile($request, ['cover_image', 'thumbnail']);
         if ($check !== true) {
+            if ($wantsJson && $check instanceof JsonResponse) {
+                return $check;
+            }
+
             return $check;
         }
 
-        $request->validate([
-            'name' => 'required|max:191',
-            'name.0' => 'required|max:191',
-            'category_id' => 'required|uuid',
-            'sub_category_id' => 'required|uuid',
-            'description' => 'required',
-            'description.0' => 'required',
-            'short_description' => 'required',
-            'short_description.0' => 'required',
-            'min_bidding_price' => 'required|numeric|min:0|not_in:0',
-            'cover_image' => 'nullable|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
-            'thumbnail' => 'nullable|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
-        ]);
+        try {
+            $request->validate([
+                'name' => 'required|max:191',
+                'name.0' => 'required|max:191',
+                'category_id' => 'required|uuid',
+                'sub_category_id' => 'required|uuid',
+                'description' => 'required',
+                'description.0' => 'required',
+                'short_description' => 'required',
+                'short_description.0' => 'required',
+                'min_bidding_price' => 'required|numeric|min:0|not_in:0',
+                'cover_image' => 'nullable|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+                'thumbnail' => 'nullable|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            if ($wantsJson) {
+                return response()->json([
+                    'flag' => 0,
+                    'message' => collect($e->errors())->flatten()->first() ?: translate(DEFAULT_400['message']),
+                    'errors' => $e->errors(),
+                ], 422);
+            }
+            throw $e;
+        }
 
-        $service = $this->service->find($id);
+        $service = $this->service->withoutGlobalScope('translate')->find($id);
         if (!isset($service)) {
+            if ($wantsJson) {
+                return response()->json([
+                    'flag' => 0,
+                    'message' => translate(DEFAULT_204['message']),
+                ], 404);
+            }
             Toastr::error(translate(DEFAULT_204['message']));
 
             return redirect()->route('admin.service.index');
@@ -636,10 +658,17 @@ class ServiceController extends Controller
         }
 
         $service->min_bidding_price = $request->min_bidding_price;
+        $this->applyServiceCardTopIconsToModel($request, $service);
         $service->save();
         $service->tags()->sync($tagIds);
-        $this->persistServiceCardTopIcons($request, $service);
         $this->syncServiceTranslations($request, $service);
+
+        if ($wantsJson) {
+            return response()->json([
+                'flag' => 1,
+                'message' => translate(DEFAULT_UPDATE_200['message']),
+            ]);
+        }
 
         return redirect()
             ->route('admin.service.edit', ['id' => $id, 'tab' => 'info'])
@@ -1172,13 +1201,26 @@ class ServiceController extends Controller
 
     private function persistServiceCardTopIcons(Request $request, Service $service): void
     {
-        if (! $request->has('service_card_top_icons')) {
+        if (! $this->applyServiceCardTopIconsToModel($request, $service)) {
             return;
+        }
+
+        $service->save();
+    }
+
+    /**
+     * Apply card-top-icon overrides onto the in-memory model without saving.
+     * Returns true when overview_content was changed.
+     */
+    private function applyServiceCardTopIconsToModel(Request $request, Service $service): bool
+    {
+        if (! $request->has('service_card_top_icons')) {
+            return false;
         }
 
         $raw = $request->input('service_card_top_icons', []);
         if (! is_array($raw)) {
-            return;
+            return false;
         }
 
         $cardHighlights = [];
@@ -1208,7 +1250,8 @@ class ServiceController extends Controller
             'card_highlights' => $cardHighlights,
         ]));
         $service->overview_content = $normalized;
-        $service->save();
+
+        return true;
     }
 
 

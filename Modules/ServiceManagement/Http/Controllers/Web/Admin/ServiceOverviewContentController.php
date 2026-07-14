@@ -2,6 +2,8 @@
 
 namespace Modules\ServiceManagement\Http\Controllers\Web\Admin;
 
+use App\Support\MediaStoragePath;
+use App\Traits\UploadSizeHelperTrait;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -16,6 +18,7 @@ use Modules\ServiceManagement\Support\ServiceOverviewIconPresets;
 class ServiceOverviewContentController extends Controller
 {
   use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+  use UploadSizeHelperTrait;
 
   public function defaults(): View
   {
@@ -46,6 +49,47 @@ class ServiceOverviewContentController extends Controller
     return back();
   }
 
+  public function uploadImage(Request $request, string $serviceId): JsonResponse
+  {
+    $this->authorize('service_update');
+
+    $service = Service::query()
+      ->withoutGlobalScope('translate')
+      ->select(['id', 'name', 'slug'])
+      ->find($serviceId);
+
+    if (! $service) {
+      return response()->json(['flag' => 0, 'message' => translate(DEFAULT_204['message'])], 404);
+    }
+
+    $check = $this->validateUploadedFile($request, ['image']);
+    if ($check !== true) {
+      return response()->json(['flag' => 0, 'message' => translate('invalid_file')], 400);
+    }
+
+    $request->validate([
+      'image' => 'required|image|max:'.uploadMaxFileSizeInKB('image').'|mimes:'.implode(',', array_column(IMAGEEXTENSION, 'key')),
+      'old_url' => 'nullable|string|max:2048',
+    ]);
+
+    $oldKey = media_storage_key_from_url($request->input('old_url'));
+    $storageKey = media_file_uploader(
+      MediaStoragePath::serviceOverviewDir($service),
+      'png',
+      $request->file('image'),
+      $oldKey
+    );
+
+    $url = resolve_media_storage_url($storageKey, '', null, null, false);
+
+    return response()->json([
+      'flag' => 1,
+      'url' => $url,
+      'key' => $storageKey,
+      'message' => translate(DEFAULT_UPDATE_200['message']),
+    ]);
+  }
+
   public function update(Request $request, string $serviceId): JsonResponse
   {
     $this->authorize('service_update');
@@ -72,6 +116,7 @@ class ServiceOverviewContentController extends Controller
     }
 
     $normalized = ServiceOverviewContentResolver::normalizeServiceContent($payload);
+    $this->deleteOrphanedOverviewImages($existing, $normalized);
     $service->overview_content = $normalized;
     $service->saveQuietly();
 
@@ -79,5 +124,65 @@ class ServiceOverviewContentController extends Controller
       'flag' => 1,
       'message' => translate(DEFAULT_UPDATE_200['message']),
     ]);
+  }
+
+  /**
+   * @param  array<string, mixed>  $previous
+   * @param  array<string, mixed>  $next
+   */
+  private function deleteOrphanedOverviewImages(array $previous, array $next): void
+  {
+    $previousUrls = $this->collectOverviewImageUrls($previous);
+    $nextUrls = $this->collectOverviewImageUrls($next);
+
+    foreach (array_diff($previousUrls, $nextUrls) as $removedUrl) {
+      $key = media_storage_key_from_url($removedUrl);
+      if ($key !== null) {
+        media_storage_delete($key);
+      }
+    }
+  }
+
+  /**
+   * @param  array<string, mixed>  $content
+   * @return list<string>
+   */
+  private function collectOverviewImageUrls(array $content): array
+  {
+    $urls = [];
+
+    foreach (['service_process', 'perfect_for', 'whats_included', 'whats_not_included', 'good_to_know', 'terms_and_conditions', 'why_choose'] as $sectionKey) {
+      $section = $content[$sectionKey] ?? null;
+      if (! is_array($section)) {
+        continue;
+      }
+      foreach ($section['items'] ?? [] as $item) {
+        if (! is_array($item)) {
+          continue;
+        }
+        foreach (['image', 'icon_image'] as $field) {
+          $value = trim((string) ($item[$field] ?? ''));
+          if ($value !== '') {
+            $urls[] = $value;
+          }
+        }
+      }
+    }
+
+    foreach (['top_icons', 'card_highlights'] as $listKey) {
+      foreach ($content[$listKey] ?? [] as $item) {
+        if (! is_array($item)) {
+          continue;
+        }
+        foreach (['image', 'icon_image'] as $field) {
+          $value = trim((string) ($item[$field] ?? ''));
+          if ($value !== '') {
+            $urls[] = $value;
+          }
+        }
+      }
+    }
+
+    return array_values(array_unique($urls));
   }
 }

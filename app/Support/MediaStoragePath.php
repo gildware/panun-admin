@@ -66,6 +66,11 @@ class MediaStoragePath
         return 'service/'.$slug.'/';
     }
 
+    public static function serviceOverviewDir(Service|string $serviceOrSlug): string
+    {
+        return self::serviceDir($serviceOrSlug).'overview/';
+    }
+
     public static function providerDir(Provider $provider): string
     {
         return 'provider/'.self::providerSlug($provider).'/';

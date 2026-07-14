@@ -14,22 +14,34 @@
         </span>
     @endif
 
-    <form method="POST"
-          action="{{ route('admin.customer.home-cache.reset') }}"
-          class="js-home-cache-reset-form {{ $formClass ?? 'top-utility-item d-inline' }}">
-        @csrf
-        <button type="submit"
-                class="js-home-cache-reset-btn {{ $homeCacheBtnClass }}{{ $homeCacheNeedsReset ? ' home-cache-reset-btn--attention' : '' }}"
-                data-bs-toggle="tooltip"
-                data-bs-placement="bottom"
-                data-default-label="{{ translate('Reset_home_cache') }}"
-                data-loading-label="{{ translate('Rebuilding_home_cache') }}"
-                title="{{ $homeCacheNeedsReset ? translate('Home_content_changed_reset_cache_reminder') : translate('Reset_and_rebuild_customer_home_cache') }}">
-            <span class="material-symbols-outlined js-home-cache-reset-icon">cached</span>
-            <span class="js-home-cache-reset-label {{ $homeCacheLabelClass }}">{{ translate('Reset_home_cache') }}</span>
-            <span class="spinner-border spinner-border-sm js-home-cache-reset-spinner d-none" role="status" aria-hidden="true"></span>
-        </button>
-    </form>
+    <div class="home-cache-reset-control">
+        <form method="POST"
+              action="{{ route('admin.customer.home-cache.reset') }}"
+              class="js-home-cache-reset-form {{ $formClass ?? 'top-utility-item d-inline' }}">
+            @csrf
+            <button type="submit"
+                    class="js-home-cache-reset-btn {{ $homeCacheBtnClass }}{{ $homeCacheNeedsReset ? ' home-cache-reset-btn--attention' : '' }}"
+                    data-bs-toggle="tooltip"
+                    data-bs-placement="bottom"
+                    data-default-label="{{ translate('Reset_home_cache') }}"
+                    data-loading-label="{{ translate('Rebuilding_home_cache') }}"
+                    title="{{ $homeCacheNeedsReset ? translate('Home_content_changed_reset_cache_reminder') : translate('Reset_and_rebuild_customer_home_cache') }}">
+                <span class="material-symbols-outlined js-home-cache-reset-icon">cached</span>
+                <span class="js-home-cache-reset-label {{ $homeCacheLabelClass }}">{{ translate('Reset_home_cache') }}</span>
+            </button>
+        </form>
+
+        <div class="js-home-cache-progress home-cache-progress d-none" aria-live="polite">
+            <div class="home-cache-progress-meta">
+                <span class="js-home-cache-progress-label home-cache-progress-label">{{ translate('Rebuilding_home_cache') }}</span>
+                <span class="js-home-cache-progress-percent home-cache-progress-percent">0%</span>
+            </div>
+            <div class="home-cache-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="js-home-cache-progress-bar home-cache-progress-bar" style="width: 0%;"></div>
+            </div>
+            <div class="js-home-cache-progress-error home-cache-progress-error d-none" role="alert"></div>
+        </div>
+    </div>
 </div>
 
 @once
@@ -40,6 +52,14 @@
                 align-items: center;
                 gap: 0.5rem;
                 max-width: 100%;
+            }
+
+            .home-cache-reset-control {
+                display: inline-flex;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.35rem;
+                min-width: 0;
             }
 
             .home-cache-reset-reminder {
@@ -67,6 +87,65 @@
                 box-shadow: 0 0 0 0 rgba(255, 153, 0, 0.55);
             }
 
+            .home-cache-progress {
+                width: min(220px, 42vw);
+                padding: 0.35rem 0.5rem 0.4rem;
+                border-radius: 0.5rem;
+                background: rgba(15, 23, 42, 0.04);
+                border: 1px solid rgba(15, 23, 42, 0.08);
+            }
+
+            .home-cache-progress-meta {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 0.5rem;
+                margin-bottom: 0.25rem;
+            }
+
+            .home-cache-progress-label,
+            .home-cache-progress-percent {
+                font-size: 0.7rem;
+                font-weight: 600;
+                line-height: 1.2;
+                color: #475569;
+            }
+
+            .home-cache-progress-track {
+                width: 100%;
+                height: 0.4rem;
+                overflow: hidden;
+                border-radius: 999px;
+                background: #e2e8f0;
+            }
+
+            .home-cache-progress-bar {
+                height: 100%;
+                width: 0;
+                border-radius: inherit;
+                background: linear-gradient(90deg, #0ea5e9, #0284c7);
+                transition: width 0.35s ease;
+            }
+
+            .home-cache-progress.is-failed .home-cache-progress-bar {
+                background: linear-gradient(90deg, #ef4444, #dc2626);
+            }
+
+            .home-cache-progress-error {
+                margin-top: 0.35rem;
+                padding: 0.35rem 0.45rem;
+                border-radius: 0.35rem;
+                background: #fef2f2;
+                border: 1px solid #fecaca;
+                color: #b91c1c;
+                font-size: 0.68rem;
+                font-weight: 600;
+                line-height: 1.35;
+                word-break: break-word;
+                white-space: normal;
+                max-width: 280px;
+            }
+
             @keyframes home-cache-reset-pulse {
                 0% {
                     box-shadow: 0 0 0 0 rgba(255, 153, 0, 0.45);
@@ -84,9 +163,10 @@
     @push('script')
         <script>
             (function () {
-                const POLL_INTERVAL_MS = 2000;
+                const POLL_INTERVAL_MS = 800;
                 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
                 const REQUEST_TIMEOUT_MS = 30000;
+                const SOFT_TICK_MS = 200;
                 const labels = {
                     success: @json(translate('Home_cache_reset_and_warmed_successfully')),
                     queued: @json(translate('Home_cache_reset_rebuild_queued')),
@@ -94,29 +174,184 @@
                     timeout: @json(translate('Home_cache_reset_rebuild_timeout')),
                     requestTimeout: @json(translate('Home_cache_reset_request_timeout')),
                     failed: @json(translate('Failed_to_rebuild_home_cache')),
+                    rebuilding: @json(translate('Rebuilding_home_cache')),
                     sessionExpired: 'Session expired. Please refresh the page and try again.',
                     serverError: 'Server returned an unexpected response. Please refresh and try again.',
                 };
 
-                function setHomeCacheButtonLoading(button, loading) {
+                function getProgressRoot(button) {
+                    const wrap = button.closest('.home-cache-reset-wrap');
+                    return wrap ? wrap.querySelector('.js-home-cache-progress') : null;
+                }
+
+                function setProgressUI(button, options) {
+                    const root = getProgressRoot(button);
+                    if (!root) {
+                        return;
+                    }
+
+                    const labelEl = root.querySelector('.js-home-cache-progress-label');
+                    const percentEl = root.querySelector('.js-home-cache-progress-percent');
+                    const barEl = root.querySelector('.js-home-cache-progress-bar');
+                    const trackEl = root.querySelector('.home-cache-progress-track');
+                    const errorEl = root.querySelector('.js-home-cache-progress-error');
+                    const percent = Math.max(0, Math.min(100, Math.round(Number(options.percent) || 0)));
+                    const failed = !!options.failed;
+                    const errorMessage = options.error || '';
+
+                    root.classList.toggle('d-none', !options.visible);
+                    root.classList.toggle('is-failed', failed);
+
+                    if (labelEl) {
+                        labelEl.textContent = options.label || labels.rebuilding;
+                    }
+                    if (percentEl) {
+                        percentEl.textContent = percent + '%';
+                    }
+                    if (barEl) {
+                        barEl.style.width = percent + '%';
+                    }
+                    if (trackEl) {
+                        trackEl.setAttribute('aria-valuenow', String(percent));
+                    }
+                    if (errorEl) {
+                        if (failed && errorMessage) {
+                            errorEl.textContent = errorMessage;
+                            errorEl.classList.remove('d-none');
+                        } else {
+                            errorEl.textContent = '';
+                            errorEl.classList.add('d-none');
+                        }
+                    }
+                }
+
+                function createProgressTracker(button) {
+                    return {
+                        button: button,
+                        serverPercent: 1,
+                        displayPercent: 1,
+                        total: 0,
+                        done: 0,
+                        startedAt: Date.now(),
+                        softTimer: null,
+                        active: false,
+                        render: function () {
+                            if (!this.active) {
+                                return;
+                            }
+                            setProgressUI(this.button, {
+                                visible: true,
+                                percent: this.displayPercent,
+                                label: labels.rebuilding,
+                                failed: false,
+                                error: '',
+                            });
+                        },
+                        softEstimate: function () {
+                            const elapsedMs = Date.now() - this.startedAt;
+                            // Assume ~1.2s per cache unit; never claim more than 95% until the server finishes.
+                            const units = Math.max(1, this.total || 8);
+                            const expectedMs = units * 1200;
+                            return Math.min(95, (elapsedMs / expectedMs) * 100);
+                        },
+                        tick: function () {
+                            if (!this.active) {
+                                return;
+                            }
+                            const floor = Math.max(this.serverPercent, 1);
+                            const soft = this.softEstimate();
+                            const target = Math.min(95, Math.max(floor, soft));
+                            // Ease toward target so the bar never jumps or freezes.
+                            if (target > this.displayPercent) {
+                                this.displayPercent = Math.min(target, this.displayPercent + Math.max(0.4, (target - this.displayPercent) * 0.22));
+                            }
+                            this.render();
+                        },
+                        start: function (rebuild) {
+                            this.active = true;
+                            this.startedAt = Date.now();
+                            this.serverPercent = 1;
+                            this.displayPercent = 1;
+                            if (rebuild) {
+                                this.applyServer(rebuild);
+                            }
+                            this.render();
+                            const self = this;
+                            this.stopSoft();
+                            this.softTimer = setInterval(function () {
+                                self.tick();
+                            }, SOFT_TICK_MS);
+                        },
+                        applyServer: function (rebuild) {
+                            if (!rebuild) {
+                                return;
+                            }
+                            if (typeof rebuild.total === 'number' && rebuild.total > 0) {
+                                this.total = rebuild.total;
+                            }
+                            if (typeof rebuild.done === 'number') {
+                                this.done = rebuild.done;
+                            }
+                            if (typeof rebuild.percent === 'number') {
+                                this.serverPercent = Math.max(1, Math.min(99, rebuild.percent));
+                            }
+                            if (typeof rebuild.started_at === 'number' && rebuild.started_at > 0) {
+                                this.startedAt = rebuild.started_at * 1000;
+                            }
+                            this.displayPercent = Math.max(this.displayPercent, this.serverPercent);
+                            this.render();
+                        },
+                        complete: function () {
+                            this.stopSoft();
+                            this.active = false;
+                            this.displayPercent = 100;
+                            setProgressUI(this.button, {
+                                visible: true,
+                                percent: 100,
+                                label: labels.success,
+                                failed: false,
+                                error: '',
+                            });
+                        },
+                        fail: function (message) {
+                            this.stopSoft();
+                            this.active = false;
+                            setProgressUI(this.button, {
+                                visible: true,
+                                percent: Math.max(100, Math.round(this.displayPercent)),
+                                label: labels.failed,
+                                failed: true,
+                                error: message || labels.failed,
+                            });
+                        },
+                        stopSoft: function () {
+                            if (this.softTimer) {
+                                clearInterval(this.softTimer);
+                                this.softTimer = null;
+                            }
+                        },
+                    };
+                }
+
+                function setHomeCacheButtonLoading(button, loading, tracker) {
                     const label = button.querySelector('.js-home-cache-reset-label');
                     const icon = button.querySelector('.js-home-cache-reset-icon');
-                    const spinner = button.querySelector('.js-home-cache-reset-spinner');
                     const defaultLabel = button.dataset.defaultLabel || 'Reset home cache';
-                    const loadingLabel = button.dataset.loadingLabel || 'Rebuilding...';
 
                     button.disabled = loading;
                     button.classList.toggle('disabled', loading);
+                    button.classList.toggle('d-none', loading);
                     button.setAttribute('aria-busy', loading ? 'true' : 'false');
 
                     if (icon) {
-                        icon.classList.toggle('d-none', loading);
-                    }
-                    if (spinner) {
-                        spinner.classList.toggle('d-none', !loading);
+                        icon.classList.toggle('d-none', false);
                     }
                     if (label) {
-                        label.textContent = loading ? loadingLabel : defaultLabel;
+                        label.textContent = defaultLabel;
+                    }
+
+                    if (loading && tracker) {
+                        tracker.start();
                     }
                 }
 
@@ -172,6 +407,10 @@
                         if (!response.ok) {
                             let message = data && data.message ? data.message : '';
 
+                            if (!message && data && data.rebuild && data.rebuild.error) {
+                                message = data.rebuild.error;
+                            }
+
                             if (!message && response.status === 419) {
                                 message = labels.sessionExpired;
                             }
@@ -184,7 +423,9 @@
                                 message = response.status >= 500 ? labels.serverError : labels.failed;
                             }
 
-                            throw new Error(message);
+                            const err = new Error(message);
+                            err.rebuild = data && data.rebuild ? data.rebuild : null;
+                            throw err;
                         }
 
                         if (!data) {
@@ -192,14 +433,16 @@
                         }
 
                         if (data.success === false) {
-                            throw new Error(data.message || labels.failed);
+                            const err = new Error(data.message || labels.failed);
+                            err.rebuild = data.rebuild || null;
+                            throw err;
                         }
 
                         return data;
                     });
                 }
 
-                function pollHomeCacheStatus(resetUrl, csrf) {
+                function pollHomeCacheStatus(tracker, resetUrl, csrf) {
                     const startedAt = Date.now();
 
                     return new Promise(function (resolve, reject) {
@@ -225,7 +468,15 @@
                             }, REQUEST_TIMEOUT_MS)
                                 .then(parseJsonResponse)
                                 .then(function (data) {
-                                    if (data.needs_reset === false) {
+                                    tracker.applyServer(data.rebuild);
+
+                                    if (data.rebuild && data.rebuild.status === 'failed') {
+                                        reject(new Error(data.rebuild.error || labels.failed));
+                                        return;
+                                    }
+
+                                    if (data.needs_reset === false || (data.rebuild && data.rebuild.status === 'complete')) {
+                                        tracker.complete();
                                         resolve(data);
                                         return;
                                     }
@@ -239,6 +490,33 @@
 
                         check();
                     });
+                }
+
+                function finishResetUi(button, tracker, options) {
+                    const failed = !!options.failed;
+                    const message = options.message || '';
+
+                    if (failed) {
+                        tracker.fail(message || labels.failed);
+                        button.disabled = false;
+                        button.classList.remove('disabled', 'd-none');
+                        button.setAttribute('aria-busy', 'false');
+                        return;
+                    }
+
+                    tracker.complete();
+                    setTimeout(function () {
+                        setProgressUI(button, {
+                            visible: false,
+                            percent: 0,
+                            label: labels.rebuilding,
+                            failed: false,
+                            error: '',
+                        });
+                        button.disabled = false;
+                        button.classList.remove('disabled', 'd-none');
+                        button.setAttribute('aria-busy', 'false');
+                    }, 900);
                 }
 
                 document.addEventListener('submit', function (event) {
@@ -257,8 +535,9 @@
                     const tokenInput = form.querySelector('input[name="_token"]');
                     const csrf = tokenInput ? tokenInput.value : '';
                     const formData = new FormData(form);
+                    const tracker = createProgressTracker(button);
 
-                    setHomeCacheButtonLoading(button, true);
+                    setHomeCacheButtonLoading(button, true, tracker);
 
                     fetchWithTimeout(form.action, {
                         method: 'POST',
@@ -272,31 +551,42 @@
                     }, REQUEST_TIMEOUT_MS)
                         .then(parseJsonResponse)
                         .then(function (data) {
-                            if (data.needs_reset === false) {
+                            tracker.applyServer(data.rebuild);
+
+                            if (data.needs_reset === false && (!data.queued || (data.rebuild && data.rebuild.status === 'complete'))) {
                                 clearHomeCacheReminder();
                                 showHomeCacheToast(data.message || labels.success, 'success');
+                                finishResetUi(button, tracker, { failed: false });
                                 return;
                             }
 
                             if (data.queued) {
-                                return pollHomeCacheStatus(form.action, csrf).then(function () {
+                                return pollHomeCacheStatus(tracker, form.action, csrf).then(function () {
                                     clearHomeCacheReminder();
                                     showHomeCacheToast(labels.success, 'success');
+                                    finishResetUi(button, tracker, { failed: false });
                                 }).catch(function (pollError) {
-                                    showHomeCacheToast(pollError.message || labels.queuedRefresh, 'warning');
+                                    const message = pollError.message || labels.queuedRefresh;
+                                    showHomeCacheToast(message, pollError.message === labels.timeout ? 'warning' : 'error');
+                                    finishResetUi(button, tracker, { failed: true, message: message });
                                 });
                             }
 
+                            clearHomeCacheReminder();
                             showHomeCacheToast(data.message || labels.success, 'success');
+                            finishResetUi(button, tracker, { failed: false });
                         })
                         .catch(function (error) {
                             const message = error.name === 'AbortError'
                                 ? labels.requestTimeout
                                 : (error.message || labels.failed);
+
+                            if (error.rebuild) {
+                                tracker.applyServer(error.rebuild);
+                            }
+
                             showHomeCacheToast(message, 'error');
-                        })
-                        .finally(function () {
-                            setHomeCacheButtonLoading(button, false);
+                            finishResetUi(button, tracker, { failed: true, message: message });
                         });
                 });
             })();

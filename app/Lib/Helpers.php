@@ -576,6 +576,64 @@ if (!function_exists('media_file_uploader')) {
     }
 }
 
+if (!function_exists('media_storage_key_from_url')) {
+    /**
+     * Convert a public media URL (or bare storage key) into a logical storage key.
+     * Returns null for empty values or external URLs we do not manage.
+     */
+    function media_storage_key_from_url(?string $urlOrPath): ?string
+    {
+        if ($urlOrPath === null) {
+            return null;
+        }
+
+        $value = trim($urlOrPath);
+        if ($value === '') {
+            return null;
+        }
+
+        if (! preg_match('#^https?://#i', $value)) {
+            $key = \App\Support\StoragePathPrefix::strip(
+                ltrim(str_replace(['storage/', '/storage/'], '', $value), '/')
+            );
+
+            return $key !== '' ? $key : null;
+        }
+
+        $path = parse_url($value, PHP_URL_PATH);
+        if (! is_string($path) || $path === '' || $path === '/') {
+            return null;
+        }
+
+        $path = ltrim(str_replace(['/storage/', 'storage/'], '/', $path), '/');
+        if ($path === '') {
+            return null;
+        }
+
+        $cloudBase = \App\Support\CloudStorageConfigurator::publicBaseUrl();
+        $belongsToUs = false;
+
+        if ($cloudBase !== null && $cloudBase !== '') {
+            $belongsToUs = str_starts_with(rtrim($value, '/'), rtrim($cloudBase, '/'));
+        }
+
+        if (! $belongsToUs) {
+            $appUrl = rtrim((string) config('app.url'), '/');
+            if ($appUrl !== '' && str_starts_with($value, $appUrl)) {
+                $belongsToUs = true;
+            }
+        }
+
+        if (! $belongsToUs) {
+            return null;
+        }
+
+        $key = \App\Support\StoragePathPrefix::strip($path);
+
+        return $key !== '' ? $key : null;
+    }
+}
+
 if (!function_exists('advertisement_media_uploader')) {
     function advertisement_media_uploader($file, mixed $providerOrAdvertisement = null, ?string $stored = null): string
     {

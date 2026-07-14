@@ -25,11 +25,15 @@ class CustomerHomeCacheController extends Controller
             $warmed = CustomerHomeCacheManager::resetAndWarm($zoneId, dispatchAsync: true);
         } catch (\Throwable $e) {
             report($e);
+            CustomerHomeCacheWarmState::markRebuildFailed(
+                $e->getMessage() !== '' ? $e->getMessage() : translate('Failed_to_rebuild_home_cache')
+            );
 
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
-                    'message' => translate('Failed_to_rebuild_home_cache'),
+                    'message' => $e->getMessage() !== '' ? $e->getMessage() : translate('Failed_to_rebuild_home_cache'),
+                    'rebuild' => CustomerHomeCacheWarmState::rebuildStatus(),
                 ], 500);
             }
 
@@ -47,6 +51,7 @@ class CustomerHomeCacheController extends Controller
                 'queued' => $warmed === 0,
                 'message' => $message,
                 'needs_reset' => CustomerHomeCacheWarmState::needsAdminReminder(),
+                'rebuild' => CustomerHomeCacheWarmState::rebuildStatus(),
             ]);
         }
 
@@ -57,11 +62,14 @@ class CustomerHomeCacheController extends Controller
 
     private function jsonStatus(): JsonResponse
     {
+        $rebuild = CustomerHomeCacheWarmState::rebuildStatus();
+
         return response()->json([
             'success' => true,
             'needs_reset' => CustomerHomeCacheWarmState::needsAdminReminder(),
             'current_version' => CustomerHomeCacheWarmState::currentVersion(),
             'last_warmed_version' => CustomerHomeCacheWarmState::lastWarmedVersion(),
+            'rebuild' => $rebuild,
         ]);
     }
 

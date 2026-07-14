@@ -2,21 +2,226 @@
     $colorOptions = ['green', 'blue', 'purple', 'orange'];
     $overviewContentJson = json_encode($overviewContent ?? [], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
     $overviewDefaultsJson = json_encode($overviewDefaults ?? [], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
+    $imageAccept = '.'.implode(',.', array_column(IMAGEEXTENSION, 'key')).', |image/*';
 @endphp
 
 <div class="service-overview-editor" id="serviceOverviewEditor"
      data-save-url="{{ route('admin.service-overview.update', $service->id) }}"
+     data-upload-url="{{ route('admin.service-overview.upload-image', $service->id) }}"
      data-initial='@json($overviewContent ?? [])'
      data-defaults='@json($overviewDefaults ?? [])'>
 
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <style>
+        .overview-process-card {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+        .overview-process-card__media {
+            flex: 0 0 auto;
+            width: 180px;
+        }
+        .overview-process-card__fields {
+            flex: 1 1 220px;
+            min-width: 0;
+        }
+        .overview-process-card .overview-image-uploader .overview-image-card {
+            max-width: 180px;
+        }
+        .overview-process-card .overview-image-preview-frame {
+            width: 180px;
+            height: 135px;
+        }
+        .overview-image-uploader .overview-image-card {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-width: 320px;
+        }
+        .overview-image-preview-frame {
+            position: relative;
+            display: block;
+            width: 160px;
+            height: 120px;
+            margin: 0;
+            border: 1px dashed #c5ccd6;
+            border-radius: 8px;
+            background: #f5f7fa;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .overview-image-preview-frame.has-image {
+            border-style: solid;
+            border-color: #d7dde5;
+            background: #fff;
+        }
+        .overview-image-preview-frame:hover {
+            border-color: #0d6efd;
+        }
+        .overview-image-preview-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .overview-image-placeholder {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            color: #8a94a6;
+            font-size: 12px;
+            pointer-events: none;
+        }
+        .overview-image-placeholder .material-icons {
+            font-size: 28px;
+            opacity: 0.75;
+        }
+        .overview-image-card {
+            position: relative;
+        }
+        .overview-image-clear-btn {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            z-index: 3;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 23, 42, 0.75);
+            color: #fff;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .overview-image-clear-btn .material-icons {
+            font-size: 16px;
+        }
+        .overview-image-clear-btn:hover {
+            background: #dc3545;
+        }
+        .overview-image-uploader .overview-image-upload-label {
+            cursor: pointer;
+        }
+        .overview-image-uploader.is-uploading .overview-image-upload-label,
+        .overview-image-uploader.is-uploading .overview-image-clear-btn {
+            pointer-events: none;
+            opacity: 0.65;
+        }
+        .overview-image-progress-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px;
+            background: rgba(15, 23, 42, 0.55);
+            color: #fff;
+        }
+        .overview-image-progress-track {
+            width: 100%;
+            height: 6px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.28);
+            overflow: hidden;
+        }
+        .overview-image-progress-bar {
+            height: 100%;
+            width: 0;
+            border-radius: inherit;
+            background: #22c55e;
+            transition: width 0.12s linear;
+        }
+        .overview-image-progress-pct {
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        .overview-image-upload-status {
+            font-size: 11px;
+            color: #64748b;
+        }
+        .overview-image-upload-status.is-error {
+            color: #dc3545;
+        }
+        .overview-image-upload-status.is-success {
+            color: #198754;
+        }
+        .overview-sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin: -4px -4px 16px;
+            padding: 12px 4px;
+            background: #fff;
+            border-bottom: 1px solid #eef0f3;
+        }
+        .overview-save-bar {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1040;
+            display: none;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.96);
+            border-top: 1px solid #e5e7eb;
+            box-shadow: 0 -6px 20px rgba(15, 23, 42, 0.08);
+            backdrop-filter: blur(8px);
+        }
+        .overview-save-bar.is-visible {
+            display: flex;
+        }
+        body.overview-tab-active {
+            padding-bottom: 72px;
+        }
+        @media (max-width: 575.98px) {
+            .overview-process-card__media,
+            .overview-process-card .overview-image-preview-frame,
+            .overview-process-card .overview-image-uploader .overview-image-card {
+                width: 100%;
+                max-width: 100%;
+            }
+            .overview-save-bar {
+                padding: 10px 16px;
+            }
+        }
+    </style>
+
+    <div class="overview-sticky-header">
         <div>
             <h6 class="mb-1">{{ translate('service_overview_sections') }}</h6>
             <p class="text-muted fs-12 mb-0">{{ translate('add_custom_sections_for_this_service') }}</p>
         </div>
-        <a href="{{ route('admin.service-overview.defaults') }}" class="btn btn-sm btn-outline-primary" target="_blank">
-            {{ translate('edit_global_defaults') }}
-        </a>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <a href="{{ route('admin.service-overview.defaults') }}" class="btn btn-sm btn-outline-primary" target="_blank">
+                {{ translate('edit_global_defaults') }}
+            </a>
+            <button type="button" class="btn btn-sm btn--primary overview-content-save-btn"
+                    data-label-idle="{{ translate('save_overview_content') }}"
+                    data-label-loading="{{ translate('Loading') }}...">
+                <span class="overview-save-label">{{ translate('save_overview_content') }}</span>
+                <span class="spinner-border spinner-border-sm text-light d-none ms-1" role="status" aria-hidden="true"></span>
+            </button>
+        </div>
     </div>
 
     <div class="form-floating mb-3">
@@ -155,8 +360,8 @@
         </div>
     </div>
 
-    <div class="d-flex justify-content-end">
-        <button type="button" class="btn btn--primary" id="overview-content-save-btn"
+    <div class="overview-save-bar" id="overviewStickySaveBar" aria-hidden="true">
+        <button type="button" class="btn btn--primary overview-content-save-btn"
                 data-label-idle="{{ translate('save_overview_content') }}"
                 data-label-loading="{{ translate('Loading') }}...">
             <span class="overview-save-label">{{ translate('save_overview_content') }}</span>
@@ -176,25 +381,205 @@
         const iconOptions = @json($overviewIconOptions ?? []);
         const colorOptions = @json($colorOptions);
         const selectIconLabel = @json(translate('select_icon'));
+        const uploadImageLabel = @json(translate('Upload image'));
+        const stepImageUrlPlaceholder = @json(translate('Or paste image URL (optional)'));
+        const customIconUrlPlaceholder = @json(translate('Or paste custom icon URL'));
+        const uploadingLabel = @json(translate('Uploading...'));
+        const uploadFailedLabel = @json(translate('Upload failed'));
         const updatedSuccessfullyLabel = @json(translate('updated_successfully'));
         const failedToUpdateLabel = @json(translate('failed_to_update'));
         const saveUrl = editor.dataset.saveUrl;
-        const saveBtn = document.getElementById('overview-content-save-btn');
+        const uploadUrl = editor.dataset.uploadUrl;
+        const imageAccept = @json($imageAccept);
+        const saveButtons = Array.from(document.querySelectorAll('.overview-content-save-btn'));
+        const stickySaveBar = document.getElementById('overviewStickySaveBar');
+        const overviewPane = document.getElementById('service-edit-pane-overview');
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
             || '{{ csrf_token() }}';
         let saving = false;
 
         function setSaveLoading(isLoading) {
-            if (!saveBtn) return;
-            const idleLabel = saveBtn.dataset.labelIdle || 'Save';
-            const loadingLabel = saveBtn.dataset.labelLoading || 'Loading...';
-            const labelEl = saveBtn.querySelector('.overview-save-label');
-            const spinnerEl = saveBtn.querySelector('.spinner-border');
-
             saving = isLoading;
-            saveBtn.disabled = isLoading;
-            if (labelEl) labelEl.textContent = isLoading ? loadingLabel : idleLabel;
-            if (spinnerEl) spinnerEl.classList.toggle('d-none', !isLoading);
+            saveButtons.forEach(function (btn) {
+                const idleLabel = btn.dataset.labelIdle || 'Save';
+                const loadingLabel = btn.dataset.labelLoading || 'Loading...';
+                const labelEl = btn.querySelector('.overview-save-label');
+                const spinnerEl = btn.querySelector('.spinner-border');
+
+                btn.disabled = isLoading;
+                if (labelEl) labelEl.textContent = isLoading ? loadingLabel : idleLabel;
+                if (spinnerEl) spinnerEl.classList.toggle('d-none', !isLoading);
+            });
+        }
+
+        function syncStickySaveBar() {
+            const isOverviewActive = !!(overviewPane && overviewPane.classList.contains('active'));
+            if (stickySaveBar) {
+                stickySaveBar.classList.toggle('is-visible', isOverviewActive);
+                stickySaveBar.setAttribute('aria-hidden', isOverviewActive ? 'false' : 'true');
+            }
+            document.body.classList.toggle('overview-tab-active', isOverviewActive);
+        }
+
+        syncStickySaveBar();
+        document.getElementById('service-edit-main-tabs')?.addEventListener('shown.bs.tab', syncStickySaveBar);
+
+        function escapeAttr(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function imageUploaderHtml(fieldClass, value, urlPlaceholder) {
+            const hasValue = !!(value && String(value).trim());
+            return '<div class="overview-image-uploader" data-image-field="' + escapeAttr(fieldClass) + '">'
+                + '<div class="overview-image-card">'
+                + '<label class="overview-image-preview-frame overview-image-upload-label' + (hasValue ? ' has-image' : '') + '">'
+                + '<img src="' + escapeAttr(value || '') + '" alt="" class="overview-image-preview-img' + (hasValue ? '' : ' d-none') + '">'
+                + '<div class="overview-image-placeholder' + (hasValue ? ' d-none' : '') + '">'
+                + '<span class="material-icons">add_photo_alternate</span><span>Upload image</span>'
+                + '</div>'
+                + '<div class="overview-image-progress-overlay d-none">'
+                + '<div class="overview-image-progress-track"><div class="overview-image-progress-bar" style="width: 0%"></div></div>'
+                + '<span class="overview-image-progress-pct">0%</span>'
+                + '</div>'
+                + '<input type="file" class="d-none overview-image-file-input" accept="' + escapeAttr(imageAccept) + '">'
+                + '</label>'
+                + '<button type="button" class="overview-image-clear-btn' + (hasValue ? '' : ' d-none') + '" title="Remove">'
+                + '<span class="material-icons">close</span>'
+                + '</button>'
+                + '<input type="hidden" class="' + escapeAttr(fieldClass) + ' overview-image-url-input" value="' + escapeAttr(value || '') + '">'
+                + '<p class="overview-image-upload-status d-none mb-0"></p>'
+                + '</div></div>';
+        }
+
+        function setPreviewImage(uploader, src) {
+            if (!uploader) return;
+            const frame = uploader.querySelector('.overview-image-preview-frame');
+            const previewImg = uploader.querySelector('.overview-image-preview-img');
+            const placeholder = uploader.querySelector('.overview-image-placeholder');
+            const clearBtn = uploader.querySelector('.overview-image-clear-btn');
+            const hasValue = !!(src && String(src).trim());
+
+            if (previewImg) {
+                previewImg.src = hasValue ? src : '';
+                previewImg.classList.toggle('d-none', !hasValue);
+            }
+            if (placeholder) placeholder.classList.toggle('d-none', hasValue);
+            if (frame) frame.classList.toggle('has-image', hasValue);
+            if (clearBtn) clearBtn.classList.toggle('d-none', !hasValue);
+        }
+
+        function syncImagePreview(uploader) {
+            if (!uploader) return;
+            const urlInput = uploader.querySelector('.overview-image-url-input');
+            setPreviewImage(uploader, (urlInput?.value || '').trim());
+        }
+
+        function setUploadStatus(uploader, message, state) {
+            const statusEl = uploader.querySelector('.overview-image-upload-status');
+            if (!statusEl) return;
+            statusEl.classList.remove('is-error', 'is-success');
+            if (!message) {
+                statusEl.textContent = '';
+                statusEl.classList.add('d-none');
+                return;
+            }
+            statusEl.textContent = message;
+            statusEl.classList.remove('d-none');
+            if (state === 'error') statusEl.classList.add('is-error');
+            if (state === 'success') statusEl.classList.add('is-success');
+        }
+
+        function setUploadProgress(uploader, percent, visible) {
+            const overlay = uploader.querySelector('.overview-image-progress-overlay');
+            const bar = uploader.querySelector('.overview-image-progress-bar');
+            const pct = uploader.querySelector('.overview-image-progress-pct');
+            const clamped = Math.max(0, Math.min(100, Math.round(percent || 0)));
+
+            if (overlay) overlay.classList.toggle('d-none', !visible);
+            if (bar) bar.style.width = clamped + '%';
+            if (pct) pct.textContent = clamped + '%';
+        }
+
+        function showLocalPreview(uploader, file) {
+            if (!file || !file.type || file.type.indexOf('image/') !== 0) return;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                setPreviewImage(uploader, e.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function uploadOverviewImage(uploader, file) {
+            if (!uploadUrl || !file) return;
+
+            const urlInput = uploader.querySelector('.overview-image-url-input');
+            const previousUrl = (urlInput?.value || '').trim();
+            const formData = new FormData();
+            formData.append('image', file);
+            formData.append('old_url', previousUrl);
+
+            uploader.classList.add('is-uploading');
+            showLocalPreview(uploader, file);
+            setUploadProgress(uploader, 0, true);
+            setUploadStatus(uploader, uploadingLabel, 'progress');
+
+            $.ajax({
+                url: uploadUrl,
+                method: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                },
+                xhr: function () {
+                    const xhr = $.ajaxSettings.xhr();
+                    if (xhr && xhr.upload) {
+                        xhr.upload.addEventListener('progress', function (event) {
+                            if (!event.lengthComputable) return;
+                            const percent = (event.loaded / event.total) * 100;
+                            // Cap upload phase at 90%; processing finishes after response.
+                            setUploadProgress(uploader, Math.min(90, percent), true);
+                        });
+                    }
+                    return xhr;
+                },
+                success: function (response) {
+                    setUploadProgress(uploader, 100, true);
+                    if (response.flag === 1 && response.url) {
+                        if (urlInput) urlInput.value = response.url;
+                        setPreviewImage(uploader, response.url);
+                        setUploadStatus(uploader, 'Uploaded', 'success');
+                        toastr.success(response.message || updatedSuccessfullyLabel);
+                        setTimeout(function () {
+                            setUploadStatus(uploader, '', null);
+                        }, 1500);
+                    } else {
+                        setPreviewImage(uploader, previousUrl);
+                        if (urlInput) urlInput.value = previousUrl;
+                        setUploadStatus(uploader, response.message || uploadFailedLabel, 'error');
+                        toastr.error(response.message || uploadFailedLabel);
+                    }
+                },
+                error: function (xhr) {
+                    const message = xhr.responseJSON?.message || uploadFailedLabel;
+                    setPreviewImage(uploader, previousUrl);
+                    if (urlInput) urlInput.value = previousUrl;
+                    setUploadStatus(uploader, message, 'error');
+                    toastr.error(message);
+                },
+                complete: function () {
+                    uploader.classList.remove('is-uploading');
+                    setUploadProgress(uploader, 0, false);
+                    const fileInput = uploader.querySelector('.overview-image-file-input');
+                    if (fileInput) fileInput.value = '';
+                }
+            });
         }
 
         function iconSelectHtml(selected) {
@@ -228,38 +613,44 @@
             let inner = '';
 
             if (type === 'process') {
-                inner += '<div class="row g-2">'
+                inner += '<div class="overview-process-card">'
+                    + '<div class="overview-process-card__media">'
+                    + imageUploaderHtml('overview-item-image', data.image || '', stepImageUrlPlaceholder)
+                    + '</div>'
+                    + '<div class="overview-process-card__fields"><div class="row g-2">'
                     + '<div class="col-md-4">' + iconSelectHtml(data.icon || '') + '</div>'
-                    + '<div class="col-md-8"><input type="text" class="form-control form-control-sm overview-item-title" placeholder="Step title" value="' + (data.title || '') + '"></div>'
-                    + '<div class="col-12"><input type="text" class="form-control form-control-sm overview-item-image" placeholder="Step image URL (optional — use icon if empty)" value="' + (data.image || '') + '"></div>'
-                    + '<div class="col-12"><input type="text" class="form-control form-control-sm overview-item-description" placeholder="Step description" value="' + (data.description || '') + '"></div>'
-                    + '</div>';
+                    + '<div class="col-md-8"><input type="text" class="form-control form-control-sm overview-item-title" placeholder="Step title" value="' + escapeAttr(data.title || '') + '"></div>'
+                    + '<div class="col-12"><textarea class="form-control form-control-sm overview-item-description" rows="3" placeholder="Step description">' + escapeAttr(data.description || '') + '</textarea></div>'
+                    + '</div></div></div>';
             } else if (type === 'icon_title') {
                 inner += '<div class="row g-2">'
                     + '<div class="col-md-4">' + iconSelectHtml(data.icon || '') + '</div>'
-                    + '<div class="col-md-8"><input type="text" class="form-control form-control-sm overview-item-title" placeholder="Title" value="' + (data.title || data.text || '') + '"></div>'
+                    + '<div class="col-md-8"><input type="text" class="form-control form-control-sm overview-item-title" placeholder="Title" value="' + escapeAttr(data.title || data.text || '') + '"></div>'
                     + '</div>';
             } else if (type === 'chip' || type === 'icon_text') {
-                inner += '<div class="row g-2">'
+                inner += '<div class="overview-process-card">'
+                    + '<div class="overview-process-card__media">'
+                    + imageUploaderHtml('overview-item-icon-image', data.icon_image || '', customIconUrlPlaceholder)
+                    + '</div>'
+                    + '<div class="overview-process-card__fields"><div class="row g-2">'
                     + '<div class="col-md-4">' + iconSelectHtml(data.icon || '') + '</div>'
-                    + '<div class="col-md-4"><input type="text" class="form-control form-control-sm overview-item-icon-image" placeholder="Custom icon URL" value="' + (data.icon_image || '') + '"></div>'
-                    + '<div class="col-md-4"><input type="text" class="form-control form-control-sm overview-item-text" placeholder="Text" value="' + (data.text || '') + '"></div>'
-                    + '</div>';
+                    + '<div class="col-md-8"><input type="text" class="form-control form-control-sm overview-item-text" placeholder="Text" value="' + escapeAttr(data.text || '') + '"></div>'
+                    + '</div></div></div>';
             } else if (type === 'top_icon') {
                 inner += '<div class="row g-2">'
                     + '<div class="col-md-3">' + iconSelectHtml(data.icon || '') + '</div>'
                     + '<div class="col-md-3">' + colorSelectHtml(data.color || 'green') + '</div>'
-                    + '<div class="col-md-6"><input type="text" class="form-control form-control-sm overview-item-text" placeholder="Label" value="' + (data.text || '') + '"></div>'
+                    + '<div class="col-md-6"><input type="text" class="form-control form-control-sm overview-item-text" placeholder="Label" value="' + escapeAttr(data.text || '') + '"></div>'
                     + '</div>';
             } else if (type === 'why_choose') {
                 inner += '<div class="row g-2">'
                     + '<div class="col-md-3">' + iconSelectHtml(data.icon || '') + '</div>'
                     + '<div class="col-md-3">' + colorSelectHtml(data.color || 'green') + '</div>'
-                    + '<div class="col-md-6"><input type="text" class="form-control form-control-sm overview-item-title" placeholder="Title" value="' + (data.title || '') + '"></div>'
-                    + '<div class="col-12"><input type="text" class="form-control form-control-sm overview-item-description" placeholder="Description" value="' + (data.description || '') + '"></div>'
+                    + '<div class="col-md-6"><input type="text" class="form-control form-control-sm overview-item-title" placeholder="Title" value="' + escapeAttr(data.title || '') + '"></div>'
+                    + '<div class="col-12"><input type="text" class="form-control form-control-sm overview-item-description" placeholder="Description" value="' + escapeAttr(data.description || '') + '"></div>'
                     + '</div>';
             } else {
-                inner += '<input type="text" class="form-control form-control-sm overview-item-text" placeholder="Text" value="' + (data.text || '') + '">';
+                inner += '<input type="text" class="form-control form-control-sm overview-item-text" placeholder="Text" value="' + escapeAttr(data.text || '') + '">';
             }
 
             fields.innerHTML = inner;
@@ -339,7 +730,33 @@
             const removeBtn = e.target.closest('.overview-remove-item');
             if (removeBtn) {
                 removeBtn.closest('.overview-item-row').remove();
+                return;
             }
+
+            const clearBtn = e.target.closest('.overview-image-clear-btn');
+            if (clearBtn) {
+                const uploader = clearBtn.closest('.overview-image-uploader');
+                const urlInput = uploader?.querySelector('.overview-image-url-input');
+                if (urlInput) urlInput.value = '';
+                setPreviewImage(uploader, '');
+                setUploadProgress(uploader, 0, false);
+                setUploadStatus(uploader, '', null);
+            }
+        });
+
+        document.addEventListener('change', function (e) {
+            const fileInput = e.target.closest('.overview-image-file-input');
+            if (!fileInput) return;
+            const uploader = fileInput.closest('.overview-image-uploader');
+            const file = fileInput.files && fileInput.files[0];
+            if (uploader && file) {
+                uploadOverviewImage(uploader, file);
+            }
+        });
+
+        document.addEventListener('input', function (e) {
+            if (!e.target.classList.contains('overview-image-url-input')) return;
+            syncImagePreview(e.target.closest('.overview-image-uploader'));
         });
 
         function toggleOverrideSection(checkboxId, sectionId) {
@@ -356,8 +773,12 @@
         toggleOverrideSection('override-why-choose', 'why-choose-section');
         toggleOverrideSection('override-terms-and-conditions', 'terms-and-conditions-section');
 
-        saveBtn.addEventListener('click', function () {
+        function saveOverviewContent() {
             if (saving) return;
+            if (editor.querySelector('.overview-image-uploader.is-uploading')) {
+                toastr.error(uploadingLabel);
+                return;
+            }
             setSaveLoading(true);
 
             let payload;
@@ -393,6 +814,10 @@
                     setSaveLoading(false);
                 }
             });
+        }
+
+        saveButtons.forEach(function (btn) {
+            btn.addEventListener('click', saveOverviewContent);
         });
     })();
 </script>
