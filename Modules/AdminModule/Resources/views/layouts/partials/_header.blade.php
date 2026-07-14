@@ -166,7 +166,7 @@
                                    title="{{ translate('Staff_Conversation') }}"
                                    aria-label="{{ translate('Staff_Conversation') }}">
                                     <span class="material-symbols-outlined">chat</span>
-                                    <span class="count" id="staff_message_count" @if(($staffUnreadCount ?? 0) < 1) style="display:none;" @endif>{{ $staffUnreadCount ?? 0 }}</span>
+                                    <span class="count" id="staff_message_count" style="display:{{ ($staffUnreadCount ?? 0) > 0 ? 'flex' : 'none' }};">{{ ($staffUnreadCount ?? 0) > 0 ? $staffUnreadCount : '' }}</span>
                                 </a>
                             </div>
                         </li>
@@ -208,7 +208,7 @@
                                    title="{{ translate('Notifications') }}"
                                    aria-label="{{ translate('Notifications') }}">
                                     <span class="material-symbols-outlined">notifications</span>
-                                    <span class="count" id="notification_count" style="display:none;">0</span>
+                                    <span class="count" id="notification_count" style="display:{{ ($notificationUnreadCount ?? 0) > 0 ? 'flex' : 'none' }};">{{ ($notificationUnreadCount ?? 0) > 0 ? (($notificationUnreadCount > 99) ? '99+' : $notificationUnreadCount) : '' }}</span>
                                 </a>
                                 <div class="dropdown-menu dropdown-menu-right p-0" style="min-width:22rem;max-width:26rem;">
                                     <div class="show-notification-list" id="show-notification-list" style="max-height:24rem;overflow-y:auto;"></div>

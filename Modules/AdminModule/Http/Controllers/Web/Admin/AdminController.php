@@ -363,29 +363,43 @@ class AdminController extends Controller
         $user = $request->user();
         $userId = $user->id;
 
-        $counts = Cache::remember("admin_header_counts:{$userId}", 30, function () use ($userId, $user, $inboxNotificationService) {
-            $notificationUnreadCount = $inboxNotificationService->unreadCount((string) $userId);
-            $notificationReadCount = $inboxNotificationService->readCount((string) $userId);
-            $notifications = $inboxNotificationService->recent((string) $userId, 10);
-            $notificationTemplate = view('adminmodule::admin.partials._notifications', [
-                'notifications' => $notifications,
-                'unreadCount' => $notificationUnreadCount,
-                'readCount' => $notificationReadCount,
-            ])->render();
+        // Cache scalar unread counts only — never the rendered notification HTML.
+        // Caching the template made this endpoint fail when disk cache writes failed
+        // (full disk), which left all header badges stuck at CSS display:none.
+        try {
+            $counts = Cache::remember("admin_header_counts:{$userId}", 30, function () use ($userId, $user, $inboxNotificationService) {
+                $staffUnreadMessages = AdminHeaderChatCounts::staffUnreadMessages($user);
 
+                return [
+                    'message' => $staffUnreadMessages,
+                    'staff_message' => $staffUnreadMessages,
+                    'staff_unread_messages' => $staffUnreadMessages,
+                    'customer_provider_unread_messages' => AdminHeaderChatCounts::supportUnreadMessages($user),
+                    'notification_unread_count' => $inboxNotificationService->unreadCount((string) $userId),
+                    'notification_read_count' => $inboxNotificationService->readCount((string) $userId),
+                ];
+            });
+        } catch (\Throwable $e) {
+            report($e);
             $staffUnreadMessages = AdminHeaderChatCounts::staffUnreadMessages($user);
-            $customerProviderUnreadMessages = AdminHeaderChatCounts::supportUnreadMessages($user);
-
-            return [
+            $counts = [
                 'message' => $staffUnreadMessages,
                 'staff_message' => $staffUnreadMessages,
                 'staff_unread_messages' => $staffUnreadMessages,
-                'customer_provider_unread_messages' => $customerProviderUnreadMessages,
-                'notification_unread_count' => $notificationUnreadCount,
-                'notification_read_count' => $notificationReadCount,
-                'notification_template' => $notificationTemplate,
+                'customer_provider_unread_messages' => AdminHeaderChatCounts::supportUnreadMessages($user),
+                'notification_unread_count' => $inboxNotificationService->unreadCount((string) $userId),
+                'notification_read_count' => $inboxNotificationService->readCount((string) $userId),
             ];
-        });
+        }
+
+        $notificationUnreadCount = (int) ($counts['notification_unread_count'] ?? 0);
+        $notificationReadCount = (int) ($counts['notification_read_count'] ?? 0);
+        $notifications = $inboxNotificationService->recent((string) $userId, 10);
+        $notificationTemplate = view('adminmodule::admin.partials._notifications', [
+            'notifications' => $notifications,
+            'unreadCount' => $notificationUnreadCount,
+            'readCount' => $notificationReadCount,
+        ])->render();
 
         $whatsappUnreadChats = 0;
         $whatsappUnreadMessages = 0;
@@ -417,6 +431,7 @@ class AdminController extends Controller
         return response()->json([
             'status' => 1,
             'data' => array_merge($counts, [
+                'notification_template' => $notificationTemplate,
                 'whatsapp_unread_chats' => $whatsappUnreadChats,
                 'whatsapp_unread_messages' => $whatsappUnreadMessages,
                 'new_notification_alerts' => $newNotificationAlerts,

@@ -18,11 +18,17 @@ final class AdminHeaderChatCounts
             return 0;
         }
 
-        return Cache::remember(
-            'admin_header_support_unread:'.$user->id,
-            self::CACHE_TTL_SECONDS,
-            fn () => self::computeSupportUnreadMessages($user)
-        );
+        try {
+            return Cache::remember(
+                'admin_header_support_unread:'.$user->id,
+                self::CACHE_TTL_SECONDS,
+                fn () => self::computeSupportUnreadMessages($user)
+            );
+        } catch (\Throwable $e) {
+            report($e);
+
+            return self::computeSupportUnreadMessages($user);
+        }
     }
 
     public static function staffUnreadMessages(?User $user): int
@@ -31,11 +37,17 @@ final class AdminHeaderChatCounts
             return 0;
         }
 
-        return Cache::remember(
-            'admin_header_staff_unread:'.$user->id,
-            self::CACHE_TTL_SECONDS,
-            fn () => self::computeStaffUnreadMessages($user)
-        );
+        try {
+            return Cache::remember(
+                'admin_header_staff_unread:'.$user->id,
+                self::CACHE_TTL_SECONDS,
+                fn () => self::computeStaffUnreadMessages($user)
+            );
+        } catch (\Throwable $e) {
+            report($e);
+
+            return self::computeStaffUnreadMessages($user);
+        }
     }
 
     public static function whatsappUnreadChats(?User $user): int

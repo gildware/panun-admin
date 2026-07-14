@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use Modules\AdminModule\Services\AdminInboxNotificationService;
 use Modules\CustomerModule\Services\CustomerHomeCacheWarmState;
 
 /**
@@ -21,12 +22,16 @@ final class AdminChromeViewData
         $user = auth()->user();
         $menuCounts = AdminMenuCounts::all();
         $maxBookingAmount = (float) ((business_config('max_booking_amount', 'booking_setup'))->live_values ?? 0);
+        $notificationUnreadCount = $user
+            ? (int) app(AdminInboxNotificationService::class)->unreadCount((string) $user->id)
+            : 0;
 
         self::$payload = [
             'menuCounts' => $menuCounts,
             'supportUnreadCount' => AdminHeaderChatCounts::supportUnreadMessages($user),
             'staffUnreadCount' => AdminHeaderChatCounts::staffUnreadMessages($user),
             'whatsappUnreadCount' => AdminHeaderChatCounts::whatsappUnreadChats($user),
+            'notificationUnreadCount' => $notificationUnreadCount,
             'all_bookings_menu_count' => $menuCounts['all_bookings'],
             'pending_booking_reviews_count' => $menuCounts['pending_booking_reviews'],
             'special_scenarios_menu_count' => $menuCounts['special_scenarios'],
