@@ -136,7 +136,7 @@
             if (isNaN(unread)) unread = 0;
 
             if (countEl) {
-                countEl.innerHTML = unread;
+                countEl.innerHTML = unread > 0 ? (unread > 99 ? '99+' : unread) : '';
                 countEl.style.display = unread > 0 ? 'flex' : 'none';
             }
 

@@ -389,12 +389,15 @@
     function handleAdminUpdatedDataResponse(response, opts) {
         opts = opts || {};
         var skipSound = !!opts.skipSound;
-        let data = response.data;
+        let data = response && response.data ? response.data : null;
+        if (!data) {
+            return;
+        }
         var staffCountEl = document.getElementById("staff_message_count");
         if (staffCountEl) {
             var staffMsgCount = parseInt(data.staff_unread_messages, 10);
             if (isNaN(staffMsgCount)) staffMsgCount = 0;
-            staffCountEl.innerHTML = staffMsgCount;
+            staffCountEl.innerHTML = staffMsgCount > 0 ? staffMsgCount : '';
             staffCountEl.style.display = staffMsgCount > 0 ? 'flex' : 'none';
 
             var staffPrevKey = 'admin_staff_unread_messages';
