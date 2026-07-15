@@ -20,7 +20,6 @@ use Modules\ServiceManagement\Entities\Service;
 use Modules\UserManagement\Entities\User;
 use Modules\BusinessSettingsModule\Services\MobileAppManagementService;
 use Modules\CustomerModule\Services\CustomerApiResponseCache;
-use Modules\CustomerModule\Services\CustomerHomeCacheManager;
 use Modules\ZoneManagement\Entities\Zone;
 use Modules\ZoneManagement\Services\ZoneGeometryService;
 
@@ -310,10 +309,6 @@ class ConfigController extends Controller
                     $query->where('zone_id', $zone->id);
                 });
             })->count();
-
-            // Opportunistically warm the shared guest home-bundle for this zone so
-            // the user's next /home-bundle request is a cache hit instead of a cold compose.
-            CustomerHomeCacheManager::ensureZoneWarm((string) $zone->id);
 
             return response()->json(response_formatter(DEFAULT_200, [
                 'zone' => $zone->only(['id', 'name', 'parent_id']),

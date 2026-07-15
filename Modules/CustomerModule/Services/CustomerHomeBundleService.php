@@ -26,11 +26,9 @@ class CustomerHomeBundleService
         $base = $resolved['bundle'];
         $fresh = (bool) ($resolved['fresh'] ?? false);
 
-        // Only stamp the live content_version on a fresh versioned hit. Stale/empty
-        // responses use a non-matching version so the app keeps polling until warm finishes.
-        $contentVersion = $fresh
-            ? CustomerHomeContentVersion::resolveForRequest($layoutHash, $numericUserId)
-            : $this->warmingContentVersion($layoutHash, $numericUserId, (string) ($resolved['source'] ?? 'miss'));
+        // content_version only changes when admin clicks Rebuild (bumpGlobal there).
+        // Edits without rebuild keep the same version so apps do not refetch.
+        $contentVersion = CustomerHomeContentVersion::resolveForRequest($layoutHash, $numericUserId);
 
         $bundle = auth('api')->check()
             ? $this->bundlePersonalizer->apply($base, $request, (int) auth('api')->id())
@@ -43,13 +41,6 @@ class CustomerHomeBundleService
             ],
             $this->normalizeForMobileClient($bundle),
         );
-    }
-
-    private function warmingContentVersion(string $layoutHash, ?int $userId, string $source): string
-    {
-        // Version endpoint always returns the live global version — this prefix
-        // guarantees a mismatch so clients re-fetch after background warm.
-        return 'warming:'.$source.':'.CustomerHomeContentVersion::resolveForRequest($layoutHash, $userId);
     }
 
     /**
@@ -91,7 +82,9 @@ class CustomerHomeBundleService
         $zoneId = (string) ($request->header('zoneId') ?? $request->header('zoneid') ?? 'no_zone');
         $authKey = $this->authCacheKey($request);
 
-        $cacheKey = 'customer_home_bundle_version:v2:'.$zoneId.':'.$authKey.':'.$layoutHash;
+        $cacheKey = 'customer_home_bundle_version:v3:'
+            .CustomerHomeContentVersion::global().':'
+            .$zoneId.':'.$authKey.':'.$layoutHash;
 
         return Cache::remember(
             $cacheKey,

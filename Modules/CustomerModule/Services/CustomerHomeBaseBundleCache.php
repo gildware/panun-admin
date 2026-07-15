@@ -7,20 +7,18 @@ use Illuminate\Support\Facades\Cache;
 use Modules\ZoneManagement\Entities\Zone;
 
 /**
- * Shared (guest) home-bundle Redis cache.
+ * Shared (guest) home-bundle file/cache store.
  *
- * Request path NEVER composes. Cold misses used to call Cache::remember() and
- * rebuild inline (~10–15s). Compose only runs from warm jobs / artisan / admin reset.
+ * Manual rebuild only:
+ * - /home-bundle NEVER composes; it only reads the last built payload.
+ * - Admin "Reset home cache" (or artisan warm) writes a new payload.
+ * - Content edits do not invalidate or rebuild — apps keep getting the last build
+ *   until an admin rebuilds.
  */
 class CustomerHomeBaseBundleCache
 {
-    public const BASE_VERSION = 'v18';
-
-    /** Soft TTL for the current versioned key (version bumps already change the key). */
-    public const TTL = 86400;
-
-    /** Longer TTL for the zone "latest good" alias used after version bumps. */
-    public const LATEST_TTL = 604800;
+    /** Bump only when the key shape itself changes. */
+    public const BASE_VERSION = 'manual-v1';
 
     public function __construct(
         private CustomerHomeBundleComposer $composer,
@@ -37,7 +35,6 @@ class CustomerHomeBaseBundleCache
         $locale = $this->resolveLocale($request);
 
         if ($zoneId === '') {
-            // No zone → nothing useful to cache; never block on compose.
             return [
                 'bundle' => self::emptyPayload(),
                 'fresh' => false,
@@ -45,32 +42,29 @@ class CustomerHomeBaseBundleCache
             ];
         }
 
-        $versionedKey = self::cacheKey($zoneId, $locale, $layoutHash);
-        $cached = Cache::get($versionedKey);
+        $key = self::cacheKey($zoneId, $locale);
+        $cached = Cache::get($key);
         if (is_array($cached)) {
             return [
                 'bundle' => $cached,
                 'fresh' => true,
-                'source' => 'versioned',
+                'source' => 'hit',
             ];
         }
 
-        // After content-version bumps the versioned key is empty, but the previous
-        // successful warm is still under the latest alias — serve that immediately.
-        $latestKey = self::latestCacheKey($zoneId, $locale, $layoutHash);
-        $latest = Cache::get($latestKey);
-        if (is_array($latest)) {
-            self::scheduleMissWarm($zoneId);
+        // One-time legacy read from the previous "latest" key shape (pre manual-v1).
+        $legacy = Cache::get(self::legacyLatestCacheKey($zoneId, $locale, $layoutHash));
+        if (is_array($legacy)) {
+            Cache::forever($key, $legacy);
 
             return [
-                'bundle' => $latest,
-                'fresh' => false,
-                'source' => 'latest',
+                'bundle' => $legacy,
+                'fresh' => true,
+                'source' => 'legacy',
             ];
         }
 
-        self::scheduleMissWarm($zoneId);
-
+        // Never auto-warm. Admin must click Rebuild / run artisan warm.
         return [
             'bundle' => self::emptyPayload(),
             'fresh' => false,
@@ -79,7 +73,7 @@ class CustomerHomeBaseBundleCache
     }
 
     /**
-     * Compose + store for one zone/locale. Warm jobs / artisan only.
+     * Compose + store. Admin reset / artisan warm only.
      *
      * @return array<string, mixed>
      */
@@ -96,34 +90,26 @@ class CustomerHomeBaseBundleCache
             return $payload;
         }
 
-        $versionedKey = self::cacheKey($zoneId, $locale, $layoutHash);
-        $latestKey = self::latestCacheKey($zoneId, $locale, $layoutHash);
-
-        Cache::put($versionedKey, $payload, self::TTL);
-        Cache::put($latestKey, $payload, self::LATEST_TTL);
+        Cache::forever(self::cacheKey($zoneId, $locale), $payload);
 
         return $payload;
     }
 
-    public static function cacheKey(string $zoneId, string $locale, string $layoutHash): string
+    /**
+     * Stable key: zone + locale only. Not tied to content version or layout hash,
+     * so admin edits keep serving the previous rebuild until Reset is clicked.
+     */
+    public static function cacheKey(string $zoneId, string $locale): string
     {
-        return 'customer_home_base:'.self::BASE_VERSION.':'
-            .CustomerHomeContentVersion::global().':'
-            .$layoutHash.':'
-            .$zoneId.':'
-            .$locale;
+        return 'customer_home_base:'.self::BASE_VERSION.':'.$zoneId.':'.$locale;
     }
 
     /**
-     * Non-versioned alias so customers keep getting the last good payload while
-     * the warm job rebuilds the new versioned key after a content bump.
+     * @deprecated Pre-manual key used only as a one-time migration read.
      */
-    public static function latestCacheKey(string $zoneId, string $locale, string $layoutHash): string
+    public static function legacyLatestCacheKey(string $zoneId, string $locale, string $layoutHash): string
     {
-        return 'customer_home_base_latest:'.self::BASE_VERSION.':'
-            .$layoutHash.':'
-            .$zoneId.':'
-            .$locale;
+        return 'customer_home_base_latest:v18:'.$layoutHash.':'.$zoneId.':'.$locale;
     }
 
     /**
@@ -235,16 +221,10 @@ class CustomerHomeBaseBundleCache
             $warmed += self::warmZone((string) $id, null, $onProgress, $warmed);
         }
 
-        // Even with zero zones, treat a successful rebuild pass as warmed so admin UI can clear.
         CustomerHomeCacheWarmState::markWarmed();
         CustomerHomeCacheWarmState::markRebuildComplete();
 
         return $warmed;
-    }
-
-    private static function scheduleMissWarm(string $zoneId): void
-    {
-        CustomerHomeCacheManager::ensureZoneWarm($zoneId);
     }
 
     private function resolveLocale(Request $request): string
