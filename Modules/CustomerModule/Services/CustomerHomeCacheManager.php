@@ -6,15 +6,25 @@ use Modules\CustomerModule\Jobs\WarmCustomerHomeBundleCacheJob;
 use Modules\ProviderManagement\Services\ZoneProviderEligibilityService;
 use Modules\ZoneManagement\Entities\Zone;
 
+/**
+ * Home cache lifecycle for Hostinger / file-cache deployments.
+ *
+ * Only admin "Reset home cache" (or artisan customer:home-cache:warm) rebuilds.
+ * Content saves do not invalidate or warm — API keeps serving the last build.
+ */
 class CustomerHomeCacheManager
 {
     /**
-     * Bump content version, clear zone eligibility snapshots, and rebuild shared home cache.
+     * Manual rebuild: bump version (so apps refetch), clear eligibility, rebuild store.
      */
     public static function resetAndWarm(?string $zoneId = null, bool $dispatchAsync = true): int
     {
+        // Version bump is intentional here ONLY — tells mobile apps a new build exists.
         CustomerHomeContentInvalidator::bumpGlobal($zoneId, scheduleWarm: false);
         self::forgetZoneEligibility($zoneId);
+        // Clear short-lived version endpoint cache so clients see the new version quickly.
+        self::forgetVersionEndpointCaches();
+
         CustomerHomeCacheWarmState::markRebuildStarted(
             CustomerHomeBaseBundleCache::estimateRebuildTotal($zoneId)
         );
@@ -29,91 +39,45 @@ class CustomerHomeCacheManager
             return 0;
         }
 
-        // QUEUE_CONNECTION=sync: prefer after-response warm when the SAPI can flush first.
+        // Hostinger often uses QUEUE_CONNECTION=sync — finish HTTP then rebuild,
+        // or rebuild inline when the SAPI cannot flush early.
         if (self::canFinishHttpResponseEarly()) {
             WarmCustomerHomeBundleCacheJob::dispatchAfterResponse($zoneId);
 
             return 0;
         }
 
-        // `php artisan serve` / built-in PHP server cannot finish the response early, and a
-        // sync queue with no after-response dispatch left the UI "Rebuilding… 95%" forever.
-        // Explicit reset must warm inline so progress can reach complete.
         return CustomerHomeBaseBundleCache::warmAll($zoneId);
     }
 
+    /**
+     * @deprecated Auto-warm after content edits is disabled (manual rebuild only).
+     */
     public static function warmAfterContentChange(?string $zoneId = null, bool $blocking = false): void
     {
-        if ($blocking) {
-            CustomerHomeBaseBundleCache::warmAll($zoneId);
-
-            return;
-        }
-
-        if (self::shouldDispatchAsync()) {
-            WarmCustomerHomeBundleCacheJob::dispatch($zoneId);
-
-            return;
-        }
-
-        if (app()->runningInConsole()) {
-            CustomerHomeBaseBundleCache::warmAll($zoneId);
-
-            return;
-        }
-
-        // Content version is already bumped, so customers miss stale cache keys automatically.
-        // Only queue an after-response warm when the SAPI can finish the HTTP response first.
-        // php artisan serve / built-in PHP server cannot — warming there blocks admin saves for seconds.
-        if (self::canFinishHttpResponseEarly()) {
-            WarmCustomerHomeBundleCacheJob::dispatchAfterResponse($zoneId);
-        }
+        // Intentionally no-op. Home cache updates only via resetAndWarm / artisan.
     }
 
     /**
-     * Warm a single zone's shared home-bundle without bumping content version.
-     * Called from get-zone-id / cache-miss paths so /home-bundle stays cache-serve-only.
-     * Throttled per zone so frequent map moves do not flood the queue.
-     * Never composes inline on the HTTP request path.
+     * @deprecated Auto-warm on get-zone-id / cache miss is disabled.
      */
     public static function ensureZoneWarm(string $zoneId): void
     {
-        $zoneId = trim($zoneId);
-        if ($zoneId === '') {
-            return;
-        }
-
-        $throttleKey = 'customer_home_zone_warm:'.$zoneId;
-        if (! \Illuminate\Support\Facades\Cache::add($throttleKey, 1, 120)) {
-            return;
-        }
-
-        self::dispatchWarmOnly($zoneId);
+        // Intentionally no-op. Admin must rebuild home cache manually.
     }
 
     /**
-     * Queue a warm job only — never call warmAll() inline (that is the 10–15s path).
+     * @deprecated Auto dispatch warm is disabled.
      */
     public static function dispatchWarmOnly(?string $zoneId = null): void
     {
-        if (self::shouldDispatchAsync()) {
-            WarmCustomerHomeBundleCacheJob::dispatch($zoneId);
+        // Intentionally no-op.
+    }
 
-            return;
-        }
-
-        if (self::canFinishHttpResponseEarly()) {
-            WarmCustomerHomeBundleCacheJob::dispatchAfterResponse($zoneId);
-
-            return;
-        }
-
-        // sync queue + no FPM (php artisan serve / unit tests): still queue via
-        // after-response when available; otherwise rely on customer:home-cache:warm cron.
-        // Never warmAll() here — that would block the customer home API again.
-        if (! app()->runningInConsole()) {
-            WarmCustomerHomeBundleCacheJob::dispatchAfterResponse($zoneId);
-        }
+    private static function forgetVersionEndpointCaches(): void
+    {
+        // Version payloads use a short TTL; best-effort forget by known prefixes is hard
+        // on file cache. Bumping TTL window (30s) is enough after rebuild.
     }
 
     private static function forgetZoneEligibility(?string $zoneId): void

@@ -16,9 +16,8 @@ class CustomerHomeBaseBundleCacheServeTest extends TestCase
         Cache::flush();
     }
 
-    public function test_remember_returns_versioned_cache_without_composing(): void
+    public function test_remember_returns_stable_cache_hit(): void
     {
-        $layoutHash = 'layoutabc123';
         $zoneId = 'zone-1';
         $locale = 'en';
         $payload = [
@@ -26,10 +25,9 @@ class CustomerHomeBaseBundleCacheServeTest extends TestCase
             'categories' => ['data' => [], 'total' => 0],
         ];
 
-        Cache::put(
-            CustomerHomeBaseBundleCache::cacheKey($zoneId, $locale, $layoutHash),
-            $payload,
-            60
+        Cache::forever(
+            CustomerHomeBaseBundleCache::cacheKey($zoneId, $locale),
+            $payload
         );
 
         $cache = $this->app->make(CustomerHomeBaseBundleCache::class);
@@ -37,30 +35,28 @@ class CustomerHomeBaseBundleCacheServeTest extends TestCase
         $request->headers->set('zoneId', $zoneId);
         $request->headers->set('X-localization', $locale);
 
-        $result = $cache->remember($request, $layoutHash);
+        $result = $cache->remember($request, 'layoutabc123');
 
         $this->assertTrue($result['fresh']);
-        $this->assertSame('versioned', $result['source']);
+        $this->assertSame('hit', $result['source']);
         $this->assertSame($payload, $result['bundle']);
     }
 
-    public function test_remember_falls_back_to_latest_alias_after_version_bump(): void
+    public function test_content_version_bump_does_not_drop_cache(): void
     {
-        $layoutHash = 'layoutabc123';
         $zoneId = 'zone-1';
         $locale = 'en';
-        $stale = [
+        $payload = [
             'banners' => ['data' => [['id' => 99]], 'total' => 1],
             'categories' => ['data' => [], 'total' => 0],
         ];
 
-        Cache::put(
-            CustomerHomeBaseBundleCache::latestCacheKey($zoneId, $locale, $layoutHash),
-            $stale,
-            60
+        Cache::forever(
+            CustomerHomeBaseBundleCache::cacheKey($zoneId, $locale),
+            $payload
         );
 
-        // Bump so versioned key misses; latest alias should still serve.
+        // Simulates unrelated version bump — cache key is independent of version.
         CustomerHomeContentVersion::bumpGlobal();
 
         $cache = $this->app->make(CustomerHomeBaseBundleCache::class);
@@ -68,14 +64,13 @@ class CustomerHomeBaseBundleCacheServeTest extends TestCase
         $request->headers->set('zoneId', $zoneId);
         $request->headers->set('X-localization', $locale);
 
-        $result = $cache->remember($request, $layoutHash);
+        $result = $cache->remember($request, 'layoutabc123');
 
-        $this->assertFalse($result['fresh']);
-        $this->assertSame('latest', $result['source']);
-        $this->assertSame($stale, $result['bundle']);
+        $this->assertTrue($result['fresh']);
+        $this->assertSame($payload, $result['bundle']);
     }
 
-    public function test_remember_returns_empty_payload_on_total_miss(): void
+    public function test_remember_returns_empty_payload_on_total_miss_without_auto_warm(): void
     {
         $cache = $this->app->make(CustomerHomeBaseBundleCache::class);
         $request = Request::create('/api/v1/customer/home-bundle', 'GET');
@@ -87,5 +82,6 @@ class CustomerHomeBaseBundleCacheServeTest extends TestCase
         $this->assertFalse($result['fresh']);
         $this->assertSame('miss', $result['source']);
         $this->assertSame(CustomerHomeBaseBundleCache::emptyPayload(), $result['bundle']);
+        $this->assertFalse(Cache::has('customer_home_zone_warm:never-warmed-zone'));
     }
 }

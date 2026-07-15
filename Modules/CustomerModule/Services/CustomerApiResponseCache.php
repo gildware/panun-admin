@@ -45,7 +45,7 @@ class CustomerApiResponseCache
             Cache::forget('provider_api_config:v1:'.$locale);
         }
 
-        // Bump version + schedule background warm (throttled). Do not block admin saves on warmAll().
-        CustomerHomeContentInvalidator::bumpGlobal(scheduleWarm: true);
+        // Do not bump or warm home-bundle here. Home cache is rebuilt only when
+        // an admin clicks "Reset home cache" (manual model for Hostinger file cache).
     }
 }
