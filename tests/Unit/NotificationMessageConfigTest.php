@@ -127,6 +127,44 @@ class NotificationMessageConfigTest extends TestCase
         );
     }
 
+    public function test_text_variable_data_format_replaces_profile_change_variables(): void
+    {
+        $result = text_variable_data_format(
+            'Hi {{providerName}}, your {{changeType}} update request has been approved.',
+            null,
+            'profile_change',
+            [
+                'provider_name' => 'Rukhsar Provider',
+                'change_type' => 'Business settings',
+            ]
+        );
+
+        $this->assertSame(
+            'Hi Rukhsar Provider, your Business settings update request has been approved.',
+            $result
+        );
+    }
+
+    public function test_text_variable_data_format_replaces_custom_request_variables(): void
+    {
+        $result = text_variable_data_format(
+            'Hi {{userName}}, your custom request {{referenceId}} for {{categoryName}} is {{requestStatus}}.',
+            null,
+            'app_custom_request',
+            [
+                'user_name' => 'Jane Doe',
+                'reference_id' => 'CR-1024',
+                'category_name' => 'Plumbing',
+                'request_status' => 'Accepted',
+            ]
+        );
+
+        $this->assertSame(
+            'Hi Jane Doe, your custom request CR-1024 for Plumbing is Accepted.',
+            $result
+        );
+    }
+
     public function test_notification_variables_per_key(): void
     {
         $otpVars = notification_message_variables_for_key('otp');
@@ -135,6 +173,45 @@ class NotificationMessageConfigTest extends TestCase
         $paymentVars = notification_message_variables_for_key('payment_collected_company');
         $this->assertContains('{{amount}}', $paymentVars);
         $this->assertContains('{{bookingId}}', $paymentVars);
+    }
+
+    public function test_all_declared_notification_variables_are_in_replace_map(): void
+    {
+        $declaredVars = [];
+        foreach (array_merge(NOTIFICATION_FOR_USER, NOTIFICATION_FOR_PROVIDER) as $notification) {
+            foreach (notification_message_variables_for_key($notification['key']) as $variable) {
+                $declaredVars[trim($variable, '{}')] = true;
+            }
+        }
+
+        $replaceMapVars = [];
+        preg_match_all("/'\\{\\{([a-zA-Z0-9_]+)\\}\\}'/", file_get_contents(dirname(__DIR__, 2).'/app/Lib/Helpers.php'), $matches);
+        foreach ($matches[1] as $variable) {
+            $replaceMapVars[$variable] = true;
+        }
+
+        $missing = array_diff(array_keys($declaredVars), array_keys($replaceMapVars));
+        $this->assertSame([], $missing, 'Replace map is missing: '.implode(', ', $missing));
+    }
+
+    public function test_text_variable_data_format_accepts_camel_case_data_keys(): void
+    {
+        $result = text_variable_data_format(
+            'Hi {{providerName}}, request {{referenceId}} for {{categoryName}} is {{requestStatus}}.',
+            null,
+            'app_custom_request',
+            [
+                'providerName' => 'Acme Services',
+                'referenceId' => 'CR-2048',
+                'categoryName' => 'Electrical',
+                'requestStatus' => 'Pending',
+            ]
+        );
+
+        $this->assertSame(
+            'Hi Acme Services, request CR-2048 for Electrical is Pending.',
+            $result
+        );
     }
 
     public function test_category_labels_use_bookings_heading(): void

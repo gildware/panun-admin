@@ -57,6 +57,9 @@ if (! function_exists('notification_message_preview_samples')) {
             'senderName' => 'Acme Services',
             'showcaseTitle' => 'Kitchen Renovation',
             'changeType' => 'Profile update',
+            'referenceId' => 'CR-1024',
+            'categoryName' => 'Plumbing',
+            'requestStatus' => 'Accepted',
         ];
     }
 }

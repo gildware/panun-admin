@@ -218,7 +218,7 @@ class ConfigController extends Controller
             'email_verification' => (int)((login_setup('email_verification'))->value ?? 0),
             'cash_after_service' => (int)((business_config('cash_after_service', 'service_setup'))->live_values ?? 0),
             'digital_payment' => (int)((business_config('digital_payment', 'service_setup'))->live_values ?? 0),
-            'wallet_payment' => (int)((business_config('wallet_payment', 'service_setup'))->live_values ?? 0),
+            'wallet_payment' => wallet_payment_feature_enabled() ? 1 : 0,
             'social_media' => (business_config('social_media', 'landing_social_media'))->live_values ?? null,
             'otp_resend_time' => (int)(business_config('otp_resend_time', 'otp_login_setup'))?->live_values ?? null,
             'max_booking_amount' => (float)(business_config('max_booking_amount', 'booking_setup'))?->live_values ?? null,
