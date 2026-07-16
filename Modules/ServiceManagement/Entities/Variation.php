@@ -738,16 +738,16 @@ class Variation extends Model
     protected static function booted()
     {
         static::addGlobalScope('zone_wise_data', function (Builder $builder) {
-            if (request()->is('api/*/customer?*') || request()->is('api/*/customer/*')) {
+            if (is_customer_api_request()) {
                 $candidates = static::parseZoneIdCandidates(Config::get('zone_id'));
                 if ($candidates !== []) {
                     $builder->whereIn('zone_id', $candidates)->with(['zone:id,name']);
                 } else {
                     $builder->whereRaw('0 = 1');
                 }
-            } elseif (request()->is('api/*/provider?*') || request()->is('api/*/provider/*')) {
-                if (auth()->check() && auth()->user()->provider != null) {
-                    $p = auth()->user()->provider;
+            } elseif (is_provider_api_request()) {
+                $p = auth()->user()?->provider;
+                if ($p != null) {
                     $zoneIds = $p->zones()->pluck('zones.id');
                     if ($zoneIds->isEmpty() && $p->zone_id) {
                         $zoneIds = collect([(string) $p->zone_id]);

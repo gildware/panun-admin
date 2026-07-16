@@ -136,11 +136,11 @@ class Service extends Model
                     ->whereDate('end_date', '>=', now())
                     ->where('is_active', 1);
             })->whereHas('discount.discount_types', function ($query) {
-                if (request()->is('api/*/provider?*') || request()->is('api/*/provider/*')) {
-                    $zids = request()->user()->provider->coveredLeafZoneIds();
-                    $query->where('discount_type', 'zone')->whereIn('type_wise_id', $zids);
-                } elseif (request()->is('api/*/customer?*') || request()->is('api/*/customer/*')) {
+                if (is_customer_api_request()) {
                     $query->where(['discount_type' => 'zone', 'type_wise_id' => config('zone_id')]);
+                } elseif (is_provider_api_request()) {
+                    $zids = request()->user()?->provider?->coveredLeafZoneIds() ?? [];
+                    $query->where('discount_type', 'zone')->whereIn('type_wise_id', $zids);
                 }
             })->with(['discount'])->latest();
     }
@@ -154,11 +154,11 @@ class Service extends Model
                     ->whereDate('end_date', '>=', now())
                     ->where('is_active', 1);
             })->whereHas('discount.discount_types', function ($query) {
-                if (request()->is('api/*/provider?*') || request()->is('api/*/provider/*')) {
-                    $zids = request()->user()->provider->coveredLeafZoneIds();
-                    $query->where('discount_type', 'zone')->whereIn('type_wise_id', $zids);
-                } elseif (request()->is('api/*/customer?*') || request()->is('api/*/customer/*')) {
+                if (is_customer_api_request()) {
                     $query->where(['discount_type' => 'zone', 'type_wise_id' => config('zone_id')]);
+                } elseif (is_provider_api_request()) {
+                    $zids = request()->user()?->provider?->coveredLeafZoneIds() ?? [];
+                    $query->where('discount_type', 'zone')->whereIn('type_wise_id', $zids);
                 }
             })->with(['discount'])->latest();
     }
@@ -325,13 +325,14 @@ class Service extends Model
     protected static function booted()
     {
         static::addGlobalScope('zone_wise_data', function (Builder $builder) {
-            if (request()->is('api/*/customer?*') || request()->is('api/*/customer/*')) {
+            if (is_customer_api_request()) {
                 $builder->whereHas('category.zones', function ($query) {
                     $query->where('zone_id', Config::get('zone_id'));
                 })->with(['service_discount', 'campaign_discount']);
-            } elseif (request()->is('api/*/provider?*') || request()->is('api/*/provider/*')) {
-                if (auth()->check() && request()->user()->provider != null) {
-                    $zids = request()->user()->provider->coveredLeafZoneIds();
+            } elseif (is_provider_api_request()) {
+                $provider = auth()->user()?->provider;
+                if ($provider != null) {
+                    $zids = $provider->coveredLeafZoneIds();
                     $builder->whereHas('category.zones', function ($query) use ($zids) {
                         $query->whereIn('category_zone.zone_id', $zids);
                     })->with(['service_discount', 'campaign_discount']);

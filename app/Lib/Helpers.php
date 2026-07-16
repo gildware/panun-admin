@@ -18,6 +18,42 @@ use Modules\UserManagement\Entities\User;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Http\UploadedFile;
 
+if (!function_exists('api_audience_segment')) {
+    /**
+     * Audience path segment after /api/{version}/ (customer, provider, serviceman, ...).
+     * Prefer this over broad request()->is wildcards: those also match nested
+     * paths like /api/v1/customer/provider/... because * spans slashes.
+     */
+    function api_audience_segment(?string $path = null): ?string
+    {
+        $segments = $path === null
+            ? request()->segments()
+            : array_values(array_filter(explode('/', trim($path, '/')), static fn ($s) => $s !== ''));
+
+        if (($segments[0] ?? null) !== 'api') {
+            return null;
+        }
+
+        $audience = $segments[2] ?? null;
+
+        return is_string($audience) && $audience !== '' ? $audience : null;
+    }
+}
+
+if (!function_exists('is_customer_api_request')) {
+    function is_customer_api_request(?string $path = null): bool
+    {
+        return api_audience_segment($path) === 'customer';
+    }
+}
+
+if (!function_exists('is_provider_api_request')) {
+    function is_provider_api_request(?string $path = null): bool
+    {
+        return api_audience_segment($path) === 'provider';
+    }
+}
+
 if (!function_exists('admin_uses_top_nav')) {
     /**
      * When true, admin uses the top navigation chrome instead of sidebar + legacy header.
