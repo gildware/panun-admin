@@ -2350,9 +2350,14 @@ class ProviderController extends Controller
             return $this->backWithInputAndDraft($request, $formKey);
         }
 
-        $previousLeafIds = $provider->zones()->pluck('zones.id')->sort()->values()->all();
-        if ($previousLeafIds !== collect($leafZoneIds)->sort()->values()->all()) {
-            DB::table('subscribed_services')->where('provider_id', $provider->id)->update(['is_subscribed' => 0]);
+        $previousLeafIds = collect($provider->coveredLeafZoneIds())->sort()->values()->all();
+        $newLeafIds = collect($leafZoneIds)->sort()->values()->all();
+        if ($previousLeafIds !== $newLeafIds) {
+            app(ProviderProfileChangeRequestService::class)->unsubscribeSubCategoriesLostOnZoneRemoval(
+                (string) $provider->id,
+                $previousLeafIds,
+                $newLeafIds
+            );
         }
 
         // Contact identity is required (Box 5) unless provider already has saved identity docs.

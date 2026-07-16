@@ -910,6 +910,9 @@
 @unless($adminUsesPartialNav)
 @stack('script')
 @endunless
+
+@include('whatsappmodule::admin.booking-whatsapp-send-prompt')
+
 </body>
 
 </html>

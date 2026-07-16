@@ -1150,7 +1150,7 @@ class ProviderProfileChangeRequestService
      * @param  array<int, string>  $previousZoneIds
      * @param  array<int, string>  $remainingZoneIds
      */
-    private function unsubscribeSubCategoriesLostOnZoneRemoval(
+    public function unsubscribeSubCategoriesLostOnZoneRemoval(
         string $providerId,
         array $previousZoneIds,
         array $remainingZoneIds

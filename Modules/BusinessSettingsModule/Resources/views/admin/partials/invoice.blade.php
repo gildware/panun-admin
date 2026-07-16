@@ -19,7 +19,7 @@
                     Av: 11, R: 09, Dhaka 1216, BD
                 </div>
                 <div>+8801100000001</div>
-                <div>demandium@demo.com</div>
+                <div>support@panunkaergar.com</div>
             </div>
         </div>
 
@@ -91,5 +91,5 @@
             </div>
         </div>
     </div>
-    <div class="invoice-footer">All rights reserved By @DemandiumLtd 2024</div>
+    <div class="invoice-footer">All rights reserved By Panun Kaergar {{ date('Y') }}</div>
 </div>
