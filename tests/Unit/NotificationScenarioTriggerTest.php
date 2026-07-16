@@ -25,7 +25,7 @@ class NotificationScenarioTriggerTest extends TestCase
         }
 
         $this->assertCount(3, $byModule['booking_creation']);
-        $this->assertCount(18, $byModule['booking_update']);
+        $this->assertCount(19, $byModule['booking_update']);
         $this->assertCount(4, $byModule['payments']);
         $this->assertCount(6, $byModule['provider_payments']);
         $this->assertCount(4, $byModule['review']);

@@ -12,7 +12,7 @@ if (! function_exists('notification_message_variables_for_key')) {
         $bookingExtras = ['{{bookingStatus}}', '{{serviceManName}}'];
 
         return match ($key) {
-            'booking_place', 'admin_booking_created', 'booking_accepted', 'booking_complete', 'booking_schedule_time_change',
+            'booking_place', 'admin_booking_created', 'booking_accepted', 'booking_reopened', 'booking_complete', 'booking_schedule_time_change',
             'provider_assign', 'booking_status_change', 'booking_reminder', 'booking_ignored_by_provider', 'service_location_updated' => array_merge($common, $bookingExtras),
             'chat_message' => array_merge($common, ['{{senderName}}']),
             'otp' => array_merge($common, ['{{otp}}']),
@@ -112,6 +112,10 @@ if (! function_exists('notification_default_message_templates')) {
                 'booking_accepted' => [
                     'title' => 'Booking Confirmed – {{bookingId}}',
                     'description' => 'Hi {{userName}}, {{providerName}} accepted booking {{bookingId}}. Scheduled for {{scheduleTime}}.',
+                ],
+                'booking_reopened' => [
+                    'title' => 'Booking Reopened – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, booking {{bookingId}} was completed and has been reopened. Status: {{bookingStatus}}. Provider: {{providerName}}. Scheduled: {{scheduleTime}}.',
                 ],
                 'booking_complete' => [
                     'title' => 'Service Completed – {{bookingId}}',
@@ -246,6 +250,10 @@ if (! function_exists('notification_default_message_templates')) {
                 'booking_accepted' => [
                     'title' => 'Booking Accepted – {{bookingId}}',
                     'description' => 'Hi {{providerName}}, you accepted booking {{bookingId}} for {{userName}} on {{scheduleTime}}.',
+                ],
+                'booking_reopened' => [
+                    'title' => 'Booking Reopened – {{bookingId}}',
+                    'description' => 'Hi {{providerName}}, booking {{bookingId}} was reopened from completed. Status: {{bookingStatus}}. Customer: {{userName}}. Scheduled: {{scheduleTime}}.',
                 ],
                 'booking_complete' => [
                     'title' => 'Booking Completed – {{bookingId}}',
@@ -799,6 +807,13 @@ if (! function_exists('notification_scenario_trigger_map')) {
                     ['label' => 'Completed status push', 'needles' => ["booking_status == 'completed'", "'booking_complete'"]],
                 ],
             ],
+            'booking_admin_reopen' => [
+                'module' => 'booking_update',
+                'checks' => [
+                    ['label' => 'Reopened status push', 'needles' => ['booking_is_admin_reopen_in_place_transition', "'booking_reopened'"]],
+                    ['label' => 'Admin reopen inbox', 'needles' => ['admin_inbox_notify_booking_reopened']],
+                ],
+            ],
             'booking_otp_sent' => [
                 'module' => 'booking_update',
                 'checks' => [
@@ -1318,6 +1333,28 @@ if (! function_exists('resolve_booking_status_notification_key')) {
     }
 }
 
+if (! function_exists('booking_is_admin_reopen_in_place_transition')) {
+    /**
+     * True when admin reopens a completed booking in place (completed → pending/accepted).
+     */
+    function booking_is_admin_reopen_in_place_transition(Booking $model): bool
+    {
+        if (! $model->isDirty('booking_status')) {
+            return false;
+        }
+
+        $previous = strtolower(trim((string) $model->getOriginal('booking_status')));
+        $new = strtolower(trim((string) $model->booking_status));
+
+        if ($previous !== 'completed' || ! in_array($new, ['pending', 'accepted'], true)) {
+            return false;
+        }
+
+        return $model->isDirty('last_reopen_event_at')
+            || $model->isDirty('reopened_by');
+    }
+}
+
 if (! function_exists('should_notify_customer_booking_placed_on_status_change')) {
     /**
      * Customer "booking placed" applies to new bookings, not when a provider withdraws and the booking reopens as pending.
@@ -1449,6 +1486,17 @@ if (! function_exists('notification_trigger_scenarios_for_key')) {
                 ] : [
                     'Provider accepts the booking (confirmation to provider).',
                     'Admin assigns/accepts booking on behalf of provider.',
+                ],
+                'recipient' => $recipient,
+                'module' => 'Bookings',
+                'wired' => true,
+            ],
+
+            'booking_reopened' => [
+                'summary' => 'Sent when admin reopens a completed booking in place.',
+                'scenarios' => [
+                    'Admin reopens a completed booking to Pending.',
+                    'Admin reopens a completed booking to Accepted.',
                 ],
                 'recipient' => $recipient,
                 'module' => 'Bookings',
@@ -2228,6 +2276,18 @@ if (! function_exists('notification_scenario_registry')) {
                 'audiences' => [
                     ['audience' => 'customer', 'channel' => 'push', 'key' => 'booking_complete', 'settings_type' => 'customer_notification', 'wired' => true],
                     ['audience' => 'provider', 'channel' => 'push', 'key' => 'booking_complete', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'booking_admin_reopen',
+                'module' => 'booking_update',
+                'title' => 'Admin reopens a completed booking in place',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Reopens completed booking to Pending or Accepted from the admin panel',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'booking_reopened', 'settings_type' => 'customer_notification', 'wired' => true],
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'booking_reopened', 'settings_type' => 'provider_notification', 'wired' => true],
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true, 'note' => 'Admin inbox when booking is reopened'],
                 ],
             ],
             [

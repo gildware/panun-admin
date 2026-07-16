@@ -41,9 +41,10 @@ class ProviderPaymentTabDataService
         $displayNetBalance = $netBalanceContext['display_amount'];
         $withdrawableBalance = $netBalanceContext['withdrawable_balance'];
         $effectiveWithdrawable = $netBalanceContext['effective_withdrawable'];
-        $collectFormMax = $providerPaysCompany ? min($providerPayable, max(0.0, -$netPayableAmount)) : 0.0;
-        $requestMaxAmount = $effectiveWithdrawable;
-        $canRequestAmount = $effectiveWithdrawable > 0.009;
+        $payLimits = provider_pay_to_admin_limits($netPayableAmount, $providerPayable, $providerReceivable);
+        $collectFormMax = $payLimits['max'];
+        $requestMaxAmount = $companyPaysProvider ? $effectiveWithdrawable : 0.0;
+        $canRequestAmount = $companyPaysProvider && $effectiveWithdrawable > 0.009;
 
         $ppLedger = provider_payment_ledger_context([
             'collect_in_total' => (float) ($ctx['ledger_manual_totals']['collect_in_total'] ?? 0),
@@ -60,8 +61,9 @@ class ProviderPaymentTabDataService
                 'direction' => $companyPaysProvider ? 'company_pays_provider' : ($providerPaysCompany ? 'provider_pays_company' : 'settled'),
                 'can_request_amount' => $canRequestAmount,
                 'request_max_amount' => $requestMaxAmount,
-                'can_pay' => $providerPaysCompany && $collectFormMax > 0.009,
+                'can_pay' => $collectFormMax > 0.009,
                 'pay_max_amount' => round($collectFormMax, 2),
+                'pay_is_advance' => $payLimits['is_advance'],
                 'withdrawable_balance' => $withdrawableBalance,
                 'active_withdraw_total' => $activeWithdrawTotal,
             ],

@@ -297,6 +297,66 @@ class RazorPayController extends Controller
         }
     }
 
+    public function paymentStatus(Request $request): JsonResponse|Redirector|RedirectResponse|Application
+    {
+        $nativeSdk = $request->boolean('native_sdk');
+
+        $validator = Validator::make($request->all(), [
+            'payment_request_id' => 'required|uuid',
+            'access_token' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            if ($nativeSdk) {
+                return response()->json([
+                    'status' => false,
+                    'flag' => 'fail',
+                    'message' => translate('Invalid payment request'),
+                ], 400);
+            }
+
+            return redirect()->route('payment-fail');
+        }
+
+        $paymentRequest = $this->payment::where(['id' => $request['payment_request_id']])->first();
+        if (! $paymentRequest) {
+            if ($nativeSdk) {
+                return response()->json([
+                    'status' => false,
+                    'flag' => 'fail',
+                    'message' => translate('Payment request not found'),
+                ], 404);
+            }
+
+            return redirect()->route('payment-fail');
+        }
+
+        if (! PaymentRequestGuard::assertCanAccessPaymentRequest($request, $paymentRequest)) {
+            if ($nativeSdk) {
+                return response()->json([
+                    'status' => false,
+                    'flag' => 'fail',
+                    'message' => translate('Unauthorized payment request'),
+                ], 403);
+            }
+
+            return $this->payment_response($paymentRequest, 'fail', $nativeSdk);
+        }
+
+        if ((int) $paymentRequest->is_paid === 1) {
+            return $this->payment_response($paymentRequest, 'success', $nativeSdk);
+        }
+
+        if ($nativeSdk) {
+            return response()->json([
+                'status' => true,
+                'flag' => 'pending',
+            ]);
+        }
+
+        return $this->payment_response($paymentRequest, 'fail', $nativeSdk);
+    }
+
     public function verifyPayment(Request $request): JsonResponse|Redirector|RedirectResponse|Application
     {
         $nativeSdk = $request->boolean('native_sdk');
