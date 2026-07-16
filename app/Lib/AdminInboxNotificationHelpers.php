@@ -203,6 +203,40 @@ if (! function_exists('admin_inbox_notify_booking_ongoing')) {
     }
 }
 
+if (! function_exists('admin_inbox_notify_booking_reopened')) {
+    function admin_inbox_notify_booking_reopened(Booking $booking): void
+    {
+        $booking->loadMissing(['customer', 'provider']);
+        $readableId = $booking->readable_id ?? $booking->id;
+        $customerName = trim(($booking->customer?->first_name ?? '') . ' ' . ($booking->customer?->last_name ?? ''));
+        $providerName = $booking->provider?->company_name ?? translate('Provider');
+        $statusKey = function_exists('booking_reopen_combined_status_key')
+            ? booking_reopen_combined_status_key($booking)
+            : null;
+        $statusText = $statusKey
+            ? translate($statusKey)
+            : ucfirst(str_replace('_', ' ', (string) ($booking->booking_status ?? '')));
+
+        $body = $statusText;
+        if ($customerName !== '' && $providerName !== '') {
+            $body = $customerName . ' · ' . $providerName . ' · ' . $statusText;
+        } elseif ($customerName !== '') {
+            $body = $customerName . ' · ' . $statusText;
+        } elseif ($providerName !== '') {
+            $body = $providerName . ' · ' . $statusText;
+        }
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_BOOKING,
+            translate('Booking_reopened') . ' #' . $readableId,
+            $body,
+            route('admin.booking.details', ['id' => $booking->id]),
+            'booking_reopened',
+            (string) $booking->id,
+        );
+    }
+}
+
 if (! function_exists('admin_inbox_notify_booking_customer_canceled')) {
     function admin_inbox_notify_booking_customer_canceled(Booking $booking): void
     {

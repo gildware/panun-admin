@@ -24,7 +24,7 @@ class NotificationScenarioMessagesTest extends TestCase
         $grouped = group_notification_scenarios_by_module();
 
         $this->assertCount(3, $grouped['booking_creation']);
-        $this->assertCount(18, $grouped['booking_update']);
+        $this->assertCount(19, $grouped['booking_update']);
         $this->assertCount(4, $grouped['payments']);
         $this->assertCount(6, $grouped['provider_payments']);
         $this->assertCount(4, $grouped['review']);
@@ -37,7 +37,7 @@ class NotificationScenarioMessagesTest extends TestCase
         $this->assertCount(8, $grouped['advertisement']);
         $this->assertCount(3, $grouped['provider_work_showcase']);
         $this->assertCount(6, $grouped['admin_alerts']);
-        $this->assertCount(74, notification_scenario_registry());
+        $this->assertCount(79, notification_scenario_registry());
     }
 
     public function test_all_config_keys_are_covered_by_scenarios(): void

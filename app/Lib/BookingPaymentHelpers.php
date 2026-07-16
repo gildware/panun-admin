@@ -4613,6 +4613,49 @@ if (!function_exists('provider_effective_withdrawable_balance')) {
     }
 }
 
+if (!function_exists('provider_pay_to_admin_limits')) {
+    /**
+     * Max amount a provider may pay the company digitally (ledger commission due or settlement advance).
+     *
+     * @return array{max: float, is_advance: bool, settlement_debt: float, ledger_due: float}
+     */
+    function provider_pay_to_admin_limits(
+        float $bookingSettlementNet,
+        float $accountPayable,
+        float $accountReceivable = 0.0
+    ): array {
+        $settlementDebt = max(0.0, round(-$bookingSettlementNet, 2));
+        $ledgerDue = max(0.0, round($accountPayable - $accountReceivable, 2));
+
+        if ($settlementDebt <= 0.009 && $ledgerDue <= 0.009) {
+            return [
+                'max' => 0.0,
+                'is_advance' => false,
+                'settlement_debt' => 0.0,
+                'ledger_due' => 0.0,
+            ];
+        }
+
+        if ($ledgerDue > 0.009) {
+            $max = $settlementDebt > 0.009 ? min($ledgerDue, $settlementDebt) : $ledgerDue;
+
+            return [
+                'max' => round($max, 2),
+                'is_advance' => false,
+                'settlement_debt' => $settlementDebt,
+                'ledger_due' => $ledgerDue,
+            ];
+        }
+
+        return [
+            'max' => $settlementDebt,
+            'is_advance' => true,
+            'settlement_debt' => $settlementDebt,
+            'ledger_due' => $ledgerDue,
+        ];
+    }
+}
+
 if (!function_exists('provider_payment_net_balance_context')) {
     /**
      * Shared net-balance figures for admin payment tab and provider app overview API.

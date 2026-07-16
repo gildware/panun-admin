@@ -17,6 +17,28 @@ trait NativeRazorpayRedirect
             && $request->input('payment_method') === 'razor_pay';
     }
 
+    /**
+     * Native Razorpay SDK expects JSON errors; web checkout uses redirects.
+     */
+    protected function paymentFlowFailResponse(
+        Request $request,
+        string $message,
+        int $status = 400
+    ): JsonResponse|Redirector|RedirectResponse|Application {
+        if ($this->shouldUseNativeRazorpay($request)) {
+            return response()->json([
+                'status' => false,
+                'message' => $message,
+            ], $status);
+        }
+
+        if ($request->has('callback')) {
+            return redirect($request['callback'] . '?flag=fail');
+        }
+
+        return redirect()->back()->withErrors($message);
+    }
+
     protected function respondPaymentRedirect(Request $request, string $redirectLink): JsonResponse|Redirector|RedirectResponse|Application
     {
         if (!$this->shouldUseNativeRazorpay($request)) {

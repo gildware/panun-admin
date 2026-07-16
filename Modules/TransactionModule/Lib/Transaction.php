@@ -1873,6 +1873,83 @@ if (!function_exists('completeBookingRepeatTransactionForDigitalPaymentAndExtraS
 } //edited booking repeat
 
 
+//*** Sync settlement-derived commission to provider account_payable (idempotent) ***
+if (!function_exists('record_booking_completion_provider_commission_payable')) {
+    /**
+     * Post any missing provider commission payable from booking settlement receipts.
+     * Covers paths where settlement shows provider_owes_company but legacy completion skipped payable posting.
+     */
+    function record_booking_completion_provider_commission_payable($booking): void
+    {
+        if (! $booking || ! ($booking->provider_id ?? null)) {
+            return;
+        }
+
+        $settled = get_booking_received_and_settlement($booking);
+        $target = max(0.0, round((float) ($settled['provider_owes_company'] ?? 0), 2));
+        if ($target < 0.01) {
+            return;
+        }
+
+        $bookingId = (string) $booking->id;
+        $already = (float) Transaction::query()
+            ->where('booking_id', $bookingId)
+            ->whereIn('trx_type', [TRX_TYPE['payable_commission'], TRX_TYPE['payable_extra_fee']])
+            ->sum('credit');
+        $delta = round($target - $already, 2);
+        if ($delta < 0.01) {
+            return;
+        }
+
+        $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()?->id;
+        $provider_user_id = get_user_id($booking['provider_id'], PROVIDER_USER_TYPES[0]);
+        if (! $admin_user_id || ! $provider_user_id) {
+            return;
+        }
+
+        DB::transaction(function () use ($bookingId, $delta, $admin_user_id, $provider_user_id) {
+            $providerAccount = Account::where('user_id', $provider_user_id)->lockForUpdate()->first();
+            $adminAccount = Account::where('user_id', $admin_user_id)->lockForUpdate()->first();
+            if (! $providerAccount || ! $adminAccount) {
+                return;
+            }
+
+            $providerAccount->account_payable += $delta;
+            $providerAccount->save();
+
+            $primary = Transaction::create([
+                'ref_trx_id' => null,
+                'booking_id' => $bookingId,
+                'trx_type' => TRX_TYPE['payable_commission'],
+                'debit' => 0,
+                'credit' => $delta,
+                'balance' => $providerAccount->account_payable,
+                'from_user_id' => $provider_user_id,
+                'to_user_id' => $provider_user_id,
+                'from_user_account' => ACCOUNT_STATES[2]['value'],
+                'to_user_account' => null,
+            ]);
+
+            $adminAccount->account_receivable += $delta;
+            $adminAccount->save();
+
+            Transaction::create([
+                'ref_trx_id' => $primary->id,
+                'booking_id' => $bookingId,
+                'trx_type' => TRX_TYPE['receivable_commission'],
+                'debit' => 0,
+                'credit' => $delta,
+                'balance' => $adminAccount->account_receivable,
+                'from_user_id' => $provider_user_id,
+                'to_user_id' => $admin_user_id,
+                'from_user_account' => ACCOUNT_STATES[3]['value'],
+                'to_user_account' => null,
+            ]);
+        });
+    }
+}
+
+
 //*** (admin) collect cash from provider ***
 if (!function_exists('collectCashTransaction')) {
     function collectCashTransaction($provider_id, $collect_amount, ?string $transaction_id = null, ?string $reference_note = null, ?string $ledger_payment_method = null, bool $recordLedger = true): void

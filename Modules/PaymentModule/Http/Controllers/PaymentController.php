@@ -102,10 +102,16 @@ class PaymentController extends Controller
 
             $provider = Provider::where('id', $request['provider_id'])->first();
 
-            if ($provider){
-                $amount = $provider->owner->account->account_payable - $provider->owner->account->account_receivable;
+            if ($provider) {
+                $settlement = booking_settlement_net_with_provider_ledger_for_provider_id((string) $provider->id);
+                $payLimits = provider_pay_to_admin_limits(
+                    (float) ($settlement['settlement_net'] ?? 0),
+                    (float) ($provider->owner->account->account_payable ?? 0),
+                    (float) ($provider->owner->account->account_receivable ?? 0),
+                );
+                $amount = $payLimits['max'];
                 $minPayableAmount = business_config('min_payable_amount', 'provider_config')->live_values ?? 0;
-                if ($minPayableAmount > 0 && $amount < $minPayableAmount){
+                if ($minPayableAmount > 0 && $amount > 0.009 && $amount < $minPayableAmount) {
                     return redirect()->back()->withErrors(translate('Provider must have to pay greater than or equal to ') . $minPayableAmount);
                 }
             }
@@ -180,8 +186,14 @@ class PaymentController extends Controller
 
             if ($provider) {
                 $customer = User::find($provider->user_id);
-                if ($provider->owner->account->account_payable > $provider->owner->account->account_receivable) {
-                    $amount = $provider->owner->account->account_payable - $provider->owner->account->account_receivable;
+                $settlement = booking_settlement_net_with_provider_ledger_for_provider_id((string) $provider->id);
+                $payLimits = provider_pay_to_admin_limits(
+                    (float) ($settlement['settlement_net'] ?? 0),
+                    (float) ($provider->owner->account->account_payable ?? 0),
+                    (float) ($provider->owner->account->account_receivable ?? 0),
+                );
+                $amount = $payLimits['max'];
+                if ($amount > 0.009) {
                     $payer = new Payer($customer['first_name'] . ' ' . $customer['last_name'], $customer['email'], $customer['phone'], '');
                     $additional_data = [
                         'provider_id' => $request['provider_id'],
@@ -205,13 +217,14 @@ class PaymentController extends Controller
 
                     $receiver_info = new Receiver('receiver_name', 'example.png');
                     $redirect_link = PaymentTrait::generate_link($payer, $payment_info, $receiver_info);
+
                     return $this->respondPaymentRedirect($request, $redirect_link);
-                } else {
-                    return redirect()->back()->withErrors(translate('Invalid Amount'));
                 }
-            } else {
-                return redirect()->back()->withErrors(translate('Provider Not Found'));
+
+                return redirect()->back()->withErrors(translate('Invalid Amount'));
             }
+
+            return redirect()->back()->withErrors(translate('Provider Not Found'));
 
         }
 

@@ -854,7 +854,23 @@ class Booking extends Model
 
             if ($model->isDirty('booking_status')) {
                 $key = null;
-                if ($model->booking_status == 'pending') {
+                if (booking_is_admin_reopen_in_place_transition($model)) {
+                    if ($permission) {
+                        $notifications[] = [
+                            'key' => 'booking_reopened',
+                            'settings_type' => 'customer_notification',
+                        ];
+                    }
+                    if ($providerPermission) {
+                        $notifications[] = [
+                            'key' => 'booking_reopened',
+                            'settings_type' => 'provider_notification',
+                        ];
+                    }
+                    if (function_exists('admin_inbox_notify_booking_reopened')) {
+                        admin_inbox_notify_booking_reopened($model);
+                    }
+                } elseif ($model->booking_status == 'pending') {
                     if ($permission && should_notify_customer_booking_placed_on_pending_status($model)) {
                         $notifications[] = [
                             'key' => 'booking_place',
@@ -1005,6 +1021,12 @@ class Booking extends Model
                     }
 
                     provider_apply_cash_limit_suspension_for_provider($provider);
+                }
+
+                if ($model?->provider
+                    && $model->isDirty('booking_status')
+                    && $model->getOriginal('booking_status') !== 'completed') {
+                    record_booking_completion_provider_commission_payable($model);
                 }
 
             } elseif ($model->booking_status == 'canceled') {

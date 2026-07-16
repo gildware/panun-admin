@@ -139,7 +139,8 @@
                             ? max($providerReceivable, max(0.0, $bookingSettlementNet))
                             : max(0.0, $providerReceivable);
                         $addPaymentFormMax = $companyPaysProvider ? max(0.0, $bookingSettlementNet) : 0.0;
-                        $collectFormMax = $providerPaysCompany ? min($providerPayable, max(0.0, -$bookingSettlementNet)) : 0.0;
+                        $payLimits = provider_pay_to_admin_limits($bookingSettlementNet, $providerPayable, $providerReceivable);
+                        $collectFormMax = $payLimits['max'];
                         $collectModalMaxLedger = max(0.0, $providerPayable);
                         $addPaymentModalMaxLedger = $payoutCapWhenCompanyOwes;
                         $showProviderPaymentReminderBtn = max(0.0, -$netPayableAmount) > 0.009 || $collectModalMaxLedger > 0.009;
@@ -167,7 +168,7 @@
                             @php
                                 $netBalanceIsZero = abs($displayNetBalance) <= 0.009;
                                 $netPayableInfoWarn = \Illuminate\Support\Facades\Gate::check('provider_update')
-                                    && (($companyPaysProvider && $addPaymentModalMaxLedger <= 0.009) || ($providerPaysCompany && $collectFormMax <= 0.009));
+                                    && (($companyPaysProvider && $addPaymentModalMaxLedger <= 0.009) || ($providerPaysCompany && $collectFormMax <= 0.009 && ! ($payLimits['is_advance'] ?? false)));
                             @endphp
                             <div class="statistics-card statistics-card__style2 h-100 pk-payment-widget-card">
                                 <button type="button" class="btn btn-link pk-payment-widget-info-btn position-absolute top-0 end-0 mt-1 me-1 {{ $netPayableInfoWarn ? 'text-warning' : 'text-muted' }}" data-pk-popover-src="pk-pop-body-net-payable" data-pk-popover-title="{{ translate('Net_Balance') }}" aria-label="{{ translate('Payment_widget_info_aria') }}">
@@ -393,7 +394,7 @@
                             @can('provider_update')
                                 @if($companyPaysProvider && $addPaymentModalMaxLedger <= 0.009)
                                     <p class="mb-0 text-warning">{{ translate('Booking_settlement_no_receivable_for_payout') }}</p>
-                                @elseif($providerPaysCompany && $collectFormMax <= 0.009)
+                                @elseif($providerPaysCompany && $collectFormMax <= 0.009 && ! ($payLimits['is_advance'] ?? false))
                                     <p class="mb-0 text-warning">{{ translate('Booking_settlement_no_payable_for_collect') }}</p>
                                 @endif
                             @endcan

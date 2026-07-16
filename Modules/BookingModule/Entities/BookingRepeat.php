@@ -247,6 +247,12 @@ class BookingRepeat extends Model
                         provider_apply_cash_limit_suspension_for_provider($provider);
                     }
 
+                    if ($model?->provider
+                        && $model->isDirty('booking_status')
+                        && $model->getOriginal('booking_status') !== 'completed') {
+                        record_booking_completion_provider_commission_payable($model);
+                    }
+
                 } elseif ($model->booking_status == 'canceled' && $model->skipNotification) {
                     if ($permission) {
                         $notifications[] = [

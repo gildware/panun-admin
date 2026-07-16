@@ -59,6 +59,7 @@ if (!$isPublished) {
             Route::any('create-order', [RazorPayController::class, 'createOrder'])->name('create-order')->withoutMiddleware([VerifyCsrfToken::class]);
             Route::any('native-prepare', [RazorPayController::class, 'nativePrepare'])->name('native-prepare')->withoutMiddleware([VerifyCsrfToken::class]);
             Route::any('verify-payment', [RazorPayController::class, 'verifyPayment'])->name('verify-payment')->withoutMiddleware([VerifyCsrfToken::class]);
+            Route::any('payment-status', [RazorPayController::class, 'paymentStatus'])->name('payment-status')->withoutMiddleware([VerifyCsrfToken::class]);
             Route::post('webhook', [RazorpayWebhookController::class, 'handle'])->name('webhook')->withoutMiddleware([VerifyCsrfToken::class]);
         });
 
