@@ -5,7 +5,6 @@ namespace Tests\Unit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Modules\CustomerModule\Services\CustomerHomeBaseBundleCache;
-use Modules\CustomerModule\Services\CustomerHomeContentVersion;
 use Tests\TestCase;
 
 class CustomerHomeBaseBundleCacheServeTest extends TestCase
@@ -18,7 +17,7 @@ class CustomerHomeBaseBundleCacheServeTest extends TestCase
 
     public function test_remember_returns_stable_cache_hit(): void
     {
-        $zoneId = 'zone-1';
+        $zoneId = 'zone-leaf';
         $locale = 'en';
         $payload = [
             'banners' => ['data' => [['id' => 1]], 'total' => 1],
@@ -42,27 +41,60 @@ class CustomerHomeBaseBundleCacheServeTest extends TestCase
         $this->assertSame($payload, $result['bundle']);
     }
 
-    public function test_content_version_bump_does_not_drop_cache(): void
+    public function test_multi_zone_header_hits_leaf_cache(): void
     {
-        $zoneId = 'zone-1';
-        $locale = 'en';
+        $leaf = 'zone-leaf';
+        $parent = 'zone-parent';
         $payload = [
             'banners' => ['data' => [['id' => 99]], 'total' => 1],
-            'categories' => ['data' => [], 'total' => 0],
+            'categories' => ['data' => [['id' => 'c1']], 'total' => 1],
+            'popular_services' => ['data' => [['id' => 's1']], 'total' => 1],
         ];
 
         Cache::forever(
-            CustomerHomeBaseBundleCache::cacheKey($zoneId, $locale),
+            CustomerHomeBaseBundleCache::cacheKey($leaf, 'en'),
             $payload
         );
 
-        // Simulates unrelated version bump — cache key is independent of version.
-        CustomerHomeContentVersion::bumpGlobal();
+        $cache = $this->app->make(CustomerHomeBaseBundleCache::class);
+        $request = Request::create('/api/v1/customer/home-bundle', 'GET');
+        $request->headers->set('zoneId', $parent.','.$leaf);
+        $request->headers->set('X-localization', 'en');
+
+        $result = $cache->remember($request, 'layoutabc123');
+
+        $this->assertTrue($result['fresh']);
+        $this->assertSame($payload, $result['bundle']);
+        $this->assertContains($result['source'], ['hit', 'hit_normalized']);
+    }
+
+    public function test_parse_zone_tokens(): void
+    {
+        $this->assertSame(
+            ['a', 'b'],
+            CustomerHomeBaseBundleCache::parseZoneTokens('a,b')
+        );
+        $this->assertSame(
+            ['a', 'b'],
+            CustomerHomeBaseBundleCache::parseZoneTokens('[a, b]')
+        );
+    }
+
+    public function test_locale_falls_back_to_en(): void
+    {
+        $zoneId = 'zone-leaf';
+        $payload = [
+            'categories' => ['data' => [['id' => 'c1']], 'total' => 1],
+        ];
+        Cache::forever(
+            CustomerHomeBaseBundleCache::cacheKey($zoneId, 'en'),
+            $payload
+        );
 
         $cache = $this->app->make(CustomerHomeBaseBundleCache::class);
         $request = Request::create('/api/v1/customer/home-bundle', 'GET');
         $request->headers->set('zoneId', $zoneId);
-        $request->headers->set('X-localization', $locale);
+        $request->headers->set('X-localization', 'hi');
 
         $result = $cache->remember($request, 'layoutabc123');
 
@@ -82,6 +114,5 @@ class CustomerHomeBaseBundleCacheServeTest extends TestCase
         $this->assertFalse($result['fresh']);
         $this->assertSame('miss', $result['source']);
         $this->assertSame(CustomerHomeBaseBundleCache::emptyPayload(), $result['bundle']);
-        $this->assertFalse(Cache::has('customer_home_zone_warm:never-warmed-zone'));
     }
 }

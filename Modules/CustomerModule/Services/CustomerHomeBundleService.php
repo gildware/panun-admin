@@ -22,22 +22,46 @@ class CustomerHomeBundleService
         $userId = auth('api')->id();
         $numericUserId = is_numeric($userId) ? (int) $userId : null;
 
-        $resolved = $this->baseBundleCache->remember($request, $layoutHash);
-        $base = $resolved['bundle'];
+        try {
+            $resolved = $this->baseBundleCache->remember($request, $layoutHash);
+        } catch (\Throwable $e) {
+            report($e);
+            $resolved = [
+                'bundle' => CustomerHomeBaseBundleCache::emptyPayload(),
+                'fresh' => false,
+                'source' => 'error',
+            ];
+        }
+
+        $base = is_array($resolved['bundle'] ?? null)
+            ? $resolved['bundle']
+            : CustomerHomeBaseBundleCache::emptyPayload();
         $fresh = (bool) ($resolved['fresh'] ?? false);
+        $source = (string) ($resolved['source'] ?? 'miss');
 
         // content_version only changes when admin clicks Rebuild (bumpGlobal there).
-        // Edits without rebuild keep the same version so apps do not refetch.
         $contentVersion = CustomerHomeContentVersion::resolveForRequest($layoutHash, $numericUserId);
 
-        $bundle = auth('api')->check()
-            ? $this->bundlePersonalizer->apply($base, $request, (int) auth('api')->id())
-            : $base;
+        $bundle = $base;
+        if (auth('api')->check()) {
+            try {
+                $bundle = $this->bundlePersonalizer->apply($base, $request, (int) auth('api')->id());
+            } catch (\Throwable $e) {
+                // Never fail the whole home-bundle for favorites / recently-viewed —
+                // that caused logged-in (and sometimes guest-adjacent) 500s and a
+                // 10–23s multi-API fallback on the phone.
+                report($e);
+                $bundle = $base;
+                $source = $source === 'hit' || $source === 'hit_normalized' || $source === 'legacy'
+                    ? $source.'_personalizer_skipped'
+                    : $source;
+            }
+        }
 
         return array_merge(
             [
                 'content_version' => $contentVersion,
-                'cache_status' => $fresh ? 'hit' : (string) ($resolved['source'] ?? 'miss'),
+                'cache_status' => $fresh ? (str_starts_with($source, 'hit') ? $source : 'hit') : $source,
             ],
             $this->normalizeForMobileClient($bundle),
         );
