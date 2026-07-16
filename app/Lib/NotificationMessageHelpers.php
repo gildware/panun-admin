@@ -21,6 +21,7 @@ if (! function_exists('notification_message_variables_for_key')) {
             'add_fund_wallet', 'welcome_bonus_wallet', 'referral_earning', 'referral_code_used', 'wallet_deducted' => ['{{amount}}', '{{userName}}', '{{bookingId}}'],
             'loyalty_point', 'loyalty_point_convert' => ['{{amount}}', '{{userName}}', '{{bookingId}}'],
             'refund_bank_transfer' => array_merge($common, ['{{amount}}', '{{bookingStatus}}']),
+            'compensation_from_company', 'compensation_from_provider', 'compensation_to_customer' => array_merge($common, ['{{amount}}']),
             'customer_review_approved', 'review_published' => ['{{userName}}', '{{providerName}}', '{{bookingId}}'],
             'app_custom_request_submitted', 'app_custom_request_accepted', 'app_custom_request_rejected', 'app_custom_request_admin_reply' => ['{{userName}}', '{{referenceId}}', '{{categoryName}}', '{{requestStatus}}'],
             'review_approved', 'provider_review_published' => ['{{userName}}', '{{providerName}}', '{{bookingId}}'],
@@ -181,6 +182,14 @@ if (! function_exists('notification_default_message_templates')) {
                     'title' => 'Bank Refund Initiated – {{bookingId}}',
                     'description' => 'Hi {{userName}}, {{amount}} refund for booking {{bookingId}} will be sent to your bank account.',
                 ],
+                'compensation_from_company' => [
+                    'title' => 'Compensation Received – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, the company credited {{amount}} compensation to your wallet for booking {{bookingId}}.',
+                ],
+                'compensation_from_provider' => [
+                    'title' => 'Compensation Received – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, {{providerName}} compensated you with {{amount}} for booking {{bookingId}}. The amount was credited to your wallet.',
+                ],
                 'add_fund_wallet' => [
                     'title' => 'Wallet Credited',
                     'description' => 'Hi {{userName}}, {{amount}} has been added to your wallet.',
@@ -310,6 +319,14 @@ if (! function_exists('notification_default_message_templates')) {
                 'admin_payable' => [
                     'title' => 'Amount Payable to Admin',
                     'description' => 'Hi {{providerName}}, {{amount}} is recorded as payable to admin.',
+                ],
+                'compensation_from_company' => [
+                    'title' => 'Compensation Received – {{bookingId}}',
+                    'description' => 'Hi {{providerName}}, the company paid you {{amount}} compensation for booking {{bookingId}}.',
+                ],
+                'compensation_to_customer' => [
+                    'title' => 'Customer Compensation Recorded – {{bookingId}}',
+                    'description' => 'Hi {{providerName}}, {{amount}} compensation from you to {{userName}} was recorded for booking {{bookingId}}.',
                 ],
                 'withdraw_request_submitted' => [
                     'title' => 'Withdrawal Request Submitted',
@@ -1027,6 +1044,26 @@ if (! function_exists('notification_scenario_trigger_map')) {
                 'module' => 'refund',
                 'checks' => [
                     ['label' => 'Bank refund sender', 'needles' => ['send_customer_refund_notification', "'refund_bank_transfer'"]],
+                ],
+            ],
+
+            // Compensation (3)
+            'compensation_company_to_customer' => [
+                'module' => 'compensation',
+                'checks' => [
+                    ['label' => 'Company to customer compensation push', 'needles' => ['send_booking_compensation_notifications', "'compensation_from_company'"]],
+                ],
+            ],
+            'compensation_company_to_provider' => [
+                'module' => 'compensation',
+                'checks' => [
+                    ['label' => 'Company to provider compensation push', 'needles' => ['send_booking_compensation_notifications', "'compensation_from_company'"]],
+                ],
+            ],
+            'compensation_provider_to_customer' => [
+                'module' => 'compensation',
+                'checks' => [
+                    ['label' => 'Provider to customer compensation push', 'needles' => ['send_booking_compensation_notifications', "'compensation_from_provider'", "'compensation_to_customer'"]],
                 ],
             ],
 
@@ -1828,6 +1865,40 @@ if (! function_exists('notification_trigger_scenarios_for_key')) {
                 'wired' => true,
             ] : null,
 
+            'compensation_from_company' => [
+                'summary' => $isCustomer
+                    ? 'Sent when the company compensates the customer on a booking.'
+                    : 'Sent when the company compensates the provider on a booking.',
+                'scenarios' => $isCustomer ? [
+                    'Admin records company → customer compensation on a terminal booking.',
+                ] : [
+                    'Admin records company → provider compensation on a terminal booking.',
+                ],
+                'recipient' => $recipient,
+                'module' => 'Payments',
+                'wired' => true,
+            ],
+
+            'compensation_from_provider' => $isCustomer ? [
+                'summary' => 'Sent when provider compensation to the customer is recorded on a booking.',
+                'scenarios' => [
+                    'Admin records provider → customer compensation on a terminal booking.',
+                ],
+                'recipient' => 'Customer',
+                'module' => 'Payments',
+                'wired' => true,
+            ] : null,
+
+            'compensation_to_customer' => ! $isCustomer ? [
+                'summary' => 'Sent to the provider when admin records compensation from the provider to the customer.',
+                'scenarios' => [
+                    'Admin records provider → customer compensation on a terminal booking.',
+                ],
+                'recipient' => 'Provider',
+                'module' => 'Payments',
+                'wired' => true,
+            ] : null,
+
             'customer_review_approved' => $isCustomer ? [
                 'summary' => 'Sent to the customer when they receive a new review from a provider.',
                 'scenarios' => [
@@ -2610,6 +2681,39 @@ if (! function_exists('notification_scenario_registry')) {
                 'trigger_action' => 'Records bank transfer refund on canceled booking',
                 'audiences' => [
                     ['audience' => 'customer', 'channel' => 'push', 'key' => 'refund_bank_transfer', 'settings_type' => 'customer_notification', 'wired' => true],
+                ],
+            ],
+
+            // --- Compensation ---
+            [
+                'id' => 'compensation_company_to_customer',
+                'module' => 'compensation',
+                'title' => 'Admin/company compensates customer on a booking',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Records company → customer compensation on a terminal booking',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'compensation_from_company', 'settings_type' => 'customer_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'compensation_company_to_provider',
+                'module' => 'compensation',
+                'title' => 'Admin/company compensates provider on a booking',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Records company → provider compensation on a terminal booking',
+                'audiences' => [
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'compensation_from_company', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'compensation_provider_to_customer',
+                'module' => 'compensation',
+                'title' => 'Provider compensates customer on a booking',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Records provider → customer compensation on a terminal booking',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'compensation_from_provider', 'settings_type' => 'customer_notification', 'wired' => true],
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'compensation_to_customer', 'settings_type' => 'provider_notification', 'wired' => true],
                 ],
             ],
 
@@ -4212,6 +4316,89 @@ if (! function_exists('send_customer_refund_notification')) {
             'customer',
             $booking->zone_id
         );
+    }
+}
+
+if (! function_exists('send_booking_compensation_notifications')) {
+    /**
+     * Push notifications after admin records booking compensation.
+     *
+     * @param  'company_to_customer'|'company_to_provider'|'provider_to_customer'  $type
+     */
+    function send_booking_compensation_notifications(Booking $booking, float $amount, string $type): void
+    {
+        if ($amount <= 0 || ! booking_push_notifications_enabled()) {
+            return;
+        }
+
+        $booking->loadMissing(['customer', 'provider.owner']);
+        $amountLabel = with_currency_symbol($amount);
+        $bookingId = $booking->readable_id ?? $booking->id;
+        $providerName = $booking->provider?->company_name ?? '';
+        $userName = trim(($booking->customer?->first_name ?? '') . ' ' . ($booking->customer?->last_name ?? ''));
+
+        if (in_array($type, ['company_to_customer', 'provider_to_customer'], true)) {
+            $customer = $booking->customer;
+            if ($customer && $customer->is_active && isNotificationActive(null, 'booking', 'notification', 'user')) {
+                $messageKey = $type === 'company_to_customer'
+                    ? 'compensation_from_company'
+                    : 'compensation_from_provider';
+                $title = get_push_notification_message($messageKey, 'customer_notification', $customer->current_language_key);
+                $description = get_push_notification_description($messageKey, 'customer_notification', $customer->current_language_key);
+                if ($title) {
+                    scenario_push_notification(
+                        $customer,
+                        $amountLabel . ' ' . $title,
+                        $description,
+                        $booking->id,
+                        'booking',
+                        $customer->id,
+                        [
+                            'amount' => $amountLabel,
+                            'booking_id' => $bookingId,
+                            'user_name' => $userName,
+                            'provider_name' => $providerName,
+                        ],
+                        $messageKey,
+                        null,
+                        'customer',
+                        $booking->zone_id
+                    );
+                }
+            }
+        }
+
+        if ($type === 'company_to_provider' || $type === 'provider_to_customer') {
+            $provider = $booking->provider;
+            $owner = $provider?->owner;
+            if ($owner && $owner->is_active && isNotificationActive($provider?->id, 'booking', 'notification', 'provider')) {
+                $messageKey = $type === 'company_to_provider'
+                    ? 'compensation_from_company'
+                    : 'compensation_to_customer';
+                $title = get_push_notification_message($messageKey, 'provider_notification', $owner->current_language_key);
+                $description = get_push_notification_description($messageKey, 'provider_notification', $owner->current_language_key);
+                if ($title) {
+                    scenario_push_notification(
+                        $owner,
+                        $amountLabel . ' ' . $title,
+                        $description,
+                        $booking->id,
+                        'booking',
+                        $owner->id,
+                        [
+                            'amount' => $amountLabel,
+                            'booking_id' => $bookingId,
+                            'user_name' => $userName,
+                            'provider_name' => $providerName,
+                        ],
+                        $messageKey,
+                        null,
+                        'provider-admin',
+                        $provider?->zone_id ?? $booking->zone_id
+                    );
+                }
+            }
+        }
     }
 }
 

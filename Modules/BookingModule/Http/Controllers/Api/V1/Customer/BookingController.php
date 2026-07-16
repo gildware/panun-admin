@@ -419,6 +419,7 @@ class BookingController extends Controller
                 'booking_partial_payments',
                 'booking_offline_payments',
                 'extra_services',
+                'compensations',
             ])
             ->where(function ($query) use ($id) {
                 $query->where('id', $id)->orWhere('readable_id', $id);

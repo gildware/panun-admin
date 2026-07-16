@@ -31,13 +31,14 @@ class NotificationScenarioMessagesTest extends TestCase
         $this->assertCount(5, $grouped['loyalty_points']);
         $this->assertCount(3, $grouped['wallet']);
         $this->assertCount(2, $grouped['refund']);
+        $this->assertCount(3, $grouped['compensation']);
         $this->assertCount(3, $grouped['communication']);
         $this->assertCount(3, $grouped['service_requests']);
         $this->assertCount(6, $grouped['provider_account']);
         $this->assertCount(8, $grouped['advertisement']);
         $this->assertCount(3, $grouped['provider_work_showcase']);
         $this->assertCount(6, $grouped['admin_alerts']);
-        $this->assertCount(79, notification_scenario_registry());
+        $this->assertCount(82, notification_scenario_registry());
     }
 
     public function test_all_config_keys_are_covered_by_scenarios(): void
@@ -68,6 +69,9 @@ class NotificationScenarioMessagesTest extends TestCase
             'profile_change_denied',
             'chat_admin_customer_message',
             'chat_admin_provider_message',
+            'compensation_company_to_customer',
+            'compensation_company_to_provider',
+            'compensation_provider_to_customer',
         ] as $scenarioId) {
             $this->assertContains($scenarioId, $ids, "Missing scenario: {$scenarioId}");
         }
@@ -123,6 +127,7 @@ class NotificationScenarioMessagesTest extends TestCase
             'send_customer_payment_failed_notification',
             'send_customer_wallet_deducted_notification',
             'send_customer_refund_notification',
+            'send_booking_compensation_notifications',
             'send_customer_loyalty_point_notification',
             'send_review_approved_to_provider_notification',
             'send_review_published_to_customer_notification',

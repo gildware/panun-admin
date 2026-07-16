@@ -19,8 +19,8 @@ class NotificationMessageConfigTest extends TestCase
 
         $this->assertCount(13, $grouped['booking_status']);
         $this->assertCount(6, $grouped['service_updates']);
-        $this->assertCount(5, $grouped['payments']);
-        $this->assertCount(6, $grouped['wallet_and_loyalty']);
+        $this->assertCount(7, $grouped['payments']);
+        $this->assertCount(7, $grouped['wallet_and_loyalty']);
         $this->assertCount(2, $grouped['review']);
     }
 

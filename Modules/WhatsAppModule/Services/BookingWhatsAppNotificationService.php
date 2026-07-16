@@ -2501,6 +2501,17 @@ class BookingWhatsAppNotificationService
                 'booking compensation to customer (customer)',
                 $ctx
             );
+
+            if ($compensationType === 'provider_to_customer') {
+                $this->trySendBookingMetaOnly(
+                    $config,
+                    'booking_compensation_provider',
+                    $vars,
+                    $this->resolveProviderPhone($booking->provider, $config),
+                    'booking compensation provider-to-customer (provider)',
+                    $ctx
+                );
+            }
         } catch (\Throwable $e) {
             if ($compensationType === 'company_to_provider') {
                 $this->logAutomationThrowableForSlots($booking, null, [
