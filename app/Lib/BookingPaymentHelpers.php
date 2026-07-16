@@ -6005,6 +6005,37 @@ if (!function_exists('resolve_checkout_payment_amount')) {
     }
 }
 
+if (!function_exists('wallet_checkout_debit_amount')) {
+    /**
+     * Wallet amount to validate against max spend per transaction at booking time.
+     * Uses confirmation/advance when customer pays booking confirmation only.
+     */
+    function wallet_checkout_debit_amount(
+        string $userId,
+        $request,
+        iterable $cartItemsForBooking,
+        float $lineTotalBookingAmount,
+        bool $isPartial,
+        float $customerWalletBalance
+    ): float {
+        if ($isPartial) {
+            return cap_wallet_spend_for_single_transaction($customerWalletBalance);
+        }
+
+        $paymentAmountType = is_array($request)
+            ? ($request['payment_amount_type'] ?? 'full')
+            : ($request->payment_amount_type ?? 'full');
+
+        if ($paymentAmountType === 'confirmation' && require_booking_upfront_payment()) {
+            $units = booking_confirmation_units_for_cart_items($cartItemsForBooking);
+
+            return round(min($lineTotalBookingAmount, booking_confirmation_amount_per_service() * max(1, $units)), 2);
+        }
+
+        return round(max(0.0, $lineTotalBookingAmount), 2);
+    }
+}
+
 if (!function_exists('map_booking_payment_paid_with')) {
     function map_booking_payment_paid_with(string $paymentMethod): string
     {

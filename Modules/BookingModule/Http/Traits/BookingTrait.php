@@ -154,9 +154,14 @@ trait BookingTrait
                 $totalBookingAmount += $extraFee;
 
                 if ($request['payment_method'] == 'wallet_payment') {
-                    $walletDebit = $isPartials
-                        ? cap_wallet_spend_for_single_transaction((float) $customerWalletBalance)
-                        : $totalBookingAmount;
+                    $walletDebit = wallet_checkout_debit_amount(
+                        (string) $userId,
+                        $request,
+                        $cartData,
+                        (float) $totalBookingAmount,
+                        (bool) $isPartials,
+                        (float) $customerWalletBalance
+                    );
                     if (! $isPartials && wallet_spend_exceeds_per_transaction_limit($walletDebit)) {
                         throw new \RuntimeException('wallet_max_spend_per_transaction');
                     }
@@ -603,9 +608,15 @@ trait BookingTrait
             }
 
             if ($data['payment_method'] == 'wallet_payment') {
-                $walletDebit = $isPartials
-                    ? cap_wallet_spend_for_single_transaction((float) $customerWalletBalance)
-                    : $totalBookingAmount;
+                $bidCartItems = collect([(object) ['quantity' => 1]]);
+                $walletDebit = wallet_checkout_debit_amount(
+                    (string) $customerUserId,
+                    $request,
+                    $bidCartItems,
+                    (float) $totalBookingAmount,
+                    (bool) $isPartials,
+                    (float) ($customerWalletBalance ?? 0)
+                );
                 if (! $isPartials && wallet_spend_exceeds_per_transaction_limit($walletDebit)) {
                     throw new \RuntimeException('wallet_max_spend_per_transaction');
                 }
