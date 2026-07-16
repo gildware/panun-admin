@@ -859,23 +859,23 @@ class ProviderProfileChangeRequestService
         }
 
         if ($providerType === 'company') {
-            if (isset($approved['company_name'])) {
+            if (isset($approved['company_name']) && array_key_exists('company_name', $payload)) {
                 $provider->company_name = $payload['company_name'];
             }
-            if (isset($approved['company_phone'])) {
+            if (isset($approved['company_phone']) && array_key_exists('company_phone', $payload)) {
                 $provider->company_phone = $payload['company_phone'];
             }
             if (isset($approved['company_email']) && ! empty($payload['company_email'])) {
                 $provider->company_email = $payload['company_email'];
             }
         } else {
-            if (isset($approved['contact_person_name'])) {
+            if (isset($approved['contact_person_name']) && array_key_exists('contact_person_name', $payload)) {
                 $provider->company_name = $payload['contact_person_name'];
             }
-            if (isset($approved['contact_person_phone'])) {
+            if (isset($approved['contact_person_phone']) && array_key_exists('contact_person_phone', $payload)) {
                 $provider->company_phone = $payload['contact_person_phone'];
             }
-            if (isset($approved['contact_person_email'])) {
+            if (isset($approved['contact_person_email']) && array_key_exists('contact_person_email', $payload)) {
                 $provider->company_email = $payload['contact_person_email'] ?? null;
             }
         }
@@ -883,38 +883,38 @@ class ProviderProfileChangeRequestService
         if (isset($approved['contact_person_photo']) && ! empty($payload['contact_person_photo'])) {
             $provider->contact_person_photo = $payload['contact_person_photo'];
         }
-        if (isset($approved['company_address'])) {
+        if (isset($approved['company_address']) && array_key_exists('company_address', $payload)) {
             $provider->company_address = $payload['company_address'];
         }
-        if (isset($approved['street'])) {
+        if (isset($approved['street']) && array_key_exists('street', $payload)) {
             $provider->street = $payload['street'] ?? null;
         }
-        if (isset($approved['city'])) {
+        if (isset($approved['city']) && array_key_exists('city', $payload)) {
             $provider->city = $payload['city'] ?? null;
         }
-        if (isset($approved['pincode'])) {
+        if (isset($approved['pincode']) && array_key_exists('pincode', $payload)) {
             $provider->pincode = $payload['pincode'] ?? null;
         }
-        if (isset($approved['contact_person_name'])) {
+        if (isset($approved['contact_person_name']) && array_key_exists('contact_person_name', $payload)) {
             $provider->contact_person_name = $payload['contact_person_name'];
         }
-        if (isset($approved['contact_person_phone'])) {
+        if (isset($approved['contact_person_phone']) && array_key_exists('contact_person_phone', $payload)) {
             $provider->contact_person_phone = $payload['contact_person_phone'];
         }
-        if (isset($approved['contact_person_email'])) {
+        if (isset($approved['contact_person_email']) && array_key_exists('contact_person_email', $payload)) {
             $provider->contact_person_email = $payload['contact_person_email'] ?? null;
         }
-        if (isset($approved['coordinates'])) {
+        if (isset($approved['coordinates']) && (array_key_exists('latitude', $payload) || array_key_exists('longitude', $payload))) {
             $provider->coordinates = [
-                'latitude' => $payload['latitude'],
-                'longitude' => $payload['longitude'],
+                'latitude' => $payload['latitude'] ?? null,
+                'longitude' => $payload['longitude'] ?? null,
             ];
         }
 
         if (isset($approved['contact_person_email']) && ! empty($payload['contact_person_email'])) {
             $owner->email = $payload['contact_person_email'];
         }
-        if (isset($approved['contact_person_phone'])) {
+        if (isset($approved['contact_person_phone']) && array_key_exists('contact_person_phone', $payload)) {
             $owner->phone = $payload['contact_person_phone'];
             $owner->is_phone_verified = 1;
         }
@@ -951,10 +951,10 @@ class ProviderProfileChangeRequestService
             $owner->identification_image = array_values($filteredImages);
         }
 
-        if (isset($approved['identity_number'])) {
+        if (isset($approved['identity_number']) && array_key_exists('identity_number', $payload)) {
             $owner->identification_number = $payload['identity_number'];
         }
-        if (isset($approved['identity_type'])) {
+        if (isset($approved['identity_type']) && array_key_exists('identity_type', $payload)) {
             $owner->identification_type = $payload['identity_type'];
         }
 
@@ -983,10 +983,10 @@ class ProviderProfileChangeRequestService
                 $provider->company_identity_images = array_values($filteredCompanyImages);
             }
 
-            if (isset($approved['company_identity_type'])) {
+            if (isset($approved['company_identity_type']) && array_key_exists('company_identity_type', $payload)) {
                 $provider->company_identity_type = $payload['company_identity_type'];
             }
-            if (isset($approved['company_identity_number'])) {
+            if (isset($approved['company_identity_number']) && array_key_exists('company_identity_number', $payload)) {
                 $provider->company_identity_number = $payload['company_identity_number'];
             }
         }

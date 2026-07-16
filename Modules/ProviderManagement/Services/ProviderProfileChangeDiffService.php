@@ -41,49 +41,65 @@ class ProviderProfileChangeDiffService
         $changes = [];
         $coords = is_array($provider->coordinates) ? $provider->coordinates : [];
 
+        // Only diff keys still present in the payload. Reviewed fields are removed after
+        // accept/deny; treating missing keys as null incorrectly creates "→ Not set" rows.
         $scalarFields = [
-            'contact_person_name' => [$provider->contact_person_name, $payload['contact_person_name'] ?? null, 'contact_person_name'],
-            'contact_person_phone' => [$provider->contact_person_phone, $payload['contact_person_phone'] ?? null, 'contact_person_phone'],
-            'contact_person_email' => [$provider->contact_person_email, $payload['contact_person_email'] ?? null, 'contact_person_email'],
-            'company_name' => [$provider->company_name, $payload['company_name'] ?? null, 'company_name'],
-            'company_phone' => [$provider->company_phone, $payload['company_phone'] ?? null, 'company_phone'],
-            'company_email' => [$provider->company_email, $payload['company_email'] ?? null, 'company_email'],
-            'company_address' => [$provider->company_address, $payload['company_address'] ?? null, 'company_address'],
-            'street' => [$provider->street, $payload['street'] ?? null, 'street'],
-            'city' => [$provider->city, $payload['city'] ?? null, 'city'],
-            'pincode' => [$provider->pincode, $payload['pincode'] ?? null, 'pincode'],
-            'identity_type' => [$owner?->identification_type, $payload['identity_type'] ?? null, 'identity Type'],
-            'identity_number' => [$owner?->identification_number, $payload['identity_number'] ?? null, 'Identity_Number'],
-            'company_identity_type' => [$provider->company_identity_type, $payload['company_identity_type'] ?? null, 'Company_Identity_Type'],
-            'company_identity_number' => [$provider->company_identity_number, $payload['company_identity_number'] ?? null, 'Company_Identity_Number'],
+            'contact_person_name' => [$provider->contact_person_name, 'contact_person_name'],
+            'contact_person_phone' => [$provider->contact_person_phone, 'contact_person_phone'],
+            'contact_person_email' => [$provider->contact_person_email, 'contact_person_email'],
+            'company_name' => [$provider->company_name, 'company_name'],
+            'company_phone' => [$provider->company_phone, 'company_phone'],
+            'company_email' => [$provider->company_email, 'company_email'],
+            'company_address' => [$provider->company_address, 'company_address'],
+            'street' => [$provider->street, 'street'],
+            'city' => [$provider->city, 'city'],
+            'pincode' => [$provider->pincode, 'pincode'],
+            'identity_type' => [$owner?->identification_type, 'identity Type'],
+            'identity_number' => [$owner?->identification_number, 'Identity_Number'],
+            'company_identity_type' => [$provider->company_identity_type, 'Company_Identity_Type'],
+            'company_identity_number' => [$provider->company_identity_number, 'Company_Identity_Number'],
         ];
 
-        foreach ($scalarFields as $fieldKey => [$from, $to, $translateKey]) {
-            $this->pushScalarChange($changes, (string) $fieldKey, translate($translateKey), $from, $to);
+        foreach ($scalarFields as $fieldKey => [$from, $translateKey]) {
+            if (! array_key_exists($fieldKey, $payload)) {
+                continue;
+            }
+
+            $this->pushScalarChange(
+                $changes,
+                (string) $fieldKey,
+                translate($translateKey),
+                $from,
+                $payload[$fieldKey]
+            );
         }
 
         $currentLat = $coords['latitude'] ?? null;
         $currentLng = $coords['longitude'] ?? null;
-        $proposedLat = $payload['latitude'] ?? null;
-        $proposedLng = $payload['longitude'] ?? null;
-        if (! $this->valuesEqual($currentLat, $proposedLat) || ! $this->valuesEqual($currentLng, $proposedLng)) {
-            $changes[] = [
-                'field_key' => 'coordinates',
-                'field' => translate('coordinates'),
-                'from' => $this->formatScalar($currentLat).', '.$this->formatScalar($currentLng),
-                'to' => $this->formatScalar($proposedLat).', '.$this->formatScalar($proposedLng),
-            ];
+        if (array_key_exists('latitude', $payload) || array_key_exists('longitude', $payload)) {
+            $proposedLat = $payload['latitude'] ?? null;
+            $proposedLng = $payload['longitude'] ?? null;
+            if (! $this->valuesEqual($currentLat, $proposedLat) || ! $this->valuesEqual($currentLng, $proposedLng)) {
+                $changes[] = [
+                    'field_key' => 'coordinates',
+                    'field' => translate('coordinates'),
+                    'from' => $this->formatScalar($currentLat).', '.$this->formatScalar($currentLng),
+                    'to' => $this->formatScalar($proposedLat).', '.$this->formatScalar($proposedLng),
+                ];
+            }
         }
 
-        $currentZoneIds = $provider->zones()->pluck('zones.id')->sort()->values()->all();
-        $proposedZoneIds = collect($payload['leaf_zone_ids'] ?? [])->sort()->values()->all();
-        if (!$this->valuesEqual($currentZoneIds, $proposedZoneIds)) {
-            $changes[] = [
-                'field_key' => 'zone',
-                'field' => translate('zone'),
-                'from' => $this->formatZoneNames($currentZoneIds),
-                'to' => $this->formatZoneNames($proposedZoneIds),
-            ];
+        if (array_key_exists('leaf_zone_ids', $payload)) {
+            $currentZoneIds = $provider->zones()->pluck('zones.id')->sort()->values()->all();
+            $proposedZoneIds = collect($payload['leaf_zone_ids'] ?? [])->sort()->values()->all();
+            if (! $this->valuesEqual($currentZoneIds, $proposedZoneIds)) {
+                $changes[] = [
+                    'field_key' => 'zone',
+                    'field' => translate('zone'),
+                    'from' => $this->formatZoneNames($currentZoneIds),
+                    'to' => $this->formatZoneNames($proposedZoneIds),
+                ];
+            }
         }
 
         if (!empty($payload['password'])) {
