@@ -345,7 +345,8 @@ class ProviderController extends Controller
             $eligibleProviders[] = $provider;
         }
 
-        if ($request->filled(['origin_latitude', 'origin_longitude'])) {
+        if ($request->filled(['origin_latitude', 'origin_longitude'])
+            && is_valid_lat_lng($request['origin_latitude'], $request['origin_longitude'])) {
             $originLat = (float) $request['origin_latitude'];
             $originLng = (float) $request['origin_longitude'];
 
@@ -353,14 +354,16 @@ class ProviderController extends Controller
             $providerDestinationIndex = [];
 
             foreach ($eligibleProviders as $providerIndex => $provider) {
-                $coordinates = $provider->coordinates;
-                if (empty($coordinates['latitude']) || empty($coordinates['longitude'])) {
+                $coordinates = $provider->coordinates ?? [];
+                $lat = $coordinates['latitude'] ?? null;
+                $lng = $coordinates['longitude'] ?? null;
+                if (!is_valid_lat_lng($lat, $lng)) {
                     continue;
                 }
 
                 $destinations[] = [
-                    'latitude' => (float) $coordinates['latitude'],
-                    'longitude' => (float) $coordinates['longitude'],
+                    'latitude' => (float) $lat,
+                    'longitude' => (float) $lng,
                 ];
                 $providerDestinationIndex[$providerIndex] = count($destinations) - 1;
             }

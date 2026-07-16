@@ -77,11 +77,14 @@ class ProviderCustomizedPostPayloadSlimmer
             $row = is_array($post) ? $post : $post->toArray();
 
             if (! is_array($post) && $coordinates && $post->relationLoaded('service_address') && $post->service_address) {
-                $distance = get_distance(
-                    [$coordinates['latitude'] ?? null, $coordinates['longitude'] ?? null],
-                    [$post->service_address?->lat, $post->service_address?->lon]
-                );
-                $row['distance'] = $distance ? number_format($distance, 2).' km' : null;
+                $originLat = $coordinates['latitude'] ?? null;
+                $originLng = $coordinates['longitude'] ?? null;
+                $destLat = $post->service_address?->lat;
+                $destLng = $post->service_address?->lon;
+                if (is_valid_lat_lng($originLat, $originLng) && is_valid_lat_lng($destLat, $destLng)) {
+                    $distance = get_distance([$originLat, $originLng], [$destLat, $destLng]);
+                    $row['distance'] = $distance ? number_format($distance, 2).' km' : null;
+                }
             }
 
             $slimmed[] = self::slimItem($row);
