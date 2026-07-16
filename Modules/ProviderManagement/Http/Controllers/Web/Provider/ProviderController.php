@@ -153,11 +153,14 @@ class ProviderController extends Controller
         $coordinates = auth()->user()->provider->coordinates ?? null;
         $distance = null;
         if (!is_null($coordinates) && isset($post) && $post->service_address) {
-            $distance = get_distance(
-                [$coordinates['latitude'] ?? null, $coordinates['longitude'] ?? null],
-                [$post->service_address?->lat, $post->service_address?->lon]
-            );
-            $distance = ($distance) ? number_format($distance, 2) . ' km' : null;
+            $originLat = $coordinates['latitude'] ?? null;
+            $originLng = $coordinates['longitude'] ?? null;
+            $destLat = $post->service_address?->lat;
+            $destLng = $post->service_address?->lon;
+            if (is_valid_lat_lng($originLat, $originLng) && is_valid_lat_lng($destLat, $destLng)) {
+                $rawDistance = get_distance([$originLat, $originLng], [$destLat, $destLng]);
+                $distance = $rawDistance ? number_format($rawDistance, 2) . ' km' : null;
+            }
         }
 
         return response()->json([

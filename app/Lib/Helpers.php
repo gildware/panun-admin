@@ -802,6 +802,28 @@ if (!function_exists('build_google_route_matrix_waypoint')) {
     }
 }
 
+if (!function_exists('is_valid_lat_lng')) {
+    /**
+     * Reject missing, non-numeric, out-of-range, or Null Island (0,0) coordinates.
+     * PHP empty("0.0") is false, so string zeros from signup must be checked explicitly.
+     */
+    function is_valid_lat_lng(mixed $lat, mixed $lng): bool
+    {
+        if (!is_numeric($lat) || !is_numeric($lng)) {
+            return false;
+        }
+
+        $lat = (float) $lat;
+        $lng = (float) $lng;
+
+        if ($lat == 0.0 && $lng == 0.0) {
+            return false;
+        }
+
+        return $lat >= -90.0 && $lat <= 90.0 && $lng >= -180.0 && $lng <= 180.0;
+    }
+}
+
 if (!function_exists('compute_google_route_matrix_distances_km')) {
     /**
      * Driving distances (km) from one origin to many destinations via Google Routes API.
