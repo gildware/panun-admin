@@ -1,0 +1,42 @@
+REFRESHED: Book a carpenter (book-a-carpenter) variants=1
+REFRESHED: 2 visits: Fabric sofa cleaning (2-visits-fabric-sofa-cleaning) variants=10
+REFRESHED: 3 visits: Mattress cleaning (3-visits-mattress-cleaning) variants=2
+REFRESHED: Bed cleaning (bed-cleaning) variants=5
+REFRESHED: Bedroom essential cleaning (bedroom-essential-cleaning) variants=13
+REFRESHED: Carpet cleaning (carpet-cleaning) variants=8
+REFRESHED: Dining table & chairs cleaning (dining-table-chairs-cleaning) variants=7
+REFRESHED: Fabric headboard (fabric-headboard) variants=1
+REFRESHED: Fabric sofa cleaning (fabric-sofa-cleaning) variants=17
+REFRESHED: Fan cleaning (fan-cleaning) variants=1
+REFRESHED: Leather sofa cleaning & polishing (leather-sofa-cleaning-polishing) variants=17
+REFRESHED: Mattress cleaning (mattress-cleaning) variants=5
+REFRESHED: Mirror cleaning (mirror-cleaning) variants=1
+REFRESHED: Ottoman (ottoman) variants=1
+REFRESHED: Recliner/ lounge chair (recliner-lounge-chair) variants=3
+REFRESHED: Showcase/ cabinet (showcase-cabinet) variants=1
+REFRESHED: Sofa center table (sofa-center-table) variants=1
+REFRESHED: Sofa cum bed (sofa-cum-bed) variants=7
+   WARNING  imagewebp(storage/app/temp/uploads/2026-07-11-6a5210e341c52.webp): Failed to open stream: No space left on device in app/Lib/Helpers.php on line 434.
+   WARNING  imagewebp(storage/app/temp/uploads/2026-07-11-6a5210e815c7d.webp): Failed to open stream: No space left on device in app/Lib/Helpers.php on line 434.
+   WARNING  imagewebp(storage/app/temp/uploads/2026-07-11-6a5210ecdadd8.webp): Failed to open stream: No space left on device in app/Lib/Helpers.php on line 434.
+   WARNING  imagewebp(storage/app/temp/uploads/2026-07-11-6a5210f8c5dad.webp): Failed to open stream: No space left on device in app/Lib/Helpers.php on line 434.
+   ERROR  mkdir(): No space left on device in vendor/laravel/framework/src/Illuminate/Filesystem/Filesystem.php on line 659.
+   WARNING  file_put_contents(storage/framework/cache/data/0b/ac/0bacc85a5994297b5df46c1b508bf657b8dc18a7): Failed to open stream: No such file or directory in vendor/laravel/framework/src/Illuminate/Filesystem/Filesystem.php on line 204.
+   ERROR  mkdir(): No space left on device in vendor/laravel/framework/src/Illuminate/Filesystem/Filesystem.php on line 659.
+   WARNING  file_put_contents(storage/framework/cache/data/70/36/7036b7b42f8de2ecd7b9a65eaf7cb06c46e46201): Failed to open stream: No such file or directory in vendor/laravel/framework/src/Illuminate/Filesystem/Filesystem.php on line 204.
+   WARNING  imagewebp(storage/app/temp/uploads/2026-07-11-6a52110609100.webp): Failed to open stream: No space left on device in app/Lib/Helpers.php on line 434.
+   WARNING  imagewebp(storage/app/temp/uploads/2026-07-11-6a52110ab52a6.webp): Failed to open stream: No space left on device in app/Lib/Helpers.php on line 434.
+   WARNING  imagewebp(storage/app/temp/uploads/2026-07-11-6a52110fcf554.webp): Failed to open stream: No space left on device in app/Lib/Helpers.php on line 434.
+REFRESHED: Sofa, windows & cobweb cleaning (sofa-windows-cobweb-cleaning) variants=18
+REFRESHED: Study table & chair (study-table-chair) variants=1
+REFRESHED: Windows (with grills) & glass doors cleaning (windows-with-grills-glass-doors-cleaning) variants=9
+REFRESHED: Windows (without grill) & glass doors cleaning (windows-without-grill-glass-doors-cleaning) variants=9
+REFRESHED: Book a consultation (book-a-consultation) variants=1
+REFRESHED: Bulb installation/replacement (bulb-installationreplacement) variants=3
+REFRESHED: Ceiling light installation (ceiling-light-installation) variants=2
+REFRESHED: Chandelier installation (chandelier-installation) variants=4
+REFRESHED: Decorative fan installation (decorative-fan-installation) variants=3
+REFRESHED: Exhaust/pedestal/tower fan installation (exhaustpedestaltower-fan-installation) variants=3
+REFRESHED: Fan regulator replacement (fan-regulator-replacement) variants=1
+REFRESHED: Fancy light installation/replacement (fancy-light-installationreplacement) variants=1
+

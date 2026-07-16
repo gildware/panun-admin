@@ -1,0 +1,1116 @@
+{
+    "import_id": "20260711-214757",
+    "created_at": "2026-07-11T21:47:57+05:30",
+    "connection": "live_missing_catalog",
+    "manifest": "\/Users\/kamran\/Desktop\/panun kaergar\/panun-admin\/scripts\/data\/missing-catalog-manifest.json",
+    "dry_run": false,
+    "services": [
+        {
+            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+            "slug": "book-a-carpenter",
+            "uploaded_keys": {
+                "thumbnail": "service\/book-a-carpenter\/2026-07-11-6a526cb97c747.webp",
+                "cover_image": "service\/book-a-carpenter\/2026-07-11-6a526cbec73fd.webp"
+            },
+            "service": {
+                "id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                "name": "Book a carpenter",
+                "slug": "book-a-carpenter",
+                "short_description": "Book a verified Panun Kaergar carpenter by the hour, half-day, or full day for flexible on-site help with tools and skilled hands.",
+                "description": "Book Carpenter by Panun Kaergar lets you hire a verified carpenter for the time you need. Pick a 1-hour slot for quick fixes, 4 hours for medium jobs, or a full day for larger work. Your carpenter arrives with the right tools, reviews the task on site, completes work within the booked duration, and hands over neatly.",
+                "overview_content": {
+                    "intro": "Flexible Book Carpenter — choose 1 hour, 4 hours, or a full day with a verified local professional.",
+                    "override_top_icons": false,
+                    "override_why_choose": false,
+                    "override_terms_and_conditions": false,
+                    "top_icons": [],
+                    "card_highlights": [
+                        {
+                            "icon": "calendar",
+                            "text": "Flexible Duration",
+                            "color": "blue",
+                            "sort_order": 0
+                        },
+                        {
+                            "icon": "tools",
+                            "text": "Skilled Carpenter",
+                            "color": "green",
+                            "sort_order": 1
+                        },
+                        {
+                            "icon": "verified",
+                            "text": "Verified Professionals",
+                            "color": "purple",
+                            "sort_order": 2
+                        }
+                    ],
+                    "why_choose": {
+                        "title": "",
+                        "items": []
+                    },
+                    "terms_and_conditions": {
+                        "title": "",
+                        "items": []
+                    },
+                    "service_process": {
+                        "title": "How It Works",
+                        "items": [
+                            {
+                                "icon": "calendar",
+                                "title": "Choose your duration",
+                                "description": "Select 1 hour, 4 hours, or full day for Book Carpenter and share your address and task details.",
+                                "sort_order": 0
+                            },
+                            {
+                                "icon": "verified",
+                                "title": "Carpenter assigned",
+                                "description": "A verified Panun Kaergar carpenter confirms your slot and arrives with the right tools.",
+                                "image": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/book-a-carpenter\/2026-07-11-6a526cb97c747.webp",
+                                "sort_order": 1
+                            },
+                            {
+                                "icon": "tools",
+                                "title": "On-site review",
+                                "description": "The professional reviews your task list, access, and materials before starting work.",
+                                "sort_order": 2
+                            },
+                            {
+                                "icon": "quality",
+                                "title": "Work in progress",
+                                "description": "Skilled carpenter work is completed carefully within your booked time.",
+                                "image": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/book-a-carpenter\/2026-07-11-6a526cbec73fd.webp",
+                                "sort_order": 3
+                            },
+                            {
+                                "icon": "sparkle",
+                                "title": "Handover",
+                                "description": "The work area is tidied and any follow-up scope is discussed before the visit ends.",
+                                "sort_order": 4
+                            }
+                        ]
+                    },
+                    "perfect_for": {
+                        "title": "Ideal For",
+                        "items": [
+                            {
+                                "icon": "home",
+                                "text": "Quick fixes",
+                                "sort_order": 0
+                            },
+                            {
+                                "icon": "building",
+                                "text": "Medium repairs",
+                                "sort_order": 1
+                            },
+                            {
+                                "icon": "sparkle",
+                                "text": "Full-day projects",
+                                "sort_order": 2
+                            },
+                            {
+                                "icon": "tools",
+                                "text": "Home upgrades",
+                                "sort_order": 3
+                            },
+                            {
+                                "icon": "quality",
+                                "text": "On-site help",
+                                "sort_order": 4
+                            },
+                            {
+                                "icon": "check",
+                                "text": "Book Carpenter",
+                                "sort_order": 5
+                            }
+                        ]
+                    },
+                    "whats_included": {
+                        "title": "What's Included",
+                        "items": [
+                            {
+                                "icon": "tools",
+                                "title": "Verified professional for booked duration",
+                                "sort_order": 0
+                            },
+                            {
+                                "icon": "check",
+                                "title": "Basic hand tools carried by the professional",
+                                "sort_order": 1
+                            },
+                            {
+                                "icon": "quality",
+                                "title": "On-site task review before work begins",
+                                "sort_order": 2
+                            },
+                            {
+                                "icon": "sparkle",
+                                "title": "Skilled labour within booked time",
+                                "sort_order": 3
+                            },
+                            {
+                                "icon": "verified",
+                                "title": "Basic cleanup before handover",
+                                "sort_order": 4
+                            }
+                        ]
+                    },
+                    "whats_not_included": {
+                        "title": "Exclusions",
+                        "items": [
+                            {
+                                "icon": "tools",
+                                "title": "Cost of building materials, paint, tiles, or wood",
+                                "sort_order": 0
+                            },
+                            {
+                                "icon": "check",
+                                "title": "Specialist machinery or scaffolding hire",
+                                "sort_order": 1
+                            },
+                            {
+                                "icon": "quality",
+                                "title": "Work beyond the booked duration without on-site agreement",
+                                "sort_order": 2
+                            },
+                            {
+                                "icon": "sparkle",
+                                "title": "Major demolition or debris disposal unless separately booked",
+                                "sort_order": 3
+                            },
+                            {
+                                "icon": "verified",
+                                "title": "Brand warranty or manufacturer support",
+                                "sort_order": 4
+                            }
+                        ]
+                    },
+                    "good_to_know": {
+                        "title": "Things to Know",
+                        "items": [
+                            {
+                                "icon": "check",
+                                "title": "Booked time covers labour only unless materials are separately agreed.",
+                                "sort_order": 0
+                            },
+                            {
+                                "icon": "home",
+                                "title": "Extra time beyond the selected package can be quoted on site if needed.",
+                                "sort_order": 1
+                            },
+                            {
+                                "icon": "tools",
+                                "title": "Please keep the work area accessible and share photos or a task list while booking.",
+                                "sort_order": 2
+                            },
+                            {
+                                "icon": "quality",
+                                "title": "Major materials, civil work, or specialist equipment hire are confirmed separately.",
+                                "sort_order": 3
+                            },
+                            {
+                                "icon": "calendar",
+                                "title": "Notify at least 2 hours before the slot for cancellation or rescheduling.",
+                                "sort_order": 4
+                            }
+                        ]
+                    }
+                },
+                "cover_image": "service\/book-a-carpenter\/2026-07-11-6a526cbec73fd.webp",
+                "thumbnail": "service\/book-a-carpenter\/2026-07-11-6a526cb97c747.webp",
+                "category_id": "5e5c0fdb-9ad7-4075-bcc1-d7523efde8c6",
+                "sub_category_id": "4f4c6130-6d4a-4fdc-8753-675b5adf581c",
+                "tax": 0,
+                "tax_label": null,
+                "variation_pricing": {
+                    "book-for-hour": {
+                        "use_zone_pricing": false,
+                        "default_price": 299
+                    },
+                    "book-for-4-hours": {
+                        "use_zone_pricing": false,
+                        "default_price": 999
+                    },
+                    "book-for-full-day": {
+                        "use_zone_pricing": false,
+                        "default_price": 1799
+                    }
+                },
+                "order_count": 0,
+                "is_active": 1,
+                "sort_order": 6,
+                "rating_count": 0,
+                "avg_rating": 0,
+                "min_bidding_price": "299.000",
+                "deleted_at": null,
+                "created_at": "2026-07-11T07:50:54.000000Z",
+                "updated_at": "2026-07-11T16:18:33.000000Z",
+                "commission_custom": 0,
+                "commission_tier_setup": null,
+                "additional_charge_overrides": null,
+                "thumbnail_full_path": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/book-a-carpenter\/2026-07-11-6a526cb97c747.webp",
+                "cover_image_full_path": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/book-a-carpenter\/2026-07-11-6a526cbec73fd.webp",
+                "translations": [
+                    {
+                        "id": 1366,
+                        "translationable_type": "Modules\\ServiceManagement\\Entities\\Service",
+                        "translationable_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                        "locale": "en",
+                        "key": "short_description",
+                        "value": "Book a verified Panun Kaergar carpenter by the hour, half-day, or full day for flexible on-site help with tools and skilled hands."
+                    },
+                    {
+                        "id": 1367,
+                        "translationable_type": "Modules\\ServiceManagement\\Entities\\Service",
+                        "translationable_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                        "locale": "en",
+                        "key": "description",
+                        "value": "Book Carpenter by Panun Kaergar lets you hire a verified carpenter for the time you need. Pick a 1-hour slot for quick fixes, 4 hours for medium jobs, or a full day for larger work. Your carpenter arrives with the right tools, reviews the task on site, completes work within the booked duration, and hands over neatly."
+                    }
+                ],
+                "storage_thumbnail": {
+                    "id": "20c59365-75f4-48da-8d53-f7a63d0eed7b",
+                    "model": "Modules\\ServiceManagement\\Entities\\Service",
+                    "model_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                    "model_column": "thumbnail",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:20:57",
+                    "updated_at": "2026-07-11 21:48:09"
+                },
+                "storage_cover_image": {
+                    "id": "4865911d-82a0-4958-b394-9f2d99f01848",
+                    "model": "Modules\\ServiceManagement\\Entities\\Service",
+                    "model_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                    "model_column": "cover_image",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:20:57",
+                    "updated_at": "2026-07-11 21:48:09"
+                }
+            },
+            "variants": [
+                {
+                    "variant": {
+                        "id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                        "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                        "variant_key": "book-for-hour",
+                        "title": "Book for hour",
+                        "description": "Book for hour by verified Panun Kaergar professionals.",
+                        "note": "Final scope and any add-ons are confirmed on site before work begins.",
+                        "image": "service\/book-a-carpenter\/2026-07-11-6a526cc2e37cd.webp",
+                        "icon": null,
+                        "sort_order": 0,
+                        "is_active": true,
+                        "created_at": "2026-07-11T16:18:13.000000Z",
+                        "updated_at": "2026-07-11T16:18:13.000000Z",
+                        "image_full_path": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/book-a-carpenter\/2026-07-11-6a526cc2e37cd.webp",
+                        "translations": [
+                            {
+                                "id": 8526,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                                "locale": "en",
+                                "key": "title",
+                                "value": "Book for hour"
+                            },
+                            {
+                                "id": 8527,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                                "locale": "en",
+                                "key": "description",
+                                "value": "Book for hour by verified Panun Kaergar professionals."
+                            },
+                            {
+                                "id": 8528,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                                "locale": "en",
+                                "key": "note",
+                                "value": "Final scope and any add-ons are confirmed on site before work begins."
+                            }
+                        ],
+                        "storage_image": {
+                            "id": "db753d23-95f9-479a-8909-fb53105a7738",
+                            "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                            "model_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "model_column": "image",
+                            "storage_type": "s3",
+                            "created_at": "2026-07-11 21:48:18",
+                            "updated_at": "2026-07-11 21:48:18"
+                        }
+                    },
+                    "zone_rows": [
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "variant_key": "book-for-hour",
+                            "variant": "Book for hour",
+                            "zone_id": "02518747-2bea-4bef-8b3e-1f41c0f18375",
+                            "price": 299,
+                            "updated_at": "2026-07-11T16:18:19.000000Z",
+                            "created_at": "2026-07-11T16:18:19.000000Z",
+                            "id": 48921
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "variant_key": "book-for-hour",
+                            "variant": "Book for hour",
+                            "zone_id": "11374113-877b-4cf3-9110-c7bd26412195",
+                            "price": 299,
+                            "updated_at": "2026-07-11T16:18:19.000000Z",
+                            "created_at": "2026-07-11T16:18:19.000000Z",
+                            "id": 48922
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "variant_key": "book-for-hour",
+                            "variant": "Book for hour",
+                            "zone_id": "12b6e6e7-81ff-4709-97b6-0580754e0cee",
+                            "price": 299,
+                            "updated_at": "2026-07-11T16:18:19.000000Z",
+                            "created_at": "2026-07-11T16:18:19.000000Z",
+                            "id": 48923
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "variant_key": "book-for-hour",
+                            "variant": "Book for hour",
+                            "zone_id": "1dae6016-0240-4701-9b1f-91f385a08157",
+                            "price": 299,
+                            "updated_at": "2026-07-11T16:18:19.000000Z",
+                            "created_at": "2026-07-11T16:18:19.000000Z",
+                            "id": 48924
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "variant_key": "book-for-hour",
+                            "variant": "Book for hour",
+                            "zone_id": "41b090fb-174e-481a-a647-309a209e327a",
+                            "price": 299,
+                            "updated_at": "2026-07-11T16:18:19.000000Z",
+                            "created_at": "2026-07-11T16:18:19.000000Z",
+                            "id": 48925
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "variant_key": "book-for-hour",
+                            "variant": "Book for hour",
+                            "zone_id": "41f21d2e-0d0a-4f93-a84a-2ccb871c2179",
+                            "price": 299,
+                            "updated_at": "2026-07-11T16:18:19.000000Z",
+                            "created_at": "2026-07-11T16:18:19.000000Z",
+                            "id": 48926
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "variant_key": "book-for-hour",
+                            "variant": "Book for hour",
+                            "zone_id": "44f1d49c-6684-454d-9eae-ab05345fe93c",
+                            "price": 299,
+                            "updated_at": "2026-07-11T16:18:19.000000Z",
+                            "created_at": "2026-07-11T16:18:19.000000Z",
+                            "id": 48927
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "variant_key": "book-for-hour",
+                            "variant": "Book for hour",
+                            "zone_id": "4ebc8c8c-6169-4e55-8267-6b98622884bb",
+                            "price": 299,
+                            "updated_at": "2026-07-11T16:18:19.000000Z",
+                            "created_at": "2026-07-11T16:18:19.000000Z",
+                            "id": 48928
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "variant_key": "book-for-hour",
+                            "variant": "Book for hour",
+                            "zone_id": "5c447dab-0fcf-4919-8854-1082cae49b72",
+                            "price": 299,
+                            "updated_at": "2026-07-11T16:18:19.000000Z",
+                            "created_at": "2026-07-11T16:18:19.000000Z",
+                            "id": 48929
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "variant_key": "book-for-hour",
+                            "variant": "Book for hour",
+                            "zone_id": "6df983d6-4b17-49d5-9797-6d4994d25ec7",
+                            "price": 299,
+                            "updated_at": "2026-07-11T16:18:20.000000Z",
+                            "created_at": "2026-07-11T16:18:20.000000Z",
+                            "id": 48930
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "variant_key": "book-for-hour",
+                            "variant": "Book for hour",
+                            "zone_id": "6f4e51c5-eca2-466a-b238-82795ed5f9bd",
+                            "price": 299,
+                            "updated_at": "2026-07-11T16:18:20.000000Z",
+                            "created_at": "2026-07-11T16:18:20.000000Z",
+                            "id": 48931
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "variant_key": "book-for-hour",
+                            "variant": "Book for hour",
+                            "zone_id": "782f3ded-37df-4912-9ed0-27b568f27846",
+                            "price": 299,
+                            "updated_at": "2026-07-11T16:18:20.000000Z",
+                            "created_at": "2026-07-11T16:18:20.000000Z",
+                            "id": 48932
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "variant_key": "book-for-hour",
+                            "variant": "Book for hour",
+                            "zone_id": "82c36284-c722-4eb3-9006-44fcc0c17348",
+                            "price": 299,
+                            "updated_at": "2026-07-11T16:18:20.000000Z",
+                            "created_at": "2026-07-11T16:18:20.000000Z",
+                            "id": 48933
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "variant_key": "book-for-hour",
+                            "variant": "Book for hour",
+                            "zone_id": "9a13e0e6-d137-40b9-8bbc-7d88693f4c14",
+                            "price": 299,
+                            "updated_at": "2026-07-11T16:18:20.000000Z",
+                            "created_at": "2026-07-11T16:18:20.000000Z",
+                            "id": 48934
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "variant_key": "book-for-hour",
+                            "variant": "Book for hour",
+                            "zone_id": "a358032b-c32f-4580-96a5-7c625ef94363",
+                            "price": 299,
+                            "updated_at": "2026-07-11T16:18:20.000000Z",
+                            "created_at": "2026-07-11T16:18:20.000000Z",
+                            "id": 48935
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "variant_key": "book-for-hour",
+                            "variant": "Book for hour",
+                            "zone_id": "b4faedfe-939c-4291-815f-eb248f95cc24",
+                            "price": 299,
+                            "updated_at": "2026-07-11T16:18:20.000000Z",
+                            "created_at": "2026-07-11T16:18:20.000000Z",
+                            "id": 48936
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "variant_key": "book-for-hour",
+                            "variant": "Book for hour",
+                            "zone_id": "d10b08fd-ef26-4b1b-b4b9-d10d6f2a14fb",
+                            "price": 299,
+                            "updated_at": "2026-07-11T16:18:20.000000Z",
+                            "created_at": "2026-07-11T16:18:20.000000Z",
+                            "id": 48937
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "variant_key": "book-for-hour",
+                            "variant": "Book for hour",
+                            "zone_id": "d6ac86a1-50a8-4da5-9c6e-7f78ac9b4e14",
+                            "price": 299,
+                            "updated_at": "2026-07-11T16:18:20.000000Z",
+                            "created_at": "2026-07-11T16:18:20.000000Z",
+                            "id": 48938
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "variant_key": "book-for-hour",
+                            "variant": "Book for hour",
+                            "zone_id": "ddd88d0c-6282-43c4-84b6-a8a725e77065",
+                            "price": 299,
+                            "updated_at": "2026-07-11T16:18:20.000000Z",
+                            "created_at": "2026-07-11T16:18:20.000000Z",
+                            "id": 48939
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "2acc07c5-b3f8-4e10-a95a-9604404a80ab",
+                            "variant_key": "book-for-hour",
+                            "variant": "Book for hour",
+                            "zone_id": "de334f65-49e9-4c21-a905-ffa1bb272776",
+                            "price": 299,
+                            "updated_at": "2026-07-11T16:18:21.000000Z",
+                            "created_at": "2026-07-11T16:18:21.000000Z",
+                            "id": 48940
+                        }
+                    ]
+                },
+                {
+                    "variant": {
+                        "id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                        "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                        "variant_key": "book-for-4-hours",
+                        "title": "Book for 4 hours",
+                        "description": "Book for 4 hours by verified Panun Kaergar professionals.",
+                        "note": "Final scope and any add-ons are confirmed on site before work begins.",
+                        "image": "service\/book-a-carpenter\/2026-07-11-6a526ccd656e6.webp",
+                        "icon": null,
+                        "sort_order": 1,
+                        "is_active": true,
+                        "created_at": "2026-07-11T16:18:23.000000Z",
+                        "updated_at": "2026-07-11T16:18:23.000000Z",
+                        "image_full_path": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/book-a-carpenter\/2026-07-11-6a526ccd656e6.webp",
+                        "translations": [
+                            {
+                                "id": 8529,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                                "locale": "en",
+                                "key": "title",
+                                "value": "Book for 4 hours"
+                            },
+                            {
+                                "id": 8530,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                                "locale": "en",
+                                "key": "description",
+                                "value": "Book for 4 hours by verified Panun Kaergar professionals."
+                            },
+                            {
+                                "id": 8531,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                                "locale": "en",
+                                "key": "note",
+                                "value": "Final scope and any add-ons are confirmed on site before work begins."
+                            }
+                        ],
+                        "storage_image": {
+                            "id": "48f8c76c-d328-46ef-8789-23d1ce7f9495",
+                            "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                            "model_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "model_column": "image",
+                            "storage_type": "s3",
+                            "created_at": "2026-07-11 21:48:23",
+                            "updated_at": "2026-07-11 21:48:23"
+                        }
+                    },
+                    "zone_rows": [
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "variant_key": "book-for-4-hours",
+                            "variant": "Book for 4 hours",
+                            "zone_id": "02518747-2bea-4bef-8b3e-1f41c0f18375",
+                            "price": 999,
+                            "updated_at": "2026-07-11T16:18:24.000000Z",
+                            "created_at": "2026-07-11T16:18:24.000000Z",
+                            "id": 48941
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "variant_key": "book-for-4-hours",
+                            "variant": "Book for 4 hours",
+                            "zone_id": "11374113-877b-4cf3-9110-c7bd26412195",
+                            "price": 999,
+                            "updated_at": "2026-07-11T16:18:24.000000Z",
+                            "created_at": "2026-07-11T16:18:24.000000Z",
+                            "id": 48942
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "variant_key": "book-for-4-hours",
+                            "variant": "Book for 4 hours",
+                            "zone_id": "12b6e6e7-81ff-4709-97b6-0580754e0cee",
+                            "price": 999,
+                            "updated_at": "2026-07-11T16:18:24.000000Z",
+                            "created_at": "2026-07-11T16:18:24.000000Z",
+                            "id": 48943
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "variant_key": "book-for-4-hours",
+                            "variant": "Book for 4 hours",
+                            "zone_id": "1dae6016-0240-4701-9b1f-91f385a08157",
+                            "price": 999,
+                            "updated_at": "2026-07-11T16:18:24.000000Z",
+                            "created_at": "2026-07-11T16:18:24.000000Z",
+                            "id": 48944
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "variant_key": "book-for-4-hours",
+                            "variant": "Book for 4 hours",
+                            "zone_id": "41b090fb-174e-481a-a647-309a209e327a",
+                            "price": 999,
+                            "updated_at": "2026-07-11T16:18:25.000000Z",
+                            "created_at": "2026-07-11T16:18:25.000000Z",
+                            "id": 48945
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "variant_key": "book-for-4-hours",
+                            "variant": "Book for 4 hours",
+                            "zone_id": "41f21d2e-0d0a-4f93-a84a-2ccb871c2179",
+                            "price": 999,
+                            "updated_at": "2026-07-11T16:18:25.000000Z",
+                            "created_at": "2026-07-11T16:18:25.000000Z",
+                            "id": 48946
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "variant_key": "book-for-4-hours",
+                            "variant": "Book for 4 hours",
+                            "zone_id": "44f1d49c-6684-454d-9eae-ab05345fe93c",
+                            "price": 999,
+                            "updated_at": "2026-07-11T16:18:25.000000Z",
+                            "created_at": "2026-07-11T16:18:25.000000Z",
+                            "id": 48947
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "variant_key": "book-for-4-hours",
+                            "variant": "Book for 4 hours",
+                            "zone_id": "4ebc8c8c-6169-4e55-8267-6b98622884bb",
+                            "price": 999,
+                            "updated_at": "2026-07-11T16:18:25.000000Z",
+                            "created_at": "2026-07-11T16:18:25.000000Z",
+                            "id": 48948
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "variant_key": "book-for-4-hours",
+                            "variant": "Book for 4 hours",
+                            "zone_id": "5c447dab-0fcf-4919-8854-1082cae49b72",
+                            "price": 999,
+                            "updated_at": "2026-07-11T16:18:25.000000Z",
+                            "created_at": "2026-07-11T16:18:25.000000Z",
+                            "id": 48949
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "variant_key": "book-for-4-hours",
+                            "variant": "Book for 4 hours",
+                            "zone_id": "6df983d6-4b17-49d5-9797-6d4994d25ec7",
+                            "price": 999,
+                            "updated_at": "2026-07-11T16:18:25.000000Z",
+                            "created_at": "2026-07-11T16:18:25.000000Z",
+                            "id": 48950
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "variant_key": "book-for-4-hours",
+                            "variant": "Book for 4 hours",
+                            "zone_id": "6f4e51c5-eca2-466a-b238-82795ed5f9bd",
+                            "price": 999,
+                            "updated_at": "2026-07-11T16:18:25.000000Z",
+                            "created_at": "2026-07-11T16:18:25.000000Z",
+                            "id": 48951
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "variant_key": "book-for-4-hours",
+                            "variant": "Book for 4 hours",
+                            "zone_id": "782f3ded-37df-4912-9ed0-27b568f27846",
+                            "price": 999,
+                            "updated_at": "2026-07-11T16:18:25.000000Z",
+                            "created_at": "2026-07-11T16:18:25.000000Z",
+                            "id": 48952
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "variant_key": "book-for-4-hours",
+                            "variant": "Book for 4 hours",
+                            "zone_id": "82c36284-c722-4eb3-9006-44fcc0c17348",
+                            "price": 999,
+                            "updated_at": "2026-07-11T16:18:25.000000Z",
+                            "created_at": "2026-07-11T16:18:25.000000Z",
+                            "id": 48953
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "variant_key": "book-for-4-hours",
+                            "variant": "Book for 4 hours",
+                            "zone_id": "9a13e0e6-d137-40b9-8bbc-7d88693f4c14",
+                            "price": 999,
+                            "updated_at": "2026-07-11T16:18:25.000000Z",
+                            "created_at": "2026-07-11T16:18:25.000000Z",
+                            "id": 48954
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "variant_key": "book-for-4-hours",
+                            "variant": "Book for 4 hours",
+                            "zone_id": "a358032b-c32f-4580-96a5-7c625ef94363",
+                            "price": 999,
+                            "updated_at": "2026-07-11T16:18:26.000000Z",
+                            "created_at": "2026-07-11T16:18:26.000000Z",
+                            "id": 48955
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "variant_key": "book-for-4-hours",
+                            "variant": "Book for 4 hours",
+                            "zone_id": "b4faedfe-939c-4291-815f-eb248f95cc24",
+                            "price": 999,
+                            "updated_at": "2026-07-11T16:18:26.000000Z",
+                            "created_at": "2026-07-11T16:18:26.000000Z",
+                            "id": 48956
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "variant_key": "book-for-4-hours",
+                            "variant": "Book for 4 hours",
+                            "zone_id": "d10b08fd-ef26-4b1b-b4b9-d10d6f2a14fb",
+                            "price": 999,
+                            "updated_at": "2026-07-11T16:18:26.000000Z",
+                            "created_at": "2026-07-11T16:18:26.000000Z",
+                            "id": 48957
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "variant_key": "book-for-4-hours",
+                            "variant": "Book for 4 hours",
+                            "zone_id": "d6ac86a1-50a8-4da5-9c6e-7f78ac9b4e14",
+                            "price": 999,
+                            "updated_at": "2026-07-11T16:18:26.000000Z",
+                            "created_at": "2026-07-11T16:18:26.000000Z",
+                            "id": 48958
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "variant_key": "book-for-4-hours",
+                            "variant": "Book for 4 hours",
+                            "zone_id": "ddd88d0c-6282-43c4-84b6-a8a725e77065",
+                            "price": 999,
+                            "updated_at": "2026-07-11T16:18:26.000000Z",
+                            "created_at": "2026-07-11T16:18:26.000000Z",
+                            "id": 48959
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "5b9899a5-2919-4dea-8a52-f50f0a162c5a",
+                            "variant_key": "book-for-4-hours",
+                            "variant": "Book for 4 hours",
+                            "zone_id": "de334f65-49e9-4c21-a905-ffa1bb272776",
+                            "price": 999,
+                            "updated_at": "2026-07-11T16:18:26.000000Z",
+                            "created_at": "2026-07-11T16:18:26.000000Z",
+                            "id": 48960
+                        }
+                    ]
+                },
+                {
+                    "variant": {
+                        "id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                        "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                        "variant_key": "book-for-full-day",
+                        "title": "Book for full day",
+                        "description": "Book for full day by verified Panun Kaergar professionals.",
+                        "note": "Final scope and any add-ons are confirmed on site before work begins.",
+                        "image": "service\/book-a-carpenter\/2026-07-11-6a526cd2d44ec.webp",
+                        "icon": null,
+                        "sort_order": 2,
+                        "is_active": true,
+                        "created_at": "2026-07-11T16:18:29.000000Z",
+                        "updated_at": "2026-07-11T16:18:29.000000Z",
+                        "image_full_path": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/book-a-carpenter\/2026-07-11-6a526cd2d44ec.webp",
+                        "translations": [
+                            {
+                                "id": 8532,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                                "locale": "en",
+                                "key": "title",
+                                "value": "Book for full day"
+                            },
+                            {
+                                "id": 8533,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                                "locale": "en",
+                                "key": "description",
+                                "value": "Book for full day by verified Panun Kaergar professionals."
+                            },
+                            {
+                                "id": 8534,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                                "locale": "en",
+                                "key": "note",
+                                "value": "Final scope and any add-ons are confirmed on site before work begins."
+                            }
+                        ],
+                        "storage_image": {
+                            "id": "5a44356d-6709-4c1e-9573-5df1b6f4b983",
+                            "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                            "model_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "model_column": "image",
+                            "storage_type": "s3",
+                            "created_at": "2026-07-11 21:48:30",
+                            "updated_at": "2026-07-11 21:48:30"
+                        }
+                    },
+                    "zone_rows": [
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "variant_key": "book-for-full-day",
+                            "variant": "Book for full day",
+                            "zone_id": "02518747-2bea-4bef-8b3e-1f41c0f18375",
+                            "price": 1799,
+                            "updated_at": "2026-07-11T16:18:31.000000Z",
+                            "created_at": "2026-07-11T16:18:31.000000Z",
+                            "id": 48961
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "variant_key": "book-for-full-day",
+                            "variant": "Book for full day",
+                            "zone_id": "11374113-877b-4cf3-9110-c7bd26412195",
+                            "price": 1799,
+                            "updated_at": "2026-07-11T16:18:31.000000Z",
+                            "created_at": "2026-07-11T16:18:31.000000Z",
+                            "id": 48962
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "variant_key": "book-for-full-day",
+                            "variant": "Book for full day",
+                            "zone_id": "12b6e6e7-81ff-4709-97b6-0580754e0cee",
+                            "price": 1799,
+                            "updated_at": "2026-07-11T16:18:31.000000Z",
+                            "created_at": "2026-07-11T16:18:31.000000Z",
+                            "id": 48963
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "variant_key": "book-for-full-day",
+                            "variant": "Book for full day",
+                            "zone_id": "1dae6016-0240-4701-9b1f-91f385a08157",
+                            "price": 1799,
+                            "updated_at": "2026-07-11T16:18:31.000000Z",
+                            "created_at": "2026-07-11T16:18:31.000000Z",
+                            "id": 48964
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "variant_key": "book-for-full-day",
+                            "variant": "Book for full day",
+                            "zone_id": "41b090fb-174e-481a-a647-309a209e327a",
+                            "price": 1799,
+                            "updated_at": "2026-07-11T16:18:31.000000Z",
+                            "created_at": "2026-07-11T16:18:31.000000Z",
+                            "id": 48965
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "variant_key": "book-for-full-day",
+                            "variant": "Book for full day",
+                            "zone_id": "41f21d2e-0d0a-4f93-a84a-2ccb871c2179",
+                            "price": 1799,
+                            "updated_at": "2026-07-11T16:18:31.000000Z",
+                            "created_at": "2026-07-11T16:18:31.000000Z",
+                            "id": 48966
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "variant_key": "book-for-full-day",
+                            "variant": "Book for full day",
+                            "zone_id": "44f1d49c-6684-454d-9eae-ab05345fe93c",
+                            "price": 1799,
+                            "updated_at": "2026-07-11T16:18:31.000000Z",
+                            "created_at": "2026-07-11T16:18:31.000000Z",
+                            "id": 48967
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "variant_key": "book-for-full-day",
+                            "variant": "Book for full day",
+                            "zone_id": "4ebc8c8c-6169-4e55-8267-6b98622884bb",
+                            "price": 1799,
+                            "updated_at": "2026-07-11T16:18:31.000000Z",
+                            "created_at": "2026-07-11T16:18:31.000000Z",
+                            "id": 48968
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "variant_key": "book-for-full-day",
+                            "variant": "Book for full day",
+                            "zone_id": "5c447dab-0fcf-4919-8854-1082cae49b72",
+                            "price": 1799,
+                            "updated_at": "2026-07-11T16:18:31.000000Z",
+                            "created_at": "2026-07-11T16:18:31.000000Z",
+                            "id": 48969
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "variant_key": "book-for-full-day",
+                            "variant": "Book for full day",
+                            "zone_id": "6df983d6-4b17-49d5-9797-6d4994d25ec7",
+                            "price": 1799,
+                            "updated_at": "2026-07-11T16:18:32.000000Z",
+                            "created_at": "2026-07-11T16:18:32.000000Z",
+                            "id": 48970
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "variant_key": "book-for-full-day",
+                            "variant": "Book for full day",
+                            "zone_id": "6f4e51c5-eca2-466a-b238-82795ed5f9bd",
+                            "price": 1799,
+                            "updated_at": "2026-07-11T16:18:32.000000Z",
+                            "created_at": "2026-07-11T16:18:32.000000Z",
+                            "id": 48971
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "variant_key": "book-for-full-day",
+                            "variant": "Book for full day",
+                            "zone_id": "782f3ded-37df-4912-9ed0-27b568f27846",
+                            "price": 1799,
+                            "updated_at": "2026-07-11T16:18:32.000000Z",
+                            "created_at": "2026-07-11T16:18:32.000000Z",
+                            "id": 48972
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "variant_key": "book-for-full-day",
+                            "variant": "Book for full day",
+                            "zone_id": "82c36284-c722-4eb3-9006-44fcc0c17348",
+                            "price": 1799,
+                            "updated_at": "2026-07-11T16:18:32.000000Z",
+                            "created_at": "2026-07-11T16:18:32.000000Z",
+                            "id": 48973
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "variant_key": "book-for-full-day",
+                            "variant": "Book for full day",
+                            "zone_id": "9a13e0e6-d137-40b9-8bbc-7d88693f4c14",
+                            "price": 1799,
+                            "updated_at": "2026-07-11T16:18:32.000000Z",
+                            "created_at": "2026-07-11T16:18:32.000000Z",
+                            "id": 48974
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "variant_key": "book-for-full-day",
+                            "variant": "Book for full day",
+                            "zone_id": "a358032b-c32f-4580-96a5-7c625ef94363",
+                            "price": 1799,
+                            "updated_at": "2026-07-11T16:18:32.000000Z",
+                            "created_at": "2026-07-11T16:18:32.000000Z",
+                            "id": 48975
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "variant_key": "book-for-full-day",
+                            "variant": "Book for full day",
+                            "zone_id": "b4faedfe-939c-4291-815f-eb248f95cc24",
+                            "price": 1799,
+                            "updated_at": "2026-07-11T16:18:32.000000Z",
+                            "created_at": "2026-07-11T16:18:32.000000Z",
+                            "id": 48976
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "variant_key": "book-for-full-day",
+                            "variant": "Book for full day",
+                            "zone_id": "d10b08fd-ef26-4b1b-b4b9-d10d6f2a14fb",
+                            "price": 1799,
+                            "updated_at": "2026-07-11T16:18:32.000000Z",
+                            "created_at": "2026-07-11T16:18:32.000000Z",
+                            "id": 48977
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "variant_key": "book-for-full-day",
+                            "variant": "Book for full day",
+                            "zone_id": "d6ac86a1-50a8-4da5-9c6e-7f78ac9b4e14",
+                            "price": 1799,
+                            "updated_at": "2026-07-11T16:18:32.000000Z",
+                            "created_at": "2026-07-11T16:18:32.000000Z",
+                            "id": 48978
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "variant_key": "book-for-full-day",
+                            "variant": "Book for full day",
+                            "zone_id": "ddd88d0c-6282-43c4-84b6-a8a725e77065",
+                            "price": 1799,
+                            "updated_at": "2026-07-11T16:18:32.000000Z",
+                            "created_at": "2026-07-11T16:18:32.000000Z",
+                            "id": 48979
+                        },
+                        {
+                            "service_id": "f3c693d2-5735-47a5-8797-4b848d096a58",
+                            "service_variant_id": "c0db44a3-cf79-4716-bc45-0320f56cff34",
+                            "variant_key": "book-for-full-day",
+                            "variant": "Book for full day",
+                            "zone_id": "de334f65-49e9-4c21-a905-ffa1bb272776",
+                            "price": 1799,
+                            "updated_at": "2026-07-11T16:18:32.000000Z",
+                            "created_at": "2026-07-11T16:18:32.000000Z",
+                            "id": 48980
+                        }
+                    ]
+                }
+            ],
+            "refreshed": true
+        }
+    ]
+}

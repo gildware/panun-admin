@@ -1,0 +1,1951 @@
+{
+    "import_id": "20260711-131140",
+    "created_at": "2026-07-11T13:11:40+05:30",
+    "connection": "live_missing_catalog",
+    "manifest": "\/Users\/kamran\/Desktop\/panun kaergar\/panun-admin\/scripts\/data\/missing-catalog-manifest.json",
+    "dry_run": false,
+    "services": [
+        {
+            "service_id": "e7bd81f2-1a0c-43a6-a1d1-8a982e202c17",
+            "slug": "book-a-carpenter",
+            "uploaded_keys": {
+                "thumbnail": "service\/book-a-carpenter\/2026-07-11-6a51f3b91a4e5.webp",
+                "cover_image": "service\/book-a-carpenter\/2026-07-11-6a51f3bc4fcb3.webp"
+            },
+            "service": {
+                "id": "e7bd81f2-1a0c-43a6-a1d1-8a982e202c17",
+                "name": "Book a carpenter",
+                "slug": "book-a-carpenter",
+                "short_description": "Professional Book a carpenter by verified Panun Kaergar technicians for safe setup, secure fitting, and clean handover.",
+                "description": "Book a carpenter by Panun Kaergar is designed for customers who need professional setup, stable fitting, and a clean final handover. The technician checks the work area, fitting points, and the practical installation requirement, confirms placement or connection needs, completes the installation carefully, and tests the result before closing the visit.",
+                "overview_content": {
+                    "intro": "Safe setup and reliable Book a carpenter from verified technicians.",
+                    "top_icons": [],
+                    "why_choose": {
+                        "items": [],
+                        "title": ""
+                    },
+                    "perfect_for": {
+                        "items": [
+                            {
+                                "icon": "home",
+                                "text": "New setups",
+                                "sort_order": 0
+                            },
+                            {
+                                "icon": "building",
+                                "text": "Replacement jobs",
+                                "sort_order": 1
+                            },
+                            {
+                                "icon": "sparkle",
+                                "text": "Home upgrades",
+                                "sort_order": 2
+                            },
+                            {
+                                "icon": "tools",
+                                "text": "Fresh fit-outs",
+                                "sort_order": 3
+                            },
+                            {
+                                "icon": "quality",
+                                "text": "Residential spaces",
+                                "sort_order": 4
+                            },
+                            {
+                                "icon": "check",
+                                "text": "Book a carpenter",
+                                "sort_order": 5
+                            }
+                        ],
+                        "title": "Ideal For"
+                    },
+                    "good_to_know": {
+                        "items": [
+                            {
+                                "icon": "check",
+                                "title": "Please keep the site ready and accessible before the visit starts.",
+                                "sort_order": 0
+                            },
+                            {
+                                "icon": "home",
+                                "title": "Customer-supplied units, fixtures, or approved materials should be available unless agreed otherwise.",
+                                "sort_order": 1
+                            },
+                            {
+                                "icon": "tools",
+                                "title": "Extra fittings, accessories, or structural corrections may be quoted separately on site.",
+                                "sort_order": 2
+                            },
+                            {
+                                "icon": "quality",
+                                "title": "Major civil, rewiring, or fabrication work is not included unless explicitly booked.",
+                                "sort_order": 3
+                            },
+                            {
+                                "icon": "calendar",
+                                "title": "Notify at least 2 hours before the slot for cancellation or rescheduling.",
+                                "sort_order": 4
+                            }
+                        ],
+                        "title": "Good to Know"
+                    },
+                    "whats_included": {
+                        "items": [
+                            {
+                                "icon": "tools",
+                                "title": "On-site review before work begins",
+                                "sort_order": 0
+                            },
+                            {
+                                "icon": "check",
+                                "title": "Installation within the booked scope",
+                                "sort_order": 1
+                            },
+                            {
+                                "icon": "quality",
+                                "title": "Basic fitting and alignment",
+                                "sort_order": 2
+                            },
+                            {
+                                "icon": "sparkle",
+                                "title": "Safety or function check after setup",
+                                "sort_order": 3
+                            },
+                            {
+                                "icon": "verified",
+                                "title": "Clean handover",
+                                "sort_order": 4
+                            }
+                        ],
+                        "title": "What's Included"
+                    },
+                    "card_highlights": [
+                        {
+                            "icon": "tools",
+                            "text": "Professional Setup",
+                            "color": "blue",
+                            "sort_order": 0
+                        },
+                        {
+                            "icon": "quality",
+                            "text": "Secure Fitting",
+                            "color": "green",
+                            "sort_order": 1
+                        },
+                        {
+                            "icon": "verified",
+                            "text": "Verified Technicians",
+                            "color": "purple",
+                            "sort_order": 2
+                        }
+                    ],
+                    "service_process": {
+                        "items": [
+                            {
+                                "icon": "calendar",
+                                "title": "Book your slot",
+                                "sort_order": 0,
+                                "description": "Share your address, installation details, and clear photos for Book a carpenter."
+                            },
+                            {
+                                "icon": "verified",
+                                "title": "Technician assigned",
+                                "sort_order": 1,
+                                "description": "A verified Panun Kaergar technician confirms your booking and arrives prepared for the job."
+                            },
+                            {
+                                "icon": "location",
+                                "image": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/book-a-carpenter\/2026-07-11-6a51f3b91a4e5.webp",
+                                "title": "Site review",
+                                "sort_order": 2,
+                                "description": "The technician checks the work area, fitting points, and the practical installation requirement and confirms the practical installation scope."
+                            },
+                            {
+                                "icon": "tools",
+                                "title": "Installation & fitting",
+                                "sort_order": 3,
+                                "description": "The service is installed carefully with alignment, safe fitting, and connection checks as needed."
+                            },
+                            {
+                                "icon": "sparkle",
+                                "image": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/book-a-carpenter\/2026-07-11-6a51f3bc4fcb3.webp",
+                                "title": "Test & handover",
+                                "sort_order": 4,
+                                "description": "Final checks are completed, the area is cleaned, and basic usage guidance is shared."
+                            }
+                        ],
+                        "title": "How It Works"
+                    },
+                    "override_top_icons": false,
+                    "whats_not_included": {
+                        "items": [
+                            {
+                                "icon": "tools",
+                                "title": "Cost of customer-selected products or replacement accessories",
+                                "sort_order": 0
+                            },
+                            {
+                                "icon": "check",
+                                "title": "Major site preparation or civil alteration",
+                                "sort_order": 1
+                            },
+                            {
+                                "icon": "quality",
+                                "title": "Hidden defect correction outside the booked scope",
+                                "sort_order": 2
+                            },
+                            {
+                                "icon": "sparkle",
+                                "title": "Brand warranty claims or manufacturer-side support",
+                                "sort_order": 3
+                            },
+                            {
+                                "icon": "verified",
+                                "title": "Haul-away or disposal unless separately agreed",
+                                "sort_order": 4
+                            }
+                        ],
+                        "title": "What's Not Included"
+                    },
+                    "override_why_choose": false,
+                    "terms_and_conditions": {
+                        "items": [],
+                        "title": ""
+                    },
+                    "override_terms_and_conditions": false
+                },
+                "cover_image": "service\/book-a-carpenter\/2026-07-11-6a51f3bc4fcb3.webp",
+                "thumbnail": "service\/book-a-carpenter\/2026-07-11-6a51f3b91a4e5.webp",
+                "category_id": "5e5c0fdb-9ad7-4075-bcc1-d7523efde8c6",
+                "sub_category_id": "4f4c6130-6d4a-4fdc-8753-675b5adf581c",
+                "tax": 0,
+                "tax_label": null,
+                "variation_pricing": {
+                    "standard": {
+                        "use_zone_pricing": false,
+                        "default_price": 99
+                    }
+                },
+                "order_count": 0,
+                "is_active": 1,
+                "sort_order": 6,
+                "rating_count": 0,
+                "avg_rating": 0,
+                "min_bidding_price": "99.000",
+                "deleted_at": null,
+                "created_at": "2026-07-11T07:41:40.000000Z",
+                "updated_at": "2026-07-11T07:41:52.000000Z",
+                "commission_custom": 0,
+                "commission_tier_setup": null,
+                "additional_charge_overrides": null,
+                "thumbnail_full_path": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/book-a-carpenter\/2026-07-11-6a51f3b91a4e5.webp",
+                "cover_image_full_path": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/book-a-carpenter\/2026-07-11-6a51f3bc4fcb3.webp",
+                "translations": [
+                    {
+                        "id": 732,
+                        "translationable_type": "Modules\\ServiceManagement\\Entities\\Service",
+                        "translationable_id": "e7bd81f2-1a0c-43a6-a1d1-8a982e202c17",
+                        "locale": "en",
+                        "key": "short_description",
+                        "value": "Professional Book a carpenter by verified Panun Kaergar technicians for safe setup, secure fitting, and clean handover."
+                    },
+                    {
+                        "id": 733,
+                        "translationable_type": "Modules\\ServiceManagement\\Entities\\Service",
+                        "translationable_id": "e7bd81f2-1a0c-43a6-a1d1-8a982e202c17",
+                        "locale": "en",
+                        "key": "description",
+                        "value": "Book a carpenter by Panun Kaergar is designed for customers who need professional setup, stable fitting, and a clean final handover. The technician checks the work area, fitting points, and the practical installation requirement, confirms placement or connection needs, completes the installation carefully, and tests the result before closing the visit."
+                    }
+                ],
+                "storage_thumbnail": {
+                    "id": "9a03596a-ba38-438b-80ad-4c7461f3a54c",
+                    "model": "Modules\\ServiceManagement\\Entities\\Service",
+                    "model_id": "e7bd81f2-1a0c-43a6-a1d1-8a982e202c17",
+                    "model_column": "thumbnail",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:11:50",
+                    "updated_at": "2026-07-11 13:11:50"
+                },
+                "storage_cover_image": {
+                    "id": "6a235d2a-0d5f-4a33-bd0b-db53df588619",
+                    "model": "Modules\\ServiceManagement\\Entities\\Service",
+                    "model_id": "e7bd81f2-1a0c-43a6-a1d1-8a982e202c17",
+                    "model_column": "cover_image",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:11:50",
+                    "updated_at": "2026-07-11 13:11:50"
+                }
+            },
+            "variants": [
+                {
+                    "variant": {
+                        "id": "3d5903d2-0c08-4353-8a49-c8bee71ff3d6",
+                        "service_id": "e7bd81f2-1a0c-43a6-a1d1-8a982e202c17",
+                        "variant_key": "standard",
+                        "title": "Book a carpenter",
+                        "description": "Book Book a carpenter with verified Panun Kaergar professionals.",
+                        "note": "Final scope and any add-ons are confirmed on site before work begins.",
+                        "image": "service\/book-a-carpenter\/2026-07-11-6a51f3be7888c.webp",
+                        "icon": null,
+                        "sort_order": 0,
+                        "is_active": true,
+                        "created_at": "2026-07-11T07:41:52.000000Z",
+                        "updated_at": "2026-07-11T07:41:52.000000Z",
+                        "image_full_path": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/book-a-carpenter\/2026-07-11-6a51f3be7888c.webp",
+                        "translations": [
+                            {
+                                "id": 734,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "3d5903d2-0c08-4353-8a49-c8bee71ff3d6",
+                                "locale": "en",
+                                "key": "title",
+                                "value": "Book a carpenter"
+                            },
+                            {
+                                "id": 735,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "3d5903d2-0c08-4353-8a49-c8bee71ff3d6",
+                                "locale": "en",
+                                "key": "description",
+                                "value": "Book Book a carpenter with verified Panun Kaergar professionals."
+                            },
+                            {
+                                "id": 736,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "3d5903d2-0c08-4353-8a49-c8bee71ff3d6",
+                                "locale": "en",
+                                "key": "note",
+                                "value": "Final scope and any add-ons are confirmed on site before work begins."
+                            }
+                        ],
+                        "storage_image": {
+                            "id": "b93d7b64-85e9-433a-8a74-4f7f2d49c431",
+                            "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                            "model_id": "3d5903d2-0c08-4353-8a49-c8bee71ff3d6",
+                            "model_column": "image",
+                            "storage_type": "s3",
+                            "created_at": "2026-07-11 13:11:52",
+                            "updated_at": "2026-07-11 13:11:52"
+                        }
+                    },
+                    "zone_rows": [
+                        {
+                            "service_id": "e7bd81f2-1a0c-43a6-a1d1-8a982e202c17",
+                            "service_variant_id": "3d5903d2-0c08-4353-8a49-c8bee71ff3d6",
+                            "variant_key": "standard",
+                            "variant": "Book a carpenter",
+                            "zone_id": "05a30f62-9fb1-42b5-bb39-d05507166c8c",
+                            "price": 99,
+                            "updated_at": "2026-07-11T07:41:52.000000Z",
+                            "created_at": "2026-07-11T07:41:52.000000Z",
+                            "id": 378
+                        },
+                        {
+                            "service_id": "e7bd81f2-1a0c-43a6-a1d1-8a982e202c17",
+                            "service_variant_id": "3d5903d2-0c08-4353-8a49-c8bee71ff3d6",
+                            "variant_key": "standard",
+                            "variant": "Book a carpenter",
+                            "zone_id": "a1614dbe-4732-11ee-9702-dee6e8d77be4",
+                            "price": 99,
+                            "updated_at": "2026-07-11T07:41:52.000000Z",
+                            "created_at": "2026-07-11T07:41:52.000000Z",
+                            "id": 379
+                        }
+                    ]
+                }
+            ],
+            "faqs": [
+                {
+                    "id": "12ee1a62-94d5-4bef-b456-fd2466c4076a",
+                    "question": "What should I keep ready for Book a carpenter?",
+                    "answer": "Please keep the service area accessible and any customer-supplied item, part, or fixture ready before the technician arrives.",
+                    "service_id": "e7bd81f2-1a0c-43a6-a1d1-8a982e202c17",
+                    "is_active": 1,
+                    "sort_order": 0,
+                    "created_at": "2026-07-11T07:41:50.000000Z",
+                    "updated_at": "2026-07-11T07:41:50.000000Z"
+                },
+                {
+                    "id": "49a509a4-ceab-485a-88bf-6a06412ede1e",
+                    "question": "Will the installation be tested before handover?",
+                    "answer": "Yes. Panun Kaergar technicians perform a basic post-installation check before completing the visit.",
+                    "service_id": "e7bd81f2-1a0c-43a6-a1d1-8a982e202c17",
+                    "is_active": 1,
+                    "sort_order": 3,
+                    "created_at": "2026-07-11T07:41:50.000000Z",
+                    "updated_at": "2026-07-11T07:41:50.000000Z"
+                },
+                {
+                    "id": "bcb66c9a-9e48-4b5e-9000-28c833531e2b",
+                    "question": "Are materials included in the booking price?",
+                    "answer": "Not by default. Customer-selected units, fixtures, and any extra accessories are handled separately unless specifically included.",
+                    "service_id": "e7bd81f2-1a0c-43a6-a1d1-8a982e202c17",
+                    "is_active": 1,
+                    "sort_order": 2,
+                    "created_at": "2026-07-11T07:41:50.000000Z",
+                    "updated_at": "2026-07-11T07:41:50.000000Z"
+                },
+                {
+                    "id": "eb5f6db8-b6e0-4bf8-a850-ec74ccce13f5",
+                    "question": "Is site checking included before fitting?",
+                    "answer": "Yes. The technician reviews the area first so the practical scope is confirmed before installation begins.",
+                    "service_id": "e7bd81f2-1a0c-43a6-a1d1-8a982e202c17",
+                    "is_active": 1,
+                    "sort_order": 1,
+                    "created_at": "2026-07-11T07:41:50.000000Z",
+                    "updated_at": "2026-07-11T07:41:50.000000Z"
+                }
+            ],
+            "translations": [
+                {
+                    "id": 734,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "3d5903d2-0c08-4353-8a49-c8bee71ff3d6",
+                    "locale": "en",
+                    "key": "title",
+                    "value": "Book a carpenter"
+                },
+                {
+                    "id": 735,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "3d5903d2-0c08-4353-8a49-c8bee71ff3d6",
+                    "locale": "en",
+                    "key": "description",
+                    "value": "Book Book a carpenter with verified Panun Kaergar professionals."
+                },
+                {
+                    "id": 736,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "3d5903d2-0c08-4353-8a49-c8bee71ff3d6",
+                    "locale": "en",
+                    "key": "note",
+                    "value": "Final scope and any add-ons are confirmed on site before work begins."
+                },
+                {
+                    "id": 732,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\Service",
+                    "translationable_id": "e7bd81f2-1a0c-43a6-a1d1-8a982e202c17",
+                    "locale": "en",
+                    "key": "short_description",
+                    "value": "Professional Book a carpenter by verified Panun Kaergar technicians for safe setup, secure fitting, and clean handover."
+                },
+                {
+                    "id": 733,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\Service",
+                    "translationable_id": "e7bd81f2-1a0c-43a6-a1d1-8a982e202c17",
+                    "locale": "en",
+                    "key": "description",
+                    "value": "Book a carpenter by Panun Kaergar is designed for customers who need professional setup, stable fitting, and a clean final handover. The technician checks the work area, fitting points, and the practical installation requirement, confirms placement or connection needs, completes the installation carefully, and tests the result before closing the visit."
+                }
+            ],
+            "storages": [
+                {
+                    "id": "b93d7b64-85e9-433a-8a74-4f7f2d49c431",
+                    "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "model_id": "3d5903d2-0c08-4353-8a49-c8bee71ff3d6",
+                    "model_column": "image",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:11:52",
+                    "updated_at": "2026-07-11 13:11:52"
+                },
+                {
+                    "id": "6a235d2a-0d5f-4a33-bd0b-db53df588619",
+                    "model": "Modules\\ServiceManagement\\Entities\\Service",
+                    "model_id": "e7bd81f2-1a0c-43a6-a1d1-8a982e202c17",
+                    "model_column": "cover_image",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:11:50",
+                    "updated_at": "2026-07-11 13:11:50"
+                },
+                {
+                    "id": "9a03596a-ba38-438b-80ad-4c7461f3a54c",
+                    "model": "Modules\\ServiceManagement\\Entities\\Service",
+                    "model_id": "e7bd81f2-1a0c-43a6-a1d1-8a982e202c17",
+                    "model_column": "thumbnail",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:11:50",
+                    "updated_at": "2026-07-11 13:11:50"
+                }
+            ]
+        },
+        {
+            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+            "slug": "2-visits-fabric-sofa-cleaning",
+            "uploaded_keys": {
+                "thumbnail": "service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3c0cf3df.webp",
+                "cover_image": "service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3c368aa2.webp"
+            },
+            "service": {
+                "id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                "name": "2 visits: Fabric sofa cleaning",
+                "slug": "2-visits-fabric-sofa-cleaning",
+                "short_description": "Thorough 2 visits: Fabric sofa cleaning by trusted Panun Kaergar professionals for cleaner spaces, fresher surfaces, and a polished finish.",
+                "description": "2 visits: Fabric sofa cleaning by Panun Kaergar is structured for customers who want a cleaner, fresher space with dependable service standards. The team reviews the area first, works through visible dust, grease, stains, and buildup, then completes a final quality check so the cleaned space is ready for everyday use.",
+                "overview_content": {
+                    "intro": "Detailed 2 visits: Fabric sofa cleaning with careful cleaning steps and a fresher handover.",
+                    "top_icons": [],
+                    "why_choose": {
+                        "items": [],
+                        "title": ""
+                    },
+                    "perfect_for": {
+                        "items": [
+                            {
+                                "icon": "home",
+                                "text": "Routine refresh",
+                                "sort_order": 0
+                            },
+                            {
+                                "icon": "building",
+                                "text": "Deep cleaning days",
+                                "sort_order": 1
+                            },
+                            {
+                                "icon": "sparkle",
+                                "text": "Family homes",
+                                "sort_order": 2
+                            },
+                            {
+                                "icon": "tools",
+                                "text": "Move-in prep",
+                                "sort_order": 3
+                            },
+                            {
+                                "icon": "quality",
+                                "text": "Visible buildup",
+                                "sort_order": 4
+                            },
+                            {
+                                "icon": "check",
+                                "text": "2 visits: Fabric sofa cleaning",
+                                "sort_order": 5
+                            }
+                        ],
+                        "title": "Ideal For"
+                    },
+                    "good_to_know": {
+                        "items": [
+                            {
+                                "icon": "check",
+                                "title": "Please remove fragile or highly valuable personal items from the work area before the team arrives.",
+                                "sort_order": 0
+                            },
+                            {
+                                "icon": "home",
+                                "title": "Heavily neglected spaces may need extra time or additional scope confirmation on site.",
+                                "sort_order": 1
+                            },
+                            {
+                                "icon": "tools",
+                                "title": "Permanent stains, old damage, or material wear may not be fully reversible.",
+                                "sort_order": 2
+                            },
+                            {
+                                "icon": "quality",
+                                "title": "Special restoration, pest control, or repair work is outside standard cleaning scope.",
+                                "sort_order": 3
+                            },
+                            {
+                                "icon": "calendar",
+                                "title": "Notify at least 2 hours before the slot for cancellation or rescheduling.",
+                                "sort_order": 4
+                            }
+                        ],
+                        "title": "Good to Know"
+                    },
+                    "whats_included": {
+                        "items": [
+                            {
+                                "icon": "tools",
+                                "title": "Area review before cleaning starts",
+                                "sort_order": 0
+                            },
+                            {
+                                "icon": "check",
+                                "title": "Targeted cleaning within booked scope",
+                                "sort_order": 1
+                            },
+                            {
+                                "icon": "quality",
+                                "title": "Visible dust, grease, and stain reduction",
+                                "sort_order": 2
+                            },
+                            {
+                                "icon": "sparkle",
+                                "title": "Final wipe-down and quality check",
+                                "sort_order": 3
+                            },
+                            {
+                                "icon": "verified",
+                                "title": "Neat handover",
+                                "sort_order": 4
+                            }
+                        ],
+                        "title": "What's Included"
+                    },
+                    "card_highlights": [
+                        {
+                            "icon": "sparkle",
+                            "text": "Deep Refresh",
+                            "color": "blue",
+                            "sort_order": 0
+                        },
+                        {
+                            "icon": "quality",
+                            "text": "Neat Finish",
+                            "color": "green",
+                            "sort_order": 1
+                        },
+                        {
+                            "icon": "verified",
+                            "text": "Trusted Team",
+                            "color": "purple",
+                            "sort_order": 2
+                        }
+                    ],
+                    "service_process": {
+                        "items": [
+                            {
+                                "icon": "calendar",
+                                "title": "Book your slot",
+                                "sort_order": 0,
+                                "description": "Share space details and any problem areas for 2 visits: Fabric sofa cleaning."
+                            },
+                            {
+                                "icon": "verified",
+                                "title": "Team assigned",
+                                "sort_order": 1,
+                                "description": "A Panun Kaergar team confirms the visit and arrives with the required cleaning tools and supplies."
+                            },
+                            {
+                                "icon": "location",
+                                "image": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3c0cf3df.webp",
+                                "title": "Area review",
+                                "sort_order": 2,
+                                "description": "The team reviews the cleaning area, priorities, and visible buildup before work begins."
+                            },
+                            {
+                                "icon": "sparkle",
+                                "title": "Cleaning in progress",
+                                "sort_order": 3,
+                                "description": "Targeted cleaning is carried out carefully with attention to hygiene and visible finish."
+                            },
+                            {
+                                "icon": "quality",
+                                "image": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3c368aa2.webp",
+                                "title": "Final check & handover",
+                                "sort_order": 4,
+                                "description": "The cleaned area is reviewed, touched up if needed, and handed over neatly."
+                            }
+                        ],
+                        "title": "How It Works"
+                    },
+                    "override_top_icons": false,
+                    "whats_not_included": {
+                        "items": [
+                            {
+                                "icon": "tools",
+                                "title": "Permanent stain reversal or material repair",
+                                "sort_order": 0
+                            },
+                            {
+                                "icon": "check",
+                                "title": "Structural repair, pest control, or polishing work",
+                                "sort_order": 1
+                            },
+                            {
+                                "icon": "quality",
+                                "title": "Packing, moving, or disposal outside the cleaning scope",
+                                "sort_order": 2
+                            },
+                            {
+                                "icon": "sparkle",
+                                "title": "Any extra area not confirmed in the booking",
+                                "sort_order": 3
+                            }
+                        ],
+                        "title": "What's Not Included"
+                    },
+                    "override_why_choose": false,
+                    "terms_and_conditions": {
+                        "items": [],
+                        "title": ""
+                    },
+                    "override_terms_and_conditions": false
+                },
+                "cover_image": "service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3c368aa2.webp",
+                "thumbnail": "service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3c0cf3df.webp",
+                "category_id": "8158d8a3-c76d-4736-8954-56cc64c76b1e",
+                "sub_category_id": "62352cf3-1ea6-43c9-8ebb-c8ca9476bfee",
+                "tax": 0,
+                "tax_label": null,
+                "variation_pricing": {
+                    "10-seats": {
+                        "use_zone_pricing": false,
+                        "default_price": 1758
+                    },
+                    "11-seats": {
+                        "use_zone_pricing": false,
+                        "default_price": 1918
+                    },
+                    "12-seats": {
+                        "use_zone_pricing": false,
+                        "default_price": 2078
+                    },
+                    "3-seats": {
+                        "use_zone_pricing": false,
+                        "default_price": 638
+                    },
+                    "4-seats": {
+                        "use_zone_pricing": false,
+                        "default_price": 798
+                    },
+                    "5-seats": {
+                        "use_zone_pricing": false,
+                        "default_price": 958
+                    },
+                    "6-seats": {
+                        "use_zone_pricing": false,
+                        "default_price": 1118
+                    },
+                    "7-seats": {
+                        "use_zone_pricing": false,
+                        "default_price": 1278
+                    },
+                    "8-seats": {
+                        "use_zone_pricing": false,
+                        "default_price": 1438
+                    },
+                    "9-seats": {
+                        "use_zone_pricing": false,
+                        "default_price": 1598
+                    }
+                },
+                "order_count": 0,
+                "is_active": 1,
+                "sort_order": 0,
+                "rating_count": 0,
+                "avg_rating": 0,
+                "min_bidding_price": "638.000",
+                "deleted_at": null,
+                "created_at": "2026-07-11T07:41:52.000000Z",
+                "updated_at": "2026-07-11T07:42:20.000000Z",
+                "commission_custom": 0,
+                "commission_tier_setup": null,
+                "additional_charge_overrides": null,
+                "thumbnail_full_path": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3c0cf3df.webp",
+                "cover_image_full_path": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3c368aa2.webp",
+                "translations": [
+                    {
+                        "id": 737,
+                        "translationable_type": "Modules\\ServiceManagement\\Entities\\Service",
+                        "translationable_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                        "locale": "en",
+                        "key": "short_description",
+                        "value": "Thorough 2 visits: Fabric sofa cleaning by trusted Panun Kaergar professionals for cleaner spaces, fresher surfaces, and a polished finish."
+                    },
+                    {
+                        "id": 738,
+                        "translationable_type": "Modules\\ServiceManagement\\Entities\\Service",
+                        "translationable_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                        "locale": "en",
+                        "key": "description",
+                        "value": "2 visits: Fabric sofa cleaning by Panun Kaergar is structured for customers who want a cleaner, fresher space with dependable service standards. The team reviews the area first, works through visible dust, grease, stains, and buildup, then completes a final quality check so the cleaned space is ready for everyday use."
+                    }
+                ],
+                "storage_thumbnail": {
+                    "id": "5782f95b-89f2-4a56-971d-8527f409142e",
+                    "model": "Modules\\ServiceManagement\\Entities\\Service",
+                    "model_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                    "model_column": "thumbnail",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:11:58",
+                    "updated_at": "2026-07-11 13:11:58"
+                },
+                "storage_cover_image": {
+                    "id": "c66440c6-2061-4066-9c4d-fe6ffb83c0d3",
+                    "model": "Modules\\ServiceManagement\\Entities\\Service",
+                    "model_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                    "model_column": "cover_image",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:11:58",
+                    "updated_at": "2026-07-11 13:11:58"
+                }
+            },
+            "variants": [
+                {
+                    "variant": {
+                        "id": "d40760e9-9c84-49e5-a6c2-a95284a3c162",
+                        "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                        "variant_key": "10-seats",
+                        "title": "2 visits: Fabric sofa cleaning — 10 seats",
+                        "description": "Book 2 visits: Fabric sofa cleaning — 10 seats with verified Panun Kaergar professionals.",
+                        "note": "Final scope and any add-ons are confirmed on site before work begins.",
+                        "image": "service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3c660336.webp",
+                        "icon": null,
+                        "sort_order": 0,
+                        "is_active": true,
+                        "created_at": "2026-07-11T07:42:00.000000Z",
+                        "updated_at": "2026-07-11T07:42:00.000000Z",
+                        "image_full_path": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3c660336.webp",
+                        "translations": [
+                            {
+                                "id": 739,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "d40760e9-9c84-49e5-a6c2-a95284a3c162",
+                                "locale": "en",
+                                "key": "title",
+                                "value": "2 visits: Fabric sofa cleaning — 10 seats"
+                            },
+                            {
+                                "id": 740,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "d40760e9-9c84-49e5-a6c2-a95284a3c162",
+                                "locale": "en",
+                                "key": "description",
+                                "value": "Book 2 visits: Fabric sofa cleaning — 10 seats with verified Panun Kaergar professionals."
+                            },
+                            {
+                                "id": 741,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "d40760e9-9c84-49e5-a6c2-a95284a3c162",
+                                "locale": "en",
+                                "key": "note",
+                                "value": "Final scope and any add-ons are confirmed on site before work begins."
+                            }
+                        ],
+                        "storage_image": {
+                            "id": "4639219d-4af2-44f2-8eb8-31220c341a36",
+                            "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                            "model_id": "d40760e9-9c84-49e5-a6c2-a95284a3c162",
+                            "model_column": "image",
+                            "storage_type": "s3",
+                            "created_at": "2026-07-11 13:12:00",
+                            "updated_at": "2026-07-11 13:12:00"
+                        }
+                    },
+                    "zone_rows": [
+                        {
+                            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                            "service_variant_id": "d40760e9-9c84-49e5-a6c2-a95284a3c162",
+                            "variant_key": "10-seats",
+                            "variant": "2 visits: Fabric sofa cleaning — 10 seats",
+                            "zone_id": "05a30f62-9fb1-42b5-bb39-d05507166c8c",
+                            "price": 1758,
+                            "updated_at": "2026-07-11T07:42:00.000000Z",
+                            "created_at": "2026-07-11T07:42:00.000000Z",
+                            "id": 380
+                        },
+                        {
+                            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                            "service_variant_id": "d40760e9-9c84-49e5-a6c2-a95284a3c162",
+                            "variant_key": "10-seats",
+                            "variant": "2 visits: Fabric sofa cleaning — 10 seats",
+                            "zone_id": "a1614dbe-4732-11ee-9702-dee6e8d77be4",
+                            "price": 1758,
+                            "updated_at": "2026-07-11T07:42:00.000000Z",
+                            "created_at": "2026-07-11T07:42:00.000000Z",
+                            "id": 381
+                        }
+                    ]
+                },
+                {
+                    "variant": {
+                        "id": "668c8767-9d36-4b6a-9336-7959bb6b9414",
+                        "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                        "variant_key": "11-seats",
+                        "title": "2 visits: Fabric sofa cleaning — 11 seats",
+                        "description": "Book 2 visits: Fabric sofa cleaning — 11 seats with verified Panun Kaergar professionals.",
+                        "note": "Final scope and any add-ons are confirmed on site before work begins.",
+                        "image": "service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3c8b1ac3.webp",
+                        "icon": null,
+                        "sort_order": 1,
+                        "is_active": true,
+                        "created_at": "2026-07-11T07:42:02.000000Z",
+                        "updated_at": "2026-07-11T07:42:02.000000Z",
+                        "image_full_path": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3c8b1ac3.webp",
+                        "translations": [
+                            {
+                                "id": 742,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "668c8767-9d36-4b6a-9336-7959bb6b9414",
+                                "locale": "en",
+                                "key": "title",
+                                "value": "2 visits: Fabric sofa cleaning — 11 seats"
+                            },
+                            {
+                                "id": 743,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "668c8767-9d36-4b6a-9336-7959bb6b9414",
+                                "locale": "en",
+                                "key": "description",
+                                "value": "Book 2 visits: Fabric sofa cleaning — 11 seats with verified Panun Kaergar professionals."
+                            },
+                            {
+                                "id": 744,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "668c8767-9d36-4b6a-9336-7959bb6b9414",
+                                "locale": "en",
+                                "key": "note",
+                                "value": "Final scope and any add-ons are confirmed on site before work begins."
+                            }
+                        ],
+                        "storage_image": {
+                            "id": "157caf0f-f860-4947-b3e0-5efbccca6a01",
+                            "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                            "model_id": "668c8767-9d36-4b6a-9336-7959bb6b9414",
+                            "model_column": "image",
+                            "storage_type": "s3",
+                            "created_at": "2026-07-11 13:12:02",
+                            "updated_at": "2026-07-11 13:12:02"
+                        }
+                    },
+                    "zone_rows": [
+                        {
+                            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                            "service_variant_id": "668c8767-9d36-4b6a-9336-7959bb6b9414",
+                            "variant_key": "11-seats",
+                            "variant": "2 visits: Fabric sofa cleaning — 11 seats",
+                            "zone_id": "05a30f62-9fb1-42b5-bb39-d05507166c8c",
+                            "price": 1918,
+                            "updated_at": "2026-07-11T07:42:02.000000Z",
+                            "created_at": "2026-07-11T07:42:02.000000Z",
+                            "id": 382
+                        },
+                        {
+                            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                            "service_variant_id": "668c8767-9d36-4b6a-9336-7959bb6b9414",
+                            "variant_key": "11-seats",
+                            "variant": "2 visits: Fabric sofa cleaning — 11 seats",
+                            "zone_id": "a1614dbe-4732-11ee-9702-dee6e8d77be4",
+                            "price": 1918,
+                            "updated_at": "2026-07-11T07:42:02.000000Z",
+                            "created_at": "2026-07-11T07:42:02.000000Z",
+                            "id": 383
+                        }
+                    ]
+                },
+                {
+                    "variant": {
+                        "id": "fa6d1e95-62f8-44ee-9bf6-14b54b233436",
+                        "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                        "variant_key": "12-seats",
+                        "title": "2 visits: Fabric sofa cleaning — 12 seats",
+                        "description": "Book 2 visits: Fabric sofa cleaning — 12 seats with verified Panun Kaergar professionals.",
+                        "note": "Final scope and any add-ons are confirmed on site before work begins.",
+                        "image": "service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3cae6024.webp",
+                        "icon": null,
+                        "sort_order": 2,
+                        "is_active": true,
+                        "created_at": "2026-07-11T07:42:05.000000Z",
+                        "updated_at": "2026-07-11T07:42:05.000000Z",
+                        "image_full_path": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3cae6024.webp",
+                        "translations": [
+                            {
+                                "id": 745,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "fa6d1e95-62f8-44ee-9bf6-14b54b233436",
+                                "locale": "en",
+                                "key": "title",
+                                "value": "2 visits: Fabric sofa cleaning — 12 seats"
+                            },
+                            {
+                                "id": 746,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "fa6d1e95-62f8-44ee-9bf6-14b54b233436",
+                                "locale": "en",
+                                "key": "description",
+                                "value": "Book 2 visits: Fabric sofa cleaning — 12 seats with verified Panun Kaergar professionals."
+                            },
+                            {
+                                "id": 747,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "fa6d1e95-62f8-44ee-9bf6-14b54b233436",
+                                "locale": "en",
+                                "key": "note",
+                                "value": "Final scope and any add-ons are confirmed on site before work begins."
+                            }
+                        ],
+                        "storage_image": {
+                            "id": "8100a5af-85f8-4b4b-9661-61e75ec3aeb9",
+                            "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                            "model_id": "fa6d1e95-62f8-44ee-9bf6-14b54b233436",
+                            "model_column": "image",
+                            "storage_type": "s3",
+                            "created_at": "2026-07-11 13:12:05",
+                            "updated_at": "2026-07-11 13:12:05"
+                        }
+                    },
+                    "zone_rows": [
+                        {
+                            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                            "service_variant_id": "fa6d1e95-62f8-44ee-9bf6-14b54b233436",
+                            "variant_key": "12-seats",
+                            "variant": "2 visits: Fabric sofa cleaning — 12 seats",
+                            "zone_id": "05a30f62-9fb1-42b5-bb39-d05507166c8c",
+                            "price": 2078,
+                            "updated_at": "2026-07-11T07:42:05.000000Z",
+                            "created_at": "2026-07-11T07:42:05.000000Z",
+                            "id": 384
+                        },
+                        {
+                            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                            "service_variant_id": "fa6d1e95-62f8-44ee-9bf6-14b54b233436",
+                            "variant_key": "12-seats",
+                            "variant": "2 visits: Fabric sofa cleaning — 12 seats",
+                            "zone_id": "a1614dbe-4732-11ee-9702-dee6e8d77be4",
+                            "price": 2078,
+                            "updated_at": "2026-07-11T07:42:05.000000Z",
+                            "created_at": "2026-07-11T07:42:05.000000Z",
+                            "id": 385
+                        }
+                    ]
+                },
+                {
+                    "variant": {
+                        "id": "398d69e3-3681-448a-bf46-6d7f5eb3e6c5",
+                        "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                        "variant_key": "3-seats",
+                        "title": "2 visits: Fabric sofa cleaning — 3 seats",
+                        "description": "Book 2 visits: Fabric sofa cleaning — 3 seats with verified Panun Kaergar professionals.",
+                        "note": "Final scope and any add-ons are confirmed on site before work begins.",
+                        "image": "service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3cd2773a.webp",
+                        "icon": null,
+                        "sort_order": 3,
+                        "is_active": true,
+                        "created_at": "2026-07-11T07:42:07.000000Z",
+                        "updated_at": "2026-07-11T07:42:07.000000Z",
+                        "image_full_path": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3cd2773a.webp",
+                        "translations": [
+                            {
+                                "id": 748,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "398d69e3-3681-448a-bf46-6d7f5eb3e6c5",
+                                "locale": "en",
+                                "key": "title",
+                                "value": "2 visits: Fabric sofa cleaning — 3 seats"
+                            },
+                            {
+                                "id": 749,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "398d69e3-3681-448a-bf46-6d7f5eb3e6c5",
+                                "locale": "en",
+                                "key": "description",
+                                "value": "Book 2 visits: Fabric sofa cleaning — 3 seats with verified Panun Kaergar professionals."
+                            },
+                            {
+                                "id": 750,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "398d69e3-3681-448a-bf46-6d7f5eb3e6c5",
+                                "locale": "en",
+                                "key": "note",
+                                "value": "Final scope and any add-ons are confirmed on site before work begins."
+                            }
+                        ],
+                        "storage_image": {
+                            "id": "ce58f875-015c-4625-adea-946adf1d8479",
+                            "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                            "model_id": "398d69e3-3681-448a-bf46-6d7f5eb3e6c5",
+                            "model_column": "image",
+                            "storage_type": "s3",
+                            "created_at": "2026-07-11 13:12:07",
+                            "updated_at": "2026-07-11 13:12:07"
+                        }
+                    },
+                    "zone_rows": [
+                        {
+                            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                            "service_variant_id": "398d69e3-3681-448a-bf46-6d7f5eb3e6c5",
+                            "variant_key": "3-seats",
+                            "variant": "2 visits: Fabric sofa cleaning — 3 seats",
+                            "zone_id": "05a30f62-9fb1-42b5-bb39-d05507166c8c",
+                            "price": 638,
+                            "updated_at": "2026-07-11T07:42:07.000000Z",
+                            "created_at": "2026-07-11T07:42:07.000000Z",
+                            "id": 386
+                        },
+                        {
+                            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                            "service_variant_id": "398d69e3-3681-448a-bf46-6d7f5eb3e6c5",
+                            "variant_key": "3-seats",
+                            "variant": "2 visits: Fabric sofa cleaning — 3 seats",
+                            "zone_id": "a1614dbe-4732-11ee-9702-dee6e8d77be4",
+                            "price": 638,
+                            "updated_at": "2026-07-11T07:42:07.000000Z",
+                            "created_at": "2026-07-11T07:42:07.000000Z",
+                            "id": 387
+                        }
+                    ]
+                },
+                {
+                    "variant": {
+                        "id": "61d74f14-8ae3-4f56-9007-96a9c27430fd",
+                        "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                        "variant_key": "4-seats",
+                        "title": "2 visits: Fabric sofa cleaning — 4 seats",
+                        "description": "Book 2 visits: Fabric sofa cleaning — 4 seats with verified Panun Kaergar professionals.",
+                        "note": "Final scope and any add-ons are confirmed on site before work begins.",
+                        "image": "service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3cf82f6f.webp",
+                        "icon": null,
+                        "sort_order": 4,
+                        "is_active": true,
+                        "created_at": "2026-07-11T07:42:09.000000Z",
+                        "updated_at": "2026-07-11T07:42:09.000000Z",
+                        "image_full_path": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3cf82f6f.webp",
+                        "translations": [
+                            {
+                                "id": 751,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "61d74f14-8ae3-4f56-9007-96a9c27430fd",
+                                "locale": "en",
+                                "key": "title",
+                                "value": "2 visits: Fabric sofa cleaning — 4 seats"
+                            },
+                            {
+                                "id": 752,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "61d74f14-8ae3-4f56-9007-96a9c27430fd",
+                                "locale": "en",
+                                "key": "description",
+                                "value": "Book 2 visits: Fabric sofa cleaning — 4 seats with verified Panun Kaergar professionals."
+                            },
+                            {
+                                "id": 753,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "61d74f14-8ae3-4f56-9007-96a9c27430fd",
+                                "locale": "en",
+                                "key": "note",
+                                "value": "Final scope and any add-ons are confirmed on site before work begins."
+                            }
+                        ],
+                        "storage_image": {
+                            "id": "413f0f8c-9aed-4131-9726-012c2a2e1373",
+                            "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                            "model_id": "61d74f14-8ae3-4f56-9007-96a9c27430fd",
+                            "model_column": "image",
+                            "storage_type": "s3",
+                            "created_at": "2026-07-11 13:12:09",
+                            "updated_at": "2026-07-11 13:12:09"
+                        }
+                    },
+                    "zone_rows": [
+                        {
+                            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                            "service_variant_id": "61d74f14-8ae3-4f56-9007-96a9c27430fd",
+                            "variant_key": "4-seats",
+                            "variant": "2 visits: Fabric sofa cleaning — 4 seats",
+                            "zone_id": "05a30f62-9fb1-42b5-bb39-d05507166c8c",
+                            "price": 798,
+                            "updated_at": "2026-07-11T07:42:09.000000Z",
+                            "created_at": "2026-07-11T07:42:09.000000Z",
+                            "id": 388
+                        },
+                        {
+                            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                            "service_variant_id": "61d74f14-8ae3-4f56-9007-96a9c27430fd",
+                            "variant_key": "4-seats",
+                            "variant": "2 visits: Fabric sofa cleaning — 4 seats",
+                            "zone_id": "a1614dbe-4732-11ee-9702-dee6e8d77be4",
+                            "price": 798,
+                            "updated_at": "2026-07-11T07:42:09.000000Z",
+                            "created_at": "2026-07-11T07:42:09.000000Z",
+                            "id": 389
+                        }
+                    ]
+                },
+                {
+                    "variant": {
+                        "id": "67cc6293-a2c1-4b4f-84b5-cf68532f0357",
+                        "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                        "variant_key": "5-seats",
+                        "title": "2 visits: Fabric sofa cleaning — 5 seats",
+                        "description": "Book 2 visits: Fabric sofa cleaning — 5 seats with verified Panun Kaergar professionals.",
+                        "note": "Final scope and any add-ons are confirmed on site before work begins.",
+                        "image": "service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3d161b08.webp",
+                        "icon": null,
+                        "sort_order": 5,
+                        "is_active": true,
+                        "created_at": "2026-07-11T07:42:11.000000Z",
+                        "updated_at": "2026-07-11T07:42:11.000000Z",
+                        "image_full_path": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3d161b08.webp",
+                        "translations": [
+                            {
+                                "id": 754,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "67cc6293-a2c1-4b4f-84b5-cf68532f0357",
+                                "locale": "en",
+                                "key": "title",
+                                "value": "2 visits: Fabric sofa cleaning — 5 seats"
+                            },
+                            {
+                                "id": 755,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "67cc6293-a2c1-4b4f-84b5-cf68532f0357",
+                                "locale": "en",
+                                "key": "description",
+                                "value": "Book 2 visits: Fabric sofa cleaning — 5 seats with verified Panun Kaergar professionals."
+                            },
+                            {
+                                "id": 756,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "67cc6293-a2c1-4b4f-84b5-cf68532f0357",
+                                "locale": "en",
+                                "key": "note",
+                                "value": "Final scope and any add-ons are confirmed on site before work begins."
+                            }
+                        ],
+                        "storage_image": {
+                            "id": "c0dbab31-4ffa-4abe-a8d1-5b6227d883c4",
+                            "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                            "model_id": "67cc6293-a2c1-4b4f-84b5-cf68532f0357",
+                            "model_column": "image",
+                            "storage_type": "s3",
+                            "created_at": "2026-07-11 13:12:11",
+                            "updated_at": "2026-07-11 13:12:11"
+                        }
+                    },
+                    "zone_rows": [
+                        {
+                            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                            "service_variant_id": "67cc6293-a2c1-4b4f-84b5-cf68532f0357",
+                            "variant_key": "5-seats",
+                            "variant": "2 visits: Fabric sofa cleaning — 5 seats",
+                            "zone_id": "05a30f62-9fb1-42b5-bb39-d05507166c8c",
+                            "price": 958,
+                            "updated_at": "2026-07-11T07:42:11.000000Z",
+                            "created_at": "2026-07-11T07:42:11.000000Z",
+                            "id": 390
+                        },
+                        {
+                            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                            "service_variant_id": "67cc6293-a2c1-4b4f-84b5-cf68532f0357",
+                            "variant_key": "5-seats",
+                            "variant": "2 visits: Fabric sofa cleaning — 5 seats",
+                            "zone_id": "a1614dbe-4732-11ee-9702-dee6e8d77be4",
+                            "price": 958,
+                            "updated_at": "2026-07-11T07:42:11.000000Z",
+                            "created_at": "2026-07-11T07:42:11.000000Z",
+                            "id": 391
+                        }
+                    ]
+                },
+                {
+                    "variant": {
+                        "id": "72c3252c-a04c-41e2-a96b-3e3b7b96e969",
+                        "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                        "variant_key": "6-seats",
+                        "title": "2 visits: Fabric sofa cleaning — 6 seats",
+                        "description": "Book 2 visits: Fabric sofa cleaning — 6 seats with verified Panun Kaergar professionals.",
+                        "note": "Final scope and any add-ons are confirmed on site before work begins.",
+                        "image": "service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3d392171.webp",
+                        "icon": null,
+                        "sort_order": 6,
+                        "is_active": true,
+                        "created_at": "2026-07-11T07:42:13.000000Z",
+                        "updated_at": "2026-07-11T07:42:13.000000Z",
+                        "image_full_path": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3d392171.webp",
+                        "translations": [
+                            {
+                                "id": 757,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "72c3252c-a04c-41e2-a96b-3e3b7b96e969",
+                                "locale": "en",
+                                "key": "title",
+                                "value": "2 visits: Fabric sofa cleaning — 6 seats"
+                            },
+                            {
+                                "id": 758,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "72c3252c-a04c-41e2-a96b-3e3b7b96e969",
+                                "locale": "en",
+                                "key": "description",
+                                "value": "Book 2 visits: Fabric sofa cleaning — 6 seats with verified Panun Kaergar professionals."
+                            },
+                            {
+                                "id": 759,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "72c3252c-a04c-41e2-a96b-3e3b7b96e969",
+                                "locale": "en",
+                                "key": "note",
+                                "value": "Final scope and any add-ons are confirmed on site before work begins."
+                            }
+                        ],
+                        "storage_image": {
+                            "id": "3c0f9266-6538-4899-8cad-ae497a6cd340",
+                            "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                            "model_id": "72c3252c-a04c-41e2-a96b-3e3b7b96e969",
+                            "model_column": "image",
+                            "storage_type": "s3",
+                            "created_at": "2026-07-11 13:12:13",
+                            "updated_at": "2026-07-11 13:12:13"
+                        }
+                    },
+                    "zone_rows": [
+                        {
+                            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                            "service_variant_id": "72c3252c-a04c-41e2-a96b-3e3b7b96e969",
+                            "variant_key": "6-seats",
+                            "variant": "2 visits: Fabric sofa cleaning — 6 seats",
+                            "zone_id": "05a30f62-9fb1-42b5-bb39-d05507166c8c",
+                            "price": 1118,
+                            "updated_at": "2026-07-11T07:42:13.000000Z",
+                            "created_at": "2026-07-11T07:42:13.000000Z",
+                            "id": 392
+                        },
+                        {
+                            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                            "service_variant_id": "72c3252c-a04c-41e2-a96b-3e3b7b96e969",
+                            "variant_key": "6-seats",
+                            "variant": "2 visits: Fabric sofa cleaning — 6 seats",
+                            "zone_id": "a1614dbe-4732-11ee-9702-dee6e8d77be4",
+                            "price": 1118,
+                            "updated_at": "2026-07-11T07:42:13.000000Z",
+                            "created_at": "2026-07-11T07:42:13.000000Z",
+                            "id": 393
+                        }
+                    ]
+                },
+                {
+                    "variant": {
+                        "id": "8bddfaa9-3c19-4ef4-9e71-3c0305b1fd44",
+                        "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                        "variant_key": "7-seats",
+                        "title": "2 visits: Fabric sofa cleaning — 7 seats",
+                        "description": "Book 2 visits: Fabric sofa cleaning — 7 seats with verified Panun Kaergar professionals.",
+                        "note": "Final scope and any add-ons are confirmed on site before work begins.",
+                        "image": "service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3d5e367b.webp",
+                        "icon": null,
+                        "sort_order": 7,
+                        "is_active": true,
+                        "created_at": "2026-07-11T07:42:16.000000Z",
+                        "updated_at": "2026-07-11T07:42:16.000000Z",
+                        "image_full_path": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3d5e367b.webp",
+                        "translations": [
+                            {
+                                "id": 760,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "8bddfaa9-3c19-4ef4-9e71-3c0305b1fd44",
+                                "locale": "en",
+                                "key": "title",
+                                "value": "2 visits: Fabric sofa cleaning — 7 seats"
+                            },
+                            {
+                                "id": 761,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "8bddfaa9-3c19-4ef4-9e71-3c0305b1fd44",
+                                "locale": "en",
+                                "key": "description",
+                                "value": "Book 2 visits: Fabric sofa cleaning — 7 seats with verified Panun Kaergar professionals."
+                            },
+                            {
+                                "id": 762,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "8bddfaa9-3c19-4ef4-9e71-3c0305b1fd44",
+                                "locale": "en",
+                                "key": "note",
+                                "value": "Final scope and any add-ons are confirmed on site before work begins."
+                            }
+                        ],
+                        "storage_image": {
+                            "id": "34281d7a-3cb9-45d5-854f-ae8fbc75663a",
+                            "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                            "model_id": "8bddfaa9-3c19-4ef4-9e71-3c0305b1fd44",
+                            "model_column": "image",
+                            "storage_type": "s3",
+                            "created_at": "2026-07-11 13:12:16",
+                            "updated_at": "2026-07-11 13:12:16"
+                        }
+                    },
+                    "zone_rows": [
+                        {
+                            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                            "service_variant_id": "8bddfaa9-3c19-4ef4-9e71-3c0305b1fd44",
+                            "variant_key": "7-seats",
+                            "variant": "2 visits: Fabric sofa cleaning — 7 seats",
+                            "zone_id": "05a30f62-9fb1-42b5-bb39-d05507166c8c",
+                            "price": 1278,
+                            "updated_at": "2026-07-11T07:42:16.000000Z",
+                            "created_at": "2026-07-11T07:42:16.000000Z",
+                            "id": 394
+                        },
+                        {
+                            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                            "service_variant_id": "8bddfaa9-3c19-4ef4-9e71-3c0305b1fd44",
+                            "variant_key": "7-seats",
+                            "variant": "2 visits: Fabric sofa cleaning — 7 seats",
+                            "zone_id": "a1614dbe-4732-11ee-9702-dee6e8d77be4",
+                            "price": 1278,
+                            "updated_at": "2026-07-11T07:42:16.000000Z",
+                            "created_at": "2026-07-11T07:42:16.000000Z",
+                            "id": 395
+                        }
+                    ]
+                },
+                {
+                    "variant": {
+                        "id": "b6bff54e-d85d-4a26-af1c-69e5c8ae3d7f",
+                        "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                        "variant_key": "8-seats",
+                        "title": "2 visits: Fabric sofa cleaning — 8 seats",
+                        "description": "Book 2 visits: Fabric sofa cleaning — 8 seats with verified Panun Kaergar professionals.",
+                        "note": "Final scope and any add-ons are confirmed on site before work begins.",
+                        "image": "service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3d84ff1e.webp",
+                        "icon": null,
+                        "sort_order": 8,
+                        "is_active": true,
+                        "created_at": "2026-07-11T07:42:18.000000Z",
+                        "updated_at": "2026-07-11T07:42:18.000000Z",
+                        "image_full_path": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3d84ff1e.webp",
+                        "translations": [
+                            {
+                                "id": 763,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "b6bff54e-d85d-4a26-af1c-69e5c8ae3d7f",
+                                "locale": "en",
+                                "key": "title",
+                                "value": "2 visits: Fabric sofa cleaning — 8 seats"
+                            },
+                            {
+                                "id": 764,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "b6bff54e-d85d-4a26-af1c-69e5c8ae3d7f",
+                                "locale": "en",
+                                "key": "description",
+                                "value": "Book 2 visits: Fabric sofa cleaning — 8 seats with verified Panun Kaergar professionals."
+                            },
+                            {
+                                "id": 765,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "b6bff54e-d85d-4a26-af1c-69e5c8ae3d7f",
+                                "locale": "en",
+                                "key": "note",
+                                "value": "Final scope and any add-ons are confirmed on site before work begins."
+                            }
+                        ],
+                        "storage_image": {
+                            "id": "8d93f84f-cb98-4748-9ab1-4db57ff597aa",
+                            "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                            "model_id": "b6bff54e-d85d-4a26-af1c-69e5c8ae3d7f",
+                            "model_column": "image",
+                            "storage_type": "s3",
+                            "created_at": "2026-07-11 13:12:18",
+                            "updated_at": "2026-07-11 13:12:18"
+                        }
+                    },
+                    "zone_rows": [
+                        {
+                            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                            "service_variant_id": "b6bff54e-d85d-4a26-af1c-69e5c8ae3d7f",
+                            "variant_key": "8-seats",
+                            "variant": "2 visits: Fabric sofa cleaning — 8 seats",
+                            "zone_id": "05a30f62-9fb1-42b5-bb39-d05507166c8c",
+                            "price": 1438,
+                            "updated_at": "2026-07-11T07:42:18.000000Z",
+                            "created_at": "2026-07-11T07:42:18.000000Z",
+                            "id": 396
+                        },
+                        {
+                            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                            "service_variant_id": "b6bff54e-d85d-4a26-af1c-69e5c8ae3d7f",
+                            "variant_key": "8-seats",
+                            "variant": "2 visits: Fabric sofa cleaning — 8 seats",
+                            "zone_id": "a1614dbe-4732-11ee-9702-dee6e8d77be4",
+                            "price": 1438,
+                            "updated_at": "2026-07-11T07:42:18.000000Z",
+                            "created_at": "2026-07-11T07:42:18.000000Z",
+                            "id": 397
+                        }
+                    ]
+                },
+                {
+                    "variant": {
+                        "id": "b2f13e34-406b-4778-8743-dc78f8e87108",
+                        "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                        "variant_key": "9-seats",
+                        "title": "2 visits: Fabric sofa cleaning — 9 seats",
+                        "description": "Book 2 visits: Fabric sofa cleaning — 9 seats with verified Panun Kaergar professionals.",
+                        "note": "Final scope and any add-ons are confirmed on site before work begins.",
+                        "image": "service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3da75718.webp",
+                        "icon": null,
+                        "sort_order": 9,
+                        "is_active": true,
+                        "created_at": "2026-07-11T07:42:20.000000Z",
+                        "updated_at": "2026-07-11T07:42:20.000000Z",
+                        "image_full_path": "https:\/\/pub-d94f3aebce9d4036815a281f00dd51b3.r2.dev\/prod\/service\/2-visits-fabric-sofa-cleaning\/2026-07-11-6a51f3da75718.webp",
+                        "translations": [
+                            {
+                                "id": 766,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "b2f13e34-406b-4778-8743-dc78f8e87108",
+                                "locale": "en",
+                                "key": "title",
+                                "value": "2 visits: Fabric sofa cleaning — 9 seats"
+                            },
+                            {
+                                "id": 767,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "b2f13e34-406b-4778-8743-dc78f8e87108",
+                                "locale": "en",
+                                "key": "description",
+                                "value": "Book 2 visits: Fabric sofa cleaning — 9 seats with verified Panun Kaergar professionals."
+                            },
+                            {
+                                "id": 768,
+                                "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                                "translationable_id": "b2f13e34-406b-4778-8743-dc78f8e87108",
+                                "locale": "en",
+                                "key": "note",
+                                "value": "Final scope and any add-ons are confirmed on site before work begins."
+                            }
+                        ],
+                        "storage_image": {
+                            "id": "dd784dc4-8809-4701-9e40-8f3e5bfa0ddb",
+                            "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                            "model_id": "b2f13e34-406b-4778-8743-dc78f8e87108",
+                            "model_column": "image",
+                            "storage_type": "s3",
+                            "created_at": "2026-07-11 13:12:20",
+                            "updated_at": "2026-07-11 13:12:20"
+                        }
+                    },
+                    "zone_rows": [
+                        {
+                            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                            "service_variant_id": "b2f13e34-406b-4778-8743-dc78f8e87108",
+                            "variant_key": "9-seats",
+                            "variant": "2 visits: Fabric sofa cleaning — 9 seats",
+                            "zone_id": "05a30f62-9fb1-42b5-bb39-d05507166c8c",
+                            "price": 1598,
+                            "updated_at": "2026-07-11T07:42:20.000000Z",
+                            "created_at": "2026-07-11T07:42:20.000000Z",
+                            "id": 398
+                        },
+                        {
+                            "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                            "service_variant_id": "b2f13e34-406b-4778-8743-dc78f8e87108",
+                            "variant_key": "9-seats",
+                            "variant": "2 visits: Fabric sofa cleaning — 9 seats",
+                            "zone_id": "a1614dbe-4732-11ee-9702-dee6e8d77be4",
+                            "price": 1598,
+                            "updated_at": "2026-07-11T07:42:20.000000Z",
+                            "created_at": "2026-07-11T07:42:20.000000Z",
+                            "id": 399
+                        }
+                    ]
+                }
+            ],
+            "faqs": [
+                {
+                    "id": "211913cf-1b64-497c-90ec-a079efa72f56",
+                    "question": "Is the area checked before the team leaves?",
+                    "answer": "Yes. A final walk-through is done before handover.",
+                    "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                    "is_active": 1,
+                    "sort_order": 3,
+                    "created_at": "2026-07-11T07:41:58.000000Z",
+                    "updated_at": "2026-07-11T07:41:58.000000Z"
+                },
+                {
+                    "id": "5fbce872-467c-4117-ae05-f7a90fd7d562",
+                    "question": "What is covered in 2 visits: Fabric sofa cleaning?",
+                    "answer": "The team completes the booked cleaning scope after a quick area review and focuses on visible dirt, grease, dust, and overall freshness.",
+                    "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                    "is_active": 1,
+                    "sort_order": 0,
+                    "created_at": "2026-07-11T07:41:58.000000Z",
+                    "updated_at": "2026-07-11T07:41:58.000000Z"
+                },
+                {
+                    "id": "ca4ee622-7f3f-4ba8-a331-436ff50894f6",
+                    "question": "Do I need to provide cleaning material?",
+                    "answer": "No. Panun Kaergar teams arrive with the required standard tools and supplies unless a special product is discussed in advance.",
+                    "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                    "is_active": 1,
+                    "sort_order": 1,
+                    "created_at": "2026-07-11T07:41:58.000000Z",
+                    "updated_at": "2026-07-11T07:41:58.000000Z"
+                },
+                {
+                    "id": "eeee1a2f-2956-437e-9fb0-d10a7011669e",
+                    "question": "Will all stains be removed completely?",
+                    "answer": "Not always. Results depend on the material condition, stain age, and buildup level, but the team will aim for the best possible finish within scope.",
+                    "service_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                    "is_active": 1,
+                    "sort_order": 2,
+                    "created_at": "2026-07-11T07:41:58.000000Z",
+                    "updated_at": "2026-07-11T07:41:58.000000Z"
+                }
+            ],
+            "translations": [
+                {
+                    "id": 737,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\Service",
+                    "translationable_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                    "locale": "en",
+                    "key": "short_description",
+                    "value": "Thorough 2 visits: Fabric sofa cleaning by trusted Panun Kaergar professionals for cleaner spaces, fresher surfaces, and a polished finish."
+                },
+                {
+                    "id": 738,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\Service",
+                    "translationable_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                    "locale": "en",
+                    "key": "description",
+                    "value": "2 visits: Fabric sofa cleaning by Panun Kaergar is structured for customers who want a cleaner, fresher space with dependable service standards. The team reviews the area first, works through visible dust, grease, stains, and buildup, then completes a final quality check so the cleaned space is ready for everyday use."
+                },
+                {
+                    "id": 748,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "398d69e3-3681-448a-bf46-6d7f5eb3e6c5",
+                    "locale": "en",
+                    "key": "title",
+                    "value": "2 visits: Fabric sofa cleaning — 3 seats"
+                },
+                {
+                    "id": 749,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "398d69e3-3681-448a-bf46-6d7f5eb3e6c5",
+                    "locale": "en",
+                    "key": "description",
+                    "value": "Book 2 visits: Fabric sofa cleaning — 3 seats with verified Panun Kaergar professionals."
+                },
+                {
+                    "id": 750,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "398d69e3-3681-448a-bf46-6d7f5eb3e6c5",
+                    "locale": "en",
+                    "key": "note",
+                    "value": "Final scope and any add-ons are confirmed on site before work begins."
+                },
+                {
+                    "id": 751,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "61d74f14-8ae3-4f56-9007-96a9c27430fd",
+                    "locale": "en",
+                    "key": "title",
+                    "value": "2 visits: Fabric sofa cleaning — 4 seats"
+                },
+                {
+                    "id": 752,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "61d74f14-8ae3-4f56-9007-96a9c27430fd",
+                    "locale": "en",
+                    "key": "description",
+                    "value": "Book 2 visits: Fabric sofa cleaning — 4 seats with verified Panun Kaergar professionals."
+                },
+                {
+                    "id": 753,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "61d74f14-8ae3-4f56-9007-96a9c27430fd",
+                    "locale": "en",
+                    "key": "note",
+                    "value": "Final scope and any add-ons are confirmed on site before work begins."
+                },
+                {
+                    "id": 742,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "668c8767-9d36-4b6a-9336-7959bb6b9414",
+                    "locale": "en",
+                    "key": "title",
+                    "value": "2 visits: Fabric sofa cleaning — 11 seats"
+                },
+                {
+                    "id": 743,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "668c8767-9d36-4b6a-9336-7959bb6b9414",
+                    "locale": "en",
+                    "key": "description",
+                    "value": "Book 2 visits: Fabric sofa cleaning — 11 seats with verified Panun Kaergar professionals."
+                },
+                {
+                    "id": 744,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "668c8767-9d36-4b6a-9336-7959bb6b9414",
+                    "locale": "en",
+                    "key": "note",
+                    "value": "Final scope and any add-ons are confirmed on site before work begins."
+                },
+                {
+                    "id": 754,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "67cc6293-a2c1-4b4f-84b5-cf68532f0357",
+                    "locale": "en",
+                    "key": "title",
+                    "value": "2 visits: Fabric sofa cleaning — 5 seats"
+                },
+                {
+                    "id": 755,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "67cc6293-a2c1-4b4f-84b5-cf68532f0357",
+                    "locale": "en",
+                    "key": "description",
+                    "value": "Book 2 visits: Fabric sofa cleaning — 5 seats with verified Panun Kaergar professionals."
+                },
+                {
+                    "id": 756,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "67cc6293-a2c1-4b4f-84b5-cf68532f0357",
+                    "locale": "en",
+                    "key": "note",
+                    "value": "Final scope and any add-ons are confirmed on site before work begins."
+                },
+                {
+                    "id": 757,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "72c3252c-a04c-41e2-a96b-3e3b7b96e969",
+                    "locale": "en",
+                    "key": "title",
+                    "value": "2 visits: Fabric sofa cleaning — 6 seats"
+                },
+                {
+                    "id": 758,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "72c3252c-a04c-41e2-a96b-3e3b7b96e969",
+                    "locale": "en",
+                    "key": "description",
+                    "value": "Book 2 visits: Fabric sofa cleaning — 6 seats with verified Panun Kaergar professionals."
+                },
+                {
+                    "id": 759,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "72c3252c-a04c-41e2-a96b-3e3b7b96e969",
+                    "locale": "en",
+                    "key": "note",
+                    "value": "Final scope and any add-ons are confirmed on site before work begins."
+                },
+                {
+                    "id": 760,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "8bddfaa9-3c19-4ef4-9e71-3c0305b1fd44",
+                    "locale": "en",
+                    "key": "title",
+                    "value": "2 visits: Fabric sofa cleaning — 7 seats"
+                },
+                {
+                    "id": 761,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "8bddfaa9-3c19-4ef4-9e71-3c0305b1fd44",
+                    "locale": "en",
+                    "key": "description",
+                    "value": "Book 2 visits: Fabric sofa cleaning — 7 seats with verified Panun Kaergar professionals."
+                },
+                {
+                    "id": 762,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "8bddfaa9-3c19-4ef4-9e71-3c0305b1fd44",
+                    "locale": "en",
+                    "key": "note",
+                    "value": "Final scope and any add-ons are confirmed on site before work begins."
+                },
+                {
+                    "id": 766,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "b2f13e34-406b-4778-8743-dc78f8e87108",
+                    "locale": "en",
+                    "key": "title",
+                    "value": "2 visits: Fabric sofa cleaning — 9 seats"
+                },
+                {
+                    "id": 767,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "b2f13e34-406b-4778-8743-dc78f8e87108",
+                    "locale": "en",
+                    "key": "description",
+                    "value": "Book 2 visits: Fabric sofa cleaning — 9 seats with verified Panun Kaergar professionals."
+                },
+                {
+                    "id": 768,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "b2f13e34-406b-4778-8743-dc78f8e87108",
+                    "locale": "en",
+                    "key": "note",
+                    "value": "Final scope and any add-ons are confirmed on site before work begins."
+                },
+                {
+                    "id": 763,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "b6bff54e-d85d-4a26-af1c-69e5c8ae3d7f",
+                    "locale": "en",
+                    "key": "title",
+                    "value": "2 visits: Fabric sofa cleaning — 8 seats"
+                },
+                {
+                    "id": 764,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "b6bff54e-d85d-4a26-af1c-69e5c8ae3d7f",
+                    "locale": "en",
+                    "key": "description",
+                    "value": "Book 2 visits: Fabric sofa cleaning — 8 seats with verified Panun Kaergar professionals."
+                },
+                {
+                    "id": 765,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "b6bff54e-d85d-4a26-af1c-69e5c8ae3d7f",
+                    "locale": "en",
+                    "key": "note",
+                    "value": "Final scope and any add-ons are confirmed on site before work begins."
+                },
+                {
+                    "id": 739,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "d40760e9-9c84-49e5-a6c2-a95284a3c162",
+                    "locale": "en",
+                    "key": "title",
+                    "value": "2 visits: Fabric sofa cleaning — 10 seats"
+                },
+                {
+                    "id": 740,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "d40760e9-9c84-49e5-a6c2-a95284a3c162",
+                    "locale": "en",
+                    "key": "description",
+                    "value": "Book 2 visits: Fabric sofa cleaning — 10 seats with verified Panun Kaergar professionals."
+                },
+                {
+                    "id": 741,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "d40760e9-9c84-49e5-a6c2-a95284a3c162",
+                    "locale": "en",
+                    "key": "note",
+                    "value": "Final scope and any add-ons are confirmed on site before work begins."
+                },
+                {
+                    "id": 745,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "fa6d1e95-62f8-44ee-9bf6-14b54b233436",
+                    "locale": "en",
+                    "key": "title",
+                    "value": "2 visits: Fabric sofa cleaning — 12 seats"
+                },
+                {
+                    "id": 746,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "fa6d1e95-62f8-44ee-9bf6-14b54b233436",
+                    "locale": "en",
+                    "key": "description",
+                    "value": "Book 2 visits: Fabric sofa cleaning — 12 seats with verified Panun Kaergar professionals."
+                },
+                {
+                    "id": 747,
+                    "translationable_type": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "translationable_id": "fa6d1e95-62f8-44ee-9bf6-14b54b233436",
+                    "locale": "en",
+                    "key": "note",
+                    "value": "Final scope and any add-ons are confirmed on site before work begins."
+                }
+            ],
+            "storages": [
+                {
+                    "id": "5782f95b-89f2-4a56-971d-8527f409142e",
+                    "model": "Modules\\ServiceManagement\\Entities\\Service",
+                    "model_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                    "model_column": "thumbnail",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:11:58",
+                    "updated_at": "2026-07-11 13:11:58"
+                },
+                {
+                    "id": "c66440c6-2061-4066-9c4d-fe6ffb83c0d3",
+                    "model": "Modules\\ServiceManagement\\Entities\\Service",
+                    "model_id": "021110e1-188e-4497-8755-a9d06d82d2d0",
+                    "model_column": "cover_image",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:11:58",
+                    "updated_at": "2026-07-11 13:11:58"
+                },
+                {
+                    "id": "ce58f875-015c-4625-adea-946adf1d8479",
+                    "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "model_id": "398d69e3-3681-448a-bf46-6d7f5eb3e6c5",
+                    "model_column": "image",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:12:07",
+                    "updated_at": "2026-07-11 13:12:07"
+                },
+                {
+                    "id": "413f0f8c-9aed-4131-9726-012c2a2e1373",
+                    "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "model_id": "61d74f14-8ae3-4f56-9007-96a9c27430fd",
+                    "model_column": "image",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:12:09",
+                    "updated_at": "2026-07-11 13:12:09"
+                },
+                {
+                    "id": "157caf0f-f860-4947-b3e0-5efbccca6a01",
+                    "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "model_id": "668c8767-9d36-4b6a-9336-7959bb6b9414",
+                    "model_column": "image",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:12:02",
+                    "updated_at": "2026-07-11 13:12:02"
+                },
+                {
+                    "id": "c0dbab31-4ffa-4abe-a8d1-5b6227d883c4",
+                    "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "model_id": "67cc6293-a2c1-4b4f-84b5-cf68532f0357",
+                    "model_column": "image",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:12:11",
+                    "updated_at": "2026-07-11 13:12:11"
+                },
+                {
+                    "id": "3c0f9266-6538-4899-8cad-ae497a6cd340",
+                    "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "model_id": "72c3252c-a04c-41e2-a96b-3e3b7b96e969",
+                    "model_column": "image",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:12:13",
+                    "updated_at": "2026-07-11 13:12:13"
+                },
+                {
+                    "id": "34281d7a-3cb9-45d5-854f-ae8fbc75663a",
+                    "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "model_id": "8bddfaa9-3c19-4ef4-9e71-3c0305b1fd44",
+                    "model_column": "image",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:12:16",
+                    "updated_at": "2026-07-11 13:12:16"
+                },
+                {
+                    "id": "dd784dc4-8809-4701-9e40-8f3e5bfa0ddb",
+                    "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "model_id": "b2f13e34-406b-4778-8743-dc78f8e87108",
+                    "model_column": "image",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:12:20",
+                    "updated_at": "2026-07-11 13:12:20"
+                },
+                {
+                    "id": "8d93f84f-cb98-4748-9ab1-4db57ff597aa",
+                    "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "model_id": "b6bff54e-d85d-4a26-af1c-69e5c8ae3d7f",
+                    "model_column": "image",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:12:18",
+                    "updated_at": "2026-07-11 13:12:18"
+                },
+                {
+                    "id": "4639219d-4af2-44f2-8eb8-31220c341a36",
+                    "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "model_id": "d40760e9-9c84-49e5-a6c2-a95284a3c162",
+                    "model_column": "image",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:12:00",
+                    "updated_at": "2026-07-11 13:12:00"
+                },
+                {
+                    "id": "8100a5af-85f8-4b4b-9661-61e75ec3aeb9",
+                    "model": "Modules\\ServiceManagement\\Entities\\ServiceVariant",
+                    "model_id": "fa6d1e95-62f8-44ee-9bf6-14b54b233436",
+                    "model_column": "image",
+                    "storage_type": "s3",
+                    "created_at": "2026-07-11 13:12:05",
+                    "updated_at": "2026-07-11 13:12:05"
+                }
+            ]
+        }
+    ]
+}

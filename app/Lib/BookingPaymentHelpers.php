@@ -4656,6 +4656,50 @@ if (!function_exists('provider_pay_to_admin_limits')) {
     }
 }
 
+if (!function_exists('resolve_provider_pay_to_admin_amount')) {
+    /**
+     * Resolve provider pay-to-admin amount from request, capped by server limits.
+     *
+     * @param array{max: float, is_advance: bool, settlement_debt: float, ledger_due: float} $payLimits
+     * @return array{amount: float, error: string|null}
+     */
+    function resolve_provider_pay_to_admin_amount(
+        ?float $requestedAmount,
+        array $payLimits,
+        float $minPayableAmount = 0.0
+    ): array {
+        $max = round((float) ($payLimits['max'] ?? 0), 2);
+
+        if ($max <= 0.009) {
+            return [
+                'amount' => 0.0,
+                'error' => translate('Invalid Amount'),
+            ];
+        }
+
+        $amount = $requestedAmount !== null ? round($requestedAmount, 2) : $max;
+
+        if ($amount <= 0 || $amount > $max + 0.009) {
+            return [
+                'amount' => 0.0,
+                'error' => translate('Invalid Amount'),
+            ];
+        }
+
+        if ($minPayableAmount > 0 && $amount > 0.009 && $amount < $minPayableAmount - 0.009) {
+            return [
+                'amount' => 0.0,
+                'error' => translate('Provider must have to pay greater than or equal to ') . $minPayableAmount,
+            ];
+        }
+
+        return [
+            'amount' => $amount,
+            'error' => null,
+        ];
+    }
+}
+
 if (!function_exists('provider_payment_net_balance_context')) {
     /**
      * Shared net-balance figures for admin payment tab and provider app overview API.

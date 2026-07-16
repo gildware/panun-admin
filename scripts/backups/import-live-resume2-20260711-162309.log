@@ -1,0 +1,110 @@
+REFRESHED: Book a carpenter (book-a-carpenter) variants=1
+REFRESHED: 2 visits: Fabric sofa cleaning (2-visits-fabric-sofa-cleaning) variants=10
+REFRESHED: 3 visits: Mattress cleaning (3-visits-mattress-cleaning) variants=2
+REFRESHED: Bed cleaning (bed-cleaning) variants=5
+REFRESHED: Bedroom essential cleaning (bedroom-essential-cleaning) variants=13
+REFRESHED: Carpet cleaning (carpet-cleaning) variants=8
+REFRESHED: Dining table & chairs cleaning (dining-table-chairs-cleaning) variants=7
+REFRESHED: Fabric headboard (fabric-headboard) variants=1
+REFRESHED: Fabric sofa cleaning (fabric-sofa-cleaning) variants=17
+REFRESHED: Fan cleaning (fan-cleaning) variants=1
+REFRESHED: Leather sofa cleaning & polishing (leather-sofa-cleaning-polishing) variants=17
+REFRESHED: Mattress cleaning (mattress-cleaning) variants=5
+REFRESHED: Mirror cleaning (mirror-cleaning) variants=1
+REFRESHED: Ottoman (ottoman) variants=1
+REFRESHED: Recliner/ lounge chair (recliner-lounge-chair) variants=3
+REFRESHED: Showcase/ cabinet (showcase-cabinet) variants=1
+REFRESHED: Sofa center table (sofa-center-table) variants=1
+REFRESHED: Sofa cum bed (sofa-cum-bed) variants=7
+REFRESHED: Sofa, windows & cobweb cleaning (sofa-windows-cobweb-cleaning) variants=18
+REFRESHED: Study table & chair (study-table-chair) variants=1
+REFRESHED: Windows (with grills) & glass doors cleaning (windows-with-grills-glass-doors-cleaning) variants=9
+REFRESHED: Windows (without grill) & glass doors cleaning (windows-without-grill-glass-doors-cleaning) variants=9
+REFRESHED: Book a consultation (book-a-consultation) variants=1
+REFRESHED: Bulb installation/replacement (bulb-installationreplacement) variants=3
+REFRESHED: Ceiling light installation (ceiling-light-installation) variants=2
+REFRESHED: Chandelier installation (chandelier-installation) variants=4
+REFRESHED: Decorative fan installation (decorative-fan-installation) variants=3
+REFRESHED: Exhaust/pedestal/tower fan installation (exhaustpedestaltower-fan-installation) variants=3
+REFRESHED: Fan regulator replacement (fan-regulator-replacement) variants=1
+REFRESHED: Fancy light installation/replacement (fancy-light-installationreplacement) variants=1
+REFRESHED: Hanging light installation (hanging-light-installation) variants=3
+REFRESHED: Home theatre installation (home-theatre-installation) variants=1
+REFRESHED: Karban Airzone installation (karban-airzone-installation) variants=1
+REFRESHED: New external wiring (per 5m) (new-external-wiring-per-5m) variants=2
+REFRESHED: New internal wiring (per 5m) (new-internal-wiring-per-5m) variants=1
+REFRESHED: New switchbox installation (new-switchbox-installation) variants=4
+REFRESHED: Plug replacement (plug-replacement) variants=2
+REFRESHED: Regular ceiling fan installation (regular-ceiling-fan-installation) variants=3
+REFRESHED: Regular doorbell installation (regular-doorbell-installation) variants=2
+REFRESHED: Smart/BLDC fan installation (smartbldc-fan-installation) variants=3
+REFRESHED: Sound bar installation (sound-bar-installation) variants=1
+REFRESHED: Stabiliser installation (stabiliser-installation) variants=1
+REFRESHED: Submeter installation (submeter-installation) variants=1
+REFRESHED: TV installation (tv-installation) variants=5
+REFRESHED: TV uninstallation (tv-uninstallation) variants=4
+REFRESHED: Video doorbell installation (video-doorbell-installation) variants=2
+REFRESHED: Wireless CCTV installation (wireless-cctv-installation) variants=1
+REFRESHED: Fan repair (fan-repair) variants=3
+REFRESHED: MCB/fuse repair (mcbfuse-repair) variants=4
+REFRESHED: MCB/fuse replacement (mcbfuse-replacement) variants=4
+REFRESHED: Switch/socket repair & replacement (switchsocket-repair-replacement) variants=3
+REFRESHED: Switchboard repair & replacement (switchboard-repair-replacement) variants=4
+REFRESHED: Tubelight repair & Installation (tubelight-repair-installation) variants=1
+REFRESHED: AC installation (ac-installation) variants=2
+REFRESHED: AC repair (ac-repair) variants=4
+REFRESHED: AC uninstallation (ac-uninstallation) variants=2
+REFRESHED: Annual plan [2 times/year] (annual-plan-2-timesyear) variants=6
+REFRESHED: Anti-rust spray (avoid gas leak) (anti-rust-spray-avoid-gas-leak) variants=1
+REFRESHED: Foam-jet AC service (foam-jet-ac-service) variants=9
+REFRESHED: Foam-jet service (2 ACs) (foam-jet-service-2-acs) variants=1
+REFRESHED: Foam-jet service (3 ACs) (foam-jet-service-3-acs) variants=1
+REFRESHED: Foam-jet service (4 ACs) (foam-jet-service-4-acs) variants=1
+REFRESHED: Foam-jet service (5 ACs) (foam-jet-service-5-acs) variants=1
+REFRESHED: Gas refill & check-up (gas-refill-check-up) variants=1
+REFRESHED: Inverter check-up (inverter-check-up) variants=1
+REFRESHED: Inverter fuse replacement (inverter-fuse-replacement) variants=1
+REFRESHED: Inverter installation (inverter-installation) variants=2
+REFRESHED: Inverter servicing (inverter-servicing) variants=1
+REFRESHED: Inverter uninstallation (inverter-uninstallation) variants=1
+REFRESHED: Geyser check-up (geyser-check-up) variants=1
+REFRESHED: Geyser connection leakage repair (geyser-connection-leakage-repair) variants=1
+REFRESHED: Geyser installation (geyser-installation) variants=1
+REFRESHED: Geyser uninstallation (geyser-uninstallation) variants=1
+REFRESHED: Heating element replacement (heating-element-replacement) variants=1
+REFRESHED: Thermostat repair/replacement (thermostat-repairreplacement) variants=1
+REFRESHED: TV check-up (tv-check-up) variants=4
+CREATED: TV installation (led-smart-tv-tv-installation) variants=5 zones=20
+CREATED: TV uninstallation (led-smart-tv-tv-uninstallation) variants=3 zones=20
+CREATED: Gas refill & leak fix (gas-refill-leak-fix) variants=1 zones=20
+CREATED: Refrigerator check-up (refrigerator-check-up) variants=2 zones=20
+REFRESHED: Refrigerator installation (refrigerator-installation) variants=1
+CREATED: Thermostat replacement (thermostat-replacement) variants=1 zones=20
+CREATED: Automatic front load machine check-up (automatic-front-load-machine-check-up) variants=7 zones=20
+CREATED: Automatic top load machine check-up (automatic-top-load-machine-check-up) variants=6 zones=20
+CREATED: Semi-automatic machine check-up (semi-automatic-machine-check-up) variants=7 zones=20
+CREATED: Washing machine installation & uninstallation (washing-machine-installation-uninstallation) variants=3 zones=20
+CREATED: Washing machine jet service (washing-machine-jet-service) variants=5 zones=20
+CREATED: Beard color (with product) (beard-color-with-product) variants=1 zones=20
+CREATED: Beard trimming & styling (beard-trimming-styling) variants=1 zones=20
+CREATED: Clean shave (clean-shave) variants=1 zones=20
+CREATED: Haircut for boys (haircut-for-boys) variants=1 zones=20
+CREATED: Haircut for men (haircut-for-men) variants=1 zones=20
+CREATED: Face care & beyond (face-care-beyond) variants=20 zones=20
+CREATED: Garnier hair color (garnier-hair-color) variants=3 zones=20
+CREATED: Grooming essentials (grooming-essentials) variants=13 zones=20
+CREATED: Hair & care (hair-care) variants=13 zones=20
+CREATED: Hair color (only application) (hair-color-only-application) variants=1 zones=20
+CREATED: Haircut & color (haircut-color) variants=10 zones=20
+CREATED: Haircut & massage (haircut-massage) variants=9 zones=20
+CREATED: L'Oreal matrix hair color (loreal-matrix-hair-color) variants=3 zones=20
+CREATED: Make your own package (make-your-own-package) variants=34 zones=20
+CREATED: Back relief massage (back-relief-massage) variants=1 zones=20
+CREATED: Brightening lemon deep cleanse pedicure (brightening-lemon-deep-cleanse-pedicure) variants=1 zones=20
+CREATED: Brightening lemon express pedicure (brightening-lemon-express-pedicure) variants=1 zones=20
+CREATED: Charcoal de-toxifying cleanup (charcoal-de-toxifying-cleanup) variants=1 zones=20
+CREATED: Chocolate & vanilla sole rejuvenating pedicure (chocolate-vanilla-sole-rejuvenating-pedicure) variants=1 zones=20
+CREATED: Deep tissue pain relief massage (deep-tissue-pain-relief-massage) variants=5 zones=20
+CREATED: Deep tissue with head/neck/shoulder (deep-tissue-with-headneckshoulder) variants=1 zones=20
+   PDOException  SQLSTATE[HY000]: General error: 2006 MySQL server has gone away.
+

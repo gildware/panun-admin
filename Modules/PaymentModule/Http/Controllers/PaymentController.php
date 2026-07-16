@@ -51,6 +51,7 @@ class PaymentController extends Controller
                 'access_token' => 'nullable|string',
                 'payment_method' => 'required|in:' . implode(',', array_column(GATEWAYS_PAYMENT_METHODS, 'key')),
                 'provider_id' => 'required|uuid',
+                'amount' => 'nullable|numeric|min:0.01',
             ]);
 
         } elseif ($request->has('is_repeat_single_booking')) {
@@ -97,7 +98,10 @@ class PaymentController extends Controller
 
         if ($request->has('is_pay_to_admin')){
             if ($validator_data->fails()) {
-                return redirect()->back()->withErrors($validator_data);
+                $message = $validator_data->errors()->first()
+                    ?: translate('Invalid payment request');
+
+                return $this->paymentFlowFailResponse($request, $message, 400);
             }
 
             $provider = Provider::where('id', $request['provider_id'])->first();
@@ -109,10 +113,15 @@ class PaymentController extends Controller
                     (float) ($provider->owner->account->account_payable ?? 0),
                     (float) ($provider->owner->account->account_receivable ?? 0),
                 );
-                $amount = $payLimits['max'];
-                $minPayableAmount = business_config('min_payable_amount', 'provider_config')->live_values ?? 0;
-                if ($minPayableAmount > 0 && $amount > 0.009 && $amount < $minPayableAmount) {
-                    return redirect()->back()->withErrors(translate('Provider must have to pay greater than or equal to ') . $minPayableAmount);
+                $minPayableAmount = (float) (business_config('min_payable_amount', 'provider_config')->live_values ?? 0);
+                $requestedAmount = $request->filled('amount') ? (float) $request['amount'] : null;
+                $resolved = resolve_provider_pay_to_admin_amount($requestedAmount, $payLimits, $minPayableAmount);
+                if ($resolved['error'] !== null) {
+                    return $this->paymentFlowFailResponse(
+                        $request,
+                        $resolved['error'],
+                        400
+                    );
                 }
             }
 
@@ -131,7 +140,7 @@ class PaymentController extends Controller
 
             return response()->json(response_formatter(DEFAULT_400), 400);
         }
-        $is_pay_to_admin = $request['is_pay_to_admin'] == true ? 1 : 0;
+        $is_pay_to_admin = $request->boolean('is_pay_to_admin') ? 1 : 0;
         $is_repeat_single_booking = $request['is_repeat_single_booking'] == true ? 1 : 0;
         $switch_offline_to_digital = $request['switch_offline_to_digital'] ? 1 : 0;
 
@@ -144,11 +153,11 @@ class PaymentController extends Controller
         }
 
         if ($customer_user_id === '') {
-            if ($request->has('callback')) {
-                return redirect($request['callback'] . '?flag=fail');
-            }
-
-            return response()->json(response_formatter(DEFAULT_401), 401);
+            return $this->paymentFlowFailResponse(
+                $request,
+                translate('Unauthorized payment request'),
+                401
+            );
         }
         $is_guest = $customer_user_id !== '' && !User::where('id', $customer_user_id)->exists();
 
@@ -192,7 +201,13 @@ class PaymentController extends Controller
                     (float) ($provider->owner->account->account_payable ?? 0),
                     (float) ($provider->owner->account->account_receivable ?? 0),
                 );
-                $amount = $payLimits['max'];
+                $minPayableAmount = (float) (business_config('min_payable_amount', 'provider_config')->live_values ?? 0);
+                $requestedAmount = $request->filled('amount') ? (float) $request['amount'] : null;
+                $resolved = resolve_provider_pay_to_admin_amount($requestedAmount, $payLimits, $minPayableAmount);
+                $amount = $resolved['amount'];
+                if ($resolved['error'] !== null) {
+                    return $this->paymentFlowFailResponse($request, $resolved['error'], 400);
+                }
                 if ($amount > 0.009) {
                     $payer = new Payer($customer['first_name'] . ' ' . $customer['last_name'], $customer['email'], $customer['phone'], '');
                     $additional_data = [
@@ -221,10 +236,10 @@ class PaymentController extends Controller
                     return $this->respondPaymentRedirect($request, $redirect_link);
                 }
 
-                return redirect()->back()->withErrors(translate('Invalid Amount'));
+                return $this->paymentFlowFailResponse($request, translate('Invalid Amount'), 400);
             }
 
-            return redirect()->back()->withErrors(translate('Provider Not Found'));
+            return $this->paymentFlowFailResponse($request, translate('Provider Not Found'), 404);
 
         }
 
