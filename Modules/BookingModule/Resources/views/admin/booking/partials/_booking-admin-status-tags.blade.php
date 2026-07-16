@@ -42,8 +42,20 @@
           title="{{ translate('Disputed_bookings_tab_hint') }}">{{ translate('Booking_tag_disputed') }}</span>
 @endif
 @if($bfsHasCompensated)
+    @php
+        $bfsCompTitle = translate('Booking_tag_compensated');
+        $bfsCompLabel = translate('Booking_tag_compensated');
+        if ($booking->relationLoaded('compensations')) {
+            $bfsCompSummary = booking_admin_compensation_display_summary($booking);
+            $bfsCompTitle = (string) ($bfsCompSummary['title'] ?? $bfsCompTitle);
+            $bfsCompAmount = (float) ($bfsCompSummary['total'] ?? 0);
+            if ($bfsCompAmount > 0.009) {
+                $bfsCompLabel .= ' ' . with_currency_symbol($bfsCompAmount);
+            }
+        }
+    @endphp
     <span class="badge bg-primary text-nowrap text-start {{ $bfsTagGapClass }} d-inline-block lh-sm{{ $bfsTagFz }}"
-          title="{{ translate('Booking_tag_compensated') }}">{{ translate('Booking_tag_compensated') }}</span>
+          title="{{ $bfsCompTitle }}">{{ $bfsCompLabel }}</span>
 @endif
 @if($bfsShowCancelAfterVisit)
     <span class="badge bg-danger text-nowrap text-start {{ $bfsTagGapClass }} d-inline-block lh-sm{{ $bfsTagFz }}"

@@ -796,7 +796,8 @@ class BookingController extends Controller
             'detail.service', 'schedule_histories.user', 'status_histories.user', 'status_histories.holdReopenReason', 'status_histories.providerCancellationReason', 'customer',
             'provider', 'zone.parentZone', 'serviceman.user', 'booking_partial_payments.ledgerTransactions', 'booking_offline_payments',
             'category', 'subCategory:id,name',
-            'repeat.detail.service', 'repeat.repeatHistories'
+            'repeat.detail.service', 'repeat.repeatHistories',
+            'compensations',
         ])->where(function ($query) use ($provider_id) {
             $query->where('provider_id', $provider_id)
                 ->orWhereHas('repeat', function ($subQuery) use ($provider_id) {

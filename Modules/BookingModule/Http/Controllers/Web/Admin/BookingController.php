@@ -8036,6 +8036,20 @@ class BookingController extends Controller
                     'message' => $e->getMessage(),
                 ]);
             }
+
+            try {
+                send_booking_compensation_notifications(
+                    $booking->fresh(['customer', 'provider.owner']),
+                    $amount,
+                    $type
+                );
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Push booking compensation notification failed', [
+                    'booking_id' => $booking->id,
+                    'compensation_id' => $comp->id,
+                    'message' => $e->getMessage(),
+                ]);
+            }
         }
 
         if ($request->wantsJson()) {

@@ -1452,6 +1452,149 @@ if (!function_exists('booking_admin_has_compensation')) {
     }
 }
 
+if (! function_exists('booking_compensation_flow_type')) {
+    /**
+     * Normalize from/to parties into a compensation flow type key.
+     *
+     * @return 'company_to_customer'|'company_to_provider'|'provider_to_customer'|null
+     */
+    function booking_compensation_flow_type(?string $fromParty, ?string $toParty): ?string
+    {
+        $flow = ($fromParty ?? '') . '_to_' . ($toParty ?? '');
+
+        return match ($flow) {
+            'company_to_customer', 'company_to_provider', 'provider_to_customer' => $flow,
+            default => null,
+        };
+    }
+}
+
+if (! function_exists('booking_compensation_type_label_key')) {
+    /**
+     * App / API translation key for a compensation flow type.
+     */
+    function booking_compensation_type_label_key(string $type): string
+    {
+        return match ($type) {
+            'company_to_customer' => 'compensation_company_to_customer',
+            'company_to_provider' => 'compensation_company_to_provider',
+            'provider_to_customer' => 'compensation_provider_to_customer',
+            default => 'booking_tag_compensated',
+        };
+    }
+}
+
+if (! function_exists('booking_admin_compensation_display_summary')) {
+    /**
+     * Totals and title text for admin status tags / tooltips.
+     *
+     * @return array{total: float, count: int, title: string, primary_type: string|null}
+     */
+    function booking_admin_compensation_display_summary(Booking $booking): array
+    {
+        $rows = booking_compensation_collection($booking);
+        $total = round((float) $rows->sum(fn ($row) => (float) ($row->amount ?? 0)), 2);
+        $count = $rows->count();
+        $primaryType = null;
+        if ($count === 1) {
+            $first = $rows->first();
+            $primaryType = booking_compensation_flow_type($first?->from_party, $first?->to_party);
+        }
+
+        $typeLabel = match ($primaryType) {
+            'company_to_customer' => translate('Company_to_customer_compensation'),
+            'company_to_provider' => translate('Company_to_provider_compensation'),
+            'provider_to_customer' => translate('Provider_to_customer_compensation'),
+            default => translate('Booking_tag_compensated'),
+        };
+
+        $title = $typeLabel;
+        if ($total > 0.009) {
+            $title .= ': ' . with_currency_symbol($total);
+        }
+
+        return [
+            'total' => $total,
+            'count' => $count,
+            'title' => $title,
+            'primary_type' => $primaryType,
+        ];
+    }
+}
+
+if (! function_exists('booking_compensation_collection')) {
+    /**
+     * @return \Illuminate\Support\Collection<int, \Modules\BookingModule\Entities\BookingCompensation>
+     */
+    function booking_compensation_collection(Booking $booking)
+    {
+        if ($booking->relationLoaded('compensations')) {
+            return $booking->compensations;
+        }
+
+        return $booking->compensations()->get();
+    }
+}
+
+if (! function_exists('booking_compensation_rows_for_api')) {
+    /**
+     * Compensation rows for provider/customer booking payment ledger.
+     *
+     * Both audiences receive all rows for the booking so the Compensated tag
+     * always has a matching Payments breakdown (amount + who → whom).
+     *
+     * @param  'provider'|'customer'|null  $audience  Reserved for future filtering; currently unused.
+     * @return list<array{
+     *     serial: int,
+     *     type: string,
+     *     type_label_key: string,
+     *     from_party: string,
+     *     to_party: string,
+     *     amount: float,
+     *     date: string|null,
+     *     transaction_id: string|null,
+     *     reference_note: string|null
+     * }>
+     */
+    function booking_compensation_rows_for_api(Booking $booking, ?string $audience = null): array
+    {
+        $rows = booking_compensation_collection($booking)
+            ->sortByDesc(fn ($row) => ($row->date?->timestamp ?? $row->created_at?->timestamp ?? 0) . ':' . $row->id)
+            ->values();
+
+        $serial = 0;
+        $payload = [];
+        foreach ($rows as $row) {
+            $type = booking_compensation_flow_type($row->from_party, $row->to_party);
+            if ($type === null) {
+                continue;
+            }
+
+            $serial++;
+            $date = $row->date?->toDateString()
+                ?? ($row->created_at ? $row->created_at->toDateString() : null);
+
+            $payload[] = [
+                'serial' => $serial,
+                'type' => $type,
+                'type_label_key' => booking_compensation_type_label_key($type),
+                'from_party' => (string) ($row->from_party ?? ''),
+                'to_party' => (string) ($row->to_party ?? ''),
+                'amount' => round((float) ($row->amount ?? 0), 2),
+                'date' => $date,
+                'transaction_id' => $row->transaction_id !== null && $row->transaction_id !== ''
+                    ? (string) $row->transaction_id
+                    : null,
+                'reference_note' => $row->reference_note !== null && $row->reference_note !== ''
+                    ? (string) $row->reference_note
+                    : null,
+            ];
+        }
+
+        return $payload;
+    }
+}
+
 if (!function_exists('booking_admin_should_show_cancel_after_visit_tag')) {
     /**
      * Cancel-after-visit decided charges (retain visit fee) — not plain before-visit cancel.
@@ -1664,7 +1807,25 @@ if (! function_exists('booking_admin_status_tags_for_api')) {
             $tags[] = ['key' => 'disputed', 'label' => 'booking_tag_disputed', 'variant' => 'danger'];
         }
         if (booking_admin_has_compensation($booking)) {
-            $tags[] = ['key' => 'compensated', 'label' => 'booking_tag_compensated', 'variant' => 'primary'];
+            $compTag = [
+                'key' => 'compensated',
+                'label' => 'booking_tag_compensated',
+                'variant' => 'primary',
+            ];
+            if ($booking->relationLoaded('compensations')) {
+                $compSummary = booking_admin_compensation_display_summary($booking);
+                if (($compSummary['total'] ?? 0) > 0.009) {
+                    $compTag['amount'] = $compSummary['total'];
+                }
+                if (! empty($compSummary['primary_type'])) {
+                    $compTag['type'] = $compSummary['primary_type'];
+                    $compTag['type_label'] = booking_compensation_type_label_key((string) $compSummary['primary_type']);
+                }
+                if (! empty($compSummary['title'])) {
+                    $compTag['title'] = $compSummary['title'];
+                }
+            }
+            $tags[] = $compTag;
         }
         if (booking_admin_should_show_cancel_after_visit_tag($booking)) {
             $tags[] = ['key' => 'cancel_after_visit', 'label' => 'booking_tag_cancel_after_visit', 'variant' => 'danger'];
@@ -2458,6 +2619,13 @@ if (! function_exists('booking_append_provider_api_financial_fields')) {
             ->map(fn ($entry, $index) => booking_refund_ledger_row_payload($entry, $index + 1))
             ->all();
 
+        $main->loadMissing('compensations');
+        $compensations = booking_compensation_rows_for_api($main, 'provider');
+        $compensationTotal = round(array_sum(array_column($compensations, 'amount')), 2);
+        if ($compensationTotal > 0.009) {
+            $paymentPayload['compensated_amount'] = $compensationTotal;
+        }
+
         $listDisplayTotal = get_customer_booking_list_display_total($main);
         $originalGrandTotal = round((float) get_booking_total_amount($main), 2);
         $target = $booking instanceof BookingRepeat ? $booking : $main;
@@ -2467,6 +2635,7 @@ if (! function_exists('booking_append_provider_api_financial_fields')) {
         $target->setAttribute('payment_ledger', [
             'installments' => $installments,
             'refunds' => $refunds,
+            'compensations' => $compensations,
         ]);
         $target->setAttribute('revenue_settlement', $revenuePayload);
         $target->setAttribute('service_location_details', booking_provider_api_service_location_payload($booking));
@@ -3332,9 +3501,18 @@ if (! function_exists('booking_append_customer_api_financial_fields')) {
             ->map(fn ($entry, $index) => booking_refund_ledger_row_payload($entry, $index + 1))
             ->all();
 
+        $main->loadMissing('compensations');
+        $compensations = booking_compensation_rows_for_api($main, 'customer');
+        $compensationTotal = round(array_sum(array_column($compensations, 'amount')), 2);
+        if ($compensationTotal > 0.009) {
+            $paymentPayload['compensated_amount'] = $compensationTotal;
+            $target->setAttribute('payment_details', $paymentPayload);
+        }
+
         $target->setAttribute('payment_ledger', [
             'installments' => $installments,
             'refunds' => $refunds,
+            'compensations' => $compensations,
         ]);
         $target->setAttribute('booking_summary', booking_customer_api_summary_payload($main));
         $disputedSettlement = booking_api_disputed_settlement_payload($main, 'customer');

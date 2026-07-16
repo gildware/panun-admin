@@ -206,6 +206,21 @@ class SmokeTestNotificationScenarios extends Command
                 fn () => send_customer_refund_notification($booking, 20, 'refund_bank_transfer'),
                 [$booking->customer_id]
             ),
+            'compensation_company_to_customer' => $this->dispatchHelper(
+                'send_booking_compensation_notifications (company→customer)',
+                fn () => send_booking_compensation_notifications($booking, 20, 'company_to_customer'),
+                [$booking->customer_id]
+            ),
+            'compensation_company_to_provider' => $this->dispatchHelper(
+                'send_booking_compensation_notifications (company→provider)',
+                fn () => send_booking_compensation_notifications($booking, 20, 'company_to_provider'),
+                [$booking->provider?->user_id]
+            ),
+            'compensation_provider_to_customer' => $this->dispatchHelper(
+                'send_booking_compensation_notifications (provider→customer)',
+                fn () => send_booking_compensation_notifications($booking, 20, 'provider_to_customer'),
+                [$booking->customer_id, $booking->provider?->user_id]
+            ),
             'loyalty_booking_completed', 'loyalty_admin_adds' => $this->dispatchHelper(
                 'send_customer_loyalty_point_notification',
                 fn () => send_customer_loyalty_point_notification($booking->customer, 5, 'loyalty_point', $booking->id),
