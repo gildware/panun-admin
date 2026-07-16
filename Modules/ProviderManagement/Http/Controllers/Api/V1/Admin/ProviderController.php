@@ -12,6 +12,7 @@ use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\ProviderManagement\Http\Requests\ProviderStoreRequest;
+use Modules\ProviderManagement\Services\ProviderProfileChangeRequestService;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\TransactionModule\Entities\Account;
@@ -409,9 +410,14 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, [['message' => translate('Select_Zone')]]), 400);
         }
 
-        $previousLeafIds = $provider->zones()->pluck('zones.id')->sort()->values()->all();
-        if ($previousLeafIds !== collect($leafZoneIds)->sort()->values()->all()) {
-            DB::table('subscribed_services')->where('provider_id', $provider->id)->update(['is_subscribed' => 0]);
+        $previousLeafIds = collect($provider->coveredLeafZoneIds())->sort()->values()->all();
+        $newLeafIds = collect($leafZoneIds)->sort()->values()->all();
+        if ($previousLeafIds !== $newLeafIds) {
+            app(ProviderProfileChangeRequestService::class)->unsubscribeSubCategoriesLostOnZoneRemoval(
+                (string) $provider->id,
+                $previousLeafIds,
+                $newLeafIds
+            );
         }
 
         $provider->provider_type = $request->provider_type;

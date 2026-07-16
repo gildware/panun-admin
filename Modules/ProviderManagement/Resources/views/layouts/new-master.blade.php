@@ -627,16 +627,16 @@ $serviceLocations = getProviderSettings(providerId: auth()->user()->provider->id
                             })
                             .then(function(token) {
                                 @foreach(auth()->user()->provider->coveredLeafZoneIds() as $fcmLeafZoneId)
-                                subscribeTokenToBackend(token, 'demandium_provider_{{ $fcmLeafZoneId }}_{{ auth()->user()->provider->id }}_booking_message');
+                                subscribeTokenToBackend(token, 'panun_kaergar_provider_{{ $fcmLeafZoneId }}_{{ auth()->user()->provider->id }}_booking_message');
                                 @if($serviceAtProviderPlace)
                                     @if(in_array('customer', $serviceLocations))
-                                        subscribeTokenToBackend(token, 'demandium_provider_{{ $fcmLeafZoneId }}_customer_booking_message');
+                                        subscribeTokenToBackend(token, 'panun_kaergar_provider_{{ $fcmLeafZoneId }}_customer_booking_message');
                                    @endif
                                    @if(in_array('provider', $serviceLocations))
-                                        subscribeTokenToBackend(token, 'demandium_provider_{{ $fcmLeafZoneId }}_provider_booking_message');
+                                        subscribeTokenToBackend(token, 'panun_kaergar_provider_{{ $fcmLeafZoneId }}_provider_booking_message');
                                    @endif
                                 @else
-                                   subscribeTokenToBackend(token, 'demandium_provider_{{ $fcmLeafZoneId }}_booking_message');
+                                   subscribeTokenToBackend(token, 'panun_kaergar_provider_{{ $fcmLeafZoneId }}_booking_message');
                                 @endif
                                 @endforeach
                             }).catch(function(error) {

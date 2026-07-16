@@ -2,7 +2,7 @@
 
 @section('content')
     <div class="text-center text-white mb-4">
-        <h2>{{translate('Demandium Software Installation')}}</h2>
+        <h2>{{translate('Panun Kaergar Software Installation')}}</h2>
         <h6 class="fw-normal">{{translate('All Done, Great Job. Your software is ready to run.')}}</h6>
     </div>
 

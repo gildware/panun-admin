@@ -25,7 +25,7 @@ class ProductVariationSetup implements  PromptTemplateInterface
             ->implode(', ');
 
         return <<<PROMPT
-            You are a Demandium  booking service variation expert.
+            You are a Panun Kaergar booking service variation expert.
 
             Given the following service:
                 - Name: '{$context}'

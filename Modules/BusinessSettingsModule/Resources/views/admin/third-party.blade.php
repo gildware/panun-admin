@@ -647,7 +647,7 @@
                         >info</i>
                     </div>
                     <div class="copy-text border rounded py-2 h-46 px-3 bg-white position-relative d-flex justify-content-between gap-1">
-                        <input type="text" class="text border-0 text-light-gray bg-transparent w-100 pe-3" value="https://Demandium.6amtech.com/customer/auth/login/google/callback" />
+                        <input type="text" class="text border-0 text-light-gray bg-transparent w-100 pe-3" value="https://live.panunkaergar.com/customer/auth/login/google/callback" />
                         <button class="border-0 outline-0 text-primary p-0 bg-transparent"><span class="material-symbols-outlined">content_copy</span></button>
                     </div>
                 </div>
@@ -659,7 +659,7 @@
                         >info</i>
                     </div>
                     <div class="copy-text border rounded py-2 h-46 px-3 bg-white position-relative d-flex justify-content-between gap-1">
-                        <input type="text" class="text border-0 text-light-gray bg-transparent w-100 pe-3" value="https://Demandium.6amtech.com/customer/auth/login/google/callback" />
+                        <input type="text" class="text border-0 text-light-gray bg-transparent w-100 pe-3" value="https://live.panunkaergar.com/customer/auth/login/google/callback" />
                         <button class="border-0 outline-0 text-primary p-0 bg-transparent"><span class="material-symbols-outlined">content_copy</span></button>
                     </div>
                 </div>
@@ -1396,7 +1396,7 @@
                                                         >info</i>
                                                     </label>
                                                     <div class="copy-text position-relative d-flex align-items-center h-46 rounded py-2 p-3 justify-content-between gap-1 bg-white">
-                                                        <input type="text" class="text border-0 w-100 text-light-gray bg-transparent" value="https://Demandium.6amtech.com/customer/auth/login/google/callback" />
+                                                        <input type="text" class="text border-0 w-100 text-light-gray bg-transparent" value="https://live.panunkaergar.com/customer/auth/login/google/callback" />
                                                         <button class="border-0 outline-0 text-primary p-0 bg-transparent"><span class="material-symbols-outlined">content_copy</span></button>
                                                     </div>
                                                 </div>

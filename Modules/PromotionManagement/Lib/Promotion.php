@@ -152,11 +152,11 @@ if (!function_exists('push_notification_android_channel_for_type')) {
     function push_notification_android_channel_for_type(?string $type): string
     {
         return match ($type) {
-            'booking', 'booking_ignored', 'offline-payment' => 'demandium_booking_v3',
-            'chatting' => 'demandium_chat_v3',
-            'wallet', 'loyalty_point', 'admin_pay', 'withdraw', 'refund' => 'demandium_wallet_v3',
-            'bidding', 'bid-withdraw' => 'demandium_bidding_v3',
-            default => 'demandium_v3',
+            'booking', 'booking_ignored', 'offline-payment' => 'panun_kaergar_booking_v3',
+            'chatting' => 'panun_kaergar_chat_v3',
+            'wallet', 'loyalty_point', 'admin_pay', 'withdraw', 'refund' => 'panun_kaergar_wallet_v3',
+            'bidding', 'bid-withdraw' => 'panun_kaergar_bidding_v3',
+            default => 'panun_kaergar_v3',
         };
     }
 }

@@ -32,5 +32,6 @@
     <script>
         $(document).ready(function () { $('.js-select').not('.js-select-manual').select2({ width: '100%' }); });
     </script>
+    @include('whatsappmodule::admin.booking-whatsapp-send-prompt')
 </body>
 </html>
