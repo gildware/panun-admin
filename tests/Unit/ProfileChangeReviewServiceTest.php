@@ -126,6 +126,86 @@ class ProfileChangeReviewServiceTest extends TestCase
         $this->assertSame(['cover_image', 'logo'], $service->pendingFieldChangesForRequest($mergedRequest));
     }
 
+    public function test_approving_profile_field_does_not_create_phantom_not_set_change(): void
+    {
+        [$provider, $request, $adminId] = $this->seedProfileChangeRequest();
+        $service = app(ProviderProfileChangeRequestService::class);
+
+        $result = $service->reviewSingleField($request, 'contact_person_name', true, $adminId);
+        $request->refresh();
+        $provider->refresh();
+
+        $this->assertFalse($result['request_closed']);
+        $this->assertSame('Rukhsar Provider', $provider->contact_person_name);
+        $this->assertArrayNotHasKey('contact_person_name', $request->payload ?? []);
+
+        $pendingKeys = $service->pendingFieldChangesForRequest($request);
+        $this->assertNotContains('contact_person_name', $pendingKeys);
+        $this->assertContains('company_address', $pendingKeys);
+
+        $display = $service->buildReviewDisplayChanges($request);
+        $contactRows = collect($display)->where('field_key', 'contact_person_name')->values();
+        $this->assertCount(1, $contactRows);
+        $this->assertSame('approved', $contactRows[0]['review_status']);
+    }
+
+    /**
+     * @return array{0: Provider, 1: ProviderChangeRequest, 2: string}
+     */
+    private function seedProfileChangeRequest(): array
+    {
+        $adminId = (string) Str::uuid();
+        User::query()->create([
+            'id' => $adminId,
+            'first_name' => 'Review',
+            'last_name' => 'Admin',
+            'email' => 'review-admin-'.Str::random(6).'@test.local',
+            'phone' => '9'.random_int(100000000, 999999999),
+            'password' => bcrypt('password'),
+            'user_type' => 'super-admin',
+            'is_active' => 1,
+        ]);
+
+        $ownerId = (string) Str::uuid();
+        User::query()->create([
+            'id' => $ownerId,
+            'first_name' => 'Provider',
+            'last_name' => 'Owner',
+            'email' => 'provider-owner-'.Str::random(6).'@test.local',
+            'phone' => '8'.random_int(100000000, 999999999),
+            'password' => bcrypt('password'),
+            'user_type' => 'provider-admin',
+            'is_active' => 1,
+        ]);
+
+        $provider = Provider::query()->create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $ownerId,
+            'provider_type' => 'company',
+            'company_name' => 'Review Test Provider',
+            'company_phone' => '7000000001',
+            'company_email' => 'provider-'.Str::random(6).'@test.local',
+            'company_address' => 'old address',
+            'contact_person_name' => 'rukhsar provider',
+            'contact_person_phone' => '7000000001',
+            'is_active' => 1,
+            'is_approved' => 1,
+        ]);
+
+        $request = ProviderChangeRequest::query()->create([
+            'provider_id' => $provider->id,
+            'change_type' => 'profile',
+            'status' => ProviderChangeRequest::STATUS_PENDING,
+            'payload' => [
+                'provider_type' => 'company',
+                'contact_person_name' => 'Rukhsar Provider',
+                'company_address' => 'New Address',
+            ],
+        ]);
+
+        return [$provider, $request, $adminId];
+    }
+
     /**
      * @return array{0: Provider, 1: ProviderChangeRequest, 2: string}
      */

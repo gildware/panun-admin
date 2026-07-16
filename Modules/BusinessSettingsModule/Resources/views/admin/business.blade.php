@@ -1250,7 +1250,7 @@
                                     <div class="card p-20 mb-20">
                                         <div class="border-bottom mb-20 pb-3">
                                             <h4 class="mb-1">{{ translate('Booking Setup') }}</h4>
-                                            <p class="fz-12">{{ translate('Here you can configure minimum and maximum booking values for a service.') }}</p>
+                                            <p class="fz-12">{{ translate('Here you can configure minimum, maximum, and confirmation advance amounts for bookings.') }}</p>
                                         </div>
                                         <div class="row g-3">
                                             <div class="col-md-6">
@@ -1278,6 +1278,20 @@
                                                                placeholder="{{translate('Post Validation (days)')}} *"
                                                                type="number" required step="any"
                                                                value="{{$dataValues->where('key_name', 'max_booking_amount')->first()->live_values ?? ''}}">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="card2 p-20">
+                                                    <h5 class="mb-1 fz-14 fw-medium">{{ translate('Booking Confirmation Amount') }}</h5>
+                                                    <p class="fz-12 mb-10">
+                                                        {{ translate('Advance amount charged per distinct service at checkout to confirm the booking. Remaining balance is due later.') }}
+                                                    </p>
+                                                    <div class="message-textarea">
+                                                        <input class="form-control" name="booking_confirmation_amount_per_service"
+                                                               placeholder="{{ translate('Booking Confirmation Amount') }} *"
+                                                               type="number" required step="any" min="0"
+                                                               value="{{$dataValues->where('key_name', 'booking_confirmation_amount_per_service')->first()->live_values ?? 100}}">
                                                     </div>
                                                 </div>
                                             </div>

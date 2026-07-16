@@ -3911,6 +3911,7 @@ const BUSINESS_SETTINGS_TYPE = [
     'cart_checkout_leniency_type' => 'booking_setup',
     'min_booking_amount' => 'booking_setup',
     'max_booking_amount' => 'booking_setup',
+    'booking_confirmation_amount_per_service' => 'booking_setup',
     'company_service_hours_enabled' => 'booking_setup',
     'company_service_start_time' => 'booking_setup',
     'company_service_end_time' => 'booking_setup',

@@ -477,6 +477,7 @@ class BusinessInformationController extends Controller
             'cart_checkout_leniency_type' => 'required|in:minute,hour,day',
             'min_booking_amount' => 'required|numeric|gte:0',
             'max_booking_amount' => 'required|numeric|gt:min_booking_amount',
+            'booking_confirmation_amount_per_service' => 'required|numeric|gte:0',
             'direct_provider_booking' => 'required|in:0,1',
             'company_service_hours_enabled' => 'required|in:0,1',
             'company_service_start_time' => 'required_if:company_service_hours_enabled,1|nullable|date_format:H:i',

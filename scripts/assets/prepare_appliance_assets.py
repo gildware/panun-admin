@@ -79,12 +79,24 @@ def save_service_image(slug: str, kind: str) -> None:
     print(f"Wrote {out}")
 
 
+def _pad_to_square(img: Image.Image) -> Image.Image:
+    """Letterbox to square before resize so aspect ratio is preserved."""
+    img = img.convert("RGBA")
+    w, h = img.size
+    if w == h:
+        return img
+    side = max(w, h)
+    canvas = Image.new("RGBA", (side, side), (255, 255, 255, 255))
+    canvas.paste(img, ((side - w) // 2, (side - h) // 2), img)
+    return canvas
+
+
 def save_variant_icon(src_name: str, out_name: str) -> None:
     src = SRC / src_name
     if not src.is_file():
         raise SystemExit(f"Missing variant source: {src}")
     out = VARIANT_IMG / out_name
-    result = recolor(Image.open(src))
+    result = _pad_to_square(recolor(Image.open(src)))
     result = result.resize((512, 512), Image.Resampling.LANCZOS)
     result.convert("RGB").save(out, "PNG", optimize=True)
     print(f"Wrote {out}")
