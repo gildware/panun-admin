@@ -5870,7 +5870,18 @@ if (!function_exists('add_to_fund_wallet_feature_enabled')) {
 if (!function_exists('wallet_payment_feature_enabled')) {
     function wallet_payment_feature_enabled(): bool
     {
-        return (int) (business_config('wallet_payment', 'service_setup')?->live_values ?? 0) === 1;
+        if (! customer_wallet_feature_enabled()) {
+            return false;
+        }
+
+        $config = business_config('wallet_payment', 'service_setup');
+        if (! $config) {
+            // Backward compatibility: older installs enabled customer wallet before
+            // wallet_payment existed as a separate service_setup toggle.
+            return true;
+        }
+
+        return (int) ($config->live_values ?? 0) === 1;
     }
 }
 
