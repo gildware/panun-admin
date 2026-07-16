@@ -301,6 +301,12 @@ class BookingController extends Controller
             return response()->json(response_formatter(WALLET_MAX_SPEND_PER_TRANSACTION_400), 400);
         }
 
+        if (($response['message'] ?? '') === 'Invalid data') {
+            return response()->json(response_formatter(DEFAULT_400, null, [
+                ['error_code' => 'payment', 'message' => translate('Invalid partial payment data.')],
+            ]), 400);
+        }
+
         return response()->json(response_formatter(BOOKING_PLACE_FAIL_200), 200);
     }
 

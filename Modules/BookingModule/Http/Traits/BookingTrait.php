@@ -61,12 +61,14 @@ trait BookingTrait
         $paymentAmountType = $request['payment_amount_type'] ?? 'full';
         $customerWalletBalance = User::find($userId)?->wallet_balance ?? 0;
         if ($isPartials && ! $isGuest) {
-            $payableForValidation = (float) $cartData->sum('total_cost');
-            if ($paymentAmountType === 'confirmation') {
-                $payableForValidation = min(
-                    $payableForValidation,
-                    resolve_checkout_payment_amount($userId, 'confirmation')
+            if (! isset($request['post_id']) && require_booking_upfront_payment()) {
+                $payableForValidation = resolve_checkout_payment_amount(
+                    $userId,
+                    $paymentAmountType === 'confirmation' ? 'confirmation' : 'full'
                 );
+            } else {
+                $chargeRes = compute_additional_charges_for_cart_items($cartData);
+                $payableForValidation = round((float) $cartData->sum('total_cost') + (float) ($chargeRes['total'] ?? 0), 2);
             }
             $walletApplicable = min(
                 (float) $customerWalletBalance,
