@@ -1,0 +1,81 @@
+  refreshed How It Works overview
+UPDATED service images: apartment-cockroach-control
+  variant 1-bhk -> service/apartment-cockroach-control/2026-07-11-6a522cc2128b5.webp
+  variant 2-bhk -> service/apartment-cockroach-control/2026-07-11-6a522cc6a3247.webp
+  variant 3-bhk -> service/apartment-cockroach-control/2026-07-11-6a522ccaa2304.webp
+  variant 4-bhk -> service/apartment-cockroach-control/2026-07-11-6a522cce56d33.webp
+  variant balcony -> service/apartment-cockroach-control/2026-07-11-6a522cd21cf45.webp
+  variant bathroom -> service/apartment-cockroach-control/2026-07-11-6a522cd62b5f6.webp
+  variant bedroom -> service/apartment-cockroach-control/2026-07-11-6a522cd9b67c4.webp
+  variant extra-room -> service/apartment-cockroach-control/2026-07-11-6a522cdd73047.webp
+  variant not-required -> service/apartment-cockroach-control/2026-07-11-6a522ce13e860.webp
+  variant yes -> service/apartment-cockroach-control/2026-07-11-6a522ce533e1e.webp
+  refreshed How It Works overview
+UPDATED service images: bungalow-cockroach-control
+  variant 2000-3000-sq-ft -> service/bungalow-cockroach-control/2026-07-11-6a522cf1dc2c9.webp
+  variant 3000-4000-sq-ft -> service/bungalow-cockroach-control/2026-07-11-6a522cf5dd051.webp
+  variant 4000-5000-sq-ft -> service/bungalow-cockroach-control/2026-07-11-6a522cf9ed013.webp
+  variant 5000-sq-ft -> service/bungalow-cockroach-control/2026-07-11-6a522cff1a1a4.webp
+  variant balcony -> service/bungalow-cockroach-control/2026-07-11-6a522d0346efb.webp
+  variant bathroom -> service/bungalow-cockroach-control/2026-07-11-6a522d075d2b9.webp
+  variant bedroom -> service/bungalow-cockroach-control/2026-07-11-6a522d0b2a93f.webp
+  variant extra-room -> service/bungalow-cockroach-control/2026-07-11-6a522d0fafa8f.webp
+  variant not-required -> service/bungalow-cockroach-control/2026-07-11-6a522d1383c87.webp
+  variant yes -> service/bungalow-cockroach-control/2026-07-11-6a522d1758de3.webp
+  refreshed How It Works overview
+UPDATED service images: kitchen-cockroach-control
+  variant 1-bathroom-and-kitchen -> service/kitchen-cockroach-control/2026-07-11-6a522d2593d7f.webp
+  variant kitchen-only -> service/kitchen-cockroach-control/2026-07-11-6a522d297d53c.webp
+  variant balcony -> service/kitchen-cockroach-control/2026-07-11-6a522d2d44aac.webp
+  variant bathroom -> service/kitchen-cockroach-control/2026-07-11-6a522d3121440.webp
+  variant extra-room -> service/kitchen-cockroach-control/2026-07-11-6a522d352cc10.webp
+  variant not-required -> service/kitchen-cockroach-control/2026-07-11-6a522d3938af6.webp
+  variant yes -> service/kitchen-cockroach-control/2026-07-11-6a522d3d4748f.webp
+  refreshed How It Works overview
+UPDATED service images: partial-home-cockroach-control
+  variant 1-bedroom-kitchen -> service/partial-home-cockroach-control/2026-07-11-6a522d496807b.webp
+  variant 2-bedroom-kitchen -> service/partial-home-cockroach-control/2026-07-11-6a522d4d227e2.webp
+  variant 3-bedroom-kitchen -> service/partial-home-cockroach-control/2026-07-11-6a522d5105ddd.webp
+  variant 4-bedroom-kitchen -> service/partial-home-cockroach-control/2026-07-11-6a522d54f0b73.webp
+  variant balcony -> service/partial-home-cockroach-control/2026-07-11-6a522d58a8e4d.webp
+  variant bathroom -> service/partial-home-cockroach-control/2026-07-11-6a522d5c9c4b5.webp
+  variant extra-room -> service/partial-home-cockroach-control/2026-07-11-6a522d6215743.webp
+  variant not-required -> service/partial-home-cockroach-control/2026-07-11-6a522d659696c.webp
+  variant yes -> service/partial-home-cockroach-control/2026-07-11-6a522d692b3d2.webp
+  refreshed How It Works overview
+UPDATED service images: office-cockroach-control
+  variant up-to-500-sq-ft -> service/office-cockroach-control/2026-07-11-6a522d757fbba.webp
+  variant 500-1000-sq-ft -> service/office-cockroach-control/2026-07-11-6a522d79a2af1.webp
+  variant 1000-2000-sq-ft -> service/office-cockroach-control/2026-07-11-6a522d7d7fa23.webp
+  variant 2000-sq-ft -> service/office-cockroach-control/2026-07-11-6a522d81e7e4c.webp
+  refreshed How It Works overview
+UPDATED service images: office-rodent-control
+  variant up-to-500-sq-ft -> service/office-rodent-control/2026-07-11-6a522d8f60adf.webp
+  variant 500-1000-sq-ft -> service/office-rodent-control/2026-07-11-6a522d9315371.webp
+  variant 1000-2000-sq-ft -> service/office-rodent-control/2026-07-11-6a522d968f409.webp
+  variant 2000-sq-ft -> service/office-rodent-control/2026-07-11-6a522d9a53b07.webp
+  refreshed How It Works overview
+UPDATED service images: office-ant-control
+  variant up-to-500-sq-ft -> service/office-ant-control/2026-07-11-6a522da691ad3.webp
+  variant 500-1000-sq-ft -> service/office-ant-control/2026-07-11-6a522daa464e7.webp
+  variant 1000-2000-sq-ft -> service/office-ant-control/2026-07-11-6a522dadf1f23.webp
+  variant 2000-sq-ft -> service/office-ant-control/2026-07-11-6a522db1b6997.webp
+  refreshed How It Works overview
+UPDATED service images: restaurant-kitchen-pest-control
+  variant small-kitchen -> service/restaurant-kitchen-pest-control/2026-07-11-6a522dbdee8e3.webp
+  variant medium-kitchen -> service/restaurant-kitchen-pest-control/2026-07-11-6a522dc160646.webp
+  variant large-kitchen -> service/restaurant-kitchen-pest-control/2026-07-11-6a522dc4ebac1.webp
+  variant kitchen-storage -> service/restaurant-kitchen-pest-control/2026-07-11-6a522dc8bb391.webp
+  refreshed How It Works overview
+UPDATED service images: restaurant-dining-pest-control
+  variant up-to-20-seats -> service/restaurant-dining-pest-control/2026-07-11-6a522dd6334af.webp
+  variant 21-50-seats -> service/restaurant-dining-pest-control/2026-07-11-6a522dd9aab4d.webp
+  variant 51-100-seats -> service/restaurant-dining-pest-control/2026-07-11-6a522ddd6270e.webp
+  variant 100-plus-seats -> service/restaurant-dining-pest-control/2026-07-11-6a522de141b22.webp
+  refreshed How It Works overview
+UPDATED service images: restaurant-cockroach-control
+  variant up-to-500-sq-ft -> service/restaurant-cockroach-control/2026-07-11-6a522def4d133.webp
+  variant 500-1000-sq-ft -> service/restaurant-cockroach-control/2026-07-11-6a522df33e4c6.webp
+  variant 1000-2000-sq-ft -> service/restaurant-cockroach-control/2026-07-11-6a522df6e3a35.webp
+  variant 2000-sq-ft -> service/restaurant-cockroach-control/2026-07-11-6a522dfaa42eb.webp
+Done. services=10 variants=60

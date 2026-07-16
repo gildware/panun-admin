@@ -1,0 +1,758 @@
+[
+    {
+        "tab": "Booking Creation",
+        "count": 4,
+        "notifications": [
+            {
+                "key": "admin_booking_created",
+                "audience": "customer",
+                "status": "1",
+                "title": "Booking Created – {{bookingId}}",
+                "description": "Hi {{userName}}, an admin created booking {{bookingId}} for you with {{providerName}} on {{scheduleTime}}."
+            },
+            {
+                "key": "booking_place",
+                "audience": "customer",
+                "status": 1,
+                "title": "Booking Placed – {{bookingId}}",
+                "description": "Hi {{userName}}, your booking {{bookingId}} is submitted in {{zoneName}}. Scheduled for {{scheduleTime}}."
+            },
+            {
+                "key": "admin_booking_assigned",
+                "audience": "provider",
+                "status": "1",
+                "title": "Admin Assigned Booking – {{bookingId}}",
+                "description": "Hi {{providerName}}, admin assigned booking {{bookingId}} to you for {{userName}} on {{scheduleTime}}."
+            },
+            {
+                "key": "new_service_request_arrived",
+                "audience": "provider",
+                "status": 1,
+                "title": "New Booking Request – {{bookingId}}",
+                "description": "Hi {{providerName}}, you received booking {{bookingId}} in {{zoneName}} from {{userName}}. Scheduled: {{scheduleTime}}."
+            }
+        ]
+    },
+    {
+        "tab": "Booking Update",
+        "count": 20,
+        "notifications": [
+            {
+                "key": "booking_accepted",
+                "audience": "customer",
+                "status": 1,
+                "title": "Booking Confirmed – {{bookingId}}",
+                "description": "Hi {{userName}}, {{providerName}} accepted booking {{bookingId}}. Scheduled for {{scheduleTime}}."
+            },
+            {
+                "key": "booking_complete",
+                "audience": "customer",
+                "status": 1,
+                "title": "Service Completed – {{bookingId}}",
+                "description": "Hi {{userName}}, booking {{bookingId}} with {{providerName}} is completed. Thank you for choosing us."
+            },
+            {
+                "key": "booking_edit_service_add",
+                "audience": "customer",
+                "status": 1,
+                "title": "Service Added – {{bookingId}}",
+                "description": "Hi {{userName}}, {{serviceName}} was added to booking {{bookingId}} with {{providerName}}."
+            },
+            {
+                "key": "booking_edit_service_update",
+                "audience": "customer",
+                "status": "1",
+                "title": "Service Updated – {{bookingId}}",
+                "description": "Hi {{userName}}, services on booking {{bookingId}} with {{providerName}} were updated."
+            },
+            {
+                "key": "booking_ignored_by_provider",
+                "audience": "customer",
+                "status": "1",
+                "title": "Provider Unavailable – {{bookingId}}",
+                "description": "Hi {{userName}}, the provider could not take booking {{bookingId}}. We are finding another provider for you."
+            },
+            {
+                "key": "booking_reminder",
+                "audience": "customer",
+                "status": "1",
+                "title": "Upcoming Booking – {{bookingId}}",
+                "description": "Hi {{userName}}, reminder: booking {{bookingId}} with {{providerName}} is scheduled for {{scheduleTime}}."
+            },
+            {
+                "key": "booking_schedule_time_change",
+                "audience": "customer",
+                "status": 1,
+                "title": "Schedule Updated – {{bookingId}}",
+                "description": "Hi {{userName}}, booking {{bookingId}} with {{providerName}} is rescheduled to {{scheduleTime}}."
+            },
+            {
+                "key": "booking_status_change",
+                "audience": "customer",
+                "status": 1,
+                "title": "Booking {{bookingStatus}} – {{bookingId}}",
+                "description": "Hi {{userName}}, booking {{bookingId}} status is now {{bookingStatus}}. Provider: {{providerName}}."
+            },
+            {
+                "key": "otp",
+                "audience": "customer",
+                "status": 1,
+                "title": "Verification OTP – {{bookingId}}",
+                "description": "Hi {{userName}}, your OTP for booking {{bookingId}} is {{otp}}. Share it with the provider when service starts."
+            },
+            {
+                "key": "provider_assign",
+                "audience": "customer",
+                "status": 1,
+                "title": "Provider Assigned – {{bookingId}}",
+                "description": "Hi {{userName}}, {{providerName}} is assigned to booking {{bookingId}} on {{scheduleTime}}."
+            },
+            {
+                "key": "refund",
+                "audience": "customer",
+                "status": 1,
+                "title": "Refund Processed – {{bookingId}}",
+                "description": "Hi {{userName}}, {{amount}} has been refunded to your wallet for booking {{bookingId}}."
+            },
+            {
+                "key": "service_location_updated",
+                "audience": "customer",
+                "status": "1",
+                "title": "Service Location Updated – {{bookingId}}",
+                "description": "Hi {{userName}}, the service location for booking {{bookingId}} with {{providerName}} has been updated."
+            },
+            {
+                "key": "booking_accepted",
+                "audience": "provider",
+                "status": 1,
+                "title": "Booking Accepted – {{bookingId}}",
+                "description": "Hi {{providerName}}, you accepted booking {{bookingId}} for {{userName}} on {{scheduleTime}}."
+            },
+            {
+                "key": "booking_assigned_to_provider",
+                "audience": "provider",
+                "status": "1",
+                "title": "Booking Assigned to You – {{bookingId}}",
+                "description": "Hi {{providerName}}, booking {{bookingId}} is assigned to you. Customer: {{userName}}. Scheduled: {{scheduleTime}}."
+            },
+            {
+                "key": "booking_complete",
+                "audience": "provider",
+                "status": 1,
+                "title": "Booking Completed – {{bookingId}}",
+                "description": "Hi {{providerName}}, booking {{bookingId}} with {{userName}} is marked completed."
+            },
+            {
+                "key": "booking_edit_service_add",
+                "audience": "provider",
+                "status": 1,
+                "title": "Service Added – {{bookingId}}",
+                "description": "Hi {{providerName}}, {{serviceName}} was added to booking {{bookingId}}."
+            },
+            {
+                "key": "booking_edit_service_update",
+                "audience": "provider",
+                "status": 1,
+                "title": "Service Updated – {{bookingId}}",
+                "description": "Hi {{providerName}}, services on booking {{bookingId}} were updated."
+            },
+            {
+                "key": "booking_schedule_time_change",
+                "audience": "provider",
+                "status": 1,
+                "title": "Booking Rescheduled – {{bookingId}}",
+                "description": "Hi {{providerName}}, booking {{bookingId}} is rescheduled to {{scheduleTime}}."
+            },
+            {
+                "key": "booking_status_change",
+                "audience": "provider",
+                "status": 1,
+                "title": "Booking {{bookingStatus}} – {{bookingId}}",
+                "description": "Hi {{providerName}}, booking {{bookingId}} status is now {{bookingStatus}}. Customer: {{userName}}."
+            },
+            {
+                "key": "provider_removed_from_booking",
+                "audience": "provider",
+                "status": "1",
+                "title": "Removed From Booking – {{bookingId}}",
+                "description": "Hi {{providerName}}, you have been removed from booking {{bookingId}}. Admin may assign another provider."
+            }
+        ]
+    },
+    {
+        "tab": "Payments",
+        "count": 5,
+        "notifications": [
+            {
+                "key": "payment_collected_company",
+                "audience": "customer",
+                "status": 1,
+                "title": "Payment Received – {{bookingId}}",
+                "description": "Hi {{userName}}, {{amount}} was received for booking {{bookingId}}. Status: {{bookingStatus}}."
+            },
+            {
+                "key": "payment_collected_provider",
+                "audience": "customer",
+                "status": 1,
+                "title": "Payment Recorded – {{bookingId}}",
+                "description": "Hi {{userName}}, {{providerName}} recorded {{amount}} for booking {{bookingId}}."
+            },
+            {
+                "key": "payment_failed",
+                "audience": "customer",
+                "status": 1,
+                "title": "Payment Failed – {{bookingId}}",
+                "description": "Hi {{userName}}, payment of {{amount}} for booking {{bookingId}} could not be completed. Please try again."
+            },
+            {
+                "key": "payment_collected_company",
+                "audience": "provider",
+                "status": 1,
+                "title": "Payment Received – {{bookingId}}",
+                "description": "Hi {{providerName}}, {{amount}} was received for booking {{bookingId}}."
+            },
+            {
+                "key": "payment_collected_provider",
+                "audience": "provider",
+                "status": 1,
+                "title": "Payment Recorded – {{bookingId}}",
+                "description": "Hi {{providerName}}, {{amount}} was recorded for booking {{bookingId}}."
+            }
+        ]
+    },
+    {
+        "tab": "Provider Payments",
+        "count": 5,
+        "notifications": [
+            {
+                "key": "admin_payable",
+                "audience": "provider",
+                "status": 1,
+                "title": "Amount Payable to Admin",
+                "description": "Hi {{providerName}}, {{amount}} is recorded as payable to admin."
+            },
+            {
+                "key": "settlement_received",
+                "audience": "provider",
+                "status": 1,
+                "title": "Settlement Received",
+                "description": "Hi {{providerName}}, {{amount}} settlement has been credited to your account."
+            },
+            {
+                "key": "widthdraw_request_approve",
+                "audience": "provider",
+                "status": 1,
+                "title": "Withdrawal Approved",
+                "description": "Hi {{providerName}}, your withdrawal request of {{amount}} has been approved."
+            },
+            {
+                "key": "widthdraw_request_deny",
+                "audience": "provider",
+                "status": 1,
+                "title": "Withdrawal Denied",
+                "description": "Hi {{providerName}}, your withdrawal request of {{amount}} was denied."
+            },
+            {
+                "key": "withdraw_request_submitted",
+                "audience": "provider",
+                "status": "1",
+                "title": "Withdrawal Request Submitted",
+                "description": "Hi {{providerName}}, your withdrawal request of {{amount}} has been submitted."
+            }
+        ]
+    },
+    {
+        "tab": "Review",
+        "count": 4,
+        "notifications": [
+            {
+                "key": "customer_review_approved",
+                "audience": "customer",
+                "status": "1",
+                "title": "You Have a New Review",
+                "description": "Hi {{userName}}, you have got a new review from {{providerName}} on booking {{bookingId}}."
+            },
+            {
+                "key": "review_published",
+                "audience": "customer",
+                "status": "1",
+                "title": "Your Review Is Approved",
+                "description": "Hi {{userName}}, your review for {{providerName}} on booking {{bookingId}} is approved and published."
+            },
+            {
+                "key": "provider_review_published",
+                "audience": "provider",
+                "status": "1",
+                "title": "Your Review Is Approved",
+                "description": "Hi {{providerName}}, your review for {{userName}} on booking {{bookingId}} is approved and published."
+            },
+            {
+                "key": "review_approved",
+                "audience": "provider",
+                "status": "1",
+                "title": "You Have a New Review",
+                "description": "Hi {{providerName}}, you have got a new review from {{userName}} on booking {{bookingId}}."
+            }
+        ]
+    },
+    {
+        "tab": "Loyalty Points",
+        "count": 4,
+        "notifications": [
+            {
+                "key": "loyalty_point",
+                "audience": "customer",
+                "status": 1,
+                "title": "Loyalty Points Earned",
+                "description": "Hi {{userName}}, you earned {{amount}} loyalty points. Booking: {{bookingId}}."
+            },
+            {
+                "key": "loyalty_point_convert",
+                "audience": "customer",
+                "status": "1",
+                "title": "Points Converted to Wallet",
+                "description": "Hi {{userName}}, {{amount}} loyalty points were converted to your wallet balance."
+            },
+            {
+                "key": "referral_code_used",
+                "audience": "customer",
+                "status": "1",
+                "title": "Your Referral Code Was Used",
+                "description": "Hi {{userName}}, someone signed up using your referral code. You will earn rewards when they complete their first booking."
+            },
+            {
+                "key": "referral_earning",
+                "audience": "customer",
+                "status": "1",
+                "title": "Referral Reward Earned",
+                "description": "Hi {{userName}}, you earned {{amount}} referral reward. Booking: {{bookingId}}."
+            }
+        ]
+    },
+    {
+        "tab": "Wallet",
+        "count": 3,
+        "notifications": [
+            {
+                "key": "add_fund_wallet",
+                "audience": "customer",
+                "status": 0,
+                "title": "Wallet Credited",
+                "description": "Hi {{userName}}, {{amount}} has been added to your wallet."
+            },
+            {
+                "key": "wallet_deducted",
+                "audience": "customer",
+                "status": 1,
+                "title": "Wallet Debited",
+                "description": "Hi {{userName}}, {{amount}} was deducted from your wallet for booking {{bookingId}}."
+            },
+            {
+                "key": "welcome_bonus_wallet",
+                "audience": "customer",
+                "status": "1",
+                "title": "Welcome Bonus Received",
+                "description": "Hi {{userName}}, welcome! {{amount}} has been added to your wallet as a signup bonus."
+            }
+        ]
+    },
+    {
+        "tab": "Refund",
+        "count": 1,
+        "notifications": [
+            {
+                "key": "refund_bank_transfer",
+                "audience": "customer",
+                "status": "1",
+                "title": "Bank Refund Initiated – {{bookingId}}",
+                "description": "Hi {{userName}}, {{amount}} refund for booking {{bookingId}} will be sent to your bank account."
+            }
+        ]
+    },
+    {
+        "tab": "Communication",
+        "count": 2,
+        "notifications": [
+            {
+                "key": "chat_message",
+                "audience": "customer",
+                "status": 1,
+                "title": "New Message from {{senderName}}",
+                "description": "Hi {{userName}}, you have a new chat message about booking {{bookingId}}."
+            },
+            {
+                "key": "chat_message",
+                "audience": "provider",
+                "status": 1,
+                "title": "New Chat Message",
+                "description": "Hi {{providerName}}, you have a new chat message about booking {{bookingId}} from {{userName}}."
+            }
+        ]
+    },
+    {
+        "tab": "Service Requests",
+        "count": 2,
+        "notifications": [
+            {
+                "key": "service_request_approve",
+                "audience": "provider",
+                "status": 1,
+                "title": "Service Request Approved",
+                "description": "Hi {{providerName}}, your service request for {{serviceName}} has been approved."
+            },
+            {
+                "key": "service_request_deny",
+                "audience": "provider",
+                "status": 1,
+                "title": "Service Request Denied",
+                "description": "Hi {{providerName}}, your service request for {{serviceName}} was not approved."
+            }
+        ]
+    },
+    {
+        "tab": "Provider Account",
+        "count": 6,
+        "notifications": [
+            {
+                "key": "onboarding_approve",
+                "audience": "provider",
+                "status": "1",
+                "title": "Onboarding Approved",
+                "description": "Hi {{providerName}}, your provider onboarding request has been approved. You can now sign in and start accepting jobs."
+            },
+            {
+                "key": "onboarding_deny",
+                "audience": "provider",
+                "status": "1",
+                "title": "Onboarding Not Approved",
+                "description": "Hi {{providerName}}, your provider onboarding request was not approved. Contact support if you need more information."
+            },
+            {
+                "key": "profile_change_approve",
+                "audience": "provider",
+                "status": "1",
+                "title": "Profile Update Approved",
+                "description": "Hi {{providerName}}, your {{changeType}} update request has been approved."
+            },
+            {
+                "key": "profile_change_deny",
+                "audience": "provider",
+                "status": "1",
+                "title": "Profile Update Not Approved",
+                "description": "Hi {{providerName}}, your {{changeType}} update request was not approved."
+            },
+            {
+                "key": "provider_suspend",
+                "audience": "provider",
+                "status": "1",
+                "title": "Account Suspended",
+                "description": "Hi {{providerName}}, your provider account has been suspended. Contact admin for assistance."
+            },
+            {
+                "key": "provider_suspension_remove",
+                "audience": "provider",
+                "status": "1",
+                "title": "Suspension Lifted",
+                "description": "Hi {{providerName}}, your provider account suspension has been removed. You can resume operations."
+            }
+        ]
+    },
+    {
+        "tab": "Advertisement",
+        "count": 7,
+        "notifications": [
+            {
+                "key": "advertisement_approved",
+                "audience": "provider",
+                "status": "1",
+                "title": "Advertisement Approved",
+                "description": "Hi {{providerName}}, your advertisement has been approved and is now active."
+            },
+            {
+                "key": "advertisement_created_by_admin",
+                "audience": "provider",
+                "status": "1",
+                "title": "New Advertisement Created",
+                "description": "Hi {{providerName}}, admin created a new advertisement for your profile."
+            },
+            {
+                "key": "advertisement_denied",
+                "audience": "provider",
+                "status": "1",
+                "title": "Advertisement Denied",
+                "description": "Hi {{providerName}}, your advertisement request was not approved."
+            },
+            {
+                "key": "advertisement_paused",
+                "audience": "provider",
+                "status": "1",
+                "title": "Advertisement Paused",
+                "description": "Hi {{providerName}}, your advertisement has been paused."
+            },
+            {
+                "key": "advertisement_paused_by_provider",
+                "audience": "provider",
+                "status": "1",
+                "title": "Advertisement Paused",
+                "description": "Hi {{providerName}}, you paused your advertisement."
+            },
+            {
+                "key": "advertisement_resumed",
+                "audience": "provider",
+                "status": "1",
+                "title": "Advertisement Resumed",
+                "description": "Hi {{providerName}}, your advertisement is active again."
+            },
+            {
+                "key": "advertisement_resumed_by_provider",
+                "audience": "provider",
+                "status": "1",
+                "title": "Advertisement Resumed",
+                "description": "Hi {{providerName}}, you resumed your advertisement and it is active again."
+            }
+        ]
+    },
+    {
+        "tab": "Provider Work Showcase",
+        "count": 3,
+        "notifications": [
+            {
+                "key": "showcase_approve",
+                "audience": "provider",
+                "status": "1",
+                "title": "Showcase Approved",
+                "description": "Hi {{providerName}}, your work showcase \"{{showcaseTitle}}\" has been approved and is now visible on your profile."
+            },
+            {
+                "key": "showcase_deny",
+                "audience": "provider",
+                "status": "1",
+                "title": "Showcase Not Approved",
+                "description": "Hi {{providerName}}, your work showcase \"{{showcaseTitle}}\" was not approved. You may edit and resubmit."
+            },
+            {
+                "key": "showcase_submitted",
+                "audience": "provider",
+                "status": "1",
+                "title": "Showcase Submitted",
+                "description": "Hi {{providerName}}, your work showcase \"{{showcaseTitle}}\" has been submitted and is pending admin approval."
+            }
+        ]
+    },
+    {
+        "tab": "Other \/ Unmapped",
+        "count": 30,
+        "notifications": [
+            {
+                "key": "add_fund_wallet_bonus",
+                "audience": "customer",
+                "status": 0,
+                "title": "Reward Credited",
+                "description": "Enjoy your wallet reward."
+            },
+            {
+                "key": "booking_cancel",
+                "audience": "customer",
+                "status": 1,
+                "title": "Booking Cancelled",
+                "description": "Your booking was cancelled."
+            },
+            {
+                "key": "booking_edit_service_quantity_decrease",
+                "audience": "customer",
+                "status": 1,
+                "title": "Service Quantity Decreased",
+                "description": "Service quantity updated successfully."
+            },
+            {
+                "key": "booking_edit_service_quantity_increase",
+                "audience": "customer",
+                "status": 1,
+                "title": "Service Quantity Increased",
+                "description": "Service quantity updated successfully."
+            },
+            {
+                "key": "booking_edit_service_remove",
+                "audience": "customer",
+                "status": 1,
+                "title": "Booking Updated",
+                "description": "A service has been removed."
+            },
+            {
+                "key": "booking_ongoing",
+                "audience": "customer",
+                "status": 1,
+                "title": "Expert At Work",
+                "description": "Your Booking  is in progress."
+            },
+            {
+                "key": "customer_notification_for_provider_bid_offer",
+                "audience": "customer",
+                "status": 0,
+                "title": "customer notification for provider bid offer",
+                "description": ""
+            },
+            {
+                "key": "customer_notification_for_provider_bid_withdraw",
+                "audience": "customer",
+                "status": 0,
+                "title": "Customer notification for provider bid withdraw",
+                "description": ""
+            },
+            {
+                "key": "customized_booking_request",
+                "audience": "customer",
+                "status": 0,
+                "title": "New Customized Request",
+                "description": "Review the customer's request."
+            },
+            {
+                "key": "customized_booking_request_delete",
+                "audience": "customer",
+                "status": 0,
+                "title": "Request Deleted",
+                "description": "Customized request deleted successfully."
+            },
+            {
+                "key": "offline_payment_approved",
+                "audience": "customer",
+                "status": 0,
+                "title": "Offline Payment Approved",
+                "description": ""
+            },
+            {
+                "key": "referral_earning_first_booking",
+                "audience": "customer",
+                "status": "1",
+                "title": "Referral Earning First Booking",
+                "description": ""
+            },
+            {
+                "key": "serviceman_assign",
+                "audience": "customer",
+                "status": 1,
+                "title": "Serviceman Assigned",
+                "description": "A Serviceman has been  assigned to you"
+            },
+            {
+                "key": "booking_cancel",
+                "audience": "provider",
+                "status": 1,
+                "title": "Booking Cancelled",
+                "description": "Your booking was cancelled."
+            },
+            {
+                "key": "booking_edit_service_quantity_decrease",
+                "audience": "provider",
+                "status": 1,
+                "title": "Service Quantity Decrease",
+                "description": "Service quantity decreased successfully"
+            },
+            {
+                "key": "booking_edit_service_quantity_increase",
+                "audience": "provider",
+                "status": 1,
+                "title": "Service Quantity Increased",
+                "description": "Service quantity increased successfully"
+            },
+            {
+                "key": "booking_edit_service_remove",
+                "audience": "provider",
+                "status": 1,
+                "title": "A Service Removed",
+                "description": "A Service has been removed from this booking"
+            },
+            {
+                "key": "ongoing_booking",
+                "audience": "provider",
+                "status": 1,
+                "title": "Expert At Work",
+                "description": "Your Booking is in progress"
+            },
+            {
+                "key": "provider_bid_request_denied",
+                "audience": "provider",
+                "status": 0,
+                "title": "Provider Bid Request Denied",
+                "description": ""
+            },
+            {
+                "key": "serviceman_assign",
+                "audience": "provider",
+                "status": 0,
+                "title": "Serviceman Assign",
+                "description": ""
+            },
+            {
+                "key": "booking_cancel",
+                "audience": "serviceman",
+                "status": "1",
+                "title": "Booking Cancel",
+                "description": ""
+            },
+            {
+                "key": "booking_complete",
+                "audience": "serviceman",
+                "status": "1",
+                "title": "Booking Complete",
+                "description": ""
+            },
+            {
+                "key": "booking_edit_service_add",
+                "audience": "serviceman",
+                "status": "1",
+                "title": "Booking Edit Service Add",
+                "description": ""
+            },
+            {
+                "key": "booking_edit_service_quantity_decrease",
+                "audience": "serviceman",
+                "status": "1",
+                "title": "Booking Edit Service Quantity Decrease",
+                "description": ""
+            },
+            {
+                "key": "booking_edit_service_quantity_increase",
+                "audience": "serviceman",
+                "status": "1",
+                "title": "Booking Edit Service Quantity Increase",
+                "description": ""
+            },
+            {
+                "key": "booking_edit_service_remove",
+                "audience": "serviceman",
+                "status": "1",
+                "title": "Booking Edit Service Remove",
+                "description": ""
+            },
+            {
+                "key": "booking_schedule_time_change",
+                "audience": "serviceman",
+                "status": "1",
+                "title": "Booking Schedule Time Change",
+                "description": ""
+            },
+            {
+                "key": "ongoing_booking",
+                "audience": "serviceman",
+                "status": "1",
+                "title": "Ongoing Booking",
+                "description": ""
+            },
+            {
+                "key": "privacy_and_policy_update",
+                "audience": "serviceman",
+                "status": "1",
+                "title": "Privacy And Policy Update",
+                "description": ""
+            },
+            {
+                "key": "serviceman_assign",
+                "audience": "serviceman",
+                "status": "1",
+                "title": "Serviceman Assign",
+                "description": ""
+            }
+        ]
+    }
+]

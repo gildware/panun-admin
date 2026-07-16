@@ -1,0 +1,27 @@
+Asset validation passed for 10 services.
+Category ready: Pest Control (pest-control)
+Category ready: Home Pest Control (home-pest-control)
+Category ready: Office Pest Control (office-pest-control)
+Category ready: Restaurant Pest Control (restaurant-pest-control)
+UPDATED service: Apartment cockroach control
+  variants: 10 x 20 zones
+UPDATED service: Bungalow cockroach control
+  variants: 10 x 20 zones
+UPDATED service: Kitchen cockroach control
+  variants: 7 x 20 zones
+UPDATED service: Partial home cockroach control
+  variants: 9 x 20 zones
+UPDATED service: Office cockroach control
+  variants: 4 x 20 zones
+UPDATED service: Office rodent control
+  variants: 4 x 20 zones
+UPDATED service: Office ant control
+  variants: 4 x 20 zones
+UPDATED service: Restaurant kitchen pest control
+  variants: 4 x 20 zones
+UPDATED service: Restaurant dining pest control
+  variants: 4 x 20 zones
+UPDATED service: Restaurant cockroach control
+  variants: 4 x 20 zones
+
+Pest Control catalog seeded: 1 category, 3 sub-categories, 10 services.

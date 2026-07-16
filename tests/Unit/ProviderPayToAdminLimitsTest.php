@@ -37,4 +37,40 @@ class ProviderPayToAdminLimitsTest extends TestCase
         $this->assertSame(15.0, $limits['max']);
         $this->assertFalse($limits['is_advance']);
     }
+
+    public function test_resolve_amount_defaults_to_max_when_not_requested(): void
+    {
+        $limits = provider_pay_to_admin_limits(-100.0, 50.0, 0.0);
+        $resolved = resolve_provider_pay_to_admin_amount(null, $limits, 0.0);
+
+        $this->assertSame(50.0, $resolved['amount']);
+        $this->assertNull($resolved['error']);
+    }
+
+    public function test_resolve_amount_accepts_partial_payment(): void
+    {
+        $limits = provider_pay_to_admin_limits(-100.0, 50.0, 0.0);
+        $resolved = resolve_provider_pay_to_admin_amount(25.0, $limits, 0.0);
+
+        $this->assertSame(25.0, $resolved['amount']);
+        $this->assertNull($resolved['error']);
+    }
+
+    public function test_resolve_amount_rejects_over_max(): void
+    {
+        $limits = provider_pay_to_admin_limits(-100.0, 50.0, 0.0);
+        $resolved = resolve_provider_pay_to_admin_amount(75.0, $limits, 0.0);
+
+        $this->assertSame(0.0, $resolved['amount']);
+        $this->assertNotNull($resolved['error']);
+    }
+
+    public function test_resolve_amount_enforces_minimum_payable(): void
+    {
+        $limits = provider_pay_to_admin_limits(-100.0, 50.0, 0.0);
+        $resolved = resolve_provider_pay_to_admin_amount(5.0, $limits, 10.0);
+
+        $this->assertSame(0.0, $resolved['amount']);
+        $this->assertNotNull($resolved['error']);
+    }
 }

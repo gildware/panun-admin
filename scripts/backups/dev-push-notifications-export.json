@@ -1,0 +1,1778 @@
+{
+    "summary": [
+        {
+            "tab": "Booking Creation",
+            "scenarios": 3,
+            "push_audiences": 5
+        },
+        {
+            "tab": "Booking Update",
+            "scenarios": 18,
+            "push_audiences": 31
+        },
+        {
+            "tab": "Payments",
+            "scenarios": 4,
+            "push_audiences": 7
+        },
+        {
+            "tab": "Provider Payments",
+            "scenarios": 6,
+            "push_audiences": 6
+        },
+        {
+            "tab": "Review",
+            "scenarios": 2,
+            "push_audiences": 4
+        },
+        {
+            "tab": "Loyalty Points",
+            "scenarios": 5,
+            "push_audiences": 5
+        },
+        {
+            "tab": "Wallet",
+            "scenarios": 3,
+            "push_audiences": 3
+        },
+        {
+            "tab": "Refund",
+            "scenarios": 2,
+            "push_audiences": 2
+        },
+        {
+            "tab": "Communication",
+            "scenarios": 3,
+            "push_audiences": 4
+        },
+        {
+            "tab": "Service Requests",
+            "scenarios": 2,
+            "push_audiences": 2
+        },
+        {
+            "tab": "Provider Account",
+            "scenarios": 6,
+            "push_audiences": 6
+        },
+        {
+            "tab": "Advertisement",
+            "scenarios": 7,
+            "push_audiences": 7
+        },
+        {
+            "tab": "Provider Work Showcase",
+            "scenarios": 3,
+            "push_audiences": 3
+        },
+        {
+            "tab": "Admin Alerts",
+            "scenarios": 0,
+            "push_audiences": 0
+        }
+    ],
+    "data": [
+        {
+            "module": "booking_creation",
+            "label": "Booking Creation",
+            "scenarios": [
+                {
+                    "id": "booking_create_customer_with_provider",
+                    "title": "Customer books a service and selects a provider",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "booking_place",
+                            "settings_type": "customer_notification",
+                            "db_id": "85dc4d4a-d25c-492f-b030-17723bcbf95b",
+                            "status": 1,
+                            "message": "Booking Placed – {{bookingId}}",
+                            "description": "Hi {{userName}}, your booking {{bookingId}} is submitted in {{zoneName}}. Scheduled for {{scheduleTime}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_place",
+                                    "value": null
+                                }
+                            ]
+                        },
+                        {
+                            "audience": "provider",
+                            "key": "new_service_request_arrived",
+                            "settings_type": "provider_notification",
+                            "db_id": "be927e91-0b1f-44b1-9ad8-73022910f717",
+                            "status": 1,
+                            "message": "New Booking Request – {{bookingId}}",
+                            "description": "Hi {{providerName}}, you received booking {{bookingId}} in {{zoneName}} from {{userName}}. Scheduled: {{scheduleTime}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "new_service_request_arrived",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "booking_create_customer_auto_provider",
+                    "title": "Customer books and lets Panun Kaergar choose a provider",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "booking_place",
+                            "settings_type": "customer_notification",
+                            "db_id": "85dc4d4a-d25c-492f-b030-17723bcbf95b",
+                            "status": 1,
+                            "message": "Booking Placed – {{bookingId}}",
+                            "description": "Hi {{userName}}, your booking {{bookingId}} is submitted in {{zoneName}}. Scheduled for {{scheduleTime}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_place",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "booking_create_admin",
+                    "title": "Admin creates a booking from the admin panel",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "admin_booking_created",
+                            "settings_type": "customer_notification",
+                            "db_id": "4865622b-4625-4316-9009-59789c2c90be",
+                            "status": "1",
+                            "message": "Booking Created – {{bookingId}}",
+                            "description": "Hi {{userName}}, an admin created booking {{bookingId}} for you with {{providerName}} on {{scheduleTime}}.",
+                            "is_active": 1,
+                            "translations": []
+                        },
+                        {
+                            "audience": "provider",
+                            "key": "admin_booking_assigned",
+                            "settings_type": "provider_notification",
+                            "db_id": "5c080dc5-964a-4038-8dbe-e9932b4dda47",
+                            "status": "1",
+                            "message": "Admin Assigned Booking – {{bookingId}}",
+                            "description": "Hi {{providerName}}, admin assigned booking {{bookingId}} to you for {{userName}} on {{scheduleTime}}.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "module": "booking_update",
+            "label": "Booking Update",
+            "scenarios": [
+                {
+                    "id": "booking_admin_assign_provider",
+                    "title": "Admin assigns a provider to a booking",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "provider_assign",
+                            "settings_type": "customer_notification",
+                            "db_id": "152a636d-94ce-47b5-ac10-ede81749cffb",
+                            "status": 1,
+                            "message": "Provider Assigned – {{bookingId}}",
+                            "description": "Hi {{userName}}, {{providerName}} is assigned to booking {{bookingId}} on {{scheduleTime}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "provider_assign",
+                                    "value": null
+                                }
+                            ]
+                        },
+                        {
+                            "audience": "provider",
+                            "key": "booking_assigned_to_provider",
+                            "settings_type": "provider_notification",
+                            "db_id": "db7076ed-a23f-434f-9c0f-621c7322a1a9",
+                            "status": "1",
+                            "message": "Booking Assigned to You – {{bookingId}}",
+                            "description": "Hi {{providerName}}, booking {{bookingId}} is assigned to you. Customer: {{userName}}. Scheduled: {{scheduleTime}}.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "booking_provider_accept",
+                    "title": "Provider accepts a booking from the app",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "booking_accepted",
+                            "settings_type": "customer_notification",
+                            "db_id": "f290631d-bf48-45a8-90fc-98060f71d828",
+                            "status": 1,
+                            "message": "Booking Confirmed – {{bookingId}}",
+                            "description": "Hi {{userName}}, {{providerName}} accepted booking {{bookingId}}. Scheduled for {{scheduleTime}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_accepted",
+                                    "value": null
+                                }
+                            ]
+                        },
+                        {
+                            "audience": "provider",
+                            "key": "booking_accepted",
+                            "settings_type": "provider_notification",
+                            "db_id": "2b0ce7e1-ba62-437c-9f5b-cd9ccd12ea1d",
+                            "status": 1,
+                            "message": "Booking Accepted – {{bookingId}}",
+                            "description": "Hi {{providerName}}, you accepted booking {{bookingId}} for {{userName}} on {{scheduleTime}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_accepted",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "booking_provider_cancel",
+                    "title": "Provider rejects or cancels a booking",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "booking_status_change",
+                            "settings_type": "customer_notification",
+                            "db_id": "4a5dca90-054d-48b4-8b6b-25a7d08ce1e0",
+                            "status": 1,
+                            "message": "Booking {{bookingStatus}} – {{bookingId}}",
+                            "description": "Hi {{userName}}, booking {{bookingId}} status is now {{bookingStatus}}. Provider: {{providerName}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_status_change",
+                                    "value": null
+                                }
+                            ]
+                        },
+                        {
+                            "audience": "provider",
+                            "key": "provider_removed_from_booking",
+                            "settings_type": "provider_notification",
+                            "db_id": "55bac11f-7fa1-4b3f-9a7a-73ccb45cd255",
+                            "status": "1",
+                            "message": "Removed From Booking – {{bookingId}}",
+                            "description": "Hi {{providerName}}, you have been removed from booking {{bookingId}}. Admin may assign another provider.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "booking_provider_ongoing",
+                    "title": "Provider changes booking status to ongoing",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "booking_status_change",
+                            "settings_type": "customer_notification",
+                            "db_id": "4a5dca90-054d-48b4-8b6b-25a7d08ce1e0",
+                            "status": 1,
+                            "message": "Booking {{bookingStatus}} – {{bookingId}}",
+                            "description": "Hi {{userName}}, booking {{bookingId}} status is now {{bookingStatus}}. Provider: {{providerName}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_status_change",
+                                    "value": null
+                                }
+                            ]
+                        },
+                        {
+                            "audience": "provider",
+                            "key": "booking_status_change",
+                            "settings_type": "provider_notification",
+                            "db_id": "0dad88d0-f0b3-4fbd-9191-48c8c81ee573",
+                            "status": 1,
+                            "message": "Booking {{bookingStatus}} – {{bookingId}}",
+                            "description": "Hi {{providerName}}, booking {{bookingId}} status is now {{bookingStatus}}. Customer: {{userName}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_status_change",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "booking_admin_remove_provider",
+                    "title": "Admin removes a provider from a booking",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "booking_status_change",
+                            "settings_type": "customer_notification",
+                            "db_id": "4a5dca90-054d-48b4-8b6b-25a7d08ce1e0",
+                            "status": 1,
+                            "message": "Booking {{bookingStatus}} – {{bookingId}}",
+                            "description": "Hi {{userName}}, booking {{bookingId}} status is now {{bookingStatus}}. Provider: {{providerName}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_status_change",
+                                    "value": null
+                                }
+                            ]
+                        },
+                        {
+                            "audience": "provider",
+                            "key": "provider_removed_from_booking",
+                            "settings_type": "provider_notification",
+                            "db_id": "55bac11f-7fa1-4b3f-9a7a-73ccb45cd255",
+                            "status": "1",
+                            "message": "Removed From Booking – {{bookingId}}",
+                            "description": "Hi {{providerName}}, you have been removed from booking {{bookingId}}. Admin may assign another provider.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "booking_customer_cancel",
+                    "title": "Customer cancels a booking",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "booking_status_change",
+                            "settings_type": "customer_notification",
+                            "db_id": "4a5dca90-054d-48b4-8b6b-25a7d08ce1e0",
+                            "status": 1,
+                            "message": "Booking {{bookingStatus}} – {{bookingId}}",
+                            "description": "Hi {{userName}}, booking {{bookingId}} status is now {{bookingStatus}}. Provider: {{providerName}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_status_change",
+                                    "value": null
+                                }
+                            ]
+                        },
+                        {
+                            "audience": "provider",
+                            "key": "booking_status_change",
+                            "settings_type": "provider_notification",
+                            "db_id": "0dad88d0-f0b3-4fbd-9191-48c8c81ee573",
+                            "status": 1,
+                            "message": "Booking {{bookingStatus}} – {{bookingId}}",
+                            "description": "Hi {{providerName}}, booking {{bookingId}} status is now {{bookingStatus}}. Customer: {{userName}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_status_change",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "booking_admin_edit",
+                    "title": "Admin or provider adds a service to a booking",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "booking_edit_service_add",
+                            "settings_type": "customer_notification",
+                            "db_id": "c5d7ea4e-d51b-408f-8e57-58186d7d62f6",
+                            "status": 1,
+                            "message": "Service Added – {{bookingId}}",
+                            "description": "Hi {{userName}}, {{serviceName}} was added to booking {{bookingId}} with {{providerName}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_edit_service_add",
+                                    "value": null
+                                }
+                            ]
+                        },
+                        {
+                            "audience": "provider",
+                            "key": "booking_edit_service_add",
+                            "settings_type": "provider_notification",
+                            "db_id": "bde4ffab-e63d-435d-8854-46e4cfa49daf",
+                            "status": 1,
+                            "message": "Service Added – {{bookingId}}",
+                            "description": "Hi {{providerName}}, {{serviceName}} was added to booking {{bookingId}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_edit_service_add",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "booking_edit_service_update",
+                    "title": "Admin or provider updates or removes a booking service",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "booking_edit_service_update",
+                            "settings_type": "customer_notification",
+                            "db_id": "468f0388-dffa-466f-a3e9-583f209add5c",
+                            "status": "1",
+                            "message": "Service Updated – {{bookingId}}",
+                            "description": "Hi {{userName}}, services on booking {{bookingId}} with {{providerName}} were updated.",
+                            "is_active": 1,
+                            "translations": []
+                        },
+                        {
+                            "audience": "provider",
+                            "key": "booking_edit_service_update",
+                            "settings_type": "provider_notification",
+                            "db_id": "53a22201-b3e3-458c-a2b2-a28510361859",
+                            "status": 1,
+                            "message": "Service Updated – {{bookingId}}",
+                            "description": "Hi {{providerName}}, services on booking {{bookingId}} were updated.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_edit_service_update",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "booking_complete",
+                    "title": "Booking is marked completed",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "booking_complete",
+                            "settings_type": "customer_notification",
+                            "db_id": "11dddc2e-2b89-4bcc-9d48-1d3071dc37d6",
+                            "status": 1,
+                            "message": "Service Completed – {{bookingId}}",
+                            "description": "Hi {{userName}}, booking {{bookingId}} with {{providerName}} is completed. Thank you for choosing us.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_complete",
+                                    "value": null
+                                }
+                            ]
+                        },
+                        {
+                            "audience": "provider",
+                            "key": "booking_complete",
+                            "settings_type": "provider_notification",
+                            "db_id": "cc84f94d-743d-4551-8981-2fec5a750e93",
+                            "status": 1,
+                            "message": "Booking Completed – {{bookingId}}",
+                            "description": "Hi {{providerName}}, booking {{bookingId}} with {{userName}} is marked completed.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_complete",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "booking_otp_sent",
+                    "title": "Provider sends booking OTP to customer",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "otp",
+                            "settings_type": "customer_notification",
+                            "db_id": "16ee9973-8d7f-4984-9357-3490fdb8fe04",
+                            "status": 1,
+                            "message": "Verification OTP – {{bookingId}}",
+                            "description": "Hi {{userName}}, your OTP for booking {{bookingId}} is {{otp}}. Share it with the provider when service starts.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "otp",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "booking_reminder",
+                    "title": "Upcoming booking reminder",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "booking_reminder",
+                            "settings_type": "customer_notification",
+                            "db_id": "f420c44b-b8d8-4c85-bbbe-622b6bf33b95",
+                            "status": "1",
+                            "message": "Upcoming Booking – {{bookingId}}",
+                            "description": "Hi {{userName}}, reminder: booking {{bookingId}} with {{providerName}} is scheduled for {{scheduleTime}}.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "booking_admin_cancel",
+                    "title": "Admin cancels a booking",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "booking_status_change",
+                            "settings_type": "customer_notification",
+                            "db_id": "4a5dca90-054d-48b4-8b6b-25a7d08ce1e0",
+                            "status": 1,
+                            "message": "Booking {{bookingStatus}} – {{bookingId}}",
+                            "description": "Hi {{userName}}, booking {{bookingId}} status is now {{bookingStatus}}. Provider: {{providerName}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_status_change",
+                                    "value": null
+                                }
+                            ]
+                        },
+                        {
+                            "audience": "provider",
+                            "key": "booking_status_change",
+                            "settings_type": "provider_notification",
+                            "db_id": "0dad88d0-f0b3-4fbd-9191-48c8c81ee573",
+                            "status": 1,
+                            "message": "Booking {{bookingStatus}} – {{bookingId}}",
+                            "description": "Hi {{providerName}}, booking {{bookingId}} status is now {{bookingStatus}}. Customer: {{userName}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_status_change",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "booking_schedule_change",
+                    "title": "Admin changes the booking schedule",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "booking_schedule_time_change",
+                            "settings_type": "customer_notification",
+                            "db_id": "afba0ef3-7b60-4638-b2c0-2dac02f2119e",
+                            "status": 1,
+                            "message": "Schedule Updated – {{bookingId}}",
+                            "description": "Hi {{userName}}, booking {{bookingId}} with {{providerName}} is rescheduled to {{scheduleTime}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_schedule_time_change",
+                                    "value": null
+                                }
+                            ]
+                        },
+                        {
+                            "audience": "provider",
+                            "key": "booking_schedule_time_change",
+                            "settings_type": "provider_notification",
+                            "db_id": "fccca07e-50a5-4a6e-b509-5840a14fbc03",
+                            "status": 1,
+                            "message": "Booking Rescheduled – {{bookingId}}",
+                            "description": "Hi {{providerName}}, booking {{bookingId}} is rescheduled to {{scheduleTime}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_schedule_time_change",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "booking_on_hold",
+                    "title": "Booking is put on hold after visit",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "booking_status_change",
+                            "settings_type": "customer_notification",
+                            "db_id": "4a5dca90-054d-48b4-8b6b-25a7d08ce1e0",
+                            "status": 1,
+                            "message": "Booking {{bookingStatus}} – {{bookingId}}",
+                            "description": "Hi {{userName}}, booking {{bookingId}} status is now {{bookingStatus}}. Provider: {{providerName}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_status_change",
+                                    "value": null
+                                }
+                            ]
+                        },
+                        {
+                            "audience": "provider",
+                            "key": "booking_status_change",
+                            "settings_type": "provider_notification",
+                            "db_id": "0dad88d0-f0b3-4fbd-9191-48c8c81ee573",
+                            "status": 1,
+                            "message": "Booking {{bookingStatus}} – {{bookingId}}",
+                            "description": "Hi {{providerName}}, booking {{bookingId}} status is now {{bookingStatus}}. Customer: {{userName}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_status_change",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "booking_pending_cancellation",
+                    "title": "Customer requests booking cancellation",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "booking_status_change",
+                            "settings_type": "customer_notification",
+                            "db_id": "4a5dca90-054d-48b4-8b6b-25a7d08ce1e0",
+                            "status": 1,
+                            "message": "Booking {{bookingStatus}} – {{bookingId}}",
+                            "description": "Hi {{userName}}, booking {{bookingId}} status is now {{bookingStatus}}. Provider: {{providerName}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_status_change",
+                                    "value": null
+                                }
+                            ]
+                        },
+                        {
+                            "audience": "provider",
+                            "key": "booking_status_change",
+                            "settings_type": "provider_notification",
+                            "db_id": "0dad88d0-f0b3-4fbd-9191-48c8c81ee573",
+                            "status": 1,
+                            "message": "Booking {{bookingStatus}} – {{bookingId}}",
+                            "description": "Hi {{providerName}}, booking {{bookingId}} status is now {{bookingStatus}}. Customer: {{userName}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "booking_status_change",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "booking_refund_request_status",
+                    "title": "Booking moves to refund request status",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "refund",
+                            "settings_type": "customer_notification",
+                            "db_id": "3d51e47f-da99-4757-8392-4d6ab9e37fc3",
+                            "status": 1,
+                            "message": "Refund Processed – {{bookingId}}",
+                            "description": "Hi {{userName}}, {{amount}} has been refunded to your wallet for booking {{bookingId}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "refund",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "booking_ignored_by_provider",
+                    "title": "Provider ignores a booking request",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "booking_ignored_by_provider",
+                            "settings_type": "customer_notification",
+                            "db_id": "89691b4f-2f38-4139-91ea-fe8e427876c7",
+                            "status": "1",
+                            "message": "Provider Unavailable – {{bookingId}}",
+                            "description": "Hi {{userName}}, the provider could not take booking {{bookingId}}. We are finding another provider for you.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "booking_service_location_updated",
+                    "title": "Service location is updated on a booking",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "service_location_updated",
+                            "settings_type": "customer_notification",
+                            "db_id": "9f823d77-57bf-4c8b-9e10-485512843d44",
+                            "status": "1",
+                            "message": "Service Location Updated – {{bookingId}}",
+                            "description": "Hi {{userName}}, the service location for booking {{bookingId}} with {{providerName}} has been updated.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "module": "payments",
+            "label": "Payments",
+            "scenarios": [
+                {
+                    "id": "payment_provider_records",
+                    "title": "Provider records a payment on a booking",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "payment_collected_provider",
+                            "settings_type": "customer_notification",
+                            "db_id": "c26bd4ff-9b7b-423a-a4dd-fba67787faa1",
+                            "status": 1,
+                            "message": "Payment Recorded – {{bookingId}}",
+                            "description": "Hi {{userName}}, {{providerName}} recorded {{amount}} for booking {{bookingId}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "payment_collected_provider",
+                                    "value": null
+                                }
+                            ]
+                        },
+                        {
+                            "audience": "provider",
+                            "key": "payment_collected_provider",
+                            "settings_type": "provider_notification",
+                            "db_id": "52c93d87-7403-4005-8142-8b365501a244",
+                            "status": 1,
+                            "message": "Payment Recorded – {{bookingId}}",
+                            "description": "Hi {{providerName}}, {{amount}} was recorded for booking {{bookingId}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "payment_collected_provider",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "payment_customer_app_company",
+                    "title": "Customer pays from the app to the company",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "payment_collected_company",
+                            "settings_type": "customer_notification",
+                            "db_id": "4c9ee362-f9f0-4b7a-bcbd-c65468e90444",
+                            "status": 1,
+                            "message": "Payment Received – {{bookingId}}",
+                            "description": "Hi {{userName}}, {{amount}} was received for booking {{bookingId}}. Status: {{bookingStatus}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "payment_collected_company",
+                                    "value": null
+                                }
+                            ]
+                        },
+                        {
+                            "audience": "provider",
+                            "key": "payment_collected_company",
+                            "settings_type": "provider_notification",
+                            "db_id": "d92bd402-8fe2-4250-8aed-8c96fa665601",
+                            "status": 1,
+                            "message": "Payment Received – {{bookingId}}",
+                            "description": "Hi {{providerName}}, {{amount}} was received for booking {{bookingId}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "payment_collected_company",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "payment_admin_records",
+                    "title": "Admin records a payment on a booking",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "payment_collected_company",
+                            "settings_type": "customer_notification",
+                            "db_id": "4c9ee362-f9f0-4b7a-bcbd-c65468e90444",
+                            "status": 1,
+                            "message": "Payment Received – {{bookingId}}",
+                            "description": "Hi {{userName}}, {{amount}} was received for booking {{bookingId}}. Status: {{bookingStatus}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "payment_collected_company",
+                                    "value": null
+                                }
+                            ]
+                        },
+                        {
+                            "audience": "provider",
+                            "key": "payment_collected_provider",
+                            "settings_type": "provider_notification",
+                            "db_id": "52c93d87-7403-4005-8142-8b365501a244",
+                            "status": 1,
+                            "message": "Payment Recorded – {{bookingId}}",
+                            "description": "Hi {{providerName}}, {{amount}} was recorded for booking {{bookingId}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "payment_collected_provider",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "payment_failed",
+                    "title": "Customer payment attempt fails",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "payment_failed",
+                            "settings_type": "customer_notification",
+                            "db_id": "16c4a3b7-2f0a-4ed3-9fa2-4dbfdaa65099",
+                            "status": 1,
+                            "message": "Payment Failed – {{bookingId}}",
+                            "description": "Hi {{userName}}, payment of {{amount}} for booking {{bookingId}} could not be completed. Please try again.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "payment_failed",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "module": "provider_payments",
+            "label": "Provider Payments",
+            "scenarios": [
+                {
+                    "id": "provider_withdraw_request",
+                    "title": "Provider submits a withdraw request",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "withdraw_request_submitted",
+                            "settings_type": "provider_notification",
+                            "db_id": "59d1dd32-6c2b-4ef8-bdc7-41a24469d6ac",
+                            "status": "1",
+                            "message": "Withdrawal Request Submitted",
+                            "description": "Hi {{providerName}}, your withdrawal request of {{amount}} has been submitted.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "provider_withdraw_approved",
+                    "title": "Admin approves a withdraw request",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "widthdraw_request_approve",
+                            "settings_type": "provider_notification",
+                            "db_id": "d42c3f11-c43f-48ab-849e-b950d90aea3d",
+                            "status": 1,
+                            "message": "Withdrawal Approved",
+                            "description": "Hi {{providerName}}, your withdrawal request of {{amount}} has been approved.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "widthdraw_request_approve",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "provider_withdraw_denied",
+                    "title": "Admin denies a withdraw request",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "widthdraw_request_deny",
+                            "settings_type": "provider_notification",
+                            "db_id": "0f993fad-b7ba-4fdc-b394-5c34fd37ed68",
+                            "status": 1,
+                            "message": "Withdrawal Denied",
+                            "description": "Hi {{providerName}}, your withdrawal request of {{amount}} was denied.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "widthdraw_request_deny",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "provider_withdraw_settled",
+                    "title": "Admin settles a withdraw request (payout)",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "settlement_received",
+                            "settings_type": "provider_notification",
+                            "db_id": "14503d8c-f4c0-40f5-bdf0-5f107cad0917",
+                            "status": 1,
+                            "message": "Settlement Received",
+                            "description": "Hi {{providerName}}, {{amount}} settlement has been credited to your account.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "settlement_received",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "admin_collect_from_provider",
+                    "title": "Admin collects payment from provider",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "admin_payable",
+                            "settings_type": "provider_notification",
+                            "db_id": "d0c18642-cfa4-4178-8e25-a3a58a6cdff3",
+                            "status": 1,
+                            "message": "Amount Payable to Admin",
+                            "description": "Hi {{providerName}}, {{amount}} is recorded as payable to admin.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "admin_payable",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "admin_pay_provider",
+                    "title": "Admin adds payment to provider (settlement payout)",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "settlement_received",
+                            "settings_type": "provider_notification",
+                            "db_id": "14503d8c-f4c0-40f5-bdf0-5f107cad0917",
+                            "status": 1,
+                            "message": "Settlement Received",
+                            "description": "Hi {{providerName}}, {{amount}} settlement has been credited to your account.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "settlement_received",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "module": "review",
+            "label": "Review",
+            "scenarios": [
+                {
+                    "id": "review_customer_to_provider_approved",
+                    "title": "Admin approves customer review of provider",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "review_approved",
+                            "settings_type": "provider_notification",
+                            "db_id": "71c48764-d042-48f1-aa27-27263ea7dea9",
+                            "status": "1",
+                            "message": "You Have a New Review",
+                            "description": "Hi {{providerName}}, you have got a new review from {{userName}} on booking {{bookingId}}.",
+                            "is_active": 1,
+                            "translations": []
+                        },
+                        {
+                            "audience": "customer",
+                            "key": "review_published",
+                            "settings_type": "customer_notification",
+                            "db_id": "6c8a75a0-d888-4bb5-939f-086150738b0a",
+                            "status": "1",
+                            "message": "Your Review Is Approved",
+                            "description": "Hi {{userName}}, your review for {{providerName}} on booking {{bookingId}} is approved and published.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "review_provider_to_customer_approved",
+                    "title": "Admin approves provider review of customer",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "customer_review_approved",
+                            "settings_type": "customer_notification",
+                            "db_id": "2ef3a130-8ab6-4073-949f-ca57c9add2cc",
+                            "status": "1",
+                            "message": "You Have a New Review",
+                            "description": "Hi {{userName}}, you have got a new review from {{providerName}} on booking {{bookingId}}.",
+                            "is_active": 1,
+                            "translations": []
+                        },
+                        {
+                            "audience": "provider",
+                            "key": "provider_review_published",
+                            "settings_type": "provider_notification",
+                            "db_id": "827c9162-c054-4c62-8225-cc0ab4e4beb6",
+                            "status": "1",
+                            "message": "Your Review Is Approved",
+                            "description": "Hi {{providerName}}, your review for {{userName}} on booking {{bookingId}} is approved and published.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "module": "loyalty_points",
+            "label": "Loyalty Points",
+            "scenarios": [
+                {
+                    "id": "loyalty_booking_completed",
+                    "title": "Customer earns loyalty points after booking completion",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "loyalty_point",
+                            "settings_type": "customer_notification",
+                            "db_id": "cccc6210-ceb8-431a-a676-e4ad322ef32d",
+                            "status": 1,
+                            "message": "Loyalty Points Earned",
+                            "description": "Hi {{userName}}, you earned {{amount}} loyalty points. Booking: {{bookingId}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "loyalty_point",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "loyalty_convert_to_wallet",
+                    "title": "Customer converts loyalty points to wallet",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "loyalty_point_convert",
+                            "settings_type": "customer_notification",
+                            "db_id": "c14c6d62-ffa1-43c1-a7c8-1ce2b9f38476",
+                            "status": "1",
+                            "message": "Points Converted to Wallet",
+                            "description": "Hi {{userName}}, {{amount}} loyalty points were converted to your wallet balance.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "loyalty_admin_adds",
+                    "title": "Admin adds loyalty points to customer",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "loyalty_point",
+                            "settings_type": "customer_notification",
+                            "db_id": "cccc6210-ceb8-431a-a676-e4ad322ef32d",
+                            "status": 1,
+                            "message": "Loyalty Points Earned",
+                            "description": "Hi {{userName}}, you earned {{amount}} loyalty points. Booking: {{bookingId}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "loyalty_point",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "loyalty_referral_earned",
+                    "title": "Customer earns referral reward",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "referral_earning",
+                            "settings_type": "customer_notification",
+                            "db_id": "0e2d1635-6f80-4ea0-876b-11f09f16abb8",
+                            "status": "1",
+                            "message": "Referral Reward Earned",
+                            "description": "Hi {{userName}}, you earned {{amount}} referral reward. Booking: {{bookingId}}.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "referral_code_used",
+                    "title": "Referral code used on new signup",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "referral_code_used",
+                            "settings_type": "customer_notification",
+                            "db_id": "998b0da0-268b-4354-8855-a40f266a2c84",
+                            "status": "1",
+                            "message": "Your Referral Code Was Used",
+                            "description": "Hi {{userName}}, someone signed up using your referral code. You will earn rewards when they complete their first booking.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "module": "wallet",
+            "label": "Wallet",
+            "scenarios": [
+                {
+                    "id": "wallet_customer_topup",
+                    "title": "Customer wallet is credited",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "add_fund_wallet",
+                            "settings_type": "customer_notification",
+                            "db_id": "9f9f1855-6566-49d4-8ca8-f033a8a2c107",
+                            "status": 0,
+                            "message": "Wallet Credited",
+                            "description": "Hi {{userName}}, {{amount}} has been added to your wallet.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "add_fund_wallet",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "welcome_bonus_granted",
+                    "title": "Welcome bonus credited on new customer registration",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "welcome_bonus_wallet",
+                            "settings_type": "customer_notification",
+                            "db_id": "babc06a6-a397-4f82-af96-a3c152a3f937",
+                            "status": "1",
+                            "message": "Welcome Bonus Received",
+                            "description": "Hi {{userName}}, welcome! {{amount}} has been added to your wallet as a signup bonus.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "wallet_customer_deducted",
+                    "title": "Customer wallet is debited for a booking",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "wallet_deducted",
+                            "settings_type": "customer_notification",
+                            "db_id": "1eac88ee-7c2c-4ecc-b500-c8129d2686bd",
+                            "status": 1,
+                            "message": "Wallet Debited",
+                            "description": "Hi {{userName}}, {{amount}} was deducted from your wallet for booking {{bookingId}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "wallet_deducted",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "module": "refund",
+            "label": "Refund",
+            "scenarios": [
+                {
+                    "id": "refund_wallet",
+                    "title": "Admin refunds amount to customer wallet",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "refund",
+                            "settings_type": "customer_notification",
+                            "db_id": "3d51e47f-da99-4757-8392-4d6ab9e37fc3",
+                            "status": 1,
+                            "message": "Refund Processed – {{bookingId}}",
+                            "description": "Hi {{userName}}, {{amount}} has been refunded to your wallet for booking {{bookingId}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "refund",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "refund_bank_transfer",
+                    "title": "Admin refunds via bank transfer to customer",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "refund_bank_transfer",
+                            "settings_type": "customer_notification",
+                            "db_id": "1ca37b1d-103b-47a3-8cca-f8c7fa0c932f",
+                            "status": "1",
+                            "message": "Bank Refund Initiated – {{bookingId}}",
+                            "description": "Hi {{userName}}, {{amount}} refund for booking {{bookingId}} will be sent to your bank account.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "module": "communication",
+            "label": "Communication",
+            "scenarios": [
+                {
+                    "id": "chat_new_message",
+                    "title": "New chat message on a booking",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "chat_message",
+                            "settings_type": "customer_notification",
+                            "db_id": "67bab745-e9bd-4173-ab10-8a7f0d130a65",
+                            "status": 1,
+                            "message": "New Message from {{senderName}}",
+                            "description": "Hi {{userName}}, you have a new chat message about booking {{bookingId}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "chat_message",
+                                    "value": null
+                                }
+                            ]
+                        },
+                        {
+                            "audience": "provider",
+                            "key": "chat_message",
+                            "settings_type": "provider_notification",
+                            "db_id": "e732917e-5843-4904-b5ba-d628f5c09b01",
+                            "status": 1,
+                            "message": "New Chat Message",
+                            "description": "Hi {{providerName}}, you have a new chat message about booking {{bookingId}} from {{userName}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "chat_message",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "chat_admin_customer_message",
+                    "title": "New chat message between admin and customer",
+                    "audiences": [
+                        {
+                            "audience": "customer",
+                            "key": "chat_message",
+                            "settings_type": "customer_notification",
+                            "db_id": "67bab745-e9bd-4173-ab10-8a7f0d130a65",
+                            "status": 1,
+                            "message": "New Message from {{senderName}}",
+                            "description": "Hi {{userName}}, you have a new chat message about booking {{bookingId}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "chat_message",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "chat_admin_provider_message",
+                    "title": "New chat message between admin and provider",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "chat_message",
+                            "settings_type": "provider_notification",
+                            "db_id": "e732917e-5843-4904-b5ba-d628f5c09b01",
+                            "status": 1,
+                            "message": "New Chat Message",
+                            "description": "Hi {{providerName}}, you have a new chat message about booking {{bookingId}} from {{userName}}.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "chat_message",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "module": "service_requests",
+            "label": "Service Requests",
+            "scenarios": [
+                {
+                    "id": "service_request_approved",
+                    "title": "Admin approves provider service request",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "service_request_approve",
+                            "settings_type": "provider_notification",
+                            "db_id": "f82d1978-8ab9-4ad3-a84f-050faa17436f",
+                            "status": 1,
+                            "message": "Service Request Approved",
+                            "description": "Hi {{providerName}}, your service request for {{serviceName}} has been approved.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "service_request_approve",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "service_request_denied",
+                    "title": "Admin denies provider service request",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "service_request_deny",
+                            "settings_type": "provider_notification",
+                            "db_id": "815f1823-9a67-4248-a62c-17eed4388745",
+                            "status": 1,
+                            "message": "Service Request Denied",
+                            "description": "Hi {{providerName}}, your service request for {{serviceName}} was not approved.",
+                            "is_active": 1,
+                            "translations": [
+                                {
+                                    "locale": "en",
+                                    "key": "service_request_deny",
+                                    "value": null
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "module": "provider_account",
+            "label": "Provider Account",
+            "scenarios": [
+                {
+                    "id": "provider_suspended",
+                    "title": "Provider account is suspended",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "provider_suspend",
+                            "settings_type": "provider_notification",
+                            "db_id": "4dc4001c-2294-4ccf-8f02-8e6457cb260e",
+                            "status": "1",
+                            "message": "Account Suspended",
+                            "description": "Hi {{providerName}}, your provider account has been suspended. Contact admin for assistance.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "provider_suspension_removed",
+                    "title": "Provider suspension is lifted",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "provider_suspension_remove",
+                            "settings_type": "provider_notification",
+                            "db_id": "bf12c77c-5274-408c-aa5f-f056db9ac3b8",
+                            "status": "1",
+                            "message": "Suspension Lifted",
+                            "description": "Hi {{providerName}}, your provider account suspension has been removed. You can resume operations.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "onboarding_approved",
+                    "title": "Admin approves provider onboarding",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "onboarding_approve",
+                            "settings_type": "provider_notification",
+                            "db_id": "c4ea7dbb-3ab8-4b20-a101-73c2776a0229",
+                            "status": "1",
+                            "message": "Onboarding Approved",
+                            "description": "Hi {{providerName}}, your provider onboarding request has been approved. You can now sign in and start accepting jobs.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "onboarding_denied",
+                    "title": "Admin denies provider onboarding",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "onboarding_deny",
+                            "settings_type": "provider_notification",
+                            "db_id": "9d1d3923-cc49-4b23-8691-9deee5961c08",
+                            "status": "1",
+                            "message": "Onboarding Not Approved",
+                            "description": "Hi {{providerName}}, your provider onboarding request was not approved. Contact support if you need more information.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "profile_change_approved",
+                    "title": "Admin approves provider profile update",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "profile_change_approve",
+                            "settings_type": "provider_notification",
+                            "db_id": "0c16f46f-0698-48a1-937d-a51315ceea20",
+                            "status": "1",
+                            "message": "Profile Update Approved",
+                            "description": "Hi {{providerName}}, your {{changeType}} update request has been approved.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "profile_change_denied",
+                    "title": "Admin denies provider profile update",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "profile_change_deny",
+                            "settings_type": "provider_notification",
+                            "db_id": "599dc165-c137-4fb7-9aea-c7ccb202f221",
+                            "status": "1",
+                            "message": "Profile Update Not Approved",
+                            "description": "Hi {{providerName}}, your {{changeType}} update request was not approved.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "module": "advertisement",
+            "label": "Advertisement",
+            "scenarios": [
+                {
+                    "id": "advertisement_created_by_admin",
+                    "title": "Admin creates advertisement for provider",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "advertisement_created_by_admin",
+                            "settings_type": "provider_notification",
+                            "db_id": "7a097aeb-c48d-4243-9217-85baf4dfdb0d",
+                            "status": "1",
+                            "message": "New Advertisement Created",
+                            "description": "Hi {{providerName}}, admin created a new advertisement for your profile.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "advertisement_approved",
+                    "title": "Advertisement is approved",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "advertisement_approved",
+                            "settings_type": "provider_notification",
+                            "db_id": "72189cb6-4608-4311-8b0c-25ef39265566",
+                            "status": "1",
+                            "message": "Advertisement Approved",
+                            "description": "Hi {{providerName}}, your advertisement has been approved and is now active.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "advertisement_denied",
+                    "title": "Advertisement is denied",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "advertisement_denied",
+                            "settings_type": "provider_notification",
+                            "db_id": "63eb11ab-b34d-4bfc-a55f-e807c1974f41",
+                            "status": "1",
+                            "message": "Advertisement Denied",
+                            "description": "Hi {{providerName}}, your advertisement request was not approved.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "advertisement_paused",
+                    "title": "Admin pauses advertisement",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "advertisement_paused",
+                            "settings_type": "provider_notification",
+                            "db_id": "dcb1d44b-f536-43ab-80f8-ea115f008abe",
+                            "status": "1",
+                            "message": "Advertisement Paused",
+                            "description": "Hi {{providerName}}, your advertisement has been paused.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "advertisement_resumed",
+                    "title": "Admin resumes advertisement",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "advertisement_resumed",
+                            "settings_type": "provider_notification",
+                            "db_id": "5b7601e2-d34f-45ac-9f69-6b01585c5001",
+                            "status": "1",
+                            "message": "Advertisement Resumed",
+                            "description": "Hi {{providerName}}, your advertisement is active again.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "advertisement_paused_by_provider",
+                    "title": "Provider pauses their advertisement",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "advertisement_paused_by_provider",
+                            "settings_type": "provider_notification",
+                            "db_id": "2a040e2c-4de1-4094-b49a-c82a10cbf8b2",
+                            "status": "1",
+                            "message": "Advertisement Paused",
+                            "description": "Hi {{providerName}}, you paused your advertisement.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "advertisement_resumed_by_provider",
+                    "title": "Provider resumes their advertisement",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "advertisement_resumed_by_provider",
+                            "settings_type": "provider_notification",
+                            "db_id": "ab7f952e-e54b-4eba-bc6d-138771a36879",
+                            "status": "1",
+                            "message": "Advertisement Resumed",
+                            "description": "Hi {{providerName}}, you resumed your advertisement and it is active again.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "module": "provider_work_showcase",
+            "label": "Provider Work Showcase",
+            "scenarios": [
+                {
+                    "id": "showcase_submitted",
+                    "title": "Provider submits work showcase item",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "showcase_submitted",
+                            "settings_type": "provider_notification",
+                            "db_id": "90edc554-fe14-4a45-a26c-b5151231fc81",
+                            "status": "1",
+                            "message": "Showcase Submitted",
+                            "description": "Hi {{providerName}}, your work showcase \"{{showcaseTitle}}\" has been submitted and is pending admin approval.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "showcase_approved",
+                    "title": "Admin approves provider work showcase",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "showcase_approve",
+                            "settings_type": "provider_notification",
+                            "db_id": "85d9f513-06cd-4dcc-9ef1-a90c5373841b",
+                            "status": "1",
+                            "message": "Showcase Approved",
+                            "description": "Hi {{providerName}}, your work showcase \"{{showcaseTitle}}\" has been approved and is now visible on your profile.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                },
+                {
+                    "id": "showcase_denied",
+                    "title": "Admin denies provider work showcase",
+                    "audiences": [
+                        {
+                            "audience": "provider",
+                            "key": "showcase_deny",
+                            "settings_type": "provider_notification",
+                            "db_id": "eabd4b85-1cbf-466e-9e27-db779e7ab505",
+                            "status": "1",
+                            "message": "Showcase Not Approved",
+                            "description": "Hi {{providerName}}, your work showcase \"{{showcaseTitle}}\" was not approved. You may edit and resubmit.",
+                            "is_active": 1,
+                            "translations": []
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "module": "admin_alerts",
+            "label": "Admin Alerts",
+            "scenarios": []
+        }
+    ]
+}

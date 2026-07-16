@@ -1,0 +1,156 @@
+CREATED: Tap repair (tap-repair) variants=4 zones=20
+CREATED: Wash basin blockage removal (wash-basin-blockage-removal) variants=1 zones=20
+CREATED: Wash basin leakage repair (wash-basin-leakage-repair) variants=2 zones=20
+CREATED: Water tank repair (water-tank-repair) variants=3 zones=20
+CREATED: Western toilet repair (floor-mounted) (western-toilet-repair-floor-mounted) variants=3 zones=20
+CREATED: Western toilet repair (wall-mounted) (western-toilet-repair-wall-mounted) variants=3 zones=20
+CREATED: Connection hose installation (connection-hose-installation) variants=1 zones=20
+CREATED: Motor installation (motor-installation) variants=1 zones=20
+CREATED: Overhead water tank installation (overhead-water-tank-installation) variants=2 zones=20
+CREATED: RO water connection installation (ro-water-connection-installation) variants=1 zones=20
+CREATED: Shelf installation (shelf-installation) variants=2 zones=20
+CREATED: Shower filter installation (shower-filter-installation) variants=1 zones=20
+CREATED: Shower installation (shower-installation) variants=3 zones=20
+CREATED: Shower mixer tap installation (shower-mixer-tap-installation) variants=1 zones=20
+CREATED: Soap holder installation (soap-holder-installation) variants=1 zones=20
+CREATED: Tap accessory installation (tap-accessory-installation) variants=4 zones=20
+CREATED: Tap installation/replacement (tap-installationreplacement) variants=4 zones=20
+CREATED: Toilet seat cover installation (toilet-seat-cover-installation) variants=1 zones=20
+CREATED: Towel holder installation (towel-holder-installation) variants=3 zones=20
+CREATED: Wash basin installation (wash-basin-installation) variants=1 zones=20
+CREATED: Washing machine inlet installation (washing-machine-inlet-installation) variants=1 zones=20
+CREATED: Waste coupling installation (waste-coupling-installation) variants=2 zones=20
+CREATED: AVL sea-algae manicure (avl-sea-algae-manicure) variants=1 zones=20
+CREATED: British rose manicure (british-rose-manicure) variants=1 zones=20
+CREATED: Candle spa manicure (candle-spa-manicure) variants=1 zones=20
+CREATED: Candle spa pedicure (candle-spa-pedicure) variants=1 zones=20
+CREATED: Crystal rose pedicure (crystal-rose-pedicure) variants=2 zones=20
+CREATED: Cut, file & polish (feet) (cut-file-polish-feet) variants=2 zones=20
+CREATED: Cut, file & polish (hands) (cut-file-polish-hands) variants=2 zones=20
+CREATED: Essential Mani-Pedi Combo (essential-mani-pedi-combo) variants=1 zones=20
+CREATED: Foot massage (beauty-grooming-foot-massage) variants=1 zones=20
+CREATED: Ice cream delight manicure (ice-cream-delight-manicure) variants=1 zones=20
+CREATED: Ice cream delight pedicure (ice-cream-delight-pedicure) variants=2 zones=20
+CREATED: Mani-pedi delight (mani-pedi-delight) variants=1 zones=20
+CREATED: Rejuvenating crystal spa pedicure (rejuvenating-crystal-spa-pedicure) variants=2 zones=20
+CREATED: Rejuvenating mani-pedi combo (rejuvenating-mani-pedi-combo) variants=1 zones=20
+CREATED: Signature mani-pedi combo (signature-mani-pedi-combo) variants=1 zones=20
+CREATED: Advanced buns (advanced-buns) variants=3 zones=20
+CREATED: Advanced hairstyling (advanced-hairstyling) variants=3 zones=20
+CREATED: Ayurvedic strengthening hair spa (ayurvedic-strengthening-hair-spa) variants=1 zones=20
+CREATED: Curls & waves (curls-waves) variants=1 zones=20
+CREATED: Hair botox (hair-botox) variants=1 zones=20
+CREATED: Hair colour (application only) (hair-colour-application-only) variants=2 zones=20
+CREATED: Hair keratin (hair-keratin) variants=2 zones=20
+CREATED: Hair straightening (hair-straightening) variants=1 zones=20
+CREATED: Hair trim (hair-trim) variants=1 zones=20
+CREATED: Hair trim for mom & daughter (hair-trim-for-mom-daughter) variants=1 zones=20
+CREATED: Haircut & botox/keratin (haircut-botoxkeratin) variants=5 zones=20
+CREATED: Haircut for girls (haircut-for-girls) variants=1 zones=20
+CREATED: Haircut for mom & daughter (haircut-for-mom-daughter) variants=1 zones=20
+CREATED: Haircut for women (haircut-for-women) variants=1 zones=20
+CREATED: In curl/out curl blow-dry (in-curlout-curl-blow-dry) variants=1 zones=20
+CREATED: Keratin hair spa (keratin-hair-spa) variants=1 zones=20
+CREATED: L'Oreal hair repair mask (loreal-hair-repair-mask) variants=1 zones=20
+CREATED: L'Oreal hair spa (loreal-hair-spa) variants=1 zones=20
+CREATED: L'Oréal Inoa global color (loréal-inoa-global-color) variants=4 zones=20
+CREATED: L'Oréal Inoa root touch-up (loréal-inoa-root-touch-up) variants=7 zones=20
+CREATED: L'Oréal Inoa shades (loréal-inoa-shades) variants=3 zones=20
+CREATED: L'Oréal Majirel global colour (loréal-majirel-global-colour) variants=3 zones=20
+CREATED: L'Oréal Majirel root touch-up (loréal-majirel-root-touch-up) variants=6 zones=20
+CREATED: L'Oréal Majirel shades (loréal-majirel-shades) variants=3 zones=20
+CREATED: L'Oréal balayage/ombre color (loréal-balayageombre-color) variants=4 zones=20
+CREATED: Nutri Pearl Hair Spa (nutri-pearl-hair-spa) variants=1 zones=20
+CREATED: Straight & smooth blow-dry (straight-smooth-blow-dry) variants=1 zones=20
+CREATED: Abhyangam full body stress relief massage (abhyangam-full-body-stress-relief-massage) variants=5 zones=20
+CREATED: Abhyangam neck-to-toe stress relief massage (abhyangam-neck-to-toe-stress-relief-massage) variants=1 zones=20
+CREATED: Abhyangam with foot massage (abhyangam-with-foot-massage) variants=1 zones=20
+CREATED: Ainhoa Hydraboost facial (ainhoa-hydraboost-facial) variants=1 zones=20
+CREATED: Ainhoa Multi-peptide anti-ageing facial (ainhoa-multi-peptide-anti-ageing-facial) variants=1 zones=20
+CREATED: Ainhoa Signature brightening facial (ainhoa-signature-brightening-facial) variants=1 zones=20
+CREATED: Ainhoa oil-control facial (ainhoa-oil-control-facial) variants=1 zones=20
+CREATED: Anti-Tan Brightening Cleanup (anti-tan-brightening-cleanup) variants=1 zones=20
+CREATED: Aroma Magic instant glow facial (aroma-magic-instant-glow-facial) variants=1 zones=20
+CREATED: Ashwagandha tan removal facial (ashwagandha-tan-removal-facial) variants=1 zones=20
+CREATED: Back waxing (back-waxing) variants=10 zones=20
+CREATED: Bhringadi head massage (bhringadi-head-massage) variants=1 zones=20
+CREATED: Bikini line waxing (bikini-line-waxing) variants=4 zones=20
+CREATED: Bikini waxing (bikini-waxing) variants=4 zones=20
+CREATED: Bleach (bleach) variants=12 zones=20
+CREATED: Butt waxing (butt-waxing) variants=5 zones=20
+CREATED: Casmara anti-ageing facial (casmara-anti-ageing-facial) variants=1 zones=20
+CREATED: Casmara brightening facial (casmara-brightening-facial) variants=1 zones=20
+CREATED: Casmara hydration facial (casmara-hydration-facial) variants=1 zones=20
+CREATED: Cherry blossom glow ritual (cherry-blossom-glow-ritual) variants=1 zones=20
+CREATED: Cirepil PR Visage face wax (cirepil-pr-visage-face-wax) variants=7 zones=20
+CREATED: Detan (detan) variants=12 zones=20
+CREATED: Detox mud cleanup (detox-mud-cleanup) variants=1 zones=20
+CREATED: Firming Wine glow facial (firming-wine-glow-facial) variants=1 zones=20
+CREATED: Foot massage (skin-facial-care-foot-massage) variants=1 zones=20
+CREATED: Full arms & underarms waxing (full-arms-underarms-waxing) variants=10 zones=20
+CREATED: Full body waxing (full-body-waxing) variants=10 zones=20
+CREATED: Full legs waxing (full-legs-waxing) variants=10 zones=20
+CREATED: Hair colour/mehendi (only application) (hair-colourmehendi-only-application) variants=2 zones=20
+CREATED: Hair spa & style (hair-spa-style) variants=8 zones=20
+CREATED: Hair trim & spa (hair-trim-spa) variants=5 zones=20
+CREATED: Hair trim & styling (hair-trim-styling) variants=5 zones=20
+CREATED: Haircut & color (skin-facial-care-haircut-color) variants=5 zones=20
+CREATED: Haircut & spa (haircut-spa) variants=5 zones=20
+CREATED: Haircut & styling (haircut-styling) variants=5 zones=20
+CREATED: Half legs waxing (half-legs-waxing) variants=6 zones=20
+CREATED: Head massage (skin-facial-care-head-massage) variants=5 zones=20
+CREATED: Hot bed (skin-facial-care-hot-bed) variants=1 zones=20
+CREATED: Hydra mud glow cleanup (hydra-mud-glow-cleanup) variants=1 zones=20
+CREATED: KGlow age-rewind facial (kglow-age-rewind-facial) variants=1 zones=20
+CREATED: Korean Glass hydration facial (korean-glass-hydration-facial) variants=1 zones=20
+CREATED: Korean Glass skin facial (korean-glass-skin-facial) variants=1 zones=20
+CREATED: Korean Glow facial (korean-glow-facial) variants=1 zones=20
+CREATED: Korean Plant-peptide brightening facial (korean-plant-peptide-brightening-facial) variants=1 zones=20
+CREATED: Korean Sea-algae Hydra-boost facial (korean-sea-algae-hydra-boost-facial) variants=1 zones=20
+CREATED: Kumkumadi brightening face massage (kumkumadi-brightening-face-massage) variants=1 zones=20
+CREATED: Kumkumadi ubtan hydration facial (kumkumadi-ubtan-hydration-facial) variants=1 zones=20
+CREATED: L'Oréal 10 signature highlights (loréal-10-signature-highlights) variants=4 zones=20
+CREATED: Make your own package (skin-facial-care-make-your-own-package) variants=82 zones=20
+CREATED: Massage top-up (15 mins) (skin-facial-care-massage-top-up-15-mins) variants=1 zones=20
+CREATED: Matcha detox ritual (matcha-detox-ritual) variants=1 zones=20
+CREATED: Monthly maintenance package (monthly-maintenance-package) variants=45 zones=20
+CREATED: O3 Kumkumadi ayurvedic facial (o3-kumkumadi-ayurvedic-facial) variants=1 zones=20
+CREATED: O3+ Radiance luxury facial (o3-radiance-luxury-facial) variants=1 zones=20
+CREATED: O3+ shine & glow facial (o3-shine-glow-facial) variants=1 zones=20
+CREATED: Paada abhyanga relaxing foot massage (paada-abhyanga-relaxing-foot-massage) variants=1 zones=20
+CREATED: Potli deep cleanse massage (potli-deep-cleanse-massage) variants=5 zones=20
+CREATED: Power glow cleanup (power-glow-cleanup) variants=1 zones=20
+CREATED: RICA Brazilian stripless bikini waxing (rica-brazilian-stripless-bikini-waxing) variants=1 zones=20
+CREATED: RICA Peel-off face waxing (rica-peel-off-face-waxing) variants=7 zones=20
+CREATED: Remy Laure eternal radiance treatment (remy-laure-eternal-radiance-treatment) variants=1 zones=20
+CREATED: Repechage Hydra-boost cleanup (repechage-hydra-boost-cleanup) variants=1 zones=20
+CREATED: Repechage brightening cleanup (repechage-brightening-cleanup) variants=1 zones=20
+CREATED: Roll-on waxing (Full arms & legs, underarm) (roll-on-waxing-full-arms-legs-underarm) variants=2 zones=20
+CREATED: Roll-on waxing (Full arms, legs & underarms) (roll-on-waxing-full-arms-legs-underarms) variants=2 zones=20
+CREATED: Sara Lightening glow facial (sara-lightening-glow-facial) variants=1 zones=20
+CREATED: Sara fruit cleanup (sara-fruit-cleanup) variants=1 zones=20
+CREATED: Scalp toppers (scalp-toppers) variants=5 zones=20
+CREATED: Shiro abhyanga head, neck & shoulder massage (shiro-abhyanga-head-neck-shoulder-massage) variants=1 zones=20
+CREATED: Spatula waxing (Full arms & legs, Underarm) (spatula-waxing-full-arms-legs-underarm) variants=3 zones=20
+CREATED: Spatula waxing (Full arms, legs & underarms) (spatula-waxing-full-arms-legs-underarms) variants=2 zones=20
+CREATED: Stomach waxing (stomach-waxing) variants=10 zones=20
+CREATED: Stretch therapy (skin-facial-care-stretch-therapy) variants=1 zones=20
+   WARNING  imagecreatefrompng(): gd-png: fatal libpng error: Read Error: truncated data
+ in app/Lib/Helpers.php on line 394.
+   WARNING  imagecreatefrompng(): gd-png error: setjmp returns error condition 3
+ in app/Lib/Helpers.php on line 394.
+   WARNING  imagecreatefrompng(): "scripts/assets/service-images/threading/thumbnail.png" is not a valid PNG file in app/Lib/Helpers.php on line 394.
+CREATED: Threading (threading) variants=16 zones=20
+CREATED: Underarms waxing (underarms-waxing) variants=4 zones=20
+CREATED: Vedic signature massage (vedic-signature-massage) variants=5 zones=20
+CREATED: Vedic signature with head massage (vedic-signature-with-head-massage) variants=1 zones=20
+CREATED: Warm potli massage (warm-potli-massage) variants=3 zones=20
+CREATED: Wax & glow (wax-glow) variants=54 zones=20
+CREATED: Wedding-ready group hairstyling (wedding-ready-group-hairstyling) variants=3 zones=20
+Backup saved: /Users/kamran/Desktop/panun kaergar/panun-admin/scripts/backups/missing-catalog-20260711-194341.json
+
+Done. created=144 refreshed=0 skipped=0 errors=0
+
+To revert this import:
+BACKUP_FILE=/Users/kamran/Desktop/panun kaergar/panun-admin/scripts/backups/missing-catalog-20260711-194341.json LIVE_DB_PASSWORD='...' php artisan tinker scripts/revert-missing-catalog-live.php
+
