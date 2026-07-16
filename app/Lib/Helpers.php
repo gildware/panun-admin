@@ -1161,21 +1161,31 @@ if (!function_exists('text_variable_data_format')) {
     {
         $dataArray = is_object($data) ? (array) $data : (is_array($data) ? $data : []);
 
-        $bookingStatusFromData = trim((string) ($dataArray['booking_status'] ?? ''));
+        $templateDataValue = static function (string $snakeKey, ?string $camelKey = null) use ($dataArray): string {
+            $camelKey ??= $snakeKey;
+
+            return (string) ($dataArray[$snakeKey] ?? $dataArray[$camelKey] ?? '');
+        };
+
+        $bookingStatusFromData = trim($templateDataValue('booking_status', 'bookingStatus'));
 
         $replaceMap = [
-            '{{providerName}}' => (string) ($dataArray['provider_name'] ?? ''),
-            '{{scheduleTime}}' => (string) ($dataArray['schedule_time'] ?? ''),
-            '{{userName}}' => (string) ($dataArray['user_name'] ?? ''),
-            '{{zoneName}}' => (string) ($dataArray['zone_name'] ?? ''),
-            '{{serviceManName}}' => (string) ($dataArray['service_man_name'] ?? ''),
-            '{{bookingId}}' => (string) ($dataArray['booking_id'] ?? ''),
+            '{{providerName}}' => $templateDataValue('provider_name', 'providerName'),
+            '{{scheduleTime}}' => $templateDataValue('schedule_time', 'scheduleTime'),
+            '{{userName}}' => $templateDataValue('user_name', 'userName'),
+            '{{zoneName}}' => $templateDataValue('zone_name', 'zoneName'),
+            '{{serviceManName}}' => $templateDataValue('service_man_name', 'serviceManName'),
+            '{{bookingId}}' => $templateDataValue('booking_id', 'bookingId'),
             '{{bookingStatus}}' => $bookingStatusFromData,
-            '{{amount}}' => (string) ($dataArray['amount'] ?? ''),
-            '{{serviceName}}' => (string) ($dataArray['service_name'] ?? ''),
-            '{{otp}}' => (string) ($dataArray['otp'] ?? ''),
-            '{{senderName}}' => (string) ($dataArray['sender_name'] ?? ''),
-            '{{showcaseTitle}}' => (string) ($dataArray['showcase_title'] ?? $dataArray['showcaseTitle'] ?? ''),
+            '{{amount}}' => $templateDataValue('amount'),
+            '{{serviceName}}' => $templateDataValue('service_name', 'serviceName'),
+            '{{otp}}' => $templateDataValue('otp'),
+            '{{senderName}}' => $templateDataValue('sender_name', 'senderName'),
+            '{{showcaseTitle}}' => $templateDataValue('showcase_title', 'showcaseTitle'),
+            '{{changeType}}' => $templateDataValue('change_type', 'changeType'),
+            '{{referenceId}}' => $templateDataValue('reference_id', 'referenceId'),
+            '{{categoryName}}' => $templateDataValue('category_name', 'categoryName'),
+            '{{requestStatus}}' => $templateDataValue('request_status', 'requestStatus'),
         ];
 
         if ($type == 'booking' || $type == 'offline-payment') {

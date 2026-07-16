@@ -10047,4 +10047,5 @@ _Message' => 'Customer notification for provider bid offer
   'Or paste custom icon URL' => 'Or paste custom icon URL',
   'Uploading...' => 'Uploading...',
   'Upload failed' => 'Upload failed',
+  'welcome_bonus' => 'Welcome bonus',
 );
