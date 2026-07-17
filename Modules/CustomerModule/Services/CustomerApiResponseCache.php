@@ -43,8 +43,10 @@ class CustomerApiResponseCache
         foreach (array_unique($locales) as $locale) {
             Cache::forget('customer_api_config:v2:'.$locale);
             Cache::forget('customer_api_config:v3:'.$locale);
+            Cache::forget('customer_api_config:v4:'.$locale);
             Cache::forget('provider_api_config:v1:'.$locale);
             Cache::forget('provider_api_config:v2:'.$locale);
+            Cache::forget('provider_api_config:v3:'.$locale);
         }
 
         // Do not bump or warm home-bundle here. Home cache is rebuilt only when

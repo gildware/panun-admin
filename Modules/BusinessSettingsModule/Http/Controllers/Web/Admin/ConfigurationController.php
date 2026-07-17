@@ -28,6 +28,7 @@ use Modules\PaymentModule\Entities\Setting;
 use Modules\PromotionManagement\Entities\PushNotificationDeliveryLog;
 use Modules\UserManagement\Entities\User;
 use Modules\UserManagement\Entities\UserFcmDevice;
+use Modules\CustomerModule\Services\CustomerApiResponseCache;
 use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
@@ -792,6 +793,8 @@ class ConfigurationController extends Controller
             'mode' => 'live',
             'is_active' => 1,
         ]);
+
+        CustomerApiResponseCache::forgetConfigCaches();
 
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));
         return back();

@@ -45,7 +45,7 @@ class ConfigController extends Controller
     {
         $locale = strtolower((string) $request->header('X-localization', app()->getLocale()));
         $content = CustomerApiResponseCache::remember(
-            'customer_api_config:v3:'.$locale,
+            'customer_api_config:v4:'.$locale,
             function () {
                 $response = $this->buildConfigurationResponse();
                 $decoded = json_decode($response->getContent(), true);
