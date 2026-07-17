@@ -147,6 +147,14 @@ class ConfigController extends Controller
             'email' => $emailConfig
         ];
 
+        $providerAppSettingsRaw = business_config('provider_app_settings', 'app_settings')?->live_values;
+        if (is_string($providerAppSettingsRaw)) {
+            $providerAppSettings = json_decode($providerAppSettingsRaw, true);
+        } elseif (is_array($providerAppSettingsRaw)) {
+            $providerAppSettings = $providerAppSettingsRaw;
+        } else {
+            $providerAppSettings = null;
+        }
 
         return response()->json(response_formatter(DEFAULT_200, [
             'maintenance' => $this->checkMaintenanceMode(),
@@ -190,7 +198,9 @@ class ConfigController extends Controller
             'suspend_on_exceed_cash_limit_provider' => (business_config('suspend_on_exceed_cash_limit_provider', 'provider_config'))->live_values ?? 0,
             'default_commission' => (business_config('default_commission', 'business_information'))->live_values,
             'footer_text' => (business_config('footer_text', 'business_information'))->live_values ?? null,
-            'min_versions' => json_decode((business_config('provider_app_settings', 'app_settings'))->live_values ?? null),
+            'min_versions' => $providerAppSettings,
+            'app_url_android' => $providerAppSettings['download_link_for_android'] ?? null,
+            'app_url_ios' => $providerAppSettings['download_link_for_ios'] ?? null,
             'minimum_withdraw_amount' => business_config('minimum_withdraw_amount', 'business_information') ? ((float)(business_config('minimum_withdraw_amount', 'business_information'))->live_values ?? null) : null,
             'maximum_withdraw_amount' => business_config('maximum_withdraw_amount', 'business_information') ? ((float)(business_config('maximum_withdraw_amount', 'business_information'))->live_values ?? null) : null,
             'phone_number_visibility_for_chatting' => (int)((business_config('phone_number_visibility_for_chatting', 'business_information'))->live_values ?? 0),
