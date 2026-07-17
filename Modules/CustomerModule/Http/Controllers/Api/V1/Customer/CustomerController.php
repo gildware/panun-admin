@@ -284,6 +284,12 @@ class CustomerController extends Controller
             ->where('to_user_id', $request->user()->id)
             ->when(!is_null($request['type']), fn($query) => $query->where('trx_type', $request['type']))
             ->when(is_null($request['type']), fn($query) => $query->whereIn('trx_type', WALLET_TRX_TYPE))
+            // provider→customer compensation writes a debit+credit pair both to_user=customer;
+            // only the credit row is a real wallet movement for My Wallet history.
+            ->where(function ($query) {
+                $query->where('trx_type', '!=', WALLET_TRX_TYPE['booking_compensation'])
+                    ->orWhere('credit', '>', 0);
+            })
             ->latest()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 

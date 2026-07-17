@@ -444,7 +444,9 @@ class BookingController extends Controller
                 $booking->offline_payment_denied_note = $offlinePayment->denied_note ?? null;
             }
 
-            $booking->service_address = $booking->service_address_location != null ? json_decode($booking->service_address_location) : $booking->service_address;
+            $booking->service_address = (!empty($booking->service_address_location))
+                ? json_decode($booking->service_address_location)
+                : $booking->service_address;
 
             unset($booking->booking_offline_payments, $booking->service_address_location);
 
@@ -552,7 +554,9 @@ class BookingController extends Controller
             'serviceman.user:id,first_name,last_name,phone,email,image,image_full_path',
         ])->where(['id' => $id])->first();
 
-        $booking->booking->service_address = $booking->booking->service_address_location != null ? json_decode($booking->booking->service_address_location) : $booking->booking->service_address;
+        $booking->booking->service_address = (!empty($booking->booking->service_address_location))
+            ? json_decode($booking->booking->service_address_location)
+            : $booking->booking->service_address;
 
         if (isset($booking)) {
             if (isset($booking->provider)){
@@ -600,7 +604,9 @@ class BookingController extends Controller
             return response()->json(response_formatter(DEFAULT_404), 404);
         }
 
-        $booking->service_address = $booking->service_address_location != null ? json_decode($booking->service_address_location) : $booking->service_address;
+        $booking->service_address = (!empty($booking->service_address_location))
+            ? json_decode($booking->service_address_location)
+            : $booking->service_address;
 
         unset($booking->service_address_location);
 

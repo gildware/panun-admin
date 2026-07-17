@@ -198,6 +198,11 @@ class WalletController extends Controller
             ->when($request->has('trx_type') && $request['trx_type'] != 'all', function ($query) use ($request) {
                 $query->where('trx_type', $request['trx_type']);
             })
+            // Skip provider→customer compensation debit mirrors (credit=0); only real wallet credits.
+            ->where(function ($query) {
+                $query->where('trx_type', '!=', WALLET_TRX_TYPE['booking_compensation'])
+                    ->orWhere('credit', '>', 0);
+            })
             ->when($request->has('date_range') && $request['date_range'] == 'custom_date', function ($query) use ($request) {
                 $query->whereBetween('created_at', [Carbon::parse($request['from'])->startOfDay(), Carbon::parse($request['to'])->endOfDay()]);
             })
