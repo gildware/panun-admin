@@ -75,6 +75,7 @@ class BusinessConfigCache
         self::$request = [];
         Cache::forget('business_settings:all:v1');
         Cache::forget('business_settings:all:v2');
+        Cache::forget('business_settings:all:v3');
         Cache::forget('data_settings:all:v1');
         Cache::forget('login_setups:all:v1');
     }
@@ -84,7 +85,7 @@ class BusinessConfigCache
      */
     private static function allBusinessSettings(): Collection
     {
-        return Cache::remember('business_settings:all:v2', self::TTL, function () {
+        return Cache::remember('business_settings:all:v3', self::TTL, function () {
             return BusinessSettings::query()
                 ->get()
                 ->keyBy(fn (BusinessSettings $row) => "{$row->settings_type}:{$row->key_name}");
