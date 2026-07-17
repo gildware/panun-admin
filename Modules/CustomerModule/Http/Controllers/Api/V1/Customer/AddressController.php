@@ -81,6 +81,7 @@ class AddressController extends Controller
         }
 
         $addresses = $this->address->where(['user_id' => $this->customerUserId])
+            ->completeForSelection()
             ->latest()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
             ->withPath('');
