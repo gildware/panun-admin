@@ -223,6 +223,7 @@ class ConfigController extends Controller
             'forgot_password_verification_method' => $forgotPasswordVerificationMethod,
             'provider_can_reply_review' => (int) business_config('provider_can_reply_review', 'provider_config')?->live_values,
             'app_environment' => env('APP_ENV'),
+            'apple_review_login' => apple_review_login_config(),
             'service_at_provider_place' => (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0),
             'business_pages' => mobile_visible_business_pages(),
             'serviceman_can_cancel_booking' => (int)((business_config('serviceman_can_cancel_booking', 'serviceman_config'))->live_values ?? 0),

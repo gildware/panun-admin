@@ -97,20 +97,79 @@ if (!function_exists('admin_nav_image_src')) {
     }
 }
 
+if (!function_exists('otp_phone_digits')) {
+    function otp_phone_digits(?string $phone): string
+    {
+        return preg_replace('/\D+/', '', (string) $phone) ?? '';
+    }
+}
+
+if (!function_exists('is_apple_review_otp_phone')) {
+    /**
+     * App Store / Play review phones that must always use the fixed login OTP.
+     */
+    function is_apple_review_otp_phone(?string $phone): bool
+    {
+        $digits = otp_phone_digits($phone);
+        if ($digits === '' || strlen($digits) < 10) {
+            return false;
+        }
+
+        $needle = substr($digits, -10);
+        foreach ((array) config('app.apple_review_otp_phones', []) as $allowed) {
+            $allowedDigits = otp_phone_digits((string) $allowed);
+            if ($allowedDigits === '') {
+                continue;
+            }
+            if ($digits === $allowedDigits || $needle === substr($allowedDigits, -10)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('apple_review_login_config')) {
+    /**
+     * @return array{phones: list<string>, otp: string}|null
+     */
+    function apple_review_login_config(): ?array
+    {
+        $phones = array_values(array_filter(array_map(
+            static fn ($phone) => trim((string) $phone),
+            (array) config('app.apple_review_otp_phones', [])
+        )));
+
+        if ($phones === []) {
+            return null;
+        }
+
+        return [
+            'phones' => $phones,
+            'otp' => (string) config('app.dummy_login_otp', '123456'),
+        ];
+    }
+}
+
 if (!function_exists('use_dummy_login_otp')) {
     /**
-     * When true, login OTP is a fixed code (default 123456) for customer/provider apps.
+     * Fixed login OTP for all numbers (USE_DUMMY_OTP) or for Apple review phones only.
      */
-    function use_dummy_login_otp(): bool
+    function use_dummy_login_otp(?string $identity = null): bool
     {
-        return filter_var(config('app.use_dummy_otp', false), FILTER_VALIDATE_BOOLEAN);
+        if (filter_var(config('app.use_dummy_otp', false), FILTER_VALIDATE_BOOLEAN)) {
+            return true;
+        }
+
+        return $identity !== null && is_apple_review_otp_phone($identity);
     }
 }
 
 if (!function_exists('generate_login_otp')) {
-    function generate_login_otp(): string
+    function generate_login_otp(?string $identity = null): string
     {
-        if (use_dummy_login_otp()) {
+        if (use_dummy_login_otp($identity)) {
             return (string) config('app.dummy_login_otp', '123456');
         }
 

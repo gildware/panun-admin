@@ -247,6 +247,7 @@ class ConfigController extends Controller
             'forgot_password_verification_method' => $forgotPasswordVerificationMethod,
             'error_logs' => $errorLogs,
             'app_environment' => env('APP_ENV'),
+            'apple_review_login' => apple_review_login_config(),
             'repeat_booking' => (int)business_config('repeat_booking', 'booking_setup')?->live_values,
             'create_user_account_from_guest_info' => (int)(business_config('create_user_account_from_guest_info', 'business_information'))?->live_values ?? 0,
             'service_at_provider_place' => (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0),

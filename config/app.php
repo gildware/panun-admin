@@ -49,11 +49,19 @@ return [
     | When USE_DUMMY_OTP is true, login OTP is always 123456 and apps use
     | backend verification instead of Firebase SMS.
     |
+    | APPLE_REVIEW_OTP_PHONES always receive DUMMY_LOGIN_OTP (even when
+    | USE_DUMMY_OTP is false) so App Store / Play review accounts work.
+    |
     */
 
     'use_dummy_otp' => filter_var(env('USE_DUMMY_OTP', false), FILTER_VALIDATE_BOOLEAN),
 
     'dummy_login_otp' => env('DUMMY_LOGIN_OTP', '123456'),
+
+    'apple_review_otp_phones' => array_values(array_filter(array_map(
+        static fn ($phone) => trim((string) $phone),
+        explode(',', (string) env('APPLE_REVIEW_OTP_PHONES', '+919999000001,+919999000002'))
+    ))),
 
     /*
     |--------------------------------------------------------------------------

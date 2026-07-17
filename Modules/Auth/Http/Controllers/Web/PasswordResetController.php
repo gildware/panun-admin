@@ -70,7 +70,8 @@ class PasswordResetController extends Controller
             return redirect(route('provider.auth.reset-password.index'));
         }
 
-        $otp = generate_login_otp();
+        $otpIdentity = $request['identity_type'] === 'phone' ? (string) $request['identity'] : null;
+        $otp = generate_login_otp($otpIdentity);
         $this->user_verification->updateOrCreate([
             'identity' => $request['identity'],
             'identity_type' => $request['identity_type']
@@ -82,7 +83,9 @@ class PasswordResetController extends Controller
             'expires_at' => now()->addMinute(3),
         ]);
 
-        if ($request['identity_type'] == 'phone') {
+        if (use_dummy_login_otp($otpIdentity)) {
+            $response = 'success';
+        } elseif ($request['identity_type'] == 'phone') {
             $phonePermission = isNotificationActive($user?->provider?->id, 'verification', 'sms', 'provider');
             if ($phonePermission) {
                 $published_status = 0;
