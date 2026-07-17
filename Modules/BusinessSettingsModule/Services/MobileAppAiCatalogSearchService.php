@@ -358,6 +358,7 @@ class MobileAppAiCatalogSearchService
     {
         $rows = UserAddress::query()
             ->where('user_id', $user->id)
+            ->completeForSelection()
             ->orderByDesc('id')
             ->limit(12)
             ->get([

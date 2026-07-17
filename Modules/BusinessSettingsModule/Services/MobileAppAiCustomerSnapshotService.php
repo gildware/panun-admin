@@ -192,6 +192,7 @@ class MobileAppAiCustomerSnapshotService
     {
         $rows = UserAddress::query()
             ->where('user_id', $user->id)
+            ->completeForSelection()
             ->orderByDesc('id')
             ->limit($limit)
             ->get(['id', 'address', 'address_label', 'city']);
