@@ -71,10 +71,13 @@ class VerificationController extends Controller
             return view('auth::verification.send-otp', compact('user'));
         }
 
-        $otp = generate_login_otp();
+        $otpIdentity = $request['identity_type'] === 'phone' ? (string) $request['identity'] : null;
+        $otp = generate_login_otp($otpIdentity);
 
         $response = 'error';
-        if ($request['identity_type'] == 'phone') {
+        if (use_dummy_login_otp($otpIdentity)) {
+            $response = 'success';
+        } elseif ($request['identity_type'] == 'phone') {
             $phonePermission = isNotificationActive(null, 'verification', 'sms', 'provider');
             if ($phonePermission) {
 

@@ -83,7 +83,7 @@ class OTPVerificationController extends Controller
             $count++;
         }
 
-        if ($identityType == 'phone' && $count < 1 && ! use_dummy_login_otp()) {
+        if ($identityType == 'phone' && $count < 1 && ! use_dummy_login_otp($identity)) {
             return response()->json(response_formatter(SMS_GATEWAY_NOT_ACTIVE_400), 400);
         }
 
@@ -99,7 +99,7 @@ class OTPVerificationController extends Controller
             ]), 401);
         }
 
-        $otp = generate_login_otp();
+        $otp = generate_login_otp($identityType === 'phone' ? $identity : null);
         $this->userVerification->updateOrCreate([
                 'identity' => $identity,
                 'identity_type'=> $identityType
@@ -113,7 +113,7 @@ class OTPVerificationController extends Controller
         ]);
 
         //send otp
-        if (use_dummy_login_otp()) {
+        if (use_dummy_login_otp($identityType === 'phone' ? $identity : null)) {
             $response = 'success';
         } elseif ($identityType == 'phone') {
             $publishedStatus = 0;
