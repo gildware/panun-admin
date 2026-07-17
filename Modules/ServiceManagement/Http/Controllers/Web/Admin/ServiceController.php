@@ -181,10 +181,11 @@ class ServiceController extends Controller
 
     private function resolveServiceListFilters(Request $request): array
     {
-        $search = $request->input('search', '');
-        $status = $request->input('status', 'all');
-        $category_id = $request->input('category_id', '');
-        $sub_category_id = $request->input('sub_category_id', '');
+        $search = $request->input('search') ?? '';
+        $status = $request->input('status') ?: 'all';
+        // Empty query params become null via ConvertEmptyStringsToNull middleware
+        $category_id = $request->input('category_id') ?: '';
+        $sub_category_id = $request->input('sub_category_id') ?: '';
 
         if (!$category_id) {
             $sub_category_id = '';
@@ -206,7 +207,7 @@ class ServiceController extends Controller
         return compact('search', 'status', 'category_id', 'sub_category_id', 'queryParams');
     }
 
-    private function subCategoriesForCategory(string $category_id)
+    private function subCategoriesForCategory(?string $category_id)
     {
         if (!$category_id) {
             return collect();

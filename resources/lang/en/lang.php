@@ -10048,5 +10048,6 @@ _Message' => 'Customer notification for provider bid offer
   'Uploading...' => 'Uploading...',
   'Upload failed' => 'Upload failed',
   'welcome_bonus' => 'Welcome bonus',
+  'booking_compensation' => 'Booking compensation',
   'Service_Location' => 'Service Location',
 );

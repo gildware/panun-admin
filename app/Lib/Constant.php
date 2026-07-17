@@ -938,6 +938,8 @@ const WALLET_TRX_TYPE = [
     'add_fund' => 'add_fund',
     'add_fund_bonus' => 'add_fund_bonus',
     'welcome_bonus' => 'welcome_bonus',
+    /** Credits customer wallet; must appear in My Wallet history. */
+    'booking_compensation' => 'booking_compensation',
 ];
 
 const TRANSACTION_TYPE = [
