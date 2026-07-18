@@ -122,6 +122,12 @@ class AdminProviderDeletionService
             $deletionService->deleteBookingAndRelations($booking);
         }
 
+    if (Schema::hasColumn('bookings', 'provider_cancelled_by_provider_id')) {
+      DB::table('bookings')
+        ->where('provider_cancelled_by_provider_id', $providerId)
+        ->update(['provider_cancelled_by_provider_id' => null]);
+    }
+
     if (Schema::hasColumn('ledger_transactions', 'provider_id')) {
       LedgerTransaction::query()->where('provider_id', $providerId)->delete();
     }
@@ -189,10 +195,32 @@ class AdminProviderDeletionService
 
     SubscribedService::query()->where('provider_id', $providerId)->delete();
 
-    foreach (['carts', 'advertisements', 'post_bids', 'ignored_posts', 'provider_notification_setups', 'providers_withdraw_methods_data', 'provider_zone', 'provider_incidents', 'provider_change_requests'] as $table) {
+    foreach ([
+      'carts',
+      'advertisements',
+      'post_bids',
+      'ignored_posts',
+      'provider_notification_setups',
+      'providers_withdraw_methods_data',
+      'provider_zone',
+      'provider_incidents',
+      'provider_change_requests',
+      'provider_showcase_items',
+    ] as $table) {
       if (Schema::hasTable($table)) {
         DB::table($table)->where('provider_id', $providerId)->delete();
       }
+    }
+
+    if (Schema::hasTable('providers_additional_documents')) {
+      $documentIds = DB::table('providers_additional_documents')
+        ->where('provider_id', $providerId)
+        ->pluck('id')
+        ->all();
+      if ($documentIds !== [] && Schema::hasTable('providers_additional_document_files')) {
+        DB::table('providers_additional_document_files')->whereIn('document_id', $documentIds)->delete();
+      }
+      DB::table('providers_additional_documents')->where('provider_id', $providerId)->delete();
     }
 
     BankDetail::query()->where('provider_id', $providerId)->delete();
@@ -206,8 +234,13 @@ class AdminProviderDeletionService
       Storage::query()->where('model_id', $providerId)->where('model', Provider::class)->delete();
     }
 
-    if ($provider->owner) {
-      $provider->owner->forceDelete();
+    // Avoid stale eager-loaded relations in Provider::deleted (servicemen already removed above).
+    $provider->unsetRelation('servicemen');
+    $provider->unsetRelation('owner');
+
+    $owner = $provider->owner()->withTrashed()->first();
+    if ($owner) {
+      $owner->forceDelete();
     }
 
     $provider->forceDelete();

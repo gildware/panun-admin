@@ -341,8 +341,9 @@ class Provider extends Model
         });
 
         self::deleted(function ($model) {
-            $model->servicemen->each(function ($serviceman) {
-                $serviceman->user->update(['is_active' => 0]);
+            // Prefer a fresh query: eager-loaded servicemen may already be deleted mid-destroy.
+            $model->servicemen()->with('user')->get()->each(function ($serviceman) {
+                $serviceman->user?->update(['is_active' => 0]);
             });
         });
 

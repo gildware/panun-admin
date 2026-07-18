@@ -61,8 +61,9 @@
 
         <div class="d-flex flex-wrap align-items-center gap-2">
             @php
-                $suspensionSummary = \Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement::summarize($provider);
-                $suspensionItems = $suspensionSummary['items'] ?? [];
+                $suspensionItems = $provider
+                    ? (\Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement::summarize($provider)['items'] ?? [])
+                    : [];
             @endphp
 
             @foreach($suspensionItems as $item)
