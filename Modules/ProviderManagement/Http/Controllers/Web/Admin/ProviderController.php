@@ -25,6 +25,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Modules\BookingModule\Entities\Booking;
+use Modules\AdminModule\Services\Maintenance\AdminProviderDeletionService;
 use Modules\BookingModule\Services\AdminBookingDeletionService;
 use Modules\BookingModule\Services\AdminCompanyInflowPaymentService;
 use Modules\BookingModule\Services\BookingFinancialSettlementService;
@@ -917,6 +918,12 @@ class ProviderController extends Controller
         ]);
 
         $webPage = $request->has('web_page') ? $request['web_page'] : 'overview';
+
+        if (! $this->provider->where('id', $id)->exists()) {
+            Toastr::error(translate('Provider_or_account_not_found'));
+
+            return redirect()->route('admin.provider.list');
+        }
 
         //overview (no payment widgets; those are on the Payment tab)
         if ($request->web_page == 'overview') {
@@ -2695,150 +2702,23 @@ class ProviderController extends Controller
         $provider = $this->provider->with(['owner', 'servicemen'])->find($id);
 
         if (! $provider) {
-            Toastr::error(translate(DEFAULT_FAIL_200['message']));
+            Toastr::error(translate('Provider_or_account_not_found'));
 
-            return back();
+            return redirect()->route('admin.provider.list');
         }
 
-        $deletionService = app(AdminBookingDeletionService::class);
-
-        $bookingEager = [
-            'repeat.detail',
-            'repeat.details_amounts',
-            'repeat.statusHistories',
-            'repeat.scheduleHistories',
-            'repeat.repeatHistories',
-            'detail',
-            'details_amounts',
-            'schedule_histories',
-            'status_histories',
-            'booking_offline_payments',
-            'ignores',
-            'reviews',
-            'booking_partial_payments',
-            'extra_services',
-        ];
-
         try {
-            DB::transaction(function () use ($provider, $id, $deletionService, $bookingEager) {
-                file_remover('provider/logo/', $provider->logo);
-                if (! empty($provider->cover_image)) {
-                    file_remover('provider/logo/', $provider->cover_image);
-                }
-                if (! empty($provider->contact_person_photo)) {
-                    file_remover('provider/contact_person_photo/', $provider->contact_person_photo);
-                }
-                if (! empty($provider->owner?->identification_image)) {
-                    foreach ($provider->owner->identification_image as $image) {
-                        $imgName = is_array($image) ? ($image['image'] ?? $image) : $image;
-                        file_remover('provider/identity/', $imgName);
-                    }
-                }
-                if (is_array($provider->company_identity_images)) {
-                    foreach ($provider->company_identity_images as $image) {
-                        $imgName = is_array($image) ? ($image['image'] ?? $image) : $image;
-                        file_remover('provider/company-identity/', $imgName);
-                    }
-                }
-
-                $bookingIds = $this->booking->where('provider_id', $id)->pluck('id');
-                foreach ($bookingIds as $bookingId) {
-                    $booking = $this->booking->with($bookingEager)->find($bookingId);
-                    if ($booking) {
-                        $deletionService->deleteBookingAndRelations($booking);
-                    }
-                }
-
-                if (Schema::hasColumn('ledger_transactions', 'provider_id')) {
-                    LedgerTransaction::where('provider_id', $id)->delete();
-                }
-
-                foreach ($this->serviceman->where('provider_id', $id)->get() as $serviceman) {
-                    $uid = $serviceman->user_id;
-                    $servicemanTx = Transaction::where(function ($q) use ($uid) {
-                        $q->where('from_user_id', $uid)->orWhere('to_user_id', $uid);
-                    })->get();
-                    $deletionService->reverseAccountsAndDeleteTransactions($servicemanTx);
-                    Account::where('user_id', $uid)->delete();
-                    $serviceman->delete();
-                }
-
-                $ownerUserId = $provider->user_id;
-                if ($ownerUserId) {
-                    $ownerTx = Transaction::where(function ($q) use ($ownerUserId) {
-                        $q->where('from_user_id', $ownerUserId)->orWhere('to_user_id', $ownerUserId);
-                    })->get();
-                    $deletionService->reverseAccountsAndDeleteTransactions($ownerTx);
-                    Account::where('user_id', $ownerUserId)->delete();
-                }
-
-                if (Schema::hasTable('subscription_subscriber_bookings')) {
-                    DB::table('subscription_subscriber_bookings')->where('provider_id', $id)->delete();
-                }
-
-                $this->paymentRequest->where('attribute', 'provider-reg')->where('attribute_id', $id)->delete();
-
-                $this->review->where('provider_id', $id)->delete();
-
-                if (Schema::hasTable('favorite_providers')) {
-                    DB::table('favorite_providers')->where('provider_id', $id)->delete();
-                }
-
-                if (Schema::hasTable('package_subscriber_features')) {
-                    DB::table('package_subscriber_features')->where('provider_id', $id)->delete();
-                }
-                if (Schema::hasTable('package_subscriber_limits')) {
-                    DB::table('package_subscriber_limits')->where('provider_id', $id)->delete();
-                }
-                if (Schema::hasTable('package_subscriber_logs')) {
-                    DB::table('package_subscriber_logs')->where('provider_id', $id)->delete();
-                }
-                if (Schema::hasTable('package_subscribers')) {
-                    DB::table('package_subscribers')->where('provider_id', $id)->delete();
-                }
-
-                $this->subscribedService->where('provider_id', $id)->delete();
-
-                if (Schema::hasTable('carts')) {
-                    DB::table('carts')->where('provider_id', $id)->delete();
-                }
-                if (Schema::hasTable('advertisements')) {
-                    DB::table('advertisements')->where('provider_id', $id)->delete();
-                }
-                if (Schema::hasTable('post_bids')) {
-                    DB::table('post_bids')->where('provider_id', $id)->delete();
-                }
-                if (Schema::hasTable('ignored_posts')) {
-                    DB::table('ignored_posts')->where('provider_id', $id)->delete();
-                }
-                if (Schema::hasTable('provider_notification_setups')) {
-                    DB::table('provider_notification_setups')->where('provider_id', $id)->delete();
-                }
-                if (Schema::hasTable('providers_withdraw_methods_data')) {
-                    DB::table('providers_withdraw_methods_data')->where('provider_id', $id)->delete();
-                }
-
-                $this->bank_detail->where('provider_id', $id)->delete();
-
-                ProviderSetting::where('provider_id', $id)->delete();
-
-                if (Schema::hasTable('provider_sub_category')) {
-                    DB::table('provider_sub_category')->where('provider_id', $id)->delete();
-                }
-
-                if (Schema::hasTable('storages')) {
-                    Storage::where('model_id', $id)->where('model', Provider::class)->delete();
-                }
-
-                if ($provider->owner) {
-                    $provider->owner->forceDelete();
-                }
-
-                $provider->forceDelete();
+            DB::transaction(function () use ($provider) {
+                app(AdminProviderDeletionService::class)->deleteProvider($provider);
             });
         } catch (\Throwable $e) {
             report($e);
             Toastr::error(translate(DEFAULT_FAIL_200['message']));
+
+            // Settings page crashes if the provider row is gone/trashed; never return there blindly.
+            if (! $this->provider->where('id', $id)->exists()) {
+                return redirect()->route('admin.provider.list');
+            }
 
             return back();
         }

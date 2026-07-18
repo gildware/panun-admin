@@ -243,8 +243,11 @@
 @endpush
 
 @section('content')
-    @php($socialInboxChannel = request()->route('channel') ?? 'whatsapp')
-    @php($waInboxCh = $socialInboxChannel)
+    @php
+        // Use block @php/@endphp — inline @php() is swallowed by the next @endphp in this view.
+        $waInboxCh = $waInboxCh ?? request()->route('channel') ?? 'whatsapp';
+        $socialInboxChannel = $socialInboxChannel ?? $waInboxCh;
+    @endphp
     <div class="main-content social-inbox-page social-inbox-page--{{ $socialInboxChannel }}">
         <div class="container-fluid">
             <div class="page-title-wrap mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2">

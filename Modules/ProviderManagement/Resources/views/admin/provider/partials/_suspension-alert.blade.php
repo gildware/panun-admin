@@ -1,8 +1,9 @@
 @php
     use Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement;
 
-    $suspensionSummary = ProviderManualPerformanceEnforcement::summarize($provider);
-    $suspensionItems = $suspensionSummary['items'] ?? [];
+    $suspensionItems = $provider
+        ? (ProviderManualPerformanceEnforcement::summarize($provider)['items'] ?? [])
+        : [];
     $unsuspendMethods = collect($suspensionItems)
         ->pluck('unsuspend_method')
         ->filter()
@@ -11,7 +12,7 @@
         ->all();
 @endphp
 
-@if(!empty($suspensionItems))
+@if($provider && !empty($suspensionItems))
     @push('css_or_js')
         <style>
             .provider-suspension-alert {

@@ -485,6 +485,8 @@ class WhatsAppController extends Controller
             : '';
         $chatMetaPayload = $this->buildChatMetaPayloadForPhone($phone);
         $messagingWindow = $this->buildMessagingWindowPayloadForThreadPhone($phone);
+        $waInboxCh = SocialInboxChannel::current();
+        $socialInboxChannel = $waInboxCh;
 
         return view('whatsappmodule::admin.conversations.chat', compact(
             'phone',
@@ -495,7 +497,9 @@ class WhatsAppController extends Controller
             'waAgentDisplayNameForTemplates',
             'waCustomerNameForTemplates',
             'chatMetaPayload',
-            'messagingWindow'
+            'messagingWindow',
+            'waInboxCh',
+            'socialInboxChannel'
         ));
     }
 
