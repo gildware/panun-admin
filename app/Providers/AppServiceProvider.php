@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Routing\StaticAwareUrlGenerator;
 use Illuminate\Foundation\AliasLoader;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Routing\UrlGenerator as LaravelUrlGenerator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\ServiceProvider;
@@ -34,6 +36,33 @@ class AppServiceProvider extends ServiceProvider
         require_once app_path('Lib/AppCustomRequestNotificationHelpers.php');
         require_once app_path('Lib/AdminInboxNotificationAvatarHelpers.php');
         require_once base_path('Modules/PromotionManagement/Lib/Promotion.php');
+
+        // Serve public/assets/* from R2/CDN when STATIC_ASSET_URL is set; keep /storage on origin.
+        $this->app->extend('url', function (LaravelUrlGenerator $url, $app) {
+            if ($url instanceof StaticAwareUrlGenerator) {
+                return $url;
+            }
+
+            $generator = new StaticAwareUrlGenerator(
+                $app['router']->getRoutes(),
+                $app->rebinding('request', function ($app, $request) {
+                    $app['url']->setRequest($request);
+                }),
+                $app['config']['app.asset_url'] ?? null
+            );
+
+            $generator->setSessionResolver(function () use ($app) {
+                return $app['session'] ?? null;
+            });
+
+            $generator->setKeyResolver(function () use ($app) {
+                $config = $app->make('config');
+
+                return [$config->get('app.key'), ...($config->get('app.previous_keys') ?? [])];
+            });
+
+            return $generator;
+        });
     }
 
     /**

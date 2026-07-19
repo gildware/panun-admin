@@ -78,6 +78,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Asset / CDN URLs
+    |--------------------------------------------------------------------------
+    |
+    | static_asset_url: CDN/R2 origin for public/assets/* only (CSS/JS/theme images).
+    | Prefer STATIC_ASSET_URL. ASSET_URL is accepted as a fallback alias.
+    | Do NOT point this at a root that would rewrite /storage/* media URLs.
+    |
+    | Example after `php artisan assets:sync-to-r2`:
+    | STATIC_ASSET_URL=https://pub-xxxxx.r2.dev/prod
+    |
+    */
+
+    'asset_url' => env('ASSET_URL'),
+
+    'static_asset_url' => env('STATIC_ASSET_URL', env('ASSET_URL')),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |
