@@ -167,8 +167,7 @@ class ProviderController extends Controller
         $performanceFilter = $request->has('performance_filter') ? $request['performance_filter'] : 'all';
         $queryParam = ['search' => $search, 'status' => $status, 'performance_filter' => $performanceFilter];
 
-        // Skip zone eager-load (list UI unused; zone coordinates are heavy).
-        // Booking counts come from ProviderPerformanceService (one grouped query) instead of withCount.
+        // Skip zone eager-load and booking counts (live booking aggregates made this page hang).
         $providers = $this->provider
             ->with(['owner', 'storage'])
             ->where(['is_approved' => 1])
@@ -208,23 +207,20 @@ class ProviderController extends Controller
         ];
 
         $performanceService = app(ProviderPerformanceService::class);
-        $metrics = $performanceService->getAggregatedProviderPerformanceMetrics($providers->getCollection()->pluck('id')->toArray());
-        $bookingCountsReady = $performanceService->bookingsProviderIdIndexExists();
+        // Incidents only — do not query bookings on the list page.
+        $metrics = $performanceService->getAggregatedProviderPerformanceMetrics(
+            $providers->getCollection()->pluck('id')->toArray(),
+            includeBookingTotals: false
+        );
 
-        $providers->getCollection()->transform(function ($provider) use ($metrics, $bookingCountsReady) {
+        $providers->getCollection()->transform(function ($provider) use ($metrics) {
             $row = $metrics->get($provider->id);
 
-            $jobsCompleted = (int) ($row?->bookings_completed_count ?? $row?->jobs_completed_count ?? 0);
-            $jobsCancelled = (int) ($row?->bookings_cancelled_count ?? 0);
             $complaintsCount = (int) ($row?->complaints_count ?? 0);
             $noShowCount = (int) ($row?->no_show_count ?? 0);
-            $totalRelevant = max(1, ($jobsCompleted + $jobsCancelled));
+            $positiveFeedback = (int) ($row?->positive_feedback_count ?? 0);
+            $totalRelevant = max(1, $complaintsCount + $noShowCount + $positiveFeedback);
 
-            // Prefer live booking aggregates when indexed; otherwise use denormalized order_count
-            // so the list stays usable instead of full-scanning bookings.
-            $provider->bookings_count = $bookingCountsReady
-                ? (int) ($row?->bookings_count ?? 0)
-                : (int) ($provider->order_count ?? 0);
             $provider->performance_score = (int) ($row?->performance_score ?? 0);
             $provider->complaints_percent = round(($complaintsCount / $totalRelevant) * 100, 2);
             $provider->no_show_percent = round(($noShowCount / $totalRelevant) * 100, 2);

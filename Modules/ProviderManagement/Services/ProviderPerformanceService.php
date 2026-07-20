@@ -54,7 +54,7 @@ class ProviderPerformanceService
         $this->getAggregatedProviderPerformanceMetrics([$providerId]);
     }
 
-    public function getAggregatedProviderPerformanceMetrics(array $providerIds): Collection
+    public function getAggregatedProviderPerformanceMetrics(array $providerIds, bool $includeBookingTotals = true): Collection
     {
         if (empty($providerIds)) {
             return collect();
@@ -62,10 +62,10 @@ class ProviderPerformanceService
 
         $providerIds = array_values(array_unique($providerIds));
         sort($providerIds);
-        $cacheKey = 'provider_perf_metrics:'.sha1(implode(',', $providerIds));
+        $cacheKey = 'provider_perf_metrics:v2:'.($includeBookingTotals ? '1' : '0').':'.sha1(implode(',', $providerIds));
 
-        return Cache::remember($cacheKey, 60, function () use ($providerIds) {
-            return $this->computeAggregatedProviderPerformanceMetrics($providerIds);
+        return Cache::remember($cacheKey, 60, function () use ($providerIds, $includeBookingTotals) {
+            return $this->computeAggregatedProviderPerformanceMetrics($providerIds, $includeBookingTotals);
         });
     }
 
@@ -95,11 +95,11 @@ class ProviderPerformanceService
     /**
      * @param  array<int|string>  $providerIds
      */
-    private function computeAggregatedProviderPerformanceMetrics(array $providerIds): Collection
+    private function computeAggregatedProviderPerformanceMetrics(array $providerIds, bool $includeBookingTotals = true): Collection
     {
-        // Skip bookings aggregates until the provider_id index exists — otherwise MySQL
-        // full-scans bookings (~10–20s) and Turbo never finishes the Provider list.
-        $bookingTotals = $this->bookingsProviderIdIndexExists()
+        // Provider list must stay fast: booking aggregates can still take seconds even with
+        // an index when providers have many rows. Detail/top pages can pass true.
+        $bookingTotals = ($includeBookingTotals && $this->bookingsProviderIdIndexExists())
             ? $this->terminalBookingCountsByProviderIds($providerIds)
             : [];
 

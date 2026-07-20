@@ -143,7 +143,6 @@
                                         <th>{{translate('Provider')}}</th>
                                         <th class="min-w-120">{{translate('Contact_Info')}}</th>
                                         <th class="min-w-120">{{translate('Total_Subscribed_Sub_Categories')}}</th>
-                                        <th class="min-w-120">{{translate('Total_Booking_Served')}}</th>
                                         <th class="min-w-120">{{translate('Performance_Score')}}</th>
                                         <th class="min-w-120">{{translate('Performance_Status')}}</th>
                                         <th class="min-w-120">{{translate('Complaint_%')}}</th>
@@ -201,7 +200,6 @@
                                             <td>
                                                 <p>{{$provider->subscribed_services_count}}</p>
                                             </td>
-                                            <td>{{$provider->bookings_count}}</td>
                                             @php($providerListPerformance = \Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement::providerListPerformance($provider))
                                             <td>{{ (int)($provider->performance_score ?? 0) }}</td>
                                             <td>
