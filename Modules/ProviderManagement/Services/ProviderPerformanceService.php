@@ -58,79 +58,41 @@ class ProviderPerformanceService
         }
 
         $bookingTotals = $this->terminalBookingCountsByProviderIds($providerIds);
+        $incidentTotals = $this->incidentAggregatesByProviderIds($providerIds);
 
-        $incidents = ProviderIncident::query()
-            ->whereIn('provider_id', $providerIds)
-            ->get(['provider_id', 'booking_id', 'action_type', 'incident_type', 'tags', 'score_delta']);
+        return collect($providerIds)->mapWithKeys(function ($providerId) use ($bookingTotals, $incidentTotals) {
+            $incidents = $incidentTotals[$providerId] ?? [
+                'performance_score' => 0,
+                'complaints_count' => 0,
+                'no_show_count' => 0,
+                'late_arrival_count' => 0,
+                'poor_service_count' => 0,
+                'positive_feedback_count' => 0,
+                'reopened_bookings_count' => 0,
+            ];
 
-        $incidentGroups = $incidents->groupBy('provider_id');
-
-        return collect($providerIds)->mapWithKeys(function ($providerId) use ($bookingTotals, $incidentGroups) {
-            $rows = $incidentGroups->get($providerId, collect());
-
-            $complaints = $rows
-                ->filter(fn ($row) => $row->incident_type === self::INCIDENT_COMPLAINT)
-                ->pluck('booking_id')
-                ->unique()
-                ->count();
-
-            $noShow = $rows
-                ->filter(fn ($row) => in_array('no_show', (array) ($row->tags ?? []), true))
-                ->pluck('booking_id')
-                ->unique()
-                ->count();
-
-            $lateArrival = $rows
-                ->filter(fn ($row) => in_array('late_arrival', (array) ($row->tags ?? []), true))
-                ->pluck('booking_id')
-                ->unique()
-                ->count();
-
-            $poorService = $rows
-                ->filter(fn ($row) => in_array('poor_service', (array) ($row->tags ?? []), true))
-                ->pluck('booking_id')
-                ->unique()
-                ->count();
-
-            $positiveFeedback = $rows
-                ->filter(fn ($row) => $row->incident_type === self::INCIDENT_POSITIVE_FEEDBACK)
-                ->pluck('booking_id')
-                ->unique()
-                ->count();
-
-            $reopenedBookings = $rows
-                ->filter(function ($row) {
-                    if (($row->action_type ?? '') === self::ACTION_REOPENED) {
-                        return true;
-                    }
-                    $t = (array) ($row->tags ?? []);
-
-                    return in_array('reopened', $t, true);
-                })
-                ->pluck('booking_id')
-                ->unique()
-                ->count();
-
-            $score = (int) $rows->sum(fn ($row) => (int) ($row->score_delta ?? 0));
-
-            $totals = $bookingTotals[$providerId] ?? ['completed' => 0, 'cancelled' => 0];
+            $totals = $bookingTotals[$providerId] ?? ['total' => 0, 'completed' => 0, 'cancelled' => 0];
             $bookingsCompleted = $totals['completed'];
             $bookingsCancelled = $totals['cancelled'];
+            $complaints = $incidents['complaints_count'];
+            $noShow = $incidents['no_show_count'];
+            $score = $incidents['performance_score'];
             $suggestedAction = $this->suggestProviderAction($score, $complaints, $noShow, $bookingsCancelled);
 
             return [
                 $providerId => (object) [
                     'provider_id' => $providerId,
                     'performance_score' => $score,
+                    'bookings_count' => $totals['total'],
                     'bookings_completed_count' => $bookingsCompleted,
                     'bookings_cancelled_count' => $bookingsCancelled,
                     'jobs_completed_count' => $bookingsCompleted,
                     'complaints_count' => $complaints,
                     'no_show_count' => $noShow,
-                    'late_arrival_count' => $lateArrival,
-                    'poor_service_count' => $poorService,
-                    'positive_feedback_count' => $positiveFeedback,
-                    'reopened_bookings_count' => $reopenedBookings,
+                    'late_arrival_count' => $incidents['late_arrival_count'],
+                    'poor_service_count' => $incidents['poor_service_count'],
+                    'positive_feedback_count' => $incidents['positive_feedback_count'],
+                    'reopened_bookings_count' => $incidents['reopened_bookings_count'],
                     'suggested_action' => $suggestedAction,
                 ],
             ];
@@ -139,19 +101,22 @@ class ProviderPerformanceService
 
     /**
      * @param  array<int|string>  $providerIds
-     * @return array<string|int, array{completed: int, cancelled: int}>
+     * @return array<string|int, array{total: int, completed: int, cancelled: int}>
      */
     private function terminalBookingCountsByProviderIds(array $providerIds): array
     {
         $defaults = [];
         foreach ($providerIds as $id) {
-            $defaults[$id] = ['completed' => 0, 'cancelled' => 0];
+            $defaults[$id] = ['total' => 0, 'completed' => 0, 'cancelled' => 0];
         }
 
         $rows = Booking::query()
             ->whereIn('provider_id', $providerIds)
             ->selectRaw(
-                'provider_id, SUM(CASE WHEN booking_status = ? THEN 1 ELSE 0 END) as completed_count, SUM(CASE WHEN booking_status IN (\'canceled\', \'refunded\') THEN 1 ELSE 0 END) as cancelled_count',
+                'provider_id,
+                COUNT(*) as total_count,
+                SUM(CASE WHEN booking_status = ? THEN 1 ELSE 0 END) as completed_count,
+                SUM(CASE WHEN booking_status IN (\'canceled\', \'refunded\') THEN 1 ELSE 0 END) as cancelled_count',
                 [self::ACTION_COMPLETED]
             )
             ->groupBy('provider_id')
@@ -161,10 +126,78 @@ class ProviderPerformanceService
             $pid = $row->provider_id;
             if (array_key_exists($pid, $defaults)) {
                 $defaults[$pid] = [
+                    'total' => (int) $row->total_count,
                     'completed' => (int) $row->completed_count,
                     'cancelled' => (int) $row->cancelled_count,
                 ];
             }
+        }
+
+        return $defaults;
+    }
+
+    /**
+     * Aggregate incident metrics in SQL (same semantics as unique booking_id filters in PHP).
+     *
+     * @param  array<int|string>  $providerIds
+     * @return array<string|int, array{
+     *     performance_score: int,
+     *     complaints_count: int,
+     *     no_show_count: int,
+     *     late_arrival_count: int,
+     *     poor_service_count: int,
+     *     positive_feedback_count: int,
+     *     reopened_bookings_count: int
+     * }>
+     */
+    private function incidentAggregatesByProviderIds(array $providerIds): array
+    {
+        $defaults = [];
+        foreach ($providerIds as $id) {
+            $defaults[$id] = [
+                'performance_score' => 0,
+                'complaints_count' => 0,
+                'no_show_count' => 0,
+                'late_arrival_count' => 0,
+                'poor_service_count' => 0,
+                'positive_feedback_count' => 0,
+                'reopened_bookings_count' => 0,
+            ];
+        }
+
+        $tagContains = static fn (string $tag): string => "JSON_CONTAINS(COALESCE(tags, JSON_ARRAY()), JSON_QUOTE('{$tag}'))";
+
+        $rows = ProviderIncident::query()
+            ->whereIn('provider_id', $providerIds)
+            ->groupBy('provider_id')
+            ->selectRaw(
+                'provider_id,
+                COALESCE(SUM(score_delta), 0) as performance_score,
+                COUNT(DISTINCT CASE WHEN incident_type = ? THEN booking_id END) as complaints_count,
+                COUNT(DISTINCT CASE WHEN '.$tagContains('no_show').' THEN booking_id END) as no_show_count,
+                COUNT(DISTINCT CASE WHEN '.$tagContains('late_arrival').' THEN booking_id END) as late_arrival_count,
+                COUNT(DISTINCT CASE WHEN '.$tagContains('poor_service').' THEN booking_id END) as poor_service_count,
+                COUNT(DISTINCT CASE WHEN incident_type = ? THEN booking_id END) as positive_feedback_count,
+                COUNT(DISTINCT CASE WHEN action_type = ? OR '.$tagContains('reopened').' THEN booking_id END) as reopened_bookings_count',
+                [self::INCIDENT_COMPLAINT, self::INCIDENT_POSITIVE_FEEDBACK, self::ACTION_REOPENED]
+            )
+            ->get();
+
+        foreach ($rows as $row) {
+            $pid = $row->provider_id;
+            if (! array_key_exists($pid, $defaults)) {
+                continue;
+            }
+
+            $defaults[$pid] = [
+                'performance_score' => (int) $row->performance_score,
+                'complaints_count' => (int) $row->complaints_count,
+                'no_show_count' => (int) $row->no_show_count,
+                'late_arrival_count' => (int) $row->late_arrival_count,
+                'poor_service_count' => (int) $row->poor_service_count,
+                'positive_feedback_count' => (int) $row->positive_feedback_count,
+                'reopened_bookings_count' => (int) $row->reopened_bookings_count,
+            ];
         }
 
         return $defaults;
@@ -187,4 +220,3 @@ class ProviderPerformanceService
         return 'keep_active';
     }
 }
-

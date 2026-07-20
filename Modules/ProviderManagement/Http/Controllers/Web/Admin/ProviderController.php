@@ -168,10 +168,11 @@ class ProviderController extends Controller
         $queryParam = ['search' => $search, 'status' => $status, 'performance_filter' => $performanceFilter];
 
         // Skip zone eager-load (list UI unused; zone coordinates are heavy).
+        // Booking counts come from ProviderPerformanceService (one grouped query) instead of withCount.
         $providers = $this->provider
             ->with(['owner', 'storage'])
             ->where(['is_approved' => 1])
-            ->withCount(['subscribed_services', 'bookings'])
+            ->withCount(['subscribed_services'])
             ->when($request->has('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request['search']);
                 return $query->where(function ($query) use ($keys) {
@@ -218,6 +219,7 @@ class ProviderController extends Controller
             $noShowCount = (int) ($row?->no_show_count ?? 0);
             $totalRelevant = max(1, ($jobsCompleted + $jobsCancelled));
 
+            $provider->bookings_count = (int) ($row?->bookings_count ?? 0);
             $provider->performance_score = (int) ($row?->performance_score ?? 0);
             $provider->complaints_percent = round(($complaintsCount / $totalRelevant) * 100, 2);
             $provider->no_show_percent = round(($noShowCount / $totalRelevant) * 100, 2);

@@ -94,7 +94,7 @@ class ChattingController extends Controller
             $filter = 'all';
         }
 
-        $chatListQuery = $this->channelList->withCount(['channelUsers'])
+        $chatListQuery = $this->channelList
             ->with($this->channelListEagerLoads())
             ->whereHas('channelUsers', function ($query) use ($request) {
                 $query->where(['user_id' => $request->user()->id]);
@@ -153,9 +153,8 @@ class ChattingController extends Controller
                 ->values();
         }
 
-        // Only load the data each tab actually renders. The staff tab uses the
-        // staff directory, while the other tabs use the customer/provider/serviceman
-        // directories. Loading all of them on every request makes this page slow.
+        // Staff tab needs the directory; support start-conversation loads customers/providers
+        // via admin.chat.entity-search (AJAX select2) so we do not hydrate full directories here.
         $customers = collect();
         $providers = collect();
         $servicemen = collect();
@@ -165,9 +164,6 @@ class ChattingController extends Controller
         if ($type === 'staff') {
             $staffMembers = $this->staffPresenceService->listStaffPresence($request->user()->id);
             $staffPresenceById = $staffMembers->keyBy('id');
-        } else {
-            $customers = $this->user->ofStatus(1)->inCustomerDirectory()->get();
-            $providers = $this->user->ofStatus(1)->where(['user_type' => 'provider-admin'])->with(['provider'])->get();
         }
 
         $openChannelId = $request->query('channel_id');
@@ -569,7 +565,7 @@ class ChattingController extends Controller
     {
         $request->validate([
             'q' => 'nullable|string|max:120',
-            'type' => 'required|in:staff,customer,provider,booking,service,lead',
+            'type' => 'required|in:staff,customer,provider,provider-admin,booking,service,lead',
         ]);
 
         $query = trim((string) $request->input('q', ''));
@@ -604,6 +600,33 @@ class ChattingController extends Controller
                     'id' => $user->id,
                     'label' => trim($user->first_name.' '.$user->last_name),
                     'subtitle' => $user->phone,
+                ])
+                ->values(),
+            // Mentions / tagging use provider company ids; start-conversation needs provider-admin user ids.
+            'provider-admin' => $this->user->ofStatus(1)->where('user_type', 'provider-admin')
+                ->with(['provider'])
+                ->whereHas('provider')
+                ->when($like, function ($q) use ($like) {
+                    $q->where(function ($inner) use ($like) {
+                        $inner->where('first_name', 'like', $like)
+                            ->orWhere('last_name', 'like', $like)
+                            ->orWhere('phone', 'like', $like)
+                            ->orWhere('email', 'like', $like)
+                            ->orWhereHas('provider', function ($providerQuery) use ($like) {
+                                $providerQuery->where('company_name', 'like', $like)
+                                    ->orWhere('company_phone', 'like', $like)
+                                    ->orWhere('contact_person_name', 'like', $like);
+                            });
+                    });
+                })
+                ->orderBy('first_name')
+                ->limit(12)
+                ->get()
+                ->map(fn (User $user) => [
+                    'type' => 'provider-admin',
+                    'id' => $user->id,
+                    'label' => $user->provider?->company_name ?: trim($user->first_name.' '.$user->last_name),
+                    'subtitle' => $user->provider?->company_phone ?: $user->phone,
                 ])
                 ->values(),
             'provider' => Provider::query()
