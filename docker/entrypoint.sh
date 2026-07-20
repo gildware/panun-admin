@@ -36,6 +36,11 @@ if [ ! -L public/storage ]; then
   php artisan storage:link || true
 fi
 
+# Apply pending migrations (e.g. bookings.provider_id index) before serving traffic.
+if [ -n "${APP_KEY:-}" ] && [ -n "${DB_HOST:-}" ]; then
+  php artisan migrate --force --no-interaction || true
+fi
+
 # Only cache config when the app key exists (set via Dokploy env).
 if [ -n "${APP_KEY:-}" ]; then
   php artisan config:cache || true
