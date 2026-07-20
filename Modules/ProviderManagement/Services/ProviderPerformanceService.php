@@ -4,6 +4,8 @@ namespace Modules\ProviderManagement\Services;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Modules\BookingModule\Entities\Booking;
 use Modules\ProviderManagement\Entities\ProviderIncident;
 
@@ -68,11 +70,38 @@ class ProviderPerformanceService
     }
 
     /**
+     * True when bookings.provider_id is indexed. Without it, provider-list aggregates
+     * full-scan bookings and the admin page appears hung.
+     */
+    public function bookingsProviderIdIndexExists(): bool
+    {
+        return Cache::remember('schema:bookings_provider_id_index', 300, function () {
+            if (! Schema::hasTable('bookings')) {
+                return false;
+            }
+
+            $database = Schema::getConnection()->getDatabaseName();
+            $row = DB::selectOne(
+                'SELECT 1 AS ok FROM information_schema.statistics
+                 WHERE table_schema = ? AND table_name = ? AND index_name = ?
+                 LIMIT 1',
+                [$database, 'bookings', 'bookings_provider_id_index']
+            );
+
+            return $row !== null;
+        });
+    }
+
+    /**
      * @param  array<int|string>  $providerIds
      */
     private function computeAggregatedProviderPerformanceMetrics(array $providerIds): Collection
     {
-        $bookingTotals = $this->terminalBookingCountsByProviderIds($providerIds);
+        // Skip bookings aggregates until the provider_id index exists — otherwise MySQL
+        // full-scans bookings (~10–20s) and Turbo never finishes the Provider list.
+        $bookingTotals = $this->bookingsProviderIdIndexExists()
+            ? $this->terminalBookingCountsByProviderIds($providerIds)
+            : [];
 
         // Incidents are indexed by provider_id and usually small per page of providers.
         // Keep PHP aggregation (correct JSON tag handling) instead of JSON_CONTAINS scans.

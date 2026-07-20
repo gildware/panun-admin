@@ -38,7 +38,9 @@ fi
 
 # Apply pending migrations (e.g. bookings.provider_id index) before serving traffic.
 if [ -n "${APP_KEY:-}" ] && [ -n "${DB_HOST:-}" ]; then
-  php artisan migrate --force --no-interaction || true
+  php artisan migrate --force --no-interaction 2>&1 | tail -n 50 || true
+  # Clear cached "index missing" flag after migrate attempts.
+  php artisan cache:forget schema:bookings_provider_id_index 2>/dev/null || true
 fi
 
 # Only cache config when the app key exists (set via Dokploy env).

@@ -209,8 +209,9 @@ class ProviderController extends Controller
 
         $performanceService = app(ProviderPerformanceService::class);
         $metrics = $performanceService->getAggregatedProviderPerformanceMetrics($providers->getCollection()->pluck('id')->toArray());
+        $bookingCountsReady = $performanceService->bookingsProviderIdIndexExists();
 
-        $providers->getCollection()->transform(function ($provider) use ($metrics) {
+        $providers->getCollection()->transform(function ($provider) use ($metrics, $bookingCountsReady) {
             $row = $metrics->get($provider->id);
 
             $jobsCompleted = (int) ($row?->bookings_completed_count ?? $row?->jobs_completed_count ?? 0);
@@ -219,7 +220,11 @@ class ProviderController extends Controller
             $noShowCount = (int) ($row?->no_show_count ?? 0);
             $totalRelevant = max(1, ($jobsCompleted + $jobsCancelled));
 
-            $provider->bookings_count = (int) ($row?->bookings_count ?? 0);
+            // Prefer live booking aggregates when indexed; otherwise use denormalized order_count
+            // so the list stays usable instead of full-scanning bookings.
+            $provider->bookings_count = $bookingCountsReady
+                ? (int) ($row?->bookings_count ?? 0)
+                : (int) ($provider->order_count ?? 0);
             $provider->performance_score = (int) ($row?->performance_score ?? 0);
             $provider->complaints_percent = round(($complaintsCount / $totalRelevant) * 100, 2);
             $provider->no_show_percent = round(($noShowCount / $totalRelevant) * 100, 2);
