@@ -889,10 +889,7 @@ class BookingController extends Controller
         $zones = $this->zone->withoutGlobalScope('translate')->select('id', 'name', 'parent_id', 'description')->get();
         $zoneTreeOptions = Zone::flatTreeOptionsForSelect($zones);
         $customerLeadAreas = CustomerLeadArea::where('is_active', true)->orderBy('name')->get();
-        $categories = $this->category->select('id', 'parent_id', 'name')->where('position', 1)->get();
-        $subCategories = $this->category->select('id', 'parent_id', 'name')->where('position', 2)->get();
-        $providers = $this->provider->with('owner')->get();
-        $servicemen = $this->serviceman->with('user')->get();
+        // Categories/providers/servicemen load via AJAX on the create form — do not preload all rows.
         $customers = User::query()->inCustomerDirectory()
             ->orderByDesc('created_at')
             ->select('id', 'first_name', 'last_name', 'phone')
@@ -934,10 +931,6 @@ class BookingController extends Controller
             'zones',
             'zoneTreeOptions',
             'customerLeadAreas',
-            'categories',
-            'subCategories',
-            'providers',
-            'servicemen',
             'customers',
             'assignees',
             'currentAdmin',

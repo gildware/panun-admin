@@ -617,26 +617,18 @@
                             </div>
 
                             <div class="form-group mb-30" id="customer">
-                                <select class="form-control chat-js-select" name="customer_id">
-                                    <option value="" selected disabled>{{translate('Select_Customer')}}</option>
-                                    @foreach($customers as $item)
-                                        <option value="{{$item->id}}">
-                                            {{$item->first_name}} {{$item->last_name}} ({{$item->phone}})
-                                        </option>
-                                    @endforeach
+                                <select class="form-control chat-js-select chat-entity-select" name="customer_id"
+                                        data-entity-type="customer"
+                                        data-placeholder="{{ translate('Select_Customer') }}">
+                                    <option value=""></option>
                                 </select>
                             </div>
 
                             <div class="form-group mb-30 d--none" id="provider">
-                                <select class="form-control chat-js-select" name="provider_id">
-                                    <option value="" selected disabled>{{translate('Select_Provider')}}</option>
-                                    @foreach($providers as $item)
-                                        @if($item->provider)
-                                            <option value="{{$item->id}}">
-                                                {{$item->provider->company_name??''}} ({{$item->provider->company_phone}})
-                                            </option>
-                                        @endif
-                                    @endforeach
+                                <select class="form-control chat-js-select chat-entity-select" name="provider_id"
+                                        data-entity-type="provider-admin"
+                                        data-placeholder="{{ translate('Select_Provider') }}">
+                                    <option value=""></option>
                                 </select>
                             </div>
                         @endif
@@ -759,11 +751,11 @@
         }
 
         $(document).ready(function () {
+            @if(($type ?? '') === 'staff')
             $('.chat-js-select').select2({
                 dropdownParent : $('#modal-conversation-start')
             });
 
-            @if(($type ?? '') === 'staff')
             $('#chat-search').on('keyup', function () {
                 var value = this.value.toLowerCase().trim();
                 $('.staff-conversation-item, .staff-contact-row, .staff-group-item').each(function () {
@@ -784,6 +776,48 @@
             openStaffContact('{{ request()->query('open_staff') }}');
             @endif
             @else
+            var entitySearchUrl = @json(route('admin.chat.entity-search'));
+            var noResultsText = @json(translate('No_results_found'));
+
+            $('.chat-entity-select').each(function () {
+                var $el = $(this);
+                $el.select2({
+                    dropdownParent: $('#modal-conversation-start'),
+                    width: '100%',
+                    allowClear: true,
+                    placeholder: $el.data('placeholder') || '',
+                    minimumInputLength: 0,
+                    ajax: {
+                        url: entitySearchUrl,
+                        dataType: 'json',
+                        delay: 250,
+                        data: function (params) {
+                            return {
+                                q: params.term || '',
+                                type: $el.data('entity-type')
+                            };
+                        },
+                        processResults: function (data) {
+                            return {
+                                results: (data.results || []).map(function (item) {
+                                    var text = item.label || '';
+                                    if (item.subtitle) {
+                                        text += ' (' + item.subtitle + ')';
+                                    }
+                                    return { id: item.id, text: text };
+                                })
+                            };
+                        },
+                        cache: true
+                    },
+                    language: {
+                        noResults: function () {
+                            return noResultsText;
+                        }
+                    }
+                });
+            });
+
             @if(!empty($openChannelId))
             var openChat = document.getElementById('chat-{{ $openChannelId }}');
             if (openChat) {

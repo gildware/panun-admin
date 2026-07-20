@@ -167,7 +167,12 @@ class ProviderController extends Controller
         $performanceFilter = $request->has('performance_filter') ? $request['performance_filter'] : 'all';
         $queryParam = ['search' => $search, 'status' => $status, 'performance_filter' => $performanceFilter];
 
-        $providers = $this->provider->with(['owner', 'zone'])->where(['is_approved' => 1])->withCount(['subscribed_services', 'bookings'])
+        // Full list features restored. Speed fix is list avatars skipping Storage::exists()
+        // (see Provider::getListAvatarFullPathAttribute) plus bookings.provider_id indexes.
+        $providers = $this->provider
+            ->with(['owner', 'storage'])
+            ->where(['is_approved' => 1])
+            ->withCount(['subscribed_services'])
             ->when($request->has('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request['search']);
                 return $query->where(function ($query) use ($keys) {
@@ -191,16 +196,25 @@ class ProviderController extends Controller
             })
             ->paginate(pagination_limit())->appends($queryParam);
 
-        $topCards = [];
-        $topCards['total_providers'] = $this->provider->ofApproval(1)->count();
-        $topCards['total_onboarding_requests'] = $this->provider->ofApproval(2)->count();
-        $topCards['total_active_providers'] = $this->provider->ofApproval(1)->ofStatus(1)->count();
-        $topCards['total_inactive_providers'] = $this->provider->ofApproval(1)->ofStatus(0)->count();
+        $approvalCounts = $this->provider
+            ->selectRaw("SUM(CASE WHEN is_approved = 1 THEN 1 ELSE 0 END) as total_providers, SUM(CASE WHEN is_approved = 2 THEN 1 ELSE 0 END) as total_onboarding_requests, SUM(CASE WHEN is_approved = 1 AND is_active = 1 THEN 1 ELSE 0 END) as total_active_providers, SUM(CASE WHEN is_approved = 1 AND is_active = 0 THEN 1 ELSE 0 END) as total_inactive_providers")
+            ->first();
+
+        $topCards = [
+            'total_providers' => (int) ($approvalCounts->total_providers ?? 0),
+            'total_onboarding_requests' => (int) ($approvalCounts->total_onboarding_requests ?? 0),
+            'total_active_providers' => (int) ($approvalCounts->total_active_providers ?? 0),
+            'total_inactive_providers' => (int) ($approvalCounts->total_inactive_providers ?? 0),
+        ];
 
         $performanceService = app(ProviderPerformanceService::class);
-        $metrics = $performanceService->getAggregatedProviderPerformanceMetrics($providers->getCollection()->pluck('id')->toArray());
+        $metrics = $performanceService->getAggregatedProviderPerformanceMetrics(
+            $providers->getCollection()->pluck('id')->toArray()
+        );
 
         $providers->getCollection()->transform(function ($provider) use ($metrics) {
+            $provider->setAppends(['list_avatar_full_path']);
+
             $row = $metrics->get($provider->id);
 
             $jobsCompleted = (int) ($row?->bookings_completed_count ?? $row?->jobs_completed_count ?? 0);
@@ -209,6 +223,7 @@ class ProviderController extends Controller
             $noShowCount = (int) ($row?->no_show_count ?? 0);
             $totalRelevant = max(1, ($jobsCompleted + $jobsCancelled));
 
+            $provider->bookings_count = (int) ($row?->bookings_count ?? 0);
             $provider->performance_score = (int) ($row?->performance_score ?? 0);
             $provider->complaints_percent = round(($complaintsCount / $totalRelevant) * 100, 2);
             $provider->no_show_percent = round(($noShowCount / $totalRelevant) * 100, 2);

@@ -3,6 +3,9 @@
 namespace Modules\ProviderManagement\Services;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Modules\BookingModule\Entities\Booking;
 use Modules\ProviderManagement\Entities\ProviderIncident;
 
@@ -51,14 +54,55 @@ class ProviderPerformanceService
         $this->getAggregatedProviderPerformanceMetrics([$providerId]);
     }
 
-    public function getAggregatedProviderPerformanceMetrics(array $providerIds): Collection
+    public function getAggregatedProviderPerformanceMetrics(array $providerIds, bool $includeBookingTotals = true): Collection
     {
         if (empty($providerIds)) {
             return collect();
         }
 
-        $bookingTotals = $this->terminalBookingCountsByProviderIds($providerIds);
+        $providerIds = array_values(array_unique($providerIds));
+        sort($providerIds);
+        $cacheKey = 'provider_perf_metrics:v2:'.($includeBookingTotals ? '1' : '0').':'.sha1(implode(',', $providerIds));
 
+        return Cache::remember($cacheKey, 60, function () use ($providerIds, $includeBookingTotals) {
+            return $this->computeAggregatedProviderPerformanceMetrics($providerIds, $includeBookingTotals);
+        });
+    }
+
+    /**
+     * True when bookings.provider_id is indexed. Without it, provider-list aggregates
+     * full-scan bookings and the admin page appears hung.
+     */
+    public function bookingsProviderIdIndexExists(): bool
+    {
+        return Cache::remember('schema:bookings_provider_id_index', 300, function () {
+            if (! Schema::hasTable('bookings')) {
+                return false;
+            }
+
+            $database = Schema::getConnection()->getDatabaseName();
+            $row = DB::selectOne(
+                'SELECT 1 AS ok FROM information_schema.statistics
+                 WHERE table_schema = ? AND table_name = ? AND index_name = ?
+                 LIMIT 1',
+                [$database, 'bookings', 'bookings_provider_id_index']
+            );
+
+            return $row !== null;
+        });
+    }
+
+    /**
+     * @param  array<int|string>  $providerIds
+     */
+    private function computeAggregatedProviderPerformanceMetrics(array $providerIds, bool $includeBookingTotals = true): Collection
+    {
+        $bookingTotals = $includeBookingTotals
+            ? $this->terminalBookingCountsByProviderIds($providerIds)
+            : [];
+
+        // Incidents are indexed by provider_id and usually small per page of providers.
+        // Keep PHP aggregation (correct JSON tag handling) instead of JSON_CONTAINS scans.
         $incidents = ProviderIncident::query()
             ->whereIn('provider_id', $providerIds)
             ->get(['provider_id', 'booking_id', 'action_type', 'incident_type', 'tags', 'score_delta']);
@@ -113,7 +157,7 @@ class ProviderPerformanceService
 
             $score = (int) $rows->sum(fn ($row) => (int) ($row->score_delta ?? 0));
 
-            $totals = $bookingTotals[$providerId] ?? ['completed' => 0, 'cancelled' => 0];
+            $totals = $bookingTotals[$providerId] ?? ['total' => 0, 'completed' => 0, 'cancelled' => 0];
             $bookingsCompleted = $totals['completed'];
             $bookingsCancelled = $totals['cancelled'];
             $suggestedAction = $this->suggestProviderAction($score, $complaints, $noShow, $bookingsCancelled);
@@ -122,6 +166,7 @@ class ProviderPerformanceService
                 $providerId => (object) [
                     'provider_id' => $providerId,
                     'performance_score' => $score,
+                    'bookings_count' => $totals['total'],
                     'bookings_completed_count' => $bookingsCompleted,
                     'bookings_cancelled_count' => $bookingsCancelled,
                     'jobs_completed_count' => $bookingsCompleted,
@@ -139,19 +184,22 @@ class ProviderPerformanceService
 
     /**
      * @param  array<int|string>  $providerIds
-     * @return array<string|int, array{completed: int, cancelled: int}>
+     * @return array<string|int, array{total: int, completed: int, cancelled: int}>
      */
     private function terminalBookingCountsByProviderIds(array $providerIds): array
     {
         $defaults = [];
         foreach ($providerIds as $id) {
-            $defaults[$id] = ['completed' => 0, 'cancelled' => 0];
+            $defaults[$id] = ['total' => 0, 'completed' => 0, 'cancelled' => 0];
         }
 
         $rows = Booking::query()
             ->whereIn('provider_id', $providerIds)
             ->selectRaw(
-                'provider_id, SUM(CASE WHEN booking_status = ? THEN 1 ELSE 0 END) as completed_count, SUM(CASE WHEN booking_status IN (\'canceled\', \'refunded\') THEN 1 ELSE 0 END) as cancelled_count',
+                'provider_id,
+                COUNT(*) as total_count,
+                SUM(CASE WHEN booking_status = ? THEN 1 ELSE 0 END) as completed_count,
+                SUM(CASE WHEN booking_status IN (\'canceled\', \'refunded\') THEN 1 ELSE 0 END) as cancelled_count',
                 [self::ACTION_COMPLETED]
             )
             ->groupBy('provider_id')
@@ -161,6 +209,7 @@ class ProviderPerformanceService
             $pid = $row->provider_id;
             if (array_key_exists($pid, $defaults)) {
                 $defaults[$pid] = [
+                    'total' => (int) $row->total_count,
                     'completed' => (int) $row->completed_count,
                     'cancelled' => (int) $row->cancelled_count,
                 ];
@@ -187,4 +236,3 @@ class ProviderPerformanceService
         return 'keep_active';
     }
 }
-

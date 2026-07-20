@@ -2,68 +2,46 @@
 
 namespace Modules\CustomerModule\Http\Controllers;
 
-use Illuminate\Contracts\Support\Renderable;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Routing\Controller;
 
 class PagesController extends Controller
 {
     /**
-     * Display a listing of the resource.
-     * @return Renderable
+     * Legacy /about-us etc. routes — content lives on business-page/{slug}.
      */
-    public function aboutUs(): Renderable
+    public function aboutUs(): RedirectResponse
     {
-        $page_data = business_config('about_us', 'pages_setup');
-        return view('customermodule::index', compact('page_data'));
+        return $this->redirectToBusinessPage('about-us');
     }
 
-    /**
-     * Display a listing of the resource.
-     * @return Renderable
-     */
-    public function privacyPolicy(): Renderable
+    public function privacyPolicy(): RedirectResponse
     {
-        $page_data = business_config('privacy_policy', 'pages_setup');
-        return view('customermodule::index', compact('page_data'));
+        return $this->redirectToBusinessPage('privacy-policy');
     }
 
-    /**
-     * Display a listing of the resource.
-     * @return Renderable
-     */
-    public function termsAndConditions(): Renderable
+    public function termsAndConditions(): RedirectResponse
     {
-        $page_data = business_config('terms_and_conditions', 'pages_setup');
-        return view('customermodule::index', compact('page_data'));
+        return $this->redirectToBusinessPage('terms-and-conditions');
     }
 
-    /**
-     * Display a listing of the resource.
-     * @return Renderable
-     */
-    public function refundPolicy(): Renderable
+    public function refundPolicy(): RedirectResponse
     {
-        $page_data = business_config('refund_policy', 'pages_setup');
-        return view('customermodule::index', compact('page_data'));
+        return $this->redirectToBusinessPage('refund-policy');
     }
 
-    /**
-     * Display a listing of the resource.
-     * @return Renderable
-     */
-    public function returnPolicy(): Renderable
+    public function returnPolicy(): RedirectResponse
     {
-        $page_data = business_config('return_policy', 'pages_setup');
-        return view('customermodule::index', compact('page_data'));
+        return $this->redirectToBusinessPage('return-policy');
     }
 
-    /**
-     * Display a listing of the resource.
-     * @return Renderable
-     */
-    public function cancellationPolicy(): Renderable
+    public function cancellationPolicy(): RedirectResponse
     {
-        $page_data = business_config('cancellation_policy', 'pages_setup');
-        return view('customermodule::index', compact('page_data'));
+        return $this->redirectToBusinessPage('cancellation-policy');
+    }
+
+    private function redirectToBusinessPage(string $slug): RedirectResponse
+    {
+        return redirect()->route('business.page.dynamic', ['slug' => $slug]);
     }
 }
