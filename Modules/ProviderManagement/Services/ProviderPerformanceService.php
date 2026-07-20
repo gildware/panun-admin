@@ -97,9 +97,7 @@ class ProviderPerformanceService
      */
     private function computeAggregatedProviderPerformanceMetrics(array $providerIds, bool $includeBookingTotals = true): Collection
     {
-        // Provider list must stay fast: booking aggregates can still take seconds even with
-        // an index when providers have many rows. Detail/top pages can pass true.
-        $bookingTotals = ($includeBookingTotals && $this->bookingsProviderIdIndexExists())
+        $bookingTotals = $includeBookingTotals
             ? $this->terminalBookingCountsByProviderIds($providerIds)
             : [];
 

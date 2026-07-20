@@ -167,32 +167,10 @@ class ProviderController extends Controller
         $performanceFilter = $request->has('performance_filter') ? $request['performance_filter'] : 'all';
         $queryParam = ['search' => $search, 'status' => $status, 'performance_filter' => $performanceFilter];
 
-        // Keep this list lean: no bookings/incidents aggregates, no heavy JSON columns.
+        // Full list features restored. Speed fix is list avatars skipping Storage::exists()
+        // (see Provider::getListAvatarFullPathAttribute) plus bookings.provider_id indexes.
         $providers = $this->provider
-            ->select([
-                'id',
-                'user_id',
-                'company_name',
-                'logo',
-                'contact_person_name',
-                'contact_person_phone',
-                'contact_person_email',
-                'contact_person_photo',
-                'avg_rating',
-                'is_active',
-                'is_approved',
-                'service_availability',
-                'performance_status',
-                'manual_performance_status',
-                'performance_suspended_until',
-                'is_suspended',
-                'created_at',
-                'updated_at',
-            ])
-            ->with([
-                'owner:id,first_name,last_name,phone,email,is_active,user_type',
-                'storage',
-            ])
+            ->with(['owner', 'storage'])
             ->where(['is_approved' => 1])
             ->withCount(['subscribed_services'])
             ->when($request->has('search'), function ($query) use ($request) {
@@ -218,25 +196,37 @@ class ProviderController extends Controller
             })
             ->paginate(pagination_limit())->appends($queryParam);
 
-        $topCards = \Illuminate\Support\Facades\Cache::remember('admin_provider_list_top_cards', 60, function () {
-            $approvalCounts = $this->provider
-                ->selectRaw("SUM(CASE WHEN is_approved = 1 THEN 1 ELSE 0 END) as total_providers, SUM(CASE WHEN is_approved = 2 THEN 1 ELSE 0 END) as total_onboarding_requests, SUM(CASE WHEN is_approved = 1 AND is_active = 1 THEN 1 ELSE 0 END) as total_active_providers, SUM(CASE WHEN is_approved = 1 AND is_active = 0 THEN 1 ELSE 0 END) as total_inactive_providers")
-                ->first();
+        $approvalCounts = $this->provider
+            ->selectRaw("SUM(CASE WHEN is_approved = 1 THEN 1 ELSE 0 END) as total_providers, SUM(CASE WHEN is_approved = 2 THEN 1 ELSE 0 END) as total_onboarding_requests, SUM(CASE WHEN is_approved = 1 AND is_active = 1 THEN 1 ELSE 0 END) as total_active_providers, SUM(CASE WHEN is_approved = 1 AND is_active = 0 THEN 1 ELSE 0 END) as total_inactive_providers")
+            ->first();
 
-            return [
-                'total_providers' => (int) ($approvalCounts->total_providers ?? 0),
-                'total_onboarding_requests' => (int) ($approvalCounts->total_onboarding_requests ?? 0),
-                'total_active_providers' => (int) ($approvalCounts->total_active_providers ?? 0),
-                'total_inactive_providers' => (int) ($approvalCounts->total_inactive_providers ?? 0),
-            ];
-        });
+        $topCards = [
+            'total_providers' => (int) ($approvalCounts->total_providers ?? 0),
+            'total_onboarding_requests' => (int) ($approvalCounts->total_onboarding_requests ?? 0),
+            'total_active_providers' => (int) ($approvalCounts->total_active_providers ?? 0),
+            'total_inactive_providers' => (int) ($approvalCounts->total_inactive_providers ?? 0),
+        ];
 
-        $providers->getCollection()->transform(function ($provider) {
-            // Avoid serializing unused media accessors on every row.
+        $performanceService = app(ProviderPerformanceService::class);
+        $metrics = $performanceService->getAggregatedProviderPerformanceMetrics(
+            $providers->getCollection()->pluck('id')->toArray()
+        );
+
+        $providers->getCollection()->transform(function ($provider) use ($metrics) {
             $provider->setAppends(['list_avatar_full_path']);
-            $provider->performance_score = 0;
-            $provider->complaints_percent = 0;
-            $provider->no_show_percent = 0;
+
+            $row = $metrics->get($provider->id);
+
+            $jobsCompleted = (int) ($row?->bookings_completed_count ?? $row?->jobs_completed_count ?? 0);
+            $jobsCancelled = (int) ($row?->bookings_cancelled_count ?? 0);
+            $complaintsCount = (int) ($row?->complaints_count ?? 0);
+            $noShowCount = (int) ($row?->no_show_count ?? 0);
+            $totalRelevant = max(1, ($jobsCompleted + $jobsCancelled));
+
+            $provider->bookings_count = (int) ($row?->bookings_count ?? 0);
+            $provider->performance_score = (int) ($row?->performance_score ?? 0);
+            $provider->complaints_percent = round(($complaintsCount / $totalRelevant) * 100, 2);
+            $provider->no_show_percent = round(($noShowCount / $totalRelevant) * 100, 2);
 
             return $provider;
         });
