@@ -60,6 +60,7 @@ RUN composer dump-autoload --optimize --no-dev \
 
 COPY docker/nginx.conf /etc/nginx/sites-available/default
 COPY docker/php.ini /usr/local/etc/php/conf.d/zz-panun.ini
+COPY docker/php-fpm-www.conf /usr/local/etc/php-fpm.d/zz-panun-www.conf
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/entrypoint.sh /entrypoint.sh
 

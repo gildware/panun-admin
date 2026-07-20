@@ -48,6 +48,8 @@ $app = Application::configure(basePath: dirname(__DIR__))
             ->withoutOverlapping(15);
     })
     ->withMiddleware(function (Middleware $middleware) {
+        // Traefik/Dokploy terminates TLS; trust forwarded proto/host.
+        $middleware->trustProxies(at: '*');
         $middleware->use([
 //            TrustHosts::class,
             TrustProxies::class,
