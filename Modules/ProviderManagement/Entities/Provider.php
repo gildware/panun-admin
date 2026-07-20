@@ -281,6 +281,8 @@ class Provider extends Model
 
     /**
      * Avatar for admin lists: company logo when set, otherwise contact person photo.
+     * Skips Storage::exists() checks — those remote round-trips make provider list hang.
+     * Blade already has onerror fallback to a local placeholder.
      */
     public function getListAvatarFullPathAttribute(): ?string
     {
@@ -288,11 +290,27 @@ class Provider extends Model
         $isApi = request()->is('api/*');
 
         if ($this->hasStoredListAvatarFilename($this->logo)) {
-            return $this->logo_full_path ?? ($isApi ? null : $defaultPath);
+            $resolved = resolve_media_storage_url(
+                resolve_stored_media_key((string) $this->logo, \App\Support\MediaStoragePath::legacyPrefixForProviderLogo()),
+                '',
+                $this->storage?->storage_type,
+                $isApi ? null : $defaultPath,
+                false
+            );
+
+            return $resolved ?? ($isApi ? null : $defaultPath);
         }
 
         if ($this->hasStoredListAvatarFilename($this->contact_person_photo)) {
-            return $this->contact_person_photo_full_path ?? ($isApi ? null : $defaultPath);
+            $resolved = resolve_media_storage_url(
+                resolve_stored_media_key((string) $this->contact_person_photo, 'provider/contact_person_photo/'),
+                '',
+                null,
+                $isApi ? null : $defaultPath,
+                false
+            );
+
+            return $resolved ?? ($isApi ? null : $defaultPath);
         }
 
         return $isApi ? null : $defaultPath;
