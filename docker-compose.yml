@@ -19,7 +19,20 @@ services:
     volumes:
       - app_storage:/var/www/html/storage/app
       - app_logs:/var/www/html/storage/logs
-    # No host ports — Dokploy Traefik will attach the domain to service "app" on port 80
+    networks:
+      - dokploy-network
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+      - traefik.http.routers.panun-live-vps-http.rule=Host(`live-vps.panunkaergar.com`)
+      - traefik.http.routers.panun-live-vps-http.entrypoints=web
+      - traefik.http.routers.panun-live-vps-http.service=panun-live-vps
+      - traefik.http.routers.panun-live-vps.rule=Host(`live-vps.panunkaergar.com`)
+      - traefik.http.routers.panun-live-vps.entrypoints=websecure
+      - traefik.http.routers.panun-live-vps.tls=true
+      - traefik.http.routers.panun-live-vps.tls.certResolver=letsencrypt
+      - traefik.http.routers.panun-live-vps.service=panun-live-vps
+      - traefik.http.services.panun-live-vps.loadbalancer.server.port=80
     deploy:
       resources:
         limits:
@@ -47,6 +60,8 @@ services:
       - app_storage:/var/www/html/storage/app
       - app_logs:/var/www/html/storage/logs
     entrypoint: ["/entrypoint.sh"]
+    networks:
+      - dokploy-network
     deploy:
       resources:
         limits:
@@ -69,13 +84,14 @@ services:
       --innodb-buffer-pool-size=128M
       --max-connections=50
       --skip-log-bin
-    # Soft check only — do not block app startup on "unhealthy"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
       interval: 10s
       timeout: 5s
       retries: 30
       start_period: 120s
+    networks:
+      - dokploy-network
     deploy:
       resources:
         limits:
@@ -86,6 +102,8 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    networks:
+      - dokploy-network
     deploy:
       resources:
         limits:
@@ -96,3 +114,7 @@ volumes:
   mysql_data:
   app_storage:
   app_logs:
+
+networks:
+  dokploy-network:
+    external: true
