@@ -744,6 +744,17 @@ class WhatsAppAiToolExecutor
 
         $bid = (string) $booking->booking_id;
 
+        try {
+            app(MetaConversionsApiService::class)->reportForPhone(
+                $phone,
+                MetaConversionsApiService::EVENT_SCHEDULE,
+                $crmLead?->id ? (int) $crmLead->id : null,
+                $bid
+            );
+        } catch (\Throwable) {
+            // Never block booking submit on Meta CAPI failures.
+        }
+
         return [
             'ok' => true,
             'booking_id' => $bid,

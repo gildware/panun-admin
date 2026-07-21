@@ -31,12 +31,22 @@ class WhatsAppUser extends Model
         'type',
         'handled_by',
         'human_support_requested_at',
+        'referral_json',
+        'ctwa_clid',
+        'referral_source_id',
+        'referral_source_type',
+        'referral_source_url',
+        'referral_headline',
+        'referral_body',
+        'referral_captured_at',
     ];
 
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'human_support_requested_at' => 'datetime',
+        'referral_json' => 'array',
+        'referral_captured_at' => 'datetime',
     ];
 
     /**

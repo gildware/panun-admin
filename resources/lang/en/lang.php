@@ -10121,4 +10121,6 @@ _Message' => 'Customer notification for provider bid offer
   'unknown' => 'Unknown',
   'Task_Board_Trash' => 'Task Board Trash',
   'Deleted_at' => 'Deleted at',
+  'From Facebook Ad' => 'From Facebook Ad',
+  'View ad' => 'View ad',
 );

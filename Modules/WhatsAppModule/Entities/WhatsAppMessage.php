@@ -40,12 +40,22 @@ class WhatsAppMessage extends Model
         'admin_seen_at',
         'sent_by',
         'sent_by_id',
+        'referral_json',
+        'ctwa_clid',
+        'referral_source_id',
+        'referral_source_type',
+        'referral_source_url',
+        'referral_headline',
+        'referral_body',
+        'meta_payload',
     ];
 
     protected $casts = [
         'status_updated_at' => 'datetime',
         'admin_seen_at' => 'datetime',
         'reactions' => 'array',
+        'referral_json' => 'array',
+        'meta_payload' => 'array',
     ];
 
     public function getBodyAttribute(): string

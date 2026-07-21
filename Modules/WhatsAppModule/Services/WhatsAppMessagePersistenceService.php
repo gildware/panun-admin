@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Modules\AdminModule\Services\StaffActivityLogger;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
@@ -24,7 +25,8 @@ class WhatsAppMessagePersistenceService
 {
     public function __construct(
         protected WhatsAppCloudService $whatsAppCloud,
-        protected WhatsAppCrmBootstrapService $crmBootstrap
+        protected WhatsAppCrmBootstrapService $crmBootstrap,
+        protected WhatsAppCtwaAttributionService $ctwaAttribution
     ) {}
 
     private function downloadInboundSocialAttachmentToPublicDisk(?string $url, ?string $hintExt = null): ?string
@@ -118,7 +120,10 @@ class WhatsAppMessagePersistenceService
      * @param  array<string, mixed>  $data
      *                         phone, direction, message_text?, message_type?, wa_message_id?,
      *                         reply_to_wa_message_id?, sent_by_id?, sent_by?, created_at?,
-     *                         media_id?, media_url?, media_mime_type?
+     *                         media_id?, media_url?, media_mime_type?,
+     *                         referral_json?, ctwa_clid?, referral_source_id?, referral_source_type?,
+     *                         referral_source_url?, referral_headline?, referral_body?,
+     *                         meta_payload?, profile_name?
      */
     public function persist(array $data): WhatsAppMessage
     {
@@ -153,7 +158,7 @@ class WhatsAppMessagePersistenceService
         }
 
         $msg = new WhatsAppMessage();
-        $msg->fill([
+        $fill = [
             'channel' => $data['channel'] ?? SocialInboxChannel::current(),
             'phone' => $data['phone'],
             'message_text' => $data['message_text'] ?? '',
@@ -163,7 +168,31 @@ class WhatsAppMessagePersistenceService
             'reply_to_wa_message_id' => $data['reply_to_wa_message_id'] ?? null,
             'sent_by_id' => $data['sent_by_id'] ?? null,
             'sent_by' => $data['sent_by'] ?? (($data['direction'] ?? '') === 'OUT' ? 'AI' : 'Customer'),
-        ]);
+        ];
+        $messagesTable = (new WhatsAppMessage)->getTable();
+        $canStoreReferral = Schema::hasColumn($messagesTable, 'ctwa_clid');
+        if ($canStoreReferral) {
+            foreach ([
+                'referral_json',
+                'ctwa_clid',
+                'referral_source_id',
+                'referral_source_type',
+                'referral_source_url',
+                'referral_headline',
+                'referral_body',
+            ] as $referralKey) {
+                if (array_key_exists($referralKey, $data) && $data[$referralKey] !== null && $data[$referralKey] !== '') {
+                    $fill[$referralKey] = $data[$referralKey];
+                }
+            }
+        }
+        if (Schema::hasColumn($messagesTable, 'meta_payload')
+            && array_key_exists('meta_payload', $data)
+            && is_array($data['meta_payload'])
+        ) {
+            $fill['meta_payload'] = $data['meta_payload'];
+        }
+        $msg->fill($fill);
         if ($mediaPath) {
             $msg->media_path = $mediaPath;
         }
@@ -176,7 +205,30 @@ class WhatsAppMessagePersistenceService
         }
         $msg->save();
 
+        if ($canStoreReferral
+            && ($data['direction'] ?? null) === 'IN'
+            && (
+                !empty($data['ctwa_clid'] ?? null)
+                || !empty($data['referral_source_id'] ?? null)
+                || !empty($data['referral_json'] ?? null)
+            )
+        ) {
+            $this->ctwaAttribution->applyFirstTouch((string) $data['phone'], [
+                'referral_json' => $data['referral_json'] ?? null,
+                'ctwa_clid' => $data['ctwa_clid'] ?? null,
+                'referral_source_id' => $data['referral_source_id'] ?? null,
+                'referral_source_type' => $data['referral_source_type'] ?? null,
+                'referral_source_url' => $data['referral_source_url'] ?? null,
+                'referral_headline' => $data['referral_headline'] ?? null,
+                'referral_body' => $data['referral_body'] ?? null,
+            ]);
+        }
+
         if (($data['direction'] ?? null) === 'IN') {
+            $profileName = isset($data['profile_name']) ? trim((string) $data['profile_name']) : '';
+            if ($profileName !== '') {
+                $this->applyInboundProfileName((string) $data['phone'], $profileName);
+            }
             $this->crmBootstrap->bootstrapInboundThread((string) $data['phone']);
         }
 
@@ -188,6 +240,28 @@ class WhatsAppMessagePersistenceService
         }
 
         return $msg;
+    }
+
+    /**
+     * Use Meta WhatsApp profile name when the thread has no real name yet.
+     */
+    private function applyInboundProfileName(string $phone, string $profileName): void
+    {
+        $waUser = WhatsAppUser::firstOrNew([
+            'phone' => $phone,
+            'channel' => SocialInboxChannel::current(),
+        ]);
+        if (empty($waUser->channel)) {
+            $waUser->channel = SocialInboxChannel::current();
+        }
+        $current = trim((string) ($waUser->name ?? ''));
+        if ($current === '' || str_starts_with($current, 'WhatsApp ')) {
+            $waUser->name = mb_substr($profileName, 0, 255);
+        }
+        if (empty($waUser->handled_by)) {
+            $waUser->handled_by = 'AI';
+        }
+        $waUser->save();
     }
 
     /**

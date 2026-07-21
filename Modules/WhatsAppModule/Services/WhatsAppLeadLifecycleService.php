@@ -2,6 +2,7 @@
 
 namespace Modules\WhatsAppModule\Services;
 
+use Modules\LeadManagement\Entities\AdSource;
 use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Services\LeadFollowupService;
@@ -9,6 +10,7 @@ use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Entities\Source;
 use Modules\UserManagement\Entities\User;
+use Modules\WhatsAppModule\Entities\WhatsAppUser;
 use Modules\WhatsAppModule\Support\SocialInboxChannel;
 
 /**
@@ -68,6 +70,66 @@ class WhatsAppLeadLifecycleService
         return $trimmed;
     }
 
+    protected function resolveWhatsAppUser(string $whatsAppPhone): ?WhatsAppUser
+    {
+        return WhatsAppUser::query()
+            ->where('phone', $whatsAppPhone)
+            ->where('channel', SocialInboxChannel::current())
+            ->first();
+    }
+
+    protected function resolveSourceIdForWhatsAppPhone(string $whatsAppPhone): int
+    {
+        $waUser = $this->resolveWhatsAppUser($whatsAppPhone);
+
+        if (app(WhatsAppCtwaAttributionService::class)->hasAdAttribution($waUser)) {
+            return Source::ensureFacebookWhatsAppAdSource()->id;
+        }
+
+        return Source::ensureAiChatSource()->id;
+    }
+
+    /**
+     * Map CTWA referral on the WhatsApp thread to CRM Ad Source (create if missing).
+     */
+    protected function resolveAdSourceIdForWhatsAppPhone(string $whatsAppPhone): ?int
+    {
+        $waUser = $this->resolveWhatsAppUser($whatsAppPhone);
+        if (!app(WhatsAppCtwaAttributionService::class)->hasAdAttribution($waUser)) {
+            return null;
+        }
+
+        $adSource = AdSource::ensureFromCtwaReferral(
+            $waUser?->referral_source_id,
+            $waUser?->referral_headline,
+            $waUser?->referral_source_url,
+            $waUser?->referral_source_type,
+            $waUser?->referral_body
+        );
+
+        return $adSource?->id;
+    }
+
+    /**
+     * Fill empty ad_source_id from CTWA attribution (does not overwrite staff-set values).
+     */
+    protected function applyCtwaAdSourceIfMissing(Lead $lead, ?string $whatsAppPhone): bool
+    {
+        if ($whatsAppPhone === null || $whatsAppPhone === '') {
+            return false;
+        }
+        if ($lead->ad_source_id !== null) {
+            return false;
+        }
+        $adSourceId = $this->resolveAdSourceIdForWhatsAppPhone($whatsAppPhone);
+        if ($adSourceId === null) {
+            return false;
+        }
+        $lead->ad_source_id = $adSourceId;
+
+        return true;
+    }
+
     public function ensureUnknownLeadForPhone(string $whatsAppPhone, ?string $name = null): ?Lead
     {
         $leadPhone = $this->normalizeLeadPhone($whatsAppPhone);
@@ -81,7 +143,7 @@ class WhatsAppLeadLifecycleService
             ->first(fn (Lead $lead) => $this->isLeadOpen($lead));
 
         if ($existing) {
-            return $this->touchAiOpenLead($existing, $name);
+            return $this->touchAiOpenLead($existing, $name, $whatsAppPhone);
         }
 
         // Skip creation for already-onboarded providers.
@@ -92,7 +154,8 @@ class WhatsAppLeadLifecycleService
         return Lead::create([
             'name' => trim((string) ($name ?: ('WhatsApp ' . $leadPhone))),
             'phone_number' => $leadPhone,
-            'source_id' => Source::ensureAiChatSource()->id,
+            'source_id' => $this->resolveSourceIdForWhatsAppPhone($whatsAppPhone),
+            'ad_source_id' => $this->resolveAdSourceIdForWhatsAppPhone($whatsAppPhone),
             'lead_type' => Lead::TYPE_UNKNOWN,
             'date_time_of_lead_received' => now(),
             'handled_by' => 'AI',
@@ -116,7 +179,7 @@ class WhatsAppLeadLifecycleService
             ->first(fn (Lead $lead) => $this->isLeadOpen($lead));
 
         if ($sameTypeOpen) {
-            return $this->touchAiOpenLead($sameTypeOpen, $name);
+            return $this->touchAiOpenLead($sameTypeOpen, $name, $whatsAppPhone);
         }
 
         // 2) Upgrade the AI "unknown" thread lead in place — do not create a second row for the same chat.
@@ -128,7 +191,7 @@ class WhatsAppLeadLifecycleService
                 ->first(fn (Lead $lead) => $this->isLeadOpen($lead));
 
             if ($unknownOpen) {
-                return $this->convertUnknownOpenLeadToType($unknownOpen, $leadType, $name);
+                return $this->convertUnknownOpenLeadToType($unknownOpen, $leadType, $name, $whatsAppPhone);
             }
         }
 
@@ -140,7 +203,8 @@ class WhatsAppLeadLifecycleService
         $lead = Lead::create([
             'name' => trim((string) ($name ?: ('WhatsApp ' . $leadPhone))),
             'phone_number' => $leadPhone,
-            'source_id' => Source::ensureAiChatSource()->id,
+            'source_id' => $this->resolveSourceIdForWhatsAppPhone($whatsAppPhone),
+            'ad_source_id' => $this->resolveAdSourceIdForWhatsAppPhone($whatsAppPhone),
             'lead_type' => $leadType,
             'date_time_of_lead_received' => now(),
             'handled_by' => 'AI',
@@ -148,6 +212,7 @@ class WhatsAppLeadLifecycleService
             'next_followup_at' => app(LeadFollowupService::class)->defaultNextFollowupAt(),
         ]);
         $this->seedDefaultTypeHistoryForTypedLead($lead);
+        $this->reportCtwaLeadSubmittedIfCustomer($whatsAppPhone, $lead);
 
         return $lead;
     }
@@ -155,7 +220,7 @@ class WhatsAppLeadLifecycleService
     /**
      * Keep AI-handled fields fresh on an existing open lead.
      */
-    protected function touchAiOpenLead(Lead $lead, ?string $name): Lead
+    protected function touchAiOpenLead(Lead $lead, ?string $name, ?string $whatsAppPhone = null): Lead
     {
         $dirty = false;
         if (empty($lead->handled_by)) {
@@ -163,7 +228,20 @@ class WhatsAppLeadLifecycleService
             $dirty = true;
         }
         if ($lead->source_id === null) {
-            $lead->source_id = Source::ensureAiChatSource()->id;
+            $lead->source_id = $whatsAppPhone
+                ? $this->resolveSourceIdForWhatsAppPhone($whatsAppPhone)
+                : Source::ensureAiChatSource()->id;
+            $dirty = true;
+        } elseif ($whatsAppPhone) {
+            $ctwaSourceId = Source::ensureFacebookWhatsAppAdSource()->id;
+            $aiSourceId = Source::ensureAiChatSource()->id;
+            if ((int) $lead->source_id === (int) $aiSourceId
+                && (int) $this->resolveSourceIdForWhatsAppPhone($whatsAppPhone) === (int) $ctwaSourceId) {
+                $lead->source_id = $ctwaSourceId;
+                $dirty = true;
+            }
+        }
+        if ($this->applyCtwaAdSourceIfMissing($lead, $whatsAppPhone)) {
             $dirty = true;
         }
         if ($name !== null && trim((string) $name) !== '') {
@@ -181,7 +259,7 @@ class WhatsAppLeadLifecycleService
         return $lead;
     }
 
-    protected function convertUnknownOpenLeadToType(Lead $lead, string $newType, ?string $name): Lead
+    protected function convertUnknownOpenLeadToType(Lead $lead, string $newType, ?string $name, ?string $whatsAppPhone = null): Lead
     {
         $lead->lead_type = $newType;
         if ($name !== null && trim((string) $name) !== '') {
@@ -190,13 +268,41 @@ class WhatsAppLeadLifecycleService
         if (empty($lead->handled_by)) {
             $lead->handled_by = 'AI';
         }
-        if ($lead->source_id === null) {
-            $lead->source_id = Source::ensureAiChatSource()->id;
+        if ($lead->source_id === null || $whatsAppPhone) {
+            $resolved = $whatsAppPhone
+                ? $this->resolveSourceIdForWhatsAppPhone($whatsAppPhone)
+                : Source::ensureAiChatSource()->id;
+            $aiSourceId = Source::ensureAiChatSource()->id;
+            if ($lead->source_id === null
+                || ((int) $lead->source_id === (int) $aiSourceId && (int) $resolved !== (int) $aiSourceId)) {
+                $lead->source_id = $resolved;
+            }
         }
+        $this->applyCtwaAdSourceIfMissing($lead, $whatsAppPhone);
         $lead->save();
         $this->seedDefaultTypeHistoryForTypedLead($lead);
+        if ($whatsAppPhone) {
+            $this->reportCtwaLeadSubmittedIfCustomer($whatsAppPhone, $lead);
+        }
 
         return $lead->fresh();
+    }
+
+    protected function reportCtwaLeadSubmittedIfCustomer(string $whatsAppPhone, Lead $lead): void
+    {
+        if ($lead->lead_type !== Lead::TYPE_CUSTOMER) {
+            return;
+        }
+
+        try {
+            app(MetaConversionsApiService::class)->reportForPhone(
+                $whatsAppPhone,
+                MetaConversionsApiService::EVENT_LEAD_SUBMITTED,
+                (int) $lead->id
+            );
+        } catch (\Throwable) {
+            // Never block CRM on Meta CAPI failures.
+        }
     }
 
     public function seedDefaultTypeHistoryForTypedLead(Lead $lead): void

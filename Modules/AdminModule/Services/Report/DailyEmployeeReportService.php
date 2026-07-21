@@ -16,6 +16,7 @@ use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadFollowup;
 use Modules\LeadManagement\Entities\LeadOutboundEnquiry;
+use Modules\LeadManagement\Entities\Source;
 use Modules\UserManagement\Entities\User;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
 
@@ -304,15 +305,37 @@ class DailyEmployeeReportService
      */
     private function aggregateLeadsAdded(array &$metrics, array $employeeIds, Carbon $rangeStart, Carbon $rangeEnd): void
     {
-        $rows = DB::table((new Lead)->getTable())
+        $query = DB::table((new Lead)->getTable())
             ->selectRaw('DATE(created_at) as day, created_by as user_id, COUNT(*) as total')
             ->whereIn('created_by', $employeeIds)
             ->whereBetween('created_at', [$rangeStart, $rangeEnd])
-            ->whereNotNull('created_by')
+            ->whereNotNull('created_by');
+
+        $this->constrainToManuallyAddedLeads($query);
+
+        $rows = $query
             ->groupBy('day', 'user_id')
             ->get();
 
         $this->applyGroupedCounts($metrics, $rows, 'leads_added');
+    }
+
+    /**
+     * Keep only leads an employee entered manually (exclude AI / website / app auto sources).
+     *
+     * @param  \Illuminate\Database\Query\Builder|\Illuminate\Database\Eloquent\Builder  $query
+     */
+    private function constrainToManuallyAddedLeads($query): void
+    {
+        $automatedSourceIds = Source::automatedSourceIds();
+        if ($automatedSourceIds === []) {
+            return;
+        }
+
+        $query->where(function ($q) use ($automatedSourceIds) {
+            $q->whereNull('source_id')
+                ->orWhereNotIn('source_id', $automatedSourceIds);
+        });
     }
 
     /**
@@ -771,10 +794,15 @@ class DailyEmployeeReportService
             return [];
         }
 
-        return Lead::query()
+        $query = Lead::query()
             ->with(['source:id,name'])
             ->whereIn('created_by', $employeeIds)
             ->whereBetween('created_at', [$dayStart, $dayEnd])
+            ->whereNotNull('created_by');
+
+        $this->constrainToManuallyAddedLeads($query);
+
+        return $query
             ->orderByDesc('created_at')
             ->get(['id', 'name', 'phone_number', 'lead_type', 'source_id', 'handled_by', 'created_by', 'created_at'])
             ->map(fn (Lead $lead) => [

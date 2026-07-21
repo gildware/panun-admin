@@ -69,6 +69,7 @@ use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\Source;
 use Modules\PaymentModule\Entities\OfflinePayment;
 use Modules\WhatsAppModule\Entities\WhatsAppBooking;
+use Modules\WhatsAppModule\Services\MetaConversionsApiService;
 use Modules\WhatsAppModule\Services\WhatsAppCloudService;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -8511,6 +8512,19 @@ class BookingController extends Controller
 
                 if ($wa->lead_id) {
                     $this->syncCustomerLeadHistoryWithSystemBooking((int) $wa->lead_id, $systemBookingUuid);
+                }
+
+                try {
+                    app(MetaConversionsApiService::class)->reportForPhone(
+                        (string) $wa->phone,
+                        MetaConversionsApiService::EVENT_PURCHASE,
+                        $wa->lead_id ? (int) $wa->lead_id : null,
+                        (string) $wa->booking_id,
+                        [],
+                        'purchase|'.$systemBookingUuid
+                    );
+                } catch (Throwable) {
+                    // Never block booking create on Meta CAPI failures.
                 }
             }
         } catch (Throwable $e) {
