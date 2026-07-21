@@ -198,9 +198,10 @@ class WhatsAppCtwaAttributionService
 
         $adSourceImage = null;
         $adSourceId = null;
+        $metaAdId = trim((string) ($waUser?->referral_source_id ?? ''));
         // Thread referral is source of truth; Ad Source only supplements when it matches this Meta ad id.
-        if ($fromAd && $waUser) {
-            $ad = AdSource::findByMetaSourceId($waUser->referral_source_id);
+        if ($fromAd && $waUser && $metaAdId !== '') {
+            $ad = AdSource::findByMetaSourceId($metaAdId);
             if ($ad) {
                 $adSourceId = $ad->id;
                 $adSourceImage = $ad->imagePublicUrl();
@@ -224,7 +225,7 @@ class WhatsAppCtwaAttributionService
             'headline' => $headline !== '' ? $headline : null,
             'body' => $body !== '' ? $body : null,
             'display_name' => $displayName,
-            // Prefer live Meta creative URL for this thread, then stored Ad Source image.
+            // Prefer live Meta creative URL for this thread, then matching Ad Source image only.
             'image_url' => $referralImageUrl ?: $adSourceImage,
             'ad_source_id' => $adSourceId,
             'captured_at' => $waUser?->referral_captured_at

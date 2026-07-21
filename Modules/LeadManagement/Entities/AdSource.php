@@ -63,9 +63,17 @@ class AdSource extends Model
             }
         }
 
+        // Boundary-safe: avoid meta_source_id=12 matching meta_source_id=12345.
         return static::query()
-            ->where('description', 'like', '%meta_source_id='.$sourceId.'%')
-            ->first();
+            ->where(function ($q) use ($sourceId) {
+                $q->where('description', 'like', '%meta_source_id='.$sourceId."\n%")
+                    ->orWhere('description', 'like', '%meta_source_id='.$sourceId."\r\n%")
+                    ->orWhere('description', 'like', '%meta_source_id='.$sourceId);
+            })
+            ->get()
+            ->first(function (self $row) use ($sourceId) {
+                return preg_match('/meta_source_id='.preg_quote($sourceId, '/').'(?:\s|$)/', (string) $row->description) === 1;
+            });
     }
 
     /**
@@ -140,8 +148,8 @@ class AdSource extends Model
                 $dirty = true;
             }
             if ($imageUrl !== '') {
-                $stored = self::downloadCreativeImage($imageUrl);
-                if ($stored) {
+                $stored = self::downloadCreativeImage($imageUrl, $identityKey !== '' ? $identityKey : $sourceId);
+                if ($stored && $stored !== (string) $found->image) {
                     $found->image = $stored;
                     $dirty = true;
                 }
@@ -156,7 +164,9 @@ class AdSource extends Model
         $attrs = [
             'name' => $name,
             'description' => $description,
-            'image' => $imageUrl !== '' ? self::downloadCreativeImage($imageUrl) : null,
+            'image' => $imageUrl !== ''
+                ? self::downloadCreativeImage($imageUrl, $identityKey !== '' ? $identityKey : $sourceId)
+                : null,
             'is_active' => true,
         ];
         if (Schema::hasColumn((new static)->getTable(), 'meta_ad_id') && $sourceId !== '') {
@@ -307,7 +317,7 @@ class AdSource extends Model
         return implode("\n", $lines);
     }
 
-    protected static function downloadCreativeImage(string $url): ?string
+    protected static function downloadCreativeImage(string $url, ?string $identityKey = null): ?string
     {
         $url = trim($url);
         if ($url === '' || (!str_starts_with($url, 'https://') && !str_starts_with($url, 'http://'))) {
@@ -344,7 +354,10 @@ class AdSource extends Model
             $ext = 'jpg';
         }
 
-        $filename = 'ctwa-'.Str::uuid()->toString().'.'.$ext;
+        $key = preg_replace('/[^a-zA-Z0-9_-]+/', '', (string) $identityKey) ?: '';
+        $filename = $key !== ''
+            ? 'ctwa-'.substr($key, 0, 80).'.'.$ext
+            : 'ctwa-'.Str::uuid()->toString().'.'.$ext;
         try {
             Storage::disk('public')->put('ad-source/'.$filename, $body);
         } catch (\Throwable $e) {

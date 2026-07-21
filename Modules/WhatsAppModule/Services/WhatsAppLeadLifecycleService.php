@@ -119,7 +119,7 @@ class WhatsAppLeadLifecycleService
     }
 
     /**
-     * Ensure CTWA Ad Source exists/refreshed; set lead.ad_source_id when empty or currently a bad name.
+     * Ensure CTWA Ad Source exists/refreshed; set/correct lead.ad_source_id from thread referral.
      */
     protected function applyCtwaAdSourceIfMissing(Lead $lead, ?string $whatsAppPhone): bool
     {
@@ -138,8 +138,16 @@ class WhatsAppLeadLifecycleService
         if ((int) $lead->ad_source_id === (int) $adSourceId) {
             return false;
         }
+
+        $waUser = $this->resolveWhatsAppUser($whatsAppPhone);
+        $metaAdId = trim((string) ($waUser?->referral_source_id ?? ''));
         $current = AdSource::query()->find($lead->ad_source_id);
-        if ($current && AdSource::isBadAdName($current->name)) {
+        $shouldRetarget = !$current
+            || AdSource::isBadAdName($current->name)
+            || ($metaAdId !== '' && (string) ($current->meta_ad_id ?? '') !== $metaAdId
+                && !preg_match('/meta_source_id='.preg_quote($metaAdId, '/').'(?:\s|$)/', (string) ($current->description ?? '')));
+
+        if ($shouldRetarget) {
             $lead->ad_source_id = $adSourceId;
 
             return true;
