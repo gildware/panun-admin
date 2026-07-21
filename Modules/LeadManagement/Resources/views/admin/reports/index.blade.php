@@ -891,16 +891,31 @@
                 new ApexCharts(el, options).render();
             })();
 
-            // Ad Source wise leads (donut)
+            // Ad Source wise leads (donut) — CTWA creatives + CRM Ad Source; hide empty "No Ad Source" from chart
             (function () {
-                const baseLabels = {!! json_encode(array_column($adSourceWise, 'label')) !!};
-                const values = {!! json_encode(array_column($adSourceWise, 'total')) !!};
+                const rawLabels = @json(array_column($adSourceWise ?? [], 'label'));
+                const rawValues = @json(array_column($adSourceWise ?? [], 'total'));
+                const baseLabels = [];
+                const values = [];
+                rawLabels.forEach(function (name, index) {
+                    const label = (name || '').trim();
+                    const v = rawValues[index] ?? 0;
+                    if (!v || label === '' || label === '—' || label === 'No Ad Source') {
+                        return;
+                    }
+                    baseLabels.push(label);
+                    values.push(v);
+                });
                 const labels = baseLabels.map(function (name, index) {
                     const v = values[index] ?? 0;
-                    return (name || '—') + ' (' + v + ')';
+                    return name + ' (' + v + ')';
                 });
                 const el = document.querySelector('#lead-ad-source-chart');
                 if (!el) return;
+                if (!values.length) {
+                    el.innerHTML = '<div class="text-muted small py-5 text-center">No ad source data in this range</div>';
+                    return;
+                }
                 const options = {
                     series: values,
                     chart: { type: 'donut', height: 260 },
