@@ -15,6 +15,7 @@ use Modules\LeadManagement\Entities\AdSource;
 use Modules\LeadManagement\Entities\LeadFollowup;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\Source;
+use Modules\LeadManagement\Services\LeadCtwaDisplayService;
 use Modules\LeadManagement\Entities\LeadInvalidReason;
 use Modules\LeadManagement\Entities\LeadFutureCustomerReason;
 use Modules\LeadManagement\Entities\LeadCancellationReason;
@@ -219,6 +220,8 @@ class LeadController extends Controller
         }
 
         $leads = $query->paginate(pagination_limit())->appends($queryParams);
+
+        $ctwaDisplayByPhone = app(LeadCtwaDisplayService::class)->mapByLeadPhones($leads->getCollection());
 
         // handled_by stores the user ID (string/UUID). Build a map id => display name.
         $handledByIds = $leads->pluck('handled_by')
@@ -491,6 +494,7 @@ class LeadController extends Controller
             'customerLeadData',
             'reasonLeadData',
             'leadStatusMeta',
+            'ctwaDisplayByPhone',
             'filterSources',
             'filterAdSources',
             'filterEmployees',
@@ -1587,6 +1591,12 @@ class LeadController extends Controller
             $outboundEnquiryStatuses = LeadOutboundEnquiryStatus::active()->orderBy('name')->get(['id', 'name', 'link_type']);
         }
 
+        $ctwaService = app(LeadCtwaDisplayService::class);
+        $leadCtwaDisplay = $ctwaService->resolveDisplay(
+            $lead->adSource,
+            $ctwaService->forLeadPhone($lead->phone_number)
+        );
+
         return view('leadmanagement::admin.leads.show', compact(
             'lead',
             'handledByName',
@@ -1615,7 +1625,8 @@ class LeadController extends Controller
             'adSources',
             'employees',
             'changeLogs',
-            'outboundEnquiryStatuses'
+            'outboundEnquiryStatuses',
+            'leadCtwaDisplay'
         ));
     }
 

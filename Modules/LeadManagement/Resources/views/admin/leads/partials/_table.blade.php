@@ -1,4 +1,5 @@
-@php
+    @php
+    $ctwaDisplayByPhone = $ctwaDisplayByPhone ?? [];
     $isProviderTab = isset($tab) && $tab === 'provider';
     $isCustomerTab = isset($tab) && $tab === 'customer';
     $isInvalidTab = isset($tab) && $tab === 'invalid';
@@ -128,17 +129,19 @@
                                 <span class="badge rounded-pill {{ $badgeClass }} text-capitalize">{{ $label }}</span>
                             </td>
                             <td class="lead-ad-source-cell">
-                                @if($lead->adSource)
-                                    @php
-                                        $adViewUrl = null;
-                                        $adDesc = (string) ($lead->adSource->description ?? '');
-                                        if (preg_match('/meta_source_url=(\S+)/', $adDesc, $um)) {
-                                            $adViewUrl = \Modules\LeadManagement\Entities\AdSource::viewAdUrl(trim($um[1]));
-                                        }
-                                    @endphp
+                                @php
+                                    $ctwaSvc = app(\Modules\LeadManagement\Services\LeadCtwaDisplayService::class);
+                                    $phoneKey = preg_replace('/\D+/', '', (string) ($lead->phone_number ?? '')) ?? '';
+                                    $phoneKey = strlen($phoneKey) >= 10 ? substr($phoneKey, -10) : '';
+                                    $ctwaRow = ($phoneKey !== '' && !empty($ctwaDisplayByPhone[$phoneKey] ?? null))
+                                        ? $ctwaDisplayByPhone[$phoneKey]
+                                        : null;
+                                    $adDisplay = $ctwaSvc->resolveDisplay($lead->adSource, $ctwaRow);
+                                @endphp
+                                @if($adDisplay['name'] || $adDisplay['image_url'])
                                     <div class="d-flex align-items-center gap-2 py-1">
-                                        @if($lead->adSource->image)
-                                            <img src="{{ $lead->adSource->imagePublicUrl() }}"
+                                        @if($adDisplay['image_url'])
+                                            <img src="{{ $adDisplay['image_url'] }}"
                                                  alt=""
                                                  class="rounded border flex-shrink-0"
                                                  style="width:40px;height:40px;object-fit:cover;"
@@ -146,9 +149,9 @@
                                                  onerror="this.style.display='none'">
                                         @endif
                                         <div class="min-w-0 d-flex flex-column">
-                                            <span class="fw-semibold text-wrap" style="font-size:0.9rem;line-height:1.25;">{{ $lead->adSource->name }}</span>
-                                            @if($adViewUrl)
-                                                <a href="{{ $adViewUrl }}" target="_blank" rel="noopener" class="small text-primary">{{ translate('View ad') }}</a>
+                                            <span class="fw-semibold text-wrap" style="font-size:0.9rem;line-height:1.25;">{{ $adDisplay['name'] ?? '—' }}</span>
+                                            @if($adDisplay['view_ad_url'])
+                                                <a href="{{ $adDisplay['view_ad_url'] }}" target="_blank" rel="noopener" class="small text-primary">{{ translate('View ad') }}</a>
                                             @endif
                                         </div>
                                     </div>

@@ -101,23 +101,30 @@ class AdSource extends Model
             return null;
         }
 
-        // Prefer Meta ad id uniqueness. Without it, key by source_url so links stay distinct.
-        $identityKey = $sourceId !== ''
-            ? $sourceId
-            : ($sourceUrl !== '' ? 'url:'.substr(hash('sha256', strtolower($sourceUrl)), 0, 24) : '');
+        // Prefer Meta ad id. Never key by WhatsApp deep links (shared across ads).
+        // Without a Meta ad id, key by creative fingerprint (headline+body+image).
+        $identityKey = '';
+        if ($sourceId !== '') {
+            $identityKey = $sourceId;
+        } elseif (self::isDistinctAdLandingUrl($sourceUrl)) {
+            $identityKey = 'url:'.substr(hash('sha256', strtolower($sourceUrl)), 0, 24);
+        } elseif ($headline !== '' || $body !== '' || $imageUrl !== '') {
+            $identityKey = 'creative:'.substr(hash('sha256', strtolower($headline.'|'.mb_substr($body, 0, 200).'|'.$imageUrl)), 0, 24);
+        }
 
         $name = self::ctwaDisplayName($sourceId, $headline, $body);
-        $description = self::ctwaDescription($sourceId, $sourceType, $sourceUrl, $body, $headline, $imageUrl);
+        $description = self::ctwaDescription($sourceId, $sourceType, $sourceUrl, $body, $headline, $imageUrl, $identityKey);
 
         $found = null;
-        if ($identityKey !== '') {
-            if ($sourceId !== '') {
-                $found = self::findByMetaSourceId($sourceId);
-            } else {
-                $found = static::query()
-                    ->where('description', 'like', '%meta_source_url='.$sourceUrl.'%')
-                    ->first();
-            }
+        if ($sourceId !== '') {
+            $found = self::findByMetaSourceId($sourceId);
+        } elseif ($identityKey !== '') {
+            $found = static::query()
+                ->where('description', 'like', '%meta_identity='.$identityKey.'%')
+                ->get()
+                ->first(function (self $row) use ($identityKey) {
+                    return preg_match('/meta_identity='.preg_quote($identityKey, '/').'(?:\s|$)/', (string) $row->description) === 1;
+                });
         }
 
         // Do NOT fall back to matching by display name — same headline ≠ same ad.
@@ -128,13 +135,11 @@ class AdSource extends Model
                 $found->meta_ad_id = $sourceId;
                 $dirty = true;
             }
-            if (self::isBadAdName($found->name) || (self::isGenericCtwaName($found->name) && !self::isGenericCtwaName($name))) {
+            // Same identity → keep name/image in sync with this referral (do not leave stale creative).
+            if (!self::isBadAdName($name) && (string) $found->name !== $name) {
                 $found->name = $name;
                 $dirty = true;
-            } elseif (!self::isBadAdName($name) && $found->name !== $name && self::isGenericCtwaName($found->name)) {
-                $found->name = $name;
-                $dirty = true;
-            } elseif (!self::isBadAdName($name) && !self::isGenericCtwaName($name) && self::isBadAdName($found->name)) {
+            } elseif (self::isBadAdName($found->name) && !self::isBadAdName($name)) {
                 $found->name = $name;
                 $dirty = true;
             }
@@ -255,6 +260,20 @@ class AdSource extends Model
         return false;
     }
 
+    public static function isDistinctAdLandingUrl(?string $url): bool
+    {
+        $url = trim((string) $url);
+        if ($url === '' || (!str_starts_with($url, 'http://') && !str_starts_with($url, 'https://'))) {
+            return false;
+        }
+        $lower = strtolower($url);
+        if (str_contains($lower, 'api.whatsapp.com') || str_contains($lower, 'wa.me/')) {
+            return false;
+        }
+
+        return true;
+    }
+
     protected static function isGenericCtwaName(?string $name): bool
     {
         $n = strtolower(trim((string) $name));
@@ -292,11 +311,15 @@ class AdSource extends Model
         string $sourceUrl,
         string $body,
         string $headline,
-        string $imageUrl
+        string $imageUrl,
+        string $identityKey = ''
     ): string {
         $lines = ['Click-to-WhatsApp (CTWA) ad creative'];
         if ($sourceId !== '') {
             $lines[] = 'meta_source_id='.$sourceId;
+        }
+        if ($identityKey !== '' && $identityKey !== $sourceId) {
+            $lines[] = 'meta_identity='.$identityKey;
         }
         if ($sourceType !== '') {
             $lines[] = 'meta_source_type='.$sourceType;
