@@ -127,7 +127,7 @@ class LeadCtwaDisplayService
      * Prefers WhatsApp CTWA referral creative name when present (same as lead list).
      *
      * @param  Collection<int, object>|iterable<int, object>  $leads  rows with phone_number + ad_source_id
-     * @return list<array{label: string, total: int}>
+     * @return list<array{label: string, total: int, image_url: ?string, view_ad_url: ?string}>
      */
     public function aggregateAdSourceWise(iterable $leads): array
     {
@@ -139,19 +139,24 @@ class LeadCtwaDisplayService
         $ctwaByPhone = $this->mapByLeadPhones($rows);
         $adSourceIds = $rows->pluck('ad_source_id')->filter()->unique()->values()->all();
         $adSources = $adSourceIds !== []
-            ? AdSource::query()->whereIn('id', $adSourceIds)->get(['id', 'name'])->keyBy('id')
+            ? AdSource::query()->whereIn('id', $adSourceIds)->get(['id', 'name', 'image', 'description'])->keyBy('id')
             : collect();
 
-        $counts = [];
+        /** @var array<string, array{label: string, total: int, image_url: ?string, view_ad_url: ?string}> $buckets */
+        $buckets = [];
         foreach ($rows as $lead) {
             $phoneKey = $this->last10((string) ($lead->phone_number ?? ''));
             $ctwa = ($phoneKey !== null && isset($ctwaByPhone[$phoneKey])) ? $ctwaByPhone[$phoneKey] : null;
             $label = null;
+            $imageUrl = null;
+            $viewAdUrl = null;
 
             if ($ctwa) {
                 $display = trim((string) ($ctwa['display_name'] ?? ''));
                 if ($display !== '' && !AdSource::isBadAdName($display)) {
                     $label = $display;
+                    $imageUrl = trim((string) ($ctwa['image_url'] ?? '')) ?: null;
+                    $viewAdUrl = trim((string) ($ctwa['view_ad_url'] ?? '')) ?: null;
                 }
             }
 
@@ -160,6 +165,10 @@ class LeadCtwaDisplayService
                 $ad = $adId ? $adSources->get($adId) : null;
                 if ($ad && !AdSource::isBadAdName($ad->name)) {
                     $label = (string) $ad->name;
+                    $imageUrl = $ad->imagePublicUrl();
+                    if (preg_match('/meta_source_url=(\S+)/', (string) ($ad->description ?? ''), $um)) {
+                        $viewAdUrl = AdSource::viewAdUrl(trim($um[1]));
+                    }
                 }
             }
 
@@ -167,16 +176,29 @@ class LeadCtwaDisplayService
                 $label = 'No Ad Source';
             }
 
-            $counts[$label] = ($counts[$label] ?? 0) + 1;
+            if (!isset($buckets[$label])) {
+                $buckets[$label] = [
+                    'label' => $label,
+                    'total' => 0,
+                    'image_url' => $imageUrl,
+                    'view_ad_url' => $viewAdUrl,
+                ];
+            }
+            $buckets[$label]['total']++;
+            if (empty($buckets[$label]['image_url']) && $imageUrl) {
+                $buckets[$label]['image_url'] = $imageUrl;
+            }
+            if (empty($buckets[$label]['view_ad_url']) && $viewAdUrl) {
+                $buckets[$label]['view_ad_url'] = $viewAdUrl;
+            }
         }
 
-        $out = [];
-        foreach ($counts as $label => $total) {
-            $out[] = [
-                'label' => mb_strlen($label) > 48 ? (mb_substr($label, 0, 45).'…') : $label,
-                'total' => (int) $total,
-            ];
+        $out = array_values($buckets);
+        foreach ($out as &$row) {
+            $full = (string) $row['label'];
+            $row['label'] = mb_strlen($full) > 48 ? (mb_substr($full, 0, 45).'…') : $full;
         }
+        unset($row);
 
         usort($out, fn ($a, $b) => $b['total'] <=> $a['total']);
 

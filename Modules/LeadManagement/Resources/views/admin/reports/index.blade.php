@@ -366,7 +366,50 @@
                     <div class="card h-100">
                         <div class="card-body">
                             <h4 class="mb-3">{{ translate('Ad_Source_Wise_Leads') }}</h4>
-                            <div id="lead-ad-source-chart" style="min-height: 260px;"></div>
+                            <div id="lead-ad-source-chart" style="min-height: 220px;"></div>
+                            @php
+                                $adSourceWiseVisible = collect($adSourceWise ?? [])->filter(function ($row) {
+                                    $label = trim((string) ($row['label'] ?? ''));
+                                    return ($row['total'] ?? 0) > 0
+                                        && $label !== ''
+                                        && $label !== '—'
+                                        && $label !== 'No Ad Source';
+                                })->values();
+                            @endphp
+                            @if($adSourceWiseVisible->isNotEmpty())
+                                <div class="d-flex flex-column gap-2 mt-3 pt-3 border-top" style="max-height: 280px; overflow-y: auto;">
+                                    @foreach($adSourceWiseVisible as $adRow)
+                                        <div class="d-flex align-items-center gap-2">
+                                            @if(!empty($adRow['image_url']))
+                                                @if(!empty($adRow['view_ad_url']))
+                                                    <a href="{{ $adRow['view_ad_url'] }}" target="_blank" rel="noopener" class="flex-shrink-0" title="{{ translate('View ad') }}">
+                                                        <img src="{{ $adRow['image_url'] }}"
+                                                             alt=""
+                                                             class="rounded border"
+                                                             style="width:40px;height:40px;object-fit:cover;display:block;"
+                                                             loading="lazy"
+                                                             onerror="this.style.display='none'">
+                                                    </a>
+                                                @else
+                                                    <img src="{{ $adRow['image_url'] }}"
+                                                         alt=""
+                                                         class="rounded border flex-shrink-0"
+                                                         style="width:40px;height:40px;object-fit:cover;display:block;"
+                                                         loading="lazy"
+                                                         onerror="this.style.display='none'">
+                                                @endif
+                                            @else
+                                                <div class="rounded border flex-shrink-0 bg-light d-flex align-items-center justify-content-center text-muted"
+                                                     style="width:40px;height:40px;font-size:0.65rem;">—</div>
+                                            @endif
+                                            <div class="min-w-0 flex-grow-1">
+                                                <div class="small text-wrap" style="line-height:1.25;">{{ $adRow['label'] }}</div>
+                                            </div>
+                                            <span class="badge bg-primary flex-shrink-0">{{ (int) ($adRow['total'] ?? 0) }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </div>
