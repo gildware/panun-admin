@@ -25,5 +25,6 @@
     "WhatsAppModule": true,
     "LeadManagement": true,
     "CallCenterModule": true,
-    "InAppCallModule": true
+    "InAppCallModule": true,
+    "TaskBoardModule": true
 }

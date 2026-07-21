@@ -26,6 +26,12 @@
                 'count' => $web_bookings_pending_count ?? 0,
             ])
             @include('adminmodule::layouts.partials.top-nav._link', [
+                'href' => route('admin.booking.web-provider-requests.index'),
+                'label' => translate('Web_Provider_Requests'),
+                'active' => request()->is('admin/booking/web-provider-requests*'),
+                'count' => $web_provider_requests_pending_count ?? 0,
+            ])
+            @include('adminmodule::layouts.partials.top-nav._link', [
                 'href' => route('admin.booking.app-custom-requests.index'),
                 'label' => translate('App_Custom_Requests'),
                 'active' => request()->is('admin/booking/app-custom-requests*'),

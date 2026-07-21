@@ -106,6 +106,16 @@ trait AdminMenuWithRoutes
                 'sorting' => 10.5,
             ],
             [
+                'route_name' => 'Web_Provider_Requests',
+                'uri' => 'admin/booking/web-provider-requests',
+                'full_route' => url('admin/booking/web-provider-requests'),
+                'page_title' => 'Web_Provider_Requests',
+                'keywords' => 'Web Provider Requests, partner application, become a partner, website provider',
+                'type' => 'menu',
+                'module' => 'bookings',
+                'sorting' => 10.55,
+            ],
+            [
                 'route_name' => 'App_Custom_Requests',
                 'uri' => 'admin/booking/app-custom-requests',
                 'full_route' => url('admin/booking/app-custom-requests'),

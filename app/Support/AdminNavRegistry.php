@@ -367,6 +367,7 @@ class AdminNavRegistry
                 'admin/booking/todays-followups*', 'admin/booking/success*',
             ], [], 'booking.requests'),
             self::entry('leads_and_bookings', $group, null, translate('Web_Bookings'), route('admin.booking.web-bookings.index'), ['admin/booking/web-bookings*']),
+            self::entry('leads_and_bookings', $group, null, translate('Web_Provider_Requests'), route('admin.booking.web-provider-requests.index'), ['admin/booking/web-provider-requests*']),
             self::entry('leads_and_bookings', $group, null, translate('App_Custom_Requests'), route('admin.booking.app-custom-requests.index'), ['admin/booking/app-custom-requests*']),
         ];
     }
@@ -488,6 +489,7 @@ class AdminNavRegistry
         $group = translate('Team');
 
         return [
+            self::entry('team', $group, null, translate('Task_Board'), route('admin.task-board.index'), ['admin/task-board*']),
             self::entry('team', $group, null, translate('Employee Role Setup'), route('admin.role.index'), ['admin/role/*']),
             self::entry('team', $group, null, translate('employee_list'), route('admin.employee.index'), ['admin/employee/list', 'admin/employee/edit/*']),
             self::entry('team', $group, null, translate('add_new_employee'), route('admin.employee.create'), ['admin/employee/create']),

@@ -41,6 +41,7 @@ final class AdminChromeViewData
             'pending_profile_changes' => $menuCounts['pending_profile_changes'],
             'denied_providers' => $menuCounts['denied_providers'],
             'web_bookings_pending_count' => $menuCounts['web_bookings_pending'] ?? 0,
+            'web_provider_requests_pending_count' => $menuCounts['web_provider_requests_pending'] ?? 0,
             'app_custom_requests_pending_count' => $menuCounts['app_custom_requests_pending'] ?? 0,
             'max_booking_amount' => $maxBookingAmount,
             'adminBreadcrumbs' => AdminBreadcrumb::resolve(),

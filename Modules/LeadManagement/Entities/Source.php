@@ -13,6 +13,9 @@ class Source extends Model
     /** Canonical name for leads created from the marketing website booking form. */
     public const NAME_WEBSITE_DIRECT_BOOKING = 'Website Direct Booking';
 
+    /** Canonical name for leads created from the marketing website partner application form. */
+    public const NAME_WEBSITE_PARTNER_APPLICATION = 'Website Partner Application';
+
     /** Canonical name for leads created from the mobile app custom request form. */
     public const NAME_APP_CUSTOM_REQUEST = 'App Custom Request';
 
@@ -72,6 +75,26 @@ class Source extends Model
         return static::create([
             'name' => self::NAME_WEBSITE_DIRECT_BOOKING,
             'description' => 'Leads created from the marketing website booking form.',
+            'is_active' => true,
+        ]);
+    }
+
+    /**
+     * Return the lead source used for website partner application form submissions; creates it if missing.
+     */
+    public static function ensureWebsitePartnerApplicationSource(): self
+    {
+        $found = static::query()
+            ->whereRaw('LOWER(TRIM(name)) = ?', [strtolower(self::NAME_WEBSITE_PARTNER_APPLICATION)])
+            ->first();
+
+        if ($found) {
+            return $found;
+        }
+
+        return static::create([
+            'name' => self::NAME_WEBSITE_PARTNER_APPLICATION,
+            'description' => 'Leads created from the marketing website become-a-partner form.',
             'is_active' => true,
         ]);
     }

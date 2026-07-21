@@ -2,7 +2,10 @@
 
 namespace Modules\WhatsAppModule\Services;
 
+use Modules\AdminModule\Services\StaffActivityLogger;
 use Modules\LeadManagement\Entities\Lead;
+use Modules\LeadManagement\Entities\LeadChangeLog;
+use Modules\UserManagement\Entities\User;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
 use Modules\WhatsAppModule\Support\SocialInboxChannel;
@@ -59,10 +62,12 @@ class LeadWhatsAppAssignmentSyncService
             return;
         }
 
+        $previousHandler = $openLead->handled_by;
         self::$syncing = true;
         try {
             $openLead->handled_by = (string) $chatHandledBy;
             $openLead->save();
+            $this->logLeadAssignmentChange($openLead, $previousHandler, (string) $chatHandledBy);
         } finally {
             self::$syncing = false;
         }
@@ -94,9 +99,20 @@ class LeadWhatsAppAssignmentSyncService
             if ((string) ($waUser->handled_by ?? '') === $handler) {
                 return;
             }
+            $previousHandler = $waUser->handled_by;
             $waUser->handled_by = $handler;
             $waUser->save();
             $this->forgetChatCaches($threadPhone);
+
+            if (Lead::assigneeIsHuman($handler)) {
+                app(StaffActivityLogger::class)->logWhatsAppAssigned(
+                    (string) $handler,
+                    $threadPhone,
+                    $previousHandler !== null ? (string) $previousHandler : null,
+                    auth()->id() ? (string) auth()->id() : null,
+                    ['source' => 'lead_sync', 'lead_id' => $lead->id]
+                );
+            }
         } finally {
             self::$syncing = false;
         }
@@ -176,5 +192,48 @@ class LeadWhatsAppAssignmentSyncService
     {
         WhatsAppActiveChatsListCache::forgetAll();
         WhatsAppActiveChatsListCache::forgetChatFull($threadPhone);
+    }
+
+    protected function logLeadAssignmentChange(Lead $lead, ?string $previousHandler, string $newHandler): void
+    {
+        $actorId = auth()->id() ? (string) auth()->id() : $newHandler;
+
+        app(StaffActivityLogger::class)->logLeadAssigned(
+            $newHandler,
+            $lead->id,
+            $previousHandler,
+            $actorId,
+            ['source' => 'whatsapp_sync']
+        );
+
+        LeadChangeLog::create([
+            'lead_id' => $lead->id,
+            'changed_by' => $actorId,
+            'changes' => [
+                'handled_by' => [
+                    'label' => 'Handled_By',
+                    'old' => $this->handledByDisplay($previousHandler),
+                    'new' => $this->handledByDisplay($newHandler),
+                    'old_id' => $previousHandler,
+                    'new_id' => $newHandler,
+                ],
+            ],
+        ]);
+    }
+
+    protected function handledByDisplay(?string $value): string
+    {
+        if ($value === null || $value === '' || $value === Lead::HANDLED_BY_AI) {
+            return 'Unassigned';
+        }
+
+        $user = User::find($value);
+        if ($user) {
+            $name = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+
+            return $name !== '' ? $name : (string) ($user->email ?? $value);
+        }
+
+        return (string) $value;
     }
 }

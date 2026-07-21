@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Modules\AdminModule\Services\StaffActivityLogger;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
 use Modules\WhatsAppModule\Services\LeadWhatsAppAssignmentSyncService;
@@ -245,11 +246,24 @@ class WhatsAppMessagePersistenceService
 
         if ($actingAdminUserId !== null) {
             $waUser = WhatsAppUser::firstOrNew(['phone' => $normalizedPhone]);
-            $waUser->handled_by = (string) $actingAdminUserId;
+            $previousHandler = $waUser->exists ? ($waUser->handled_by ?? null) : null;
+            $newHandler = (string) $actingAdminUserId;
+            $waUser->handled_by = $newHandler;
             $waUser->save();
+
+            if ((string) ($previousHandler ?? '') !== $newHandler) {
+                app(StaffActivityLogger::class)->logWhatsAppAssigned(
+                    $newHandler,
+                    $normalizedPhone,
+                    $previousHandler !== null ? (string) $previousHandler : null,
+                    $newHandler,
+                    ['source' => 'reply_self_assign']
+                );
+            }
+
             app(LeadWhatsAppAssignmentSyncService::class)->onChatHandlerAssigned(
                 $normalizedPhone,
-                (string) $actingAdminUserId
+                $newHandler
             );
         }
 

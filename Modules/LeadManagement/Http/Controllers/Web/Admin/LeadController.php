@@ -28,6 +28,7 @@ use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Entities\District;
 use Modules\LeadManagement\Entities\LeadChangeLog;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
+use Modules\AdminModule\Services\StaffActivityLogger;
 use Modules\LeadManagement\Entities\LeadOutboundEnquiryStatus;
 use Modules\LeadManagement\Services\LeadFollowupService;
 use Modules\LeadManagement\Services\LeadOpenStatusService;
@@ -970,6 +971,16 @@ class LeadController extends Controller
             ],
         ]);
 
+        if (Lead::assigneeIsHuman($lead->handled_by ?? null)) {
+            app(StaffActivityLogger::class)->logLeadAssigned(
+                (string) $lead->handled_by,
+                $lead->id,
+                null,
+                Auth::id() ? (string) Auth::id() : null,
+                ['source' => 'lead_create']
+            );
+        }
+
         app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
 
         toastr()->success(translate('Lead created successfully'));
@@ -1025,6 +1036,20 @@ class LeadController extends Controller
                 'changed_by' => Auth::id(),
                 'changes' => $changes,
             ]);
+        }
+
+        if (array_key_exists('handled_by', $validated)) {
+            $oldHandler = $oldValues['handled_by'] ?? null;
+            $newHandler = $validated['handled_by'] ?? null;
+            if (Lead::assigneeIsHuman($newHandler) && (string) ($oldHandler ?? '') !== (string) $newHandler) {
+                app(StaffActivityLogger::class)->logLeadAssigned(
+                    (string) $newHandler,
+                    $lead->id,
+                    $oldHandler !== null ? (string) $oldHandler : null,
+                    Auth::id() ? (string) Auth::id() : null,
+                    ['source' => 'lead_update']
+                );
+            }
         }
 
         app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
@@ -1089,11 +1114,16 @@ class LeadController extends Controller
             if ($oldNorm === $newNorm) {
                 continue;
             }
-            $diff[$key] = [
+            $entry = [
                 'label' => $labelKey,
                 'old' => $this->leadChangeDisplayValue($key, $old),
                 'new' => $this->leadChangeDisplayValue($key, $new),
             ];
+            if ($key === 'handled_by') {
+                $entry['old_id'] = ($old === null || $old === '') ? null : (string) $old;
+                $entry['new_id'] = ($new === null || $new === '') ? null : (string) $new;
+            }
+            $diff[$key] = $entry;
         }
         return $diff;
     }
