@@ -41,7 +41,7 @@
                 @include('adminmodule::layouts.partials.top-nav._link', [
                     'href' => route('admin.whatsapp.conversations.index', ['channel' => 'whatsapp', 'tab' => 'chats']),
                     'label' => translate('WhatsApp'),
-                    'active' => request()->is('admin/social-inbox/whatsapp/*'),
+                    'active' => request()->is('admin/social-inbox/whatsapp/conversations*'),
                 ])
             @endcan
             @can('whatsapp_message_template_view')
@@ -56,6 +56,11 @@
                     'href' => route('admin.whatsapp.ai-settings.edit', ['channel' => 'whatsapp']),
                     'label' => __('whatsapp_ai.page_title'),
                     'active' => request()->is('admin/social-inbox/*/ai-support*'),
+                ])
+                @include('adminmodule::layouts.partials.top-nav._link', [
+                    'href' => route('admin.whatsapp.meta-capi-events.index', ['channel' => 'whatsapp']),
+                    'label' => translate('Meta_CAPI_Events'),
+                    'active' => request()->is('admin/social-inbox/*/meta-capi-events*'),
                 ])
             @endcan
         @endcanany

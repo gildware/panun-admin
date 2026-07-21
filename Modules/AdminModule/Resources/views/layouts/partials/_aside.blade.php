@@ -104,7 +104,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 @can('whatsapp_chat_view')
                     <li>
                         <a href="{{ route('admin.whatsapp.conversations.index', ['channel' => 'whatsapp', 'tab' => 'chats']) }}"
-                           class="{{ request()->is('admin/social-inbox/whatsapp/*') ? 'active-menu' : '' }}">
+                           class="{{ request()->is('admin/social-inbox/whatsapp/conversations*') ? 'active-menu' : '' }}">
                             <span class="material-icons" style="color:#25D366" title="{{ translate('WhatsApp') }}">forum</span>
                             <span class="link-title">{{ translate('WhatsApp') }}</span>
                         </a>
@@ -141,6 +141,13 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                            class="{{ request()->is('admin/social-inbox/*/ai-support*') ? 'active-menu' : '' }}">
                             <span class="material-icons" title="{{ __('whatsapp_ai.page_title') }}">smart_toy</span>
                             <span class="link-title">{{ __('whatsapp_ai.page_title') }}</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('admin.whatsapp.meta-capi-events.index', ['channel' => 'whatsapp']) }}"
+                           class="{{ request()->is('admin/social-inbox/*/meta-capi-events*') ? 'active-menu' : '' }}">
+                            <span class="material-icons" title="{{ translate('Meta_CAPI_Events') }}">insights</span>
+                            <span class="link-title">{{ translate('Meta_CAPI_Events') }}</span>
                         </a>
                     </li>
                 @endcan
