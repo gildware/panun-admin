@@ -127,7 +127,23 @@
                                 @endphp
                                 <span class="badge rounded-pill {{ $badgeClass }} text-capitalize">{{ $label }}</span>
                             </td>
-                            <td>{{ $lead->adSource?->name ?? '—' }}</td>
+                            <td class="lead-ad-source-cell">
+                                @if($lead->adSource)
+                                    <span class="d-inline-flex align-items-center gap-2">
+                                        @if($lead->adSource->image)
+                                            <img src="{{ $lead->adSource->imagePublicUrl() }}"
+                                                 alt=""
+                                                 class="rounded flex-shrink-0"
+                                                 style="width:28px;height:28px;object-fit:cover;"
+                                                 loading="lazy"
+                                                 onerror="this.style.display='none'">
+                                        @endif
+                                        <span>{{ $lead->adSource->name }}</span>
+                                    </span>
+                                @else
+                                    —
+                                @endif
+                            </td>
                         @endif
                         <td>{{ $lead->date_time_of_lead_received?->format('d F Y h:i a') ?? '—' }}</td>
                         <td>{{ $lead->next_followup_at?->format('d F Y h:i a') ?? '—' }}</td>
