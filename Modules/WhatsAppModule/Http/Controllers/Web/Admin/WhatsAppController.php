@@ -2312,6 +2312,7 @@ class WhatsAppController extends Controller
                     'referral_headline',
                     'referral_body',
                     'referral_captured_at',
+                    'referral_json',
                 ]);
             }
             $waUsers = WhatsAppUser::whereIn('phone', $phones)->get($userCols);

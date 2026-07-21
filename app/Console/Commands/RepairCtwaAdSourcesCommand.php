@@ -103,12 +103,17 @@ class RepairCtwaAdSourcesCommand extends Command
                         $dirty = true;
                     }
                 }
+                // Always point CTWA leads at the Ad Source for this thread's Meta ad id.
+                $metaAdId = trim((string) ($waUser->referral_source_id ?? ''));
                 $currentAd = $lead->ad_source_id ? AdSource::query()->find($lead->ad_source_id) : null;
+                $currentMatches = $currentAd && $metaAdId !== '' && (
+                    (string) ($currentAd->meta_ad_id ?? '') === $metaAdId
+                    || preg_match('/meta_source_id='.preg_quote($metaAdId, '/').'(?:\s|$)/', (string) ($currentAd->description ?? '')) === 1
+                );
                 $shouldRetarget = $lead->ad_source_id === null
-                    || ($currentAd && AdSource::isBadAdName($currentAd->name))
-                    || ($currentAd && $waUser->referral_source_id
-                        && (string) ($currentAd->meta_ad_id ?? '') !== (string) $waUser->referral_source_id
-                        && !str_contains((string) ($currentAd->description ?? ''), 'meta_source_id='.$waUser->referral_source_id));
+                    || (int) $lead->ad_source_id !== (int) $ad->id
+                    || !$currentMatches
+                    || ($currentAd && AdSource::isBadAdName($currentAd->name));
                 if ($shouldRetarget && (int) ($lead->ad_source_id ?? 0) !== (int) $ad->id) {
                     $lead->ad_source_id = $ad->id;
                     $dirty = true;
