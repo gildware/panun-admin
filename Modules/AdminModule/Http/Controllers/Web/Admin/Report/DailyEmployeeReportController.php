@@ -135,6 +135,7 @@ class DailyEmployeeReportController extends Controller
                     ['key' => 'name', 'label' => translate('Name')],
                     ['key' => 'phone', 'label' => translate('Phone')],
                     ['key' => 'lead_type', 'label' => translate('Type')],
+                    ['key' => 'source', 'label' => translate('Lead_Source')],
                     ['key' => 'at', 'label' => translate('Time')],
                 ],
             ],

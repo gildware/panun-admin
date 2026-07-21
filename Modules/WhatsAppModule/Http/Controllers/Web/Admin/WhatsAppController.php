@@ -927,9 +927,26 @@ class WhatsAppController extends Controller
         if (empty($waUser->channel)) {
             $waUser->channel = SocialInboxChannel::current();
         }
-        $waUser->handled_by = $handledBy;
+
+        $previousHandler = $waUser->exists ? ($waUser->handled_by ?? null) : null;
+        $newHandler = (string) $handledBy;
+        $handlerChanged = (string) ($previousHandler ?? '') !== $newHandler;
+
+        $waUser->handled_by = $newHandler;
         $waUser->human_support_requested_at = null;
         $waUser->save();
+
+        // Open-chat / reply / template-send all go through here — must log assignment
+        // changes or daily report WA-assigned metrics stay empty on Live.
+        if ($handlerChanged && Lead::assigneeIsHuman($newHandler)) {
+            app(StaffActivityLogger::class)->logWhatsAppAssigned(
+                $newHandler,
+                $threadPhone,
+                $previousHandler !== null ? (string) $previousHandler : null,
+                $newHandler,
+                ['source' => 'persist_chat_handler']
+            );
+        }
 
         if ($syncOpenLead) {
             app(LeadWhatsAppAssignmentSyncService::class)->onChatHandlerAssigned($threadPhone, $handledBy);
@@ -1601,17 +1618,26 @@ class WhatsAppController extends Controller
             }
             if ($newStatus && ($newStatus->bucket ?? '') === 'closed' && ($previousBucket ?? 'open') !== 'closed') {
                 $admin = $request->user();
-                $waUser = WhatsAppUser::query()->where('phone', $phone)->first();
-                $handlerId = $waUser?->handled_by;
                 $actorId = $admin ? (string) $admin->id : null;
-                // Count when the closer owns the chat, or when they close a chat assigned to them.
-                if ($actorId && Lead::assigneeIsHuman($handlerId) && (string) $handlerId === $actorId) {
+                $waUser = WhatsAppUser::query()
+                    ->where('phone', $phone)
+                    ->where('channel', SocialInboxChannel::current())
+                    ->first();
+                $handlerId = $waUser?->handled_by;
+                // Credit the closer; fall back to current handler if actor is missing.
+                $employeeId = Lead::assigneeIsHuman($actorId)
+                    ? $actorId
+                    : (Lead::assigneeIsHuman($handlerId) ? (string) $handlerId : null);
+                if ($employeeId) {
                     app(StaffActivityLogger::class)->logWhatsAppChatClosed(
-                        $actorId,
+                        $employeeId,
                         $phone,
                         $newStatusId,
                         $actorId,
-                        ['status_name' => $newStatus->name ?? null]
+                        [
+                            'status_name' => $newStatus->name ?? null,
+                            'handler_id' => $handlerId,
+                        ]
                     );
                 }
             }
