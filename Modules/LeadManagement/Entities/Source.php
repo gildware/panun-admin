@@ -10,8 +10,14 @@ class Source extends Model
     /** Canonical name for leads created by the WhatsApp / AI assistant. */
     public const NAME_AI_CHAT = 'AI Chat';
 
-    /** Canonical name for Click-to-WhatsApp (Facebook/Instagram ads) inbound chats. */
+    /** Canonical name for Click-to-WhatsApp Facebook placement inbound chats. */
     public const NAME_FACEBOOK_WHATSAPP_AD = 'Facebook WhatsApp Ad';
+
+    /** Canonical name for Click-to-WhatsApp Instagram placement inbound chats. */
+    public const NAME_INSTAGRAM_WHATSAPP_AD = 'Instagram WhatsApp Ad';
+
+    /** Canonical name when CTWA platform cannot be determined from referral. */
+    public const NAME_WHATSAPP_AD = 'WhatsApp Ad';
 
     /** Canonical name for leads created from the marketing website booking form. */
     public const NAME_WEBSITE_DIRECT_BOOKING = 'Website Direct Booking';
@@ -52,6 +58,8 @@ class Source extends Model
         return [
             self::NAME_AI_CHAT,
             self::NAME_FACEBOOK_WHATSAPP_AD,
+            self::NAME_INSTAGRAM_WHATSAPP_AD,
+            self::NAME_WHATSAPP_AD,
             self::NAME_WEBSITE_DIRECT_BOOKING,
             self::NAME_WEBSITE_PARTNER_APPLICATION,
             self::NAME_APP_CUSTOM_REQUEST,
@@ -103,8 +111,28 @@ class Source extends Model
      */
     public static function ensureFacebookWhatsAppAdSource(): self
     {
+        return self::ensureCtwaPlatformSource('facebook');
+    }
+
+    /**
+     * CTWA lead Source by placement: facebook | instagram | whatsapp (unknown).
+     */
+    public static function ensureCtwaPlatformSource(string $platform): self
+    {
+        $platform = strtolower(trim($platform));
+        $name = match ($platform) {
+            'instagram' => self::NAME_INSTAGRAM_WHATSAPP_AD,
+            'facebook' => self::NAME_FACEBOOK_WHATSAPP_AD,
+            default => self::NAME_WHATSAPP_AD,
+        };
+        $description = match ($platform) {
+            'instagram' => 'Leads from Click-to-WhatsApp Instagram ads (CTWA referral).',
+            'facebook' => 'Leads from Click-to-WhatsApp Facebook ads (CTWA referral).',
+            default => 'Leads from Click-to-WhatsApp ads when placement (FB/IG) is unknown.',
+        };
+
         $found = static::query()
-            ->whereRaw('LOWER(TRIM(name)) = ?', [strtolower(self::NAME_FACEBOOK_WHATSAPP_AD)])
+            ->whereRaw('LOWER(TRIM(name)) = ?', [strtolower($name)])
             ->first();
 
         if ($found) {
@@ -112,8 +140,8 @@ class Source extends Model
         }
 
         return static::create([
-            'name' => self::NAME_FACEBOOK_WHATSAPP_AD,
-            'description' => 'Leads from Click-to-WhatsApp Facebook/Instagram ads (CTWA referral).',
+            'name' => $name,
+            'description' => $description,
             'is_active' => true,
         ]);
     }

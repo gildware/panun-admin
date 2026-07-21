@@ -1793,20 +1793,35 @@
             el.innerHTML = '';
             return;
         }
-        var headline = (attr.headline && String(attr.headline).trim()) || '';
-        var sourceId = (attr.source_id && String(attr.source_id).trim()) || '';
+        var platformLabel = (attr.platform_label && String(attr.platform_label).trim()) || '{{ translate('WhatsApp Ad') }}';
+        var displayName = (attr.display_name && String(attr.display_name).trim())
+            || (attr.headline && String(attr.headline).trim())
+            || '';
+        var body = (attr.body && String(attr.body).trim()) || '';
         var sourceUrl = (attr.source_url && String(attr.source_url).trim()) || '';
-        var label = '{{ translate('From Facebook Ad') }}';
-        var bits = ['<span class="badge bg-info text-dark me-1">' + escapeHtml(label) + '</span>'];
-        if (headline) {
-            bits.push('<span class="text-truncate d-inline-block align-middle" style="max-width:18rem" title="' + escapeHtml(headline) + '">' + escapeHtml(headline) + '</span>');
-        } else if (sourceId) {
-            bits.push('<span class="text-muted">Ad ID ' + escapeHtml(sourceId) + '</span>');
+        var imageUrl = (attr.image_url && String(attr.image_url).trim()) || '';
+        // Never show bare deep-link hosts as the ad name.
+        if (/^(api\.)?whatsapp\.com$/i.test(displayName) || /^https?:\/\//i.test(displayName)) {
+            displayName = '';
         }
-        if (sourceUrl) {
-            bits.push('<a href="' + escapeHtml(sourceUrl) + '" target="_blank" rel="noopener" class="ms-1 small">{{ translate('View ad') }}</a>');
+        var html = '<div class="d-flex align-items-start gap-2 min-w-0">';
+        if (imageUrl) {
+            html += '<img src="' + escapeHtml(imageUrl) + '" alt="" class="rounded flex-shrink-0" style="width:40px;height:40px;object-fit:cover;" loading="lazy" onerror="this.style.display=\'none\'">';
         }
-        el.innerHTML = bits.join(' ');
+        html += '<div class="min-w-0">';
+        html += '<div><span class="badge bg-info text-dark me-1">' + escapeHtml(platformLabel) + '</span>';
+        if (displayName) {
+            html += '<span class="fw-semibold text-truncate d-inline-block align-middle" style="max-width:16rem" title="' + escapeHtml(displayName) + '">' + escapeHtml(displayName) + '</span>';
+        }
+        html += '</div>';
+        if (body && body !== displayName) {
+            html += '<div class="text-muted text-truncate" style="max-width:20rem" title="' + escapeHtml(body) + '">' + escapeHtml(body) + '</div>';
+        }
+        if (sourceUrl && !/api\.whatsapp\.com/i.test(sourceUrl)) {
+            html += '<a href="' + escapeHtml(sourceUrl) + '" target="_blank" rel="noopener" class="small">{{ translate('View ad') }}</a>';
+        }
+        html += '</div></div>';
+        el.innerHTML = html;
         el.classList.remove('d-none');
     }
 

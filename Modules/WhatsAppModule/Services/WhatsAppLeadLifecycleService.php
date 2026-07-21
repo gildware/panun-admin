@@ -82,11 +82,14 @@ class WhatsAppLeadLifecycleService
     {
         $waUser = $this->resolveWhatsAppUser($whatsAppPhone);
 
-        if (app(WhatsAppCtwaAttributionService::class)->hasAdAttribution($waUser)) {
-            return Source::ensureFacebookWhatsAppAdSource()->id;
+        if (!app(WhatsAppCtwaAttributionService::class)->hasAdAttribution($waUser)) {
+            return Source::ensureAiChatSource()->id;
         }
 
-        return Source::ensureAiChatSource()->id;
+        $json = is_array($waUser?->referral_json) ? $waUser->referral_json : [];
+        $platform = WhatsAppCtwaAttributionService::detectPlatform($waUser?->referral_source_url, $json);
+
+        return Source::ensureCtwaPlatformSource($platform)->id;
     }
 
     /**
@@ -99,35 +102,50 @@ class WhatsAppLeadLifecycleService
             return null;
         }
 
+        $json = is_array($waUser?->referral_json) ? $waUser->referral_json : [];
+        $imageUrl = AdSource::creativeImageUrlFromReferral($json);
+
         $adSource = AdSource::ensureFromCtwaReferral(
             $waUser?->referral_source_id,
             $waUser?->referral_headline,
             $waUser?->referral_source_url,
             $waUser?->referral_source_type,
-            $waUser?->referral_body
+            $waUser?->referral_body,
+            $imageUrl,
+            $json
         );
 
         return $adSource?->id;
     }
 
     /**
-     * Fill empty ad_source_id from CTWA attribution (does not overwrite staff-set values).
+     * Ensure CTWA Ad Source exists/refreshed; set lead.ad_source_id when empty or currently a bad name.
      */
     protected function applyCtwaAdSourceIfMissing(Lead $lead, ?string $whatsAppPhone): bool
     {
         if ($whatsAppPhone === null || $whatsAppPhone === '') {
             return false;
         }
-        if ($lead->ad_source_id !== null) {
-            return false;
-        }
         $adSourceId = $this->resolveAdSourceIdForWhatsAppPhone($whatsAppPhone);
         if ($adSourceId === null) {
             return false;
         }
-        $lead->ad_source_id = $adSourceId;
+        if ($lead->ad_source_id === null) {
+            $lead->ad_source_id = $adSourceId;
 
-        return true;
+            return true;
+        }
+        if ((int) $lead->ad_source_id === (int) $adSourceId) {
+            return false;
+        }
+        $current = AdSource::query()->find($lead->ad_source_id);
+        if ($current && AdSource::isBadAdName($current->name)) {
+            $lead->ad_source_id = $adSourceId;
+
+            return true;
+        }
+
+        return false;
     }
 
     public function ensureUnknownLeadForPhone(string $whatsAppPhone, ?string $name = null): ?Lead
@@ -233,11 +251,22 @@ class WhatsAppLeadLifecycleService
                 : Source::ensureAiChatSource()->id;
             $dirty = true;
         } elseif ($whatsAppPhone) {
-            $ctwaSourceId = Source::ensureFacebookWhatsAppAdSource()->id;
+            $resolvedSourceId = $this->resolveSourceIdForWhatsAppPhone($whatsAppPhone);
             $aiSourceId = Source::ensureAiChatSource()->id;
-            if ((int) $lead->source_id === (int) $aiSourceId
-                && (int) $this->resolveSourceIdForWhatsAppPhone($whatsAppPhone) === (int) $ctwaSourceId) {
-                $lead->source_id = $ctwaSourceId;
+            $ctwaSourceIds = [
+                Source::ensureCtwaPlatformSource('facebook')->id,
+                Source::ensureCtwaPlatformSource('instagram')->id,
+                Source::ensureCtwaPlatformSource('whatsapp')->id,
+            ];
+            if ((int) $lead->source_id === (int) $aiSourceId && in_array((int) $resolvedSourceId, array_map('intval', $ctwaSourceIds), true)) {
+                $lead->source_id = $resolvedSourceId;
+                $dirty = true;
+            } elseif (in_array((int) $lead->source_id, array_map('intval', $ctwaSourceIds), true)
+                && (int) $resolvedSourceId !== (int) $lead->source_id
+                && in_array((int) $resolvedSourceId, array_map('intval', $ctwaSourceIds), true)
+            ) {
+                // Upgrade generic "WhatsApp Ad" / wrong FB label when IG/FB is known.
+                $lead->source_id = $resolvedSourceId;
                 $dirty = true;
             }
         }

@@ -290,9 +290,19 @@
                                                 <span class="title-color">{{ translate('Source') }}</span>
                                                 <strong>{{ $lead->source?->name ?? '—' }}</strong>
                                             </div>
-                                            <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">
-                                                <span class="title-color">{{ translate('Ad_Source') }}</span>
-                                                <strong>{{ $lead->adSource?->name ?? '—' }}</strong>
+                                            <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg gap-2">
+                                                <span class="title-color flex-shrink-0">{{ translate('Ad_Source') }}</span>
+                                                <div class="d-flex align-items-center gap-2 min-w-0 justify-content-end">
+                                                    @if($lead->adSource?->image)
+                                                        <img src="{{ $lead->adSource->imagePublicUrl() }}"
+                                                             alt=""
+                                                             class="rounded flex-shrink-0"
+                                                             style="width:36px;height:36px;object-fit:cover;"
+                                                             loading="lazy"
+                                                             onerror="this.style.display='none'">
+                                                    @endif
+                                                    <strong class="text-end text-break">{{ $lead->adSource?->name ?? '—' }}</strong>
+                                                </div>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">
                                                 <span class="title-color">{{ translate('Handled_By') }}</span>

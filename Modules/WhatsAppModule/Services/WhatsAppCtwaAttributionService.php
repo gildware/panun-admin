@@ -3,6 +3,7 @@
 namespace Modules\WhatsAppModule\Services;
 
 use Carbon\Carbon;
+use Modules\LeadManagement\Entities\AdSource;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
 use Modules\WhatsAppModule\Support\SocialInboxChannel;
 
@@ -20,7 +21,9 @@ class WhatsAppCtwaAttributionService
      *     referral_source_type: ?string,
      *     referral_source_url: ?string,
      *     referral_headline: ?string,
-     *     referral_body: ?string
+     *     referral_body: ?string,
+     *     referral_image_url: ?string,
+     *     referral_platform: ?string
      * }|null
      */
     public function normalizeReferral(?array $referral): ?array
@@ -35,9 +38,16 @@ class WhatsAppCtwaAttributionService
         $sourceUrl = isset($referral['source_url']) ? trim((string) $referral['source_url']) : '';
         $headline = isset($referral['headline']) ? trim((string) $referral['headline']) : '';
         $body = isset($referral['body']) ? trim((string) $referral['body']) : '';
+        $imageUrl = AdSource::creativeImageUrlFromReferral($referral) ?? '';
+        $platform = self::detectPlatform($sourceUrl, $referral);
 
-        if ($ctwaClid === '' && $sourceId === '' && $sourceType === '' && $sourceUrl === '') {
+        if ($ctwaClid === '' && $sourceId === '' && $sourceType === '' && $sourceUrl === '' && $headline === '' && $body === '') {
             return null;
+        }
+
+        // Never treat a bare deep-link host as the ad "headline".
+        if (AdSource::isBadAdName($headline)) {
+            $headline = '';
         }
 
         return [
@@ -48,21 +58,46 @@ class WhatsAppCtwaAttributionService
             'referral_source_url' => $sourceUrl !== '' ? mb_substr($sourceUrl, 0, 512) : null,
             'referral_headline' => $headline !== '' ? mb_substr($headline, 0, 512) : null,
             'referral_body' => $body !== '' ? $body : null,
+            'referral_image_url' => $imageUrl !== '' ? mb_substr($imageUrl, 0, 1024) : null,
+            'referral_platform' => $platform,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $referral
+     */
+    public static function detectPlatform(?string $sourceUrl, ?array $referral = null): string
+    {
+        $hay = strtolower(trim((string) $sourceUrl).' '.json_encode($referral ?? []));
+        if (str_contains($hay, 'instagram.com') || str_contains($hay, 'ig.me') || str_contains($hay, '"instagram"')) {
+            return 'instagram';
+        }
+        if (
+            str_contains($hay, 'facebook.com')
+            || str_contains($hay, 'fb.me')
+            || str_contains($hay, 'fb.com')
+            || str_contains($hay, 'fb.watch')
+            || str_contains($hay, 'l.facebook.com')
+        ) {
+            return 'facebook';
+        }
+
+        return 'whatsapp';
+    }
+
+    public static function platformLabel(string $platform): string
+    {
+        return match (strtolower($platform)) {
+            'instagram' => 'Instagram Ad',
+            'facebook' => 'Facebook Ad',
+            default => 'WhatsApp Ad',
+        };
     }
 
     /**
      * First-touch only: keep the original ad click that opened the thread.
      *
-     * @param  array{
-     *     referral_json?: array<string, mixed>|null,
-     *     ctwa_clid?: ?string,
-     *     referral_source_id?: ?string,
-     *     referral_source_type?: ?string,
-     *     referral_source_url?: ?string,
-     *     referral_headline?: ?string,
-     *     referral_body?: ?string
-     * }  $attrs
+     * @param  array<string, mixed>  $attrs
      */
     public function applyFirstTouch(string $phone, array $attrs): WhatsAppUser
     {
@@ -139,29 +174,53 @@ class WhatsAppCtwaAttributionService
     }
 
     /**
-     * @return array{
-     *     from_ad: bool,
-     *     ctwa_clid: ?string,
-     *     source_id: ?string,
-     *     source_type: ?string,
-     *     source_url: ?string,
-     *     headline: ?string,
-     *     body: ?string,
-     *     captured_at: ?string
-     * }
+     * @return array<string, mixed>
      */
     public function payloadForUi(?WhatsAppUser $waUser): array
     {
         $fromAd = $this->hasAdAttribution($waUser);
+        $json = is_array($waUser?->referral_json) ? $waUser->referral_json : [];
+        $imageUrl = AdSource::creativeImageUrlFromReferral($json);
+        $platform = self::detectPlatform($waUser?->referral_source_url, $json);
+        $headline = trim((string) ($waUser?->referral_headline ?? ''));
+        $body = trim((string) ($waUser?->referral_body ?? ''));
+        if (AdSource::isBadAdName($headline)) {
+            $headline = '';
+        }
+        $displayName = $headline !== ''
+            ? $headline
+            : (AdSource::isBadAdName(trim(explode("\n", $body)[0] ?? '')) ? null : trim(explode("\n", $body)[0] ?? ''));
+        if ($displayName === null || $displayName === '') {
+            $sid = trim((string) ($waUser?->referral_source_id ?? ''));
+            $displayName = $sid !== '' ? 'WhatsApp Ad '.$sid : self::platformLabel($platform);
+        }
+
+        $adSourceImage = null;
+        $adSourceId = null;
+        if ($fromAd && $waUser) {
+            $ad = AdSource::findByMetaSourceId($waUser->referral_source_id);
+            if ($ad) {
+                $adSourceId = $ad->id;
+                $adSourceImage = $ad->imagePublicUrl();
+                if (!AdSource::isBadAdName($ad->name)) {
+                    $displayName = $ad->name;
+                }
+            }
+        }
 
         return [
             'from_ad' => $fromAd,
+            'platform' => $platform,
+            'platform_label' => self::platformLabel($platform),
             'ctwa_clid' => $waUser?->ctwa_clid,
             'source_id' => $waUser?->referral_source_id,
             'source_type' => $waUser?->referral_source_type,
             'source_url' => $waUser?->referral_source_url,
-            'headline' => $waUser?->referral_headline,
-            'body' => $waUser?->referral_body,
+            'headline' => $headline !== '' ? $headline : null,
+            'body' => $body !== '' ? $body : null,
+            'display_name' => $displayName,
+            'image_url' => $adSourceImage ?: $imageUrl,
+            'ad_source_id' => $adSourceId,
             'captured_at' => $waUser?->referral_captured_at
                 ? $waUser->referral_captured_at->toIso8601String()
                 : null,
