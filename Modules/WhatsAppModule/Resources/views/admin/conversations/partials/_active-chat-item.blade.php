@@ -71,12 +71,20 @@
     @php
         $adAttr = isset($chat->ad_attribution) && is_array($chat->ad_attribution) ? $chat->ad_attribution : null;
         $fromFbAd = !empty($adAttr['from_ad']);
+        $adLabel = $adAttr['platform_label'] ?? translate('WhatsApp Ad');
+        $adName = $adAttr['display_name'] ?? ($adAttr['headline'] ?? '');
+        if (\Modules\LeadManagement\Entities\AdSource::isBadAdName($adName)) {
+            $adName = '';
+        }
     @endphp
     @if($fromFbAd)
-        <div class="fz-11 mt-1">
-            <span class="badge bg-info text-dark">{{ translate('From Facebook Ad') }}</span>
-            @if(!empty($adAttr['headline']))
-                <span class="text-muted ms-1">{{ \Illuminate\Support\Str::limit($adAttr['headline'], 40) }}</span>
+        <div class="fz-11 mt-1 d-flex align-items-center gap-1 min-w-0">
+            @if(!empty($adAttr['image_url']))
+                <img src="{{ $adAttr['image_url'] }}" alt="" class="rounded flex-shrink-0" style="width:18px;height:18px;object-fit:cover;" loading="lazy" onerror="this.style.display='none'">
+            @endif
+            <span class="badge bg-info text-dark">{{ $adLabel }}</span>
+            @if($adName !== '')
+                <span class="text-muted text-truncate">{{ \Illuminate\Support\Str::limit($adName, 40) }}</span>
             @endif
         </div>
     @endif
