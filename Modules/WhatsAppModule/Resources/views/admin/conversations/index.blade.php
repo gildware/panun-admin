@@ -1295,6 +1295,7 @@
                                         </button>
                                         <div class="wa-conv-header-identity flex-grow-1 min-w-0 d-flex flex-column">
                                             <strong id="whatsapp-chat-phone-line" class="mb-0 text-truncate wa-header-title"></strong>
+                                            <div id="whatsapp-chat-ad-attribution" class="d-none fz-12 text-muted mt-1 min-w-0"></div>
                                             <span id="whatsapp-chat-system-pills" class="wa-conv-header-sys-pills d-flex flex-wrap align-items-center gap-1 min-w-0 mt-1"></span>
                                             <div id="whatsapp-chat-tags-row-mobile" class="wa-conv-header-tags-mobile d-md-none flex-wrap align-items-center gap-1 min-w-0 mt-1 d-none"></div>
                                         </div>
@@ -1780,6 +1781,33 @@
             return 'HTTP ' + response.status + (response.statusText ? ': ' + response.statusText : '');
         }
         return 'Request failed';
+    }
+
+    function waRenderAdAttribution(attr) {
+        var el = document.getElementById('whatsapp-chat-ad-attribution');
+        if (!el) {
+            return;
+        }
+        if (!attr || !attr.from_ad) {
+            el.classList.add('d-none');
+            el.innerHTML = '';
+            return;
+        }
+        var headline = (attr.headline && String(attr.headline).trim()) || '';
+        var sourceId = (attr.source_id && String(attr.source_id).trim()) || '';
+        var sourceUrl = (attr.source_url && String(attr.source_url).trim()) || '';
+        var label = '{{ translate('From Facebook Ad') }}';
+        var bits = ['<span class="badge bg-info text-dark me-1">' + escapeHtml(label) + '</span>'];
+        if (headline) {
+            bits.push('<span class="text-truncate d-inline-block align-middle" style="max-width:18rem" title="' + escapeHtml(headline) + '">' + escapeHtml(headline) + '</span>');
+        } else if (sourceId) {
+            bits.push('<span class="text-muted">Ad ID ' + escapeHtml(sourceId) + '</span>');
+        }
+        if (sourceUrl) {
+            bits.push('<a href="' + escapeHtml(sourceUrl) + '" target="_blank" rel="noopener" class="ms-1 small">{{ translate('View ad') }}</a>');
+        }
+        el.innerHTML = bits.join(' ');
+        el.classList.remove('d-none');
     }
 
     function waRenderedSystemPills(link, compact) {
@@ -2305,6 +2333,9 @@
         waLastMessagesFingerprint = null;
         waLastHandlerFingerprint = null;
         waLastPollPhone = null;
+        if (typeof waRenderAdAttribution === 'function') {
+            waRenderAdAttribution(null);
+        }
         if (pollTimer) {
             clearInterval(pollTimer);
             pollTimer = null;
@@ -3587,6 +3618,7 @@
                     if (headerLineAfter && res.display_line) {
                         headerLineAfter.textContent = res.display_line;
                     }
+                    waRenderAdAttribution(res.ad_attribution || null);
                     waCustomerName = (res.customer_name != null && res.customer_name !== undefined)
                         ? String(res.customer_name).trim()
                         : '';

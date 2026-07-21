@@ -68,6 +68,18 @@
             <span class="badge bg-warning text-dark">{{ translate('Wants human') }}</span>
         </div>
     @endif
+    @php
+        $adAttr = isset($chat->ad_attribution) && is_array($chat->ad_attribution) ? $chat->ad_attribution : null;
+        $fromFbAd = !empty($adAttr['from_ad']);
+    @endphp
+    @if($fromFbAd)
+        <div class="fz-11 mt-1">
+            <span class="badge bg-info text-dark">{{ translate('From Facebook Ad') }}</span>
+            @if(!empty($adAttr['headline']))
+                <span class="text-muted ms-1">{{ \Illuminate\Support\Str::limit($adAttr['headline'], 40) }}</span>
+            @endif
+        </div>
+    @endif
     @if($chatSt || !empty($chatTagList))
         <div class="wa-chat-item-meta mt-2 d-flex flex-wrap align-items-center gap-1">
             @if($chatSt)

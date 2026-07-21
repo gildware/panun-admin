@@ -1536,6 +1536,8 @@ class WhatsAppController extends Controller
             $systemLink
         );
         $payload['customer_name'] = $this->resolveContactNameForTemplates($waUser, $systemLink);
+        $payload['ad_attribution'] = app(\Modules\WhatsAppModule\Services\WhatsAppCtwaAttributionService::class)
+            ->payloadForUi($waUser);
 
         if ($request->boolean('full')) {
             $payload['booking_link'] = null;
@@ -2295,14 +2297,32 @@ class WhatsAppController extends Controller
         $names = [];
         $handledByMap = [];
         $humanSupportAt = [];
+        $adAttributionByPhone = [];
         if (! empty($phones)) {
-            $waUsers = WhatsAppUser::whereIn('phone', $phones)->get(['phone', 'name', 'handled_by', 'human_support_requested_at']);
+            $userCols = ['phone', 'name', 'handled_by', 'human_support_requested_at'];
+            if (\Illuminate\Support\Facades\Schema::hasColumn(
+                (new WhatsAppUser)->getTable(),
+                'ctwa_clid'
+            )) {
+                $userCols = array_merge($userCols, [
+                    'ctwa_clid',
+                    'referral_source_id',
+                    'referral_source_type',
+                    'referral_source_url',
+                    'referral_headline',
+                    'referral_body',
+                    'referral_captured_at',
+                ]);
+            }
+            $waUsers = WhatsAppUser::whereIn('phone', $phones)->get($userCols);
+            $ctwa = app(\Modules\WhatsAppModule\Services\WhatsAppCtwaAttributionService::class);
             foreach ($waUsers as $u) {
                 $names[$u->phone] = $u->name;
                 $handledByMap[$u->phone] = $u->handled_by ?: 'AI';
                 if ($u->human_support_requested_at) {
                     $humanSupportAt[$u->phone] = $u->human_support_requested_at;
                 }
+                $adAttributionByPhone[$u->phone] = $ctwa->payloadForUi($u);
             }
         }
         $adminNamesById = [];
@@ -2325,7 +2345,7 @@ class WhatsAppController extends Controller
 
         $leadTypeCountsByNormalized = $this->resolveLeadTypeCountsByNormalizedPhone($phones);
 
-        $result = $result->map(function ($row) use ($names, $handledByMap, $adminNamesById, $humanSupportAt, $leadTypeCountsByNormalized) {
+        $result = $result->map(function ($row) use ($names, $handledByMap, $adminNamesById, $humanSupportAt, $leadTypeCountsByNormalized, $adAttributionByPhone) {
             $phone = $row->phone ?? null;
             $row->name = $names[$phone] ?? null;
             $handledBy = $handledByMap[$phone] ?? 'AI';
@@ -2336,6 +2356,16 @@ class WhatsAppController extends Controller
                 $row->handled_by_label = $adminNamesById[$handledBy] ?? 'Agent';
             }
             $row->human_support_requested_at = $humanSupportAt[$phone] ?? null;
+            $row->ad_attribution = $adAttributionByPhone[$phone] ?? [
+                'from_ad' => false,
+                'ctwa_clid' => null,
+                'source_id' => null,
+                'source_type' => null,
+                'source_url' => null,
+                'headline' => null,
+                'body' => null,
+                'captured_at' => null,
+            ];
             $systemLink = $this->resolveSystemLinkForRawPhone($phone);
             $row->system_link = $systemLink;
             $waName = isset($row->name) ? trim((string) $row->name) : '';
@@ -2630,6 +2660,10 @@ class WhatsAppController extends Controller
                 $row->human_support_requested_at = $u->human_support_requested_at;
                 if ($u->human_support_requested_at) {
                     $row->created_at = $u->human_support_requested_at->format('Y-m-d H:i:s');
+                }
+                if (empty($row->ad_attribution)) {
+                    $row->ad_attribution = app(\Modules\WhatsAppModule\Services\WhatsAppCtwaAttributionService::class)
+                        ->payloadForUi($u);
                 }
                 if (empty($row->system_link)) {
                     $row->system_link = $this->resolveSystemLinkForRawPhone($phone);

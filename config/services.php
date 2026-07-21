@@ -77,6 +77,22 @@ return [
         'token' => env('INTERNAL_WHATSAPP_API_TOKEN'),
     ],
 
+    /**
+     * Meta Conversions API for Business Messaging (Click-to-WhatsApp ads).
+     * Requires a dataset linked to the WABA (POST /{WABA_ID}/dataset) and
+     * whatsapp_business_manage_events on the access token.
+     */
+    'meta_conversions' => [
+        'enabled' => filter_var(env('META_CAPI_ENABLED', false), FILTER_VALIDATE_BOOL),
+        'access_token' => env('META_CAPI_ACCESS_TOKEN', env('WHATSAPP_CLOUD_TOKEN')),
+        'dataset_id' => env('META_CAPI_DATASET_ID'),
+        'waba_id' => env('META_CAPI_WABA_ID', env('WHATSAPP_CLOUD_WABA_ID')),
+        'graph_version' => env('META_CAPI_GRAPH_VERSION', env('WHATSAPP_CLOUD_VERSION', 'v19.0')),
+        'partner_agent' => env('META_CAPI_PARTNER_AGENT', 'panun_kaergar'),
+        /** true = send inside the request; false = queue SendMetaCtwaConversionJob */
+        'dispatch_sync' => filter_var(env('META_CAPI_DISPATCH_SYNC', true), FILTER_VALIDATE_BOOL),
+    ],
+
     'call_center' => [
         'api_key' => env('CALL_CENTER_API_KEY'),
         'webhook_url' => env('CALL_CENTER_WEBHOOK_URL'),

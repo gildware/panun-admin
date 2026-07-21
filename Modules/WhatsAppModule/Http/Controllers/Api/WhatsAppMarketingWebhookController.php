@@ -114,9 +114,19 @@ class WhatsAppMarketingWebhookController extends Controller
 
                 $messages = $value['messages'] ?? [];
                 if (is_array($messages)) {
+                    $contacts = is_array($value['contacts'] ?? null) ? $value['contacts'] : [];
+                    $metadata = is_array($value['metadata'] ?? null) ? $value['metadata'] : [];
+                    $webhookContext = [
+                        'contacts' => $contacts,
+                        'metadata' => $metadata,
+                        'field' => is_string($change['field'] ?? null) ? $change['field'] : null,
+                    ];
                     foreach ($messages as $msg) {
+                        if (!is_array($msg)) {
+                            continue;
+                        }
                         $this->applyInbound($msg);
-                        $this->persistConversationInboundAndQueueAi($msg);
+                        $this->persistConversationInboundAndQueueAi($msg, $webhookContext);
                     }
                 }
             }
@@ -294,11 +304,12 @@ class WhatsAppMarketingWebhookController extends Controller
      * Persist customer messages into the operator chat DB and optionally run the AI support agent.
      *
      * @param  array<string, mixed>  $msg
+     * @param  array{contacts?: list<array<string, mixed>>, metadata?: array<string, mixed>, field?: ?string}  $webhookContext
      */
-    private function persistConversationInboundAndQueueAi(array $msg): void
+    private function persistConversationInboundAndQueueAi(array $msg, array $webhookContext = []): void
     {
         try {
-            $saved = $this->graphInboundHandler->persistInbound($msg);
+            $saved = $this->graphInboundHandler->persistInbound($msg, $webhookContext);
             if (!$saved) {
                 return;
             }

@@ -19,8 +19,9 @@ class WhatsAppGraphInboundHandler
 
     /**
      * @param  array<string, mixed>  $msg
+     * @param  array{contacts?: list<array<string, mixed>>, metadata?: array<string, mixed>, field?: ?string}  $webhookContext
      */
-    public function persistInbound(array $msg): ?WhatsAppMessage
+    public function persistInbound(array $msg, array $webhookContext = []): ?WhatsAppMessage
     {
         $from = $msg['from'] ?? null;
         if (!is_string($from) || $from === '') {
@@ -34,7 +35,7 @@ class WhatsAppGraphInboundHandler
 
         $type = (string) ($msg['type'] ?? 'text');
         if ($type === 'reaction') {
-            $this->applyInboundReaction($msg);
+            $this->applyInboundReaction($msg, $webhookContext);
 
             return null;
         }
@@ -105,7 +106,21 @@ class WhatsAppGraphInboundHandler
             $replyToWa = $ctx['id'];
         }
 
-        return $this->messagePersistence->persist([
+        $referral = null;
+        if (isset($msg['referral']) && is_array($msg['referral'])) {
+            $referral = app(WhatsAppCtwaAttributionService::class)->normalizeReferral($msg['referral']);
+        }
+
+        $contact = $this->matchContactForWaId($webhookContext['contacts'] ?? [], $from);
+        $profileName = null;
+        if (is_array($contact)) {
+            $profileName = trim((string) ($contact['profile']['name'] ?? ''));
+            if ($profileName === '') {
+                $profileName = null;
+            }
+        }
+
+        $payload = [
             'phone' => $phone,
             'message_text' => $text,
             'direction' => 'IN',
@@ -115,15 +130,49 @@ class WhatsAppGraphInboundHandler
             'created_at' => $createdAt,
             'media_id' => is_string($mediaId) ? $mediaId : null,
             'media_mime_type' => is_string($mime) ? $mime : null,
-        ]);
+            'meta_payload' => [
+                'message' => $msg,
+                'contact' => $contact,
+                'contacts' => $webhookContext['contacts'] ?? [],
+                'metadata' => $webhookContext['metadata'] ?? [],
+                'field' => $webhookContext['field'] ?? null,
+            ],
+            'profile_name' => $profileName,
+        ];
+
+        if ($referral !== null) {
+            $payload = array_merge($payload, $referral);
+        }
+
+        return $this->messagePersistence->persist($payload);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>|array<int, mixed>  $contacts
+     * @return array<string, mixed>|null
+     */
+    private function matchContactForWaId(array $contacts, string $from): ?array
+    {
+        foreach ($contacts as $contact) {
+            if (!is_array($contact)) {
+                continue;
+            }
+            $waId = (string) ($contact['wa_id'] ?? '');
+            if ($waId !== '' && ($waId === $from || str_ends_with($from, $waId) || str_ends_with($waId, $from))) {
+                return $contact;
+            }
+        }
+
+        return is_array($contacts[0] ?? null) ? $contacts[0] : null;
     }
 
     /**
      * Customer reaction to a message (no new chat row; updates `reactions` on the target).
      *
      * @param  array<string, mixed>  $msg
+     * @param  array{contacts?: list<array<string, mixed>>, metadata?: array<string, mixed>, field?: ?string}  $webhookContext
      */
-    private function applyInboundReaction(array $msg): void
+    private function applyInboundReaction(array $msg, array $webhookContext = []): void
     {
         $reaction = $msg['reaction'] ?? null;
         if (!is_array($reaction)) {
@@ -154,6 +203,21 @@ class WhatsAppGraphInboundHandler
         } else {
             $target->reactions = $reactions;
         }
+
+        // Append reaction event onto target meta_payload history when column exists.
+        if (\Illuminate\Support\Facades\Schema::hasColumn($target->getTable(), 'meta_payload')) {
+            $meta = is_array($target->meta_payload) ? $target->meta_payload : [];
+            $history = is_array($meta['reaction_events'] ?? null) ? $meta['reaction_events'] : [];
+            $history[] = [
+                'at' => now()->toIso8601String(),
+                'message' => $msg,
+                'metadata' => $webhookContext['metadata'] ?? [],
+            ];
+            // Keep last 20 reaction events to avoid unbounded growth.
+            $meta['reaction_events'] = array_slice($history, -20);
+            $target->meta_payload = $meta;
+        }
+
         $target->save();
 
         WhatsAppActiveChatsListCache::forgetAll();
