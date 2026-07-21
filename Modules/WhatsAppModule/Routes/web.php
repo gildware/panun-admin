@@ -13,6 +13,7 @@ use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppAiPlaygroundContro
 use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppAiSettingsController;
 use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppMarketingTemplateController;
 use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppChatConfigController;
+use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppMetaCapiEventsController;
 
 Route::middleware(['admin'])
     ->prefix('admin')
@@ -73,6 +74,7 @@ Route::group([
 
         Route::get('ai-support', [WhatsAppAiSettingsController::class, 'edit'])->middleware(['can:whatsapp_chat_view'])->name('ai-settings.edit');
         Route::post('ai-support', [WhatsAppAiSettingsController::class, 'update'])->middleware(['can:whatsapp_chat_assign'])->name('ai-settings.update');
+        Route::get('meta-capi-events', [WhatsAppMetaCapiEventsController::class, 'index'])->middleware(['can:whatsapp_chat_view'])->name('meta-capi-events.index');
         Route::get('ai-support/playground/thread', [WhatsAppAiPlaygroundController::class, 'thread'])->middleware(['can:whatsapp_chat_assign'])->name('ai-playground.thread');
         Route::post('ai-support/playground', [WhatsAppAiPlaygroundController::class, 'run'])->middleware(['can:whatsapp_chat_assign'])->name('ai-playground.run');
         Route::post('ai-support/playground/reset', [WhatsAppAiPlaygroundController::class, 'reset'])->middleware(['can:whatsapp_chat_assign'])->name('ai-playground.reset');

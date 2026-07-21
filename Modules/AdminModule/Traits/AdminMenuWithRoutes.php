@@ -173,6 +173,14 @@ trait AdminMenuWithRoutes
                 'type' => 'menu',
             ],
             [
+                'route_name' => 'Meta_CAPI_Events',
+                'uri' => 'admin/social-inbox/whatsapp/meta-capi-events',
+                'full_route' => url('admin/social-inbox/whatsapp/meta-capi-events'),
+                'page_title' => 'Meta_CAPI_Events',
+                'keywords' => 'Meta CAPI, CTWA, conversions, LeadSubmitted, Facebook Events Manager, dataset',
+                'type' => 'menu',
+            ],
+            [
                 'route_name' => 'WhatsApp_Marketing',
                 'uri' => 'admin/social-inbox/whatsapp/marketing/send',
                 'full_route' => url('admin/social-inbox/whatsapp/marketing/send'),
