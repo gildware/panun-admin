@@ -47,8 +47,8 @@
                             <th>{{ translate('Outbound_Enquiries') }}</th>
                         @endif
                     @else
-                        <th>{{ translate('Source') }}</th>
                         <th>{{ translate('Lead_Type') }}</th>
+                        <th>{{ translate('Source') }}</th>
                         <th>{{ translate('Ad_Source') }}</th>
                     @endif
                     <th>{{ translate('Recieved_On') }}</th>
@@ -113,7 +113,6 @@
                                 <td>{{ $lead->outbound_enquiries_count ?? 0 }}</td>
                             @endif
                         @else
-                            <td>{{ $lead->source?->name ?? '—' }}</td>
                             <td>
                                 @php
                                     $type = $lead->lead_type;
@@ -128,6 +127,7 @@
                                 @endphp
                                 <span class="badge rounded-pill {{ $badgeClass }} text-capitalize">{{ $label }}</span>
                             </td>
+                            <td>{{ $lead->source?->name ?? '—' }}</td>
                             <td class="lead-ad-source-cell">
                                 @php
                                     $ctwaSvc = app(\Modules\LeadManagement\Services\LeadCtwaDisplayService::class);
@@ -139,21 +139,29 @@
                                     $adDisplay = $ctwaSvc->resolveDisplay($lead->adSource, $ctwaRow);
                                 @endphp
                                 @if($adDisplay['name'] || $adDisplay['image_url'])
-                                    <div class="d-flex align-items-center gap-2 py-1">
+                                    <div class="d-flex flex-column align-items-start gap-1 py-1" style="max-width:120px;">
                                         @if($adDisplay['image_url'])
-                                            <img src="{{ $adDisplay['image_url'] }}"
-                                                 alt=""
-                                                 class="rounded border flex-shrink-0"
-                                                 style="width:40px;height:40px;object-fit:cover;"
-                                                 loading="lazy"
-                                                 onerror="this.style.display='none'">
-                                        @endif
-                                        <div class="min-w-0 d-flex flex-column">
-                                            <span class="fw-semibold text-wrap" style="font-size:0.9rem;line-height:1.25;">{{ $adDisplay['name'] ?? '—' }}</span>
-                                            @if($adDisplay['view_ad_url'])
-                                                <a href="{{ $adDisplay['view_ad_url'] }}" target="_blank" rel="noopener" class="small text-primary">{{ translate('View ad') }}</a>
+                                            @if(!empty($adDisplay['view_ad_url']))
+                                                <a href="{{ $adDisplay['view_ad_url'] }}" target="_blank" rel="noopener" class="d-inline-block" title="{{ translate('View ad') }}">
+                                                    <img src="{{ $adDisplay['image_url'] }}"
+                                                         alt="{{ $adDisplay['name'] ?? '' }}"
+                                                         class="rounded border"
+                                                         style="width:48px;height:48px;object-fit:cover;display:block;"
+                                                         loading="lazy"
+                                                         onerror="this.style.display='none'">
+                                                </a>
+                                            @else
+                                                <img src="{{ $adDisplay['image_url'] }}"
+                                                     alt="{{ $adDisplay['name'] ?? '' }}"
+                                                     class="rounded border"
+                                                     style="width:48px;height:48px;object-fit:cover;display:block;"
+                                                     loading="lazy"
+                                                     onerror="this.style.display='none'">
                                             @endif
-                                        </div>
+                                        @endif
+                                        @if($adDisplay['name'])
+                                            <span class="text-muted text-wrap" style="font-size:0.72rem;line-height:1.2;">{{ $adDisplay['name'] }}</span>
+                                        @endif
                                     </div>
                                 @else
                                     —
