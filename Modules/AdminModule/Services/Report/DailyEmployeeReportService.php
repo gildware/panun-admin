@@ -464,10 +464,6 @@ class DailyEmployeeReportService
      */
     private function aggregateStaffActivityEvents(array &$metrics, array $employeeIds, Carbon $rangeStart, Carbon $rangeEnd): void
     {
-        if (! Schema::hasTable('staff_activity_events')) {
-            return;
-        }
-
         $map = [
             StaffActivityEvent::TYPE_LEAD_ASSIGNED => 'leads_assigned',
             StaffActivityEvent::TYPE_WHATSAPP_ASSIGNED_FROM_AI => 'whatsapp_assigned_from_ai',
@@ -475,25 +471,165 @@ class DailyEmployeeReportService
             StaffActivityEvent::TYPE_WHATSAPP_CHAT_CLOSED => 'whatsapp_chats_closed',
         ];
 
-        $rows = DB::table('staff_activity_events')
-            ->selectRaw('DATE(created_at) as day, employee_id as user_id, event_type, COUNT(*) as total')
-            ->whereIn('employee_id', $employeeIds)
-            ->whereIn('event_type', array_keys($map))
-            ->whereBetween('created_at', [$rangeStart, $rangeEnd])
-            ->groupBy('day', 'user_id', 'event_type')
+        $seenTypes = [];
+
+        if (Schema::hasTable('staff_activity_events')) {
+            $rows = DB::table('staff_activity_events')
+                ->selectRaw('DATE(created_at) as day, employee_id as user_id, event_type, COUNT(*) as total')
+                ->whereIn('employee_id', $employeeIds)
+                ->whereIn('event_type', array_keys($map))
+                ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+                ->groupBy('day', 'user_id', 'event_type')
+                ->get();
+
+            foreach ($rows as $row) {
+                $eventType = (string) $row->event_type;
+                $metricKey = $map[$eventType] ?? null;
+                if ($metricKey === null) {
+                    continue;
+                }
+                $seenTypes[$eventType] = true;
+                $day = (string) $row->day;
+                $userId = (string) $row->user_id;
+                if (! isset($metrics[$day][$userId])) {
+                    continue;
+                }
+                $metrics[$day][$userId][$metricKey] = (int) $row->total;
+            }
+        }
+
+        // Live DB often has real assignment/close activity before events were logged.
+        // Fall back to snapshot tables only when that event type has no rows in range.
+        if (! isset($seenTypes[StaffActivityEvent::TYPE_LEAD_ASSIGNED])) {
+            $this->aggregateLeadsAssignedFallback($metrics, $employeeIds, $rangeStart, $rangeEnd);
+        }
+        if (! isset($seenTypes[StaffActivityEvent::TYPE_WHATSAPP_CHAT_CLOSED])) {
+            $this->aggregateWhatsAppClosedFallback($metrics, $employeeIds, $rangeStart, $rangeEnd);
+        }
+
+        // Always merge first-reply self-assigns so pre-logging Live replies count,
+        // even when some WA-assign events already exist for the range.
+        $this->mergeWhatsAppAssignedFromFirstReplies($metrics, $employeeIds, $rangeStart, $rangeEnd);
+    }
+
+    /**
+     * Approximate "leads assigned" from leads currently handled by the employee
+     * whose lead-received timestamp falls in range (pre-event Live history).
+     *
+     * @param  array<string, array<string, array<string, int>>>  $metrics
+     * @param  list<string>  $employeeIds
+     */
+    private function aggregateLeadsAssignedFallback(array &$metrics, array $employeeIds, Carbon $rangeStart, Carbon $rangeEnd): void
+    {
+        $rows = DB::table((new Lead)->getTable())
+            ->selectRaw('DATE(date_time_of_lead_received) as day, handled_by as user_id, COUNT(*) as total')
+            ->whereIn('handled_by', $employeeIds)
+            ->whereBetween('date_time_of_lead_received', [$rangeStart, $rangeEnd])
+            ->whereNotNull('handled_by')
+            ->where('handled_by', '!=', Lead::HANDLED_BY_AI)
+            ->groupBy('day', 'user_id')
             ->get();
 
-        foreach ($rows as $row) {
-            $metricKey = $map[(string) $row->event_type] ?? null;
-            if ($metricKey === null) {
+        $this->applyGroupedCounts($metrics, $rows, 'leads_assigned');
+    }
+
+    /**
+     * Approximate WA closes from thread meta last updated to a closed status.
+     *
+     * @param  array<string, array<string, array<string, int>>>  $metrics
+     * @param  list<string>  $employeeIds
+     */
+    private function aggregateWhatsAppClosedFallback(array &$metrics, array $employeeIds, Carbon $rangeStart, Carbon $rangeEnd): void
+    {
+        if (
+            ! Schema::hasTable('whatsapp_chat_thread_meta')
+            || ! Schema::hasTable('whatsapp_chat_statuses')
+            || ! Schema::hasTable((new WhatsAppUser)->getTable())
+        ) {
+            return;
+        }
+
+        $rows = DB::table('whatsapp_chat_thread_meta as tm')
+            ->join('whatsapp_chat_statuses as st', 'st.id', '=', 'tm.whatsapp_chat_status_id')
+            ->join('whatsapp_users as wu', function ($join) {
+                $join->on('wu.phone', '=', 'tm.phone');
+                if (Schema::hasColumn('whatsapp_chat_thread_meta', 'channel')
+                    && Schema::hasColumn((new WhatsAppUser)->getTable(), 'channel')
+                ) {
+                    $join->on('wu.channel', '=', 'tm.channel');
+                }
+            })
+            ->selectRaw('DATE(tm.updated_at) as day, wu.handled_by as user_id, COUNT(*) as total')
+            ->where('st.bucket', 'closed')
+            ->whereIn('wu.handled_by', $employeeIds)
+            ->whereBetween('tm.updated_at', [$rangeStart, $rangeEnd])
+            ->groupBy('day', 'user_id')
+            ->get();
+
+        $this->applyGroupedCounts($metrics, $rows, 'whatsapp_chats_closed');
+    }
+
+    /**
+     * Fill WA-assigned-from-AI gaps from each employee's first OUT reply per phone
+     * (the historical self-assign path). Skips phones already counted via events.
+     *
+     * @param  array<string, array<string, array<string, int>>>  $metrics
+     * @param  list<string>  $employeeIds
+     */
+    private function mergeWhatsAppAssignedFromFirstReplies(
+        array &$metrics,
+        array $employeeIds,
+        Carbon $rangeStart,
+        Carbon $rangeEnd
+    ): void {
+        $messageTable = config('whatsappmodule.tables.messages', 'whatsapp_messages');
+        if ($employeeIds === [] || ! Schema::hasTable($messageTable) || ! Schema::hasColumn($messageTable, 'sent_by_id')) {
+            return;
+        }
+
+        $covered = [];
+        if (Schema::hasTable('staff_activity_events')) {
+            $existing = DB::table('staff_activity_events')
+                ->select(['employee_id', 'subject_id', 'created_at'])
+                ->whereIn('employee_id', $employeeIds)
+                ->whereIn('event_type', [
+                    StaffActivityEvent::TYPE_WHATSAPP_ASSIGNED_FROM_AI,
+                    StaffActivityEvent::TYPE_WHATSAPP_ASSIGNED_FROM_EMPLOYEE,
+                ])
+                ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+                ->get();
+
+            foreach ($existing as $row) {
+                $day = Carbon::parse($row->created_at)->toDateString();
+                $covered[$day.'|'.(string) $row->employee_id.'|'.(string) $row->subject_id] = true;
+            }
+        }
+
+        // First-ever OUT by this employee for this phone, if that first reply falls in range.
+        $firstReplies = DB::table($messageTable)
+            ->selectRaw('phone, sent_by_id, MIN(created_at) as first_at')
+            ->where('direction', 'OUT')
+            ->whereNotNull('sent_by_id')
+            ->whereIn('sent_by_id', $employeeIds)
+            ->groupBy('phone', 'sent_by_id')
+            ->havingRaw('MIN(created_at) BETWEEN ? AND ?', [
+                $rangeStart->toDateTimeString(),
+                $rangeEnd->toDateTimeString(),
+            ])
+            ->get();
+
+        foreach ($firstReplies as $row) {
+            $day = Carbon::parse($row->first_at)->toDateString();
+            $userId = (string) $row->sent_by_id;
+            $phone = (string) $row->phone;
+            $key = $day.'|'.$userId.'|'.$phone;
+
+            if (isset($covered[$key]) || ! isset($metrics[$day][$userId])) {
                 continue;
             }
-            $day = (string) $row->day;
-            $userId = (string) $row->user_id;
-            if (! isset($metrics[$day][$userId])) {
-                continue;
-            }
-            $metrics[$day][$userId][$metricKey] = (int) $row->total;
+
+            $covered[$key] = true;
+            $metrics[$day][$userId]['whatsapp_assigned_from_ai']++;
         }
     }
 
@@ -636,15 +772,17 @@ class DailyEmployeeReportService
         }
 
         return Lead::query()
+            ->with(['source:id,name'])
             ->whereIn('created_by', $employeeIds)
             ->whereBetween('created_at', [$dayStart, $dayEnd])
             ->orderByDesc('created_at')
-            ->get(['id', 'name', 'phone_number', 'lead_type', 'handled_by', 'created_by', 'created_at'])
+            ->get(['id', 'name', 'phone_number', 'lead_type', 'source_id', 'handled_by', 'created_by', 'created_at'])
             ->map(fn (Lead $lead) => [
                 'id' => $lead->id,
                 'name' => $lead->name ?: '—',
                 'phone' => $lead->phone_number,
                 'lead_type' => $lead->lead_type,
+                'source' => $lead->source?->name ?: '—',
                 'at' => optional($lead->created_at)->format('h:i a'),
                 'url' => route('admin.lead.show', $lead->id),
             ])
@@ -658,41 +796,65 @@ class DailyEmployeeReportService
      */
     private function detailLeadAssigned(array $employeeIds, Carbon $dayStart, Carbon $dayEnd, array $employeeNames): array
     {
-        if ($employeeIds === [] || ! Schema::hasTable('staff_activity_events')) {
+        if ($employeeIds === []) {
             return [];
         }
 
-        $events = StaffActivityEvent::query()
-            ->where('event_type', StaffActivityEvent::TYPE_LEAD_ASSIGNED)
-            ->whereIn('employee_id', $employeeIds)
-            ->whereBetween('created_at', [$dayStart, $dayEnd])
-            ->orderByDesc('created_at')
-            ->get();
+        if (Schema::hasTable('staff_activity_events')) {
+            $events = StaffActivityEvent::query()
+                ->where('event_type', StaffActivityEvent::TYPE_LEAD_ASSIGNED)
+                ->whereIn('employee_id', $employeeIds)
+                ->whereBetween('created_at', [$dayStart, $dayEnd])
+                ->orderByDesc('created_at')
+                ->get();
 
-        $leadIds = $events->pluck('subject_id')->filter()->unique()->values()->all();
-        $leads = $leadIds === []
-            ? collect()
-            : Lead::query()->whereIn('id', $leadIds)->get(['id', 'name', 'phone_number', 'lead_type'])->keyBy('id');
+            if ($events->isNotEmpty()) {
+                $leadIds = $events->pluck('subject_id')->filter()->unique()->values()->all();
+                $leads = $leadIds === []
+                    ? collect()
+                    : Lead::query()->whereIn('id', $leadIds)->get(['id', 'name', 'phone_number', 'lead_type'])->keyBy('id');
 
-        return $events->map(function (StaffActivityEvent $event) use ($leads, $employeeNames) {
-            $lead = $leads->get($event->subject_id);
-            $from = $event->meta['from_handler'] ?? null;
-            $fromLabel = 'AI / Unassigned';
-            if (Lead::assigneeIsHuman($from)) {
-                $fromLabel = $employeeNames[(string) $from] ?? (string) $from;
+                return $events->map(function (StaffActivityEvent $event) use ($leads, $employeeNames) {
+                    $lead = $leads->get($event->subject_id);
+                    $from = $event->meta['from_handler'] ?? null;
+                    $fromLabel = 'AI / Unassigned';
+                    if (Lead::assigneeIsHuman($from)) {
+                        $fromLabel = $employeeNames[(string) $from] ?? (string) $from;
+                    }
+
+                    return [
+                        'id' => $event->subject_id,
+                        'name' => $lead?->name ?: '—',
+                        'phone' => $lead?->phone_number ?? '—',
+                        'lead_type' => $lead?->lead_type ?? '—',
+                        'from' => $fromLabel,
+                        'employee' => $employeeNames[(string) $event->employee_id] ?? (string) $event->employee_id,
+                        'at' => optional($event->created_at)->format('h:i a'),
+                        'url' => $lead ? route('admin.lead.show', $lead->id) : null,
+                    ];
+                })->all();
             }
+        }
 
-            return [
-                'id' => $event->subject_id,
-                'name' => $lead?->name ?: '—',
-                'phone' => $lead?->phone_number ?? '—',
-                'lead_type' => $lead?->lead_type ?? '—',
-                'from' => $fromLabel,
-                'employee' => $employeeNames[(string) $event->employee_id] ?? (string) $event->employee_id,
-                'at' => optional($event->created_at)->format('h:i a'),
-                'url' => $lead ? route('admin.lead.show', $lead->id) : null,
-            ];
-        })->all();
+        // Live fallback: leads received that day and currently assigned to the employee.
+        return Lead::query()
+            ->whereIn('handled_by', $employeeIds)
+            ->whereBetween('date_time_of_lead_received', [$dayStart, $dayEnd])
+            ->whereNotNull('handled_by')
+            ->where('handled_by', '!=', Lead::HANDLED_BY_AI)
+            ->orderByDesc('date_time_of_lead_received')
+            ->get(['id', 'name', 'phone_number', 'lead_type', 'handled_by', 'date_time_of_lead_received'])
+            ->map(fn (Lead $lead) => [
+                'id' => $lead->id,
+                'name' => $lead->name ?: '—',
+                'phone' => $lead->phone_number,
+                'lead_type' => $lead->lead_type,
+                'from' => '—',
+                'employee' => $employeeNames[(string) $lead->handled_by] ?? (string) $lead->handled_by,
+                'at' => optional($lead->date_time_of_lead_received)->format('h:i a'),
+                'url' => route('admin.lead.show', $lead->id),
+            ])
+            ->all();
     }
 
     /**
@@ -736,17 +898,22 @@ class DailyEmployeeReportService
         string $eventType,
         array $employeeNames
     ): array {
-        if ($employeeIds === [] || ! Schema::hasTable('staff_activity_events')) {
+        if ($employeeIds === []) {
             return [];
         }
 
-        return StaffActivityEvent::query()
-            ->where('event_type', $eventType)
-            ->whereIn('employee_id', $employeeIds)
-            ->whereBetween('created_at', [$dayStart, $dayEnd])
-            ->orderByDesc('created_at')
-            ->get()
-            ->map(function (StaffActivityEvent $event) use ($employeeNames) {
+        $rows = [];
+        $coveredPhones = [];
+
+        if (Schema::hasTable('staff_activity_events')) {
+            $events = StaffActivityEvent::query()
+                ->where('event_type', $eventType)
+                ->whereIn('employee_id', $employeeIds)
+                ->whereBetween('created_at', [$dayStart, $dayEnd])
+                ->orderByDesc('created_at')
+                ->get();
+
+            foreach ($events as $event) {
                 $phone = (string) ($event->meta['phone'] ?? $event->subject_id ?? '');
                 $from = $event->meta['from_handler'] ?? null;
                 $fromLabel = 'AI / Unassigned';
@@ -754,15 +921,75 @@ class DailyEmployeeReportService
                     $fromLabel = $employeeNames[(string) $from] ?? (string) $from;
                 }
 
-                return [
+                $rows[] = [
                     'phone' => $phone,
                     'from' => $fromLabel,
                     'employee' => $employeeNames[(string) $event->employee_id] ?? (string) $event->employee_id,
                     'at' => optional($event->created_at)->format('h:i a'),
                     'url' => $phone !== '' ? route('admin.whatsapp.conversations.chat', ['channel' => 'whatsapp', 'phone' => $phone]) : null,
                 ];
-            })
-            ->all();
+                if ($phone !== '') {
+                    $coveredPhones[(string) $event->employee_id.'|'.$phone] = true;
+                }
+            }
+        }
+
+        // Historical self-assign via reply only maps to "from AI" (typical takeover).
+        if ($eventType !== StaffActivityEvent::TYPE_WHATSAPP_ASSIGNED_FROM_AI) {
+            return $rows;
+        }
+
+        $messageTable = config('whatsappmodule.tables.messages', 'whatsapp_messages');
+        if (! Schema::hasTable($messageTable) || ! Schema::hasColumn($messageTable, 'sent_by_id')) {
+            return $rows;
+        }
+
+        // Also mark phones already logged under from-employee so we don't double-list.
+        if (Schema::hasTable('staff_activity_events')) {
+            $other = StaffActivityEvent::query()
+                ->where('event_type', StaffActivityEvent::TYPE_WHATSAPP_ASSIGNED_FROM_EMPLOYEE)
+                ->whereIn('employee_id', $employeeIds)
+                ->whereBetween('created_at', [$dayStart, $dayEnd])
+                ->get(['employee_id', 'subject_id']);
+            foreach ($other as $event) {
+                $phone = (string) $event->subject_id;
+                if ($phone !== '') {
+                    $coveredPhones[(string) $event->employee_id.'|'.$phone] = true;
+                }
+            }
+        }
+
+        $firstReplies = DB::table($messageTable)
+            ->selectRaw('phone, sent_by_id, MIN(created_at) as first_at')
+            ->where('direction', 'OUT')
+            ->whereNotNull('sent_by_id')
+            ->whereIn('sent_by_id', $employeeIds)
+            ->groupBy('phone', 'sent_by_id')
+            ->havingRaw('MIN(created_at) BETWEEN ? AND ?', [
+                $dayStart->toDateTimeString(),
+                $dayEnd->toDateTimeString(),
+            ])
+            ->orderByDesc('first_at')
+            ->get();
+
+        foreach ($firstReplies as $row) {
+            $phone = (string) $row->phone;
+            $employeeId = (string) $row->sent_by_id;
+            $key = $employeeId.'|'.$phone;
+            if ($phone === '' || isset($coveredPhones[$key])) {
+                continue;
+            }
+            $coveredPhones[$key] = true;
+            $rows[] = [
+                'phone' => $phone,
+                'from' => 'AI / Unassigned',
+                'employee' => $employeeNames[$employeeId] ?? $employeeId,
+                'at' => Carbon::parse($row->first_at)->format('h:i a'),
+                'url' => route('admin.whatsapp.conversations.chat', ['channel' => 'whatsapp', 'phone' => $phone]),
+            ];
+        }
+
+        return $rows;
     }
 
     /**
@@ -772,28 +999,73 @@ class DailyEmployeeReportService
      */
     private function detailWhatsAppClosed(array $employeeIds, Carbon $dayStart, Carbon $dayEnd, array $employeeNames): array
     {
-        if ($employeeIds === [] || ! Schema::hasTable('staff_activity_events')) {
+        if ($employeeIds === []) {
             return [];
         }
 
-        return StaffActivityEvent::query()
-            ->where('event_type', StaffActivityEvent::TYPE_WHATSAPP_CHAT_CLOSED)
-            ->whereIn('employee_id', $employeeIds)
-            ->whereBetween('created_at', [$dayStart, $dayEnd])
-            ->orderByDesc('created_at')
-            ->get()
-            ->map(function (StaffActivityEvent $event) use ($employeeNames) {
-                $phone = (string) ($event->meta['phone'] ?? $event->subject_id ?? '');
+        if (Schema::hasTable('staff_activity_events')) {
+            $events = StaffActivityEvent::query()
+                ->where('event_type', StaffActivityEvent::TYPE_WHATSAPP_CHAT_CLOSED)
+                ->whereIn('employee_id', $employeeIds)
+                ->whereBetween('created_at', [$dayStart, $dayEnd])
+                ->orderByDesc('created_at')
+                ->get();
 
-                return [
-                    'phone' => $phone,
-                    'status' => $event->meta['status_name'] ?? 'Closed',
-                    'employee' => $employeeNames[(string) $event->employee_id] ?? (string) $event->employee_id,
-                    'at' => optional($event->created_at)->format('h:i a'),
-                    'url' => $phone !== '' ? route('admin.whatsapp.conversations.chat', ['channel' => 'whatsapp', 'phone' => $phone]) : null,
-                ];
+            if ($events->isNotEmpty()) {
+                return $events->map(function (StaffActivityEvent $event) use ($employeeNames) {
+                    $phone = (string) ($event->meta['phone'] ?? $event->subject_id ?? '');
+
+                    return [
+                        'phone' => $phone,
+                        'status' => $event->meta['status_name'] ?? 'Closed',
+                        'employee' => $employeeNames[(string) $event->employee_id] ?? (string) $event->employee_id,
+                        'at' => optional($event->created_at)->format('h:i a'),
+                        'url' => $phone !== '' ? route('admin.whatsapp.conversations.chat', ['channel' => 'whatsapp', 'phone' => $phone]) : null,
+                    ];
+                })->all();
+            }
+        }
+
+        if (
+            ! Schema::hasTable('whatsapp_chat_thread_meta')
+            || ! Schema::hasTable('whatsapp_chat_statuses')
+            || ! Schema::hasTable((new WhatsAppUser)->getTable())
+        ) {
+            return [];
+        }
+
+        $query = DB::table('whatsapp_chat_thread_meta as tm')
+            ->join('whatsapp_chat_statuses as st', 'st.id', '=', 'tm.whatsapp_chat_status_id')
+            ->join('whatsapp_users as wu', function ($join) {
+                $join->on('wu.phone', '=', 'tm.phone');
+                if (Schema::hasColumn('whatsapp_chat_thread_meta', 'channel')
+                    && Schema::hasColumn((new WhatsAppUser)->getTable(), 'channel')
+                ) {
+                    $join->on('wu.channel', '=', 'tm.channel');
+                }
             })
-            ->all();
+            ->select([
+                'tm.phone',
+                'st.name as status_name',
+                'wu.handled_by',
+                'tm.updated_at',
+            ])
+            ->where('st.bucket', 'closed')
+            ->whereIn('wu.handled_by', $employeeIds)
+            ->whereBetween('tm.updated_at', [$dayStart, $dayEnd])
+            ->orderByDesc('tm.updated_at');
+
+        return $query->get()->map(function ($row) use ($employeeNames) {
+            $phone = (string) $row->phone;
+
+            return [
+                'phone' => $phone,
+                'status' => $row->status_name ?: 'Closed',
+                'employee' => $employeeNames[(string) $row->handled_by] ?? (string) $row->handled_by,
+                'at' => $row->updated_at ? Carbon::parse($row->updated_at)->format('h:i a') : '—',
+                'url' => route('admin.whatsapp.conversations.chat', ['channel' => 'whatsapp', 'phone' => $phone]),
+            ];
+        })->all();
     }
 
     /**

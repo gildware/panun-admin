@@ -31,6 +31,12 @@ class AdminModuleServiceProvider extends ServiceProvider
         $this->registerViews();
         $this->registerAdminMenuViewComposer();
         $this->loadMigrationsFrom(module_path($this->moduleName, 'Database/Migrations'));
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                \Modules\AdminModule\Console\BackfillStaffActivityReplyAssignCommand::class,
+            ]);
+        }
     }
 
     protected function registerAdminMenuViewComposer(): void
