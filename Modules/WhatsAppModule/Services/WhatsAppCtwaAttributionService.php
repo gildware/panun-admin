@@ -180,16 +180,17 @@ class WhatsAppCtwaAttributionService
     {
         $fromAd = $this->hasAdAttribution($waUser);
         $json = is_array($waUser?->referral_json) ? $waUser->referral_json : [];
-        $imageUrl = AdSource::creativeImageUrlFromReferral($json);
+        $referralImageUrl = AdSource::creativeImageUrlFromReferral($json);
         $platform = self::detectPlatform($waUser?->referral_source_url, $json);
         $headline = trim((string) ($waUser?->referral_headline ?? ''));
         $body = trim((string) ($waUser?->referral_body ?? ''));
         if (AdSource::isBadAdName($headline)) {
             $headline = '';
         }
+        $bodyLine = trim((string) preg_split('/\r\n|\r|\n/', $body)[0]);
         $displayName = $headline !== ''
             ? $headline
-            : (AdSource::isBadAdName(trim(explode("\n", $body)[0] ?? '')) ? null : trim(explode("\n", $body)[0] ?? ''));
+            : (!AdSource::isBadAdName($bodyLine) && $bodyLine !== '' ? $bodyLine : null);
         if ($displayName === null || $displayName === '') {
             $sid = trim((string) ($waUser?->referral_source_id ?? ''));
             $displayName = $sid !== '' ? 'WhatsApp Ad '.$sid : self::platformLabel($platform);
@@ -197,16 +198,19 @@ class WhatsAppCtwaAttributionService
 
         $adSourceImage = null;
         $adSourceId = null;
+        // Thread referral is source of truth; Ad Source only supplements when it matches this Meta ad id.
         if ($fromAd && $waUser) {
             $ad = AdSource::findByMetaSourceId($waUser->referral_source_id);
             if ($ad) {
                 $adSourceId = $ad->id;
                 $adSourceImage = $ad->imagePublicUrl();
-                if (!AdSource::isBadAdName($ad->name)) {
+                if (preg_match('/^WhatsApp Ad(\s+\d+)?$/i', (string) $displayName) && !AdSource::isBadAdName($ad->name)) {
                     $displayName = $ad->name;
                 }
             }
         }
+
+        $viewAdUrl = AdSource::viewAdUrl($waUser?->referral_source_url, $json);
 
         return [
             'from_ad' => $fromAd,
@@ -216,10 +220,12 @@ class WhatsAppCtwaAttributionService
             'source_id' => $waUser?->referral_source_id,
             'source_type' => $waUser?->referral_source_type,
             'source_url' => $waUser?->referral_source_url,
+            'view_ad_url' => $viewAdUrl,
             'headline' => $headline !== '' ? $headline : null,
             'body' => $body !== '' ? $body : null,
             'display_name' => $displayName,
-            'image_url' => $adSourceImage ?: $imageUrl,
+            // Prefer live Meta creative URL for this thread, then stored Ad Source image.
+            'image_url' => $referralImageUrl ?: $adSourceImage,
             'ad_source_id' => $adSourceId,
             'captured_at' => $waUser?->referral_captured_at
                 ? $waUser->referral_captured_at->toIso8601String()

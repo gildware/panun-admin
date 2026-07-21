@@ -1798,7 +1798,9 @@
             || (attr.headline && String(attr.headline).trim())
             || '';
         var body = (attr.body && String(attr.body).trim()) || '';
-        var sourceUrl = (attr.source_url && String(attr.source_url).trim()) || '';
+        var viewAdUrl = (attr.view_ad_url && String(attr.view_ad_url).trim())
+            || (attr.source_url && String(attr.source_url).trim())
+            || '';
         var imageUrl = (attr.image_url && String(attr.image_url).trim()) || '';
         // Never show bare deep-link hosts as the ad name.
         if (/^(api\.)?whatsapp\.com$/i.test(displayName) || /^https?:\/\//i.test(displayName)) {
@@ -1806,19 +1808,20 @@
         }
         var html = '<div class="d-flex align-items-start gap-2 min-w-0">';
         if (imageUrl) {
-            html += '<img src="' + escapeHtml(imageUrl) + '" alt="" class="rounded flex-shrink-0" style="width:40px;height:40px;object-fit:cover;" loading="lazy" onerror="this.style.display=\'none\'">';
+            html += '<img src="' + escapeHtml(imageUrl) + '" alt="" class="rounded flex-shrink-0 border" style="width:48px;height:48px;object-fit:cover;" loading="lazy" onerror="this.style.display=\'none\'">';
         }
-        html += '<div class="min-w-0">';
-        html += '<div><span class="badge bg-info text-dark me-1">' + escapeHtml(platformLabel) + '</span>';
+        html += '<div class="min-w-0 flex-grow-1">';
+        html += '<div class="d-flex flex-wrap align-items-center gap-1">';
+        html += '<span class="badge bg-info text-dark">' + escapeHtml(platformLabel) + '</span>';
         if (displayName) {
-            html += '<span class="fw-semibold text-truncate d-inline-block align-middle" style="max-width:16rem" title="' + escapeHtml(displayName) + '">' + escapeHtml(displayName) + '</span>';
+            html += '<span class="fw-semibold" style="font-size:0.95rem" title="' + escapeHtml(displayName) + '">' + escapeHtml(displayName) + '</span>';
         }
         html += '</div>';
         if (body && body !== displayName) {
-            html += '<div class="text-muted text-truncate" style="max-width:20rem" title="' + escapeHtml(body) + '">' + escapeHtml(body) + '</div>';
+            html += '<div class="text-muted" style="font-size:0.85rem;max-width:22rem" title="' + escapeHtml(body) + '">' + escapeHtml(body.length > 120 ? body.slice(0, 120) + '…' : body) + '</div>';
         }
-        if (sourceUrl && !/api\.whatsapp\.com/i.test(sourceUrl)) {
-            html += '<a href="' + escapeHtml(sourceUrl) + '" target="_blank" rel="noopener" class="small">{{ translate('View ad') }}</a>';
+        if (viewAdUrl) {
+            html += '<a href="' + escapeHtml(viewAdUrl) + '" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary mt-1 py-0 px-2">{{ translate('View ad') }}</a>';
         }
         html += '</div></div>';
         el.innerHTML = html;

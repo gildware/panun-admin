@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -14,6 +15,7 @@ class AdSource extends Model
     protected $table = 'adsources';
 
     protected $fillable = [
+        'meta_ad_id',
         'name',
         'description',
         'image',
@@ -54,14 +56,20 @@ class AdSource extends Model
             return null;
         }
 
+        if (Schema::hasColumn((new static)->getTable(), 'meta_ad_id')) {
+            $byCol = static::query()->where('meta_ad_id', $sourceId)->first();
+            if ($byCol) {
+                return $byCol;
+            }
+        }
+
         return static::query()
             ->where('description', 'like', '%meta_source_id='.$sourceId.'%')
             ->first();
     }
 
     /**
-     * Find or create an Ad Source for a Click-to-WhatsApp Meta ad referral.
-     * Name = ad headline/body (never a URL host). Image = creative from Meta when available.
+     * One Ad Source per Meta ad id. Never merge different ads that share a headline.
      *
      * @param  array<string, mixed>|null  $referralFull
      */
@@ -85,31 +93,45 @@ class AdSource extends Model
             return null;
         }
 
+        // Prefer Meta ad id uniqueness. Without it, key by source_url so links stay distinct.
+        $identityKey = $sourceId !== ''
+            ? $sourceId
+            : ($sourceUrl !== '' ? 'url:'.substr(hash('sha256', strtolower($sourceUrl)), 0, 24) : '');
+
         $name = self::ctwaDisplayName($sourceId, $headline, $body);
         $description = self::ctwaDescription($sourceId, $sourceType, $sourceUrl, $body, $headline, $imageUrl);
 
         $found = null;
-        if ($sourceId !== '') {
-            $found = static::query()
-                ->where('description', 'like', '%meta_source_id='.$sourceId.'%')
-                ->first();
+        if ($identityKey !== '') {
+            if ($sourceId !== '') {
+                $found = self::findByMetaSourceId($sourceId);
+            } else {
+                $found = static::query()
+                    ->where('description', 'like', '%meta_source_url='.$sourceUrl.'%')
+                    ->first();
+            }
         }
-        if (!$found) {
-            $found = static::query()
-                ->whereRaw('LOWER(TRIM(name)) = ?', [strtolower($name)])
-                ->first();
-        }
+
+        // Do NOT fall back to matching by display name — same headline ≠ same ad.
 
         if ($found) {
             $dirty = false;
+            if (Schema::hasColumn($found->getTable(), 'meta_ad_id') && $sourceId !== '' && (string) $found->meta_ad_id !== $sourceId) {
+                $found->meta_ad_id = $sourceId;
+                $dirty = true;
+            }
             if (self::isBadAdName($found->name) || (self::isGenericCtwaName($found->name) && !self::isGenericCtwaName($name))) {
                 $found->name = $name;
                 $dirty = true;
-            } elseif (!self::isBadAdName($name) && self::isGenericCtwaName($found->name) && $found->name !== $name) {
+            } elseif (!self::isBadAdName($name) && $found->name !== $name && self::isGenericCtwaName($found->name)) {
+                $found->name = $name;
+                $dirty = true;
+            } elseif (!self::isBadAdName($name) && !self::isGenericCtwaName($name) && self::isBadAdName($found->name)) {
                 $found->name = $name;
                 $dirty = true;
             }
-            if ($sourceId !== '' || $description !== (string) $found->description) {
+            // Refresh description for this exact ad (url/image/body) without colliding other ads.
+            if ($description !== (string) $found->description) {
                 $found->description = $description;
                 $dirty = true;
             }
@@ -117,7 +139,7 @@ class AdSource extends Model
                 $found->is_active = true;
                 $dirty = true;
             }
-            if (empty($found->image) && $imageUrl !== '') {
+            if ($imageUrl !== '') {
                 $stored = self::downloadCreativeImage($imageUrl);
                 if ($stored) {
                     $found->image = $stored;
@@ -131,14 +153,55 @@ class AdSource extends Model
             return $found;
         }
 
-        $storedImage = $imageUrl !== '' ? self::downloadCreativeImage($imageUrl) : null;
-
-        return static::create([
+        $attrs = [
             'name' => $name,
             'description' => $description,
-            'image' => $storedImage,
+            'image' => $imageUrl !== '' ? self::downloadCreativeImage($imageUrl) : null,
             'is_active' => true,
-        ]);
+        ];
+        if (Schema::hasColumn((new static)->getTable(), 'meta_ad_id') && $sourceId !== '') {
+            $attrs['meta_ad_id'] = $sourceId;
+        }
+
+        return static::create($attrs);
+    }
+
+    /**
+     * Prefer a usable “open the ad” URL (fb.me / Instagram) over WhatsApp deep links.
+     *
+     * @param  array<string, mixed>|null  $referral
+     */
+    public static function viewAdUrl(?string $sourceUrl, ?array $referral = null): ?string
+    {
+        $candidates = [];
+        $sourceUrl = trim((string) $sourceUrl);
+        if ($sourceUrl !== '') {
+            $candidates[] = $sourceUrl;
+        }
+        if (is_array($referral)) {
+            foreach (['source_url', 'ad_url', 'url'] as $key) {
+                $v = trim((string) ($referral[$key] ?? ''));
+                if ($v !== '') {
+                    $candidates[] = $v;
+                }
+            }
+        }
+
+        $fallback = null;
+        foreach (array_unique($candidates) as $url) {
+            if (!str_starts_with($url, 'http://') && !str_starts_with($url, 'https://')) {
+                continue;
+            }
+            $lower = strtolower($url);
+            if (str_contains($lower, 'api.whatsapp.com') || str_contains($lower, 'wa.me/')) {
+                $fallback = $fallback ?: $url;
+                continue;
+            }
+
+            return $url;
+        }
+
+        return $fallback;
     }
 
     /**
@@ -169,7 +232,6 @@ class AdSource extends Model
         if (str_contains($lower, '://')) {
             return true;
         }
-        // Bare domains / WA deep-link hosts Meta sometimes surfaces instead of creative text.
         if (preg_match('/^(www\.)?(api\.)?whatsapp\.com$/i', $lower)) {
             return true;
         }
@@ -188,7 +250,7 @@ class AdSource extends Model
         $n = strtolower(trim((string) $name));
 
         return $n === 'whatsapp ad'
-            || str_starts_with($n, 'whatsapp ad ')
+            || preg_match('/^whatsapp ad \d+$/', $n) === 1
             || $n === 'facebook whatsapp ad'
             || str_starts_with($n, 'facebook whatsapp ad ')
             || $n === 'instagram whatsapp ad'

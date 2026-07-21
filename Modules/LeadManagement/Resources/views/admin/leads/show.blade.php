@@ -290,18 +290,29 @@
                                                 <span class="title-color">{{ translate('Source') }}</span>
                                                 <strong>{{ $lead->source?->name ?? '—' }}</strong>
                                             </div>
-                                            <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg gap-2">
+                                            <div class="d-flex justify-content-between align-items-start p-3 rounded c1-light-bg gap-2">
                                                 <span class="title-color flex-shrink-0">{{ translate('Ad_Source') }}</span>
-                                                <div class="d-flex align-items-center gap-2 min-w-0 justify-content-end">
+                                                <div class="d-flex align-items-start gap-2 min-w-0 justify-content-end text-end">
                                                     @if($lead->adSource?->image)
                                                         <img src="{{ $lead->adSource->imagePublicUrl() }}"
                                                              alt=""
-                                                             class="rounded flex-shrink-0"
-                                                             style="width:36px;height:36px;object-fit:cover;"
+                                                             class="rounded border flex-shrink-0"
+                                                             style="width:48px;height:48px;object-fit:cover;"
                                                              loading="lazy"
                                                              onerror="this.style.display='none'">
                                                     @endif
-                                                    <strong class="text-end text-break">{{ $lead->adSource?->name ?? '—' }}</strong>
+                                                    <div class="min-w-0">
+                                                        <strong class="text-break d-block">{{ $lead->adSource?->name ?? '—' }}</strong>
+                                                        @php
+                                                            $leadAdViewUrl = null;
+                                                            if ($lead->adSource && preg_match('/meta_source_url=(\S+)/', (string) $lead->adSource->description, $um)) {
+                                                                $leadAdViewUrl = \Modules\LeadManagement\Entities\AdSource::viewAdUrl(trim($um[1]));
+                                                            }
+                                                        @endphp
+                                                        @if($leadAdViewUrl)
+                                                            <a href="{{ $leadAdViewUrl }}" target="_blank" rel="noopener" class="small">{{ translate('View ad') }}</a>
+                                                        @endif
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">

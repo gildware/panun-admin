@@ -17,7 +17,7 @@
         .table-leads-fixed-layout { min-width: 1100px; }
         .table-leads-fixed-layout th,
         .table-leads-fixed-layout td { white-space: nowrap; }
-        .table-leads-fixed-layout td.lead-ad-source-cell { white-space: normal; min-width: 140px; max-width: 220px; }
+        .table-leads-fixed-layout td.lead-ad-source-cell { white-space: normal; min-width: 180px; max-width: 280px; vertical-align: middle; }
         .lead-filter-btn { overflow: visible; }
         .lead-filter-btn-margin { margin-right: 1rem; }
         .lead-filter-offcanvas { display: flex; flex-direction: column; }
