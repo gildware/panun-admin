@@ -1,0 +1,21 @@
+{
+    "name": "nwidart/taskboardmodule",
+    "description": "Admin Kanban task board",
+    "authors": [
+        {
+            "name": "Panun Kaergar",
+            "email": "dev@panunkaergar.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {}
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\TaskBoardModule\\": ""
+        }
+    }
+}

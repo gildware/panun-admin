@@ -464,6 +464,23 @@ if (! function_exists('admin_inbox_notify_web_booking_submitted')) {
     }
 }
 
+if (! function_exists('admin_inbox_notify_web_provider_request_submitted')) {
+    function admin_inbox_notify_web_provider_request_submitted(\Modules\BookingModule\Entities\WebProviderRequest $providerRequest): void
+    {
+        $providerRequest->loadMissing('lead');
+        $label = trim($providerRequest->name . ' — ' . $providerRequest->phone . ' — ' . ($providerRequest->service_category ?: translate('Service')));
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_WEB_PROVIDER_REQUEST,
+            translate('New_web_provider_request_submission'),
+            $label,
+            route('admin.booking.web-provider-requests.show', $providerRequest->id),
+            'web_provider_request_submitted',
+            (string) $providerRequest->id,
+        );
+    }
+}
+
 if (! function_exists('admin_inbox_notify_app_custom_request_submitted')) {
     function admin_inbox_notify_app_custom_request_submitted(\Modules\BookingModule\Entities\AppCustomRequest $customRequest): void
     {

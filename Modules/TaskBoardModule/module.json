@@ -1,0 +1,13 @@
+{
+    "name": "TaskBoardModule",
+    "alias": "taskboardmodule",
+    "description": "Admin Kanban task board",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\TaskBoardModule\\Providers\\TaskBoardModuleServiceProvider"
+    ],
+    "aliases": {},
+    "files": [],
+    "requires": []
+}

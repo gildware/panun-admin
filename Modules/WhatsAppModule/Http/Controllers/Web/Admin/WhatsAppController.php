@@ -33,6 +33,7 @@ use Carbon\Carbon;
 use Modules\WhatsAppModule\Services\LeadWhatsAppAssignmentSyncService;
 use Modules\WhatsAppModule\Services\MetaSocialOutboundService;
 use Modules\WhatsAppModule\Services\WhatsAppCloudService;
+use Modules\AdminModule\Services\StaffActivityLogger;
 use Modules\WhatsAppModule\Support\SocialInboxChannel;
 use Modules\WhatsAppModule\Support\WhatsAppActiveChatsListCache;
 use Modules\WhatsAppModule\Support\WhatsAppAdminUnread;
@@ -1587,8 +1588,34 @@ class WhatsAppController extends Controller
 
         $phone = trim($data['phone']);
         $meta = WhatsAppChatThreadMeta::firstOrCreateForPhone($phone);
+        $previousStatusId = $meta->whatsapp_chat_status_id;
         $meta->whatsapp_chat_status_id = $data['whatsapp_chat_status_id'] ?? null;
         $meta->save();
+
+        $newStatusId = $meta->whatsapp_chat_status_id ? (int) $meta->whatsapp_chat_status_id : null;
+        if ($newStatusId && (int) ($previousStatusId ?? 0) !== $newStatusId) {
+            $newStatus = WhatsAppChatStatus::query()->find($newStatusId);
+            $previousBucket = null;
+            if ($previousStatusId) {
+                $previousBucket = WhatsAppChatStatus::query()->whereKey($previousStatusId)->value('bucket');
+            }
+            if ($newStatus && ($newStatus->bucket ?? '') === 'closed' && ($previousBucket ?? 'open') !== 'closed') {
+                $admin = $request->user();
+                $waUser = WhatsAppUser::query()->where('phone', $phone)->first();
+                $handlerId = $waUser?->handled_by;
+                $actorId = $admin ? (string) $admin->id : null;
+                // Count when the closer owns the chat, or when they close a chat assigned to them.
+                if ($actorId && Lead::assigneeIsHuman($handlerId) && (string) $handlerId === $actorId) {
+                    app(StaffActivityLogger::class)->logWhatsAppChatClosed(
+                        $actorId,
+                        $phone,
+                        $newStatusId,
+                        $actorId,
+                        ['status_name' => $newStatus->name ?? null]
+                    );
+                }
+            }
+        }
 
         $this->forgetWhatsappChatCaches($phone);
 
@@ -2042,6 +2069,8 @@ class WhatsAppController extends Controller
             'channel' => SocialInboxChannel::current(),
         ]);
 
+        $previousHandler = $waUser->exists ? ($waUser->handled_by ?? null) : null;
+
         if ($data['mode'] === 'ai') {
             $waUser->handled_by = Lead::HANDLED_BY_AI;
         } else {
@@ -2051,7 +2080,14 @@ class WhatsAppController extends Controller
         $waUser->human_support_requested_at = null;
         $waUser->save();
 
-        if ($data['mode'] === 'take') {
+        if ($data['mode'] === 'take' && Lead::assigneeIsHuman($waUser->handled_by)) {
+            app(StaffActivityLogger::class)->logWhatsAppAssigned(
+                (string) $waUser->handled_by,
+                $threadPhone,
+                $previousHandler !== null ? (string) $previousHandler : null,
+                (string) $waUser->handled_by,
+                ['source' => 'handoff_take']
+            );
             app(LeadWhatsAppAssignmentSyncService::class)->onChatHandlerAssigned($threadPhone, $waUser->handled_by);
         }
 

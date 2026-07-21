@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Schema;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\AppCustomRequest;
 use Modules\BookingModule\Entities\WebBooking;
+use Modules\BookingModule\Entities\WebProviderRequest;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderChangeRequest;
 use Modules\ProviderManagement\Entities\ProviderShowcaseItem;
@@ -37,6 +38,7 @@ final class AdminMenuCounts
                 'pending_profile_changes' => ProviderChangeRequest::where('status', 2)->count(),
                 'denied_providers' => Provider::ofApproval(0)->count(),
                 'web_bookings_pending' => self::safeCountPendingWebBookings(),
+                'web_provider_requests_pending' => self::safeCountPendingWebProviderRequests(),
                 'app_custom_requests_pending' => self::safeCountPendingAppCustomRequests(),
                 'pending_verify_bookings' => self::safeCountPendingVerifyBookings(),
             ];
@@ -66,6 +68,21 @@ final class AdminMenuCounts
 
             return WebBooking::query()
                 ->where('status', WebBooking::STATUS_PENDING_REVIEW)
+                ->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private static function safeCountPendingWebProviderRequests(): int
+    {
+        try {
+            if (! Schema::hasTable('web_provider_requests')) {
+                return 0;
+            }
+
+            return WebProviderRequest::query()
+                ->where('status', WebProviderRequest::STATUS_PENDING_REVIEW)
                 ->count();
         } catch (\Throwable) {
             return 0;

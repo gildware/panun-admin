@@ -27,6 +27,15 @@
             </a>
         </div>
         <div class="top-utility-end">
+            <a href="{{ route('admin.task-board.index') }}"
+               class="top-utility-action-btn"
+               @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif
+               title="{{ translate('Task_Board') }}"
+               aria-label="{{ translate('Task_Board') }}">
+                <span class="material-symbols-outlined">view_kanban</span>
+                <span class="d-none d-lg-inline">{{ translate('Task_Board') }}</span>
+            </a>
+
             <div class="dropdown top-utility-item top-utility-presence">
                 <button type="button"
                         id="staff-header-status-pill"

@@ -2,6 +2,7 @@
 
 namespace Modules\PromotionManagement\Http\Controllers\Api\V1\Customer;
 
+use App\Services\GuestSessionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,9 @@ class NotificationController extends Controller
     {
         $this->pushNotification = $pushNotification;
         $this->is_customer_logged_in = (bool) auth('api')->user();
-        $this->customer_user_id = $this->is_customer_logged_in ? auth('api')->user()->id : $request['guest_id'];
+        $this->customer_user_id = $this->is_customer_logged_in
+            ? auth('api')->user()->id
+            : GuestSessionService::resolveGuestId($request);
     }
 
     public function index(Request $request): JsonResponse

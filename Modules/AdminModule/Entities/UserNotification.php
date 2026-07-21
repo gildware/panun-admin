@@ -24,6 +24,7 @@ class UserNotification extends Model
     public const TYPE_WELCOME_BONUS = 'welcome_bonus';
     public const TYPE_REVIEW = 'review';
     public const TYPE_WEB_BOOKING = 'web_booking';
+    public const TYPE_WEB_PROVIDER_REQUEST = 'web_provider_request';
     public const TYPE_APP_CUSTOM_REQUEST = 'app_custom_request';
 
     protected $fillable = [
@@ -84,6 +85,7 @@ class UserNotification extends Model
             self::TYPE_WELCOME_BONUS => 'redeem',
             self::TYPE_REVIEW => 'rate_review',
             self::TYPE_WEB_BOOKING => 'language',
+            self::TYPE_WEB_PROVIDER_REQUEST => 'handshake',
             self::TYPE_APP_CUSTOM_REQUEST => 'phone_iphone',
             default => 'notifications',
         };
@@ -104,6 +106,7 @@ class UserNotification extends Model
             self::TYPE_WELCOME_BONUS => translate('Welcome_Bonus'),
             self::TYPE_REVIEW => translate('Booking_Review'),
             self::TYPE_WEB_BOOKING => translate('Web_Bookings'),
+            self::TYPE_WEB_PROVIDER_REQUEST => translate('Web_Provider_Requests'),
             self::TYPE_APP_CUSTOM_REQUEST => translate('App_Custom_Requests'),
             default => translate('Notification'),
         };
@@ -127,6 +130,7 @@ class UserNotification extends Model
             self::TYPE_WELCOME_BONUS => translate('View_Welcome_Bonus_Report'),
             self::TYPE_REVIEW => translate('View_Details'),
             self::TYPE_WEB_BOOKING => translate('View_Details'),
+            self::TYPE_WEB_PROVIDER_REQUEST => translate('View_Details'),
             self::TYPE_APP_CUSTOM_REQUEST => translate('View_Details'),
             default => translate('View_Details'),
         };

@@ -90,6 +90,15 @@
                     @endphp
                     <ul class="nav justify-content-end align-items-center gap-3 gap-md-4">
                         <li class="nav-item max-sm-m-0">
+                            <a href="{{ route('admin.task-board.index') }}"
+                               class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none"
+                               @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif
+                               title="{{ translate('Task_Board') }}">
+                                <span class="material-symbols-outlined" aria-hidden="true">view_kanban</span>
+                                <span class="d-none d-md-block">{{ translate('Task_Board') }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item max-sm-m-0">
                             <div class="dropdown">
                                 <button type="button"
                                         id="staff-header-status-pill"

@@ -102,6 +102,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('transaction/download', [TransactionReportController::class, 'downloadTransactionReport'])->name('transaction.download');
 
         Route::get('daily-employee', [DailyEmployeeReportController::class, 'index'])->name('daily-employee');
+        Route::get('daily-employee/detail', [DailyEmployeeReportController::class, 'detail'])->name('daily-employee.detail');
 
         Route::any('booking', [BookingReportController::class, 'getBookingReport'])->name('booking');
         Route::any('booking/download', [BookingReportController::class, 'getBookingReportDownload'])->name('booking.download');

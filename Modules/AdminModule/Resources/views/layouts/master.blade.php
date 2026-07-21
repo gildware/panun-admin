@@ -476,19 +476,29 @@
     });
 
     (function () {
-        var adminHeaderPollMs = 10000;
+        // Keep polling light: Hostinger shared PHP chokes when every open admin tab hits every 10s.
+        var adminHeaderPollMs = 45000;
         try {
             if (/\/admin\/(whatsapp|social-inbox)\//i.test(window.location.pathname || '')) {
                 adminHeaderPollMs = 60000;
             }
         } catch (e) {}
-        setInterval(function () {
+        function pollHeader() {
+            if (document.hidden) {
+                return;
+            }
             $.get({
                 url: '{{ route('admin.get_updated_data') }}',
                 dataType: 'json',
                 success: handleAdminUpdatedDataResponse,
             });
-        }, adminHeaderPollMs);
+        }
+        setInterval(pollHeader, adminHeaderPollMs);
+        document.addEventListener('visibilitychange', function () {
+            if (!document.hidden) {
+                pollHeader();
+            }
+        });
     })();
 
     window.pkStaffPresencePillClass = function (status) {
@@ -529,12 +539,15 @@
     };
 
     (function () {
-        var heartbeatMs = 30000;
+        var heartbeatMs = 60000;
         function pkCurrentAdminPageLabel() {
             var title = (document.title || '').replace(/\s*[|\-–].*$/, '').trim();
             return title || window.location.pathname || '';
         }
         function sendStaffHeartbeat() {
+            if (document.hidden) {
+                return;
+            }
             $.ajax({
                 url: '{{ route('admin.staff-presence.heartbeat') }}',
                 type: 'POST',
