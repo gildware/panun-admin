@@ -24,6 +24,7 @@ use Modules\LeadManagement\Entities\Source;
 use Modules\LeadManagement\Entities\AdSource;
 use Modules\BookingModule\Entities\Booking;
 use Modules\LeadManagement\Services\CustomerLeadReportAnalyticsService;
+use Modules\LeadManagement\Services\LeadCtwaDisplayService;
 use Modules\LeadManagement\Services\ProviderLeadReportAnalyticsService;
 use Modules\UserManagement\Entities\User;
 use Rap2hpoutre\FastExcel\FastExcel;
@@ -374,23 +375,10 @@ class LeadReportController extends Controller
             ];
         })->sortByDesc('total')->values()->all();
 
-        $adSourceWise = (clone $baseQuery)
-            ->select('ad_source_id', DB::raw('count(*) as total'))
-            ->groupBy('ad_source_id')
-            ->get();
-
-        $adSourceIds = $adSourceWise->pluck('ad_source_id')->filter()->unique()->values()->all();
-        $adSources = $adSourceIds !== []
-            ? AdSource::whereIn('id', $adSourceIds)->get(['id', 'name'])->keyBy('id')
-            : collect();
-
-        $adSourceWise = $adSourceWise->map(function ($row) use ($adSources) {
-            $ad = $row->ad_source_id ? $adSources->get($row->ad_source_id) : null;
-            return [
-                'label' => $ad?->name ?? '—',
-                'total' => (int) $row->total,
-            ];
-        })->sortByDesc('total')->values()->all();
+        // Prefer WhatsApp CTWA referral creative names (same as lead list), not only ad_source_id.
+        $adSourceWise = app(LeadCtwaDisplayService::class)->aggregateAdSourceWise(
+            (clone $baseQuery)->get(['id', 'phone_number', 'ad_source_id'])
+        );
 
         $customerStatusSummary = $this->buildCustomerStatusSummary($baseQuery);
         $providerStatusSummary = $this->buildProviderStatusSummary($baseQuery);

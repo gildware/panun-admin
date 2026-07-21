@@ -122,6 +122,67 @@ class LeadCtwaDisplayService
         ];
     }
 
+    /**
+     * Aggregate leads by Ad Source label for reports.
+     * Prefers WhatsApp CTWA referral creative name when present (same as lead list).
+     *
+     * @param  Collection<int, object>|iterable<int, object>  $leads  rows with phone_number + ad_source_id
+     * @return list<array{label: string, total: int}>
+     */
+    public function aggregateAdSourceWise(iterable $leads): array
+    {
+        $rows = $leads instanceof Collection ? $leads : collect($leads);
+        if ($rows->isEmpty()) {
+            return [];
+        }
+
+        $ctwaByPhone = $this->mapByLeadPhones($rows);
+        $adSourceIds = $rows->pluck('ad_source_id')->filter()->unique()->values()->all();
+        $adSources = $adSourceIds !== []
+            ? AdSource::query()->whereIn('id', $adSourceIds)->get(['id', 'name'])->keyBy('id')
+            : collect();
+
+        $counts = [];
+        foreach ($rows as $lead) {
+            $phoneKey = $this->last10((string) ($lead->phone_number ?? ''));
+            $ctwa = ($phoneKey !== null && isset($ctwaByPhone[$phoneKey])) ? $ctwaByPhone[$phoneKey] : null;
+            $label = null;
+
+            if ($ctwa) {
+                $display = trim((string) ($ctwa['display_name'] ?? ''));
+                if ($display !== '' && !AdSource::isBadAdName($display)) {
+                    $label = $display;
+                }
+            }
+
+            if ($label === null) {
+                $adId = $lead->ad_source_id ?? null;
+                $ad = $adId ? $adSources->get($adId) : null;
+                if ($ad && !AdSource::isBadAdName($ad->name)) {
+                    $label = (string) $ad->name;
+                }
+            }
+
+            if ($label === null || $label === '') {
+                $label = 'No Ad Source';
+            }
+
+            $counts[$label] = ($counts[$label] ?? 0) + 1;
+        }
+
+        $out = [];
+        foreach ($counts as $label => $total) {
+            $out[] = [
+                'label' => mb_strlen($label) > 48 ? (mb_substr($label, 0, 45).'…') : $label,
+                'total' => (int) $total,
+            ];
+        }
+
+        usort($out, fn ($a, $b) => $b['total'] <=> $a['total']);
+
+        return $out;
+    }
+
     protected function last10(string $phone): ?string
     {
         $digits = preg_replace('/\D+/', '', $phone) ?? '';
