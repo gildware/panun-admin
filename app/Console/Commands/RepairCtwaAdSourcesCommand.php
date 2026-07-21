@@ -104,14 +104,14 @@ class RepairCtwaAdSourcesCommand extends Command
                     }
                 }
                 $currentAd = $lead->ad_source_id ? AdSource::query()->find($lead->ad_source_id) : null;
-                if ($lead->ad_source_id === null
+                $shouldRetarget = $lead->ad_source_id === null
                     || ($currentAd && AdSource::isBadAdName($currentAd->name))
-                    || (int) $lead->ad_source_id === (int) $ad->id
-                ) {
-                    if ((int) ($lead->ad_source_id ?? 0) !== (int) $ad->id) {
-                        $lead->ad_source_id = $ad->id;
-                        $dirty = true;
-                    }
+                    || ($currentAd && $waUser->referral_source_id
+                        && (string) ($currentAd->meta_ad_id ?? '') !== (string) $waUser->referral_source_id
+                        && !str_contains((string) ($currentAd->description ?? ''), 'meta_source_id='.$waUser->referral_source_id));
+                if ($shouldRetarget && (int) ($lead->ad_source_id ?? 0) !== (int) $ad->id) {
+                    $lead->ad_source_id = $ad->id;
+                    $dirty = true;
                 }
                 if ($dirty) {
                     $lead->save();
