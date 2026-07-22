@@ -857,6 +857,9 @@
                         'title' => translate('Title'),
                     ];
                     $activeFilterCount = 0;
+                    if (!empty($filters['my_tickets'])) {
+                        $activeFilterCount++;
+                    }
                     if (!empty($filters['overdue'])) {
                         $activeFilterCount++;
                     }
@@ -936,9 +939,12 @@
                                 @endif
                             </button>
                             <div class="dropdown-menu dropdown-menu-end task-board-filter-menu">
-                                @if(!empty($filters['my_tickets']))
-                                    <input type="hidden" name="my_tickets" value="1">
-                                @endif
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="my_tickets" value="1" id="filterMyTickets" @checked(!empty($filters['my_tickets']))>
+                                        <label class="form-check-label" for="filterMyTickets">{{ translate('My_tickets') }}</label>
+                                    </div>
+                                </div>
 
                                 <div class="mb-3">
                                     <div class="form-check">
