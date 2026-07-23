@@ -430,6 +430,18 @@ class CustomerHomeBundleComposer
             };
         }
 
+        // Hostinger / shared hosts: Process concurrency forks CLI workers that cannot
+        // open MySQL (SQLSTATE HY000/2002 "Operation not permitted"), which also
+        // exhausts connections and breaks the admin reset status poller.
+        if (Config::get('customer_home_cache_warming') || Config::get('customer_home_bundle_sequential')) {
+            $results = [];
+            foreach ($wrapped as $key => $task) {
+                $results[$key] = $task();
+            }
+
+            return $results;
+        }
+
         try {
             return Concurrency::run($wrapped);
         } catch (\Throwable) {
