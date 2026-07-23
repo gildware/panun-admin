@@ -246,9 +246,14 @@ class Zone extends Model
      */
     public static function coverageMatchZoneIds(string $zoneId): array
     {
+        static $cache = [];
+
         $zoneId = (string) $zoneId;
         if ($zoneId === '') {
             return [];
+        }
+        if (array_key_exists($zoneId, $cache)) {
+            return $cache[$zoneId];
         }
 
         $bookingZoneIds = static::selfAndDescendantIds($zoneId);
@@ -257,6 +262,6 @@ class Zone extends Model
             $match = array_merge($match, static::selfAndAncestorIds($id), static::selfAndDescendantIds($id));
         }
 
-        return array_values(array_unique($match));
+        return $cache[$zoneId] = array_values(array_unique($match));
     }
 }

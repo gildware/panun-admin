@@ -30,7 +30,7 @@ class CatalogViewController extends Controller
         $zoneId = $request->input('zone_id');
         $status = $request->input('status', 'all');
 
-        $payload = $this->catalogTreeService->build($zoneId, $status);
+        $payload = $this->catalogTreeService->shell($zoneId, $status);
 
         $currencyCode = business_config('currency_code', 'business_information')['live_values'] ?? 'USD';
         $currencySymbol = '$';
@@ -70,5 +70,77 @@ class CatalogViewController extends Controller
         );
 
         return response()->json($payload);
+    }
+
+    public function categories(Request $request): JsonResponse
+    {
+        abort_unless(Gate::any(['category_view', 'service_view']), Response::HTTP_FORBIDDEN);
+
+        $request->validate([
+            'zone_id' => 'required|uuid',
+            'status' => 'nullable|in:all,active,inactive',
+        ]);
+
+        $items = $this->catalogTreeService->categories(
+            (string) $request->input('zone_id'),
+            (string) $request->input('status', 'all')
+        );
+
+        return response()->json(['items' => $items]);
+    }
+
+    public function subcategories(Request $request): JsonResponse
+    {
+        abort_unless(Gate::any(['category_view', 'service_view']), Response::HTTP_FORBIDDEN);
+
+        $request->validate([
+            'zone_id' => 'required|uuid',
+            'category_id' => 'required|uuid',
+            'status' => 'nullable|in:all,active,inactive',
+        ]);
+
+        $items = $this->catalogTreeService->subcategories(
+            (string) $request->input('zone_id'),
+            (string) $request->input('category_id'),
+            (string) $request->input('status', 'all')
+        );
+
+        return response()->json(['items' => $items]);
+    }
+
+    public function services(Request $request): JsonResponse
+    {
+        abort_unless(Gate::any(['category_view', 'service_view']), Response::HTTP_FORBIDDEN);
+
+        $request->validate([
+            'zone_id' => 'required|uuid',
+            'subcategory_id' => ['required', 'string', 'max:80'],
+            'status' => 'nullable|in:all,active,inactive',
+        ]);
+
+        $items = $this->catalogTreeService->services(
+            (string) $request->input('zone_id'),
+            (string) $request->input('subcategory_id'),
+            (string) $request->input('status', 'all')
+        );
+
+        return response()->json(['items' => $items]);
+    }
+
+    public function variations(Request $request): JsonResponse
+    {
+        abort_unless(Gate::any(['category_view', 'service_view']), Response::HTTP_FORBIDDEN);
+
+        $request->validate([
+            'zone_id' => 'required|uuid',
+            'service_id' => 'required|uuid',
+        ]);
+
+        $items = $this->catalogTreeService->variations(
+            (string) $request->input('zone_id'),
+            (string) $request->input('service_id')
+        );
+
+        return response()->json(['items' => $items]);
     }
 }
