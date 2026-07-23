@@ -15,7 +15,8 @@ class WarmCustomerHomeBundleCacheJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $timeout = 600;
+    /** Hostinger sync/after-response warms can exceed 10 minutes across zones × locales. */
+    public int $timeout = 1200;
 
     public int $tries = 2;
 
@@ -25,6 +26,10 @@ class WarmCustomerHomeBundleCacheJob implements ShouldQueue
 
     public function handle(): void
     {
+        // After fastcgi_finish_request the client is gone; keep running and allow long rebuilds.
+        ignore_user_abort(true);
+        @set_time_limit(0);
+
         try {
             CustomerHomeBaseBundleCache::warmAll($this->zoneId);
         } catch (Throwable $e) {

@@ -62,4 +62,21 @@ class CustomerHomeCacheWarmStateTest extends TestCase
         $this->assertSame(CustomerHomeCacheWarmState::STATUS_FAILED, $stale['status']);
         $this->assertNotNull($stale['error']);
     }
+
+    public function test_heartbeat_keeps_running_rebuild_from_going_stale(): void
+    {
+        Cache::flush();
+
+        CustomerHomeCacheWarmState::markRebuildStarted(10);
+        Cache::put('customer_home_cache_rebuild_updated_at', now()->subMinutes(11)->timestamp, now()->addHours(2));
+        Cache::put('customer_home_cache_rebuild_started_at', now()->subMinutes(11)->timestamp, now()->addHours(2));
+
+        CustomerHomeCacheWarmState::touchRebuildHeartbeat();
+
+        $status = CustomerHomeCacheWarmState::rebuildStatus();
+        $this->assertSame(CustomerHomeCacheWarmState::STATUS_RUNNING, $status['status']);
+        $this->assertNull($status['error']);
+        $this->assertNotNull($status['updated_at']);
+        $this->assertLessThanOrEqual(2, abs(now()->timestamp - (int) $status['updated_at']));
+    }
 }

@@ -304,10 +304,23 @@ class CustomerHomeBaseBundleCache
         $warmed = 0;
 
         foreach ($locales as $loc) {
-            $request = Request::create('/api/v1/customer/home-bundle', 'GET');
-            $request->headers->set('zoneId', $zoneId);
-            $request->headers->set('X-localization', $loc);
-            $cache->buildAndStore($request, $layoutHash);
+            // Heartbeat before each unit so a slow compose does not look like a dead rebuild.
+            CustomerHomeCacheWarmState::touchRebuildHeartbeat();
+
+            try {
+                $request = Request::create('/api/v1/customer/home-bundle', 'GET');
+                $request->headers->set('zoneId', $zoneId);
+                $request->headers->set('X-localization', $loc);
+                $cache->buildAndStore($request, $layoutHash);
+            } catch (\Throwable $e) {
+                $detail = $e->getMessage() !== '' ? $e->getMessage() : 'unknown error';
+                throw new \RuntimeException(
+                    "Home cache warm failed for zone {$zoneId} (locale {$loc}): {$detail}",
+                    0,
+                    $e
+                );
+            }
+
             $warmed++;
 
             if ($onProgress !== null) {
@@ -320,6 +333,10 @@ class CustomerHomeBaseBundleCache
 
     public static function warmAll(?string $zoneId = null): int
     {
+        // Shared hosting often caps request time; admin rebuild must be allowed to finish.
+        ignore_user_abort(true);
+        @set_time_limit(0);
+
         $total = self::estimateRebuildTotal($zoneId);
         $warmed = 0;
 
