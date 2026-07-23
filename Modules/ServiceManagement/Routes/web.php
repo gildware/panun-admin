@@ -14,6 +14,10 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
     Route::group(['prefix' => 'catalog', 'as' => 'catalog.'], function () {
         Route::get('view', [CatalogViewController::class, 'index'])->name('view');
         Route::get('tree', [CatalogViewController::class, 'tree'])->name('tree');
+        Route::get('categories', [CatalogViewController::class, 'categories'])->name('categories');
+        Route::get('subcategories', [CatalogViewController::class, 'subcategories'])->name('subcategories');
+        Route::get('services', [CatalogViewController::class, 'services'])->name('services');
+        Route::get('variations', [CatalogViewController::class, 'variations'])->name('variations');
         Route::post('reorder/categories', [CatalogReorderController::class, 'categories'])->name('reorder.categories');
         Route::post('reorder/subcategories', [CatalogReorderController::class, 'subcategories'])->name('reorder.subcategories');
         Route::post('reorder/services', [CatalogReorderController::class, 'services'])->name('reorder.services');

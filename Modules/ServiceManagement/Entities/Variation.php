@@ -38,10 +38,35 @@ class Variation extends Model
      */
     public static function zoneIdsMatchingBookingSelection(string $zoneId): array
     {
+        static $cache = [];
+
         $selected = (string) $zoneId;
+        if (array_key_exists($selected, $cache)) {
+            return $cache[$selected];
+        }
+
         $leafIds = app(ZoneCoverageNormalizationService::class)->normalizeToLeafZoneIds([$selected]);
 
-        return array_values(array_unique(array_merge([$selected], $leafIds)));
+        return $cache[$selected] = array_values(array_unique(array_merge([$selected], $leafIds)));
+    }
+
+    /**
+     * Resolve a variation using preloaded rows (no per-variant DB lookups).
+     */
+    public static function resolveFromPreloaded(
+        Service $service,
+        string $variantKey,
+        string $zoneId,
+        Collection $serviceVariationRows,
+        bool $requirePositivePrice = true
+    ): ?self {
+        return static::firstForBookingZonePreloaded(
+            $service,
+            $variantKey,
+            $zoneId,
+            $requirePositivePrice,
+            $serviceVariationRows
+        );
     }
 
     /**
