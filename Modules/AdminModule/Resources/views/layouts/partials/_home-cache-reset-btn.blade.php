@@ -205,7 +205,9 @@
         <script>
             (function () {
                 const POLL_INTERVAL_MS = 800;
-                const POLL_TIMEOUT_MS = 5 * 60 * 1000;
+                // Must outlast multi-zone Hostinger rebuilds; fail only when server progress goes stale.
+                const POLL_TIMEOUT_MS = 15 * 60 * 1000;
+                const POLL_STALE_MS = 8 * 60 * 1000;
                 // Sync warm (php artisan serve) can take several minutes across zones/locales.
                 const REQUEST_TIMEOUT_MS = 5 * 60 * 1000;
                 const SOFT_TICK_MS = 200;
@@ -292,8 +294,15 @@
                         total: 0,
                         done: 0,
                         startedAt: Date.now(),
+                        lastServerProgressAt: Date.now(),
                         softTimer: null,
                         active: false,
+                        progressLabel: function () {
+                            if (this.total > 0) {
+                                return labels.rebuilding + ' ' + this.done + '/' + this.total;
+                            }
+                            return labels.rebuilding;
+                        },
                         render: function () {
                             if (!this.active) {
                                 return;
@@ -301,7 +310,7 @@
                             setProgressUI(this.button, {
                                 visible: true,
                                 percent: this.displayPercent,
-                                label: labels.rebuilding,
+                                label: this.progressLabel(),
                             });
                         },
                         softEstimate: function () {
@@ -309,7 +318,9 @@
                             // Assume ~1.2s per cache unit; never claim more than 95% until the server finishes.
                             const units = Math.max(1, this.total || 8);
                             const expectedMs = units * 1200;
-                            return Math.min(95, (elapsedMs / expectedMs) * 100);
+                            const soft = Math.min(95, (elapsedMs / expectedMs) * 100);
+                            // Stay close to real server progress so a hung rebuild does not look "almost done".
+                            return Math.min(soft, Math.max(this.serverPercent, 1) + 8);
                         },
                         tick: function () {
                             if (!this.active) {
@@ -327,6 +338,7 @@
                         start: function (rebuild) {
                             this.active = true;
                             this.startedAt = Date.now();
+                            this.lastServerProgressAt = Date.now();
                             this.serverPercent = 1;
                             this.displayPercent = 1;
                             if (rebuild) {
@@ -343,6 +355,8 @@
                             if (!rebuild) {
                                 return;
                             }
+                            const prevDone = this.done;
+                            const prevPercent = this.serverPercent;
                             if (typeof rebuild.total === 'number' && rebuild.total > 0) {
                                 this.total = rebuild.total;
                             }
@@ -354,6 +368,11 @@
                             }
                             if (typeof rebuild.started_at === 'number' && rebuild.started_at > 0) {
                                 this.startedAt = rebuild.started_at * 1000;
+                            }
+                            if (this.done !== prevDone || this.serverPercent !== prevPercent) {
+                                this.lastServerProgressAt = Date.now();
+                            } else if (typeof rebuild.updated_at === 'number' && rebuild.updated_at > 0) {
+                                this.lastServerProgressAt = Math.max(this.lastServerProgressAt, rebuild.updated_at * 1000);
                             }
                             this.displayPercent = Math.max(this.displayPercent, this.serverPercent);
                             this.render();
@@ -502,7 +521,12 @@
 
                     return new Promise(function (resolve, reject) {
                         function check() {
-                            if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
+                            const now = Date.now();
+                            if (now - startedAt > POLL_TIMEOUT_MS) {
+                                reject(new Error(labels.timeout));
+                                return;
+                            }
+                            if (now - tracker.lastServerProgressAt > POLL_STALE_MS) {
                                 reject(new Error(labels.timeout));
                                 return;
                             }
@@ -635,7 +659,9 @@
                                     showHomeCacheToast(labels.success, 'success');
                                     finishResetUi(button, tracker, { failed: false });
                                 }).catch(function (pollError) {
-                                    const message = pollError.message || labels.queuedRefresh;
+                                    const message = (pollError && pollError.message)
+                                        ? pollError.message
+                                        : labels.queuedRefresh;
                                     finishResetUi(button, tracker, { failed: true, message: message });
                                 });
                             }
