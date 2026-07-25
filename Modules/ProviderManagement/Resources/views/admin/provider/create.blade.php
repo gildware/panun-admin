@@ -55,7 +55,7 @@
                             <div class="modal-body pt-0">
                                 <p class="mb-4 text-muted">{{ translate('The_provider_has_been_added_you_can_manage_subscriptions_anytime') }}</p>
                                 <div class="d-flex flex-row flex-nowrap gap-2 w-100">
-                                    <a href="{{ route('admin.provider.create') }}" class="btn btn--secondary text-center flex-fill">
+                                    <a href="{{ route('admin.provider.create', ['reset' => 1]) }}" class="btn btn--secondary text-center flex-fill" data-turbo="false">
                                         {{ translate('Add_other_provider') }}
                                     </a>
                                     <a href="{{ route('admin.provider.details', [$created['id'], 'web_page' => 'overview']) }}" class="btn btn--primary text-center flex-fill">
@@ -691,13 +691,26 @@
             };
         })();
 
-        $(document).ready(function () {
+        function bootProviderCreateWizardPage() {
+            if (!document.getElementById("create-provider-form")) {
+                return true;
+            }
+
+            var formWizard = $("#create-provider-form");
+            if (formWizard.data("providerCreateWizardInitialized")) {
+                return true;
+            }
+
+            if (typeof $.fn.steps !== "function" || typeof $.fn.validate !== "function") {
+                return false;
+            }
+
+            formWizard.data("providerCreateWizardInitialized", true);
+
             var successModalEl = document.getElementById("providerCreatedSuccessModal");
             if (successModalEl && typeof bootstrap !== "undefined") {
                 new bootstrap.Modal(successModalEl).show();
             }
-
-            var formWizard = $("#create-provider-form");
 
             function isProviderCompanyType() {
                 return formWizard.find('.provider-add-edit-form-root input[name="provider_type"]:checked').val() === "company";
@@ -1167,6 +1180,30 @@
             $(document).on("click", ".provider-create-form-validation-alert-close", function () {
                 clearProviderCreateValidationAlert();
             });
+
+            return true;
+        }
+
+        function tryBootProviderCreateWizardPage(attempt) {
+            if (bootProviderCreateWizardPage()) {
+                return;
+            }
+            if ((attempt || 0) >= 40) {
+                return;
+            }
+            setTimeout(function () {
+                tryBootProviderCreateWizardPage((attempt || 0) + 1);
+            }, 50);
+        }
+
+        $(document).ready(function () {
+            tryBootProviderCreateWizardPage(0);
+        });
+
+        document.addEventListener("admin:page-loaded", function () {
+            if (document.getElementById("create-provider-form")) {
+                tryBootProviderCreateWizardPage(0);
+            }
         });
 
     </script>
@@ -1174,7 +1211,15 @@
     <script>
         "use strict";
 
-        $(document).ready(function () {
+        function bootProviderCreateTypeToggle() {
+            if (!document.getElementById("create-provider-form")) {
+                return true;
+            }
+            if ($(".provider-add-edit-form-root").data("providerTypeToggleInitialized")) {
+                return true;
+            }
+            $(".provider-add-edit-form-root").data("providerTypeToggleInitialized", true);
+
             function toggleProviderTypeFields() {
                 const $formRoot = $(".provider-add-edit-form-root");
                 const providerType = $formRoot.find("input[name='provider_type']:checked").val();
@@ -1245,7 +1290,29 @@
                 $('#account_phone').val($(this).val());
             });
 
+            return true;
+        }
 
+        function tryBootProviderCreateTypeToggle(attempt) {
+            if (bootProviderCreateTypeToggle()) {
+                return;
+            }
+            if ((attempt || 0) >= 40) {
+                return;
+            }
+            setTimeout(function () {
+                tryBootProviderCreateTypeToggle((attempt || 0) + 1);
+            }, 50);
+        }
+
+        $(document).ready(function () {
+            tryBootProviderCreateTypeToggle(0);
+        });
+
+        document.addEventListener("admin:page-loaded", function () {
+            if (document.getElementById("create-provider-form")) {
+                tryBootProviderCreateTypeToggle(0);
+            }
         });
 
     </script>
@@ -1274,87 +1341,161 @@
                 });
             }
 
-            setAcceptForAllInputs();
-
-            $("#multi_image_picker").spartanMultiImagePicker({
-                fieldName: 'identity_images[]',
-                maxCount: 2,
-                allowedExt: 'png|jpg|jpeg|webp|gif',
-                rowHeight: 'auto',
-                groupClassName: 'item',
-                maxFileSize: maxFileSize,
-                dropFileLabel: "{{translate('Drop_here')}}",
-                placeholderImage: {
-                    image: '{{asset('assets/admin-module')}}/img/media/banner-upload-file.png',
-                    width: '100%',
-                },
-
-                onRenderedPreview: function (index) {
-                    toastr.success('{{translate('Image_added')}}', {
-                        CloseButton: true,
-                        ProgressBar: true
-                    });
-                    if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
-                        window.refreshProviderCreateStep0ValidationSummary();
+            function collectSpartanDraftUrls($picker) {
+                var urls = [];
+                var placeholderNeedle = "banner-upload-file.png";
+                $picker.children("img").each(function () {
+                    var src = ($(this).attr("src") || "").trim();
+                    if (src && src.indexOf(placeholderNeedle) === -1) {
+                        urls.push(src);
                     }
-                },
-                onAddRow: function (index) {
-                    setAcceptForAllInputs();
-                    $('.identity-docs-error-msg, .company-identity-docs-error-msg').remove();
-                    if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
-                        window.refreshProviderCreateStep0ValidationSummary();
-                    }
-                },
-                // Identity validation is handled by the wizard (images OR PDFs).
-                onExtensionErr: function (index, file) {
-                    toastr.error('{{ translate("Please only input png|jpg|jpeg|gif|webp type file") }}', {
-                        CloseButton: true,
-                        ProgressBar: true
-                    });
-                },
-                onSizeErr: function () {
-                    toastr.error('File size must be less than ' + maxSizeReadable);
+                });
+                return urls;
+            }
+
+            function showSpartanPreviewAt($picker, index, url) {
+                $picker.find('img[data-spartanindexi="' + index + '"]').hide();
+                $picker.find('a[data-spartanindexremove="' + index + '"]').show();
+                $picker.find('img[data-spartanindeximage="' + index + '"]').attr("src", url).show();
+            }
+
+            function initProviderCreateSpartanPicker(selector, pickerOptions) {
+                var $picker = $(selector);
+                if (!$picker.length) {
+                    return true;
+                }
+                if ($picker.data("spartanInitialized")) {
+                    return true;
+                }
+                if (typeof $.fn.spartanMultiImagePicker !== "function") {
+                    return false;
                 }
 
-            });
+                var draftUrls = collectSpartanDraftUrls($picker);
+                $picker.empty();
 
-            if ($("#company_multi_image_picker").length) {
-                $("#company_multi_image_picker").spartanMultiImagePicker({
-                    fieldName: 'company_identity_images[]',
+                $picker.spartanMultiImagePicker(pickerOptions);
+                $picker.data("spartanInitialized", true);
+
+                draftUrls.forEach(function (url, idx) {
+                    showSpartanPreviewAt($picker, idx, url);
+                });
+
+                return true;
+            }
+
+            function bootProviderCreateSpartanPickers() {
+                if (!document.getElementById("create-provider-form")) {
+                    return true;
+                }
+
+                setAcceptForAllInputs();
+
+                var contactReady = initProviderCreateSpartanPicker("#multi_image_picker", {
+                    fieldName: "identity_images[]",
                     maxCount: 2,
-                    allowedExt: 'png|jpg|jpeg|webp|gif',
-                    rowHeight: 'auto',
-                    groupClassName: 'item',
+                    allowedExt: "png|jpg|jpeg|webp|gif",
+                    rowHeight: "auto",
+                    groupClassName: "item",
                     maxFileSize: maxFileSize,
                     dropFileLabel: "{{translate('Drop_here')}}",
                     placeholderImage: {
-                        image: '{{asset('assets/admin-module')}}/img/media/banner-upload-file.png',
-                        width: '100%',
+                        image: "{{asset('assets/admin-module')}}/img/media/banner-upload-file.png",
+                        width: "100%",
                     },
-
                     onRenderedPreview: function () {
+                        toastr.success("{{translate('Image_added')}}", {
+                            CloseButton: true,
+                            ProgressBar: true
+                        });
                         if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
                             window.refreshProviderCreateStep0ValidationSummary();
                         }
                     },
-                    onAddRow: function (index) {
+                    onAddRow: function () {
                         setAcceptForAllInputs();
-                        $('.identity-docs-error-msg, .company-identity-docs-error-msg').remove();
+                        $(".identity-docs-error-msg, .company-identity-docs-error-msg").remove();
                         if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
                             window.refreshProviderCreateStep0ValidationSummary();
                         }
                     },
-                    onExtensionErr: function (index, file) {
+                    onExtensionErr: function () {
                         toastr.error('{{ translate("Please only input png|jpg|jpeg|gif|webp type file") }}', {
                             CloseButton: true,
                             ProgressBar: true
                         });
                     },
                     onSizeErr: function () {
-                        toastr.error('File size must be less than ' + maxSizeReadable);
+                        toastr.error("File size must be less than " + maxSizeReadable);
                     }
                 });
+
+                var companyReady = true;
+                if ($("#company_multi_image_picker").length) {
+                    companyReady = initProviderCreateSpartanPicker("#company_multi_image_picker", {
+                        fieldName: "company_identity_images[]",
+                        maxCount: 2,
+                        allowedExt: "png|jpg|jpeg|webp|gif",
+                        rowHeight: "auto",
+                        groupClassName: "item",
+                        maxFileSize: maxFileSize,
+                        dropFileLabel: "{{translate('Drop_here')}}",
+                        placeholderImage: {
+                            image: "{{asset('assets/admin-module')}}/img/media/banner-upload-file.png",
+                            width: "100%",
+                        },
+                        onRenderedPreview: function () {
+                            if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                                window.refreshProviderCreateStep0ValidationSummary();
+                            }
+                        },
+                        onAddRow: function () {
+                            setAcceptForAllInputs();
+                            $(".identity-docs-error-msg, .company-identity-docs-error-msg").remove();
+                            if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                                window.refreshProviderCreateStep0ValidationSummary();
+                            }
+                        },
+                        onExtensionErr: function () {
+                            toastr.error('{{ translate("Please only input png|jpg|jpeg|gif|webp type file") }}', {
+                                CloseButton: true,
+                                ProgressBar: true
+                            });
+                        },
+                        onSizeErr: function () {
+                            toastr.error("File size must be less than " + maxSizeReadable);
+                        }
+                    });
+                }
+
+                return contactReady && companyReady;
             }
+
+            function tryBootProviderCreateSpartanPickers(attempt) {
+                if (bootProviderCreateSpartanPickers()) {
+                    return;
+                }
+                if ((attempt || 0) >= 40) {
+                    return;
+                }
+                setTimeout(function () {
+                    tryBootProviderCreateSpartanPickers((attempt || 0) + 1);
+                }, 50);
+            }
+
+            tryBootProviderCreateSpartanPickers(0);
+
+            document.addEventListener("admin:page-loaded", function () {
+                if (document.getElementById("create-provider-form")) {
+                    tryBootProviderCreateSpartanPickers(0);
+                }
+            });
+
+            window.addEventListener("pageshow", function (event) {
+                if (event.persisted && document.getElementById("create-provider-form")) {
+                    window.location.replace("{{ route('admin.provider.create', ['reset' => 1]) }}");
+                }
+            });
 
             // Multi-attachment uploader for PDF + additional documents.
             // Handles preview + remove while syncing selected files into the real <input type="file">.

@@ -284,6 +284,10 @@
 
 
         return this.each( function() {
+            if ($(this).children('.spartan_item_wrapper').length > 0) {
+                return;
+            }
+
             var that = this;
             addRow(settings, that);
 

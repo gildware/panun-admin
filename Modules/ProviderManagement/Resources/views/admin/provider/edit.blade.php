@@ -1004,74 +1004,140 @@
                 });
             }
 
-            setAcceptForAllInputs();
+            function collectSpartanDraftUrls($picker) {
+                var urls = [];
+                var placeholderNeedle = "banner-upload-file.png";
+                $picker.children("img").each(function () {
+                    var src = ($(this).attr("src") || "").trim();
+                    if (src && src.indexOf(placeholderNeedle) === -1) {
+                        urls.push(src);
+                    }
+                });
+                return urls;
+            }
 
-            $("#multi_image_picker").spartanMultiImagePicker({
-                fieldName: 'identity_images[]',
-                maxCount: 2,
-                allowedExt: 'png|jpg|jpeg|webp|gif',
-                rowHeight: 'auto',
-                groupClassName: 'item',
-                maxFileSize: maxFileSize,
-                dropFileLabel: "{{translate('Drop_here')}}",
-                placeholderImage: {
-                    image: '{{asset('assets/admin-module')}}/img/media/banner-upload-file.png',
-                    width: '100%',
-                },
+            function showSpartanPreviewAt($picker, index, url) {
+                $picker.find('img[data-spartanindexi="' + index + '"]').hide();
+                $picker.find('a[data-spartanindexremove="' + index + '"]').show();
+                $picker.find('img[data-spartanindeximage="' + index + '"]').attr("src", url).show();
+            }
 
-                onRenderedPreview: function (index) {
-                    toastr.success('{{translate('Image_added')}}', {
-                        CloseButton: true,
-                        ProgressBar: true
-                    });
-                },
-                onAddRow: function (index) {
-                    setAcceptForAllInputs()
-                    $('.spartan_item_wrapper_error_msg, .company-spartan_item_wrapper_error_msg').remove();
-                },
-                onRemoveRow: function (index) {
-                    // Wizard validation handles required identity docs via identity PDF input + this picker.
-                },
-                onExtensionErr: function (index, file) {
-                    toastr.error('{{ translate("Please only input png|jpg|jpeg|gif|webp type file") }}', {
-                        CloseButton: true,
-                        ProgressBar: true
-                    });
-                },
-                onSizeErr: function () {
-                    toastr.error('File size must be less than ' + maxSizeReadable);
+            function initProviderEditSpartanPicker(selector, pickerOptions) {
+                var $picker = $(selector);
+                if (!$picker.length) {
+                    return true;
+                }
+                if ($picker.data("spartanInitialized")) {
+                    return true;
+                }
+                if (typeof $.fn.spartanMultiImagePicker !== "function") {
+                    return false;
                 }
 
-            });
+                var draftUrls = collectSpartanDraftUrls($picker);
+                $picker.empty();
 
-            if ($("#company_multi_image_picker").length) {
-                $("#company_multi_image_picker").spartanMultiImagePicker({
-                    fieldName: 'company_identity_images[]',
+                $picker.spartanMultiImagePicker(pickerOptions);
+                $picker.data("spartanInitialized", true);
+
+                draftUrls.forEach(function (url, idx) {
+                    showSpartanPreviewAt($picker, idx, url);
+                });
+
+                return true;
+            }
+
+            function bootProviderEditSpartanPickers() {
+                if (!document.getElementById("create-provider-form")) {
+                    return true;
+                }
+
+                setAcceptForAllInputs();
+
+                var contactReady = initProviderEditSpartanPicker("#multi_image_picker", {
+                    fieldName: "identity_images[]",
                     maxCount: 2,
-                    allowedExt: 'png|jpg|jpeg|webp|gif',
-                    rowHeight: 'auto',
-                    groupClassName: 'item',
+                    allowedExt: "png|jpg|jpeg|webp|gif",
+                    rowHeight: "auto",
+                    groupClassName: "item",
                     maxFileSize: maxFileSize,
                     dropFileLabel: "{{translate('Drop_here')}}",
                     placeholderImage: {
-                        image: '{{asset('assets/admin-module')}}/img/media/banner-upload-file.png',
-                        width: '100%',
+                        image: "{{asset('assets/admin-module')}}/img/media/banner-upload-file.png",
+                        width: "100%",
                     },
-
-                    onAddRow: function (index) {
+                    onRenderedPreview: function () {
+                        toastr.success("{{translate('Image_added')}}", {
+                            CloseButton: true,
+                            ProgressBar: true
+                        });
+                    },
+                    onAddRow: function () {
                         setAcceptForAllInputs();
+                        $(".spartan_item_wrapper_error_msg, .company-spartan_item_wrapper_error_msg").remove();
                     },
-                    onExtensionErr: function (index, file) {
+                    onExtensionErr: function () {
                         toastr.error('{{ translate("Please only input png|jpg|jpeg|gif|webp type file") }}', {
                             CloseButton: true,
                             ProgressBar: true
                         });
                     },
                     onSizeErr: function () {
-                        toastr.error('File size must be less than ' + maxSizeReadable);
+                        toastr.error("File size must be less than " + maxSizeReadable);
                     }
                 });
+
+                var companyReady = true;
+                if ($("#company_multi_image_picker").length) {
+                    companyReady = initProviderEditSpartanPicker("#company_multi_image_picker", {
+                        fieldName: "company_identity_images[]",
+                        maxCount: 2,
+                        allowedExt: "png|jpg|jpeg|webp|gif",
+                        rowHeight: "auto",
+                        groupClassName: "item",
+                        maxFileSize: maxFileSize,
+                        dropFileLabel: "{{translate('Drop_here')}}",
+                        placeholderImage: {
+                            image: "{{asset('assets/admin-module')}}/img/media/banner-upload-file.png",
+                            width: "100%",
+                        },
+                        onAddRow: function () {
+                            setAcceptForAllInputs();
+                        },
+                        onExtensionErr: function () {
+                            toastr.error('{{ translate("Please only input png|jpg|jpeg|gif|webp type file") }}', {
+                                CloseButton: true,
+                                ProgressBar: true
+                            });
+                        },
+                        onSizeErr: function () {
+                            toastr.error("File size must be less than " + maxSizeReadable);
+                        }
+                    });
+                }
+
+                return contactReady && companyReady;
             }
+
+            function tryBootProviderEditSpartanPickers(attempt) {
+                if (bootProviderEditSpartanPickers()) {
+                    return;
+                }
+                if ((attempt || 0) >= 40) {
+                    return;
+                }
+                setTimeout(function () {
+                    tryBootProviderEditSpartanPickers((attempt || 0) + 1);
+                }, 50);
+            }
+
+            tryBootProviderEditSpartanPickers(0);
+
+            document.addEventListener("admin:page-loaded", function () {
+                if (document.getElementById("create-provider-form")) {
+                    tryBootProviderEditSpartanPickers(0);
+                }
+            });
 
             // Multi-attachment uploader for PDF + previews (identity PDFs & company identity PDFs).
             (function () {
