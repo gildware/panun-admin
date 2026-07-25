@@ -65,6 +65,7 @@ use Modules\TransactionModule\Entities\Account;
 use Modules\TransactionModule\Entities\LedgerTransaction;
 use Modules\TransactionModule\Entities\Transaction;
 use Modules\ProviderManagement\Services\ProviderBookingSettlementNetResolver;
+use Modules\ProviderManagement\Services\ProviderContactUniquenessGuard;
 use Modules\ProviderManagement\Services\ProviderPerformanceService;
 use Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService;
 use Modules\WhatsAppModule\Services\LedgerPaymentWhatsAppService;
@@ -828,49 +829,55 @@ class ProviderController extends Controller
         $owner->password = bcrypt(provider_default_password_plain($request->contact_person_phone));
         $owner->user_type = 'provider-admin';
 
-        DB::transaction(function () use ($provider, $owner, $request, $leafZoneIds) {
-            $owner->save();
-            $owner->zones()->sync($leafZoneIds);
-            $provider->user_id = $owner->id;
-            $provider->save();
-            $provider->zones()->sync(
-                collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
-            );
+        app(ProviderContactUniquenessGuard::class)->run(
+            (string) $request->contact_person_phone,
+            (string) $request->contact_person_email,
+            function () use ($provider, $owner, $request, $leafZoneIds) {
+                DB::transaction(function () use ($provider, $owner, $request, $leafZoneIds) {
+                    $owner->save();
+                    $owner->zones()->sync($leafZoneIds);
+                    $provider->user_id = $owner->id;
+                    $provider->save();
+                    $provider->zones()->sync(
+                        collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
+                    );
 
-            $serviceLocation = ['customer'];
-            ProviderSetting::create([
-                'provider_id'   => $provider->id,
-                'key_name'      => 'service_location',
-                'live_values'   => json_encode($serviceLocation),
-                'test_values'   => json_encode($serviceLocation),
-                'settings_type' => 'provider_config',
-                'mode'          => 'live',
-                'is_active'     => 1,
-            ]);
+                    $serviceLocation = ['customer'];
+                    ProviderSetting::create([
+                        'provider_id'   => $provider->id,
+                        'key_name'      => 'service_location',
+                        'live_values'   => json_encode($serviceLocation),
+                        'test_values'   => json_encode($serviceLocation),
+                        'settings_type' => 'provider_config',
+                        'mode'          => 'live',
+                        'is_active'     => 1,
+                    ]);
 
-            $allSubs = $this->subCategoriesForZonesQuery($leafZoneIds)->get();
-            $allowedIds = $allSubs->pluck('id')->all();
-            $rawIds = $request->input('subscribed_sub_category_ids', []);
-            if (! is_array($rawIds)) {
-                $rawIds = [];
-            }
-            $requested = [];
-            foreach ($rawIds as $rid) {
-                if (is_string($rid) && Str::isUuid($rid) && in_array($rid, $allowedIds, true)) {
-                    $requested[] = $rid;
-                }
-            }
-            $requested = array_values(array_unique($requested));
+                    $allSubs = $this->subCategoriesForZonesQuery($leafZoneIds)->get();
+                    $allowedIds = $allSubs->pluck('id')->all();
+                    $rawIds = $request->input('subscribed_sub_category_ids', []);
+                    if (! is_array($rawIds)) {
+                        $rawIds = [];
+                    }
+                    $requested = [];
+                    foreach ($rawIds as $rid) {
+                        if (is_string($rid) && Str::isUuid($rid) && in_array($rid, $allowedIds, true)) {
+                            $requested[] = $rid;
+                        }
+                    }
+                    $requested = array_values(array_unique($requested));
 
-            foreach ($allSubs as $subCategory) {
-                $this->subscribedService->create([
-                    'provider_id' => $provider->id,
-                    'category_id' => $subCategory->parent_id,
-                    'sub_category_id' => $subCategory->id,
-                    'is_subscribed' => in_array($subCategory->id, $requested, true) ? 1 : 0,
-                ]);
+                    foreach ($allSubs as $subCategory) {
+                        $this->subscribedService->create([
+                            'provider_id' => $provider->id,
+                            'category_id' => $subCategory->parent_id,
+                            'sub_category_id' => $subCategory->id,
+                            'is_subscribed' => in_array($subCategory->id, $requested, true) ? 1 : 0,
+                        ]);
+                    }
+                });
             }
-        });
+        );
 
         // Upload additional documents (optional).
         $additionalDocuments = $request->input('additional_documents', []);

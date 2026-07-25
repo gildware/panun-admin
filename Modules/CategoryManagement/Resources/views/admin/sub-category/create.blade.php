@@ -302,20 +302,30 @@
                                                                     </a>
                                                                 @endcan
                                                                 @can('category_delete')
-                                                                    <button type="button"
-                                                                            class="action-btn btn--danger demo_check"
-                                                                            data-delete="{{$category->id}}"
-                                                                            style="--size: 30px">
-                                                                    <span
-                                                                        class="material-symbols-outlined">delete</span>
-                                                                    </button>
-                                                                    <form
-                                                                        action="{{route('admin.sub-category.delete',[$category->id])}}"
-                                                                        method="post" id="delete-{{$category->id}}"
-                                                                        class="hidden">
-                                                                        @csrf
-                                                                        @method('DELETE')
-                                                                    </form>
+                                                                    @if(($category->services_count ?? 0) > 0)
+                                                                        <button type="button"
+                                                                                class="action-btn btn--danger demo_check"
+                                                                                data-bs-toggle="tooltip"
+                                                                                title="{{ translate('Cannot_delete_sub_category_with_services') }}"
+                                                                                onclick="toastr.error(@json(translate('Cannot_delete_sub_category_with_services')))"
+                                                                                style="--size: 30px">
+                                                                            <span class="material-symbols-outlined">delete</span>
+                                                                        </button>
+                                                                    @else
+                                                                        <button type="button"
+                                                                                class="action-btn btn--danger demo_check"
+                                                                                data-delete="{{$category->id}}"
+                                                                                style="--size: 30px">
+                                                                            <span class="material-symbols-outlined">delete</span>
+                                                                        </button>
+                                                                        <form
+                                                                            action="{{route('admin.sub-category.delete',[$category->id])}}"
+                                                                            method="post" id="delete-{{$category->id}}"
+                                                                            class="hidden">
+                                                                            @csrf
+                                                                            @method('DELETE')
+                                                                        </form>
+                                                                    @endif
                                                                 @endcan
                                                             </div>
                                                         </td>
@@ -420,7 +430,7 @@
             route_alert(route, @json(translate('want_to_update_status')));
         })
 
-        $('.action-btn.btn--danger').on('click', function () {
+        $('.action-btn.btn--danger[data-delete]').on('click', function () {
             let itemId = $(this).data('delete');
             @if(env('APP_ENV')!='demo')
             form_alert('delete-' + itemId, @json(translate('want_to_delete_this') . '?'))

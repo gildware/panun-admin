@@ -404,6 +404,11 @@ class SubCategoryController extends Controller
         $this->authorize('category_delete');
         $category = $this->category->where('id', $id)->ofType($this)->first();
         if ($category) {
+            if ($category->services()->exists()) {
+                Toastr::error(translate('Cannot_delete_sub_category_with_services'));
+                return back();
+            }
+
             file_remover('category/', $category->image);
             DB::transaction(function () use ($category, $id) {
                 $category->translations()->delete();

@@ -13,12 +13,14 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Str;
 use Modules\BookingModule\Entities\BookingDetail;
+use Modules\BookingModule\Entities\BookingRepeatDetails;
 use Modules\BusinessSettingsModule\Entities\Storage;
 use Modules\BusinessSettingsModule\Entities\Translation;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\PromotionManagement\Entities\DiscountType;
 use Modules\ReviewModule\Entities\Review;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 class Service extends Model
 {
@@ -114,6 +116,39 @@ class Service extends Model
     public function bookings(): HasMany
     {
         return $this->hasMany(BookingDetail::class, 'service_id', 'id');
+    }
+
+    public function repeatBookings(): HasMany
+    {
+        return $this->hasMany(BookingRepeatDetails::class, 'service_id', 'id');
+    }
+
+    /**
+     * Soft-delete when the service appears on any booking; otherwise permanently remove it.
+     *
+     * @return 'soft'|'hard'
+     */
+    public function deleteConsideringBookings(): string
+    {
+        return DB::transaction(function () {
+            if ($this->bookings()->exists() || $this->repeatBookings()->exists()) {
+                $this->is_active = 0;
+                $this->save();
+                $this->delete();
+
+                return 'soft';
+            }
+
+            foreach (['thumbnail', 'cover_image'] as $item) {
+                file_remover('service/', $this[$item]);
+            }
+            $this->translations()->delete();
+            $this->serviceVariants()->delete();
+            $this->variations()->delete();
+            $this->forceDelete();
+
+            return 'hard';
+        });
     }
 
     public function category(): BelongsTo
