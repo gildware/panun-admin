@@ -41,6 +41,7 @@
                     'href' => route('admin.provider.create'),
                     'label' => translate('Add_New_Provider'),
                     'active' => request()->is('admin/provider/create'),
+                    'fullPage' => true,
                 ])
             @endcan
         @endcanany

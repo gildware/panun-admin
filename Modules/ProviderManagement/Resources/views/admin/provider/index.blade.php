@@ -136,7 +136,7 @@
                 <div class="d-flex flex-wrap align-items-center gap-2">
                     <h2 class="page-title">{{translate('Provider_List')}}</h2>
                     @can('provider_add')
-                        <a href="{{ route('admin.provider.create') }}" class="btn btn--primary">
+                        <a href="{{ route('admin.provider.create') }}" class="btn btn--primary" data-turbo="false">
                             <span class="material-icons">add</span>
                             {{ translate('Add_New_Provider') }}
                         </a>

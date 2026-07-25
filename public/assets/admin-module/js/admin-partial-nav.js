@@ -6,6 +6,9 @@
     }
 
     var FRAME_ID = 'admin-main';
+    var FULL_PAGE_PATHS = [
+        '/admin/provider/create',
+    ];
     var progressEl = null;
     var activeController = null;
     var progressShownAt = 0;
@@ -188,9 +191,33 @@
         });
     }
 
+    function requiresFullPageNavigation(href) {
+        if (!href) {
+            return false;
+        }
+
+        try {
+            var path = new URL(href, window.location.origin).pathname.replace(/\/+$/, '') || '/';
+
+            return FULL_PAGE_PATHS.indexOf(path) !== -1;
+        } catch (e) {
+            return false;
+        }
+    }
+
     function markFullPageLinks() {
         document.querySelectorAll('a.admin-logout, a[data-turbo="false"]').forEach(function (link) {
             link.setAttribute('data-turbo', 'false');
+        });
+
+        document.querySelectorAll('a[href]').forEach(function (link) {
+            if (!requiresFullPageNavigation(link.href)) {
+                return;
+            }
+
+            link.setAttribute('data-turbo', 'false');
+            link.removeAttribute('data-turbo-frame');
+            link.removeAttribute('data-turbo-action');
         });
 
         document.querySelectorAll('form[enctype="multipart/form-data"]').forEach(function (form) {
@@ -230,6 +257,10 @@
         }
 
         if (link.getAttribute('data-turbo') === 'false') {
+            return false;
+        }
+
+        if (requiresFullPageNavigation(link.href)) {
             return false;
         }
 
@@ -341,6 +372,11 @@
 
     window.addEventListener('popstate', function () {
         if (!window.location.pathname.startsWith('/admin')) {
+            return;
+        }
+
+        if (requiresFullPageNavigation(window.location.href)) {
+            window.location.reload();
             return;
         }
 
