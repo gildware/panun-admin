@@ -4,6 +4,25 @@
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/swiper/swiper-bundle.min.css')}}">
+    <style>
+        /* Keep wizard actions visible while scrolling the long form */
+        #create-provider-form.wizard > .actions {
+            position: sticky;
+            bottom: 0;
+            z-index: 50;
+            margin-block-start: 1rem;
+            padding: 0.75rem 0;
+            background: var(--bs-body-bg, #fff);
+            border-top: 1px solid var(--border-color, #eff1f4);
+            box-shadow: 0 -0.375rem 0.75rem rgba(17, 38, 146, 0.04);
+        }
+        #create-provider-form.wizard > .actions ul {
+            margin: 0;
+        }
+        #create-provider-form.wizard > .actions li.disabled {
+            display: none;
+        }
+    </style>
 @endpush
 
 @section('content')

@@ -16,6 +16,9 @@
             margin: 0;
             flex: 0 0 auto;
         }
+        .provider-list-header > .d-flex {
+            flex: 0 0 auto;
+        }
         .provider-list-stats {
             display: flex;
             flex-wrap: wrap;
@@ -130,7 +133,15 @@
     <div class="main-content">
         <div class="container-fluid">
             <div class="provider-list-header">
-                <h2 class="page-title">{{translate('Provider_List')}}</h2>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <h2 class="page-title">{{translate('Provider_List')}}</h2>
+                    @can('provider_add')
+                        <a href="{{ route('admin.provider.create') }}" class="btn btn--primary">
+                            <span class="material-icons">add</span>
+                            {{ translate('Add_New_Provider') }}
+                        </a>
+                    @endcan
+                </div>
                 <div class="provider-list-stats">
                     <div class="provider-stat-chip statistics-card statistics-card__total_provider">
                         <h3>{{translate('Total_Providers')}}</h3>

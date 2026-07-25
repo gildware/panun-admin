@@ -314,6 +314,11 @@ const CATEGORY_204 = [
     'message' => 'resource not found'
 ];
 
+const CATEGORY_DELETE_HAS_SERVICES_403 = [
+    'response_code' => 'category_delete_has_services_403',
+    'message' => 'Cannot_delete_sub_category_with_services'
+];
+
 //discount section
 const DISCOUNT_CREATE_200 = [
     'response_code' => 'discount_create_200',

@@ -337,13 +337,9 @@ class ServiceController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
         $services = $this->service->whereIn('id', $request['service_ids'])->get();
-        if (isset($services)) {
+        if ($services->isNotEmpty()) {
             foreach ($services as $service) {
-                foreach (['thumbnail','cover_image'] as $item){
-                    file_remover('service/', $service[$item]);
-                }
-                $service->variations()->delete();
-                $service->delete();
+                $service->deleteConsideringBookings();
             }
             return response()->json(response_formatter(DEFAULT_DELETE_200), 200);
         }
