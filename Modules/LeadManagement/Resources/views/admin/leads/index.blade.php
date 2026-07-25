@@ -18,6 +18,8 @@
         .table-leads-fixed-layout th,
         .table-leads-fixed-layout td { white-space: nowrap; }
         .table-leads-fixed-layout td.lead-ad-source-cell { white-space: normal; min-width: 180px; max-width: 280px; vertical-align: middle; }
+        .lead-table-row { cursor: pointer; }
+        .lead-table-row:hover { background-color: rgba(13, 110, 253, 0.06); }
         .lead-filter-btn { overflow: visible; }
         .lead-filter-btn-margin { margin-right: 1rem; }
         .lead-filter-offcanvas { display: flex; flex-direction: column; }
@@ -618,10 +620,7 @@
                 return bootstrap.Modal.getOrCreateInstance(modalEl);
             }
 
-            // Lead detail modal: open with iframe to show page
-            $(document).on('click', '.btn-lead-view', function (e) {
-                e.preventDefault();
-                var url = $(this).data('lead-url') || $(this).attr('href');
+            function openLeadDetailModal(url) {
                 if (!url) {
                     return;
                 }
@@ -634,6 +633,19 @@
 
                 $('#leadDetailIframe').attr('src', url);
                 modal.show();
+            }
+
+            // Lead detail modal: open with iframe to show page
+            $(document).on('click', '.btn-lead-view', function (e) {
+                e.preventDefault();
+                openLeadDetailModal($(this).data('lead-url') || $(this).attr('href'));
+            });
+
+            $(document).on('click', '.lead-table-row', function (e) {
+                if ($(e.target).closest('a, button, input, select, textarea, label').length) {
+                    return;
+                }
+                openLeadDetailModal($(this).data('lead-url'));
             });
 
             var leadDetailModalEl = document.getElementById('leadDetailModal');

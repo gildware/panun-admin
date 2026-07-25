@@ -33,6 +33,7 @@ use Modules\AdminModule\Services\StaffActivityLogger;
 use Modules\LeadManagement\Entities\LeadOutboundEnquiryStatus;
 use Modules\LeadManagement\Services\LeadFollowupService;
 use Modules\LeadManagement\Services\LeadOpenStatusService;
+use Modules\LeadManagement\Services\ProviderLeadPanelMatchService;
 use Modules\ZoneManagement\Entities\Zone;
 use Modules\UserManagement\Entities\User;
 use Modules\CategoryManagement\Entities\Category;
@@ -301,6 +302,7 @@ class LeadController extends Controller
                 ->pluck('cnt', 'lead_id')
                 ->all();
             $checklistTotal = ProviderChecklistItem::active()->count();
+            $panelMatches = app(ProviderLeadPanelMatchService::class)->matchForLeads($leads->getCollection());
 
             foreach ($leadIds as $lid) {
                 $h = $latestByLead->get($lid);
@@ -328,6 +330,7 @@ class LeadController extends Controller
                     'cancellation_reason' => $cancelReason?->name ?? '—',
                     'checklist_done' => (int) ($checklistDone[$lid] ?? 0),
                     'checklist_total' => (int) $checklistTotal,
+                    'panel_provider' => $panelMatches[$lid] ?? null,
                 ];
             }
         }
@@ -1597,6 +1600,10 @@ class LeadController extends Controller
             $ctwaService->forLeadPhone($lead->phone_number)
         );
 
+        $panelProviderMatch = $lead->lead_type === Lead::TYPE_PROVIDER
+            ? app(ProviderLeadPanelMatchService::class)->matchForLead($lead)
+            : null;
+
         return view('leadmanagement::admin.leads.show', compact(
             'lead',
             'handledByName',
@@ -1626,7 +1633,8 @@ class LeadController extends Controller
             'employees',
             'changeLogs',
             'outboundEnquiryStatuses',
-            'leadCtwaDisplay'
+            'leadCtwaDisplay',
+            'panelProviderMatch'
         ));
     }
 
