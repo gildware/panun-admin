@@ -83,6 +83,18 @@
                                 </a>
                             @endif
                             <p class="mb-0 text-muted w-100" style="margin-top: 2px;">{{ translate('Lead_ID') }}: #{{ $lead->id }}</p>
+                            @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER)
+                                <p class="mb-0 w-100" style="margin-top: 2px;">
+                                    <span class="text-muted">{{ translate('Is_Added_in_Panel') }}:</span>
+                                    @if(!empty($panelProviderMatch))
+                                        <a href="{{ $panelProviderMatch['url'] }}" class="link-primary fw-medium" @if(!empty($inModal)) target="_top" @endif>
+                                            {{ $panelProviderMatch['name'] }}
+                                        </a>
+                                    @else
+                                        <span class="text-muted">{{ translate('No_match_found') }}</span>
+                                    @endif
+                                </p>
+                            @endif
                         </div>
                         @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_UNKNOWN)
                             <div class="d-flex flex-nowrap align-items-center justify-content-center gap-2 order-2 lead-header-change-type flex-grow-1 px-2">

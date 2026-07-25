@@ -9,7 +9,7 @@
     $customerLeadData = $customerLeadData ?? [];
     $reasonLeadData = $reasonLeadData ?? [];
     $emptyColspan = match (true) {
-        $isProviderTab => 13,
+        $isProviderTab => 14,
         $isCustomerTab => 16,
         $isFutureCustomerTab => 11,
         $isInvalidTab => 10,
@@ -27,6 +27,7 @@
                 <th>{{ translate('Phone') }}</th>
                 @if($isProviderTab)
                     <th>{{ translate('Status') }}</th>
+                    <th>{{ translate('Is_Added_in_Panel') }}</th>
                     <th>{{ translate('Provider_cancellation_reasons') }}</th>
                     <th>{{ translate('District') }}</th>
                     <th>{{ translate('Zone') }}</th>
@@ -63,20 +64,26 @@
                 </thead>
                 <tbody>
                 @forelse($leads as $key => $lead)
-                    <tr>
-                        <td>
-                            <a href="{{ route('admin.lead.show', $lead->id) }}?in_modal=1"
-                               class="link-primary btn-lead-view"
-                               data-lead-url="{{ route('admin.lead.show', $lead->id) }}?in_modal=1">
-                                {{ $lead->id }}
-                            </a>
-                        </td>
+                    @php
+                        $leadDetailUrl = route('admin.lead.show', $lead->id) . '?in_modal=1';
+                    @endphp
+                    <tr class="lead-table-row" data-lead-url="{{ $leadDetailUrl }}">
+                        <td class="link-primary">{{ $lead->id }}</td>
                         <td>{{ $lead->name ?? '—' }}</td>
                         <td>{{ $lead->phone_number }}</td>
                         @if($isProviderTab)
                             @php $pd = $providerLeadData[$lead->id] ?? []; @endphp
                             <td>
                                 <span class="badge" style="background-color: {{ $pd['status_color'] ?? '#0d6efd' }}; color: #fff;">{{ $pd['status_name'] ?? '—' }}</span>
+                            </td>
+                            <td>
+                                @if(!empty($pd['panel_provider']))
+                                    <a href="{{ $pd['panel_provider']['url'] }}" class="link-primary fw-medium" target="_top" title="{{ translate('View_provider_in_panel') }}">
+                                        {{ $pd['panel_provider']['name'] }}
+                                    </a>
+                                @else
+                                    <span class="text-muted">{{ translate('No_match_found') }}</span>
+                                @endif
                             </td>
                             <td>{{ $pd['cancellation_reason'] ?? '—' }}</td>
                             <td>{{ $pd['district_name'] ?? '—' }}</td>
@@ -203,7 +210,7 @@
                             </td>
                         @endif
                         <td class="text-center">
-                            <a href="{{ route('admin.lead.show', $lead->id) }}?in_modal=1" class="btn btn-sm btn--primary btn-lead-view" data-lead-url="{{ route('admin.lead.show', $lead->id) }}?in_modal=1">
+                            <a href="{{ $leadDetailUrl }}" class="btn btn-sm btn--primary btn-lead-view" data-lead-url="{{ $leadDetailUrl }}">
                                 {{ translate('view') }}
                             </a>
                         </td>
