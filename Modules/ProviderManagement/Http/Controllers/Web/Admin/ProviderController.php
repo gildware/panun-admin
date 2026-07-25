@@ -160,7 +160,7 @@ class ProviderController extends Controller
             'search' => 'nullable|string',
             'status' => 'nullable|in:active,inactive,all',
             'performance_filter' => 'nullable|in:all,warning,blacklisted',
-            'category_id' => 'nullable|uuid',
+            'category_id' => 'nullable|string',
             'zone_id' => 'nullable|uuid',
             'sort' => 'nullable|in:latest,oldest,name_asc,name_desc,rating_desc,bookings_desc',
         ]);
@@ -195,9 +195,13 @@ class ProviderController extends Controller
                     });
                 })
                 ->when($categoryId !== '' && $categoryId !== null, function ($query) use ($categoryId) {
-                    $query->whereHas('subscribed_services', function ($q) use ($categoryId) {
-                        $q->where('category_id', $categoryId)->where('is_subscribed', 1);
-                    });
+                    if ($categoryId === 'none') {
+                        $query->whereDoesntHave('subscribed_services');
+                    } elseif (Str::isUuid($categoryId)) {
+                        $query->whereHas('subscribed_services', function ($q) use ($categoryId) {
+                            $q->where('category_id', $categoryId)->where('is_subscribed', 1);
+                        });
+                    }
                 })
                 ->when($zoneId !== '' && $zoneId !== null, function ($query) use ($zoneId) {
                     $query->where(function ($q) use ($zoneId) {
