@@ -197,6 +197,7 @@
                                             <label class="form-label d-block" for="provider-filter-category">{{ translate('Category') }}</label>
                                             <select id="provider-filter-category" name="category_id" class="form-select" style="width: 9rem;" onchange="this.form.submit()">
                                                 <option value="">{{ translate('All') }}</option>
+                                                <option value="none" {{ ($categoryId ?? '') === 'none' ? 'selected' : '' }}>{{ translate('No_Category') }}</option>
                                                 @foreach($categories as $category)
                                                     <option value="{{ $category->id }}" {{ ($categoryId ?? '') == $category->id ? 'selected' : '' }}>
                                                         {{ $category->name }}
