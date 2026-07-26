@@ -220,7 +220,6 @@ class WhatsAppAiSupportOrchestrator
 
             if ($turn['type'] === 'blocked') {
                 Log::warning('WhatsApp AI blocked turn', ['reason' => $turn['reason'] ?? '']);
-                $finalText = $this->fallbackCustomerMessage();
                 $replyKind = 'fallback';
 
                 break;
@@ -230,7 +229,6 @@ class WhatsAppAiSupportOrchestrator
                 $candidate = $this->sanitizeCustomerReply($turn['text']);
                 if ($candidate === '') {
                     Log::warning('WhatsApp AI: Gemini returned empty text after sanitize');
-                    $finalText = $this->fallbackCustomerMessage();
                     $replyKind = 'fallback';
 
                     break;
@@ -347,7 +345,6 @@ class WhatsAppAiSupportOrchestrator
             }
 
             if ($turn['type'] !== 'function_calls') {
-                $finalText = $this->fallbackCustomerMessage();
                 $replyKind = 'fallback';
 
                 break;
@@ -423,7 +420,6 @@ class WhatsAppAiSupportOrchestrator
             } elseif ($toolFinalizeExact !== null) {
                 $finalText = $this->sanitizeCustomerReply($toolFinalizeExact);
                 if ($finalText === '') {
-                    $finalText = $this->fallbackCustomerMessage();
                     $replyKind = 'fallback';
                 } else {
                     $replyKind = 'tool_canned';
@@ -459,7 +455,6 @@ class WhatsAppAiSupportOrchestrator
             $finalText = $this->templateLocalization->localizeTemplate($finalText, $text, $recorder);
             $finalText = $this->sanitizeCustomerReply($finalText);
             if ($finalText === '') {
-                $finalText = $this->fallbackCustomerMessage();
                 $replyKind = 'fallback';
             }
         }
@@ -477,9 +472,19 @@ class WhatsAppAiSupportOrchestrator
             );
         }
 
-        if ($finalText === '') {
-            $finalText = $this->fallbackCustomerMessage();
+        if ($finalText === '' && $replyKind !== 'fallback') {
             $replyKind = 'fallback';
+        }
+
+        if ($replyKind === 'fallback') {
+            $recorder->step('orchestrator.fallback', 'Gemini unavailable — no customer message sent', 'skip', []);
+            $recorder->finish('gemini_fallback', [
+                'status' => WhatsAppAiExecution::STATUS_SKIPPED,
+                'summary' => 'Gemini unavailable — no message sent to customer',
+                'outbound_id' => null,
+            ]);
+
+            return;
         }
 
         if ($replyKind === 'unclear_handoff') {
@@ -542,7 +547,6 @@ class WhatsAppAiSupportOrchestrator
         }
 
         $outcome = match ($replyKind) {
-            'fallback' => 'gemini_fallback',
             'unclear_handoff' => 'unclear_handoff',
             'tool_canned' => 'tool_canned_reply',
             default => 'gemini_reply',
@@ -931,28 +935,6 @@ class WhatsAppAiSupportOrchestrator
         }
 
         return (bool) preg_match('/^I will (gather|confirm|ask|check|verify)\b/i', $s);
-    }
-
-    /**
-     * Customer-safe text when Gemini cannot return a usable reply. No delivery/technical/error wording.
-     */
-    private function fallbackCustomerMessage(): string
-    {
-        $p = $this->aiSettings->resolvedMessagePlaceholders();
-        $brand = trim((string) ($p['brand'] ?? ''));
-        if ($brand === '') {
-            $brand = (string) config('app.name');
-        }
-        $phone = trim((string) ($p['phone'] ?? ''));
-
-        if ($phone !== '') {
-            return (string) __('whatsapp_ai.customer_fallback_with_phone', [
-                'brand' => $brand,
-                'phone' => $phone,
-            ]);
-        }
-
-        return (string) __('whatsapp_ai.customer_fallback_plain', ['brand' => $brand]);
     }
 
     private function isGreetingHumanButtonTap(string $text): bool

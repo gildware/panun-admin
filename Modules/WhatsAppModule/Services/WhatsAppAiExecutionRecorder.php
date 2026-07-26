@@ -108,7 +108,7 @@ final class WhatsAppAiExecutionRecorder
             'human_handoff' => 'Human handoff message sent',
             'greeting_buttons' => 'Welcome + quick-reply buttons sent',
             'gemini_reply' => 'Gemini reply sent to customer',
-            'gemini_fallback' => 'Fallback message sent (Gemini unavailable)',
+            'gemini_fallback' => 'Gemini unavailable — no message sent to customer',
             'non_text_inbound' => 'Non-text inbound — template + buttons sent',
             'unclear_handoff' => 'Unclear intent limit — handoff message sent; human support flagged',
             'tool_canned_reply' => 'Configured template message sent (handoff or escalation)',
