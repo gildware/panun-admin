@@ -66,6 +66,8 @@ class LeadController extends Controller
         ));
         $dateFrom = $request->get('date_from');
         $dateTo = $request->get('date_to');
+        $followupFrom = $request->get('followup_from');
+        $followupTo = $request->get('followup_to');
         $leadStatusFilter = $request->get('lead_status', 'all');
         if (!in_array($leadStatusFilter, ['all', 'open', 'closed'], true)) {
             $leadStatusFilter = 'all';
@@ -126,7 +128,9 @@ class LeadController extends Controller
             $estimatedDateFrom,
             $estimatedDateTo,
             $outboundEnquiryFilter,
-            $outboundEnquiryCount
+            $outboundEnquiryCount,
+            $followupFrom,
+            $followupTo
         );
         $this->applyLeadOpenClosedFilterToQuery($query, $leadStatusFilter);
 
@@ -152,7 +156,9 @@ class LeadController extends Controller
             $estimatedDateFrom,
             $estimatedDateTo,
             $outboundEnquiryFilter,
-            $outboundEnquiryCount
+            $outboundEnquiryCount,
+            $followupFrom,
+            $followupTo
         );
 
         $query->with($with)->latest('date_time_of_lead_received');
@@ -213,6 +219,14 @@ class LeadController extends Controller
             $queryParams['outbound_enquiry_filter'] = $outboundEnquiryFilter;
             if (in_array($outboundEnquiryFilter, ['exact', 'min'], true) && $outboundEnquiryCount !== null) {
                 $queryParams['outbound_enquiry_count'] = $outboundEnquiryCount;
+            }
+        }
+        if (in_array($tab, ['all', 'unknown', 'customer', 'provider'], true)) {
+            if ($followupFrom) {
+                $queryParams['followup_from'] = $followupFrom;
+            }
+            if ($followupTo) {
+                $queryParams['followup_to'] = $followupTo;
             }
         }
 
@@ -467,6 +481,9 @@ class LeadController extends Controller
             if ($leadStatusFilter !== 'all') {
                 $filtersAppliedCount += 1;
             }
+            if (in_array($tab, ['all', 'unknown', 'customer', 'provider'], true) && !empty($followupFrom) && !empty($followupTo)) {
+                $filtersAppliedCount += 1;
+            }
             if ($tab === 'provider') {
                 $filtersAppliedCount += count($filterStatusIds) + count($filterDistrictIds) + count($filterZoneIds) + count($filterCategoryIds);
             }
@@ -524,6 +541,8 @@ class LeadController extends Controller
             'estimatedDateTo',
             'dateFrom',
             'dateTo',
+            'followupFrom',
+            'followupTo',
             'outboundEnquiryFilter',
             'outboundEnquiryCount',
             'invalidReasons',
@@ -558,7 +577,9 @@ class LeadController extends Controller
         ?string $estimatedDateFrom,
         ?string $estimatedDateTo,
         string $outboundEnquiryFilter = 'all',
-        ?int $outboundEnquiryCount = null
+        ?int $outboundEnquiryCount = null,
+        ?string $followupFrom = null,
+        ?string $followupTo = null
     ): Builder {
         $query = Lead::query()
             ->ofType($scopeTab === 'all' ? null : $scopeTab)
@@ -599,7 +620,20 @@ class LeadController extends Controller
                     $dateFrom . ' 00:00:00',
                     $dateTo . ' 23:59:59',
                 ]);
-            });
+            })
+            ->when(
+                in_array($scopeTab, ['all', 'unknown', 'customer', 'provider'], true) && $followupFrom && $followupTo,
+                function ($q) use ($followupFrom, $followupTo) {
+                    try {
+                        $from = \Carbon\Carbon::parse(str_replace('T', ' ', $followupFrom));
+                        $to = \Carbon\Carbon::parse(str_replace('T', ' ', $followupTo));
+                        $q->whereNotNull('next_followup_at')
+                            ->whereBetween('next_followup_at', [$from, $to]);
+                    } catch (\Throwable $e) {
+                        // Ignore invalid follow-up datetime values.
+                    }
+                }
+            );
 
         if ($hasProviderFilters && $scopeTab === 'provider') {
             $providerLeadIds = Lead::ofType('provider')->pluck('id')->all();
@@ -742,7 +776,9 @@ class LeadController extends Controller
         ?string $estimatedDateFrom,
         ?string $estimatedDateTo,
         string $outboundEnquiryFilter = 'all',
-        ?int $outboundEnquiryCount = null
+        ?int $outboundEnquiryCount = null,
+        ?string $followupFrom = null,
+        ?string $followupTo = null
     ): array {
         $tabs = ['all', 'unknown', 'customer', 'future_customer', 'provider', 'invalid'];
         $out = [];
@@ -769,7 +805,9 @@ class LeadController extends Controller
                 $estimatedDateFrom,
                 $estimatedDateTo,
                 $outboundEnquiryFilter,
-                $outboundEnquiryCount
+                $outboundEnquiryCount,
+                $followupFrom,
+                $followupTo
             );
             $this->applyLeadOpenClosedFilterToQuery($q, $leadStatusFilter);
             $out[$scopeTab] = $q->count();
