@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Mail;
 use Modules\BidModule\Entities\Post;
 use Modules\BookingModule\Http\Traits\BookingTrait;
 use Modules\BookingModule\Http\Traits\BookingScopes;
+use Modules\BookingModule\Services\BookingFollowupService;
 use Modules\BookingModule\Services\BookingReadableIdAllocator;
 use Modules\BookingModule\Entities\BookingFollowup;
 use Modules\BusinessSettingsModule\Emails\CashInHandOverflowMail;
@@ -821,15 +822,15 @@ class Booking extends Model
                     ? $scheduledAt->copy()->subHour()
                     : $scheduledAt->copy()->subDay();
                 $reason = translate('Reminder_before_service');
+                $followupService = app(BookingFollowupService::class);
                 foreach (['customer', 'provider'] as $for) {
-                    BookingFollowup::create([
-                        'booking_id' => $model->id,
-                        'date' => $followUpAt,
-                        'reason' => $reason,
-                        'for' => $for,
-                        'status' => 'scheduled',
-                        'created_by' => auth()->id(),
-                    ]);
+                    $followupService->schedule(
+                        $model,
+                        $followUpAt,
+                        $for,
+                        $reason,
+                        auth()->id()
+                    );
                 }
             }
         });
@@ -1178,6 +1179,16 @@ class Booking extends Model
         });
 
         self::updated(function ($model) {
+            if ($model->isDirty('booking_status')) {
+                $terminalStatus = strtolower((string) $model->booking_status);
+                if ($terminalStatus === 'cancelled') {
+                    $terminalStatus = 'canceled';
+                }
+                if (in_array($terminalStatus, ['completed', 'canceled', 'refunded'], true)) {
+                    app(BookingFollowupService::class)->cancelAllScheduled($model);
+                }
+            }
+
             $status = $model->booking_status;
             $bookingScheduleTimeChange = isNotificationActive(null, 'booking', 'notification', 'user');
             $bookingScheduleTimeChangeProvider = isNotificationActive(null, 'booking', 'notification', 'provider');

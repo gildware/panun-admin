@@ -2735,6 +2735,18 @@ class BookingController extends Controller
         } elseif ($webPage === 'followups') {
             $booking = $this->booking->with(['followups.createdBy', 'customer', 'provider', 'service_address', 'booking_partial_payments', 'reopenEvents.actor', 'originatedFromBooking', 'spawnedFollowupBookings', 'reopenedByUser', 'reopenCaseResolvedByUser'])->find($id);
             $webPage = 'followups';
+            $booking->setRelation('followups', $booking->followups->sort(function ($a, $b) {
+                $aScheduled = $a->status === 'scheduled';
+                $bScheduled = $b->status === 'scheduled';
+                if ($aScheduled !== $bScheduled) {
+                    return $aScheduled ? -1 : 1;
+                }
+                if ($aScheduled) {
+                    return $a->date <=> $b->date;
+                }
+
+                return $b->date <=> $a->date;
+            })->values());
             $scheduledNext = ($booking->followups ?? collect())->where('status', 'scheduled')->sortBy('date');
             $nextFollowupCustomer = $scheduledNext->where('for', 'customer')->first();
             $nextFollowupProvider = $scheduledNext->where('for', 'provider')->first();
@@ -2767,12 +2779,14 @@ class BookingController extends Controller
             'for' => ['required', 'in:customer,provider'],
             'urgency' => ['nullable', 'in:' . implode(',', \Modules\BookingModule\Entities\BookingFollowup::URGENCIES)],
         ]);
-        $validated['booking_id'] = $booking->id;
-        $validated['created_by'] = auth()->id();
-        $validated['status'] = 'scheduled';
-        $validated['urgency'] = $validated['urgency'] ?? \Modules\BookingModule\Entities\BookingFollowup::URGENCY_MEDIUM;
-        $validated['date'] = Carbon::parse($validated['date'])->format('Y-m-d H:i:s');
-        \Modules\BookingModule\Entities\BookingFollowup::create($validated);
+        app(BookingFollowupService::class)->schedule(
+            $booking,
+            $validated['date'],
+            $validated['for'],
+            $validated['reason'] ?? null,
+            auth()->id(),
+            $validated['urgency'] ?? \Modules\BookingModule\Entities\BookingFollowup::URGENCY_MEDIUM
+        );
         Toastr::success(translate('Follow_up_added_successfully'));
         return redirect()->route('admin.booking.details', [$id, 'web_page' => 'followups']);
     }
