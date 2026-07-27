@@ -57,7 +57,7 @@ class BookingFollowupService
         Carbon|string $date,
         string $for = 'customer',
         ?string $reason = null,
-        ?int $createdBy = null,
+        ?string $createdBy = null,
         ?string $urgency = null
     ): BookingFollowup {
         $this->cancelScheduledForParty($booking, $for);
