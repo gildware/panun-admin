@@ -127,11 +127,16 @@
                         $leadStatusFilter = $leadStatusFilter ?? 'all';
                         $estimatedDateFrom = $estimatedDateFrom ?? '';
                         $estimatedDateTo = $estimatedDateTo ?? '';
+                        $followupFrom = $followupFrom ?? '';
+                        $followupTo = $followupTo ?? '';
                         $outboundEnquiryFilter = $outboundEnquiryFilter ?? 'all';
                         $outboundEnquiryCount = $outboundEnquiryCount ?? '';
                         $filtersAppliedCount = count($sourceIds) + count($adSourceIds) + $handledByFilterSelections
                             + (!empty($dateFrom) && !empty($dateTo) ? 1 : 0);
                         if ($leadStatusFilter !== 'all') {
+                            $filtersAppliedCount += 1;
+                        }
+                        if (in_array($tab, ['all', 'unknown', 'customer', 'provider'], true) && !empty($followupFrom) && !empty($followupTo)) {
                             $filtersAppliedCount += 1;
                         }
                         if ($tab === 'provider') {
@@ -226,6 +231,16 @@
                                             <label class="form-label">{{ translate('To_Date') }}</label>
                                             <input type="date" name="date_to" class="form-control" value="{{ $dateTo ?? '' }}">
                                         </div>
+                                        @if(in_array($tab, ['all', 'unknown', 'customer', 'provider'], true))
+                                        <div>
+                                            <label class="form-label">{{ translate('Followup_Date_Time') }} ({{ translate('From_Date') }})</label>
+                                            <input type="datetime-local" name="followup_from" class="form-control" value="{{ $followupFrom }}">
+                                        </div>
+                                        <div>
+                                            <label class="form-label">{{ translate('Followup_Date_Time') }} ({{ translate('To_Date') }})</label>
+                                            <input type="datetime-local" name="followup_to" class="form-control" value="{{ $followupTo }}">
+                                        </div>
+                                        @endif
                                     </div>
                                 </div>
 
