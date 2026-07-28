@@ -691,6 +691,36 @@
             };
         })();
 
+        function resetProviderCreateWizard(formWizard) {
+            if (!formWizard || !formWizard.length) {
+                return;
+            }
+
+            if (formWizard.hasClass("wizard")) {
+                try {
+                    formWizard.steps("destroy");
+                } catch (e) {
+                    var $sections = formWizard.find("section");
+                    if ($sections.length && $sections.first().parent().hasClass("content")) {
+                        $sections.detach().appendTo(formWizard);
+                    }
+                    formWizard.children(".content").remove();
+                    formWizard.children(".steps").remove();
+                    formWizard.removeClass("wizard clearfix vertical");
+                }
+            }
+
+            formWizard.removeData("validator");
+            formWizard.removeData("providerCreateWizardInitialized");
+            formWizard.find(".actions").remove();
+            formWizard.find(".provider-jqv-error").remove();
+            formWizard.find(".is-invalid").removeClass("is-invalid");
+        }
+
+        function scheduleProviderCreateWizardBoot() {
+            tryBootProviderCreateWizardPage(0);
+        }
+
         function bootProviderCreateWizardPage() {
             if (!document.getElementById("create-provider-form")) {
                 return true;
@@ -701,11 +731,21 @@
                 return true;
             }
 
-            if (typeof $.fn.steps !== "function" || typeof $.fn.validate !== "function") {
+            if (typeof window.jQuery !== "undefined") {
+                if (typeof window.jQuery.fn.steps !== "function" || typeof window.jQuery.fn.validate !== "function") {
+                    return false;
+                }
+            } else if (typeof $.fn.steps !== "function" || typeof $.fn.validate !== "function") {
                 return false;
             }
 
-            formWizard.data("providerCreateWizardInitialized", true);
+            try {
+            resetProviderCreateWizard(formWizard);
+
+            var formEl = document.getElementById("create-provider-form");
+            if (formEl) {
+                delete formEl.dataset.submitting;
+            }
 
             var successModalEl = document.getElementById("providerCreatedSuccessModal");
             if (successModalEl && typeof bootstrap !== "undefined") {
@@ -736,6 +776,11 @@
                 if ($el.is('input[type="file"]')) {
                     // Modal picker is staging-only; row inputs carry files for submit.
                     if ($el.attr("id") === "additional_doc_files_input") {
+                        return true;
+                    }
+                    // Additional docs are optional and rehydrated from draft on the server after redirect.
+                    var fileFieldName = element.name || "";
+                    if ($el.is(":hidden") && (fileFieldName.indexOf("additional_documents") !== -1 || $el.is("[data-doc-row-files]"))) {
                         return true;
                     }
                     return false;
@@ -886,6 +931,13 @@
                                 $tel.closest(".form-floting-fix, .form-floating, .form-error-wrap").first().after(error);
                                 return;
                             }
+                        }
+                    }
+                    if (element.is('input[type="file"]') && (element.name || "").indexOf("additional_documents") !== -1) {
+                        var $docRow = element.closest(".additional-document-row");
+                        if ($docRow.length) {
+                            $docRow.append(error);
+                            return;
                         }
                     }
                     var $wrap = element.parents(".form-floating, .form-floting-fix, .form-error-wrap").first();
@@ -1129,21 +1181,38 @@
                         }
                     });
 
+                    if (newIndex > currentIndex && !stepValid) {
+                        var stepMsgs = [];
+                        if (validator.errorList && validator.errorList.length) {
+                            validator.errorList.forEach(function (e) {
+                                if (e && e.message) {
+                                    stepMsgs.push(e.message);
+                                }
+                            });
+                        }
+                        formWizard.find(".provider-jqv-error:visible").each(function () {
+                            var t = ($(this).text() || "").trim();
+                            if (t) {
+                                stepMsgs.push(t);
+                            }
+                        });
+                        if (!stepMsgs.length) {
+                            stepMsgs.push("{{ addslashes(translate('Please_complete_all_required_fields_before_proceeding')) }}");
+                        }
+                        showProviderCreateValidationAlert(stepMsgs);
+                        validator.focusInvalid();
+                        var $firstVisibleErr = formWizard.find(".provider-jqv-error:visible, .is-invalid:visible").first();
+                        if (!$firstVisibleErr.length) {
+                            $firstVisibleErr = formWizard.find(".provider-jqv-error, .is-invalid").first();
+                        }
+                        if ($firstVisibleErr.length && $firstVisibleErr[0].scrollIntoView) {
+                            $firstVisibleErr[0].scrollIntoView({ behavior: "smooth", block: "nearest" });
+                        }
+                        return false;
+                    }
+
                     if (currentIndex === 0 && newIndex === 1) {
                         if (!stepValid) {
-                            var msgs = [];
-                            if (validator.errorList && validator.errorList.length) {
-                                validator.errorList.forEach(function (e) {
-                                    if (e && e.message) {
-                                        msgs.push(e.message);
-                                    }
-                                });
-                            }
-                            if (!msgs.length) {
-                                msgs.push("{{ addslashes(translate('Please_complete_all_required_fields_before_proceeding')) }}");
-                            }
-                            showProviderCreateValidationAlert(msgs);
-                            validator.focusInvalid();
                             return false;
                         }
                         clearProviderCreateValidationAlert();
@@ -1185,30 +1254,47 @@
                 clearProviderCreateValidationAlert();
             });
 
+            formWizard.data("providerCreateWizardInitialized", true);
+
             return true;
+            } catch (bootError) {
+                console.error("Provider create wizard boot failed:", bootError);
+                resetProviderCreateWizard(formWizard);
+                return false;
+            }
         }
 
         function tryBootProviderCreateWizardPage(attempt) {
+            var formWizard = window.jQuery ? window.jQuery("#create-provider-form") : null;
+            if (formWizard && formWizard.length && formWizard.data("providerCreateWizardInitialized")) {
+                return;
+            }
             if (bootProviderCreateWizardPage()) {
                 return;
             }
-            if ((attempt || 0) >= 40) {
+            if ((attempt || 0) >= 100) {
                 return;
             }
             setTimeout(function () {
                 tryBootProviderCreateWizardPage((attempt || 0) + 1);
-            }, 50);
+            }, 100);
         }
 
-        $(document).ready(function () {
-            tryBootProviderCreateWizardPage(0);
-        });
+        if (typeof window.jQuery !== "undefined") {
+            window.jQuery(document).ready(scheduleProviderCreateWizardBoot);
+            window.jQuery(window).on("load.providerCreateWizard", scheduleProviderCreateWizardBoot);
+        } else {
+            document.addEventListener("DOMContentLoaded", scheduleProviderCreateWizardBoot);
+            window.addEventListener("load", scheduleProviderCreateWizardBoot);
+        }
 
         document.addEventListener("admin:page-loaded", function () {
             if (document.getElementById("create-provider-form")) {
-                tryBootProviderCreateWizardPage(0);
+                scheduleProviderCreateWizardBoot();
             }
         });
+
+        window.scheduleProviderCreateWizardBoot = scheduleProviderCreateWizardBoot;
 
     </script>
 
@@ -1825,6 +1911,10 @@
                     $(this).text('visibility');
                 }
             });
+
+            if (typeof window.scheduleProviderCreateWizardBoot === "function") {
+                window.scheduleProviderCreateWizardBoot();
+            }
 
         });
 

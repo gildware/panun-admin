@@ -680,7 +680,7 @@ class ProviderController extends Controller
         }
 
         // Enforce at least one contact identity image (PDF upload removed from UI).
-        $hasContactImages = $request->has('identity_images') && is_array($request->identity_images) && count($request->identity_images) > 0;
+        $hasContactImages = count(array_filter((array) $request->file('identity_images', []))) > 0;
         if (!$hasContactImages) {
             Toastr::error(translate('Please upload at least one contact identity image'));
 
@@ -689,7 +689,7 @@ class ProviderController extends Controller
 
         // Enforce at least one company identity image when provider is company.
         if ($request->provider_type === 'company') {
-            $hasCompanyImages = $request->has('company_identity_images') && is_array($request->company_identity_images) && count($request->company_identity_images) > 0;
+            $hasCompanyImages = count(array_filter((array) $request->file('company_identity_images', []))) > 0;
             if (!$hasCompanyImages) {
                 Toastr::error(translate('Please upload at least one company identity image'));
 
