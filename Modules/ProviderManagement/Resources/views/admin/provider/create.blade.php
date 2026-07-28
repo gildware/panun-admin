@@ -1310,42 +1310,35 @@
             }
             $(".provider-add-edit-form-root").data("providerTypeToggleInitialized", true);
 
+            function setCompanyContactFieldsEnabled(isCompany) {
+                const $formRoot = $(".provider-add-edit-form-root");
+
+                if (isCompany) {
+                    $(".provider-company-fields").show();
+                    $(".provider-logo-fields").show();
+                    $(".provider-company-identity-fields").show();
+                    $formRoot.find('[name="company_name"]').prop('required', true).prop('disabled', false);
+                    $formRoot.find('#company_phone, [name="company_phone"], [name="company_phone_country_code"]').prop('required', false).prop('disabled', false);
+                    $formRoot.find('#company_phone, [name="company_phone"]').prop('required', true);
+                    $formRoot.find('[name="company_email"]').prop('required', true).prop('disabled', false);
+                    $formRoot.find('[name="company_identity_type"], [name="company_identity_number"]').prop('required', true).prop('disabled', false);
+                } else {
+                    $(".provider-company-fields").hide();
+                    $(".provider-logo-fields").hide();
+                    $(".provider-company-identity-fields").hide();
+                    $formRoot.find('[name="company_name"]').prop('required', false).prop('disabled', true);
+                    $formRoot.find('#company_phone, [name="company_phone"], [name="company_phone_country_code"]').prop('required', false).prop('disabled', true);
+                    $formRoot.find('[name="company_email"]').prop('required', false).prop('disabled', true);
+                    $formRoot.find('[name="company_identity_type"], [name="company_identity_number"]').prop('required', false).prop('disabled', true);
+                }
+            }
+
             function toggleProviderTypeFields() {
                 const $formRoot = $(".provider-add-edit-form-root");
                 const providerType = $formRoot.find("input[name='provider_type']:checked").val();
                 const isIndividual = providerType === "individual";
 
-                if (isIndividual) {
-                    $(".provider-company-fields").hide();
-                    $(".provider-logo-fields").hide();
-                    $(".provider-company-identity-fields").hide();
-                    $formRoot.find('[name="company_name"]').prop('required', false);
-                    $formRoot.find('[name="company_name"]').prop('disabled', true);
-                    $formRoot.find('#company_phone').prop('disabled', true);
-                    $formRoot.find('[name="company_phone"]').prop('required', false);
-                    $formRoot.find('[name="company_phone"]').prop('disabled', true);
-                    $formRoot.find('[name="company_email"]').prop('required', false);
-                    $formRoot.find('[name="company_email"]').prop('disabled', true);
-                    $formRoot.find('[name="company_identity_type"]').prop('required', false);
-                    $formRoot.find('[name="company_identity_type"]').prop('disabled', true);
-                    $formRoot.find('[name="company_identity_number"]').prop('required', false);
-                    $formRoot.find('[name="company_identity_number"]').prop('disabled', true);
-                } else {
-                    $(".provider-company-fields").show();
-                    $(".provider-logo-fields").show();
-                    $(".provider-company-identity-fields").show();
-                    $formRoot.find('[name="company_name"]').prop('required', true);
-                    $formRoot.find('[name="company_name"]').prop('disabled', false);
-                    $formRoot.find('#company_phone').prop('disabled', false);
-                    $formRoot.find('[name="company_phone"]').prop('required', true);
-                    $formRoot.find('[name="company_phone"]').prop('disabled', false);
-                    $formRoot.find('[name="company_email"]').prop('required', true);
-                    $formRoot.find('[name="company_email"]').prop('disabled', false);
-                    $formRoot.find('[name="company_identity_type"]').prop('required', true);
-                    $formRoot.find('[name="company_identity_type"]').prop('disabled', false);
-                    $formRoot.find('[name="company_identity_number"]').prop('required', true);
-                    $formRoot.find('[name="company_identity_number"]').prop('disabled', false);
-                }
+                setCompanyContactFieldsEnabled(!isIndividual);
 
                 // Toggle identity type options based on provider type.
                 const $identityType = $formRoot.find("select[name='identity_type']");
@@ -1363,6 +1356,7 @@
 
             toggleProviderTypeFields();
             $("input[name='provider_type']").on("change", toggleProviderTypeFields);
+            window.reapplyProviderCreateCompanyFieldState = toggleProviderTypeFields;
 
             // Account info defaults to contact person details.
             $('#account_email').val($('[name="contact_person_email"]').val());
@@ -1402,6 +1396,12 @@
         document.addEventListener("admin:page-loaded", function () {
             if (document.getElementById("create-provider-form")) {
                 tryBootProviderCreateTypeToggle(0);
+            }
+        });
+
+        document.addEventListener("intl-tel-input:initialized", function () {
+            if (document.getElementById("create-provider-form") && typeof window.reapplyProviderCreateCompanyFieldState === "function") {
+                window.reapplyProviderCreateCompanyFieldState();
             }
         });
 
