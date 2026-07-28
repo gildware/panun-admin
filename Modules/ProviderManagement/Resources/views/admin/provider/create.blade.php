@@ -734,6 +734,10 @@
                     }
                 }
                 if ($el.is('input[type="file"]')) {
+                    // Modal picker is staging-only; row inputs carry files for submit.
+                    if ($el.attr("id") === "additional_doc_files_input") {
+                        return true;
+                    }
                     return false;
                 }
                 if ($el.hasClass("provider-zone-leaf-cb")) {
