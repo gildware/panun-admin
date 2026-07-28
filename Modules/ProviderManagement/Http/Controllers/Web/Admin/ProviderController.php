@@ -587,6 +587,11 @@ class ProviderController extends Controller
             $request->merge(['contact_person_email' => null]);
         }
 
+        if ($request->input('provider_type') === 'individual') {
+            $request->request->remove('company_phone');
+            $request->request->remove('company_phone_country_code');
+        }
+
         $formKey = 'create';
         $this->attachProviderFormDraftToRequest($request, $formKey);
 
@@ -618,11 +623,11 @@ class ProviderController extends Controller
             'account_email' => 'nullable|email',
             'account_phone' => 'nullable|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
 
-            'company_name' => 'required_if:provider_type,company|string|max:191',
-            'company_phone' => 'required_if:provider_type,company|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
+            'company_name' => 'exclude_if:provider_type,individual|required_if:provider_type,company|string|max:191',
+            'company_phone' => 'exclude_if:provider_type,individual|required_if:provider_type,company|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
             'company_address' => 'required',
-            'company_email' => 'required_if:provider_type,company|email',
-            'logo' => 'required_if:provider_type,company|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+            'company_email' => 'exclude_if:provider_type,individual|required_if:provider_type,company|email',
+            'logo' => 'exclude_if:provider_type,individual|required_if:provider_type,company|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
 
             'contact_person_photo' => 'required|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
 
@@ -635,11 +640,11 @@ class ProviderController extends Controller
             'identity_pdf_files.*' => 'file|mimes:pdf|max:' . uploadMaxFileSizeInKB('file'),
 
             // Company identity docs & identity (Box 3)
-            'company_identity_type' => 'required_if:provider_type,company|in:trade_license,company_id',
-            'company_identity_number' => 'required_if:provider_type,company|string|max:191',
-            'company_identity_images' => 'array',
+            'company_identity_type' => 'exclude_if:provider_type,individual|required_if:provider_type,company|in:trade_license,company_id',
+            'company_identity_number' => 'exclude_if:provider_type,individual|required_if:provider_type,company|string|max:191',
+            'company_identity_images' => 'exclude_if:provider_type,individual|array',
             'company_identity_images.*' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
-            'company_identity_pdf_files' => 'nullable|array',
+            'company_identity_pdf_files' => 'exclude_if:provider_type,individual|nullable|array',
             'company_identity_pdf_files.*' => 'file|mimes:pdf|max:' . uploadMaxFileSizeInKB('file'),
 
             'additional_documents' => 'nullable|array',
@@ -2383,10 +2388,10 @@ class ProviderController extends Controller
                 Rule::unique('users', 'email')->ignore($provider->user_id),
             ],
 
-            'company_name' => 'required_if:provider_type,company|string|max:191',
-            'company_phone' => 'required_if:provider_type,company|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
+            'company_name' => 'exclude_if:provider_type,individual|required_if:provider_type,company|string|max:191',
+            'company_phone' => 'exclude_if:provider_type,individual|required_if:provider_type,company|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
             'company_address' => 'required',
-            'company_email' => 'required_if:provider_type,company|email',
+            'company_email' => 'exclude_if:provider_type,individual|required_if:provider_type,company|email',
             'logo' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
             'contact_person_photo' => 'nullable|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
 
@@ -2400,11 +2405,11 @@ class ProviderController extends Controller
             'identity_pdf_files.*' => 'file|mimes:pdf|max:' . uploadMaxFileSizeInKB('file'),
 
             // Company identity docs & identity (Box 3)
-            'company_identity_type' => 'required_if:provider_type,company|in:trade_license,company_id',
-            'company_identity_number' => 'required_if:provider_type,company|string|max:191',
-            'company_identity_images' => 'array',
+            'company_identity_type' => 'exclude_if:provider_type,individual|required_if:provider_type,company|in:trade_license,company_id',
+            'company_identity_number' => 'exclude_if:provider_type,individual|required_if:provider_type,company|string|max:191',
+            'company_identity_images' => 'exclude_if:provider_type,individual|array',
             'company_identity_images.*' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
-            'company_identity_pdf_files' => 'nullable|array',
+            'company_identity_pdf_files' => 'exclude_if:provider_type,individual|nullable|array',
             'company_identity_pdf_files.*' => 'file|mimes:pdf|max:' . uploadMaxFileSizeInKB('file'),
 
             'additional_documents' => 'nullable|array',
