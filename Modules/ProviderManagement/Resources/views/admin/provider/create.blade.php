@@ -700,7 +700,13 @@
                 try {
                     formWizard.steps("destroy");
                 } catch (e) {
-                    // Ignore stale wizard instances after partial navigation.
+                    var $sections = formWizard.find("section");
+                    if ($sections.length && $sections.first().parent().hasClass("content")) {
+                        $sections.detach().appendTo(formWizard);
+                    }
+                    formWizard.children(".content").remove();
+                    formWizard.children(".steps").remove();
+                    formWizard.removeClass("wizard clearfix vertical");
                 }
             }
 
@@ -711,17 +717,29 @@
             formWizard.find(".is-invalid").removeClass("is-invalid");
         }
 
+        function scheduleProviderCreateWizardBoot() {
+            tryBootProviderCreateWizardPage(0);
+        }
+
         function bootProviderCreateWizardPage() {
             if (!document.getElementById("create-provider-form")) {
                 return true;
             }
 
             var formWizard = $("#create-provider-form");
+            if (formWizard.data("providerCreateWizardInitialized")) {
+                return true;
+            }
 
-            if (typeof $.fn.steps !== "function" || typeof $.fn.validate !== "function") {
+            if (typeof window.jQuery !== "undefined") {
+                if (typeof window.jQuery.fn.steps !== "function" || typeof window.jQuery.fn.validate !== "function") {
+                    return false;
+                }
+            } else if (typeof $.fn.steps !== "function" || typeof $.fn.validate !== "function") {
                 return false;
             }
 
+            try {
             resetProviderCreateWizard(formWizard);
 
             var formEl = document.getElementById("create-provider-form");
@@ -1239,29 +1257,44 @@
             formWizard.data("providerCreateWizardInitialized", true);
 
             return true;
+            } catch (bootError) {
+                console.error("Provider create wizard boot failed:", bootError);
+                resetProviderCreateWizard(formWizard);
+                return false;
+            }
         }
 
         function tryBootProviderCreateWizardPage(attempt) {
+            var formWizard = window.jQuery ? window.jQuery("#create-provider-form") : null;
+            if (formWizard && formWizard.length && formWizard.data("providerCreateWizardInitialized")) {
+                return;
+            }
             if (bootProviderCreateWizardPage()) {
                 return;
             }
-            if ((attempt || 0) >= 40) {
+            if ((attempt || 0) >= 100) {
                 return;
             }
             setTimeout(function () {
                 tryBootProviderCreateWizardPage((attempt || 0) + 1);
-            }, 50);
+            }, 100);
         }
 
-        $(document).ready(function () {
-            tryBootProviderCreateWizardPage(0);
-        });
+        if (typeof window.jQuery !== "undefined") {
+            window.jQuery(document).ready(scheduleProviderCreateWizardBoot);
+            window.jQuery(window).on("load.providerCreateWizard", scheduleProviderCreateWizardBoot);
+        } else {
+            document.addEventListener("DOMContentLoaded", scheduleProviderCreateWizardBoot);
+            window.addEventListener("load", scheduleProviderCreateWizardBoot);
+        }
 
         document.addEventListener("admin:page-loaded", function () {
             if (document.getElementById("create-provider-form")) {
-                tryBootProviderCreateWizardPage(0);
+                scheduleProviderCreateWizardBoot();
             }
         });
+
+        window.scheduleProviderCreateWizardBoot = scheduleProviderCreateWizardBoot;
 
     </script>
 
@@ -1878,6 +1911,10 @@
                     $(this).text('visibility');
                 }
             });
+
+            if (typeof window.scheduleProviderCreateWizardBoot === "function") {
+                window.scheduleProviderCreateWizardBoot();
+            }
 
         });
 
