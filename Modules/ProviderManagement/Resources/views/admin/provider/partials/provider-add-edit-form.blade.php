@@ -616,6 +616,7 @@
                     </button>
                 </div>
                 @php
+                    $additionalDocumentAccept = '.'.implode(',.', array_column(IMAGEEXTENSION, 'key')).',.pdf';
                     $oldAdditionalDocuments = old('additional_documents', []);
                     $oldAdditionalDocuments = is_array($oldAdditionalDocuments) ? $oldAdditionalDocuments : [];
                     $existingAdditionalDocuments = $existingAdditionalDocuments ?? collect();
@@ -669,7 +670,7 @@
                                         class="d-none"
                                         name="additional_documents[{{ $addIdx }}][files][]"
                                         multiple
-                                        accept="image/*,application/pdf,.pdf"
+                                        accept="{{ $additionalDocumentAccept }}"
                                         data-doc-row-files>
                                 </div>
                                 <div class="col-md-5">
@@ -751,7 +752,7 @@
                                     class="d-none"
                                     name="additional_documents[__INDEX__][files][]"
                                     multiple
-                                    accept="image/*,application/pdf,.pdf"
+                                    accept="{{ $additionalDocumentAccept }}"
                                     data-doc-row-files>
                             </div>
 
@@ -796,7 +797,7 @@
                         class="d-none"
                         id="additional_doc_files_input"
                         multiple
-                        accept="image/*,application/pdf,.pdf">
+                        accept="{{ $additionalDocumentAccept }}">
                     <button type="button" class="btn btn--secondary btn-sm w-100 mb-2" id="additional_doc_select_files_btn">
                         {{ translate('Add_Files') }}
                     </button>
