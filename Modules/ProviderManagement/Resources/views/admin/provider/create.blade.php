@@ -691,21 +691,43 @@
             };
         })();
 
+        function resetProviderCreateWizard(formWizard) {
+            if (!formWizard || !formWizard.length) {
+                return;
+            }
+
+            if (formWizard.hasClass("wizard")) {
+                try {
+                    formWizard.steps("destroy");
+                } catch (e) {
+                    // Ignore stale wizard instances after partial navigation.
+                }
+            }
+
+            formWizard.removeData("validator");
+            formWizard.removeData("providerCreateWizardInitialized");
+            formWizard.find(".actions").remove();
+            formWizard.find(".provider-jqv-error").remove();
+            formWizard.find(".is-invalid").removeClass("is-invalid");
+        }
+
         function bootProviderCreateWizardPage() {
             if (!document.getElementById("create-provider-form")) {
                 return true;
             }
 
             var formWizard = $("#create-provider-form");
-            if (formWizard.data("providerCreateWizardInitialized")) {
-                return true;
-            }
 
             if (typeof $.fn.steps !== "function" || typeof $.fn.validate !== "function") {
                 return false;
             }
 
-            formWizard.data("providerCreateWizardInitialized", true);
+            resetProviderCreateWizard(formWizard);
+
+            var formEl = document.getElementById("create-provider-form");
+            if (formEl) {
+                delete formEl.dataset.submitting;
+            }
 
             var successModalEl = document.getElementById("providerCreatedSuccessModal");
             if (successModalEl && typeof bootstrap !== "undefined") {
@@ -736,6 +758,11 @@
                 if ($el.is('input[type="file"]')) {
                     // Modal picker is staging-only; row inputs carry files for submit.
                     if ($el.attr("id") === "additional_doc_files_input") {
+                        return true;
+                    }
+                    // Additional docs are optional and rehydrated from draft on the server after redirect.
+                    var fileFieldName = element.name || "";
+                    if ($el.is(":hidden") && (fileFieldName.indexOf("additional_documents") !== -1 || $el.is("[data-doc-row-files]"))) {
                         return true;
                     }
                     return false;
@@ -886,6 +913,13 @@
                                 $tel.closest(".form-floting-fix, .form-floating, .form-error-wrap").first().after(error);
                                 return;
                             }
+                        }
+                    }
+                    if (element.is('input[type="file"]') && (element.name || "").indexOf("additional_documents") !== -1) {
+                        var $docRow = element.closest(".additional-document-row");
+                        if ($docRow.length) {
+                            $docRow.append(error);
+                            return;
                         }
                     }
                     var $wrap = element.parents(".form-floating, .form-floting-fix, .form-error-wrap").first();
@@ -1129,21 +1163,38 @@
                         }
                     });
 
+                    if (newIndex > currentIndex && !stepValid) {
+                        var stepMsgs = [];
+                        if (validator.errorList && validator.errorList.length) {
+                            validator.errorList.forEach(function (e) {
+                                if (e && e.message) {
+                                    stepMsgs.push(e.message);
+                                }
+                            });
+                        }
+                        formWizard.find(".provider-jqv-error:visible").each(function () {
+                            var t = ($(this).text() || "").trim();
+                            if (t) {
+                                stepMsgs.push(t);
+                            }
+                        });
+                        if (!stepMsgs.length) {
+                            stepMsgs.push("{{ addslashes(translate('Please_complete_all_required_fields_before_proceeding')) }}");
+                        }
+                        showProviderCreateValidationAlert(stepMsgs);
+                        validator.focusInvalid();
+                        var $firstVisibleErr = formWizard.find(".provider-jqv-error:visible, .is-invalid:visible").first();
+                        if (!$firstVisibleErr.length) {
+                            $firstVisibleErr = formWizard.find(".provider-jqv-error, .is-invalid").first();
+                        }
+                        if ($firstVisibleErr.length && $firstVisibleErr[0].scrollIntoView) {
+                            $firstVisibleErr[0].scrollIntoView({ behavior: "smooth", block: "nearest" });
+                        }
+                        return false;
+                    }
+
                     if (currentIndex === 0 && newIndex === 1) {
                         if (!stepValid) {
-                            var msgs = [];
-                            if (validator.errorList && validator.errorList.length) {
-                                validator.errorList.forEach(function (e) {
-                                    if (e && e.message) {
-                                        msgs.push(e.message);
-                                    }
-                                });
-                            }
-                            if (!msgs.length) {
-                                msgs.push("{{ addslashes(translate('Please_complete_all_required_fields_before_proceeding')) }}");
-                            }
-                            showProviderCreateValidationAlert(msgs);
-                            validator.focusInvalid();
                             return false;
                         }
                         clearProviderCreateValidationAlert();
@@ -1184,6 +1235,8 @@
             $(document).on("click", ".provider-create-form-validation-alert-close", function () {
                 clearProviderCreateValidationAlert();
             });
+
+            formWizard.data("providerCreateWizardInitialized", true);
 
             return true;
         }
