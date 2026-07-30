@@ -12,7 +12,7 @@ class AdminBusinessAiSessionService
     }
 
     /**
-     * @return list<array{role: string, text: string, at: string}>
+     * @return list<array{role: string, text: string, at: string, charts?: list<array<string, mixed>>}>
      */
     public function messages(int $adminUserId): array
     {
@@ -22,16 +22,35 @@ class AdminBusinessAiSessionService
     }
 
     /**
-     * @return list<array{role: string, text: string, at: string}>
+     * @param  list<array<string, mixed>>|null  $charts
+     * @param  list<array<string, mixed>>|null  $tables
+     * @return list<array{role: string, text: string, at: string, charts?: list<array<string, mixed>>, tables?: list<array<string, mixed>>, note?: string}>
      */
-    public function append(int $adminUserId, string $role, string $text): array
+    public function append(int $adminUserId, string $role, string $text, ?array $charts = null, ?array $tables = null, ?string $note = null): array
     {
         $messages = $this->messages($adminUserId);
-        $messages[] = [
+        $entry = [
             'role' => $role === 'model' ? 'model' : 'user',
             'text' => mb_substr(trim($text), 0, 12000),
             'at' => now()->toIso8601String(),
         ];
+        if ($charts !== null && $charts !== []) {
+            $entry['charts'] = array_slice($charts, 0, 6);
+        }
+        if ($tables !== null && $tables !== []) {
+            // Keep session payload lean: store capped rows only.
+            $entry['tables'] = array_map(static function (array $table): array {
+                $rows = is_array($table['rows'] ?? null) ? $table['rows'] : [];
+                $table['rows'] = array_slice($rows, 0, 40);
+
+                return $table;
+            }, array_slice($tables, 0, 4));
+        }
+        $note = $note !== null ? trim($note) : '';
+        if ($note !== '') {
+            $entry['note'] = mb_substr($note, 0, 2000);
+        }
+        $messages[] = $entry;
 
         $limit = (int) config('admin_business_ai.context_turn_limit', 20) * 2;
         if (count($messages) > $limit) {

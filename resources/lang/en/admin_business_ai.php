@@ -24,6 +24,8 @@ return [
     'gemini_error' => 'AI could not respond right now. Please try again or clear chat and ask a shorter question.',
     'gemini_empty_turn' => 'AI returned an empty response after fetching data. Please tap Clear chat and try again — or ask one focused question at a time.',
     'gemini_http_error' => 'AI request timed out or failed to reach Gemini. Please try again in a moment.',
+    'gemini_quota_exceeded' => 'Gemini quota exceeded (HTTP 429). Check your Gemini API plan and billing, then try again.',
+    'gemini_unavailable_note' => 'Gemini could not process this request. Exact error: :error',
     'gemini_exception' => 'Something went wrong while running the AI. Please try again.',
     'tool_rounds_exceeded' => 'Analysis took too many steps. Please ask a more specific question.',
 ];

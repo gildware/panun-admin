@@ -71,6 +71,33 @@ class AdminBusinessAiQuestionRouter
             return [['name' => 'analyze_leads', 'args' => ['analysis' => 'phones_with_multiple_leads', 'lead_type' => 'all']]];
         }
 
+        // Also catch count-only cancelled booking questions via mandatory path.
+        if (preg_match('/\b(how many|count|number of|total)\b/i', $text)
+            && preg_match('/\b(cancel+l?ed?|cancel+lation)\b/i', $text)
+            && preg_match('/\b(booking|bookings|order|orders)\b/i', $text)) {
+            if (config('admin_business_ai.sql_analytics_enabled', true)) {
+                return [
+                    ['name' => 'run_sql_analytics', 'args' => ['question' => $userMessage]],
+                    ['name' => 'analyze_bookings', 'args' => ['analysis' => 'cancellation_timing_report']],
+                ];
+            }
+
+            return [['name' => 'analyze_bookings', 'args' => ['analysis' => 'cancellation_timing_report']]];
+        }
+
+        if (preg_match('/\b(chart|charts|graph|graphs|sql|add more columns|custom columns)\b/i', $text)
+            && config('admin_business_ai.sql_analytics_enabled', true)
+            && preg_match('/\b(booking|bookings|lead|leads|customer|provider|cancel|why)\b/i', $text)) {
+            return [['name' => 'run_sql_analytics', 'args' => ['question' => $userMessage]]];
+        }
+
+        if (preg_match('/\b(how many|count|number of|total)\b/i', $text)
+            && preg_match('/\b(cancel+l?ed?|cancel+lation)\b/i', $text)
+            && preg_match('/\b(lead|leads|crm)\b/i', $text)
+            && preg_match('/\b(customer)\b/i', $text)) {
+            return [['name' => 'analyze_leads', 'args' => ['analysis' => 'customer_cancellation_reasons', 'lead_type' => 'customer']]];
+        }
+
         return [];
     }
 
@@ -103,15 +130,66 @@ class AdminBusinessAiQuestionRouter
         }
 
         $isCancellationReasonQuestion = (bool) preg_match(
-            '/\b(cancel+lation|cancel+led?)\b.*\b(reason|reasons|why)\b/i',
+            '/\b(cancel+lation|cancel+l?ed?)\b.*\b(reason|reasons|why)\b/i',
             $userMessage
         ) || (bool) preg_match(
-            '/\b(reason|reasons)\b.*\b(cancel+lation|cancel+led?)\b/i',
+            '/\b(reason|reasons|why)\b.*\b(cancel+lation|cancel+l?ed?)\b/i',
             $userMessage
         ) || (bool) preg_match(
-            '/\b(top|main|common|frequent|biggest)\b.*\b(cancel+lation|cancel+led?)\b/i',
+            '/\bwhy\b.{0,80}\b(booking|bookings|order|orders|lead|leads).{0,40}\b(cancel+l?ed?|cancel+lation)\b/i',
+            $userMessage
+        ) || (bool) preg_match(
+            '/\b(top|main|common|frequent|biggest)\b.*\b(cancel+lation|cancel+l?ed?)\b/i',
             $userMessage
         );
+
+        $wantsSqlAnalytics = (bool) preg_match(
+            '/\b(chart|charts|graph|graphs|sql|query|queries|add more columns|extra columns|custom columns|ad-?hoc|write (a |the )?query)\b/i',
+            $userMessage
+        ) || (bool) preg_match(
+            '/\bwhy\b.{0,120}\b(cancel|booking|lead|customer|provider)/i',
+            $userMessage
+        );
+
+        // Open-ended NL→SQL analytics (generate safe SELECT, execute, return tables + charts).
+        if ($wantsSqlAnalytics && config('admin_business_ai.sql_analytics_enabled', true)) {
+            $tools = [[
+                'name' => 'run_sql_analytics',
+                'args' => ['question' => $userMessage],
+            ]];
+            // Also pull fixed cancellation aggregates when clearly about cancelled bookings.
+            if (preg_match('/\b(cancel+l?ed?|cancel+lation|refunded)\b/i', $userMessage)
+                && preg_match('/\b(booking|bookings|order|orders)\b/i', $userMessage)) {
+                $tools[] = ['name' => 'analyze_bookings', 'args' => ['analysis' => 'cancellation_timing_report']];
+            }
+
+            return array_slice($tools, 0, $maxTools);
+        }
+
+        // Cancelled bookings — force full cancellation timing (counts, reasons, charts).
+        if (preg_match('/\b(cancel+l?ed?|cancel+lation|refunded)\b/i', $userMessage)
+            && preg_match('/\b(booking|bookings|order|orders)\b/i', $userMessage)
+            && ! preg_match('/\b(lead|leads|crm)\b/i', $userMessage)) {
+            if (config('admin_business_ai.sql_analytics_enabled', true)) {
+                return [
+                    ['name' => 'run_sql_analytics', 'args' => ['question' => $userMessage]],
+                    ['name' => 'analyze_bookings', 'args' => ['analysis' => 'cancellation_timing_report']],
+                ];
+            }
+
+            return [['name' => 'analyze_bookings', 'args' => ['analysis' => 'cancellation_timing_report']]];
+        }
+
+        // Cancelled customer leads — reasons + timing detail columns (enquiry, remarks, followups).
+        if (preg_match('/\b(cancel+l?ed?|cancel+lation)\b/i', $userMessage)
+            && preg_match('/\b(lead|leads|crm)\b/i', $userMessage)
+            && preg_match('/\b(customer)\b/i', $userMessage)
+            && ! preg_match('/\b(booking|bookings|order|orders)\b/i', $userMessage)) {
+            return [
+                ['name' => 'analyze_leads', 'args' => ['analysis' => 'customer_cancellation_reasons', 'lead_type' => 'customer']],
+                ['name' => 'analyze_leads', 'args' => ['analysis' => 'lead_timing_report', 'lead_type' => 'customer', 'cohort' => 'customer_cancelled']],
+            ];
+        }
 
         $isCategoryPerformanceQuestion = (bool) preg_match(
             '/\b(category|categories|subcategory|subcategories|service type|service types)\b/i',
@@ -343,7 +421,7 @@ class AdminBusinessAiQuestionRouter
         }
 
         if (preg_match('/\b(booking|bookings|order|orders|pk-\d+)\b/i', $userMessage)
-            && ! preg_match('/\b(analytics|zone|area|timing|lag|cancel)\b/i', $userMessage)) {
+            && ! preg_match('/\b(analytics|zone|area|timing|lag|cancel(?:l?ed|lation)?)\b/i', $userMessage)) {
             if (preg_match('/\b(list|search|show|find|pending|overdue)\b/i', $userMessage)) {
                 $tools = $this->pushTool($tools, ['name' => 'query_bookings', 'args' => ['limit' => 25]]);
             } else {
