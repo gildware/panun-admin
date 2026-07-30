@@ -60,9 +60,29 @@ class AdminBusinessAiToolExecutor
                 'ok' => false,
                 'error' => 'tool_failed',
                 'tool' => $name,
-                'message' => mb_substr($e->getMessage(), 0, 500),
+                'message' => $this->sanitizeToolFailureMessage($e),
             ];
         }
+    }
+
+    /**
+     * Keep the actionable part of the error but drop what Laravel appends to query
+     * exceptions: connection/host/database details and the full bound SQL, which can carry
+     * row data. The untrimmed message is still written to the log for debugging.
+     */
+    private function sanitizeToolFailureMessage(\Throwable $e): string
+    {
+        $message = trim($e->getMessage());
+        foreach (['/\s*\(Connection:.*$/s', '/\s*\(SQL:.*$/s'] as $pattern) {
+            $message = preg_replace($pattern, '', $message) ?? $message;
+        }
+        $message = trim($message);
+
+        if ($message === '') {
+            return $e::class;
+        }
+
+        return mb_substr($message, 0, 300);
     }
 
     /**
