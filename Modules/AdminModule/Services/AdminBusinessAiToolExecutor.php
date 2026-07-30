@@ -4,6 +4,7 @@ namespace Modules\AdminModule\Services;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Log;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingRepeat;
@@ -38,13 +39,58 @@ class AdminBusinessAiToolExecutor
     ) {}
 
     /**
+     * A failing tool must not abort the whole AI turn: return a structured failure so the
+     * model can route around it (or fall back) instead of the request throwing.
+     *
      * @param  array<string, mixed>|\stdClass  $args
      * @return array<string, mixed>
      */
     public function execute(string $name, array|\stdClass $args): array
     {
-        $args = $this->normalizeArgs($args);
+        try {
+            return $this->dispatch($name, $this->normalizeArgs($args));
+        } catch (\Throwable $e) {
+            Log::error('Admin business AI tool failed', [
+                'tool' => $name,
+                'error' => $e->getMessage(),
+                'exception' => $e::class,
+            ]);
 
+            return [
+                'ok' => false,
+                'error' => 'tool_failed',
+                'tool' => $name,
+                'message' => $this->sanitizeToolFailureMessage($e),
+            ];
+        }
+    }
+
+    /**
+     * Keep the actionable part of the error but drop what Laravel appends to query
+     * exceptions: connection/host/database details and the full bound SQL, which can carry
+     * row data. The untrimmed message is still written to the log for debugging.
+     */
+    private function sanitizeToolFailureMessage(\Throwable $e): string
+    {
+        $message = trim($e->getMessage());
+        foreach (['/\s*\(Connection:.*$/s', '/\s*\(SQL:.*$/s'] as $pattern) {
+            $message = preg_replace($pattern, '', $message) ?? $message;
+        }
+        $message = trim($message);
+
+        if ($message === '') {
+            return $e::class;
+        }
+
+        return mb_substr($message, 0, 300);
+    }
+
+    /**
+     * @param  array<string, mixed>  $args
+     * @return array<string, mixed>
+     */
+    private function dispatch(string $name, array $args): array
+    {
         return match ($name) {
             'get_business_dashboard_overview' => $this->getBusinessDashboardOverview(),
             'get_dashboard_snapshot' => $this->dashboardInsights->snapshot(),

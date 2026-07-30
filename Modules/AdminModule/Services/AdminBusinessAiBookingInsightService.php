@@ -552,7 +552,7 @@ class AdminBusinessAiBookingInsightService
             ? collect()
             : Lead::query()
                 ->whereIn('id', $leadIds->unique()->values()->all())
-                ->get(['id', 'name', 'phone_number', 'remarks', 'date_time_of_lead_received', 'service_name'])
+                ->get(['id', 'name', 'phone_number', 'remarks', 'date_time_of_lead_received'])
                 ->keyBy('id');
 
         $leadsByBookingId = collect();

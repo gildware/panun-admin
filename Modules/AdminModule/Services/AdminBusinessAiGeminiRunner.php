@@ -147,7 +147,16 @@ class AdminBusinessAiGeminiRunner
     {
         $charts = $this->extractChartsFromToolResults($toolResultsBag);
         $tables = $this->extractTablesFromToolResults($toolResultsBag);
-        $note = $note !== null ? trim($note) : '';
+
+        $notes = [];
+        if ($note !== null && trim($note) !== '') {
+            $notes[] = trim($note);
+        }
+        $toolNote = $this->toolFailureNote($toolResultsBag);
+        if ($toolNote !== '') {
+            $notes[] = $toolNote;
+        }
+        $note = implode(' ', $notes);
         if ($note !== '') {
             $reply = $this->prependNoteToReply($reply, $note);
         }
@@ -159,6 +168,62 @@ class AdminBusinessAiGeminiRunner
         }
 
         return $out;
+    }
+
+    /**
+     * Report tools that crashed, including sub-tools inside explore_business_data, so a
+     * partial answer never silently hides missing data.
+     *
+     * @param  list<array{name: string, result: array<string, mixed>}>  $toolResultsBag
+     */
+    private function toolFailureNote(array $toolResultsBag): string
+    {
+        $failures = [];
+        foreach ($toolResultsBag as $entry) {
+            $result = is_array($entry['result'] ?? null) ? $entry['result'] : [];
+            foreach ($this->collectToolFailures((string) ($entry['name'] ?? ''), $result) as $failure) {
+                $failures[$failure] = true;
+            }
+        }
+
+        $failures = array_keys($failures);
+        if ($failures === []) {
+            return '';
+        }
+
+        return (string) __('admin_business_ai.tool_failed_note', [
+            'count' => (string) count($failures),
+            'details' => implode('; ', array_slice($failures, 0, 3)),
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     * @return list<string>
+     */
+    private function collectToolFailures(string $toolName, array $result): array
+    {
+        $failures = [];
+        if (($result['error'] ?? '') === 'tool_failed') {
+            $name = (string) ($result['tool'] ?? $toolName);
+            $message = trim((string) ($result['message'] ?? ''));
+            $failures[] = $message !== '' ? $name.' — '.$message : $name;
+        }
+
+        if (isset($result['results']) && is_array($result['results'])) {
+            foreach ($result['results'] as $nested) {
+                if (! is_array($nested)) {
+                    continue;
+                }
+                $nestedResult = is_array($nested['result'] ?? null) ? $nested['result'] : [];
+                $failures = array_merge(
+                    $failures,
+                    $this->collectToolFailures((string) ($nested['tool'] ?? $toolName), $nestedResult)
+                );
+            }
+        }
+
+        return $failures;
     }
 
     private function prependNoteToReply(string $reply, string $note): string
@@ -298,7 +363,14 @@ class AdminBusinessAiGeminiRunner
                     return $this->successReply($adminUserId, $fallback, $toolResultsBag, $lastGeminiFailureNote);
                 }
 
-                return ['ok' => false, 'error' => $lastGeminiFailureNote ?? $this->blockedErrorMessage($reason)];
+                return [
+                    'ok' => false,
+                    'error' => $this->failureError(
+                        $this->blockedErrorMessage($reason),
+                        $lastGeminiFailureNote,
+                        $toolResultsBag
+                    ),
+                ];
             }
 
             if ($turn['type'] === 'text') {
@@ -352,8 +424,11 @@ class AdminBusinessAiGeminiRunner
 
                     return [
                         'ok' => false,
-                        'error' => $lastGeminiFailureNote
-                            ?? (string) __('admin_business_ai.empty_reply'),
+                        'error' => $this->failureError(
+                            (string) __('admin_business_ai.empty_reply'),
+                            $lastGeminiFailureNote,
+                            $toolResultsBag
+                        ),
                     ];
                 }
                 if (! $hadToolResults
@@ -439,9 +514,26 @@ class AdminBusinessAiGeminiRunner
 
         return [
             'ok' => false,
-            'error' => $lastGeminiFailureNote
-                ?? (string) __('admin_business_ai.tool_rounds_exceeded'),
+            'error' => $this->failureError(
+                (string) __('admin_business_ai.tool_rounds_exceeded'),
+                $lastGeminiFailureNote,
+                $toolResultsBag
+            ),
         ];
+    }
+
+    /**
+     * @param  list<array{name: string, result: array<string, mixed>}>  $toolResultsBag
+     */
+    private function failureError(string $default, ?string $geminiNote, array $toolResultsBag): string
+    {
+        $parts = [$geminiNote !== null && trim($geminiNote) !== '' ? trim($geminiNote) : $default];
+        $toolNote = $this->toolFailureNote($toolResultsBag);
+        if ($toolNote !== '') {
+            $parts[] = $toolNote;
+        }
+
+        return implode(' ', $parts);
     }
 
     private function lastUserMessageText(int $adminUserId): string

@@ -186,6 +186,7 @@ class WhatsAppGeminiSupportClient
 
         $candidates = $this->modelCandidates($modelOverride);
         $last404Body = '';
+        $retryableFailure = null;
 
         try {
             foreach ($candidates as $model) {
@@ -217,10 +218,29 @@ class WhatsAppGeminiSupportClient
                         'body' => $snippet,
                     ]);
 
-                    return $this->blockedHttpFailure($response->status(), $response->json(), $snippet);
+                    $failure = $this->blockedHttpFailure($response->status(), $response->json(), $snippet);
+
+                    // Quota is metered per model and overload is transient, so a different
+                    // candidate can still succeed. Auth/request errors will not, so fail fast.
+                    if (in_array($response->status(), [429, 503], true)) {
+                        $retryableFailure = $failure;
+
+                        continue;
+                    }
+
+                    return $failure;
                 }
 
                 return $this->parseGenerateContentSuccess($response->json(), $model);
+            }
+
+            if ($retryableFailure !== null) {
+                Log::warning('Gemini generateContent: every model candidate was rate limited or overloaded', [
+                    'tried' => $candidates,
+                    'reason' => $retryableFailure['reason'] ?? '',
+                ]);
+
+                return $retryableFailure;
             }
 
             Log::warning('Gemini generateContent: all model candidates returned 404', [
