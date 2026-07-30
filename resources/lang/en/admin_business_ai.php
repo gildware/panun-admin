@@ -26,6 +26,7 @@ return [
     'gemini_http_error' => 'AI request timed out or failed to reach Gemini. Please try again in a moment.',
     'gemini_quota_exceeded' => 'Gemini quota exceeded (HTTP 429). Check your Gemini API plan and billing, then try again.',
     'gemini_unavailable_note' => 'Gemini could not process this request. Exact error: :error',
+    'tool_failed_note' => ':count data tool(s) failed, so this answer may be incomplete. Exact error: :details',
     'gemini_exception' => 'Something went wrong while running the AI. Please try again.',
     'tool_rounds_exceeded' => 'Analysis took too many steps. Please ask a more specific question.',
 ];

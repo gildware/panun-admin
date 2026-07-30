@@ -4,6 +4,7 @@ namespace Modules\AdminModule\Services;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Log;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingRepeat;
@@ -38,13 +39,38 @@ class AdminBusinessAiToolExecutor
     ) {}
 
     /**
+     * A failing tool must not abort the whole AI turn: return a structured failure so the
+     * model can route around it (or fall back) instead of the request throwing.
+     *
      * @param  array<string, mixed>|\stdClass  $args
      * @return array<string, mixed>
      */
     public function execute(string $name, array|\stdClass $args): array
     {
-        $args = $this->normalizeArgs($args);
+        try {
+            return $this->dispatch($name, $this->normalizeArgs($args));
+        } catch (\Throwable $e) {
+            Log::error('Admin business AI tool failed', [
+                'tool' => $name,
+                'error' => $e->getMessage(),
+                'exception' => $e::class,
+            ]);
 
+            return [
+                'ok' => false,
+                'error' => 'tool_failed',
+                'tool' => $name,
+                'message' => mb_substr($e->getMessage(), 0, 500),
+            ];
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $args
+     * @return array<string, mixed>
+     */
+    private function dispatch(string $name, array $args): array
+    {
         return match ($name) {
             'get_business_dashboard_overview' => $this->getBusinessDashboardOverview(),
             'get_dashboard_snapshot' => $this->dashboardInsights->snapshot(),
