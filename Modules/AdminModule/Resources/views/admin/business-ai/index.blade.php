@@ -94,6 +94,29 @@
         max-width: 100%;
         white-space: pre-wrap;
     }
+    .biz-ai-note {
+        margin: 0 0 0.85rem;
+        padding: 0.7rem 0.85rem;
+        border-radius: 0.5rem;
+        border: 1px solid #fdba74;
+        background: #fff7ed;
+        color: #9a3412;
+        font-size: 0.84rem;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .biz-ai-note strong {
+        display: inline;
+        font-weight: 700;
+        color: #7c2d12;
+    }
+    .biz-ai-bubble--error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        white-space: pre-wrap;
+    }
     .biz-ai-rich > *:first-child { margin-top: 0; }
     .biz-ai-rich > *:last-child { margin-bottom: 0; }
     .biz-ai-rich h4.biz-ai-h,
@@ -233,6 +256,71 @@
         justify-content: center;
         color: #fff;
     }
+    .biz-ai-charts {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+        margin-top: 0.85rem;
+    }
+    @media (min-width: 768px) {
+        .biz-ai-charts { grid-template-columns: 1fr 1fr; }
+    }
+    .biz-ai-chart-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.65rem;
+        padding: 0.65rem 0.75rem 0.35rem;
+    }
+    .biz-ai-chart-title {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        margin-bottom: 0.25rem;
+    }
+    .biz-ai-chart-el { min-height: 220px; }
+    .biz-ai-tables { margin-top: 0.85rem; display: grid; gap: 0.75rem; }
+    .biz-ai-table-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.65rem;
+        padding: 0.65rem 0.75rem;
+        overflow: auto;
+    }
+    .biz-ai-table-title {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        margin-bottom: 0.45rem;
+    }
+    .biz-ai-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.78rem;
+        min-width: 480px;
+    }
+    .biz-ai-table th,
+    .biz-ai-table td {
+        border: 1px solid #e2e8f0;
+        padding: 0.35rem 0.45rem;
+        text-align: left;
+        vertical-align: top;
+        white-space: nowrap;
+        max-width: 220px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .biz-ai-table th {
+        background: #e2e8f0;
+        color: #334155;
+        font-weight: 700;
+        position: sticky;
+        top: 0;
+    }
+    .biz-ai-table tr:nth-child(even) td { background: #fff; }
 </style>
 @endpush
 
@@ -293,6 +381,7 @@
 @endsection
 
 @push('script')
+<script src="{{ asset('assets/admin-module/plugins/apex/apexcharts.min.js') }}"></script>
 <script>
 (function () {
     const messagesUrl = @json(route('admin.business-ai.messages'));
@@ -301,6 +390,7 @@
     const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     const thinkingLabel = @json(__('admin_business_ai.thinking'));
     const resetConfirm = @json(__('admin_business_ai.reset_confirm'));
+    let chartSeq = 0;
 
     function setMeta(text) {
         const el = document.getElementById('biz-ai-meta');
@@ -388,18 +478,156 @@
         return '<div class="biz-ai-rich">' + parts.join('') + '</div>';
     }
 
-    function bubble(text, role) {
+    function renderCharts(charts) {
+        if (!Array.isArray(charts) || !charts.length || typeof ApexCharts === 'undefined') {
+            return null;
+        }
+        const wrap = document.createElement('div');
+        wrap.className = 'biz-ai-charts';
+        charts.slice(0, 6).forEach(function (chart) {
+            if (!chart || !Array.isArray(chart.labels) || !chart.labels.length) return;
+            const card = document.createElement('div');
+            card.className = 'biz-ai-chart-card';
+            const title = document.createElement('div');
+            title.className = 'biz-ai-chart-title';
+            title.textContent = chart.title || chart.id || 'Chart';
+            const el = document.createElement('div');
+            el.className = 'biz-ai-chart-el';
+            el.id = 'biz-ai-chart-' + (++chartSeq);
+            card.appendChild(title);
+            card.appendChild(el);
+            wrap.appendChild(card);
+
+            const type = String(chart.type || 'bar').toLowerCase();
+            const isDonut = type === 'donut' || type === 'pie';
+            const palette = ['#0f766e', '#0369a1', '#b45309', '#be123c', '#7c3aed', '#15803d', '#334155', '#c2410c'];
+            let options;
+            if (isDonut) {
+                options = {
+                    chart: { type: 'donut', height: 240, toolbar: { show: false } },
+                    labels: chart.labels,
+                    series: Array.isArray(chart.series) ? chart.series.map(Number) : [],
+                    colors: palette,
+                    legend: { position: 'bottom', fontSize: '11px' },
+                    dataLabels: { enabled: true },
+                };
+            } else {
+                const series = Array.isArray(chart.series) ? chart.series : [{ name: 'Count', data: [] }];
+                options = {
+                    chart: {
+                        type: type === 'column' ? 'bar' : 'bar',
+                        height: 240,
+                        toolbar: { show: false },
+                    },
+                    plotOptions: {
+                        bar: {
+                            horizontal: type === 'bar',
+                            borderRadius: 3,
+                            columnWidth: '55%',
+                        },
+                    },
+                    series: series,
+                    xaxis: { categories: chart.labels, labels: { rotate: type === 'column' ? -45 : 0, style: { fontSize: '10px' } } },
+                    colors: [palette[0]],
+                    dataLabels: { enabled: false },
+                    grid: { strokeDashArray: 4 },
+                };
+            }
+            try {
+                const apex = new ApexCharts(el, options);
+                apex.render();
+            } catch (e) {
+                el.textContent = 'Chart unavailable';
+            }
+        });
+        return wrap.childNodes.length ? wrap : null;
+    }
+
+    function renderTables(tables) {
+        if (!Array.isArray(tables) || !tables.length) return null;
+        const wrap = document.createElement('div');
+        wrap.className = 'biz-ai-tables';
+        tables.slice(0, 4).forEach(function (table) {
+            if (!table || !Array.isArray(table.columns) || !table.columns.length) return;
+            const card = document.createElement('div');
+            card.className = 'biz-ai-table-card';
+            const title = document.createElement('div');
+            title.className = 'biz-ai-table-title';
+            const rowCount = table.row_count != null ? table.row_count : ((table.rows || []).length);
+            title.textContent = (table.title || table.id || 'Results') + ' (' + rowCount + ')';
+            const scroller = document.createElement('div');
+            scroller.style.maxHeight = '280px';
+            scroller.style.overflow = 'auto';
+            const tbl = document.createElement('table');
+            tbl.className = 'biz-ai-table';
+            const thead = document.createElement('thead');
+            const hr = document.createElement('tr');
+            table.columns.forEach(function (col) {
+                const th = document.createElement('th');
+                th.textContent = String(col);
+                hr.appendChild(th);
+            });
+            thead.appendChild(hr);
+            tbl.appendChild(thead);
+            const tbody = document.createElement('tbody');
+            (table.rows || []).slice(0, 40).forEach(function (row) {
+                const tr = document.createElement('tr');
+                table.columns.forEach(function (col) {
+                    const td = document.createElement('td');
+                    let val = row && Object.prototype.hasOwnProperty.call(row, col) ? row[col] : '';
+                    if (val === null || val === undefined) val = '';
+                    if (typeof val === 'object') val = JSON.stringify(val);
+                    td.textContent = String(val);
+                    td.title = String(val);
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+            tbl.appendChild(tbody);
+            scroller.appendChild(tbl);
+            card.appendChild(title);
+            card.appendChild(scroller);
+            wrap.appendChild(card);
+        });
+        return wrap.childNodes.length ? wrap : null;
+    }
+
+    function bubble(text, role, charts, tables, note) {
         const row = document.createElement('div');
         row.className = 'biz-ai-row biz-ai-row--' + (role === 'user' ? 'user' : 'assistant');
         const b = document.createElement('div');
         b.className = 'biz-ai-bubble biz-ai-bubble--' + (role === 'user' ? 'user' : 'assistant');
         if (role === 'assistant') {
-            b.innerHTML = renderAssistantHtml(text);
+            if (note) {
+                const noteEl = document.createElement('div');
+                noteEl.className = 'biz-ai-note';
+                noteEl.innerHTML = '<strong>Note:</strong> ' + escapeHtml(String(note));
+                b.appendChild(noteEl);
+            }
+            const rich = document.createElement('div');
+            rich.innerHTML = renderAssistantHtml(stripLeadingNoteMarkdown(text));
+            while (rich.firstChild) b.appendChild(rich.firstChild);
+            const chartNode = renderCharts(charts);
+            if (chartNode) b.appendChild(chartNode);
+            const tableNode = renderTables(tables);
+            if (tableNode) b.appendChild(tableNode);
         } else {
             b.textContent = text;
         }
         row.appendChild(b);
         return row;
+    }
+
+    function escapeHtml(s) {
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function stripLeadingNoteMarkdown(text) {
+        return String(text || '').replace(/^>\s*\*\*Note:\*\*[^\n]*\n\n?/, '');
     }
 
     function thinkingBubble() {
@@ -448,7 +676,7 @@
             thread.appendChild(bubble(@json(__('admin_business_ai.welcome_message')), 'assistant'));
             msgs.forEach(function (m) {
                 const role = m.role === 'assistant' ? 'assistant' : 'user';
-                thread.appendChild(bubble(m.text || '', role));
+                thread.appendChild(bubble(m.text || '', role, m.charts || [], m.tables || [], m.note || null));
             });
             scrollBottom();
         } catch (e) {
@@ -485,7 +713,15 @@
                 body: JSON.stringify({ message: trimmed }),
             });
             removeThinking();
-            if (thread) thread.appendChild(bubble(data.reply || '', 'assistant'));
+            if (thread) {
+                thread.appendChild(bubble(
+                    data.reply || '',
+                    'assistant',
+                    data.charts || [],
+                    data.tables || [],
+                    data.note || null
+                ));
+            }
             scrollBottom();
         } catch (e) {
             removeThinking();
@@ -493,8 +729,11 @@
                 const errRow = document.createElement('div');
                 errRow.className = 'biz-ai-row biz-ai-row--assistant';
                 const errBubble = document.createElement('div');
-                errBubble.className = 'biz-ai-bubble biz-ai-bubble--assistant text-danger';
-                errBubble.textContent = String(e.message || e);
+                errBubble.className = 'biz-ai-bubble biz-ai-bubble--assistant biz-ai-bubble--error';
+                const noteEl = document.createElement('div');
+                noteEl.className = 'biz-ai-note';
+                noteEl.innerHTML = '<strong>Note:</strong> ' + escapeHtml(String(e.message || e));
+                errBubble.appendChild(noteEl);
                 errRow.appendChild(errBubble);
                 thread.appendChild(errRow);
             }

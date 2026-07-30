@@ -33,6 +33,9 @@ class AdminBusinessAiController extends Controller
             'messages' => array_map(static fn (array $m) => [
                 'role' => $m['role'] === 'model' ? 'assistant' : 'user',
                 'text' => $m['text'] ?? '',
+                'charts' => is_array($m['charts'] ?? null) ? $m['charts'] : [],
+                'tables' => is_array($m['tables'] ?? null) ? $m['tables'] : [],
+                'note' => is_string($m['note'] ?? null) ? $m['note'] : null,
                 'at' => $m['at'] ?? null,
             ], $messages),
         ]);
@@ -56,6 +59,9 @@ class AdminBusinessAiController extends Controller
         return response()->json([
             'ok' => true,
             'reply' => $result['reply'] ?? '',
+            'note' => is_string($result['note'] ?? null) ? $result['note'] : null,
+            'charts' => is_array($result['charts'] ?? null) ? $result['charts'] : [],
+            'tables' => is_array($result['tables'] ?? null) ? $result['tables'] : [],
         ]);
     }
 

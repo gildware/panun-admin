@@ -24,7 +24,7 @@ class AdminBusinessAiGeminiRunner
     ) {}
 
     /**
-     * @return array{ok: bool, reply?: string, error?: string}
+     * @return array{ok: bool, reply?: string, charts?: list<array<string, mixed>>, error?: string}
      */
     public function chat(int $adminUserId, string $userMessage): array
     {
@@ -57,8 +57,115 @@ class AdminBusinessAiGeminiRunner
                 'error' => $e->getMessage(),
             ]);
 
-            return ['ok' => false, 'error' => __('admin_business_ai.gemini_exception')];
+            return ['ok' => false, 'error' => __('admin_business_ai.gemini_exception').' Exact error: '.$e->getMessage()];
         }
+    }
+
+    /**
+     * @param  list<array{name: string, result: array<string, mixed>}>  $toolResultsBag
+     * @return list<array<string, mixed>>
+     */
+    private function extractChartsFromToolResults(array $toolResultsBag): array
+    {
+        $charts = [];
+        foreach ($toolResultsBag as $entry) {
+            $result = $entry['result'] ?? [];
+            if (! is_array($result) || ! ($result['ok'] ?? false)) {
+                continue;
+            }
+            if (isset($result['charts']) && is_array($result['charts'])) {
+                foreach ($result['charts'] as $chart) {
+                    if (is_array($chart) && ! empty($chart['labels'])) {
+                        $charts[] = $chart;
+                    }
+                }
+            }
+            if (($entry['name'] ?? '') === 'explore_business_data' && isset($result['results']) && is_array($result['results'])) {
+                foreach ($result['results'] as $nested) {
+                    if (! is_array($nested)) {
+                        continue;
+                    }
+                    $nestedResult = is_array($nested['result'] ?? null) ? $nested['result'] : [];
+                    if (isset($nestedResult['charts']) && is_array($nestedResult['charts'])) {
+                        foreach ($nestedResult['charts'] as $chart) {
+                            if (is_array($chart) && ! empty($chart['labels'])) {
+                                $charts[] = $chart;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return array_slice($charts, 0, 6);
+    }
+
+    /**
+     * @param  list<array{name: string, result: array<string, mixed>}>  $toolResultsBag
+     * @return list<array<string, mixed>>
+     */
+    private function extractTablesFromToolResults(array $toolResultsBag): array
+    {
+        $tables = [];
+        foreach ($toolResultsBag as $entry) {
+            $result = $entry['result'] ?? [];
+            if (! is_array($result) || ! ($result['ok'] ?? false)) {
+                continue;
+            }
+            if (isset($result['tables']) && is_array($result['tables'])) {
+                foreach ($result['tables'] as $table) {
+                    if (is_array($table) && ! empty($table['columns'])) {
+                        $tables[] = $table;
+                    }
+                }
+            }
+            if (($entry['name'] ?? '') === 'explore_business_data' && isset($result['results']) && is_array($result['results'])) {
+                foreach ($result['results'] as $nested) {
+                    if (! is_array($nested)) {
+                        continue;
+                    }
+                    $nestedResult = is_array($nested['result'] ?? null) ? $nested['result'] : [];
+                    if (isset($nestedResult['tables']) && is_array($nestedResult['tables'])) {
+                        foreach ($nestedResult['tables'] as $table) {
+                            if (is_array($table) && ! empty($table['columns'])) {
+                                $tables[] = $table;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return array_slice($tables, 0, 4);
+    }
+
+    /**
+     * @param  list<array{name: string, result: array<string, mixed>}>  $toolResultsBag
+     * @return array{ok: bool, reply: string, charts: list<array<string, mixed>>, tables: list<array<string, mixed>>, note?: string}
+     */
+    private function successReply(int $adminUserId, string $reply, array $toolResultsBag = [], ?string $note = null): array
+    {
+        $charts = $this->extractChartsFromToolResults($toolResultsBag);
+        $tables = $this->extractTablesFromToolResults($toolResultsBag);
+        $note = $note !== null ? trim($note) : '';
+        if ($note !== '') {
+            $reply = $this->prependNoteToReply($reply, $note);
+        }
+        $this->session->append($adminUserId, 'model', $reply, $charts, $tables, $note !== '' ? $note : null);
+
+        $out = ['ok' => true, 'reply' => $reply, 'charts' => $charts, 'tables' => $tables];
+        if ($note !== '') {
+            $out['note'] = $note;
+        }
+
+        return $out;
+    }
+
+    private function prependNoteToReply(string $reply, string $note): string
+    {
+        $block = "> **Note:** {$note}\n\n";
+
+        return str_starts_with(ltrim($reply), '> **Note:**') ? $reply : $block.$reply;
     }
 
     /**
@@ -78,6 +185,7 @@ class AdminBusinessAiGeminiRunner
         $hadToolResults = false;
         $forceTextOnly = false;
         $serverToolFallbackUsed = false;
+        $lastGeminiFailureNote = null;
         /** @var list<array{name: string, result: array<string, mixed>}> $toolResultsBag */
         $toolResultsBag = [];
 
@@ -94,15 +202,31 @@ class AdminBusinessAiGeminiRunner
                     'result' => $this->compactToolResult($this->toolExecutor->execute($toolName, $toolArgs)),
                 ];
             }
-            $deterministic = $this->buildDeterministicFallback($toolResultsBag, $userMessage);
-            if ($deterministic !== '') {
-                $this->session->append($adminUserId, 'model', $deterministic);
-
-                return ['ok' => true, 'reply' => $deterministic];
+            $anyToolSucceeded = false;
+            foreach ($toolResultsBag as $entry) {
+                if (($entry['result']['ok'] ?? false) === true) {
+                    $anyToolSucceeded = true;
+                    break;
+                }
             }
+
+            // Gemini narrates over the verified payload; the deterministic report stays in
+            // reserve for blocked/empty/refusal turns. When every forced tool failed, keep
+            // tool calling open so Gemini can reach for a different tool.
             if ($this->injectPlannedTools($mandatory, $contents, $toolResultsBag)) {
-                $hadToolResults = true;
-                $forceTextOnly = true;
+                $hadToolResults = $anyToolSucceeded;
+                $forceTextOnly = $anyToolSucceeded;
+                if ($anyToolSucceeded) {
+                    $contents[] = [
+                        'role' => 'user',
+                        'parts' => [['text' => $this->synthesisNudge($userMessage, $toolResultsBag)]],
+                    ];
+                }
+            } else {
+                $deterministic = $this->buildDeterministicFallback($toolResultsBag, $userMessage);
+                if ($deterministic !== '') {
+                    return $this->successReply($adminUserId, $deterministic, $toolResultsBag);
+                }
             }
         }
 
@@ -114,13 +238,25 @@ class AdminBusinessAiGeminiRunner
 
             if ($turn['type'] === 'blocked') {
                 $reason = (string) ($turn['reason'] ?? 'blocked');
+                $lastGeminiFailureNote = $this->geminiFailureNote($turn);
                 Log::warning('Admin business AI blocked', [
                     'reason' => $reason,
+                    'message' => (string) ($turn['message'] ?? ''),
                     'admin_id' => $adminUserId,
                     'iter' => $iter,
                     'had_tool_results' => $hadToolResults,
                     'force_text_only' => $forceTextOnly,
                 ]);
+
+                // Quota / auth / hard API failures: do not keep retrying the same Gemini call.
+                if ($this->isHardGeminiUnavailable($reason)) {
+                    $fallback = $this->buildDeterministicFallback($toolResultsBag, $userMessage);
+                    if ($fallback !== '') {
+                        return $this->successReply($adminUserId, $fallback, $toolResultsBag, $lastGeminiFailureNote);
+                    }
+
+                    return ['ok' => false, 'error' => $lastGeminiFailureNote];
+                }
 
                 if (! $serverToolFallbackUsed && ! $hadToolResults && $this->shouldUseServerToolFallback($userMessage)) {
                     if ($this->injectServerToolFallback($userMessage, $contents, $toolResultsBag)) {
@@ -136,7 +272,7 @@ class AdminBusinessAiGeminiRunner
                     $forceTextOnly = true;
                     $contents[] = [
                         'role' => 'user',
-                        'parts' => [['text' => $this->synthesisNudge($userMessage)]],
+                        'parts' => [['text' => $this->synthesisNudge($userMessage, $toolResultsBag)]],
                     ];
 
                     continue;
@@ -149,7 +285,7 @@ class AdminBusinessAiGeminiRunner
                         'role' => 'user',
                         'parts' => [[
                             'text' => $hadToolResults
-                                ? $this->synthesisNudge($userMessage)
+                                ? $this->synthesisNudge($userMessage, $toolResultsBag)
                                 : 'Call one relevant tool (e.g. get_business_reports with booking_analytics for area/zone questions), then answer in plain text with markdown headings.',
                         ]],
                     ];
@@ -159,12 +295,10 @@ class AdminBusinessAiGeminiRunner
 
                 $fallback = $this->buildDeterministicFallback($toolResultsBag, $userMessage);
                 if ($fallback !== '') {
-                    $this->session->append($adminUserId, 'model', $fallback);
-
-                    return ['ok' => true, 'reply' => $fallback];
+                    return $this->successReply($adminUserId, $fallback, $toolResultsBag, $lastGeminiFailureNote);
                 }
 
-                return ['ok' => false, 'error' => $this->blockedErrorMessage($reason)];
+                return ['ok' => false, 'error' => $lastGeminiFailureNote ?? $this->blockedErrorMessage($reason)];
             }
 
             if ($turn['type'] === 'text') {
@@ -195,7 +329,7 @@ class AdminBusinessAiGeminiRunner
                         $forceTextOnly = true;
                         $contents[] = [
                             'role' => 'user',
-                            'parts' => [['text' => $this->synthesisNudge($userMessage)]],
+                            'parts' => [['text' => $this->synthesisNudge($userMessage, $toolResultsBag)]],
                         ];
 
                         continue;
@@ -205,7 +339,7 @@ class AdminBusinessAiGeminiRunner
                         $blockedRetries++;
                         $contents[] = [
                             'role' => 'user',
-                            'parts' => [['text' => $this->synthesisNudge($userMessage)]],
+                            'parts' => [['text' => $this->synthesisNudge($userMessage, $toolResultsBag)]],
                         ];
 
                         continue;
@@ -213,12 +347,14 @@ class AdminBusinessAiGeminiRunner
 
                     $fallback = $this->buildDeterministicFallback($toolResultsBag, $userMessage);
                     if ($fallback !== '') {
-                        $this->session->append($adminUserId, 'model', $fallback);
-
-                        return ['ok' => true, 'reply' => $fallback];
+                        return $this->successReply($adminUserId, $fallback, $toolResultsBag, $lastGeminiFailureNote);
                     }
 
-                    return ['ok' => false, 'error' => __('admin_business_ai.empty_reply')];
+                    return [
+                        'ok' => false,
+                        'error' => $lastGeminiFailureNote
+                            ?? (string) __('admin_business_ai.empty_reply'),
+                    ];
                 }
                 if (! $hadToolResults
                     && $this->questionRouter->mentionsCoreDomain($userMessage)
@@ -235,15 +371,11 @@ class AdminBusinessAiGeminiRunner
                 if ($hadToolResults && $this->looksLikeDataRefusal($reply)) {
                     $fallback = $this->buildDeterministicFallback($toolResultsBag, $userMessage);
                     if ($fallback !== '') {
-                        $this->session->append($adminUserId, 'model', $fallback);
-
-                        return ['ok' => true, 'reply' => $fallback];
+                        return $this->successReply($adminUserId, $fallback, $toolResultsBag, $lastGeminiFailureNote);
                     }
                 }
 
-                $this->session->append($adminUserId, 'model', $reply);
-
-                return ['ok' => true, 'reply' => $reply];
+                return $this->successReply($adminUserId, $reply, $toolResultsBag);
             }
 
             if ($turn['type'] !== 'function_calls') {
@@ -286,15 +418,13 @@ class AdminBusinessAiGeminiRunner
             $forceTextOnly = true;
             $contents[] = [
                 'role' => 'user',
-                'parts' => [['text' => $this->synthesisNudge($userMessage)]],
+                'parts' => [['text' => $this->synthesisNudge($userMessage, $toolResultsBag)]],
             ];
         }
 
         $fallback = $this->buildDeterministicFallback($toolResultsBag, $userMessage);
         if ($fallback !== '') {
-            $this->session->append($adminUserId, 'model', $fallback);
-
-            return ['ok' => true, 'reply' => $fallback];
+            return $this->successReply($adminUserId, $fallback, $toolResultsBag, $lastGeminiFailureNote);
         }
 
         if (! $serverToolFallbackUsed && trim($userMessage) !== '') {
@@ -302,14 +432,16 @@ class AdminBusinessAiGeminiRunner
             if ($this->injectServerToolFallback($userMessage, $contents, $exploreBag)) {
                 $ultimate = $this->buildDeterministicFallback($exploreBag, $userMessage);
                 if ($ultimate !== '') {
-                    $this->session->append($adminUserId, 'model', $ultimate);
-
-                    return ['ok' => true, 'reply' => $ultimate];
+                    return $this->successReply($adminUserId, $ultimate, $exploreBag, $lastGeminiFailureNote);
                 }
             }
         }
 
-        return ['ok' => false, 'error' => __('admin_business_ai.tool_rounds_exceeded')];
+        return [
+            'ok' => false,
+            'error' => $lastGeminiFailureNote
+                ?? (string) __('admin_business_ai.tool_rounds_exceeded'),
+        ];
     }
 
     private function lastUserMessageText(int $adminUserId): string
@@ -324,16 +456,54 @@ class AdminBusinessAiGeminiRunner
         return '';
     }
 
-    private function synthesisNudge(string $userMessage): string
+    /**
+     * @param  list<array{name: string, result: array<string, mixed>}>  $toolResultsBag
+     */
+    private function synthesisNudge(string $userMessage, array $toolResultsBag = []): string
     {
         $question = $userMessage !== '' ? $userMessage : 'the admin question';
 
-        return 'Using ONLY the tool results above, answer: "'.$question.'". '
+        $nudge = 'Using ONLY the tool results above, answer: "'.$question.'". '
             .'The data is live from the database right now. You MUST answer from the tool payloads — forbidden phrases: "I don\'t have that information", "data is not available", "I cannot determine", "the report does not contain", "not in my tools", "I don\'t have access". '
             .'For categories, services, bookings, leads, customers, and providers you ALWAYS have live data when ok:true was returned. '
-            .'If a count is 0 or a list is empty, state that explicitly (e.g. "0 cancelled leads") instead of claiming missing data. '
-            .'Reply in markdown with ## headings. For focused questions, ## Executive Summary, ## Key Metrics, and a short ## Detailed Analysis are enough. '
-            .'Do not call any more tools — write the final answer now.';
+            .'If a count is 0 or a list is empty, state that explicitly (e.g. "0 cancelled leads") instead of claiming missing data. ';
+
+        if ($this->bagHasAnalyticalRows($toolResultsBag)) {
+            $nudge .= 'Write a real analysis, not a metrics dump: open with the headline finding in prose, then explain what is driving it using the reason breakdowns, timing lags, remarks and followup counts in the payload. '
+                .'Quote exact figures and cite the cancellation reasons and row-level examples that support each claim, and call out what the numbers do NOT explain. '
+                .'Charts and tables are already rendered for the admin, so do not restate every row — interpret them. '
+                .'Use markdown ## headings that describe your findings rather than generic labels. ';
+        } else {
+            $nudge .= 'Reply in markdown with ## headings. For focused questions, ## Executive Summary, ## Key Metrics, and a short ## Detailed Analysis are enough. ';
+        }
+
+        return $nudge.'Do not call any more tools — write the final answer now.';
+    }
+
+    /**
+     * True when the payload carries row-level detail worth interpreting rather than summarizing.
+     *
+     * @param  list<array{name: string, result: array<string, mixed>}>  $toolResultsBag
+     */
+    private function bagHasAnalyticalRows(array $toolResultsBag): bool
+    {
+        foreach ($toolResultsBag as $entry) {
+            $result = $entry['result'] ?? [];
+            if (! is_array($result) || ($result['ok'] ?? false) !== true) {
+                continue;
+            }
+
+            if (! empty($result['tables']) || ! empty($result['queries_executed'])) {
+                return true;
+            }
+
+            $data = is_array($result['data'] ?? null) ? $result['data'] : $result;
+            if (! empty($data['sample_bookings']) || ! empty($data['samples']) || ! empty($data['cancellation_reasons'])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function shouldUseServerToolFallback(string $userMessage): bool
@@ -442,7 +612,7 @@ class AdminBusinessAiGeminiRunner
 
             $contents[] = [
                 'role' => 'user',
-                'parts' => [['text' => $this->synthesisNudge($userMessage)]],
+                'parts' => [['text' => $this->synthesisNudge($userMessage, $toolResultsBag)]],
             ];
 
             return true;
@@ -469,7 +639,7 @@ class AdminBusinessAiGeminiRunner
         ];
         $contents[] = [
             'role' => 'user',
-            'parts' => [['text' => $this->synthesisNudge($userMessage)]],
+            'parts' => [['text' => $this->synthesisNudge($userMessage, $toolResultsBag)]],
         ];
 
         return true;
@@ -502,6 +672,10 @@ class AdminBusinessAiGeminiRunner
                     $userMessage,
                     'lead '.(string) ($result['report_type'] ?? 'customer')
                 );
+            }
+
+            if (($result['analysis'] ?? '') === 'sql_analytics' || ($entry['name'] ?? '') === 'run_sql_analytics') {
+                return $this->formatSqlAnalyticsFallback($result);
             }
 
             if (in_array($result['analysis'] ?? '', [
@@ -612,18 +786,60 @@ class AdminBusinessAiGeminiRunner
     {
         $insights = is_array($result['timing']['insights'] ?? null) ? $result['timing']['insights'] : [];
         $cohort = (string) ($result['cohort'] ?? $result['analysis'] ?? 'cohort');
-        $size = (int) ($result['cohort_size'] ?? $result['leads_in_scope'] ?? $result['bookings_in_scope'] ?? 0);
+        $size = (int) ($result['total_matching']
+            ?? $result['bookings_in_scope']
+            ?? $result['cohort_size']
+            ?? $result['leads_in_scope']
+            ?? 0);
+        $analyzed = (int) ($result['analyzed_count'] ?? $result['cohort_size'] ?? $size);
 
         $lines = [
             '## Executive Summary',
             $insights[0] ?? "Timing analysis for {$cohort} ({$size} records).",
             '',
             '## Key Metrics',
-            "- Records analyzed: **{$size}**",
+            "- Total matching: **{$size}**",
         ];
+
+        if ($analyzed > 0 && $analyzed !== $size) {
+            $lines[] = "- Records analyzed in detail: **{$analyzed}**";
+        }
 
         foreach (array_slice($insights, 0, 8) as $insight) {
             $lines[] = '- '.$insight;
+        }
+
+        $reasons = is_array($result['timing']['cancellation_reasons'] ?? null)
+            ? $result['timing']['cancellation_reasons']
+            : [];
+        if ($reasons !== []) {
+            $lines[] = '';
+            $lines[] = '## Cancellation reasons';
+            foreach (array_slice($reasons, 0, 12) as $index => $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $lines[] = sprintf(
+                    '%d. **%s** — %d',
+                    $index + 1,
+                    (string) ($row['reason'] ?? 'Unknown'),
+                    (int) ($row['count'] ?? 0)
+                );
+            }
+        }
+
+        $statusWhen = is_array($result['timing']['by_status_when_cancelled'] ?? null)
+            ? $result['timing']['by_status_when_cancelled']
+            : [];
+        if ($statusWhen !== []) {
+            $lines[] = '';
+            $lines[] = '## Status when cancelled';
+            foreach (array_slice($statusWhen, 0, 8) as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $lines[] = '- **'.(string) ($row['status'] ?? 'unknown').'**: '.(int) ($row['count'] ?? 0);
+            }
         }
 
         if (isset($result['timing']['lag_hours']) && is_array($result['timing']['lag_hours'])) {
@@ -641,6 +857,33 @@ class AdminBusinessAiGeminiRunner
                     (int) ($stats['count'] ?? 0)
                 );
             }
+        }
+
+        $samples = is_array($result['sample_bookings'] ?? null) ? $result['sample_bookings'] : [];
+        if ($samples !== []) {
+            $lines[] = '';
+            $lines[] = '## Sample cancelled bookings';
+            foreach (array_slice($samples, 0, 15) as $index => $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $lines[] = sprintf(
+                    '%d. **%s** — enquiry %s | cancelled from **%s** | reason: %s | followups: %d | remarks: %s',
+                    $index + 1,
+                    (string) ($row['readable_id'] ?? '—'),
+                    (string) ($row['enquiry_at'] ?? $row['created_at'] ?? '—'),
+                    (string) ($row['status_when_cancelled'] ?? 'unknown'),
+                    (string) ($row['cancellation_reason'] ?? $row['cancellation_remarks'] ?? '—'),
+                    (int) ($row['followups_taken'] ?? 0),
+                    trim((string) ($row['initial_remarks'] ?? $row['cancellation_remarks'] ?? '—')) ?: '—'
+                );
+            }
+        }
+
+        if (! empty($result['scan_note'])) {
+            $lines[] = '';
+            $lines[] = '## Note';
+            $lines[] = (string) $result['scan_note'];
         }
 
         return implode("\n", $lines);
@@ -856,6 +1099,79 @@ class AdminBusinessAiGeminiRunner
     /**
      * @param  array<string, mixed>  $result
      */
+    private function formatSqlAnalyticsFallback(array $result): string
+    {
+        $title = (string) ($result['title'] ?? 'SQL analytics');
+        $explanation = trim((string) ($result['explanation'] ?? ''));
+        $tables = is_array($result['tables'] ?? null) ? $result['tables'] : [];
+        $queries = is_array($result['queries_executed'] ?? null) ? $result['queries_executed'] : [];
+
+        $totalRows = 0;
+        foreach ($tables as $table) {
+            if (is_array($table)) {
+                $totalRows += (int) ($table['row_count'] ?? count($table['rows'] ?? []));
+            }
+        }
+
+        $lines = [
+            '## Executive Summary',
+            $explanation !== '' ? $explanation : "Live SQL analysis for **{$title}**.",
+            '',
+            '## Key Metrics',
+            '- Queries executed: **'.count($queries).'**',
+            '- Rows returned: **'.$totalRows.'**',
+            '- Source: **'.(string) ($result['generation_source'] ?? 'sql').'**',
+        ];
+
+        foreach ($tables as $table) {
+            if (! is_array($table)) {
+                continue;
+            }
+            $tableTitle = (string) ($table['title'] ?? $table['id'] ?? 'Result');
+            $rows = is_array($table['rows'] ?? null) ? $table['rows'] : [];
+            $columns = is_array($table['columns'] ?? null) ? $table['columns'] : [];
+            $lines[] = '';
+            $lines[] = '## '.$tableTitle;
+            $lines[] = '- Rows: **'.(int) ($table['row_count'] ?? count($rows)).'**';
+
+            if ($columns !== [] && $rows !== []) {
+                // Prefer compact bullet preview for the first aggregate/detail rows.
+                foreach (array_slice($rows, 0, 12) as $index => $row) {
+                    if (! is_array($row)) {
+                        continue;
+                    }
+                    $parts = [];
+                    foreach (array_slice($columns, 0, 8) as $col) {
+                        $val = $row[$col] ?? null;
+                        if (is_array($val) || is_object($val)) {
+                            continue;
+                        }
+                        $parts[] = $col.': '.(string) ($val ?? '—');
+                    }
+                    if ($parts !== []) {
+                        $lines[] = ($index + 1).'. '.implode(' | ', $parts);
+                    }
+                }
+            }
+        }
+
+        if ($queries !== []) {
+            $lines[] = '';
+            $lines[] = '## SQL executed';
+            foreach (array_slice($queries, 0, 3) as $q) {
+                if (! is_array($q)) {
+                    continue;
+                }
+                $lines[] = '- **'.(string) ($q['id'] ?? 'query').'**: `'.mb_substr((string) ($q['sql'] ?? ''), 0, 240).'`';
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     */
     private function formatLeadCancellationReasonsFallback(array $result): string
     {
         $analysis = (string) ($result['analysis'] ?? '');
@@ -903,6 +1219,27 @@ class AdminBusinessAiGeminiRunner
                 (string) ($row['reason'] ?? 'Unknown'),
                 (int) ($row['count'] ?? 0)
             );
+        }
+
+        $samples = is_array($result['samples'] ?? null) ? $result['samples'] : [];
+        if ($samples !== []) {
+            $lines[] = '';
+            $lines[] = '## Sample cancelled leads';
+            foreach (array_slice($samples, 0, 20) as $index => $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $lines[] = sprintf(
+                    '%d. Lead **#%s** %s — enquiry %s | reason: **%s** | followups: %d | remarks: %s',
+                    $index + 1,
+                    (string) ($row['lead_id'] ?? '—'),
+                    (string) ($row['name'] ?? ''),
+                    (string) ($row['enquiry_at'] ?? '—'),
+                    (string) ($row['cancellation_reason'] ?? '—'),
+                    (int) ($row['followups_taken'] ?? 0),
+                    trim((string) ($row['initial_remarks'] ?? $row['cancellation_remarks'] ?? '—')) ?: '—'
+                );
+            }
         }
 
         return implode("\n", $lines);
@@ -1027,6 +1364,9 @@ class AdminBusinessAiGeminiRunner
 
     private function isRetryableBlocked(string $reason): bool
     {
+        if ($this->isHardGeminiUnavailable($reason)) {
+            return false;
+        }
         if (in_array($reason, self::RETRYABLE_REASONS, true)) {
             return true;
         }
@@ -1034,19 +1374,70 @@ class AdminBusinessAiGeminiRunner
         return str_starts_with($reason, 'finish_') && $reason !== 'finish_STOP';
     }
 
+    private function isHardGeminiUnavailable(string $reason): bool
+    {
+        if (in_array($reason, ['missing_api_key', 'http_401', 'http_403', 'http_429', 'http_503'], true)) {
+            return true;
+        }
+
+        return str_starts_with($reason, 'api_') && (
+            str_contains(strtolower($reason), 'quota')
+            || str_contains(strtolower($reason), 'resource_exhausted')
+            || str_contains(strtolower($reason), 'rate')
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $turn
+     */
+    private function geminiFailureNote(array $turn): string
+    {
+        $exact = $this->exactGeminiError($turn);
+
+        return (string) __('admin_business_ai.gemini_unavailable_note', ['error' => $exact]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $turn
+     */
+    private function exactGeminiError(array $turn): string
+    {
+        $message = trim((string) ($turn['message'] ?? ''));
+        $reason = trim((string) ($turn['reason'] ?? 'blocked'));
+
+        if ($message !== '') {
+            if ($reason !== '' && ! str_contains($message, $reason)) {
+                return $message.' ('.$reason.')';
+            }
+
+            return $message;
+        }
+
+        return $this->blockedErrorMessage($reason !== '' ? $reason : 'blocked');
+    }
+
     private function blockedErrorMessage(string $reason): string
     {
         if ($reason === 'missing_api_key') {
             return (string) __('admin_business_ai.missing_api_key');
         }
+        if ($reason === 'http_429') {
+            return (string) __('admin_business_ai.gemini_quota_exceeded');
+        }
+        if (str_starts_with($reason, 'api_')) {
+            return mb_substr($reason, 4);
+        }
         if (str_starts_with($reason, 'http_')) {
-            return (string) __('admin_business_ai.gemini_http_error');
+            return (string) __('admin_business_ai.gemini_http_error').' ('.$reason.')';
         }
         if (in_array($reason, ['no_parts', 'no_candidate', 'finish_MALFORMED_FUNCTION_CALL', 'finish_UNEXPECTED_TOOL_CALL'], true)) {
-            return (string) __('admin_business_ai.gemini_empty_turn');
+            return (string) __('admin_business_ai.gemini_empty_turn').' ('.$reason.')';
+        }
+        if ($reason === 'exception') {
+            return (string) __('admin_business_ai.gemini_exception');
         }
 
-        return (string) __('admin_business_ai.gemini_error');
+        return (string) __('admin_business_ai.gemini_error').' Exact error: '.$reason;
     }
 
     /**
@@ -1095,6 +1486,20 @@ class AdminBusinessAiGeminiRunner
         }
         if (isset($compact['sample_bookings']) && is_array($compact['sample_bookings']) && count($compact['sample_bookings']) > 12) {
             $compact['sample_bookings'] = array_slice($compact['sample_bookings'], 0, 12);
+        }
+        if (isset($compact['tables']) && is_array($compact['tables'])) {
+            foreach ($compact['tables'] as $i => $table) {
+                if (! is_array($table)) {
+                    continue;
+                }
+                if (isset($table['rows']) && is_array($table['rows']) && count($table['rows']) > 25) {
+                    $compact['tables'][$i]['rows'] = array_slice($table['rows'], 0, 25);
+                    $compact['tables'][$i]['rows_truncated'] = true;
+                }
+            }
+        }
+        if (isset($compact['queries_executed']) && is_array($compact['queries_executed']) && count($compact['queries_executed']) > 5) {
+            $compact['queries_executed'] = array_slice($compact['queries_executed'], 0, 5);
         }
         if (isset($compact['timing']['sample_leads']) && is_array($compact['timing']['sample_leads']) && count($compact['timing']['sample_leads']) > 12) {
             $compact['timing']['sample_leads'] = array_slice($compact['timing']['sample_leads'], 0, 12);
@@ -1168,7 +1573,8 @@ You are the Business Expert AI for {$company}'s admin panel — a senior busines
   - Promotions: query_promotions, analyze_promotions (coupons, discounts, campaigns — active and historical).
   - Subscriptions: query_subscriptions, analyze_subscriptions (provider packages, expiring soon, by_package).
   - Cross-domain: explore_business_data — pass the question; server picks and runs multiple tools.
-- Lead cancellation reasons: analyze_leads customer_cancellation_reasons (returns by_reason ranked list). Provider: provider_cancellation_reasons. Booking cancellations: analyze_bookings cancellation_timing_report (timing.cancellation_reasons). NEVER use get_dashboard_snapshot or lead_pipeline for cancellation reasons.
+  - **Ad-hoc SQL analytics:** run_sql_analytics — understands the question, generates validated read-only MySQL SELECTs on allowlisted tables, executes them, returns tables + charts. Prefer this when the admin asks for custom columns, charts/graphs, “why” deep-dives, or anything fixed analyze_* tools cannot shape. You may pass `question` and/or a SELECT `sql`. Never invent counts without running this or another tool.
+- Lead cancellation reasons: analyze_leads customer_cancellation_reasons (returns by_reason ranked list + samples with enquiry_at, initial_remarks, followups). Provider: provider_cancellation_reasons. Booking cancellations: analyze_bookings cancellation_timing_report OR run_sql_analytics for custom columns/charts — counts canceled+refunded (admin Cancelled tab). NEVER use get_dashboard_snapshot or lead_pipeline for cancellation reasons.
 - Category performance (which categories do well): get_business_reports booking_analytics (category_wise: volume, completion rate, share). For lead conversion by category use get_lead_inbound_report. NEVER use get_business_dashboard_overview for category breakdowns.
 - Lead conversion/zone/category reports: get_lead_inbound_report (customer|provider).
 - Booking operational queues: get_booking_queues_overview + query_booking_queues (verify, offline_payment, special_scenarios, overdue_followup).

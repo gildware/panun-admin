@@ -23,4 +23,10 @@ return [
     'max_query_limit' => max(25, min(200, (int) env('ADMIN_BUSINESS_AI_MAX_QUERY_LIMIT', 100))),
 
     'max_explore_tools' => max(3, min(8, (int) env('ADMIN_BUSINESS_AI_MAX_EXPLORE_TOOLS', 6))),
+
+    // Natural-language → validated read-only SQL analytics.
+    'sql_analytics_enabled' => filter_var(env('ADMIN_BUSINESS_AI_SQL_ANALYTICS', true), FILTER_VALIDATE_BOOL),
+    'sql_analytics_max_rows' => max(10, min(500, (int) env('ADMIN_BUSINESS_AI_SQL_MAX_ROWS', 200))),
+    'sql_analytics_max_queries' => max(1, min(5, (int) env('ADMIN_BUSINESS_AI_SQL_MAX_QUERIES', 3))),
+    'sql_analytics_timeout_ms' => max(1000, min(60000, (int) env('ADMIN_BUSINESS_AI_SQL_TIMEOUT_MS', 15000))),
 ];
