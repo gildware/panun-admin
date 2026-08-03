@@ -436,6 +436,24 @@ function validatePhoneInput(input) {
     return isValid;
 }
 
+/**
+ * Strip a leading country dial code only when the remainder is a full national number.
+ * Avoids eating "91…" at the start of a valid local number (e.g. India +91 and local 9123456789).
+ */
+function splitNationalFromDialPrefix(inputVal, dialStr, expectedLength) {
+    if (!dialStr || !inputVal) {
+        return inputVal;
+    }
+    if (inputVal.indexOf(dialStr) !== 0) {
+        return inputVal;
+    }
+    const remainder = inputVal.slice(dialStr.length);
+    if (remainder.length === expectedLength) {
+        return remainder;
+    }
+    return inputVal;
+}
+
 function setIntlHiddenBestEffort(hiddenInput, iti, dialCode, localPartDigits) {
     if (!hiddenInput || !iti) {
         return;
@@ -468,6 +486,9 @@ function setIntlHiddenBestEffort(hiddenInput, iti, dialCode, localPartDigits) {
 
 document.addEventListener("DOMContentLoaded", () => {
     initializeIntlTelInput();
+    try {
+        document.dispatchEvent(new CustomEvent("intl-tel-input:initialized"));
+    } catch (e) {}
 
     document.addEventListener("input", function (e) {
         if (e.target.matches('input[type="tel"]')) {
@@ -482,8 +503,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const expectedLength = getLocalExampleNumberLength(iti);
 
             const dialStr = dialCode != null ? String(dialCode) : "";
-            let dialCodeIndex = dialStr ? inputVal.indexOf(dialStr) : -1;
-            let localPart = dialCodeIndex >= 0 ? inputVal.slice(dialCodeIndex + dialStr.length) : inputVal;
+            let localPart = splitNationalFromDialPrefix(inputVal, dialStr, expectedLength);
 
             if (!inProviderWizard && localPart.length > expectedLength) {
                 localPart = localPart.slice(0, expectedLength + 4);

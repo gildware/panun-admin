@@ -14,6 +14,7 @@
         (int) @filemtime(public_path('assets/admin-module/js/admin-image-fallback.js')),
         (int) @filemtime(public_path('assets/admin-module/js/admin-global-search.js')),
         (int) @filemtime(public_path('assets/admin-module/js/bootstrap-jquery-modal-bridge.js')),
+        2026080323,
     ) ?: time();
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{$site_direction}}">
@@ -53,12 +54,21 @@
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/toastr.css">
 
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/style.css?v={{$adminAssetVersion}}"/>
+    <link rel="stylesheet" href="{{ asset('assets/chatting-module/css/staff-chat-entity-badges.css') }}?v={{ @filemtime(public_path('assets/chatting-module/css/staff-chat-entity-badges.css')) ?: time() }}"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/dev.css?v={{$adminAssetVersion}}"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/dev-tahir.css"/>
     @if($adminUsesTopNav)
         <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/top-nav.css?v={{$adminAssetVersion}}"/>
     @endif
     @if($adminUsesPartialNav)
+        <style>
+            html:not(.admin-shell-ready) body .main-area {
+                opacity: 0 !important;
+                pointer-events: none;
+            }
+            turbo-frame#admin-main.admin-main-frame--loading,
+            #admin-main.admin-main-frame--loading { visibility: hidden; }
+        </style>
         <script>
             if (sessionStorage.getItem('admin_shell_ready') === '1') {
                 document.documentElement.classList.add('admin-skip-preloader');
@@ -69,9 +79,7 @@
     <link rel="stylesheet" href="{{asset('assets/common')}}/plugins/cropperjs/cropper.min.css"/>
     <link rel="stylesheet" href="{{asset('assets/common')}}/css/image-crop-upload.css?v={{ @filemtime(public_path('assets/common/css/image-crop-upload.css')) ?: time() }}"/>
 
-    @unless($adminUsesPartialNav)
-        @stack('css_or_js')
-    @endunless
+    @stack('css_or_js')
 </head>
 
 <body class="{{ $adminUsesTopNav ? 'nav-top' : '' }}"
@@ -81,6 +89,14 @@
       @if($adminUsesPartialNav) data-partial-nav="1"@endif>
 <script>
     localStorage.theme && document.querySelector('body').setAttribute("data-bs-theme", localStorage.theme);
+    (function () {
+        if (!document.body.classList.contains('nav-top')) {
+            return;
+        }
+        if (localStorage.getItem('admin_top_chrome_mode') === 'auto-hide') {
+            document.body.classList.add('top-chrome-auto-hide');
+        }
+    })();
 </script>
 
 <div class="offcanvas-overlay"></div>
@@ -103,8 +119,7 @@
 
 <main class="main-area">
     @if($adminUsesPartialNav)
-        <turbo-frame id="admin-main" class="admin-main-frame" data-turbo-cache="false">
-            @stack('css_or_js')
+        <turbo-frame id="admin-main" class="admin-main-frame admin-main-frame--loading" data-turbo-cache="false" aria-busy="true">
     @endif
 
     @yield('content')

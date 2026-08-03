@@ -951,6 +951,14 @@ class AdminBusinessAiLeadInsightService
         $noReason = 0;
         $cancelledTotal = 0;
 
+        $followupsByLead = $customerLeads->isEmpty()
+            ? collect()
+            : LeadFollowup::query()
+                ->whereIn('lead_id', $customerLeads->pluck('id')->all())
+                ->orderBy('followup_at')
+                ->get()
+                ->groupBy('lead_id');
+
         foreach ($customerLeads as $lead) {
             $p = $profiles[(int) $lead->id]['customer'] ?? null;
             if (! is_array($p) || ! ($p['is_cancelled'] ?? false)) {
@@ -963,29 +971,51 @@ class AdminBusinessAiLeadInsightService
                 $reason = '(No reason recorded)';
             }
             $byReason[$reason] = ($byReason[$reason] ?? 0) + 1;
-            if (count($samples) < 15) {
+            if (count($samples) < 40) {
+                $leadFollowups = $followupsByLead->get($lead->id, collect());
                 $samples[] = [
                     'lead_id' => $lead->id,
                     'name' => $lead->name,
                     'phone' => $lead->phone_number,
-                    'cancellation_reason' => $p['cancellation_reason'],
+                    'enquiry_at' => $lead->date_time_of_lead_received?->toIso8601String(),
+                    'initial_remarks' => $lead->remarks,
+                    'cancellation_reason' => $p['cancellation_reason'] ?: '(No reason recorded)',
                     'cancellation_remarks' => $p['cancellation_remarks'],
                     'status' => $p['status'] ?? null,
                     'handled_by' => $lead->handled_by,
+                    'followups_taken' => $leadFollowups->count(),
+                    'first_followup_at' => $leadFollowups->first()?->followup_at?->toIso8601String(),
+                    'followups' => $leadFollowups->take(5)->map(fn (LeadFollowup $f) => [
+                        'at' => $f->followup_at?->toIso8601String(),
+                        'remarks' => $f->remarks,
+                        'status' => $f->status ?? null,
+                    ])->values()->all(),
                 ];
             }
         }
 
         arsort($byReason);
 
+        $reasonRows = collect($byReason)->map(fn ($count, $reason) => [
+            'reason' => $reason,
+            'count' => $count,
+        ])->values()->all();
+
         return [
             'cancelled_customer_leads' => $cancelledTotal,
             'without_recorded_reason' => $noReason,
-            'by_reason' => collect($byReason)->map(fn ($count, $reason) => [
-                'reason' => $reason,
-                'count' => $count,
-            ])->values()->all(),
+            'by_reason' => $reasonRows,
             'samples' => $samples,
+            'charts' => $reasonRows === [] ? [] : [[
+                'id' => 'customer_cancellation_reasons',
+                'type' => 'bar',
+                'title' => 'Customer lead cancellation reasons',
+                'labels' => array_map(fn ($r) => (string) $r['reason'], array_slice($reasonRows, 0, 12)),
+                'series' => [[
+                    'name' => 'Leads',
+                    'data' => array_map(fn ($r) => (int) $r['count'], array_slice($reasonRows, 0, 12)),
+                ]],
+            ]],
         ];
     }
 
@@ -1636,12 +1666,21 @@ class AdminBusinessAiLeadInsightService
             'phone' => $lead->phone_number,
             'lead_type' => $lead->lead_type,
             'status' => $profileBlock['status'] ?? ($profileBlock['reason'] ?? null),
+            'cancellation_reason' => $profileBlock['cancellation_reason'] ?? null,
+            'cancellation_remarks' => $profileBlock['cancellation_remarks'] ?? ($profileBlock['remarks'] ?? null),
+            'initial_remarks' => $lead->remarks,
             'handled_by_name' => $handlerName,
             'received_at' => $receivedAt?->toIso8601String(),
+            'enquiry_at' => $receivedAt?->toIso8601String(),
             'received_hour' => $receivedAt ? (int) $receivedAt->format('G') : null,
             'received_day' => $receivedAt?->format('D'),
             'first_whatsapp_reply_at' => $wa['first_outbound_reply_at'] ?? null,
             'first_staff_followup_at' => $firstFollowup?->followup_at?->toIso8601String(),
+            'followups_taken' => $followups->count(),
+            'followups' => $followups->sortBy('followup_at')->take(5)->map(fn (LeadFollowup $f) => [
+                'at' => $f->followup_at?->toIso8601String(),
+                'remarks' => $f->remarks,
+            ])->values()->all(),
             'first_data_update_at' => $firstHistory?->created_at?->toIso8601String(),
             'marked_invalid_at' => $invalidHistory?->created_at?->toIso8601String(),
             'last_updated_at' => $touchpoints->max() instanceof Carbon ? $touchpoints->max()->toIso8601String() : null,

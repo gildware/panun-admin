@@ -90,6 +90,15 @@
                     @endphp
                     <ul class="nav justify-content-end align-items-center gap-3 gap-md-4">
                         <li class="nav-item max-sm-m-0">
+                            <a href="{{ route('admin.process-guides.index') }}"
+                               class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none"
+                               @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif
+                               title="{{ translate('Process_Guides') }}">
+                                <span class="material-symbols-outlined" aria-hidden="true">menu_book</span>
+                                <span class="d-none d-md-block">{{ translate('Process_Guides') }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item max-sm-m-0">
                             <a href="{{ route('admin.task-board.index') }}"
                                class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none"
                                @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif
@@ -212,24 +221,14 @@
                         </li>
                         @endcan
                         <li class="nav-item max-sm-m-0">
-                            <div class="notification update-notification pe--12">
-                                <a href="#" class="header-icon count-btn notification-icon" data-bs-toggle="dropdown"
-                                   title="{{ translate('Notifications') }}"
-                                   aria-label="{{ translate('Notifications') }}">
-                                    <span class="material-symbols-outlined">notifications</span>
-                                    <span class="count" id="notification_count" style="display:{{ ($notificationUnreadCount ?? 0) > 0 ? 'flex' : 'none' }};">{{ ($notificationUnreadCount ?? 0) > 0 ? (($notificationUnreadCount > 99) ? '99+' : $notificationUnreadCount) : '' }}</span>
-                                </a>
-                                <div class="dropdown-menu dropdown-menu-right p-0" style="min-width:22rem;max-width:26rem;">
-                                    <div class="show-notification-list" id="show-notification-list" style="max-height:24rem;overflow-y:auto;"></div>
-                                    <div class="border-top py-2 px-3 text-center bg-white">
-                                        <a href="{{ route('admin.notifications.index') }}"
-                                           class="btn btn-sm btn-link text-decoration-none fw-semibold js-view-all-notifications"
-                                           @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
-                                            {{ translate('view_all') }}
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
+                            @include('adminmodule::layouts.partials._notification-dropdown', [
+                                'category' => \Modules\AdminModule\Entities\UserNotification::CATEGORY_EXTERNAL,
+                            ])
+                        </li>
+                        <li class="nav-item max-sm-m-0">
+                            @include('adminmodule::layouts.partials._notification-dropdown', [
+                                'category' => \Modules\AdminModule\Entities\UserNotification::CATEGORY_INTERNAL,
+                            ])
                         </li>
                         <li class="nav-item max-sm-m-0">
                             <div class="user mt-n1">

@@ -1,7 +1,8 @@
 <?php
 
 /**
- * Pet Grooming catalog — category, sub-categories, services, and variants.
+ * Pet Grooming catalog — final recommended set (no monthly plans).
+ * Unique Dog/Cat service names to avoid duplicacy.
  */
 
 if (! function_exists('pet_grooming_dog_sizes')) {
@@ -12,29 +13,6 @@ if (! function_exists('pet_grooming_dog_sizes')) {
             'medium' => 'Medium (10–25 kg)',
             'large' => 'Large (25–40 kg)',
             'extra-large' => 'Extra large (40+ kg)',
-        ];
-
-        $variants = [];
-        foreach ($labels as $key => $label) {
-            $variants[] = [
-                'variant_key' => $key,
-                'title' => $label,
-                'variation_label' => $label,
-                'price' => (float) ($prices[$key] ?? 0),
-            ];
-        }
-
-        return $variants;
-    }
-}
-
-if (! function_exists('pet_grooming_dog_sizes_three')) {
-    function pet_grooming_dog_sizes_three(array $prices): array
-    {
-        $labels = [
-            'small' => 'Small (up to 10 kg)',
-            'medium' => 'Medium (10–25 kg)',
-            'large' => 'Large (25–40 kg)',
         ];
 
         $variants = [];
@@ -71,35 +49,15 @@ if (! function_exists('pet_grooming_cat_coats')) {
     }
 }
 
-if (! function_exists('pet_grooming_per_pet')) {
-    function pet_grooming_per_pet(float $price): array
+if (! function_exists('pet_grooming_standard')) {
+    function pet_grooming_standard(float $price): array
     {
         return [[
-            'variant_key' => 'per-pet',
-            'title' => 'Per pet',
-            'variation_label' => 'Per pet',
+            'variant_key' => 'standard',
+            'title' => 'Standard',
+            'variation_label' => 'Standard',
             'price' => $price,
         ]];
-    }
-}
-
-if (! function_exists('pet_grooming_monthly_plan')) {
-    function pet_grooming_monthly_plan(array $prices): array
-    {
-        return [
-            [
-                'variant_key' => '1-visit-per-month',
-                'title' => '1 visit per month',
-                'variation_label' => '1 visit per month',
-                'price' => (float) ($prices['1-visit'] ?? 0),
-            ],
-            [
-                'variant_key' => '2-visits-per-month',
-                'title' => '2 visits per month',
-                'variation_label' => '2 visits per month',
-                'price' => (float) ($prices['2-visits'] ?? 0),
-            ],
-        ];
     }
 }
 
@@ -125,10 +83,15 @@ return [
             'sort_order' => 2,
         ],
     ],
+    // Deactivate on live if still present (kept for booking history).
+    'deactivate_service_slugs' => [
+        'dog-monthly-grooming-plan',
+        'cat-monthly-grooming-plan',
+    ],
     'services' => [
         // Dog Grooming
         [
-            'name' => 'Full Dog Grooming',
+            'name' => 'Dog Full Grooming',
             'slug' => 'full-dog-grooming',
             'sub_category_slug' => 'dog-grooming',
             'base_price' => 799.0,
@@ -149,25 +112,18 @@ return [
             'variants' => pet_grooming_dog_sizes(['small' => 599, 'medium' => 749, 'large' => 949, 'extra-large' => 1149]),
         ],
         [
-            'name' => 'Dog Nail Clipping',
-            'slug' => 'dog-nail-clipping',
+            'name' => 'Dog Spa Package',
+            'slug' => 'dog-spa-package',
             'sub_category_slug' => 'dog-grooming',
-            'base_price' => 199.0,
-            'variants' => pet_grooming_per_pet(199.0),
+            'base_price' => 999.0,
+            'variants' => pet_grooming_dog_sizes(['small' => 999, 'medium' => 1199, 'large' => 1499, 'extra-large' => 1799]),
         ],
         [
-            'name' => 'Dog Ear Cleaning',
-            'slug' => 'dog-ear-cleaning',
+            'name' => 'Dog Flea & Tick Bath',
+            'slug' => 'dog-flea-tick-bath',
             'sub_category_slug' => 'dog-grooming',
-            'base_price' => 149.0,
-            'variants' => pet_grooming_per_pet(149.0),
-        ],
-        [
-            'name' => 'Dog Teeth Brushing',
-            'slug' => 'dog-teeth-brushing',
-            'sub_category_slug' => 'dog-grooming',
-            'base_price' => 149.0,
-            'variants' => pet_grooming_per_pet(149.0),
+            'base_price' => 599.0,
+            'variants' => pet_grooming_dog_sizes(['small' => 599, 'medium' => 749, 'large' => 949, 'extra-large' => 1149]),
         ],
         [
             'name' => 'Dog Deshedding Treatment',
@@ -180,18 +136,14 @@ return [
             ],
         ],
         [
-            'name' => 'Dog Flea & Tick Bath',
-            'slug' => 'dog-flea-tick-bath',
+            'name' => 'Dog Mat Removal',
+            'slug' => 'dog-mat-removal',
             'sub_category_slug' => 'dog-grooming',
-            'base_price' => 449.0,
-            'variants' => pet_grooming_dog_sizes_three(['small' => 449, 'medium' => 549, 'large' => 649]),
-        ],
-        [
-            'name' => 'Dog Paw Pad Trim',
-            'slug' => 'dog-paw-pad-trim',
-            'sub_category_slug' => 'dog-grooming',
-            'base_price' => 149.0,
-            'variants' => pet_grooming_per_pet(149.0),
+            'base_price' => 399.0,
+            'variants' => [
+                ['variant_key' => 'mild-mats', 'title' => 'Mild mats', 'variation_label' => 'Mild mats', 'price' => 399.0],
+                ['variant_key' => 'severe-mats', 'title' => 'Severe mats', 'variation_label' => 'Severe mats', 'price' => 699.0],
+            ],
         ],
         [
             'name' => 'Puppy First Groom',
@@ -210,25 +162,40 @@ return [
             'slug' => 'senior-dog-gentle-groom',
             'sub_category_slug' => 'dog-grooming',
             'base_price' => 899.0,
-            'variants' => pet_grooming_dog_sizes_three(['small' => 899, 'medium' => 1099, 'large' => 1399]),
+            'variants' => pet_grooming_dog_sizes(['small' => 899, 'medium' => 1099, 'large' => 1399, 'extra-large' => 1699]),
         ],
         [
-            'name' => 'Dog Spa Package',
-            'slug' => 'dog-spa-package',
+            'name' => 'Dog Nail Clipping',
+            'slug' => 'dog-nail-clipping',
             'sub_category_slug' => 'dog-grooming',
-            'base_price' => 999.0,
-            'variants' => pet_grooming_dog_sizes_three(['small' => 999, 'medium' => 1199, 'large' => 1499]),
+            'base_price' => 199.0,
+            'variants' => pet_grooming_standard(199.0),
         ],
         [
-            'name' => 'Dog Monthly Grooming Plan',
-            'slug' => 'dog-monthly-grooming-plan',
+            'name' => 'Dog Ear Cleaning',
+            'slug' => 'dog-ear-cleaning',
             'sub_category_slug' => 'dog-grooming',
-            'base_price' => 699.0,
-            'variants' => pet_grooming_monthly_plan(['1-visit' => 699, '2-visits' => 1299]),
+            'base_price' => 149.0,
+            'variants' => pet_grooming_standard(149.0),
         ],
+        [
+            'name' => 'Dog Paw Pad Trim',
+            'slug' => 'dog-paw-pad-trim',
+            'sub_category_slug' => 'dog-grooming',
+            'base_price' => 149.0,
+            'variants' => pet_grooming_standard(149.0),
+        ],
+        [
+            'name' => 'Dog Teeth Brushing',
+            'slug' => 'dog-teeth-brushing',
+            'sub_category_slug' => 'dog-grooming',
+            'base_price' => 149.0,
+            'variants' => pet_grooming_standard(149.0),
+        ],
+
         // Cat Grooming
         [
-            'name' => 'Full Cat Grooming',
+            'name' => 'Cat Full Grooming',
             'slug' => 'full-cat-grooming',
             'sub_category_slug' => 'cat-grooming',
             'base_price' => 699.0,
@@ -242,6 +209,27 @@ return [
             'variants' => pet_grooming_cat_coats(['short-hair' => 449, 'long-hair' => 599]),
         ],
         [
+            'name' => 'Cat Spa Package',
+            'slug' => 'cat-spa-package',
+            'sub_category_slug' => 'cat-grooming',
+            'base_price' => 899.0,
+            'variants' => pet_grooming_cat_coats(['short-hair' => 899, 'long-hair' => 1099]),
+        ],
+        [
+            'name' => 'Cat Flea & Tick Bath',
+            'slug' => 'cat-flea-tick-bath',
+            'sub_category_slug' => 'cat-grooming',
+            'base_price' => 549.0,
+            'variants' => pet_grooming_cat_coats(['short-hair' => 549, 'long-hair' => 699]),
+        ],
+        [
+            'name' => 'Cat Lion Cut',
+            'slug' => 'cat-lion-cut',
+            'sub_category_slug' => 'cat-grooming',
+            'base_price' => 799.0,
+            'variants' => pet_grooming_standard(799.0),
+        ],
+        [
             'name' => 'Cat Mat Removal',
             'slug' => 'cat-mat-removal',
             'sub_category_slug' => 'cat-grooming',
@@ -250,27 +238,6 @@ return [
                 ['variant_key' => 'mild-mats', 'title' => 'Mild mats', 'variation_label' => 'Mild mats', 'price' => 399.0],
                 ['variant_key' => 'severe-mats', 'title' => 'Severe mats', 'variation_label' => 'Severe mats', 'price' => 699.0],
             ],
-        ],
-        [
-            'name' => 'Cat Lion Cut',
-            'slug' => 'cat-lion-cut',
-            'sub_category_slug' => 'cat-grooming',
-            'base_price' => 799.0,
-            'variants' => pet_grooming_per_pet(799.0),
-        ],
-        [
-            'name' => 'Cat Nail Trim',
-            'slug' => 'cat-nail-trim',
-            'sub_category_slug' => 'cat-grooming',
-            'base_price' => 149.0,
-            'variants' => pet_grooming_per_pet(149.0),
-        ],
-        [
-            'name' => 'Cat Ear Cleaning',
-            'slug' => 'cat-ear-cleaning',
-            'sub_category_slug' => 'cat-grooming',
-            'base_price' => 129.0,
-            'variants' => pet_grooming_per_pet(129.0),
         ],
         [
             'name' => 'Kitten First Groom',
@@ -292,18 +259,25 @@ return [
             'variants' => pet_grooming_cat_coats(['short-hair' => 749, 'long-hair' => 949]),
         ],
         [
-            'name' => 'Cat Flea & Tick Bath',
-            'slug' => 'cat-flea-tick-bath',
+            'name' => 'Cat Nail Trim',
+            'slug' => 'cat-nail-trim',
             'sub_category_slug' => 'cat-grooming',
-            'base_price' => 399.0,
-            'variants' => pet_grooming_per_pet(399.0),
+            'base_price' => 149.0,
+            'variants' => pet_grooming_standard(149.0),
         ],
         [
-            'name' => 'Cat Monthly Grooming Plan',
-            'slug' => 'cat-monthly-grooming-plan',
+            'name' => 'Cat Ear Cleaning',
+            'slug' => 'cat-ear-cleaning',
             'sub_category_slug' => 'cat-grooming',
-            'base_price' => 599.0,
-            'variants' => pet_grooming_monthly_plan(['1-visit' => 599, '2-visits' => 1099]),
+            'base_price' => 129.0,
+            'variants' => pet_grooming_standard(129.0),
+        ],
+        [
+            'name' => 'Cat Teeth Brushing',
+            'slug' => 'cat-teeth-brushing',
+            'sub_category_slug' => 'cat-grooming',
+            'base_price' => 129.0,
+            'variants' => pet_grooming_standard(129.0),
         ],
     ],
 ];

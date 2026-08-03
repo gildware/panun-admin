@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Resize and brand-recolor AI-generated laundry icons (post-process only, no drawing)."""
+"""Post-process AI-generated laundry category + variant icons."""
 
 from __future__ import annotations
 
 import json
-import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -15,7 +15,7 @@ SRC = Path("/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/as
 ROOT = Path(__file__).resolve().parent
 CAT_SRC = ROOT / "assets" / "category-icons"
 VARIANT_OUT = ROOT / "assets" / "variant-icons"
-MANIFEST = ROOT / "data" / "laundry-catalog-manifest.json"
+PROMPTS = ROOT / "assets" / "data" / "laundry-icon-prompts.json"
 
 
 def recolor(img: Image.Image) -> Image.Image:
@@ -43,11 +43,23 @@ def recolor(img: Image.Image) -> Image.Image:
     return img
 
 
-def save_variant(name: str) -> None:
-    src = SRC / f"{name}.png"
+def save_category(slug: str) -> None:
+    src = SRC / f"{slug}.png"
     if not src.is_file():
-        raise SystemExit(f"Missing AI icon: {src}")
-    out = VARIANT_OUT / f"{name}.png"
+        raise SystemExit(f"Missing AI category icon: {src}")
+    dest = CAT_SRC / f"{slug}.png"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    img = recolor(Image.open(src))
+    img = img.resize((512, 512), Image.Resampling.LANCZOS)
+    img.convert("RGB").save(dest, "PNG", optimize=True)
+    print(f"Wrote {dest}")
+
+
+def save_variant(filename: str) -> None:
+    src = SRC / filename
+    if not src.is_file():
+        raise SystemExit(f"Missing AI variant icon: {src}")
+    out = VARIANT_OUT / filename
     img = recolor(Image.open(src))
     img = img.resize((512, 512), Image.Resampling.LANCZOS)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -55,40 +67,30 @@ def save_variant(name: str) -> None:
     print(f"Wrote {out}")
 
 
-def save_subcategory(slug: str) -> None:
-    src = SRC / f"{slug}.png"
-    if not src.is_file():
-        raise SystemExit(f"Missing AI icon: {src}")
-    dest = CAT_SRC / f"{slug}.png"
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(src, dest)
-    print(f"Copied {dest}")
-
-
 def main() -> None:
-    for slug in ("dry-clean", "wash-laundry"):
-        save_subcategory(slug)
+    if not PROMPTS.is_file():
+        subprocess.run([sys.executable, str(ROOT / "assets" / "laundry_icon_prompts.py")], check=True)
 
-    data = json.loads(MANIFEST.read_text())
-    names: list[str] = []
-    for svc in data["services"]:
-        slug = svc["slug"]
-        for variant in svc["variants"]:
-            names.append(f"{slug}-{variant['variant_key']}")
-    names.append("lehenga-dry-clean")
+    data = json.loads(PROMPTS.read_text())
+    missing: list[str] = []
 
-    missing = []
-    for name in names:
-        if not (SRC / f"{name}.png").is_file():
-            missing.append(name)
+    for row in data["categories"]:
+        if not (SRC / row["filename"]).is_file():
+            missing.append(row["filename"])
             continue
-        save_variant(name)
+        save_category(row["slug"])
+
+    for row in data["variants"]:
+        if not (SRC / row["filename"]).is_file():
+            missing.append(row["filename"])
+            continue
+        save_variant(row["filename"])
 
     if missing:
-        print("MISSING:", ", ".join(missing), file=sys.stderr)
+        print("MISSING AI icons:", ", ".join(missing), file=sys.stderr)
         sys.exit(2)
 
-    print("Done. Run make_theme_pairs for subcategory light/dark next.")
+    print("Done. Run make_theme_pairs for category light/dark next.")
 
 
 if __name__ == "__main__":

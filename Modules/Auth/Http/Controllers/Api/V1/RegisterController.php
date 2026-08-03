@@ -22,6 +22,7 @@ use Modules\Auth\Services\ProviderRegistrationSubscriptionService;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderRegistrationDraft;
 use Modules\ProviderManagement\Entities\ProviderSetting;
+use Modules\ProviderManagement\Services\ProviderContactUniquenessGuard;
 use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
 use App\Lib\PaymentAccessToken;
@@ -643,34 +644,40 @@ class RegisterController extends Controller
             $owner->is_phone_verified = 1;
         }
 
-        DB::transaction(function () use ($provider, $owner, $leafZoneIds, $request) {
-            $owner->save();
-            $provider->user_id = $owner->id;
-            $provider->save();
-            $owner->zones()->sync($leafZoneIds);
-            $provider->zones()->sync(
-                collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
-            );
+        app(ProviderContactUniquenessGuard::class)->run(
+            (string) $request->contact_person_phone,
+            (string) $request->contact_person_email,
+            function () use ($provider, $owner, $leafZoneIds, $request) {
+                DB::transaction(function () use ($provider, $owner, $leafZoneIds, $request) {
+                    $owner->save();
+                    $provider->user_id = $owner->id;
+                    $provider->save();
+                    $owner->zones()->sync($leafZoneIds);
+                    $provider->zones()->sync(
+                        collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
+                    );
 
-            $subCategoryIds = app(ProviderRegistrationSubscriptionService::class)
-                ->requestedIdsFromMixedInput($request->input('subscribed_sub_category_ids', []));
-            app(ProviderRegistrationSubscriptionService::class)->syncForProvider(
-                $provider,
-                $leafZoneIds,
-                $subCategoryIds
-            );
+                    $subCategoryIds = app(ProviderRegistrationSubscriptionService::class)
+                        ->requestedIdsFromMixedInput($request->input('subscribed_sub_category_ids', []));
+                    app(ProviderRegistrationSubscriptionService::class)->syncForProvider(
+                        $provider,
+                        $leafZoneIds,
+                        $subCategoryIds
+                    );
 
-            $serviceLocation = ['customer'];
-            ProviderSetting::create([
-                'provider_id'   => $provider->id,
-                'key_name'      => 'service_location',
-                'live_values'   => json_encode($serviceLocation),
-                'test_values'   => json_encode($serviceLocation),
-                'settings_type' => 'provider_config',
-                'mode'          => 'live',
-                'is_active'     => 1,
-            ]);
-        });
+                    $serviceLocation = ['customer'];
+                    ProviderSetting::create([
+                        'provider_id'   => $provider->id,
+                        'key_name'      => 'service_location',
+                        'live_values'   => json_encode($serviceLocation),
+                        'test_values'   => json_encode($serviceLocation),
+                        'settings_type' => 'provider_config',
+                        'mode'          => 'live',
+                        'is_active'     => 1,
+                    ]);
+                });
+            }
+        );
 
         if (function_exists('admin_inbox_notify_provider_request')) {
             admin_inbox_notify_provider_request($provider);

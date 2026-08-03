@@ -12,6 +12,7 @@ use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\ProviderManagement\Http\Requests\ProviderStoreRequest;
+use Modules\ProviderManagement\Services\ProviderContactUniquenessGuard;
 use Modules\ProviderManagement\Services\ProviderProfileChangeRequestService;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ServiceManagement\Entities\Service;
@@ -299,15 +300,21 @@ class ProviderController extends Controller
         $owner->password = bcrypt(provider_default_password_plain($request->contact_person_phone));
         $owner->user_type = 'provider-admin';
 
-        DB::transaction(function () use ($provider, $owner, $leafZoneIds) {
-            $owner->save();
-            $owner->zones()->sync($leafZoneIds);
-            $provider->user_id = $owner->id;
-            $provider->save();
-            $provider->zones()->sync(
-                collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
-            );
-        });
+        app(ProviderContactUniquenessGuard::class)->run(
+            (string) $request->contact_person_phone,
+            (string) $request->contact_person_email,
+            function () use ($provider, $owner, $leafZoneIds) {
+                DB::transaction(function () use ($provider, $owner, $leafZoneIds) {
+                    $owner->save();
+                    $owner->zones()->sync($leafZoneIds);
+                    $provider->user_id = $owner->id;
+                    $provider->save();
+                    $provider->zones()->sync(
+                        collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
+                    );
+                });
+            }
+        );
 
         return response()->json(response_formatter(PROVIDER_STORE_200), 200);
     }

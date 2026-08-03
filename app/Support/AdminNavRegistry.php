@@ -381,7 +381,8 @@ class AdminNavRegistry
             self::entry('insights', $group, translate('Reports'), translate('Business Reports'), route('admin.report.business.overview'), ['admin/report/business*']),
             self::entry('insights', $group, translate('Reports'), translate('Booking Reports'), route('admin.report.booking'), ['admin/report/booking']),
             self::entry('insights', $group, translate('Reports'), translate('Provider Reports'), route('admin.report.provider'), ['admin/report/provider']),
-            self::entry('insights', $group, translate('Reports'), translate('Lead_Reports'), route('admin.lead.reports.index', ['tab' => 'inbound']), ['admin/lead/reports'], ['admin.lead.reports.index']),
+            self::entry('insights', $group, translate('Reports'), translate('Inbound_Lead_Reports'), route('admin.lead.reports.inbound'), ['admin/lead/reports/inbound*', 'admin/lead/reports'], ['admin.lead.reports.inbound', 'admin.lead.reports.index']),
+            self::entry('insights', $group, translate('Reports'), translate('Outbound_Lead_Reports'), route('admin.lead.reports.outbound'), ['admin/lead/reports/outbound*'], ['admin.lead.reports.outbound']),
             self::entry('insights', $group, translate('Reports'), translate('User_Report'), route('admin.lead.reports.user', ['user_id' => auth()->id()]), ['admin/lead/reports/user*'], ['admin.lead.reports.user']),
             self::entry('insights', $group, translate('Reports'), translate('Daily_Employee_Report'), route('admin.report.daily-employee'), ['admin/report/daily-employee*'], ['admin.report.daily-employee']),
             self::entry('insights', $group, translate('Analytics'), translate('Keyword_Search'), route('admin.analytics.search.keyword'), ['admin/analytics/search/keyword']),
@@ -490,6 +491,7 @@ class AdminNavRegistry
         $group = translate('Team');
 
         return [
+            self::entry('team', $group, null, translate('Process_Guides'), route('admin.process-guides.index'), ['admin/process-guides*']),
             self::entry('team', $group, null, translate('Task_Board'), route('admin.task-board.index'), ['admin/task-board*']),
             self::entry('team', $group, null, translate('Employee Role Setup'), route('admin.role.index'), ['admin/role/*']),
             self::entry('team', $group, null, translate('employee_list'), route('admin.employee.index'), ['admin/employee/list', 'admin/employee/edit/*']),

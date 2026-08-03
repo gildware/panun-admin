@@ -1,0 +1,60 @@
+Asset validation passed for 19 services.
+Category ready: Masonary Services (masonry)
+Category ready: Masonry Installation (masonry-installation)
+Category ready: Masonry Repair (masonry-repair)
+Category ready: Masonry Inspection (masonry-inspection)
+Deactivated subcategory: masonry-installs
+Deactivated subcategory: masonry-repairs
+CREATED service: Masonry Brick Install
+  variants: 1 x 20 zones
+CREATED service: Masonry Plaster Install
+  variants: 1 x 20 zones
+CREATED service: Masonry Tile Install
+  variants: 1 x 20 zones
+CREATED service: Masonry Marble Install
+  variants: 1 x 20 zones
+CREATED service: Masonry Stone Install
+  variants: 1 x 20 zones
+CREATED service: Masonry Stair Install
+  variants: 1 x 20 zones
+CREATED service: Masonry Waterproof Install
+  variants: 1 x 20 zones
+CREATED service: Masonry Boundary Install
+  variants: 1 x 20 zones
+CREATED service: Masonry Full Bathroom Setup
+  variants: 1 x 20 zones
+CREATED service: Masonry Crack Repair
+  variants: 1 x 20 zones
+CREATED service: Masonry Plaster Repair
+  variants: 1 x 20 zones
+CREATED service: Masonry Tile Repair
+  variants: 1 x 20 zones
+CREATED service: Masonry Marble Repair
+  variants: 1 x 20 zones
+CREATED service: Masonry Stair Repair
+  variants: 1 x 20 zones
+CREATED service: Masonry Damp Repair
+  variants: 1 x 20 zones
+CREATED service: Masonry Boundary Repair
+  variants: 1 x 20 zones
+CREATED service: Masonry Site Check
+  variants: 3 x 20 zones
+CREATED service: Masonry Safety Check
+  variants: 1 x 20 zones
+CREATED service: Masonry Pre-Work Check
+  variants: 1 x 20 zones
+Deactivated old service: step-stair-construction
+Deactivated old service: drain-construction
+Deactivated old service: stone-work-construction
+Deactivated old service: stair-repair
+Deactivated old service: brick-work-construction
+Deactivated old service: plaster-rendering
+Deactivated old service: plaster-repair
+Deactivated old service: floor-tile-repair
+Deactivated old service: wall-construction
+Deactivated old service: concrete-work
+Deactivated old service: floor-tiling-installation
+Deactivated old service: wall-crack-repair
+
+Masonry catalog seeded: 1 category, 3 sub-categories, 19 services.
+Deactivated obsolete services: 12 (plus any already inactive).

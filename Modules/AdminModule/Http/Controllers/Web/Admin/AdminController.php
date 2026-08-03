@@ -376,7 +376,11 @@ class AdminController extends Controller
                     'staff_unread_messages' => $staffUnreadMessages,
                     'customer_provider_unread_messages' => AdminHeaderChatCounts::supportUnreadMessages($user),
                     'notification_unread_count' => $inboxNotificationService->unreadCount((string) $userId),
+                    'notification_external_unread_count' => $inboxNotificationService->unreadCount((string) $userId, UserNotification::CATEGORY_EXTERNAL),
+                    'notification_internal_unread_count' => $inboxNotificationService->unreadCount((string) $userId, UserNotification::CATEGORY_INTERNAL),
                     'notification_read_count' => $inboxNotificationService->readCount((string) $userId),
+                    'notification_external_read_count' => $inboxNotificationService->readCount((string) $userId, UserNotification::CATEGORY_EXTERNAL),
+                    'notification_internal_read_count' => $inboxNotificationService->readCount((string) $userId, UserNotification::CATEGORY_INTERNAL),
                 ];
             });
         } catch (\Throwable $e) {
@@ -388,17 +392,33 @@ class AdminController extends Controller
                 'staff_unread_messages' => $staffUnreadMessages,
                 'customer_provider_unread_messages' => AdminHeaderChatCounts::supportUnreadMessages($user),
                 'notification_unread_count' => $inboxNotificationService->unreadCount((string) $userId),
+                'notification_external_unread_count' => $inboxNotificationService->unreadCount((string) $userId, UserNotification::CATEGORY_EXTERNAL),
+                'notification_internal_unread_count' => $inboxNotificationService->unreadCount((string) $userId, UserNotification::CATEGORY_INTERNAL),
                 'notification_read_count' => $inboxNotificationService->readCount((string) $userId),
+                'notification_external_read_count' => $inboxNotificationService->readCount((string) $userId, UserNotification::CATEGORY_EXTERNAL),
+                'notification_internal_read_count' => $inboxNotificationService->readCount((string) $userId, UserNotification::CATEGORY_INTERNAL),
             ];
         }
 
-        $notificationUnreadCount = (int) ($counts['notification_unread_count'] ?? 0);
-        $notificationReadCount = (int) ($counts['notification_read_count'] ?? 0);
-        $notifications = $inboxNotificationService->recent((string) $userId, 10);
-        $notificationTemplate = view('adminmodule::admin.partials._notifications', [
-            'notifications' => $notifications,
-            'unreadCount' => $notificationUnreadCount,
-            'readCount' => $notificationReadCount,
+        $externalUnreadCount = (int) ($counts['notification_external_unread_count'] ?? 0);
+        $internalUnreadCount = (int) ($counts['notification_internal_unread_count'] ?? 0);
+        $externalReadCount = (int) ($counts['notification_external_read_count'] ?? 0);
+        $internalReadCount = (int) ($counts['notification_internal_read_count'] ?? 0);
+
+        $notificationExternalTemplate = view('adminmodule::admin.partials._notifications', [
+            'category' => UserNotification::CATEGORY_EXTERNAL,
+            'notifications' => $inboxNotificationService->recent((string) $userId, 10, UserNotification::CATEGORY_EXTERNAL),
+            'unreadCount' => $externalUnreadCount,
+            'readCount' => $externalReadCount,
+            'compact' => true,
+        ])->render();
+
+        $notificationInternalTemplate = view('adminmodule::admin.partials._notifications', [
+            'category' => UserNotification::CATEGORY_INTERNAL,
+            'notifications' => $inboxNotificationService->recent((string) $userId, 10, UserNotification::CATEGORY_INTERNAL),
+            'unreadCount' => $internalUnreadCount,
+            'readCount' => $internalReadCount,
+            'compact' => true,
         ])->render();
 
         $whatsappUnreadChats = 0;
@@ -417,6 +437,7 @@ class AdminController extends Controller
             ->map(fn ($n) => [
                 'id' => $n->id,
                 'type' => $n->type,
+                'category' => $n->category,
                 'title' => $n->title,
                 'body' => $n->body,
                 'action_url' => $n->action_url,
@@ -431,7 +452,8 @@ class AdminController extends Controller
         return response()->json([
             'status' => 1,
             'data' => array_merge($counts, [
-                'notification_template' => $notificationTemplate,
+                'notification_external_template' => $notificationExternalTemplate,
+                'notification_internal_template' => $notificationInternalTemplate,
                 'whatsapp_unread_chats' => $whatsappUnreadChats,
                 'whatsapp_unread_messages' => $whatsappUnreadMessages,
                 'new_notification_alerts' => $newNotificationAlerts,
@@ -453,7 +475,12 @@ class AdminController extends Controller
 
     public function markAllNotificationsRead(Request $request, AdminInboxNotificationService $inboxNotificationService): JsonResponse
     {
-        $inboxNotificationService->markAllAsRead((string) $request->user()->id);
+        $category = $request->input('category');
+        if (! in_array($category, [UserNotification::CATEGORY_EXTERNAL, UserNotification::CATEGORY_INTERNAL, null], true)) {
+            $category = null;
+        }
+
+        $inboxNotificationService->markAllAsRead((string) $request->user()->id, $category);
 
         return response()->json([
             'status' => 1,

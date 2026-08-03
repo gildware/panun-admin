@@ -177,11 +177,17 @@ class SubCategoryController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
         $categories = $this->category->whereIn('id', $request['sub_category_ids'])->ofType($this)->get();
-        if (!$categories) {
+        if ($categories->isEmpty()) {
             return response()->json(response_formatter(CATEGORY_204), 200);
         }
         foreach ($categories as $category) {
+            if ($category->services()->exists()) {
+                return response()->json(response_formatter(CATEGORY_DELETE_HAS_SERVICES_403), 403);
+            }
+        }
+        foreach ($categories as $category) {
             file_remover('category/', $category->image);
+            $category->translations()->delete();
             $category->delete();
         }
         return response()->json(response_formatter(CATEGORY_DESTROY_200), 200);

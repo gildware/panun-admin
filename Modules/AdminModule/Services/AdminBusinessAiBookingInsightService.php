@@ -379,27 +379,37 @@ class AdminBusinessAiBookingInsightService
             default => (string) ($args['cohort'] ?? 'all'),
         };
 
-        [$bookings, $scanNote] = $this->resolveBookingsForTimingAnalysis($args);
+        [$bookings, $scanNote, $totalMatching] = $this->resolveBookingsForTimingAnalysis($args, $cohort);
         $report = $this->aggregateBookingTimingReport(
             $bookings,
+            // SQL already narrowed canceled/refunded cohorts; keep PHP filter for other cohorts.
             fn (Booking $b) => $this->bookingMatchesTimingCohort($b, $cohort),
             $cohort
         );
+
+        $cohortSize = (int) ($report['cohort_size'] ?? 0);
+        $isCancelCohort = in_array(strtolower($cohort), ['canceled', 'cancelled'], true);
 
         return array_merge([
             'ok' => true,
             'analysis' => $analysis,
             'cohort' => $cohort,
-            'bookings_in_scope' => $bookings->count(),
+            // For canceled: full matching total (canceled+refunded). Otherwise cohort after PHP filter.
+            'bookings_in_scope' => $isCancelCohort
+                ? ($totalMatching > 0 ? $totalMatching : $cohortSize)
+                : $cohortSize,
+            'total_matching' => $isCancelCohort ? $totalMatching : $cohortSize,
+            'analyzed_count' => $cohortSize > 0 ? $cohortSize : $bookings->count(),
             'scan_note' => $scanNote,
+            'charts' => $this->buildTimingCharts($report, $cohort, $analysis),
         ], $report);
     }
 
     /**
      * @param  array<string, mixed>  $args
-     * @return array{0: Collection<int, Booking>, 1: string|null}
+     * @return array{0: Collection<int, Booking>, 1: string|null, 2: int}
      */
-    private function resolveBookingsForTimingAnalysis(array $args): array
+    private function resolveBookingsForTimingAnalysis(array $args, string $cohort = 'all'): array
     {
         $q = Booking::query()->with(['zone:id,name', 'assignee:id,first_name,last_name', 'category:id,name']);
         if (! empty($args['date_from'])) {
@@ -410,6 +420,10 @@ class AdminBusinessAiBookingInsightService
         }
         if (! empty($args['booking_status'])) {
             $q->where('booking_status', strtolower(trim((string) $args['booking_status'])));
+        } elseif (in_array(strtolower(trim($cohort)), ['canceled', 'cancelled'], true)) {
+            // Match admin Cancelled tab: canceled + refunded. Filter BEFORE scan limit so older
+            // cancellations are not dropped when newest overall bookings dominate the window.
+            $q->whereIn('booking_status', ['canceled', 'cancelled', 'refunded']);
         }
         if (! empty($args['zone'])) {
             $q->whereHas('zone', fn ($zq) => $zq->where('name', 'like', '%'.trim((string) $args['zone']).'%'));
@@ -418,10 +432,10 @@ class AdminBusinessAiBookingInsightService
         $total = (clone $q)->count();
         $bookings = $q->orderByDesc('created_at')->limit(self::TIMING_ANALYSIS_SCAN_LIMIT)->get();
         $note = $total > $bookings->count()
-            ? "Analyzed newest {$bookings->count()} of {$total} matching bookings (scan cap ".self::TIMING_ANALYSIS_SCAN_LIMIT.').'
+            ? "Analyzed newest {$bookings->count()} of {$total} matching bookings (scan cap ".self::TIMING_ANALYSIS_SCAN_LIMIT.'). Totals below use the full matching count.'
             : null;
 
-        return [$bookings, $note];
+        return [$bookings, $note, $total];
     }
 
     /**
@@ -453,7 +467,7 @@ class AdminBusinessAiBookingInsightService
         return [
             'cohort_size' => count($rows),
             'timing' => $this->summarizeBookingTimingRows($rows),
-            'sample_bookings' => array_slice($rows, 0, 30),
+            'sample_bookings' => array_slice($rows, 0, 40),
         ];
     }
 
@@ -467,7 +481,8 @@ class AdminBusinessAiBookingInsightService
             'ongoing' => $status === 'ongoing',
             'on_hold' => $status === 'on_hold',
             'completed' => $status === 'completed',
-            'canceled', 'cancelled' => in_array($status, ['canceled', 'cancelled'], true),
+            // Align with admin Cancelled tab (canceled + refunded).
+            'canceled', 'cancelled' => in_array($status, ['canceled', 'cancelled', 'refunded'], true),
             'overdue_followup' => $this->bookingHasOverdueFollowup($booking),
             'loss_making' => $booking->settlement_outcome === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS,
             'after_visit_cancel' => (bool) $booking->after_visit_cancel,
@@ -524,7 +539,28 @@ class AdminBusinessAiBookingInsightService
                 'change_logs' => collect(),
                 'partial_payments' => collect(),
                 'schedule_histories' => collect(),
+                'leads' => collect(),
             ];
+        }
+
+        $leadIds = Booking::query()
+            ->whereIn('id', $bookingIds)
+            ->whereNotNull('lead_id')
+            ->pluck('lead_id', 'id');
+
+        $leads = $leadIds->isEmpty()
+            ? collect()
+            : Lead::query()
+                ->whereIn('id', $leadIds->unique()->values()->all())
+                ->get(['id', 'name', 'phone_number', 'remarks', 'date_time_of_lead_received'])
+                ->keyBy('id');
+
+        $leadsByBookingId = collect();
+        foreach ($leadIds as $bookingId => $leadId) {
+            $lead = $leads->get($leadId);
+            if ($lead) {
+                $leadsByBookingId->put((string) $bookingId, $lead);
+            }
         }
 
         return [
@@ -542,6 +578,7 @@ class AdminBusinessAiBookingInsightService
                 ->orderBy('created_at')
                 ->get()
                 ->groupBy('booking_id'),
+            'leads' => $leadsByBookingId,
         ];
     }
 
@@ -564,10 +601,19 @@ class AdminBusinessAiBookingInsightService
         $acceptedAt = $statusHistories->first(fn ($h) => strtolower((string) $h->booking_status) === 'accepted')?->created_at;
         $ongoingAt = $statusHistories->first(fn ($h) => strtolower((string) $h->booking_status) === 'ongoing')?->created_at;
         $completedAt = $statusHistories->first(fn ($h) => strtolower((string) $h->booking_status) === 'completed')?->created_at;
-        $canceledHistory = $statusHistories->first(fn ($h) => in_array(strtolower((string) $h->booking_status), ['canceled', 'cancelled'], true));
+        $canceledHistory = $statusHistories->first(fn ($h) => in_array(strtolower((string) $h->booking_status), ['canceled', 'cancelled', 'refunded'], true));
+        $statusBeforeCancel = null;
+        if ($canceledHistory) {
+            $prior = $statusHistories
+                ->filter(fn ($h) => $h->created_at && $canceledHistory->created_at && $h->created_at->lt($canceledHistory->created_at))
+                ->sortByDesc(fn ($h) => $h->created_at?->timestamp ?? 0)
+                ->first();
+            $statusBeforeCancel = $prior?->booking_status;
+        }
         $firstPayment = $payments->sortBy('created_at')->first();
         $firstSchedule = $schedules->sortBy('created_at')->first();
         $firstChange = $changeLogs->sortBy('created_at')->first();
+        $lead = $bulk['leads']->get($id);
 
         $assignee = $booking->assignee
             ? trim($booking->assignee->first_name.' '.$booking->assignee->last_name)
@@ -588,6 +634,14 @@ class AdminBusinessAiBookingInsightService
             $booking->service_schedule ? Carbon::parse($booking->service_schedule) : null,
         ])->filter();
 
+        $followupSummaries = $followups->sortBy('date')->take(5)->map(fn (BookingFollowup $f) => [
+            'date' => $f->date?->toIso8601String(),
+            'status' => $f->status,
+            'for' => $f->for,
+            'reason' => $f->reason,
+            'remarks' => $f->remarks,
+        ])->values()->all();
+
         return [
             'readable_id' => $booking->readable_id,
             'status' => $booking->booking_status,
@@ -595,16 +649,23 @@ class AdminBusinessAiBookingInsightService
             'category' => $booking->category?->name,
             'assignee' => $assignee,
             'created_at' => $createdAt?->toIso8601String(),
+            'enquiry_at' => $lead?->date_time_of_lead_received?->toIso8601String() ?? $createdAt?->toIso8601String(),
             'created_hour' => $createdAt ? (int) $createdAt->format('G') : null,
             'created_day' => $createdAt?->format('D'),
             'scheduled_at' => $booking->service_schedule,
             'first_followup_at' => $firstFollowup?->date?->toIso8601String(),
+            'followups_taken' => $followups->count(),
+            'followups' => $followupSummaries,
+            'initial_remarks' => $lead?->remarks ?: ($booking->service_description ?: null),
             'first_status_change_at' => $firstStatus?->created_at?->toIso8601String(),
             'accepted_at' => $acceptedAt?->toIso8601String(),
             'ongoing_at' => $ongoingAt?->toIso8601String(),
             'completed_at' => $completedAt?->toIso8601String(),
             'canceled_at' => $canceledHistory?->created_at?->toIso8601String(),
+            'status_when_cancelled' => $statusBeforeCancel,
             'cancellation_reason' => $canceledHistory?->cancellationReason?->name,
+            'cancellation_remarks' => $canceledHistory?->status_change_remarks,
+            'after_visit_cancel' => (bool) $booking->after_visit_cancel,
             'first_payment_at' => $firstPayment?->created_at?->toIso8601String(),
             'first_schedule_change_at' => $firstSchedule?->created_at?->toIso8601String(),
             'last_updated_at' => $touchpoints->max() instanceof Carbon ? $touchpoints->max()->toIso8601String() : null,
@@ -624,6 +685,9 @@ class AdminBusinessAiBookingInsightService
             'never_status_change' => $statusHistories->isEmpty(),
             'is_paid' => (bool) $booking->is_paid,
             'settlement_outcome' => $booking->settlement_outcome,
+            'lead_id' => $booking->lead_id,
+            'lead_name' => $lead?->name,
+            'lead_phone' => $lead?->phone_number,
         ];
     }
 
@@ -645,16 +709,31 @@ class AdminBusinessAiBookingInsightService
         arsort($dayDist);
 
         $cancelReasons = collect($rows)
-            ->filter(fn ($r) => ! empty($r['cancellation_reason']))
-            ->groupBy('cancellation_reason')
+            ->map(function ($r) {
+                $reason = trim((string) ($r['cancellation_reason'] ?? ''));
+
+                return $reason !== '' ? $reason : '(No reason recorded)';
+            })
+            ->groupBy(fn ($reason) => $reason)
             ->map(fn ($g, $reason) => [
                 'reason' => $reason,
                 'count' => $g->count(),
-                'median_lag_hours_to_cancel' => $this->lagStats($g->pluck('lag_hours_to_canceled')->filter()->values()->all())['median_hours'] ?? null,
+                'median_lag_hours_to_cancel' => $this->lagStats(
+                    collect($rows)
+                        ->filter(function ($r) use ($reason) {
+                            $rowReason = trim((string) ($r['cancellation_reason'] ?? ''));
+                            $rowReason = $rowReason !== '' ? $rowReason : '(No reason recorded)';
+
+                            return $rowReason === $reason && $r['lag_hours_to_canceled'] !== null;
+                        })
+                        ->pluck('lag_hours_to_canceled')
+                        ->values()
+                        ->all()
+                )['median_hours'] ?? null,
             ])
             ->sortByDesc('count')
             ->values()
-            ->take(10)
+            ->take(12)
             ->all();
 
         return [
@@ -705,8 +784,95 @@ class AdminBusinessAiBookingInsightService
                 ->take(12)
                 ->all(),
             'cancellation_reasons' => $cancelReasons,
+            'by_status_when_cancelled' => collect($rows)
+                ->groupBy(fn ($r) => (string) ($r['status_when_cancelled'] ?? 'unknown'))
+                ->map(fn ($group, $status) => [
+                    'status' => $status,
+                    'count' => $group->count(),
+                ])
+                ->sortByDesc('count')
+                ->values()
+                ->take(10)
+                ->all(),
             'insights' => $this->buildBookingTimingInsights($rows, $createdHours),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $report
+     * @return list<array<string, mixed>>
+     */
+    private function buildTimingCharts(array $report, string $cohort, string $analysis): array
+    {
+        $timing = is_array($report['timing'] ?? null) ? $report['timing'] : [];
+        $charts = [];
+
+        $reasons = is_array($timing['cancellation_reasons'] ?? null) ? $timing['cancellation_reasons'] : [];
+        if ($reasons !== [] && in_array($analysis, ['cancellation_timing_report', 'booking_timing_report'], true)) {
+            $charts[] = [
+                'id' => 'cancellation_reasons',
+                'type' => 'bar',
+                'title' => 'Cancellation reasons',
+                'labels' => array_map(fn ($r) => (string) ($r['reason'] ?? 'Unknown'), $reasons),
+                'series' => [[
+                    'name' => 'Bookings',
+                    'data' => array_map(fn ($r) => (int) ($r['count'] ?? 0), $reasons),
+                ]],
+            ];
+        }
+
+        $createdByHour = is_array($timing['created_by_hour'] ?? null) ? $timing['created_by_hour'] : null;
+        if ($createdByHour && ! empty($createdByHour['labels']) && ! empty($createdByHour['counts'])) {
+            $charts[] = [
+                'id' => 'created_by_hour',
+                'type' => 'column',
+                'title' => $cohort === 'canceled' ? 'Cancelled bookings by created hour' : 'Bookings by created hour',
+                'labels' => $createdByHour['labels'],
+                'series' => [[
+                    'name' => 'Bookings',
+                    'data' => array_map('intval', $createdByHour['counts']),
+                ]],
+            ];
+        }
+
+        $dayDist = is_array($timing['created_by_day'] ?? null) ? $timing['created_by_day'] : [];
+        if ($dayDist !== []) {
+            $charts[] = [
+                'id' => 'created_by_day',
+                'type' => 'donut',
+                'title' => 'Created by weekday',
+                'labels' => array_keys($dayDist),
+                'series' => array_map('intval', array_values($dayDist)),
+            ];
+        }
+
+        $statusWhen = is_array($timing['by_status_when_cancelled'] ?? null) ? $timing['by_status_when_cancelled'] : [];
+        if ($statusWhen !== [] && $analysis === 'cancellation_timing_report') {
+            $charts[] = [
+                'id' => 'status_when_cancelled',
+                'type' => 'donut',
+                'title' => 'Status when cancelled',
+                'labels' => array_map(fn ($r) => (string) ($r['status'] ?? 'unknown'), $statusWhen),
+                'series' => array_map(fn ($r) => (int) ($r['count'] ?? 0), $statusWhen),
+            ];
+        }
+
+        $byZone = is_array($timing['by_zone'] ?? null) ? $timing['by_zone'] : [];
+        if ($byZone !== []) {
+            $topZones = array_slice($byZone, 0, 8);
+            $charts[] = [
+                'id' => 'by_zone',
+                'type' => 'bar',
+                'title' => 'By zone',
+                'labels' => array_map(fn ($r) => (string) ($r['zone'] ?? 'Unknown'), $topZones),
+                'series' => [[
+                    'name' => 'Bookings',
+                    'data' => array_map(fn ($r) => (int) ($r['bookings'] ?? 0), $topZones),
+                ]],
+            ];
+        }
+
+        return $charts;
     }
 
     /**

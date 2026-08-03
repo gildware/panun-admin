@@ -73,7 +73,7 @@
                                             </td>
                                             <td>
                                                 @if($booking->lead)
-                                                    <a href="{{ route('admin.lead.show', $booking->lead->id) }}?in_modal=1" class="link-primary">
+                                                    <a href="{{ route('admin.lead.show', $booking->lead->id) }}" class="link-primary">
                                                         #{{ $booking->lead->id }} — {{ $booking->lead->name ?: '—' }}
                                                     </a>
                                                     @if($booking->lead->source)

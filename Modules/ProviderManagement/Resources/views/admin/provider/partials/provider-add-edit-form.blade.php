@@ -616,6 +616,7 @@
                     </button>
                 </div>
                 @php
+                    $additionalDocumentAccept = '.'.implode(',.', array_column(IMAGEEXTENSION, 'key')).',.pdf';
                     $oldAdditionalDocuments = old('additional_documents', []);
                     $oldAdditionalDocuments = is_array($oldAdditionalDocuments) ? $oldAdditionalDocuments : [];
                     $existingAdditionalDocuments = $existingAdditionalDocuments ?? collect();
@@ -669,7 +670,7 @@
                                         class="d-none"
                                         name="additional_documents[{{ $addIdx }}][files][]"
                                         multiple
-                                        accept="image/*,application/pdf,.pdf"
+                                        accept="{{ $additionalDocumentAccept }}"
                                         data-doc-row-files>
                                 </div>
                                 <div class="col-md-5">
@@ -751,7 +752,7 @@
                                     class="d-none"
                                     name="additional_documents[__INDEX__][files][]"
                                     multiple
-                                    accept="image/*,application/pdf,.pdf"
+                                    accept="{{ $additionalDocumentAccept }}"
                                     data-doc-row-files>
                             </div>
 
@@ -796,7 +797,7 @@
                         class="d-none"
                         id="additional_doc_files_input"
                         multiple
-                        accept="image/*,application/pdf,.pdf">
+                        accept="{{ $additionalDocumentAccept }}">
                     <button type="button" class="btn btn--secondary btn-sm w-100 mb-2" id="additional_doc_select_files_btn">
                         {{ translate('Add_Files') }}
                     </button>
@@ -865,16 +866,27 @@
                 function readIntlTelBestValue(tel) {
                     var iti = getIti(tel);
                     var dial = "";
+                    var expectedLen = 10;
                     if (iti && typeof iti.getSelectedCountryData === "function") {
                         try {
                             var cdata = iti.getSelectedCountryData();
                             dial = cdata && cdata.dialCode != null ? String(cdata.dialCode).replace(/\D/g, "") : "";
                         } catch (e0) {}
                     }
+                    if (iti && typeof getLocalExampleNumberLength === "function") {
+                        try {
+                            expectedLen = getLocalExampleNumberLength(iti);
+                        } catch (eLen) {}
+                    }
                     var raw = String(tel.value || "").replace(/\D/g, "");
                     var fromVisible = "";
                     if (dial && raw) {
-                        fromVisible = raw.indexOf(dial) === 0 ? "+" + raw : "+" + dial + raw;
+                        if (raw.indexOf(dial) === 0) {
+                            var remainder = raw.slice(dial.length);
+                            fromVisible = remainder.length === expectedLen ? "+" + raw : "+" + dial + raw;
+                        } else {
+                            fromVisible = "+" + dial + raw;
+                        }
                     } else if (!dial && raw.length >= 8) {
                         fromVisible = "+" + raw;
                     }
@@ -884,19 +896,41 @@
                             fromIti = String(iti.getNumber() || "").trim();
                         } catch (e3) {}
                     }
+                    var existingHidden = tel.parentNode
+                        ? tel.parentNode.querySelector('input[type="hidden"][name="' + String(tel.id || "").replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"]')
+                        : null;
+                    var existingVal = existingHidden ? String(existingHidden.value || "").trim() : "";
+                    if (fromIti) {
+                        return fromIti;
+                    }
                     if (fromVisible && raw.length >= 8) {
                         return fromVisible;
                     }
-                    if (fromIti) {
-                        return fromIti;
+                    if (existingVal) {
+                        return existingVal;
                     }
                     if (fromVisible) {
                         return fromVisible;
                     }
                     if (raw.length >= 8) {
-                        return "+" + raw;
+                        return dial ? "+" + dial + raw : "+" + raw;
                     }
                     return String(tel.value || "").trim();
+                }
+
+                function purgeIndividualCompanyPhoneFields() {
+                    var typeEl = document.querySelector('.provider-add-edit-form-root input[name="provider_type"]:checked');
+                    if (!typeEl || typeEl.value !== "individual") {
+                        return;
+                    }
+                    form.querySelectorAll('input[name="company_phone"], input[name="company_phone_country_code"]').forEach(function (el) {
+                        el.removeAttribute("name");
+                        el.disabled = true;
+                    });
+                    var companyTel = document.getElementById("company_phone");
+                    if (companyTel) {
+                        companyTel.disabled = true;
+                    }
                 }
 
                 function syncNamedPhoneField(fieldName) {
@@ -955,6 +989,8 @@
                         replacePhoneHiddenForSubmit(nameGuess, finalVal);
                     }
                 });
+
+                purgeIndividualCompanyPhoneFields();
             };
 
             var __providerWizardFormEl = document.getElementById("create-provider-form");

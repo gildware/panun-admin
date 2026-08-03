@@ -1,0 +1,111 @@
+Asset validation passed for 28 services.
+Category ready: Plumbing Services (plumbing)
+Category ready: Plumbing Installation (plumbing-installation)
+Category ready: Plumbing Repair (plumbing-repair)
+Category ready: Plumbing Inspection (plumbing-inspection)
+Deactivated subcategory: plumbing-fixtures
+Deactivated subcategory: plumbing-installs
+CREATED service: Plumbing Tap Install
+  variants: 5 x 20 zones
+CREATED service: Plumbing Shower Install
+  variants: 3 x 20 zones
+CREATED service: Plumbing Basin Install
+  variants: 3 x 20 zones
+CREATED service: Plumbing Toilet Install
+  variants: 5 x 20 zones
+CREATED service: Plumbing Sink Install
+  variants: 2 x 20 zones
+CREATED service: Plumbing Pipe Install
+  variants: 4 x 20 zones
+CREATED service: Plumbing Drain Install
+  variants: 3 x 20 zones
+CREATED service: Plumbing Motor Install
+  variants: 2 x 20 zones
+CREATED service: Plumbing Tank Install
+  variants: 3 x 20 zones
+CREATED service: Plumbing Geyser Connection
+  variants: 1 x 20 zones
+CREATED service: Plumbing Accessory Install
+  variants: 3 x 20 zones
+CREATED service: Plumbing Full Bathroom Plumbing
+  variants: 2 x 20 zones
+CREATED service: Plumbing Full Kitchen Plumbing
+  variants: 2 x 20 zones
+CREATED service: Plumbing Full House Plumbing
+  variants: 1 x 20 zones
+CREATED service: Plumbing Tap Repair
+  variants: 4 x 20 zones
+CREATED service: Plumbing Shower Repair
+  variants: 2 x 20 zones
+CREATED service: Plumbing Basin Repair
+  variants: 3 x 20 zones
+CREATED service: Plumbing Toilet Repair
+  variants: 5 x 20 zones
+CREATED service: Plumbing Drain Repair
+  variants: 5 x 20 zones
+CREATED service: Plumbing Pipe Repair
+  variants: 4 x 20 zones
+CREATED service: Plumbing Leak Repair
+  variants: 3 x 20 zones
+CREATED service: Plumbing Pressure Repair
+  variants: 2 x 20 zones
+CREATED service: Plumbing Motor Repair
+  variants: 4 x 20 zones
+CREATED service: Plumbing Tank Repair
+  variants: 3 x 20 zones
+CREATED service: Plumbing Geyser Connection Repair
+  variants: 1 x 20 zones
+CREATED service: Plumbing Site Check
+  variants: 3 x 20 zones
+CREATED service: Plumbing Safety Check
+  variants: 5 x 20 zones
+CREATED service: Plumbing Pre-Work Check
+  variants: 2 x 20 zones
+Deactivated old service: toilet-seat-cover-installation
+Deactivated old service: towel-holder-installation
+Deactivated old service: indian-toilet-repairinstallation
+Deactivated old service: flush-tank-repair
+Deactivated old service: drain-pipe-blockage-removal
+Deactivated old service: ro-water-connection-installation
+Deactivated old service: water-pipe-repair
+Deactivated old service: water-motor-repair
+Deactivated old service: waste-coupling-installation
+Deactivated old service: water-tank-installation
+Deactivated old service: shower-repair
+Deactivated old service: drain-cover-installation
+Deactivated old service: water-tank-repair
+Deactivated old service: tap-accessory-installation
+Deactivated old service: drain-blockage-removal
+Deactivated old service: washroom-accessories-installation
+Deactivated old service: wash-basin-installation
+Deactivated old service: jet-spray-repairreplacement
+Deactivated old service: washroom-drain-cleaning
+Deactivated old service: wash-basin-blockage-removal
+Deactivated old service: pipe-fitting-replacement
+Deactivated old service: tap-installationreplacement
+Deactivated old service: shower-filter-installation
+Deactivated old service: washing-machine-inlet-installation
+Deactivated old service: overhead-water-tank-installation
+Deactivated old service: shower-installation
+Deactivated old service: water-leakage-repair
+Deactivated old service: low-water-pressure-repair
+Deactivated old service: shower-mixer-tap-installation
+Deactivated old service: western-toilet-repair-wall-mounted
+Deactivated old service: western-toilet-repair-floor-mounted
+Deactivated old service: soap-holder-installation
+Deactivated old service: external-flush-tank-replacement
+Deactivated old service: motor-air-cavity-removal
+Deactivated old service: tap-repair
+Deactivated old service: wash-basin-leakage-repair
+Deactivated old service: shelf-installation
+Deactivated old service: connection-hose-installation
+Deactivated old service: shut-off-valve-leakage-repair
+Deactivated old service: geyser-plumbing
+Deactivated old service: motor-installation
+Deactivated old service: pipe-installation
+Deactivated old service: tap-mixer-tap-installation
+Deactivated old service: water-motor-installation
+Deactivated old service: plumbing-fixtures-book-a-consultation
+
+Plumbing catalog seeded: 1 category, 3 sub-categories, 28 services.
+Deactivated obsolete services: 45 (plus any already inactive).

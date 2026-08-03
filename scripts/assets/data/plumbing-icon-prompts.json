@@ -1,0 +1,706 @@
+{
+  "categories": [
+    {
+      "slug": "plumbing",
+      "filename": "plumbing.png",
+      "prompt": "Category icon: water drop with wrench and pipe, professional plumbing services. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "plumbing-installation",
+      "filename": "plumbing-installation.png",
+      "prompt": "Category icon: tap with plus install mark and pipe wrench, plumbing installation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "plumbing-repair",
+      "filename": "plumbing-repair.png",
+      "prompt": "Category icon: leaking pipe with wrench and water drop, plumbing repairs. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "plumbing-inspection",
+      "filename": "plumbing-inspection.png",
+      "prompt": "Category icon: clipboard checklist with water drop and magnifying glass, plumbing inspection. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ],
+  "variants": [
+    {
+      "service_slug": "plumbing-tap-install",
+      "service_name": "Plumbing Tap Install",
+      "variant_key": "regular-tap",
+      "variant_title": "Regular Tap",
+      "filename": "plumbing-tap-install-regular-tap.png",
+      "prompt": "Variation icon for plumbing tap install: regular water tap faucet silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-tap-install",
+      "service_name": "Plumbing Tap Install",
+      "variant_key": "mixer-tap",
+      "variant_title": "Mixer Tap",
+      "filename": "plumbing-tap-install-mixer-tap.png",
+      "prompt": "Variation icon for plumbing tap install: hot cold mixer tap silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-tap-install",
+      "service_name": "Plumbing Tap Install",
+      "variant_key": "swan-neck-tap",
+      "variant_title": "Swan Neck Tap",
+      "filename": "plumbing-tap-install-swan-neck-tap.png",
+      "prompt": "Variation icon for plumbing tap install: swan neck kitchen tap silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-tap-install",
+      "service_name": "Plumbing Tap Install",
+      "variant_key": "pillar-cock",
+      "variant_title": "Pillar Cock",
+      "filename": "plumbing-tap-install-pillar-cock.png",
+      "prompt": "Variation icon for plumbing tap install: pillar cock bathroom tap silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-tap-install",
+      "service_name": "Plumbing Tap Install",
+      "variant_key": "angle-valve",
+      "variant_title": "Angle Valve",
+      "filename": "plumbing-tap-install-angle-valve.png",
+      "prompt": "Variation icon for plumbing tap install: angle valve plumbing fitting silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-shower-install",
+      "service_name": "Plumbing Shower Install",
+      "variant_key": "shower-head",
+      "variant_title": "Shower Head",
+      "filename": "plumbing-shower-install-shower-head.png",
+      "prompt": "Variation icon for plumbing shower install: round shower head silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-shower-install",
+      "service_name": "Plumbing Shower Install",
+      "variant_key": "hand-shower-jet-spray",
+      "variant_title": "Hand Shower / Jet Spray",
+      "filename": "plumbing-shower-install-hand-shower-jet-spray.png",
+      "prompt": "Variation icon for plumbing shower install: hand shower jet spray silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-shower-install",
+      "service_name": "Plumbing Shower Install",
+      "variant_key": "shower-mixer",
+      "variant_title": "Shower Mixer",
+      "filename": "plumbing-shower-install-shower-mixer.png",
+      "prompt": "Variation icon for plumbing shower install: shower mixer control silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-basin-install",
+      "service_name": "Plumbing Basin Install",
+      "variant_key": "wash-basin",
+      "variant_title": "Wash Basin",
+      "filename": "plumbing-basin-install-wash-basin.png",
+      "prompt": "Variation icon for plumbing basin install: wash basin sink silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-basin-install",
+      "service_name": "Plumbing Basin Install",
+      "variant_key": "pedestal-basin",
+      "variant_title": "Pedestal Basin",
+      "filename": "plumbing-basin-install-pedestal-basin.png",
+      "prompt": "Variation icon for plumbing basin install: pedestal wash basin silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-basin-install",
+      "service_name": "Plumbing Basin Install",
+      "variant_key": "bottle-trap",
+      "variant_title": "Bottle Trap",
+      "filename": "plumbing-basin-install-bottle-trap.png",
+      "prompt": "Variation icon for plumbing basin install: bottle trap under sink pipe silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-toilet-install",
+      "service_name": "Plumbing Toilet Install",
+      "variant_key": "indian-toilet",
+      "variant_title": "Indian Toilet",
+      "filename": "plumbing-toilet-install-indian-toilet.png",
+      "prompt": "Variation icon for plumbing toilet install: Indian toilet floor squat silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-toilet-install",
+      "service_name": "Plumbing Toilet Install",
+      "variant_key": "western-toilet-floor",
+      "variant_title": "Western Toilet (Floor)",
+      "filename": "plumbing-toilet-install-western-toilet-floor.png",
+      "prompt": "Variation icon for plumbing toilet install: western floor mounted toilet silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-toilet-install",
+      "service_name": "Plumbing Toilet Install",
+      "variant_key": "western-toilet-wall",
+      "variant_title": "Western Toilet (Wall)",
+      "filename": "plumbing-toilet-install-western-toilet-wall.png",
+      "prompt": "Variation icon for plumbing toilet install: western wall hung toilet silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-toilet-install",
+      "service_name": "Plumbing Toilet Install",
+      "variant_key": "flush-tank-external",
+      "variant_title": "Flush Tank (External)",
+      "filename": "plumbing-toilet-install-flush-tank-external.png",
+      "prompt": "Variation icon for plumbing toilet install: external toilet flush tank silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-toilet-install",
+      "service_name": "Plumbing Toilet Install",
+      "variant_key": "flush-tank-concealed",
+      "variant_title": "Flush Tank (Concealed)",
+      "filename": "plumbing-toilet-install-flush-tank-concealed.png",
+      "prompt": "Variation icon for plumbing toilet install: concealed flush tank wall plate silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-sink-install",
+      "service_name": "Plumbing Sink Install",
+      "variant_key": "kitchen-sink",
+      "variant_title": "Kitchen Sink",
+      "filename": "plumbing-sink-install-kitchen-sink.png",
+      "prompt": "Variation icon for plumbing sink install: kitchen sink basin silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-sink-install",
+      "service_name": "Plumbing Sink Install",
+      "variant_key": "connection-hose",
+      "variant_title": "Connection Hose",
+      "filename": "plumbing-sink-install-connection-hose.png",
+      "prompt": "Variation icon for plumbing sink install: flexible plumbing connection hose silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-pipe-install",
+      "service_name": "Plumbing Pipe Install",
+      "variant_key": "pvc-cpvc-pipe",
+      "variant_title": "PVC / CPVC Pipe",
+      "filename": "plumbing-pipe-install-pvc-cpvc-pipe.png",
+      "prompt": "Variation icon for plumbing pipe install: PVC CPVC pipe section silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-pipe-install",
+      "service_name": "Plumbing Pipe Install",
+      "variant_key": "gi-metal-pipe",
+      "variant_title": "GI / Metal Pipe",
+      "filename": "plumbing-pipe-install-gi-metal-pipe.png",
+      "prompt": "Variation icon for plumbing pipe install: GI metal pipe with threads silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-pipe-install",
+      "service_name": "Plumbing Pipe Install",
+      "variant_key": "concealed-pipe",
+      "variant_title": "Concealed Pipe",
+      "filename": "plumbing-pipe-install-concealed-pipe.png",
+      "prompt": "Variation icon for plumbing pipe install: concealed in-wall plumbing pipe silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-pipe-install",
+      "service_name": "Plumbing Pipe Install",
+      "variant_key": "external-pipe",
+      "variant_title": "External Pipe",
+      "filename": "plumbing-pipe-install-external-pipe.png",
+      "prompt": "Variation icon for plumbing pipe install: external wall plumbing pipe run silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-drain-install",
+      "service_name": "Plumbing Drain Install",
+      "variant_key": "floor-drain-nahani-trap",
+      "variant_title": "Floor Drain / Nahani Trap",
+      "filename": "plumbing-drain-install-floor-drain-nahani-trap.png",
+      "prompt": "Variation icon for plumbing drain install: floor drain nahani trap grille silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-drain-install",
+      "service_name": "Plumbing Drain Install",
+      "variant_key": "drain-cover",
+      "variant_title": "Drain Cover",
+      "filename": "plumbing-drain-install-drain-cover.png",
+      "prompt": "Variation icon for plumbing drain install: round drain cover grille silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-drain-install",
+      "service_name": "Plumbing Drain Install",
+      "variant_key": "waste-pipe",
+      "variant_title": "Waste Pipe",
+      "filename": "plumbing-drain-install-waste-pipe.png",
+      "prompt": "Variation icon for plumbing drain install: waste drain pipe elbow silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-motor-install",
+      "service_name": "Plumbing Motor Install",
+      "variant_key": "water-motor-pump",
+      "variant_title": "Water Motor / Pump",
+      "filename": "plumbing-motor-install-water-motor-pump.png",
+      "prompt": "Variation icon for plumbing motor install: home water motor pump silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-motor-install",
+      "service_name": "Plumbing Motor Install",
+      "variant_key": "motor-with-piping",
+      "variant_title": "Motor with Piping",
+      "filename": "plumbing-motor-install-motor-with-piping.png",
+      "prompt": "Variation icon for plumbing motor install: water pump with connected piping silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-tank-install",
+      "service_name": "Plumbing Tank Install",
+      "variant_key": "overhead-tank-connection",
+      "variant_title": "Overhead Tank Connection",
+      "filename": "plumbing-tank-install-overhead-tank-connection.png",
+      "prompt": "Variation icon for plumbing tank install: overhead water tank with pipe connection silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-tank-install",
+      "service_name": "Plumbing Tank Install",
+      "variant_key": "float-valve-ball-cock",
+      "variant_title": "Float Valve / Ball Cock",
+      "filename": "plumbing-tank-install-float-valve-ball-cock.png",
+      "prompt": "Variation icon for plumbing tank install: float valve ball cock silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-tank-install",
+      "service_name": "Plumbing Tank Install",
+      "variant_key": "tank-cover-fit",
+      "variant_title": "Tank Cover Fit",
+      "filename": "plumbing-tank-install-tank-cover-fit.png",
+      "prompt": "Variation icon for plumbing tank install: water tank cover lid silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-geyser-connection",
+      "service_name": "Plumbing Geyser Connection",
+      "variant_key": "hot-cold-water-connection",
+      "variant_title": "Hot / Cold Water Connection",
+      "filename": "plumbing-geyser-connection-hot-cold-water-connection.png",
+      "prompt": "Variation icon for plumbing geyser connection: geyser hot cold water pipe connection silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-accessory-install",
+      "service_name": "Plumbing Accessory Install",
+      "variant_key": "shut-off-valve",
+      "variant_title": "Shut-off Valve",
+      "filename": "plumbing-accessory-install-shut-off-valve.png",
+      "prompt": "Variation icon for plumbing accessory install: shut-off valve plumbing silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-accessory-install",
+      "service_name": "Plumbing Accessory Install",
+      "variant_key": "non-return-valve",
+      "variant_title": "Non-Return Valve",
+      "filename": "plumbing-accessory-install-non-return-valve.png",
+      "prompt": "Variation icon for plumbing accessory install: non-return check valve silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-accessory-install",
+      "service_name": "Plumbing Accessory Install",
+      "variant_key": "pressure-pump-connection",
+      "variant_title": "Pressure Pump Connection",
+      "filename": "plumbing-accessory-install-pressure-pump-connection.png",
+      "prompt": "Variation icon for plumbing accessory install: pressure booster pump connection silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-full-bathroom-plumbing",
+      "service_name": "Plumbing Full Bathroom Plumbing",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "plumbing-full-bathroom-plumbing-book-inspection.png",
+      "prompt": "Variation icon for plumbing full bathroom plumbing: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-full-bathroom-plumbing",
+      "service_name": "Plumbing Full Bathroom Plumbing",
+      "variant_key": "renovation-new-setup",
+      "variant_title": "Renovation / New Setup",
+      "filename": "plumbing-full-bathroom-plumbing-renovation-new-setup.png",
+      "prompt": "Variation icon for plumbing full bathroom plumbing: bathroom kitchen renovation plumbing blueprint silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-full-kitchen-plumbing",
+      "service_name": "Plumbing Full Kitchen Plumbing",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "plumbing-full-kitchen-plumbing-book-inspection.png",
+      "prompt": "Variation icon for plumbing full kitchen plumbing: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-full-kitchen-plumbing",
+      "service_name": "Plumbing Full Kitchen Plumbing",
+      "variant_key": "renovation-new-setup",
+      "variant_title": "Renovation / New Setup",
+      "filename": "plumbing-full-kitchen-plumbing-renovation-new-setup.png",
+      "prompt": "Variation icon for plumbing full kitchen plumbing: bathroom kitchen renovation plumbing blueprint silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-full-house-plumbing",
+      "service_name": "Plumbing Full House Plumbing",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "plumbing-full-house-plumbing-book-inspection.png",
+      "prompt": "Variation icon for plumbing full house plumbing: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-tap-repair",
+      "service_name": "Plumbing Tap Repair",
+      "variant_key": "regular-tap",
+      "variant_title": "Regular Tap",
+      "filename": "plumbing-tap-repair-regular-tap.png",
+      "prompt": "Variation icon for plumbing tap repair: regular water tap faucet silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-tap-repair",
+      "service_name": "Plumbing Tap Repair",
+      "variant_key": "mixer-tap",
+      "variant_title": "Mixer Tap",
+      "filename": "plumbing-tap-repair-mixer-tap.png",
+      "prompt": "Variation icon for plumbing tap repair: hot cold mixer tap silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-tap-repair",
+      "service_name": "Plumbing Tap Repair",
+      "variant_key": "shower-mixer",
+      "variant_title": "Shower Mixer",
+      "filename": "plumbing-tap-repair-shower-mixer.png",
+      "prompt": "Variation icon for plumbing tap repair: shower mixer control silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-tap-repair",
+      "service_name": "Plumbing Tap Repair",
+      "variant_key": "leaking-dripping",
+      "variant_title": "Leaking / Dripping",
+      "filename": "plumbing-tap-repair-leaking-dripping.png",
+      "prompt": "Variation icon for plumbing tap repair: dripping leaking tap silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-shower-repair",
+      "service_name": "Plumbing Shower Repair",
+      "variant_key": "shower-head-arm",
+      "variant_title": "Shower Head / Arm",
+      "filename": "plumbing-shower-repair-shower-head-arm.png",
+      "prompt": "Variation icon for plumbing shower repair: shower head with arm pipe silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-shower-repair",
+      "service_name": "Plumbing Shower Repair",
+      "variant_key": "jet-spray-bidet",
+      "variant_title": "Jet Spray / Bidet",
+      "filename": "plumbing-shower-repair-jet-spray-bidet.png",
+      "prompt": "Variation icon for plumbing shower repair: jet spray bidet hand shower silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-basin-repair",
+      "service_name": "Plumbing Basin Repair",
+      "variant_key": "leakage-bottle-trap",
+      "variant_title": "Leakage (Bottle Trap)",
+      "filename": "plumbing-basin-repair-leakage-bottle-trap.png",
+      "prompt": "Variation icon for plumbing basin repair: leaking bottle trap under basin silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-basin-repair",
+      "service_name": "Plumbing Basin Repair",
+      "variant_key": "leakage-waste-pipe",
+      "variant_title": "Leakage (Waste Pipe)",
+      "filename": "plumbing-basin-repair-leakage-waste-pipe.png",
+      "prompt": "Variation icon for plumbing basin repair: leaking waste pipe silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-basin-repair",
+      "service_name": "Plumbing Basin Repair",
+      "variant_key": "blockage",
+      "variant_title": "Blockage",
+      "filename": "plumbing-basin-repair-blockage.png",
+      "prompt": "Variation icon for plumbing basin repair: blocked drain with clog symbol silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-toilet-repair",
+      "service_name": "Plumbing Toilet Repair",
+      "variant_key": "flush-tank-external-pvc",
+      "variant_title": "Flush Tank (External PVC)",
+      "filename": "plumbing-toilet-repair-flush-tank-external-pvc.png",
+      "prompt": "Variation icon for plumbing toilet repair: external PVC flush tank silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-toilet-repair",
+      "service_name": "Plumbing Toilet Repair",
+      "variant_key": "flush-tank-external-ceramic",
+      "variant_title": "Flush Tank (External Ceramic)",
+      "filename": "plumbing-toilet-repair-flush-tank-external-ceramic.png",
+      "prompt": "Variation icon for plumbing toilet repair: external ceramic flush tank silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-toilet-repair",
+      "service_name": "Plumbing Toilet Repair",
+      "variant_key": "flush-tank-concealed",
+      "variant_title": "Flush Tank (Concealed)",
+      "filename": "plumbing-toilet-repair-flush-tank-concealed.png",
+      "prompt": "Variation icon for plumbing toilet repair: concealed flush tank wall plate silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-toilet-repair",
+      "service_name": "Plumbing Toilet Repair",
+      "variant_key": "running-flush-weak-flush",
+      "variant_title": "Running Flush / Weak Flush",
+      "filename": "plumbing-toilet-repair-running-flush-weak-flush.png",
+      "prompt": "Variation icon for plumbing toilet repair: toilet flush with weak flow arrows silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-toilet-repair",
+      "service_name": "Plumbing Toilet Repair",
+      "variant_key": "seat-cisterna-fix",
+      "variant_title": "Seat / Cisterna Fix",
+      "filename": "plumbing-toilet-repair-seat-cisterna-fix.png",
+      "prompt": "Variation icon for plumbing toilet repair: toilet seat and cistern fix silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-drain-repair",
+      "service_name": "Plumbing Drain Repair",
+      "variant_key": "kitchen-sink-blockage",
+      "variant_title": "Kitchen Sink Blockage",
+      "filename": "plumbing-drain-repair-kitchen-sink-blockage.png",
+      "prompt": "Variation icon for plumbing drain repair: blocked kitchen sink silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-drain-repair",
+      "service_name": "Plumbing Drain Repair",
+      "variant_key": "wash-basin-blockage",
+      "variant_title": "Wash Basin Blockage",
+      "filename": "plumbing-drain-repair-wash-basin-blockage.png",
+      "prompt": "Variation icon for plumbing drain repair: blocked wash basin silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-drain-repair",
+      "service_name": "Plumbing Drain Repair",
+      "variant_key": "bathroom-floor-drain",
+      "variant_title": "Bathroom / Floor Drain",
+      "filename": "plumbing-drain-repair-bathroom-floor-drain.png",
+      "prompt": "Variation icon for plumbing drain repair: bathroom floor drain blockage silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-drain-repair",
+      "service_name": "Plumbing Drain Repair",
+      "variant_key": "toilet-pot-blockage",
+      "variant_title": "Toilet Pot Blockage",
+      "filename": "plumbing-drain-repair-toilet-pot-blockage.png",
+      "prompt": "Variation icon for plumbing drain repair: blocked toilet pot silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-drain-repair",
+      "service_name": "Plumbing Drain Repair",
+      "variant_key": "bad-smell-trap-issue",
+      "variant_title": "Bad Smell / Trap Issue",
+      "filename": "plumbing-drain-repair-bad-smell-trap-issue.png",
+      "prompt": "Variation icon for plumbing drain repair: drain smell wavy lines trap silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-pipe-repair",
+      "service_name": "Plumbing Pipe Repair",
+      "variant_key": "leak-joint-fix",
+      "variant_title": "Leak / Joint Fix",
+      "filename": "plumbing-pipe-repair-leak-joint-fix.png",
+      "prompt": "Variation icon for plumbing pipe repair: pipe joint leak with wrench silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-pipe-repair",
+      "service_name": "Plumbing Pipe Repair",
+      "variant_key": "burst-damaged-pipe",
+      "variant_title": "Burst / Damaged Pipe",
+      "filename": "plumbing-pipe-repair-burst-damaged-pipe.png",
+      "prompt": "Variation icon for plumbing pipe repair: burst damaged water pipe silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-pipe-repair",
+      "service_name": "Plumbing Pipe Repair",
+      "variant_key": "concealed-pipe-leak",
+      "variant_title": "Concealed Pipe Leak",
+      "filename": "plumbing-pipe-repair-concealed-pipe-leak.png",
+      "prompt": "Variation icon for plumbing pipe repair: concealed wall pipe leak silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-pipe-repair",
+      "service_name": "Plumbing Pipe Repair",
+      "variant_key": "external-pipe-leak",
+      "variant_title": "External Pipe Leak",
+      "filename": "plumbing-pipe-repair-external-pipe-leak.png",
+      "prompt": "Variation icon for plumbing pipe repair: external pipe leak water drop silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-leak-repair",
+      "service_name": "Plumbing Leak Repair",
+      "variant_key": "visible-leak",
+      "variant_title": "Visible Leak",
+      "filename": "plumbing-leak-repair-visible-leak.png",
+      "prompt": "Variation icon for plumbing leak repair: visible water leak drip silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-leak-repair",
+      "service_name": "Plumbing Leak Repair",
+      "variant_key": "hidden-wall-seepage",
+      "variant_title": "Hidden / Wall Seepage",
+      "filename": "plumbing-leak-repair-hidden-wall-seepage.png",
+      "prompt": "Variation icon for plumbing leak repair: wall damp seepage stain silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-leak-repair",
+      "service_name": "Plumbing Leak Repair",
+      "variant_key": "shut-off-valve-leak",
+      "variant_title": "Shut-off Valve Leak",
+      "filename": "plumbing-leak-repair-shut-off-valve-leak.png",
+      "prompt": "Variation icon for plumbing leak repair: leaking shut-off valve silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-pressure-repair",
+      "service_name": "Plumbing Pressure Repair",
+      "variant_key": "low-water-pressure",
+      "variant_title": "Low Water Pressure",
+      "filename": "plumbing-pressure-repair-low-water-pressure.png",
+      "prompt": "Variation icon for plumbing pressure repair: low water pressure gauge silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-pressure-repair",
+      "service_name": "Plumbing Pressure Repair",
+      "variant_key": "no-water-airlock",
+      "variant_title": "No Water / Airlock",
+      "filename": "plumbing-pressure-repair-no-water-airlock.png",
+      "prompt": "Variation icon for plumbing pressure repair: empty tap with airlock bubble silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-motor-repair",
+      "service_name": "Plumbing Motor Repair",
+      "variant_key": "not-starting",
+      "variant_title": "Not Starting",
+      "filename": "plumbing-motor-repair-not-starting.png",
+      "prompt": "Variation icon for plumbing motor repair: water motor with stop symbol silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-motor-repair",
+      "service_name": "Plumbing Motor Repair",
+      "variant_key": "low-pressure-weak-flow",
+      "variant_title": "Low Pressure / Weak Flow",
+      "filename": "plumbing-motor-repair-low-pressure-weak-flow.png",
+      "prompt": "Variation icon for plumbing motor repair: weak water flow from pump silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-motor-repair",
+      "service_name": "Plumbing Motor Repair",
+      "variant_key": "noise-overheating",
+      "variant_title": "Noise / Overheating",
+      "filename": "plumbing-motor-repair-noise-overheating.png",
+      "prompt": "Variation icon for plumbing motor repair: motor with heat and sound waves silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-motor-repair",
+      "service_name": "Plumbing Motor Repair",
+      "variant_key": "air-cavity-removal",
+      "variant_title": "Air Cavity Removal",
+      "filename": "plumbing-motor-repair-air-cavity-removal.png",
+      "prompt": "Variation icon for plumbing motor repair: pump air cavity bleed valve silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-tank-repair",
+      "service_name": "Plumbing Tank Repair",
+      "variant_key": "overflow-float-valve",
+      "variant_title": "Overflow / Float Valve",
+      "filename": "plumbing-tank-repair-overflow-float-valve.png",
+      "prompt": "Variation icon for plumbing tank repair: tank overflow float valve silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-tank-repair",
+      "service_name": "Plumbing Tank Repair",
+      "variant_key": "connection-leakage",
+      "variant_title": "Connection Leakage",
+      "filename": "plumbing-tank-repair-connection-leakage.png",
+      "prompt": "Variation icon for plumbing tank repair: tank pipe connection leak silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-tank-repair",
+      "service_name": "Plumbing Tank Repair",
+      "variant_key": "cover-change",
+      "variant_title": "Cover Change",
+      "filename": "plumbing-tank-repair-cover-change.png",
+      "prompt": "Variation icon for plumbing tank repair: water tank cover replacement silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-geyser-connection-repair",
+      "service_name": "Plumbing Geyser Connection Repair",
+      "variant_key": "inlet-outlet-leak",
+      "variant_title": "Inlet / Outlet Leak",
+      "filename": "plumbing-geyser-connection-repair-inlet-outlet-leak.png",
+      "prompt": "Variation icon for plumbing geyser connection repair: geyser inlet outlet leak silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-site-check",
+      "service_name": "Plumbing Site Check",
+      "variant_key": "leak-check",
+      "variant_title": "Leak Check",
+      "filename": "plumbing-site-check-leak-check.png",
+      "prompt": "Variation icon for plumbing site check: magnifying glass over water leak check silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-site-check",
+      "service_name": "Plumbing Site Check",
+      "variant_key": "blockage-check",
+      "variant_title": "Blockage Check",
+      "filename": "plumbing-site-check-blockage-check.png",
+      "prompt": "Variation icon for plumbing site check: magnifying glass over blocked drain check silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-site-check",
+      "service_name": "Plumbing Site Check",
+      "variant_key": "unknown-problem",
+      "variant_title": "Unknown Problem",
+      "filename": "plumbing-site-check-unknown-problem.png",
+      "prompt": "Variation icon for plumbing site check: question mark with water drop silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-safety-check",
+      "service_name": "Plumbing Safety Check",
+      "variant_key": "full-home-plumbing-check",
+      "variant_title": "Full Home Plumbing Check",
+      "filename": "plumbing-safety-check-full-home-plumbing-check.png",
+      "prompt": "Variation icon for plumbing safety check: home shield with water drop safety check silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-safety-check",
+      "service_name": "Plumbing Safety Check",
+      "variant_key": "pipe-joint-check",
+      "variant_title": "Pipe / Joint Check",
+      "filename": "plumbing-safety-check-pipe-joint-check.png",
+      "prompt": "Variation icon for plumbing safety check: pipe joint inspection checklist silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-safety-check",
+      "service_name": "Plumbing Safety Check",
+      "variant_key": "motor-tank-check",
+      "variant_title": "Motor / Tank Check",
+      "filename": "plumbing-safety-check-motor-tank-check.png",
+      "prompt": "Variation icon for plumbing safety check: motor and overhead tank inspection silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-safety-check",
+      "service_name": "Plumbing Safety Check",
+      "variant_key": "drain-smell-backflow-check",
+      "variant_title": "Drain Smell / Backflow Check",
+      "filename": "plumbing-safety-check-drain-smell-backflow-check.png",
+      "prompt": "Variation icon for plumbing safety check: drain backflow smell warning silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-safety-check",
+      "service_name": "Plumbing Safety Check",
+      "variant_key": "winter-freeze-risk-check",
+      "variant_title": "Winter Freeze Risk Check",
+      "filename": "plumbing-safety-check-winter-freeze-risk-check.png",
+      "prompt": "Variation icon for plumbing safety check: frozen pipe winter risk warning silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-pre-work-check",
+      "service_name": "Plumbing Pre-Work Check",
+      "variant_key": "before-renovation-plumbing-check",
+      "variant_title": "Before Renovation Plumbing Check",
+      "filename": "plumbing-pre-work-check-before-renovation-plumbing-check.png",
+      "prompt": "Variation icon for plumbing pre-work check: renovation house plumbing survey clipboard silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "plumbing-pre-work-check",
+      "service_name": "Plumbing Pre-Work Check",
+      "variant_key": "full-house-plumbing-survey",
+      "variant_title": "Full House Plumbing Survey",
+      "filename": "plumbing-pre-work-check-full-house-plumbing-survey.png",
+      "prompt": "Variation icon for plumbing pre-work check: full house plumbing floor plan survey silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ]
+}

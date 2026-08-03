@@ -156,3 +156,40 @@ body.aside-folded.open-aside-folded .aside .aside-body .nav-menu-group-toggle:be
     background-color: #198754;
     color: #fff;
 }
+
+/* Sticky admin footer at bottom of viewport */
+.main-area {
+    block-size: auto !important;
+    min-block-size: 100vh;
+    min-block-size: 100dvh;
+    display: flex !important;
+    flex-direction: column !important;
+    box-sizing: border-box;
+}
+
+.main-area .main-content,
+.main-area .container-fluid:not(.footer .container-fluid) {
+    flex: 1 1 auto;
+}
+
+.main-area > turbo-frame.admin-main-frame {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0;
+    width: 100%;
+}
+
+.main-area > turbo-frame.admin-main-frame > .main-content,
+.main-area > turbo-frame.admin-main-frame > .container-fluid:not(.footer .container-fluid) {
+    flex: 1 1 auto;
+}
+
+.main-area > footer.footer,
+.main-area > turbo-frame.admin-main-frame > footer.footer,
+.main-area .main-content + footer.footer {
+    flex-shrink: 0;
+    margin-top: auto !important;
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+    background: var(--bs-white, #fff);
+}

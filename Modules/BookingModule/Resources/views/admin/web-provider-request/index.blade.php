@@ -73,7 +73,7 @@
                                             </td>
                                             <td>
                                                 @if($providerRequest->lead)
-                                                    <a href="{{ route('admin.lead.show', $providerRequest->lead->id) }}?in_modal=1" class="link-primary">
+                                                    <a href="{{ route('admin.lead.show', $providerRequest->lead->id) }}" class="link-primary">
                                                         #{{ $providerRequest->lead->id }} — {{ $providerRequest->lead->name ?: '—' }}
                                                     </a>
                                                     @if($providerRequest->lead->source)

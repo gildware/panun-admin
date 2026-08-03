@@ -1,11 +1,18 @@
 @php
-    $unreadCount = $unreadCount ?? 0;
-    $readCount = $readCount ?? 0;
+    use Modules\AdminModule\Entities\UserNotification;
+
+    $category = $category ?? UserNotification::CATEGORY_EXTERNAL;
+    $isInternal = $category === UserNotification::CATEGORY_INTERNAL;
+    $notifications = $notifications ?? collect();
+    $unreadCount = (int) ($unreadCount ?? 0);
+    $readCount = (int) ($readCount ?? 0);
+    $compact = $compact ?? true;
+    $dropdownTitle = $isInternal ? translate('Internal_Notifications') : translate('External_Notifications');
 @endphp
 
 <div class="px-3 py-2 border-bottom d-flex align-items-center justify-content-between gap-2">
     <div>
-        <span class="fw-semibold">{{ translate('Notifications') }}</span>
+        <span class="fw-semibold">{{ $dropdownTitle }}</span>
         <div class="small text-muted mt-1">
             <span class="text-danger fw-semibold">{{ $unreadCount }}</span> {{ translate('unread') }}
             &middot;
@@ -15,37 +22,14 @@
     @if($unreadCount > 0)
         <button type="button"
                 class="btn btn-sm btn-outline-primary js-mark-all-notifications-read"
+                data-notification-category="{{ $category }}"
                 title="{{ translate('Mark_all_as_read') }}">
             {{ translate('Mark_all_read') }}
         </button>
     @endif
 </div>
 
-@if($notifications->isEmpty())
-    <div class="dropdown-item-text text-center text-muted py-4">
-        {{ translate('No_notification_found') }}
-    </div>
-@else
-    @foreach($notifications as $notification)
-        <button type="button"
-                class="dropdown-item-text media gap-3 js-admin-notification-item border-0 bg-transparent w-100 text-start {{ $notification->isUnread() ? 'bg-light' : '' }}"
-                data-notification-id="{{ $notification->id }}"
-                data-notification-type="{{ $notification->type }}"
-                data-action-url="{{ $notification->action_url }}">
-            @include('adminmodule::admin.partials._notification-avatar', ['notification' => $notification])
-            <div class="media-body">
-                <h5 class="card-title mb-1 {{ $notification->isUnread() ? 'fw-bold' : '' }}">
-                    {{ $notification->title }}
-                    @if($notification->isUnread())
-                        <span class="badge bg-danger rounded-pill ms-1" style="font-size:0.55rem;">{{ translate('new') }}</span>
-                    @endif
-                </h5>
-                @if($notification->body)
-                    <p class="card-text fz-14 mb-1">{{ Str::limit($notification->body, 120) }}</p>
-                @endif
-                @include('adminmodule::admin.partials._notification-time', ['notification' => $notification])
-            </div>
-        </button>
-        <div class="dropdown-divider mb-0"></div>
-    @endforeach
-@endif
+@include('adminmodule::admin.partials._notification-items', [
+    'notifications' => $notifications,
+    'compact' => $compact,
+])

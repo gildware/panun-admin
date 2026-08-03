@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\AdSourceController;
+use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadCommentController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadConfigurationController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadFollowupController;
@@ -34,15 +35,23 @@ Route::group([
 
         // Reports routes should come before parameterized {id} routes
         Route::get('reports/user', [LeadReportController::class, 'userReport'])->middleware(['can:lead_report_view'])->name('reports.user');
+        Route::get('reports/inbound', [LeadReportController::class, 'inbound'])->middleware(['can:lead_report_view'])->name('reports.inbound');
+        Route::get('reports/outbound', [LeadReportController::class, 'outbound'])->middleware(['can:lead_report_view'])->name('reports.outbound');
         Route::get('reports', [LeadReportController::class, 'index'])->middleware(['can:lead_report_view'])->name('reports.index');
         Route::post('reports/drilldown', [LeadReportController::class, 'getLeadReportDrilldown'])->middleware(['can:lead_report_view'])->name('reports.drilldown');
         Route::get('reports/download', [LeadReportController::class, 'download'])->middleware(['can:lead_report_export'])->name('reports.download');
 
         // Today's pending follow-ups
         Route::get('todays-followups', [LeadFollowupController::class, 'todaysFollowups'])->name('todays_followups');
+        Route::get('search-providers', [LeadController::class, 'searchProvidersForLead'])->middleware(['can:lead_view'])->name('search-providers');
+
+        Route::post('{lead}/comments', [LeadCommentController::class, 'store'])->middleware(['can:lead_update'])->name('comments.store');
+        Route::put('comments/{comment}/pin', [LeadCommentController::class, 'togglePin'])->middleware(['can:lead_update'])->name('comments.pin');
+        Route::delete('comments/{comment}', [LeadCommentController::class, 'destroy'])->middleware(['can:lead_update'])->name('comments.destroy');
 
         Route::post('{id}/type', [LeadController::class, 'updateType'])->middleware(['can:lead_update'])->name('type.update');
         Route::post('{lead}/followups', [LeadController::class, 'storeFollowup'])->middleware(['can:lead_update'])->name('followups.store');
+        Route::post('{lead}/followups/{followup}/transcribe', [LeadController::class, 'transcribeFollowupRecording'])->middleware(['can:lead_update'])->name('followups.transcribe');
         Route::put('{id}', [LeadController::class, 'update'])->middleware(['can:lead_update'])->name('update');
         Route::delete('{id}', [LeadController::class, 'destroy'])->middleware(['can:lead_delete'])->name('destroy');
 
@@ -56,6 +65,7 @@ Route::group([
         Route::put('{id}/provider-status', [LeadController::class, 'updateProviderStatus'])->middleware(['can:lead_update'])->name('provider-status.update');
         Route::put('{id}/customer-status', [LeadController::class, 'updateCustomerStatus'])->middleware(['can:lead_update'])->name('customer-status.update');
         Route::put('{id}/customer-tags', [LeadController::class, 'updateCustomerTags'])->middleware(['can:lead_update'])->name('customer-tags.update');
+        Route::put('{id}/temporary-provider', [LeadController::class, 'updateTemporaryProvider'])->middleware(['can:lead_update'])->name('temporary-provider.update');
         Route::post('customer-tag', [LeadController::class, 'storeCustomerLeadTag'])->middleware(['can:lead_add'])->name('customer-tag.store');
 
         Route::post('{id}/outbound-enquiry', [LeadOutboundEnquiryController::class, 'storeFromLead'])

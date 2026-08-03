@@ -1,0 +1,255 @@
+{
+  "categories": [
+    {
+      "slug": "carpentary",
+      "filename": "carpentary.png",
+      "prompt": "Category icon: crossed hammer and saw with gear, professional carpentry services. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "carpentry-installation",
+      "filename": "carpentry-installation.png",
+      "prompt": "Category icon: wooden door being fitted with screwdriver, carpentry installation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "carpentry-making",
+      "filename": "carpentry-making.png",
+      "prompt": "Category icon: carpenter saw and wooden plank for custom furniture making. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "carpentry-repairs",
+      "filename": "carpentry-repairs.png",
+      "prompt": "Category icon: wooden chair with wrench and magnifying glass, carpentry repairs. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "roofing-works",
+      "filename": "roofing-works.png",
+      "prompt": "Category icon: pitched wooden roof with beam structure, roofing works. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ],
+  "variants": [
+    {
+      "service_slug": "door-installation",
+      "service_name": "Door Installation",
+      "variant_key": "standard-door",
+      "variant_title": "Standard Door",
+      "filename": "door-installation-standard-door.png",
+      "prompt": "Variation icon for door installation: standard hinged wooden door silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "door-installation",
+      "service_name": "Door Installation",
+      "variant_key": "sliding-door",
+      "variant_title": "Sliding Door",
+      "filename": "door-installation-sliding-door.png",
+      "prompt": "Variation icon for door installation: sliding wooden door on track silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "window-installation",
+      "service_name": "Window Installation",
+      "variant_key": "standard-window",
+      "variant_title": "Standard Window",
+      "filename": "window-installation-standard-window.png",
+      "prompt": "Variation icon for window installation: standard hinged wooden window silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "window-installation",
+      "service_name": "Window Installation",
+      "variant_key": "sliding-window",
+      "variant_title": "Sliding Window",
+      "filename": "window-installation-sliding-window.png",
+      "prompt": "Variation icon for window installation: sliding wooden window on track silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "bed-installation",
+      "service_name": "Bed Installation",
+      "variant_key": "single-bed-install",
+      "variant_title": "Single Bed Install",
+      "filename": "bed-installation-single-bed-install.png",
+      "prompt": "Variation icon for bed installation: single bed frame with assemble arrow icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "bed-installation",
+      "service_name": "Bed Installation",
+      "variant_key": "single-bed-uninstall",
+      "variant_title": "Single Bed Uninstall",
+      "filename": "bed-installation-single-bed-uninstall.png",
+      "prompt": "Variation icon for bed installation: single bed frame with dismantle arrow icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "bed-installation",
+      "service_name": "Bed Installation",
+      "variant_key": "single-bed-uninstall-install",
+      "variant_title": "Single Bed Uninstall+ Install",
+      "filename": "bed-installation-single-bed-uninstall-install.png",
+      "prompt": "Variation icon for bed installation: single bed with uninstall and install cycle arrows. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "bed-installation",
+      "service_name": "Bed Installation",
+      "variant_key": "double-bed-install",
+      "variant_title": "Double Bed Install",
+      "filename": "bed-installation-double-bed-install.png",
+      "prompt": "Variation icon for bed installation: double bed frame with assemble arrow icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "bed-installation",
+      "service_name": "Bed Installation",
+      "variant_key": "double-bed-uninstall",
+      "variant_title": "Double Bed Uninstall",
+      "filename": "bed-installation-double-bed-uninstall.png",
+      "prompt": "Variation icon for bed installation: double bed frame with dismantle arrow icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "bed-installation",
+      "service_name": "Bed Installation",
+      "variant_key": "double-bed-uninstall-install",
+      "variant_title": "Double Bed Uninstall+ Install",
+      "filename": "bed-installation-double-bed-uninstall-install.png",
+      "prompt": "Variation icon for bed installation: double bed with uninstall and install cycle arrows. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "table-installation",
+      "service_name": "Table Installation",
+      "variant_key": "table-install",
+      "variant_title": "Table Install",
+      "filename": "table-installation-table-install.png",
+      "prompt": "Variation icon for table installation: wooden table with assemble arrow icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "table-installation",
+      "service_name": "Table Installation",
+      "variant_key": "table-uninstall",
+      "variant_title": "Table Uninstall",
+      "filename": "table-installation-table-uninstall.png",
+      "prompt": "Variation icon for table installation: wooden table with dismantle arrow icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "table-installation",
+      "service_name": "Table Installation",
+      "variant_key": "table-install-uninstall",
+      "variant_title": "Table Install Uninstall",
+      "filename": "table-installation-table-install-uninstall.png",
+      "prompt": "Variation icon for table installation: wooden table with install uninstall cycle arrows. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "bed-making",
+      "service_name": "Bed Making",
+      "variant_key": "book-on-site-inspection",
+      "variant_title": "Book on Site inspection",
+      "filename": "bed-making-book-on-site-inspection.png",
+      "prompt": "Variation icon for bed making: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "wardrobe-making",
+      "service_name": "Wardrobe Making",
+      "variant_key": "book-on-site-inspection",
+      "variant_title": "Book on Site inspection",
+      "filename": "wardrobe-making-book-on-site-inspection.png",
+      "prompt": "Variation icon for wardrobe making: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "almirah-making",
+      "service_name": "Almirah Making",
+      "variant_key": "book-on-site-inspection",
+      "variant_title": "Book on Site inspection",
+      "filename": "almirah-making-book-on-site-inspection.png",
+      "prompt": "Variation icon for almirah making: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "table-making",
+      "service_name": "Table Making",
+      "variant_key": "book-on-site-inspection",
+      "variant_title": "Book on Site inspection",
+      "filename": "table-making-book-on-site-inspection.png",
+      "prompt": "Variation icon for table making: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "shop-shelves-making",
+      "service_name": "Shop Shelves Making",
+      "variant_key": "book-on-site-inspection",
+      "variant_title": "Book on Site inspection",
+      "filename": "shop-shelves-making-book-on-site-inspection.png",
+      "prompt": "Variation icon for shop shelves making: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "kitchen-cabinet-making",
+      "service_name": "Kitchen Cabinet Making",
+      "variant_key": "book-on-site-inspection",
+      "variant_title": "Book on Site inspection",
+      "filename": "kitchen-cabinet-making-book-on-site-inspection.png",
+      "prompt": "Variation icon for kitchen cabinet making: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "custom-carpentry-work",
+      "service_name": "Custom Carpentry Work",
+      "variant_key": "book-on-site-inspection",
+      "variant_title": "Book on Site inspection",
+      "filename": "custom-carpentry-work-book-on-site-inspection.png",
+      "prompt": "Variation icon for custom carpentry work: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "door-repair",
+      "service_name": "Door Repair",
+      "variant_key": "book-site-inspection",
+      "variant_title": "Book Site Inspection",
+      "filename": "door-repair-book-site-inspection.png",
+      "prompt": "Variation icon for door repair: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "furniture-repair",
+      "service_name": "Furniture Repair",
+      "variant_key": "book-site-inspection",
+      "variant_title": "Book Site Inspection",
+      "filename": "furniture-repair-book-site-inspection.png",
+      "prompt": "Variation icon for furniture repair: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "kitchen-cabinet-repair",
+      "service_name": "Kitchen Cabinet Repair",
+      "variant_key": "book-site-inspection",
+      "variant_title": "Book Site Inspection",
+      "filename": "kitchen-cabinet-repair-book-site-inspection.png",
+      "prompt": "Variation icon for kitchen cabinet repair: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "wardrobe-repair",
+      "service_name": "Wardrobe Repair",
+      "variant_key": "book-site-inspection",
+      "variant_title": "Book Site Inspection",
+      "filename": "wardrobe-repair-book-site-inspection.png",
+      "prompt": "Variation icon for wardrobe repair: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "window-repair",
+      "service_name": "Window Repair",
+      "variant_key": "book-site-inspection",
+      "variant_title": "Book Site Inspection",
+      "filename": "window-repair-book-site-inspection.png",
+      "prompt": "Variation icon for window repair: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "other-carpentry-repair",
+      "service_name": "Other Carpentry Repair",
+      "variant_key": "book-on-site-inspection",
+      "variant_title": "Book on Site inspection",
+      "filename": "other-carpentry-repair-book-on-site-inspection.png",
+      "prompt": "Variation icon for other carpentry repair: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "roof-installation",
+      "service_name": "Roof Installation",
+      "variant_key": "book-site-inspection",
+      "variant_title": "Book Site Inspection",
+      "filename": "roof-installation-book-site-inspection.png",
+      "prompt": "Variation icon for roof installation: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "roof-repair",
+      "service_name": "Roof Repair",
+      "variant_key": "book-site-inspection",
+      "variant_title": "Book Site Inspection",
+      "filename": "roof-repair-book-site-inspection.png",
+      "prompt": "Variation icon for roof repair: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ]
+}

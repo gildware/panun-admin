@@ -4,6 +4,7 @@ namespace Modules\CustomerModule\Services;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Config;
 use Modules\ZoneManagement\Entities\Zone;
 
 /**
@@ -304,10 +305,23 @@ class CustomerHomeBaseBundleCache
         $warmed = 0;
 
         foreach ($locales as $loc) {
-            $request = Request::create('/api/v1/customer/home-bundle', 'GET');
-            $request->headers->set('zoneId', $zoneId);
-            $request->headers->set('X-localization', $loc);
-            $cache->buildAndStore($request, $layoutHash);
+            // Heartbeat before each unit so a slow compose does not look like a dead rebuild.
+            CustomerHomeCacheWarmState::touchRebuildHeartbeat();
+
+            try {
+                $request = Request::create('/api/v1/customer/home-bundle', 'GET');
+                $request->headers->set('zoneId', $zoneId);
+                $request->headers->set('X-localization', $loc);
+                $cache->buildAndStore($request, $layoutHash);
+            } catch (\Throwable $e) {
+                $detail = $e->getMessage() !== '' ? $e->getMessage() : 'unknown error';
+                throw new \RuntimeException(
+                    "Home cache warm failed for zone {$zoneId} (locale {$loc}): {$detail}",
+                    0,
+                    $e
+                );
+            }
+
             $warmed++;
 
             if ($onProgress !== null) {
@@ -320,6 +334,13 @@ class CustomerHomeBaseBundleCache
 
     public static function warmAll(?string $zoneId = null): int
     {
+        // Shared hosting often caps request time; admin rebuild must be allowed to finish.
+        ignore_user_abort(true);
+        @set_time_limit(0);
+
+        // Avoid Laravel Process concurrency during warm — Hostinger MySQL rejects forked CLI connections.
+        Config::set('customer_home_cache_warming', true);
+
         $total = self::estimateRebuildTotal($zoneId);
         $warmed = 0;
 
@@ -329,24 +350,28 @@ class CustomerHomeBaseBundleCache
 
         CustomerHomeCacheWarmState::markRebuildProgress(0, $total);
 
-        if ($zoneId !== null && $zoneId !== '') {
-            $warmed = self::warmZone($zoneId, null, $onProgress, 0);
+        try {
+            if ($zoneId !== null && $zoneId !== '') {
+                $warmed = self::warmZone($zoneId, null, $onProgress, 0);
+                CustomerHomeCacheWarmState::markWarmed();
+                CustomerHomeCacheWarmState::markRebuildComplete();
+
+                return $warmed;
+            }
+
+            $zoneIds = Zone::query()->where('is_active', 1)->pluck('id');
+
+            foreach ($zoneIds as $id) {
+                $warmed += self::warmZone((string) $id, null, $onProgress, $warmed);
+            }
+
             CustomerHomeCacheWarmState::markWarmed();
             CustomerHomeCacheWarmState::markRebuildComplete();
 
             return $warmed;
+        } finally {
+            Config::set('customer_home_cache_warming', false);
         }
-
-        $zoneIds = Zone::query()->where('is_active', 1)->pluck('id');
-
-        foreach ($zoneIds as $id) {
-            $warmed += self::warmZone((string) $id, null, $onProgress, $warmed);
-        }
-
-        CustomerHomeCacheWarmState::markWarmed();
-        CustomerHomeCacheWarmState::markRebuildComplete();
-
-        return $warmed;
     }
 
     private function resolveLocale(Request $request): string

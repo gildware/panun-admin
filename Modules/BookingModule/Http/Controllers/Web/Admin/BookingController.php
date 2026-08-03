@@ -44,6 +44,8 @@ use Modules\BookingModule\Entities\BookingCancellationReason;
 use Modules\BookingModule\Entities\BookingDisputeReason;
 use Modules\BookingModule\Entities\BookingHoldReopenReason;
 use Modules\BookingModule\Services\BookingFollowupService;
+use Modules\BookingModule\Services\BookingFollowupRecordingTranscriptionService;
+use Modules\BookingModule\Entities\BookingFollowup;
 use Modules\BookingModule\Services\AdminCompanyInflowPaymentService;
 use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\BookingModule\Services\AdminBookingDeletionService;
@@ -243,7 +245,7 @@ class BookingController extends Controller
             'booking_status' => 'nullable|in:' . implode(',', $allowedBookingStatuses),
         ]);
 
-        $queryParams = $request->only(['zone_ids', 'category_ids', 'sub_category_ids', 'start_date', 'end_date', 'search']);
+        $queryParams = $request->only(['zone_ids', 'category_ids', 'sub_category_ids', 'start_date', 'end_date', 'schedule_start_date', 'schedule_end_date', 'search']);
         $queryParams['assignee_ids'] = $this->normalizeAdminAssigneeFilterIds((array) $request->input('assignee_ids', []));
         $filterCounter = collect($queryParams)->filter()->count();
         $bookingStatus = $queryParams['booking_status'] = $request->input('booking_status') ?: 'all';
@@ -257,11 +259,17 @@ class BookingController extends Controller
         if (empty($queryParams['end_date'])) {
             $queryParams['end_date'] = null;
         }
+        if (empty($queryParams['schedule_start_date'])) {
+            $queryParams['schedule_start_date'] = null;
+        }
+        if (empty($queryParams['schedule_end_date'])) {
+            $queryParams['schedule_end_date'] = null;
+        }
 
         $maxBookingAmount = (business_config('max_booking_amount', 'booking_setup'))->live_values;
         $bookings = $this->booking
             ->with(array_merge(
-                ['customer', 'assignee', 'followups', 'extra_services'],
+                ['customer', 'assignee', 'followups', 'extra_services', 'provider', 'subCategory', 'zone', 'service_address', 'repeat'],
                 $bookingStatus === 'reopened' ? [
                     'reopenEvents.holdReopenReason',
                     'spawnedFollowupBookings',
@@ -281,7 +289,7 @@ class BookingController extends Controller
                     'customer',
                 ] : [],
             ))
-            ->search($request['search'], ['readable_id'])
+            ->adminListSearch($request['search'])
             ->when($bookingStatus != 'all', function ($query) use ($bookingStatus, $maxBookingAmount, $request) {
                 if ($bookingStatus === 'reopened') {
                     $query->reopenedChain();
@@ -332,6 +340,7 @@ class BookingController extends Controller
             ->filterBySubcategoryIds($request['sub_category_ids'])
             ->filterByCategoryIds($request['category_ids'])
             ->filterByDateRange($request['start_date'], $request['end_date'])
+            ->filterByScheduleDateRange($request['schedule_start_date'], $request['schedule_end_date'])
             ->filterByAssigneeIds($queryParams['assignee_ids'])
             ->when($bookingStatus === 'cancelled_by_provider', function ($query) {
                 $query->orderByDesc('provider_cancelled_at')->orderByDesc('updated_at');
@@ -374,8 +383,9 @@ class BookingController extends Controller
             ->get();
 
         $bookingTabCounts = $this->adminBookingListStatusTabCounts();
+        $followupListMeta = app(BookingFollowupService::class)->buildBookingFollowupListMeta($bookings->getCollection());
 
-        return view('bookingmodule::admin.booking.list', compact('bookings', 'zones', 'categories', 'subCategories', 'assigneeUsers', 'queryParams', 'filterCounter', 'bookingTabCounts'));
+        return view('bookingmodule::admin.booking.list', compact('bookings', 'zones', 'categories', 'subCategories', 'assigneeUsers', 'queryParams', 'filterCounter', 'bookingTabCounts', 'followupListMeta'));
     }
 
     /**
@@ -602,6 +612,18 @@ class BookingController extends Controller
         if ($leadModel->lead_type !== \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER) {
             Toastr::error(translate('Lead_is_not_a_customer_type'));
             return redirect()->route('admin.lead.show', $leadModel->id);
+        }
+
+        if (! $request->boolean('workflow_confirmed')) {
+            $gate = app(\Modules\AdminModule\Services\WorkflowGate::class)
+                ->checkLeadAction($leadModel, \Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_LEAD_CREATE_BOOKING);
+            if (! $gate['allowed']) {
+                Toastr::warning($gate['message']);
+                return redirect()
+                    ->route('admin.lead.show', $leadModel->id)
+                    ->with('workflow_gate', $gate)
+                    ->with('workflow_gate_action', \Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_LEAD_CREATE_BOOKING);
+            }
         }
 
         // Try to find existing customer by phone; otherwise create one
@@ -1891,6 +1913,13 @@ class BookingController extends Controller
 
             $booking->save();
 
+            if (
+                $booking->assignee_id
+                && function_exists('admin_inbox_notify_booking_assigned')
+            ) {
+                admin_inbox_notify_booking_assigned((string) $booking->assignee_id, $booking->fresh(), auth()->user());
+            }
+
             // Record advance payment as an offline partial payment if provided (always received by company)
             if (!empty($data['advance_paid_amount']) && $data['advance_paid_amount'] > 0) {
                 $paidAmount = min($data['advance_paid_amount'], $totalCost);
@@ -2245,7 +2274,9 @@ class BookingController extends Controller
         $categories = $this->category->select('id', 'parent_id', 'name')->where('position', 1)->get();
         $subCategories = $this->category->select('id', 'parent_id', 'name')->where('position', 2)->get();
 
-        return view('bookingmodule::admin.booking.verification-list', compact('bookings', 'zones', 'categories', 'subCategories', 'queryParams', 'filterCounter', 'type'));
+        $followupListMeta = app(BookingFollowupService::class)->buildBookingFollowupListMeta($bookings->getCollection());
+
+        return view('bookingmodule::admin.booking.verification-list', compact('bookings', 'zones', 'categories', 'subCategories', 'queryParams', 'filterCounter', 'type', 'followupListMeta'));
     }
 
     /**
@@ -2355,7 +2386,9 @@ class BookingController extends Controller
         $categories = $this->category->select('id', 'parent_id', 'name')->where('position', 1)->get();
         $subCategories = $this->category->select('id', 'parent_id', 'name')->where('position', 2)->get();
 
-        return view('bookingmodule::admin.booking.offline-payment-list', compact('bookings', 'zones', 'categories', 'subCategories', 'queryParams', 'filterCounter'));
+        $followupListMeta = app(BookingFollowupService::class)->buildBookingFollowupListMeta($bookings->getCollection());
+
+        return view('bookingmodule::admin.booking.offline-payment-list', compact('bookings', 'zones', 'categories', 'subCategories', 'queryParams', 'filterCounter', 'followupListMeta'));
     }
 
     /**
@@ -2479,7 +2512,7 @@ class BookingController extends Controller
             return redirect()->route('admin.booking.details', [$id, 'web_page' => 'history']);
         }
         $webPage = $request->input('web_page', 'details');
-        if (!in_array($webPage, ['details', 'history', 'followups'], true)) {
+        if (!in_array($webPage, ['details', 'history', 'followups', 'comments'], true)) {
             $webPage = 'details';
         }
         $request->merge(['web_page' => $webPage]);
@@ -2489,6 +2522,9 @@ class BookingController extends Controller
             $booking = $this->booking->with([
                 'category',
                 'subCategory',
+                'comments.createdBy',
+                'comments.pinnedByUser',
+                'change_logs.changedBy',
                 'detail.service' => function ($query) {
                     $query->withTrashed();
                 },
@@ -2516,7 +2552,7 @@ class BookingController extends Controller
                 'latestParentDisputeStatusHistory.disputeReason',
                 'booking_partial_payments.ledgerTransactions',
                 'booking_offline_payments',
-                'followups',
+                'followups.createdBy',
                 'extra_services',
                 'reopenEvents.actor',
                 'reopenEvents.holdReopenReason',
@@ -2660,9 +2696,15 @@ class BookingController extends Controller
                 ->select('id', 'first_name', 'last_name', 'email', 'phone', 'user_type')
                 ->get();
 
-            $scheduledNext = ($booking->followups ?? collect())->where('status', 'scheduled')->sortBy('date');
-            $nextFollowupCustomer = $scheduledNext->where('for', 'customer')->first();
-            $nextFollowupProvider = $scheduledNext->where('for', 'provider')->first();
+            $followupService = app(BookingFollowupService::class);
+            $nextScheduled = $followupService->nextScheduledFollowups($booking);
+            $nextFollowupCustomer = $nextScheduled['customer'];
+            $nextFollowupProvider = $nextScheduled['provider'];
+            $followupDetailMeta = $followupService->buildBookingFollowupDetailMeta(
+                $booking,
+                $nextFollowupCustomer,
+                $nextFollowupProvider
+            );
             $customerName = booking_display_customer_name($booking, $customerAddress);
             $customerPhone = booking_display_customer_phone($booking, $customerAddress);
 
@@ -2703,9 +2745,36 @@ class BookingController extends Controller
 
             try {
                 $advancePaymentMethodGroups = $this->getAdminAdvancePaymentMethodGroupsForCreate();
+                $workflowContext = app(\Modules\AdminModule\Services\WorkflowNextStepService::class)->forBooking($booking);
+                $commentParser = app(\Modules\ChattingModule\Services\StaffChatMessageParser::class);
+                $sortedComments = $booking->comments->sort(function ($a, $b) {
+                    if ((bool) $a->is_pinned !== (bool) $b->is_pinned) {
+                        return $b->is_pinned <=> $a->is_pinned;
+                    }
+                    if ($a->is_pinned && $b->is_pinned) {
+                        return ($b->pinned_at ?? $b->created_at) <=> ($a->pinned_at ?? $a->created_at);
+                    }
+
+                    return ($a->created_at ?? now()) <=> ($b->created_at ?? now());
+                })->values();
+                $activityFollowups = $booking->followups->sort(function ($a, $b) {
+                    $aScheduled = $a->status === 'scheduled';
+                    $bScheduled = $b->status === 'scheduled';
+                    if ($aScheduled !== $bScheduled) {
+                        return $aScheduled ? -1 : 1;
+                    }
+                    if ($aScheduled) {
+                        return $a->date <=> $b->date;
+                    }
+
+                    return $b->date <=> $a->date;
+                })->values();
+                $followupDelayMeta = $followupService->buildFollowupDelayMeta($booking->followups);
+                $followupScheduleMinAt = now()->format('Y-m-d\TH:i');
+                $requiresMandatoryNextFollowup = $booking->requiresMandatoryNextFollowup();
 
                 return view('bookingmodule::admin.booking.details', array_merge(
-                    compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'bookingEditCategories', 'providers', 'sort_by', 'assignees', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone', 'remainingDueForAddPayment', 'maxRefundAmount', 'additionalChargesDisplayRows', 'financialSettlementOutcomes', 'defaultVisitFeeCompanyPercent', 'bfsDefaultCustomAdminCommission', 'advancePaymentMethodGroups', 'allowDeleteAdminBookingPartialPayments'),
+                    compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'bookingEditCategories', 'providers', 'sort_by', 'assignees', 'nextFollowupCustomer', 'nextFollowupProvider', 'followupDetailMeta', 'customerName', 'customerPhone', 'remainingDueForAddPayment', 'maxRefundAmount', 'additionalChargesDisplayRows', 'financialSettlementOutcomes', 'defaultVisitFeeCompanyPercent', 'bfsDefaultCustomAdminCommission', 'advancePaymentMethodGroups', 'allowDeleteAdminBookingPartialPayments', 'workflowContext', 'sortedComments', 'commentParser', 'activityFollowups', 'followupDelayMeta', 'followupScheduleMinAt', 'requiresMandatoryNextFollowup'),
                     $this->bookingConfigurationReasonVariables()
                 ));
             } catch (Throwable $e) {
@@ -2735,21 +2804,81 @@ class BookingController extends Controller
         } elseif ($webPage === 'followups') {
             $booking = $this->booking->with(['followups.createdBy', 'customer', 'provider', 'service_address', 'booking_partial_payments', 'reopenEvents.actor', 'originatedFromBooking', 'spawnedFollowupBookings', 'reopenedByUser', 'reopenCaseResolvedByUser'])->find($id);
             $webPage = 'followups';
-            $scheduledNext = ($booking->followups ?? collect())->where('status', 'scheduled')->sortBy('date');
-            $nextFollowupCustomer = $scheduledNext->where('for', 'customer')->first();
-            $nextFollowupProvider = $scheduledNext->where('for', 'provider')->first();
+            $booking->setRelation('followups', $booking->followups->sort(function ($a, $b) {
+                $aScheduled = $a->status === 'scheduled';
+                $bScheduled = $b->status === 'scheduled';
+                if ($aScheduled !== $bScheduled) {
+                    return $aScheduled ? -1 : 1;
+                }
+                if ($aScheduled) {
+                    return $a->date <=> $b->date;
+                }
+
+                return $b->date <=> $a->date;
+            })->values());
+            $followupService = app(BookingFollowupService::class);
+            $nextScheduled = $followupService->nextScheduledFollowups($booking);
+            $nextFollowupCustomer = $nextScheduled['customer'];
+            $nextFollowupProvider = $nextScheduled['provider'];
+            $followupDetailMeta = $followupService->buildBookingFollowupDetailMeta(
+                $booking,
+                $nextFollowupCustomer,
+                $nextFollowupProvider
+            );
             $customerName = $booking->customer ? trim(($booking->customer->first_name ?? '') . ' ' . ($booking->customer->last_name ?? '')) : ($booking->service_address->contact_person_name ?? '');
             $customerPhone = $booking->customer ? ($booking->customer->phone ?? '') : ($booking->service_address->contact_person_number ?? '');
             $requiresMandatoryNextFollowup = $booking->requiresMandatoryNextFollowup();
+            $followupDelayMeta = $followupService->buildFollowupDelayMeta($booking->followups);
+            $followupScheduleMinAt = now()->format('Y-m-d\TH:i');
 
             return view('bookingmodule::admin.booking.followups', compact(
                 'booking',
                 'webPage',
                 'nextFollowupCustomer',
                 'nextFollowupProvider',
+                'followupDetailMeta',
                 'customerName',
                 'customerPhone',
-                'requiresMandatoryNextFollowup'
+                'requiresMandatoryNextFollowup',
+                'followupDelayMeta',
+                'followupScheduleMinAt'
+            ));
+        } elseif ($webPage === 'comments') {
+            $booking = $this->booking->with([
+                'comments.createdBy',
+                'comments.pinnedByUser',
+                'customer',
+                'provider',
+                'service_address',
+                'booking_partial_payments',
+                'reopenEvents.actor',
+                'originatedFromBooking',
+                'spawnedFollowupBookings',
+                'reopenedByUser',
+                'reopenCaseResolvedByUser',
+            ])->find($id);
+
+            if (!$booking) {
+                return redirect()->route('admin.booking.list')->withErrors(['message' => translate('Booking not found')]);
+            }
+
+            $commentParser = app(\Modules\ChattingModule\Services\StaffChatMessageParser::class);
+            $sortedComments = $booking->comments->sort(function ($a, $b) {
+                if ((bool) $a->is_pinned !== (bool) $b->is_pinned) {
+                    return $b->is_pinned <=> $a->is_pinned;
+                }
+                if ($a->is_pinned && $b->is_pinned) {
+                    return ($b->pinned_at ?? $b->created_at) <=> ($a->pinned_at ?? $a->created_at);
+                }
+
+                return ($a->created_at ?? now()) <=> ($b->created_at ?? now());
+            })->values();
+
+            return view('bookingmodule::admin.booking.comments', compact(
+                'booking',
+                'webPage',
+                'commentParser',
+                'sortedComments'
             ));
         }
 
@@ -2761,20 +2890,157 @@ class BookingController extends Controller
     {
         $this->authorize('booking_view');
         $booking = $this->booking->findOrFail($id);
+        $requiresNext = $booking->requiresMandatoryNextFollowup();
+        $followupAction = $request->input('followup_action', BookingFollowup::ACTION_TAKEN);
+
+        if (! in_array($followupAction, BookingFollowup::FOLLOWUP_ACTIONS, true)) {
+            $followupAction = BookingFollowup::ACTION_TAKEN;
+        }
+
+        if ($followupAction === BookingFollowup::ACTION_RESCHEDULE) {
+            return $this->storeRescheduledBookingFollowup($request, $booking, $requiresNext);
+        }
+
+        return $this->storeTakenBookingFollowup($request, $booking, $requiresNext);
+    }
+
+    protected function storeTakenBookingFollowup(
+        Request $request,
+        Booking $booking,
+        bool $requiresNext
+    ): RedirectResponse {
         $validated = $request->validate([
-            'date' => ['required', 'date'],
-            'reason' => ['nullable', 'string', 'max:500'],
             'for' => ['required', 'in:customer,provider'],
-            'urgency' => ['nullable', 'in:' . implode(',', \Modules\BookingModule\Entities\BookingFollowup::URGENCIES)],
+            'followup_at' => ['required', 'date'],
+            'remarks' => ['nullable', 'string', 'max:1000'],
+            'contact_channel' => ['nullable', 'in:'.implode(',', BookingFollowup::CONTACT_CHANNELS)],
+            'recording' => [
+                'nullable',
+                'file',
+                'max:10240',
+                'mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/webm,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/x-aac',
+            ],
+            'urgency' => ['nullable', 'in:'.implode(',', BookingFollowup::URGENCIES)],
+            'next_followup_at' => [
+                Rule::requiredIf(fn () => $requiresNext),
+                'nullable',
+                'date',
+                'after:now',
+            ],
+            'schedule_next' => ['nullable', 'in:1'],
+        ], [
+            'next_followup_at.required' => translate('Next_follow_up_date_is_required'),
+            'next_followup_at.after' => translate('Reschedule_date_must_be_in_the_future'),
+            'recording.mimetypes' => translate('Please_upload_a_valid_audio_recording'),
         ]);
-        $validated['booking_id'] = $booking->id;
-        $validated['created_by'] = auth()->id();
-        $validated['status'] = 'scheduled';
-        $validated['urgency'] = $validated['urgency'] ?? \Modules\BookingModule\Entities\BookingFollowup::URGENCY_MEDIUM;
-        $validated['date'] = Carbon::parse($validated['date'])->format('Y-m-d H:i:s');
-        \Modules\BookingModule\Entities\BookingFollowup::create($validated);
+
+        if (($validated['contact_channel'] ?? null) !== BookingFollowup::CHANNEL_CALL && $request->hasFile('recording')) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->withErrors(['recording' => translate('Voice_recording_is_only_allowed_for_call_follow_ups')]);
+        }
+
+        $recordingData = [];
+        if (($validated['contact_channel'] ?? null) === BookingFollowup::CHANNEL_CALL && $request->hasFile('recording')) {
+            $recording = $request->file('recording');
+            $extension = $recording->getClientOriginalExtension() ?: 'webm';
+            $storedName = file_uploader('booking-followups/', $extension, $recording);
+
+            if ($storedName === 'def.png') {
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->withErrors(['recording' => translate('Failed_to_upload_voice_recording')]);
+            }
+
+            $recordingData = [
+                'recording_path' => $storedName,
+                'recording_disk' => getDisk(),
+                'recording_mime' => $recording->getMimeType(),
+                'recording_original_name' => $recording->getClientOriginalName(),
+            ];
+        }
+
+        BookingFollowup::create(array_merge([
+            'booking_id' => $booking->id,
+            'for' => $validated['for'],
+            'date' => $validated['followup_at'],
+            'followup_at' => $validated['followup_at'],
+            'status' => 'completed',
+            'remarks' => $validated['remarks'] ?? null,
+            'contact_channel' => $validated['contact_channel'] ?? null,
+            'urgency' => $validated['urgency'] ?? BookingFollowup::URGENCY_MEDIUM,
+            'created_by' => auth()->id(),
+        ], $recordingData));
+
+        $shouldScheduleNext = $requiresNext
+            || (! empty($validated['schedule_next']) && ! empty($validated['next_followup_at']));
+
+        if ($shouldScheduleNext) {
+            if (empty($validated['next_followup_at'])) {
+                throw ValidationException::withMessages([
+                    'next_followup_at' => [translate('Next_follow_up_date_is_required')],
+                ]);
+            }
+
+            app(BookingFollowupService::class)->schedule(
+                $booking,
+                $validated['next_followup_at'],
+                $validated['for'],
+                null,
+                null,
+                $validated['urgency'] ?? BookingFollowup::URGENCY_MEDIUM
+            );
+        }
+
         Toastr::success(translate('Follow_up_added_successfully'));
-        return redirect()->route('admin.booking.details', [$id, 'web_page' => 'followups']);
+
+        return $this->redirectAfterBookingFollowup($request, $booking);
+    }
+
+    protected function storeRescheduledBookingFollowup(
+        Request $request,
+        Booking $booking,
+        bool $requiresNext
+    ): RedirectResponse {
+        $validated = $request->validate([
+            'for' => ['required', 'in:customer,provider'],
+            'remarks' => ['nullable', 'string', 'max:1000'],
+            'urgency' => ['nullable', 'in:'.implode(',', BookingFollowup::URGENCIES)],
+            'next_followup_at' => [
+                'required',
+                'date',
+                'after:now',
+            ],
+        ], [
+            'next_followup_at.required' => translate('Next_follow_up_date_is_required'),
+            'next_followup_at.after' => translate('Reschedule_date_must_be_in_the_future'),
+        ]);
+
+        BookingFollowup::create([
+            'booking_id' => $booking->id,
+            'for' => $validated['for'],
+            'status' => 'rescheduled',
+            'remarks' => $validated['remarks'] ?? null,
+            'reschedule_reason' => $validated['remarks'] ?? null,
+            'next_followup_at' => $validated['next_followup_at'],
+            'urgency' => $validated['urgency'] ?? BookingFollowup::URGENCY_MEDIUM,
+            'created_by' => auth()->id(),
+        ]);
+
+        app(BookingFollowupService::class)->schedule(
+            $booking,
+            $validated['next_followup_at'],
+            $validated['for'],
+            null,
+            null,
+            $validated['urgency'] ?? BookingFollowup::URGENCY_MEDIUM
+        );
+
+        Toastr::success(translate('Follow_up_rescheduled_successfully'));
+
+        return $this->redirectAfterBookingFollowup($request, $booking);
     }
 
     public function reopenFromCompleted(Request $request, string $id): RedirectResponse
@@ -3392,83 +3658,188 @@ class BookingController extends Controller
     {
         $this->authorize('booking_view');
         $booking = $this->booking->findOrFail($id);
-        $followup = $booking->followups()->findOrFail($followupId);
+        $followup = $booking->followups()->where('status', 'scheduled')->findOrFail($followupId);
         $requiresNext = $booking->requiresMandatoryNextFollowup();
+        $followupAction = $request->input('followup_action', BookingFollowup::ACTION_TAKEN);
 
+        if (! in_array($followupAction, BookingFollowup::FOLLOWUP_ACTIONS, true)) {
+            $followupAction = BookingFollowup::ACTION_TAKEN;
+        }
+
+        if ($followupAction === BookingFollowup::ACTION_RESCHEDULE) {
+            return $this->updateRescheduledBookingFollowup($request, $booking, $followup, $requiresNext);
+        }
+
+        return $this->updateTakenBookingFollowup($request, $booking, $followup, $requiresNext);
+    }
+
+    protected function updateTakenBookingFollowup(
+        Request $request,
+        Booking $booking,
+        BookingFollowup $followup,
+        bool $requiresNext
+    ): RedirectResponse {
         $validated = $request->validate([
-            'status' => ['required', 'in:completed,rescheduled'],
-            'remarks' => ['required_if:status,completed', 'nullable', 'string', 'max:2000'],
-            'reschedule_reason' => ['required_if:status,rescheduled', 'nullable', 'string', 'max:500'],
-            'reschedule_date' => ['required_if:status,rescheduled', 'nullable', 'date'],
-            'add_another_followup' => ['nullable', 'in:1'],
-            'add_another_date' => [
-                $requiresNext ? 'required_if:status,completed' : 'required_if:add_another_followup,1',
+            'followup_at' => ['required', 'date'],
+            'remarks' => ['nullable', 'string', 'max:1000'],
+            'contact_channel' => ['nullable', 'in:'.implode(',', BookingFollowup::CONTACT_CHANNELS)],
+            'recording' => [
+                'nullable',
+                'file',
+                'max:10240',
+                'mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/webm,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/x-aac',
+            ],
+            'urgency' => ['nullable', 'in:'.implode(',', BookingFollowup::URGENCIES)],
+            'next_followup_at' => [
+                Rule::requiredIf(fn () => $requiresNext),
                 'nullable',
                 'date',
+                'after:now',
             ],
-            'add_another_for' => [
-                $requiresNext ? 'required_if:status,completed' : 'required_if:add_another_followup,1',
-                'nullable',
-                'in:customer,provider',
-            ],
-            'add_another_reason' => ['nullable', 'string', 'max:500'],
-            'add_another_urgency' => ['nullable', 'in:' . implode(',', \Modules\BookingModule\Entities\BookingFollowup::URGENCIES)],
+            'schedule_next' => ['nullable', 'in:1'],
         ], [
-            'add_another_date.required_if' => translate('Next_follow_up_date_is_required'),
-            'add_another_for.required_if' => translate('Next_follow_up_for_is_required'),
+            'next_followup_at.required' => translate('Next_follow_up_date_is_required'),
+            'next_followup_at.after' => translate('Reschedule_date_must_be_in_the_future'),
+            'recording.mimetypes' => translate('Please_upload_a_valid_audio_recording'),
         ]);
 
-        if ($validated['status'] === 'completed') {
-            $followup->update([
-                'status' => 'completed',
-                'remarks' => $validated['remarks'] ?? '',
-            ]);
+        if (($validated['contact_channel'] ?? null) !== BookingFollowup::CHANNEL_CALL && $request->hasFile('recording')) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->withErrors(['recording' => translate('Voice_recording_is_only_allowed_for_call_follow_ups')]);
+        }
 
-            $shouldScheduleNext = $requiresNext
-                || (! empty($validated['add_another_followup'])
-                    && ! empty($validated['add_another_date'])
-                    && ! empty($validated['add_another_for']));
+        $recordingData = [];
+        if (($validated['contact_channel'] ?? null) === BookingFollowup::CHANNEL_CALL && $request->hasFile('recording')) {
+            $recording = $request->file('recording');
+            $extension = $recording->getClientOriginalExtension() ?: 'webm';
+            $storedName = file_uploader('booking-followups/', $extension, $recording);
 
-            if ($shouldScheduleNext) {
-                if (empty($validated['add_another_date']) || empty($validated['add_another_for'])) {
-                    throw ValidationException::withMessages([
-                        'add_another_date' => [translate('Next_follow_up_date_is_required')],
-                    ]);
-                }
-
-                app(BookingFollowupService::class)->schedule(
-                    $booking,
-                    $validated['add_another_date'],
-                    $validated['add_another_for'],
-                    $validated['add_another_reason'] ?? null,
-                    null,
-                    $validated['add_another_urgency'] ?? \Modules\BookingModule\Entities\BookingFollowup::URGENCY_MEDIUM
-                );
+            if ($storedName === 'def.png') {
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->withErrors(['recording' => translate('Failed_to_upload_voice_recording')]);
             }
-        } else {
-            $followup->update([
-                'status' => 'rescheduled',
-                'reschedule_reason' => $validated['reschedule_reason'] ?? '',
-            ]);
-            if (! empty($validated['reschedule_date'])) {
-                app(BookingFollowupService::class)->schedule(
-                    $booking,
-                    $validated['reschedule_date'],
-                    $followup->for,
-                    null,
-                    null,
-                    $followup->urgency
-                );
-            } elseif ($requiresNext) {
+
+            $recordingData = [
+                'recording_path' => $storedName,
+                'recording_disk' => getDisk(),
+                'recording_mime' => $recording->getMimeType(),
+                'recording_original_name' => $recording->getClientOriginalName(),
+            ];
+        }
+
+        $dueDate = $followup->date;
+        $followup->update(array_merge([
+            'status' => 'completed',
+            'due_followup_at' => $dueDate,
+            'followup_at' => $validated['followup_at'],
+            'remarks' => $validated['remarks'] ?? null,
+            'contact_channel' => $validated['contact_channel'] ?? null,
+            'next_followup_at' => $validated['next_followup_at'] ?? null,
+        ], $recordingData));
+
+        $shouldScheduleNext = $requiresNext
+            || (! empty($validated['schedule_next']) && ! empty($validated['next_followup_at']));
+
+        if ($shouldScheduleNext) {
+            if (empty($validated['next_followup_at'])) {
                 throw ValidationException::withMessages([
-                    'reschedule_date' => [translate('Next_follow_up_date_is_required')],
+                    'next_followup_at' => [translate('Next_follow_up_date_is_required')],
                 ]);
             }
+
+            app(BookingFollowupService::class)->schedule(
+                $booking,
+                $validated['next_followup_at'],
+                $followup->for,
+                null,
+                null,
+                $validated['urgency'] ?? BookingFollowup::URGENCY_MEDIUM
+            );
         }
 
         Toastr::success(translate('Follow_up_updated_successfully'));
 
-        return redirect()->route('admin.booking.details', [$id, 'web_page' => 'followups']);
+        return $this->redirectAfterBookingFollowup($request, $booking);
+    }
+
+    protected function updateRescheduledBookingFollowup(
+        Request $request,
+        Booking $booking,
+        BookingFollowup $followup,
+        bool $requiresNext
+    ): RedirectResponse {
+        $validated = $request->validate([
+            'remarks' => ['nullable', 'string', 'max:1000'],
+            'urgency' => ['nullable', 'in:'.implode(',', BookingFollowup::URGENCIES)],
+            'next_followup_at' => [
+                'required',
+                'date',
+                'after:now',
+            ],
+        ], [
+            'next_followup_at.required' => translate('Next_follow_up_date_is_required'),
+            'next_followup_at.after' => translate('Reschedule_date_must_be_in_the_future'),
+        ]);
+
+        $followup->update([
+            'status' => 'rescheduled',
+            'due_followup_at' => $followup->date,
+            'remarks' => $validated['remarks'] ?? null,
+            'reschedule_reason' => $validated['remarks'] ?? null,
+            'next_followup_at' => $validated['next_followup_at'],
+        ]);
+
+        app(BookingFollowupService::class)->schedule(
+            $booking,
+            $validated['next_followup_at'],
+            $followup->for,
+            null,
+            null,
+            $validated['urgency'] ?? $followup->urgency ?? BookingFollowup::URGENCY_MEDIUM
+        );
+
+        Toastr::success(translate('Follow_up_updated_successfully'));
+
+        return $this->redirectAfterBookingFollowup($request, $booking);
+    }
+
+    protected function redirectAfterBookingFollowup(Request $request, Booking $booking): RedirectResponse
+    {
+        $redirectWebPage = $request->input('redirect_web_page', 'details');
+        if (! in_array($redirectWebPage, ['details', 'followups'], true)) {
+            $redirectWebPage = 'details';
+        }
+        $hash = $redirectWebPage === 'followups' ? '' : '#booking-activity';
+
+        return redirect()->route('admin.booking.details', [$booking->id, 'web_page' => $redirectWebPage]).$hash;
+    }
+
+    public function transcribeFollowupRecording(Request $request, $id, $followupId): JsonResponse
+    {
+        $this->authorize('booking_view');
+        $booking = $this->booking->findOrFail($id);
+        $followup = $booking->followups()->findOrFail($followupId);
+
+        try {
+            $result = app(BookingFollowupRecordingTranscriptionService::class)
+                ->transcribeAndSummarize($followup, $request->boolean('force'));
+
+            return response()->json($result);
+        } catch (\InvalidArgumentException|\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            Log::error('Booking follow-up transcription failed', [
+                'booking_id' => $booking->id,
+                'followup_id' => $followup->id,
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json(['message' => translate('Failed_to_transcribe_recording')], 500);
+        }
     }
 
     /**
@@ -3850,6 +4221,17 @@ class BookingController extends Controller
                         'response_code' => 'default_400',
                         'message' => translate('Booking cannot be completed until full payment is received.'),
                     ]), 422);
+                }
+                if ($to === 'completed' && ! $request->boolean('workflow_confirmed')) {
+                    $gate = app(\Modules\AdminModule\Services\WorkflowGate::class)
+                        ->checkBookingAction($booking, \Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_BOOKING_COMPLETED);
+                    if (! $gate['allowed']) {
+                        return response()->json(response_formatter([
+                            'response_code' => 'default_400',
+                            'message' => $gate['message'],
+                            'workflow_gate' => $gate,
+                        ]), 422);
+                    }
                 }
                 if ($to === 'completed'
                     && (string) ($booking->settlement_outcome ?? '') === BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL) {
@@ -4808,10 +5190,20 @@ class BookingController extends Controller
         ]);
 
         $booking = $this->booking->findOrFail($id);
+        $previousAssigneeId = $booking->assignee_id ? (string) $booking->assignee_id : null;
         $booking->assignee_id = $data['assignee_id'] ?? null;
         $booking->booking_source = strtolower($data['booking_source']);
         $booking->service_description = $data['service_description'] ?? null;
         $booking->save();
+
+        $newAssigneeId = $booking->assignee_id ? (string) $booking->assignee_id : null;
+        if (
+            $newAssigneeId
+            && $newAssigneeId !== $previousAssigneeId
+            && function_exists('admin_inbox_notify_booking_assigned')
+        ) {
+            admin_inbox_notify_booking_assigned($newAssigneeId, $booking->fresh(), $request->user());
+        }
 
         Toastr::success(translate('Booking_information_updated_successfully'));
         return redirect()->back();
@@ -5047,7 +5439,7 @@ class BookingController extends Controller
         $maxBookingAmount = (business_config('max_booking_amount', 'booking_setup'))->live_values;
         $items = $this->booking
             ->with(['customer'])
-            ->search($request['search'], ['readable_id'])
+            ->adminListSearch($request['search'])
             ->when($bookingStatus != 'all', function ($query) use ($bookingStatus, $maxBookingAmount, $request) {
                 if ($bookingStatus === 'reopened') {
                     $query->reopenedChain();
@@ -5079,6 +5471,7 @@ class BookingController extends Controller
             ->filterBySubcategoryIds($request['sub_category_ids'])
             ->filterByCategoryIds($request['category_ids'])
             ->filterByDateRange($request['start_date'], $request['end_date'])
+            ->filterByScheduleDateRange($request['schedule_start_date'], $request['schedule_end_date'])
             ->filterByAssigneeIds($assigneeIds)
             ->latest()->get();
 

@@ -4,6 +4,7 @@ namespace Modules\AdminModule\Services;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Log;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingRepeat;
@@ -34,16 +35,62 @@ class AdminBusinessAiToolExecutor
         protected AdminBusinessAiBookingQueueInsightService $bookingQueueInsights,
         protected AdminBusinessAiCatalogInsightService $catalogInsights,
         protected AdminBusinessAiQuestionRouter $questionRouter,
+        protected AdminBusinessAiSqlAnalyticsService $sqlAnalytics,
     ) {}
 
     /**
+     * A failing tool must not abort the whole AI turn: return a structured failure so the
+     * model can route around it (or fall back) instead of the request throwing.
+     *
      * @param  array<string, mixed>|\stdClass  $args
      * @return array<string, mixed>
      */
     public function execute(string $name, array|\stdClass $args): array
     {
-        $args = $this->normalizeArgs($args);
+        try {
+            return $this->dispatch($name, $this->normalizeArgs($args));
+        } catch (\Throwable $e) {
+            Log::error('Admin business AI tool failed', [
+                'tool' => $name,
+                'error' => $e->getMessage(),
+                'exception' => $e::class,
+            ]);
 
+            return [
+                'ok' => false,
+                'error' => 'tool_failed',
+                'tool' => $name,
+                'message' => $this->sanitizeToolFailureMessage($e),
+            ];
+        }
+    }
+
+    /**
+     * Keep the actionable part of the error but drop what Laravel appends to query
+     * exceptions: connection/host/database details and the full bound SQL, which can carry
+     * row data. The untrimmed message is still written to the log for debugging.
+     */
+    private function sanitizeToolFailureMessage(\Throwable $e): string
+    {
+        $message = trim($e->getMessage());
+        foreach (['/\s*\(Connection:.*$/s', '/\s*\(SQL:.*$/s'] as $pattern) {
+            $message = preg_replace($pattern, '', $message) ?? $message;
+        }
+        $message = trim($message);
+
+        if ($message === '') {
+            return $e::class;
+        }
+
+        return mb_substr($message, 0, 300);
+    }
+
+    /**
+     * @param  array<string, mixed>  $args
+     * @return array<string, mixed>
+     */
+    private function dispatch(string $name, array $args): array
+    {
         return match ($name) {
             'get_business_dashboard_overview' => $this->getBusinessDashboardOverview(),
             'get_dashboard_snapshot' => $this->dashboardInsights->snapshot(),
@@ -84,6 +131,7 @@ class AdminBusinessAiToolExecutor
             'analyze_promotions' => $this->catalogInsights->analyzePromotions($args),
             'query_subscriptions' => $this->catalogInsights->querySubscriptions($args),
             'analyze_subscriptions' => $this->catalogInsights->analyzeSubscriptions($args),
+            'run_sql_analytics' => $this->sqlAnalytics->analyze($args),
             'explore_business_data' => $this->exploreBusinessData($args),
             default => ['ok' => false, 'error' => 'unknown_tool'],
         };
@@ -209,7 +257,7 @@ class AdminBusinessAiToolExecutor
             ],
             [
                 'name' => 'analyze_bookings',
-                'description' => 'Aggregate booking intelligence. Key: booking_timing_report (peak hours + lag: created→followup/accepted/completed/canceled/payment), cancellation_timing_report, followup_timing_report. Also: status_breakdown, followup_backlog, settlement_overview. cohort: all|pending|accepted|ongoing|completed|canceled|overdue_followup|loss_making|unpaid|verify_pending|offline_payment|reopened|after_visit_cancel. Scans up to 5000 bookings.',
+                'description' => 'Aggregate booking intelligence. Key: booking_timing_report (peak hours + lag: created→followup/accepted/completed/canceled/payment), cancellation_timing_report (all canceled+refunded bookings matching admin Cancelled tab; reasons, status-when-cancelled, charts, sample rows with enquiry/remarks/followups), followup_timing_report. Also: status_breakdown, followup_backlog, settlement_overview. cohort: all|pending|accepted|ongoing|completed|canceled|overdue_followup|loss_making|unpaid|verify_pending|offline_payment|reopened|after_visit_cancel. Cancellation scans filter canceled/refunded BEFORE the 5000 cap.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
@@ -492,8 +540,22 @@ class AdminBusinessAiToolExecutor
                 ],
             ],
             [
+                'name' => 'run_sql_analytics',
+                'description' => 'Natural-language SQL analytics: understands the question, generates safe read-only MySQL SELECTs against allowlisted tables (bookings, leads, followups, reasons, zones, categories, users, providers, etc.), executes them, and returns tables + charts. Use for custom columns, ad-hoc “why” analysis, charts/graphs, or any question that fixed analyze_* tools cannot fully answer. Pass the admin question; optionally pass sql yourself. Cancelled bookings = canceled+refunded.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'question' => ['type' => 'string', 'description' => 'Admin question in natural language'],
+                        'sql' => ['type' => 'string', 'description' => 'Optional SELECT to run (validated server-side)'],
+                        'title' => ['type' => 'string'],
+                        'explanation' => ['type' => 'string'],
+                        'chart' => ['type' => 'object', 'description' => 'Optional chart hint: type, title, label_column, value_column'],
+                    ],
+                ],
+            ],
+            [
                 'name' => 'explore_business_data',
-                'description' => 'Meta-tool: pass the admin question and the server runs up to 5 relevant tools automatically (dashboard, leads, bookings, catalog, financial, etc.). Use when unsure which single tool fits, or for cross-domain questions.',
+                'description' => 'Meta-tool: pass the admin question and the server runs up to 5 relevant tools automatically (dashboard, leads, bookings, catalog, financial, sql analytics, etc.). Use when unsure which single tool fits, or for cross-domain questions.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [

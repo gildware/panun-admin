@@ -26,9 +26,14 @@
             @endcan
             @can('lead_report_view')
                 @include('adminmodule::layouts.partials.top-nav._link', [
-                    'href' => route('admin.lead.reports.index', ['tab' => 'inbound']),
-                    'label' => translate('Lead_Reports'),
-                    'active' => request()->routeIs('admin.lead.reports.index'),
+                    'href' => route('admin.lead.reports.inbound'),
+                    'label' => translate('Inbound_Lead_Reports'),
+                    'active' => request()->routeIs('admin.lead.reports.inbound') || request()->routeIs('admin.lead.reports.index'),
+                ])
+                @include('adminmodule::layouts.partials.top-nav._link', [
+                    'href' => route('admin.lead.reports.outbound'),
+                    'label' => translate('Outbound_Lead_Reports'),
+                    'active' => request()->routeIs('admin.lead.reports.outbound'),
                 ])
                 @include('adminmodule::layouts.partials.top-nav._link', [
                     'href' => route('admin.lead.reports.user', ['user_id' => auth()->id()]),

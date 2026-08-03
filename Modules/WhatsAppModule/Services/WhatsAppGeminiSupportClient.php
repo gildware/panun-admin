@@ -186,6 +186,7 @@ class WhatsAppGeminiSupportClient
 
         $candidates = $this->modelCandidates($modelOverride);
         $last404Body = '';
+        $retryableFailure = null;
 
         try {
             foreach ($candidates as $model) {
@@ -217,10 +218,29 @@ class WhatsAppGeminiSupportClient
                         'body' => $snippet,
                     ]);
 
-                    return ['type' => 'blocked', 'reason' => 'http_' . $response->status()];
+                    $failure = $this->blockedHttpFailure($response->status(), $response->json(), $snippet);
+
+                    // Quota is metered per model and overload is transient, so a different
+                    // candidate can still succeed. Auth/request errors will not, so fail fast.
+                    if (in_array($response->status(), [429, 503], true)) {
+                        $retryableFailure = $failure;
+
+                        continue;
+                    }
+
+                    return $failure;
                 }
 
                 return $this->parseGenerateContentSuccess($response->json(), $model);
+            }
+
+            if ($retryableFailure !== null) {
+                Log::warning('Gemini generateContent: every model candidate was rate limited or overloaded', [
+                    'tried' => $candidates,
+                    'reason' => $retryableFailure['reason'] ?? '',
+                ]);
+
+                return $retryableFailure;
             }
 
             Log::warning('Gemini generateContent: all model candidates returned 404', [
@@ -228,12 +248,72 @@ class WhatsAppGeminiSupportClient
                 'last_body_preview' => $last404Body,
             ]);
 
-            return ['type' => 'blocked', 'reason' => 'http_404_all_models'];
+            return [
+                'type' => 'blocked',
+                'reason' => 'http_404_all_models',
+                'message' => $this->extractApiErrorMessage(null, $last404Body)
+                    ?: 'All Gemini model candidates returned HTTP 404.',
+            ];
         } catch (\Throwable $e) {
             Log::warning('Gemini exception', ['error' => $e->getMessage()]);
 
-            return ['type' => 'blocked', 'reason' => 'exception'];
+            return [
+                'type' => 'blocked',
+                'reason' => 'exception',
+                'message' => $e->getMessage() !== '' ? $e->getMessage() : 'Unexpected Gemini client exception.',
+            ];
         }
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $json
+     * @return array{type: 'blocked', reason: string, message: string, status?: int}
+     */
+    private function blockedHttpFailure(int $status, ?array $json, string $rawBody): array
+    {
+        $message = $this->extractApiErrorMessage($json, $rawBody);
+        if ($message === '') {
+            $message = 'Gemini HTTP '.$status.' with no error message in the response body.';
+        }
+
+        return [
+            'type' => 'blocked',
+            'reason' => 'http_'.$status,
+            'message' => $message,
+            'status' => $status,
+        ];
+    }
+
+    /**
+     * Prefer Gemini's own error.message; fall back to a short raw body snippet.
+     *
+     * @param  array<string, mixed>|null  $json
+     */
+    private function extractApiErrorMessage(?array $json, string $rawBody = ''): string
+    {
+        if (is_array($json) && isset($json['error']) && is_array($json['error'])) {
+            $msg = trim((string) ($json['error']['message'] ?? ''));
+            $status = trim((string) ($json['error']['status'] ?? ''));
+            $code = $json['error']['code'] ?? null;
+            if ($msg !== '') {
+                $suffix = [];
+                if ($status !== '') {
+                    $suffix[] = $status;
+                }
+                if (is_numeric($code)) {
+                    $suffix[] = 'HTTP '.(string) $code;
+                }
+
+                return $suffix === [] ? $msg : $msg.' ['.implode(', ', $suffix).']';
+            }
+        }
+
+        $raw = trim($rawBody);
+        if ($raw === '') {
+            return '';
+        }
+
+        return mb_substr($raw, 0, 400);
     }
 
     /**
@@ -247,13 +327,18 @@ class WhatsAppGeminiSupportClient
         }
 
         if (isset($json['error']) && is_array($json['error'])) {
+            $exact = $this->extractApiErrorMessage($json);
             $msg = (string) ($json['error']['message'] ?? 'error');
             Log::warning('Gemini API error in response body', [
                 'model' => $modelUsed,
                 'error' => $json['error'],
             ]);
 
-            return ['type' => 'blocked', 'reason' => 'api_' . mb_substr($msg, 0, 120)];
+            return [
+                'type' => 'blocked',
+                'reason' => 'api_'.mb_substr($msg, 0, 120),
+                'message' => $exact !== '' ? $exact : $msg,
+            ];
         }
 
         $feedback = $json['promptFeedback'] ?? null;

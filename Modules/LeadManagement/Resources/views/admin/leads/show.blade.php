@@ -18,6 +18,110 @@
             $createdBookingId = (is_array($createdBooking) && !empty($createdBooking['id'])) ? $createdBooking['id'] : null;
             $createdBookingReadableId = (is_array($createdBooking) && !empty($createdBooking['readable_id'])) ? $createdBooking['readable_id'] : null;
             $createdBookingDetailsUrl = $createdBookingId ? route('admin.booking.details', $createdBookingId) : null;
+
+            $currentProviderStatusId = ($typeHistory && is_array($typeHistory->data ?? null))
+                ? ($typeHistory->data['provider_lead_status_id'] ?? '')
+                : '';
+            $currentCustomerStatusId = ($typeHistory && is_array($typeHistory->data ?? null))
+                ? ($typeHistory->data['customer_lead_status_id'] ?? '')
+                : '';
+            $currentCustomerStatus = $customerLeadStatuses->firstWhere('id', $currentCustomerStatusId);
+            $isPendingCustomerStatus = !$currentCustomerStatus || $currentCustomerStatus->base_type === 'pending';
+            $isBookedCustomerStatus = $currentCustomerStatus && in_array($currentCustomerStatus->base_type, ['booked', 'completed'], true);
+            $followupScheduleMinAt = now()->format('Y-m-d\TH:i');
+            $hasProviderData = $lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER
+                && isset($typeHistoryDisplay['basic'], $typeHistoryDisplay['service']);
+            $hasCustomerData = $lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER
+                && $typeHistory && !empty($typeHistoryDisplay);
+
+            $leadNameForDisplay = trim((string) ($lead->name ?? ''));
+            $leadInitials = '—';
+            if ($leadNameForDisplay !== '') {
+                $parts = preg_split('/\s+/', $leadNameForDisplay);
+                $leadInitials = strtoupper(mb_substr($parts[0], 0, 1) . (isset($parts[1]) ? mb_substr($parts[1], 0, 1) : ''));
+            } elseif (!empty($lead->phone_number)) {
+                $leadInitials = mb_substr(preg_replace('/\D/', '', $lead->phone_number), -2);
+            }
+
+            $pipelineSteps = [];
+            $pipelineCurrentIndex = 0;
+            if ($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER) {
+                $pipelineOrder = ['pending', 'booked', 'completed'];
+                $seen = [];
+                foreach ($pipelineOrder as $baseType) {
+                    $status = $customerLeadStatuses->firstWhere('base_type', $baseType);
+                    if ($status) {
+                        $pipelineSteps[] = ['label' => $status->name, 'base_type' => $baseType];
+                        $seen[$baseType] = true;
+                    }
+                }
+                foreach ($customerLeadStatuses as $status) {
+                    if (!isset($seen[$status->base_type ?? ''])) {
+                        $pipelineSteps[] = ['label' => $status->name, 'base_type' => $status->base_type ?? 'pending'];
+                    }
+                }
+                if ($currentCustomerStatus) {
+                    foreach ($pipelineSteps as $i => $step) {
+                        if (($step['base_type'] ?? '') === ($currentCustomerStatus->base_type ?? '')) {
+                            $pipelineCurrentIndex = $i;
+                            break;
+                        }
+                    }
+                }
+            } elseif ($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER) {
+                $pipelineOrder = ['pending', 'booked', 'completed'];
+                $seen = [];
+                foreach ($pipelineOrder as $baseType) {
+                    $status = $providerLeadStatuses->firstWhere('base_type', $baseType);
+                    if ($status) {
+                        $pipelineSteps[] = ['label' => $status->name, 'base_type' => $baseType];
+                        $seen[$baseType] = true;
+                    }
+                }
+                foreach ($providerLeadStatuses as $status) {
+                    if (!isset($seen[$status->base_type ?? ''])) {
+                        $pipelineSteps[] = ['label' => $status->name, 'base_type' => $status->base_type ?? 'pending'];
+                    }
+                }
+                $currentProviderStatus = $providerLeadStatuses->firstWhere('id', $currentProviderStatusId);
+                if ($currentProviderStatus) {
+                    foreach ($pipelineSteps as $i => $step) {
+                        if (($step['base_type'] ?? '') === ($currentProviderStatus->base_type ?? '')) {
+                            $pipelineCurrentIndex = $i;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            $commentParser = app(\Modules\ChattingModule\Services\StaffChatMessageParser::class);
+            $sortedComments = $lead->comments->sort(function ($a, $b) {
+                if ((bool) $a->is_pinned !== (bool) $b->is_pinned) {
+                    return (bool) $b->is_pinned <=> (bool) $a->is_pinned;
+                }
+                if ($a->is_pinned && $b->is_pinned) {
+                    return ($b->pinned_at ?? $b->created_at) <=> ($a->pinned_at ?? $a->created_at);
+                }
+                return $a->created_at <=> $b->created_at;
+            })->values();
+
+            $activityFollowupCount = $lead->followups->count();
+            $activityChangeCount = isset($changeLogs) ? $changeLogs->sum(fn ($log) => max(1, count($log->changes ?? []))) : 0;
+            $activityCommentCount = $sortedComments->count();
+            $activityTotalCount = $activityFollowupCount + $activityChangeCount + $activityCommentCount + (!empty($hasPendingFollowup) ? 1 : 0);
+
+            $handledByUser = null;
+            if (!empty($lead->handled_by)) {
+                $handledByUser = $employees->firstWhere('id', $lead->handled_by);
+            }
+            $handledByInitials = '—';
+            if ($handledByUser) {
+                $hbName = trim(($handledByUser->first_name ?? '') . ' ' . ($handledByUser->last_name ?? ''));
+                if ($hbName !== '') {
+                    $hbParts = preg_split('/\s+/', $hbName);
+                    $handledByInitials = strtoupper(mb_substr($hbParts[0], 0, 1) . (isset($hbParts[1]) ? mb_substr($hbParts[1], 0, 1) : ''));
+                }
+            }
         @endphp
 
         @if($createdBookingId)
@@ -61,746 +165,20 @@
         @endif
         
             <div class="row">
-                <div class="col-12">
-                    <div class="page-title-wrap lead-detail-header d-flex justify-content-between flex-wrap align-items-center gap-2 py-3 px-3 rounded mb-3 sticky-top bg-body shadow-sm" style="z-index: 10;">
-                        <div class="d-flex align-items-center flex-wrap gap-2 order-1">
-                            <h2 class="page-title mb-0">{{ translate('Lead_Details') }}</h2>
-                            <span class="badge rounded-pill {{ $leadTypeColorClass }} text-capitalize">
-                                {{ \Modules\LeadManagement\Entities\Lead::leadTypes()[$lead->lead_type] ?? $lead->lead_type }}
-                            </span>
-                            <span class="badge rounded-pill {{ !empty($leadOpenStatus) ? 'bg-danger' : 'bg-success' }}">
-                                {{ !empty($leadOpenStatus) ? 'Open' : 'Closed' }}
-                            </span>
-                            @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER)
-                                <span class="badge rounded-pill bg-secondary">
-                                    {{ $lead->outbound_enquiries_count }} {{ translate('Outbound_Enquiries') }}
-                                </span>
-                            @endif
-                            @if(!empty($whatsappChatUrl))
-                                <a href="{{ $whatsappChatUrl }}" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1" target="_blank" rel="noopener noreferrer">
-                                    <span class="material-icons" style="font-size: 18px;">chat</span>
-                                    {{ translate('View_AI_chat') }}
-                                </a>
-                            @endif
-                            <p class="mb-0 text-muted w-100" style="margin-top: 2px;">{{ translate('Lead_ID') }}: #{{ $lead->id }}</p>
+                <div class="col-12 lead-detail-v2">
+                    <div class="lead-detail-v2__wrap">
+                        @include('leadmanagement::admin.leads.partials._show-redesign-hero')
+                        @include('leadmanagement::admin.leads.partials._show-redesign-pipeline')
+
+                        <div class="lead-grid">
+                            @include('leadmanagement::admin.leads.partials._show-redesign-main')
+                            @include('leadmanagement::admin.leads.partials._show-redesign-sidebar')
                         </div>
-                        @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_UNKNOWN)
-                            <div class="d-flex flex-nowrap align-items-center justify-content-center gap-2 order-2 lead-header-change-type flex-grow-1 px-2">
-                                <button type="button" class="btn btn-outline-danger border border-danger btn-sm btn-lead-type-invalid" data-bs-toggle="modal" data-bs-target="#leadInvalidModal">{{ translate('Mark_as_Invalid_Lead') }}</button>
-                                <button type="button" class="btn btn-outline-info border border-info btn-sm btn-lead-type-future" data-bs-toggle="modal" data-bs-target="#leadFutureCustomerModal">{{ translate('Mark_as_Future_Customer_Lead') }}</button>
-                                <button type="button" class="btn btn-outline-success border border-success btn-sm btn-lead-type-customer" data-bs-toggle="modal" data-bs-target="#leadCustomerModal">{{ translate('Mark_as_Customer_Lead') }}</button>
-                                <button type="button" class="btn btn-outline-primary border border-primary btn-sm btn-lead-type-provider" data-bs-toggle="modal" data-bs-target="#leadProviderModal">{{ translate('Mark_as_Provider_Lead') }}</button>
-                            </div>
-                        @endif
-                        <div class="d-flex align-items-center flex-wrap justify-content-end gap-2 order-3" @if(in_array($lead->lead_type, [\Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER, \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER])) style="margin-right: 50px;" @elseif(!empty($inModal)) style="margin-right: 100px;" @endif>
-                            @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER)
-                                @php
-                                    $currentProviderStatusId = $typeHistory && is_array($typeHistory->data ?? null) ? ($typeHistory->data['provider_lead_status_id'] ?? '') : '';
-                                @endphp
-                                <div id="provider-header-status-view" class="d-flex align-items-center gap-2">
-                                    <span class="badge fs-6" id="provider-header-status-text" style="background-color: {{ $typeHistoryDisplay['header_status_color'] ?? '#0d6efd' }}; color: #fff;">{{ $typeHistoryDisplay['header_status'] ?? '—' }}</span>
-                                    <button type="button" id="provider-header-status-edit-btn" class="btn btn-sm btn-link text-primary p-0 d-inline-flex align-items-center" title="{{ translate('Change_Status') }}">
-                                        <span class="material-icons" style="font-size: 22px;">edit</span>
-                                    </button>
-                                </div>
-                                <div id="provider-header-status-edit" class="d-flex align-items-center gap-2 d-none">
-                                    <select id="provider-header-status-select" class="form-select form-select-sm" style="width: auto; min-width: 140px;">
-                                        <option value="">{{ translate('Select_Status') }}</option>
-                                        @foreach($providerLeadStatuses as $status)
-                                            <option value="{{ $status->id }}" data-base-type="{{ $status->base_type ?? 'pending' }}" {{ $currentProviderStatusId == $status->id ? 'selected' : '' }}>{{ $status->name }}</option>
-                                        @endforeach
-                                    </select>
-                                    <button type="button" id="provider-header-status-update-btn" class="btn btn-primary btn-sm d-none">{{ translate('Update') }}</button>
-                                    <button type="button" id="provider-header-status-cancel-btn" class="btn btn--secondary btn-sm">{{ translate('Cancel') }}</button>
-                                </div>
-                            @elseif($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER)
-                                @php
-                                    $currentCustomerStatusId = $typeHistory && is_array($typeHistory->data ?? null) ? ($typeHistory->data['customer_lead_status_id'] ?? '') : '';
-                                    $currentCustomerStatus = $customerLeadStatuses->firstWhere('id', $currentCustomerStatusId);
-                                    $isPendingCustomerStatus = !$currentCustomerStatus || $currentCustomerStatus->base_type === 'pending';
-                                    $isBookedCustomerStatus = $currentCustomerStatus && in_array($currentCustomerStatus->base_type, ['booked', 'completed'], true);
-                                @endphp
-                                <div id="customer-header-status-view" class="d-flex align-items-center gap-2">
-                                    <span class="badge fs-6" id="customer-header-status-text" style="background-color: {{ $typeHistoryDisplay['header_status_color'] ?? '#0d6efd' }}; color: #fff;">{{ $typeHistoryDisplay['header_status'] ?? '—' }}</span>
-                                    @if(!empty($isBookedCustomerStatus) && !empty($leadBooking) && !empty($leadBooking['id']))
-                                        <a href="{{ route('admin.booking.details', $leadBooking['id']) }}"
-                                           class="badge bg-light text-primary text-decoration-none border"
-                                           @if(!empty($inModal)) target="_top" @endif>
-                                            {{ translate('Booking_ID') }}: {{ $leadBooking['readable_id'] ?? $leadBooking['id'] }}
-                                        </a>
-                                    @endif
-                                    <button type="button" id="customer-header-status-edit-btn" class="btn btn-sm btn-link text-primary p-0 d-inline-flex align-items-center" title="{{ translate('Change_Status') }}">
-                                        <span class="material-icons" style="font-size: 22px;">edit</span>
-                                    </button>
-                                </div>
-                                <div id="customer-header-status-edit" class="d-flex align-items-center gap-2 d-none">
-                                    <select id="customer-header-status-select" class="form-select form-select-sm" style="width: auto; min-width: 140px;">
-                                        <option value="">{{ translate('Select_Status') }}</option>
-                                        @foreach($customerLeadStatuses as $status)
-                                            <option value="{{ $status->id }}" data-base-type="{{ $status->base_type ?? 'pending' }}" {{ $currentCustomerStatusId == $status->id ? 'selected' : '' }}>{{ $status->name }}</option>
-                                        @endforeach
-                                    </select>
-                                    <button type="button" id="customer-header-status-update-btn" class="btn btn-primary btn-sm d-none">{{ translate('Update') }}</button>
-                                    <button type="button" id="customer-header-status-cancel-btn" class="btn btn--secondary btn-sm">{{ translate('Cancel') }}</button>
-                                </div>
-                            @endif
-                            @if(!empty($linkedWhatsAppBooking) && in_array($lead->lead_type, [\Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER, \Modules\LeadManagement\Entities\Lead::TYPE_UNKNOWN], true))
-                                <div class="alert alert-info border border-info mb-0 py-2 px-3 d-flex flex-column gap-2" style="min-width: 16rem; max-width: 22rem;">
-                                    <p class="mb-0 small w-100 text-start">
-                                        {{ translate('Lead_whatsapp_ai_booking_header_text') }}
-                                        <strong class="text-dark">{{ $linkedWhatsAppBooking['booking_id'] }}</strong>
-                                    </p>
-                                    <div class="d-flex align-items-center justify-content-end gap-2 flex-wrap w-100">
-                                        <span class="text-muted small text-uppercase">{{ translate('Status') }}</span>
-                                        <span class="badge bg-secondary">{{ $linkedWhatsAppBooking['status_label'] ?? ($linkedWhatsAppBooking['status'] ?? '—') }}</span>
-                                        <a href="{{ $linkedWhatsAppBooking['continue_url'] }}"
-                                           class="btn btn--primary btn-sm"
-                                           @if(!empty($inModal)) target="_top" rel="noopener" @endif>
-                                            {{ translate('Continue_with_AI_booking') }}
-                                        </a>
-                                    </div>
-                                </div>
-                            @elseif($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER && !empty($isPendingCustomerStatus))
-                                <a href="{{ route('admin.booking.create-from-lead', ['lead' => $lead->id, 'context' => !empty($inModal) ? 'lead_modal' : 'lead']) }}"
-                                   class="btn btn--primary btn-sm"
-                                   @if(!empty($inModal)) target="_top" rel="noopener" @endif>
-                                    {{ translate('Create_Booking_for_this_Lead') }}
-                                </a>
-                            @elseif($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER)
-                                @can('lead_outbound_enquiry_add')
-                                    <button type="button"
-                                            class="btn btn--primary btn-sm d-inline-flex align-items-center gap-1"
-                                            data-bs-toggle="modal"
-                                            data-bs-target="#addOutboundEnquiryModal">
-                                        <span class="material-icons" style="font-size: 18px;">add</span>
-                                        {{ translate('Add_Outbound_Enquiry') }}
-                                    </button>
-                                @endcan
-                            @endif
-                            @if(empty($inModal))
-                                <a href="{{ route('admin.lead.index') }}" class="btn btn--secondary btn-sm">{{ translate('Back_to_Leads') }}</a>
-                            @endif
-                        </div>
+
+                        @include('leadmanagement::admin.leads.partials._show-redesign-activity')
                     </div>
-
-                    <div class="row gy-3 mb-3">
-                        <div class="col-lg-6 d-flex flex-column gap-3">
-                            <div class="card lead-card-basic">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <h3 class="c1 mb-0">{{ translate('Basic_Details') }}</h3>
-                                        <button type="button" class="btn btn--primary btn-sm lead-card-edit-btn">{{ translate('Edit') }}</button>
-                                    </div>
-                                    <hr>
-                                    <div class="lead-card-view">
-                                        <div class="d-flex flex-column gap-3">
-                                            <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">
-                                                <span class="title-color">{{ translate('Name') }}</span>
-                                                <strong>{{ $lead->name ?? '—' }}</strong>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">
-                                                <span class="title-color">{{ translate('Phone_Number') }}</span>
-                                                <strong>{{ $lead->phone_number }}</strong>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">
-                                                <span class="title-color">{{ translate('Added_by') }}</span>
-                                                <strong>{{ $addedByName ?? '—' }}</strong>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="lead-card-edit d-none">
-                                        <form method="POST" action="{{ route('admin.lead.update', $lead->id) }}" class="lead-card-form">
-                                            @csrf
-                                            @method('PUT')
-                                            @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif
-                                            <div class="d-flex flex-column gap-3">
-                                                <div class="p-3 rounded c1-light-bg">
-                                                    <label class="title-color d-block mb-2">{{ translate('Name') }}</label>
-                                                    <input type="text" name="name" class="form-control" value="{{ old('name', $lead->name) }}">
-                                                </div>
-                                                <div class="p-3 rounded c1-light-bg">
-                                                    <label class="title-color d-block mb-2">{{ translate('Phone_Number') }}</label>
-                                                    <input type="text" name="phone_number" class="form-control" value="{{ old('phone_number', $lead->phone_number) }}" required>
-                                                </div>
-                                                <div class="d-flex justify-content-end gap-2">
-                                                    <button type="button" class="btn btn--secondary btn-sm lead-card-cancel">{{ translate('Cancel') }}</button>
-                                                    <button type="submit" class="btn btn--primary btn-sm">{{ translate('Update') }}</button>
-                                                </div>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="card lead-card-date">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <h3 class="c1 mb-0">{{ translate('Date_Information') }}</h3>
-                                        <button type="button" class="btn btn--primary btn-sm lead-card-edit-btn">{{ translate('Edit') }}</button>
-                                    </div>
-                                    <hr>
-                                    <div class="lead-card-view">
-                                        <div class="d-flex flex-column gap-3">
-                                            <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">
-                                                <span class="title-color">{{ translate('Recieved_On') }}</span>
-                                                <strong>{{ $lead->date_time_of_lead_received?->format('d F Y h:i a') ?? '—' }}</strong>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">
-                                                <span class="title-color">{{ translate('Followup_On') }}</span>
-                                                <strong>{{ $lead->next_followup_at?->format('d F Y h:i a') ?? '—' }}</strong>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="lead-card-edit d-none">
-                                        <form method="POST" action="{{ route('admin.lead.update', $lead->id) }}" class="lead-card-form">
-                                            @csrf
-                                            @method('PUT')
-                                            @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif
-                                            <div class="d-flex flex-column gap-3">
-                                                <div class="p-3 rounded c1-light-bg">
-                                                    <label class="title-color d-block mb-2">{{ translate('Recieved_On') }}</label>
-                                                    <input type="datetime-local" name="date_time_of_lead_received" class="form-control" value="{{ old('date_time_of_lead_received', $lead->date_time_of_lead_received?->format('Y-m-d\TH:i')) }}">
-                                                </div>
-                                                <div class="p-3 rounded c1-light-bg">
-                                                    <label class="title-color d-block mb-2">{{ translate('Followup_On') }}</label>
-                                                    <input type="datetime-local" name="next_followup_at" class="form-control" value="{{ old('next_followup_at', $lead->next_followup_at?->format('Y-m-d\TH:i')) }}" @if(!empty($leadOpenStatus)) required @endif>
-                                                </div>
-                                                <div class="d-flex justify-content-end gap-2">
-                                                    <button type="button" class="btn btn--secondary btn-sm lead-card-cancel">{{ translate('Cancel') }}</button>
-                                                    <button type="submit" class="btn btn--primary btn-sm">{{ translate('Update') }}</button>
-                                                </div>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-lg-6 d-flex flex-column gap-3">
-                            <div class="card lead-card-source">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <h3 class="c1 mb-0">{{ translate('Source_Information') }}</h3>
-                                        <button type="button" class="btn btn--primary btn-sm lead-card-edit-btn">{{ translate('Edit') }}</button>
-                                    </div>
-                                    <hr>
-                                    <div class="lead-card-view">
-                                        <div class="d-flex flex-column gap-3">
-                                            <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">
-                                                <span class="title-color">{{ translate('Source') }}</span>
-                                                <strong>{{ $lead->source?->name ?? '—' }}</strong>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-start p-3 rounded c1-light-bg gap-2">
-                                                <span class="title-color flex-shrink-0">{{ translate('Ad_Source') }}</span>
-                                                <div class="d-flex align-items-start gap-2 min-w-0 justify-content-end text-end">
-                                                    @php
-                                                        $adDisplay = $leadCtwaDisplay ?? ['name' => $lead->adSource?->name, 'image_url' => $lead->adSource?->imagePublicUrl(), 'view_ad_url' => null];
-                                                    @endphp
-                                                    @if($adDisplay['image_url'] ?? null)
-                                                        <img src="{{ $adDisplay['image_url'] }}"
-                                                             alt=""
-                                                             class="rounded border flex-shrink-0"
-                                                             style="width:48px;height:48px;object-fit:cover;"
-                                                             loading="lazy"
-                                                             onerror="this.style.display='none'">
-                                                    @endif
-                                                    <div class="min-w-0">
-                                                        <strong class="text-break d-block">{{ $adDisplay['name'] ?? '—' }}</strong>
-                                                        @if(!empty($adDisplay['view_ad_url']))
-                                                            <a href="{{ $adDisplay['view_ad_url'] }}" target="_blank" rel="noopener" class="small">{{ translate('View ad') }}</a>
-                                                        @endif
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">
-                                                <span class="title-color">{{ translate('Handled_By') }}</span>
-                                                <strong>{{ $handledByName }}</strong>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">
-                                                <span class="title-color">{{ translate('Lead_Type') }}</span>
-                                                <strong>{{ \Modules\LeadManagement\Entities\Lead::leadTypes()[$lead->lead_type] ?? $lead->lead_type }}</strong>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="lead-card-edit d-none">
-                                        <form method="POST" action="{{ route('admin.lead.update', $lead->id) }}" class="lead-card-form">
-                                            @csrf
-                                            @method('PUT')
-                                            @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif
-                                            <div class="d-flex flex-column gap-3">
-                                                <div class="p-3 rounded c1-light-bg">
-                                                    <label class="title-color d-block mb-2">{{ translate('Source') }}</label>
-                                                    <select name="source_id" class="form-select js-select">
-                                                        <option value="">{{ translate('Select_Source') }}</option>
-                                                        @foreach($sources as $source)
-                                                            <option value="{{ $source->id }}" {{ old('source_id', $lead->source_id) == $source->id ? 'selected' : '' }}>{{ $source->name }}</option>
-                                                        @endforeach
-                                                    </select>
-                                                </div>
-                                                <div class="p-3 rounded c1-light-bg">
-                                                    <label class="title-color d-block mb-2">{{ translate('Ad_Source') }}</label>
-                                                    <select name="ad_source_id" class="form-select js-select">
-                                                        <option value="">{{ translate('Select_Ad_Source') }}</option>
-                                                        @foreach($adSources as $adSource)
-                                                            <option value="{{ $adSource->id }}" {{ old('ad_source_id', $lead->ad_source_id) == $adSource->id ? 'selected' : '' }}>{{ $adSource->name }}</option>
-                                                        @endforeach
-                                                    </select>
-                                                </div>
-                                                <div class="p-3 rounded c1-light-bg">
-                                                    <label class="title-color d-block mb-2">{{ translate('Handled_By') }}</label>
-                                                    <select name="handled_by" class="form-select js-select">
-                                                        <option value="">{{ translate('Select_employee') }}</option>
-                                                        @foreach($employees as $employee)
-                                                            @php $empName = trim(($employee->first_name ?? '') . ' ' . ($employee->last_name ?? '')); $empLabel = $empName ?: $employee->email; @endphp
-                                                            <option value="{{ $employee->id }}" {{ old('handled_by', $lead->handled_by) == $employee->id ? 'selected' : '' }}>{{ $empLabel }}</option>
-                                                        @endforeach
-                                                    </select>
-                                                </div>
-                                                <div class="p-3 rounded c1-light-bg">
-                                                    <label class="title-color d-block mb-2">{{ translate('Lead_Type') }}</label>
-                                                    <select name="lead_type" class="form-select js-select" required>
-                                                        @foreach(\Modules\LeadManagement\Entities\Lead::leadTypes() as $value => $label)
-                                                            <option value="{{ $value }}" {{ old('lead_type', $lead->lead_type) == $value ? 'selected' : '' }}>{{ translate($label) }}</option>
-                                                        @endforeach
-                                                    </select>
-                                                </div>
-                                                <div class="d-flex justify-content-end gap-2">
-                                                    <button type="button" class="btn btn--secondary btn-sm lead-card-cancel">{{ translate('Cancel') }}</button>
-                                                    <button type="submit" class="btn btn--primary btn-sm">{{ translate('Update') }}</button>
-                                                </div>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="card lead-card-remarks flex-grow-1">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <h3 class="c1 mb-0">{{ translate('Initial_Remarks') }}</h3>
-                                        <button type="button" class="btn btn--primary btn-sm lead-card-edit-btn">{{ translate('Edit') }}</button>
-                                    </div>
-                                    <hr>
-                                    <div class="lead-card-view">
-                                        <div class="border rounded p-3 bg-light-subtle">
-                                            <p class="mb-0">{{ $lead->remarks ?: '—' }}</p>
-                                        </div>
-                                    </div>
-                                    <div class="lead-card-edit d-none">
-                                        <form method="POST" action="{{ route('admin.lead.update', $lead->id) }}" class="lead-card-form">
-                                            @csrf
-                                            @method('PUT')
-                                            @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif
-                                            <div class="p-3 rounded c1-light-bg">
-                                                <textarea name="remarks" class="form-control" rows="3" placeholder="{{ translate('Remarks') }}">{{ old('remarks', $lead->remarks) }}</textarea>
-                                            </div>
-                                            <div class="d-flex justify-content-end gap-2 mt-3">
-                                                <button type="button" class="btn btn--secondary btn-sm lead-card-cancel">{{ translate('Cancel') }}</button>
-                                                <button type="submit" class="btn btn--primary btn-sm">{{ translate('Update') }}</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER)
-                        @php
-                            $hasProviderData = isset($typeHistoryDisplay['basic']) && isset($typeHistoryDisplay['service']);
-                        @endphp
-                        <div class="row g-3 mb-3">
-                            <div class="col-lg-6">
-                                <div class="card h-100">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                                            <h3 class="c1 mb-0">{{ translate('Provider_Lead_Information') }}</h3>
-                                            <div class="d-flex align-items-center gap-2">
-                                                @if($hasProviderData && !empty($typeHistoryDisplay['header_status'] ?? null))
-                                                    <span class="badge fs-6" style="background-color: {{ $typeHistoryDisplay['header_status_color'] ?? '#0d6efd' }}; color: #fff;">{{ $typeHistoryDisplay['header_status'] }}</span>
-                                                @endif
-                                                <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#leadProviderModal" title="{{ $hasProviderData ? translate('Edit') : translate('Add_Details') }}">
-                                                    {{ $hasProviderData ? translate('Edit') : translate('Add_Details') }}
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <hr>
-                                        @if($hasProviderData)
-                                            <div class="rounded border p-3">
-                                                <div class="d-flex flex-column gap-3">
-                                                    <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">
-                                                        <span class="title-color">{{ translate('Name') }}</span>
-                                                        <strong class="text-end">{{ $lead->name ?? '—' }}</strong>
-                                                    </div>
-                                                    @foreach($typeHistoryDisplay['basic'] as $row)
-                                                        <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">
-                                                            <span class="title-color">{{ $row['label'] }}</span>
-                                                            <strong class="text-end">{{ $row['value'] }}</strong>
-                                                        </div>
-                                                    @endforeach
-                                                    @foreach($typeHistoryDisplay['service'] as $row)
-                                                        <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">
-                                                            <span class="title-color">{{ $row['label'] }}</span>
-                                                            <strong class="text-end">{{ $row['value'] }}</strong>
-                                                        </div>
-                                                    @endforeach
-                                                </div>
-                                            </div>
-                                        @else
-                                            <p class="mb-0 text-muted">{{ translate('No_provider_information_added_yet') }}</p>
-                                            <p class="mb-0 small text-muted">{{ translate('Click_Add_Details_to_fill_in_provider_information') }}</p>
-                                        @endif
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-lg-6">
-                                <div class="card h-100" id="provider-checklist-card">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                                            <h3 class="c1 mb-0">{{ translate('Provider_Checklist') }}</h3>
-                                            @if($providerChecklistItems->isNotEmpty())
-                                                <div class="d-flex align-items-center gap-2 provider-checklist-actions">
-                                                    <button type="button" id="provider-checklist-edit-btn" class="btn btn-outline-primary btn-sm">
-                                                        {{ translate('Edit') }}
-                                                    </button>
-                                                    <span class="provider-checklist-edit-only d-none">
-                                                        <button type="button" id="provider-checklist-update-btn" class="btn btn-primary btn-sm" disabled>
-                                                            {{ translate('Update') }}
-                                                        </button>
-                                                        <button type="button" id="provider-checklist-cancel-btn" class="btn btn--secondary btn-sm">
-                                                            {{ translate('Cancel') }}
-                                                        </button>
-                                                        </span>
-                                                @endif
-                                            </div>
-                                            </div>
-                                        <hr>
-                                        @if($providerChecklistItems->isNotEmpty())
-                                            <div class="table-responsive">
-                                                <table class="table table-sm align-middle mb-0">
-                                                    <thead>
-                                                    <tr>
-                                                        <th>{{ translate('Item') }}</th>
-                                                        <th>{{ translate('Description') }}</th>
-                                                        <th class="text-center" style="width: 120px;">{{ translate('Status') }}</th>
-                                                        <th class="text-center" style="width: 100px;">{{ translate('Done') }}</th>
-                                                    </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                    @foreach($providerChecklistItems as $item)
-                                                        @php $isDone = ($providerChecklistDoneMap[$item->id] ?? false); @endphp
-                                                        <tr data-item-id="{{ $item->id }}" data-initial-done="{{ $isDone ? '1' : '0' }}" data-is-done="{{ $isDone ? '1' : '0' }}">
-                                                            <td>{{ $item->name }}</td>
-                                                            <td>{{ $item->description ?? '—' }}</td>
-                                                            <td class="text-center provider-checklist-status">
-                                                                @if($isDone)
-                                                                    <span class="badge bg-success">{{ translate('Done') }}</span>
-                                                                @else
-                                                                    <span class="badge bg-secondary">{{ translate('Pending') }}</span>
-                                                                @endif
-                                                            </td>
-                                                            <td class="text-center provider-checklist-action">
-                                                                <button type="button" class="btn btn-sm provider-checklist-toggle" disabled
-                                                                        data-item-id="{{ $item->id }}"
-                                                                        title="{{ translate('Edit_to_toggle') }}">
-                                                                    @if($isDone)
-                                                                        <span class="material-icons provider-checklist-icon" style="font-size: 20px;">check_box</span>
-                                                                    @else
-                                                                        <span class="material-icons provider-checklist-icon" style="font-size: 20px;">check_box_outline_blank</span>
-                                                                    @endif
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                    @endforeach
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        @else
-                                            <p class="mb-0 text-muted">{{ translate('No_checklist_items_configured') }}</p>
-                                        @endif
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    @elseif($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER)
-                        @php $hasCustomerData = $typeHistory && !empty($typeHistoryDisplay); @endphp
-                        <div class="row g-3 mb-3">
-                            <div class="col-lg-8">
-                                <div class="card h-100">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                                            <h3 class="c1 mb-0">{{ translate('Customer_Lead_Information') }}</h3>
-                                            <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#leadCustomerModal" title="{{ $hasCustomerData ? translate('Edit') : translate('Add_Details') }}">
-                                                {{ $hasCustomerData ? translate('Edit') : translate('Add_Details') }}
-                                            </button>
-                                        </div>
-                                        <hr>
-                                        @if($hasCustomerData)
-                                            <div class="row g-2">
-                                                @foreach(isset($typeHistoryDisplay['rows']) ? $typeHistoryDisplay['rows'] : $typeHistoryDisplay as $row)
-                                                    @if(is_array($row) && isset($row['label']))
-                                                    <div class="col-md-6">
-                                                        <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg h-100">
-                                                            <span class="title-color">{{ $row['label'] }}</span>
-                                                            <strong class="text-end ms-2">{{ $row['value'] }}</strong>
-                                                        </div>
-                                                    </div>
-                                                    @endif
-                                                @endforeach
-                                            </div>
-                                        @else
-                                            <p class="mb-0 text-muted">{{ translate('No_customer_information_added_yet') }}</p>
-                                            <p class="mb-0 small text-muted">{{ translate('Click_Add_Details_to_fill_in_customer_information') }}</p>
-                                        @endif
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-lg-4">
-                                <div class="card h-100" id="customer-lead-tags-card">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                                            <h3 class="c1 mb-0">{{ translate('Tags') }}</h3>
-                                            <button type="button" id="customer-lead-tags-edit-btn" class="btn btn-outline-primary btn-sm">{{ translate('Edit') }}</button>
-                                            <button type="button" id="customer-lead-tags-done-btn" class="btn btn--primary btn-sm d-none">{{ translate('Done') }}</button>
-                                        </div>
-                                        <hr>
-                                        <div class="d-flex flex-wrap align-items-center gap-2">
-                                            <div id="customer-lead-tags-pills" class="d-flex flex-wrap gap-1 align-items-center mb-2">
-                                                @foreach($lead->customerLeadTags as $tag)
-                                                    <span class="badge rounded-pill d-inline-flex align-items-center gap-1 px-2 py-1 customer-lead-tag-pill" style="background-color: {{ $tag->color ?? '#0d6efd' }}; color: #fff;" data-tag-id="{{ $tag->id }}" data-tag-name="{{ $tag->name }}" data-tag-color="{{ $tag->color ?? '#0d6efd' }}">{{ $tag->name }}</span>
-                                                @endforeach
-                                            </div>
-                                            <div id="customer-lead-tags-edit-block" class="customer-lead-tags-edit-block d-none w-100">
-                                                <div class="position-relative mb-1">
-                                                    <input type="text" id="customer-lead-tag-autocomplete" class="form-control form-control-sm" placeholder="{{ translate('Type_to_search_or_add_tag') }}" autocomplete="off">
-                                                    <div id="customer-lead-tag-autocomplete-list" class="list-group position-absolute start-0 end-0 mt-1 shadow-sm border rounded overflow-auto d-none" style="max-height: 200px; z-index: 1050;"></div>
-                                                </div>
-                                                <small class="text-muted">{{ translate('Click_a_tag_to_add_or_type_new_and_press_Enter') }}</small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    @elseif($typeHistory && !empty($typeHistoryDisplay))
-                        @php
-                            $typeCardTitles = [
-                                \Modules\LeadManagement\Entities\Lead::TYPE_INVALID => translate('Invalid_Lead_Information'),
-                                \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER => translate('Future_Customer_Information'),
-                                \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER => translate('Provider_Lead_Information'),
-                            ];
-                            $typeCardTitle = $typeCardTitles[$lead->lead_type] ?? translate('Lead_Type_Information');
-                        @endphp
-                        <div class="card mb-3">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                                    <h3 class="c1 mb-0">{{ $typeCardTitle }}</h3>
-                                </div>
-                                <hr>
-                                <div class="d-flex flex-column gap-3">
-                                    @foreach($typeHistoryDisplay as $row)
-                                        <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">
-                                            <span class="title-color">{{ $row['label'] }}</span>
-                                            <strong class="text-end">{{ $row['value'] }}</strong>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                        </div>
-                    @endif
-
-                    @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER)
-                        <div class="card mb-3" id="lead-outbound-enquiries-card">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                                    <h3 class="c1 mb-0">{{ translate('Outbound_Enquiries') }}</h3>
-                                    @can('lead_outbound_enquiry_add')
-                                        <button type="button"
-                                                class="btn btn--primary btn-sm d-inline-flex align-items-center gap-1"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#addOutboundEnquiryModal">
-                                            <span class="material-icons" style="font-size: 18px;">add</span>
-                                            {{ translate('Add_Outbound_Enquiry') }}
-                                        </button>
-                                    @endcan
-                                </div>
-                                <hr>
-                                @if($lead->outboundEnquiries->isEmpty())
-                                    <p class="mb-0 text-muted">{{ translate('No_outbound_enquiries_yet') }}</p>
-                                @else
-                                    <div class="table-responsive">
-                                        <table class="table table-hover align-middle mb-0">
-                                            <thead>
-                                            <tr>
-                                                <th>{{ translate('Contacted_Through') }}</th>
-                                                <th>{{ translate('Status') }}</th>
-                                                <th>{{ translate('Link_Lead') }}</th>
-                                                <th>{{ translate('Booking_ID') }}</th>
-                                                <th>{{ translate('Date_Time') }}</th>
-                                                <th>{{ translate('Handled_By') }}</th>
-                                                <th>{{ translate('Remarks') }}</th>
-                                            </tr>
-                                            </thead>
-                                            <tbody>
-                                            @foreach($lead->outboundEnquiries as $enquiry)
-                                                @php
-                                                    $employee = $enquiry->handledBy ?: $enquiry->createdBy;
-                                                    $employeeName = $employee ? (trim(($employee->first_name ?? '') . ' ' . ($employee->last_name ?? '')) ?: $employee->email) : '—';
-                                                    $statusName = $enquiry->statusConfig?->name ?? $enquiry->status ?? '—';
-                                                @endphp
-                                                <tr>
-                                                    <td class="text-capitalize">{{ $enquiry->contacted_through }}</td>
-                                                    <td>{{ $statusName }}</td>
-                                                    <td>
-                                                        @if($enquiry->relatedLead)
-                                                            <a href="{{ route('admin.lead.show', $enquiry->relatedLead->id) }}?in_modal=1" class="link-primary btn-lead-view" data-lead-url="{{ route('admin.lead.show', $enquiry->relatedLead->id) }}?in_modal=1">
-                                                                #{{ $enquiry->relatedLead->id }} — {{ $enquiry->relatedLead->name ?: '—' }}
-                                                            </a>
-                                                        @else
-                                                            —
-                                                        @endif
-                                                    </td>
-                                                    <td>
-                                                        @if($enquiry->booking)
-                                                            <a href="{{ route('admin.booking.details', $enquiry->booking->id) }}" class="link-primary" @if(!empty($inModal)) target="_top" @endif>
-                                                                {{ $enquiry->booking->readable_id ?: $enquiry->booking->id }}
-                                                            </a>
-                                                        @else
-                                                            —
-                                                        @endif
-                                                    </td>
-                                                    <td>{{ $enquiry->contacted_at ? $enquiry->contacted_at->format('d F Y h:i a') : '—' }}</td>
-                                                    <td>{{ $employeeName }}</td>
-                                                    <td>{{ $enquiry->remarks ?: '—' }}</td>
-                                                </tr>
-                                            @endforeach
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
-                    @endif
-
-                    <div class="row gy-3 mb-3">
-                        <div class="col-lg-6">
-                            <div class="card h-100 lead-detail-fixed-card lead-detail-history-card">
-                                <div class="card-body d-flex flex-column">
-                                    <div class="d-flex justify-content-between align-items-center mb-3 flex-shrink-0">
-                                        <h3 class="c1 mb-0">{{ translate('Follow_up_History') }}</h3>
-                                        <button type="button"
-                                                class="btn btn--primary btn-sm"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#addFollowupModal">
-                                            {{ translate('Add_Follow_up') }}
-                                        </button>
-                                    </div>
-                                    <hr class="flex-shrink-0">
-                                    <div class="overflow-auto lead-detail-scroll-content flex-grow-1 min-h-0">
-                                        @if($lead->followups->isEmpty())
-                                            <p class="mb-0 text-muted">{{ translate('No_follow_ups_yet') }}</p>
-                                        @else
-                                            <div class="lead-followup-timeline">
-                                                @foreach($lead->followups as $followup)
-                                                    <div class="border-start border-3 border-primary ps-3 mb-4">
-                                                        <div class="mb-1">
-                                                            <span class="fw-semibold">{{ translate('Taken_on') }}:</span>
-                                                            {{ $followup->followup_at?->format('d F Y h:i a') ?? '—' }}
-                                                            <span class="text-muted">{{ translate('By') }}:</span>
-                                                            @if($followup->createdBy)
-                                                                @php
-                                                                    $fuUser = $followup->createdBy;
-                                                                    $fuName = trim(($fuUser->first_name ?? '') . ' ' . ($fuUser->last_name ?? ''));
-                                                                @endphp
-                                                                {{ $fuName ?: $fuUser->email }}
-                                                            @else
-                                                                —
-                                                            @endif
-                                                        </div>
-                                                        <div class="mb-1">
-                                                            <span class="fw-semibold">{{ translate('Next_Follow_up_Date') }}:</span>
-                                                            {{ $followup->next_followup_at?->format('d F Y h:i a') ?? '—' }}
-                                                        </div>
-                                                        <div class="mb-1">
-                                                            <span class="fw-semibold">{{ translate('Urgency') }}:</span>
-                                                            @php $fuUrgency = $followup->urgency ?: 'medium'; @endphp
-                                                            <span class="badge badge-{{ $fuUrgency === 'high' ? 'danger' : ($fuUrgency === 'low' ? 'secondary' : 'warning') }}">
-                                                                {{ translate(ucfirst($fuUrgency)) }}
-                                                            </span>
-                                                        </div>
-                                                        <div class="mb-0">
-                                                            <span class="fw-semibold">{{ translate('Remarks') }}</span> => {{ $followup->remarks ?: '—' }}
-                                                        </div>
-                                                    </div>
-                                                @endforeach
-                                            </div>
-                                        @endif
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-lg-6">
-                            <div class="card h-100 lead-detail-fixed-card lead-detail-history-card" id="lead-change-history-card">
-                                <div class="card-body d-flex flex-column">
-                                    <h3 class="c1 mb-3 flex-shrink-0">{{ translate('Change_History') }}</h3>
-                                    <hr class="flex-shrink-0">
-                                    <div class="overflow-auto lead-detail-scroll-content flex-grow-1 min-h-0">
-                                        @if(isset($changeLogs) && $changeLogs->isNotEmpty())
-                                            <div class="lead-change-timeline">
-                                                @foreach($changeLogs as $log)
-                                                    <div class="border-start border-3 border-primary ps-3 mb-4">
-                                                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                                                            <span class="fw-semibold">{{ $log->created_at?->format('d F Y h:i a') ?? '—' }}</span>
-                                                            <span class="text-muted">
-                                                                {{ translate('Edited_by') }}:
-                                                                @if($log->changedByUser)
-                                                                    @php
-                                                                        $cb = $log->changedByUser;
-                                                                        $cbName = trim(($cb->first_name ?? '') . ' ' . ($cb->last_name ?? ''));
-                                                                    @endphp
-                                                                    {{ $cbName ?: $cb->email }}
-                                                                @else
-                                                                    —
-                                                                @endif
-                                                            </span>
-                                                        </div>
-                                                        <ul class="mb-0 ps-3">
-                                                            @foreach($log->changes ?? [] as $fieldKey => $change)
-                                                                <li class="mb-1">
-                                                                    <strong>{{ translate($change['label'] ?? $fieldKey) }}</strong>:
-                                                                    {{ translate('Changed_from') }} <span class="text-muted">{{ $change['old'] ?? '—' }}</span>
-                                                                    {{ translate('Changed_to') }} <span>{{ $change['new'] ?? '—' }}</span>
-                                                                </li>
-                                                            @endforeach
-                                                        </ul>
-                                                    </div>
-                                                @endforeach
-                                            </div>
-                                        @else
-                                            <p class="mb-0 text-muted">{{ translate('No_changes_recorded_yet') }}</p>
-                                        @endif
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-body">
-                            <h3 class="c1 mb-3 text-danger">{{ translate('Delete_Lead') }}</h3>
-                            <hr>
-                            <div class="text-center">
-                                <p class="text-muted mb-3">
-                                    {{ translate('This_action_will_permanently_remove_the_lead_and_its_related_data.') }}
-                                </p>
-                                <button type="button"
-                                        class="btn btn-danger"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#deleteLeadModal">
-                                    {{ translate('Delete_Lead') }}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                </div>
+            </div>
 
                     <div class="modal fade" id="leadInvalidModal" tabindex="-1" aria-labelledby="leadInvalidModalLabel" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered">
@@ -1106,44 +484,112 @@
                                     <h5 class="modal-title" id="addFollowupModalLabel">{{ translate('Add_Follow_up') }}</h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
                                 </div>
-                                <form method="POST" action="{{ route('admin.lead.followups.store', $lead->id) }}">
+                                <form method="POST"
+                                      action="{{ route('admin.lead.followups.store', $lead->id) }}"
+                                      enctype="multipart/form-data"
+                                      id="add-followup-form">
                                     @csrf
+                                    <input type="hidden" name="followup_mode" id="followup-mode-input" value="{{ old('followup_mode', 'add') }}">
                                     @if(!empty($inModal))
                                         <input type="hidden" name="in_modal" value="1">
                                     @endif
                                     <div class="modal-body pt-0">
-                                        <div class="mb-3">
-                                            <label class="form-label">{{ translate('Date_Time') }}</label>
-                                            <input type="datetime-local"
-                                                   name="followup_at"
-                                                   class="form-control"
-                                                   value="{{ now()->format('Y-m-d\TH:i') }}"
-                                                   required>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">{{ translate('Remarks') }}</label>
-                                            <textarea name="remarks" class="form-control" rows="3" placeholder="{{ translate('Add_remarks_from_follow_up') }}"></textarea>
+                                        <div class="mb-3 d-none" id="followup-status-group">
+                                            <label class="form-label">{{ translate('Status') }}</label>
+                                            <div class="d-flex flex-wrap gap-3">
+                                                <div class="form-check">
+                                                    <input class="form-check-input"
+                                                           type="radio"
+                                                           name="followup_action"
+                                                           id="followup-action-taken"
+                                                           value="{{ \Modules\LeadManagement\Entities\LeadFollowup::STATUS_TAKEN }}"
+                                                           {{ old('followup_action', \Modules\LeadManagement\Entities\LeadFollowup::STATUS_TAKEN) === \Modules\LeadManagement\Entities\LeadFollowup::STATUS_TAKEN ? 'checked' : '' }}>
+                                                    <label class="form-check-label" for="followup-action-taken">{{ translate('Taken') }}</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input"
+                                                           type="radio"
+                                                           name="followup_action"
+                                                           id="followup-action-reschedule"
+                                                           value="{{ \Modules\LeadManagement\Entities\LeadFollowup::STATUS_RESCHEDULE }}"
+                                                           {{ old('followup_action') === \Modules\LeadManagement\Entities\LeadFollowup::STATUS_RESCHEDULE ? 'checked' : '' }}>
+                                                    <label class="form-check-label" for="followup-action-reschedule">{{ translate('Reschedule') }}</label>
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        <div class="mb-3">
-                                            <label class="form-label">{{ translate('Urgency') }}</label>
-                                            <select name="urgency" class="form-control">
-                                                <option value="high" {{ old('urgency') === 'high' ? 'selected' : '' }}>{{ translate('High') }}</option>
-                                                <option value="medium" {{ old('urgency', 'medium') === 'medium' ? 'selected' : '' }}>{{ translate('Medium') }}</option>
-                                                <option value="low" {{ old('urgency') === 'low' ? 'selected' : '' }}>{{ translate('Low') }}</option>
-                                            </select>
+                                        <div class="followup-modal-section mb-3" id="followup-current-section">
+                                            <h6 class="followup-modal-section-title" id="followup-current-section-title">{{ translate('This_Follow_up') }}</h6>
+                                            <div class="row g-3 mb-3">
+                                                <div class="col-sm-6" id="followup-datetime-group">
+                                                    <label class="form-label">{{ translate('Date_Time') }}</label>
+                                                    <input type="datetime-local"
+                                                           name="followup_at"
+                                                           id="followup-at-input"
+                                                           class="form-control"
+                                                           value="{{ old('followup_at', now()->format('Y-m-d\TH:i')) }}"
+                                                           required>
+                                                </div>
+                                                <div class="col-sm-6" id="followup-channel-group">
+                                                    <label class="form-label">{{ translate('Follow_up_Taken_on') }}</label>
+                                                    <select name="contact_channel"
+                                                            id="followup-contact-channel"
+                                                            class="form-control">
+                                                        <option value="{{ \Modules\LeadManagement\Entities\LeadFollowup::CHANNEL_CALL }}" {{ old('contact_channel', \Modules\LeadManagement\Entities\LeadFollowup::CHANNEL_CALL) === \Modules\LeadManagement\Entities\LeadFollowup::CHANNEL_CALL ? 'selected' : '' }}>
+                                                            {{ translate('Call') }}
+                                                        </option>
+                                                        <option value="{{ \Modules\LeadManagement\Entities\LeadFollowup::CHANNEL_WHATSAPP }}" {{ old('contact_channel') === \Modules\LeadManagement\Entities\LeadFollowup::CHANNEL_WHATSAPP ? 'selected' : '' }}>
+                                                            {{ translate('WhatsApp') }}
+                                                        </option>
+                                                    </select>
+                                                    @error('contact_channel')
+                                                    <div class="text-danger small mt-1">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
+                                            </div>
+                                            <div class="mb-3 d-none" id="followup-recording-group">
+                                                <label class="form-label">{{ translate('Voice_Recording') }}</label>
+                                                <input type="file"
+                                                       name="recording"
+                                                       id="followup-recording-input"
+                                                       class="form-control"
+                                                       accept="audio/*,.mp3,.wav,.webm,.ogg,.m4a,.aac">
+                                                <div class="form-text">{{ translate('Upload_call_recording_optional_max_10MB') }}</div>
+                                                @error('recording')
+                                                <div class="text-danger small mt-1">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+                                            <div class="mb-3" id="followup-remarks-group">
+                                                <label class="form-label">{{ translate('Remarks') }}</label>
+                                                <textarea name="remarks" class="form-control" rows="3" placeholder="{{ translate('Add_remarks_from_follow_up') }}">{{ old('remarks') }}</textarea>
+                                            </div>
                                         </div>
 
                                         @if(!empty($leadOpenStatus))
-                                        <div class="mb-0" id="next-followup-group">
-                                            <label class="form-label">{{ translate('Next_Follow_up_Date') }} <span class="text-danger">*</span></label>
-                                            <input type="datetime-local"
-                                                   name="next_followup_at"
-                                                   id="next-followup-input"
-                                                   class="form-control"
-                                                   required
-                                                   data-default="{{ $lead->next_followup_at?->format('Y-m-d\TH:i') ?? \Carbon\Carbon::tomorrow()->setTime(10, 0)->format('Y-m-d\TH:i') }}"
-                                                   value="{{ $lead->next_followup_at?->format('Y-m-d\TH:i') ?? \Carbon\Carbon::tomorrow()->setTime(10, 0)->format('Y-m-d\TH:i') }}">
+                                        <div class="followup-modal-section mb-0" id="followup-next-section">
+                                            <h6 class="followup-modal-section-title">{{ translate('Next_Follow_up') }}</h6>
+                                            <p class="followup-modal-section-help">{{ translate('Schedule_and_priority_for_the_upcoming_follow_up') }}</p>
+                                            <div class="mb-3">
+                                                <label class="form-label">{{ translate('Urgency') }}</label>
+                                                <select name="urgency" class="form-control">
+                                                    <option value="high" {{ old('urgency') === 'high' ? 'selected' : '' }}>{{ translate('High') }}</option>
+                                                    <option value="medium" {{ old('urgency', 'medium') === 'medium' ? 'selected' : '' }}>{{ translate('Medium') }}</option>
+                                                    <option value="low" {{ old('urgency') === 'low' ? 'selected' : '' }}>{{ translate('Low') }}</option>
+                                                </select>
+                                            </div>
+                                            <div class="mb-0" id="next-followup-group">
+                                                <label class="form-label" id="next-followup-label">
+                                                    {{ translate('Next_Follow_up_Date') }} <span class="text-danger">*</span>
+                                                </label>
+                                                <input type="datetime-local"
+                                                       name="next_followup_at"
+                                                       id="next-followup-input"
+                                                       class="form-control js-followup-future-only"
+                                                       required
+                                                       min="{{ $followupScheduleMinAt }}"
+                                                       data-default="{{ $lead->next_followup_at?->format('Y-m-d\TH:i') ?? \Carbon\Carbon::tomorrow()->setTime(10, 0)->format('Y-m-d\TH:i') }}"
+                                                       value="{{ old('next_followup_at', $lead->next_followup_at?->format('Y-m-d\TH:i') ?? \Carbon\Carbon::tomorrow()->setTime(10, 0)->format('Y-m-d\TH:i')) }}">
+                                            </div>
                                         </div>
                                         @endif
                                     </div>
@@ -1153,7 +599,7 @@
                                                 data-bs-dismiss="modal">
                                             {{ translate('Cancel') }}
                                         </button>
-                                        <button type="submit" class="btn btn--primary">
+                                        <button type="submit" class="btn btn--primary" id="followup-submit-btn">
                                             {{ translate('Save_changes') }}
                                         </button>
                                     </div>
@@ -1234,86 +680,90 @@
                         </div>
                     </div>
 
+        </div>
+    </div>
+
+    @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER)
+        <div class="modal fade" id="customerCancelModal" tabindex="-1" aria-labelledby="customerCancelModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header border-0">
+                        <h5 class="modal-title" id="customerCancelModalLabel">{{ translate('Customer_cancellation_reasons') }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                    </div>
+                    <div class="modal-body pt-0">
+                        <div class="mb-3">
+                            <label class="form-label">{{ translate('Customer_cancellation_reasons') }}</label>
+                            <select id="customer-cancel-reason-id" class="form-select">
+                                <option value="">{{ translate('Select') }}</option>
+                                @foreach($cancellationReasons as $reason)
+                                    <option value="{{ $reason->id }}">{{ $reason->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label">{{ translate('Remarks') }} ({{ translate('Optional') }})</label>
+                            <textarea id="customer-cancel-remarks" class="form-control" rows="3" placeholder="{{ translate('Enter_cancellation_remarks') }}"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 d-flex justify-content-end gap-2 pb-4">
+                        <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">
+                            {{ translate('Cancel') }}
+                        </button>
+                        <button type="button" class="btn btn--primary" id="customer-cancel-save-btn">
+                            {{ translate('Save_changes') }}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+    @endif
+
+    @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER)
+        <div class="modal fade" id="providerCancelModal" tabindex="-1" aria-labelledby="providerCancelModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header border-0">
+                        <h5 class="modal-title" id="providerCancelModalLabel">{{ translate('Provider_cancellation_reasons') }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                    </div>
+                    <div class="modal-body pt-0">
+                        <div class="mb-3">
+                            <label class="form-label">{{ translate('Provider_cancellation_reasons') }}</label>
+                            <select id="provider-cancel-reason-id" class="form-select">
+                                <option value="">{{ translate('Select') }}</option>
+                                @foreach($providerCancellationReasons as $reason)
+                                    <option value="{{ $reason->id }}">{{ $reason->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label">{{ translate('Remarks') }} ({{ translate('Optional') }})</label>
+                            <textarea id="provider-cancel-remarks" class="form-control" rows="3" placeholder="{{ translate('Enter_cancellation_remarks') }}"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 d-flex justify-content-end gap-2 pb-4">
+                        <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">
+                            {{ translate('Cancel') }}
+                        </button>
+                        <button type="button" class="btn btn--primary" id="provider-cancel-save-btn">
+                            {{ translate('Save_changes') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @include('adminmodule::admin.workflow.partials._next-step-fab', ['workflowContext' => $workflowContext ?? [], 'wfCanEdit' => auth()->user()?->can('lead_update')])
+    @include('adminmodule::admin.workflow.partials._confirm-modal')
+    @include('adminmodule::admin.workflow.partials._scripts', ['workflowContext' => $workflowContext ?? [], 'wfEntityType' => 'lead', 'wfEntityId' => (int) $lead->id])
 @endsection
-
-@if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER)
-    <div class="modal fade" id="customerCancelModal" tabindex="-1" aria-labelledby="customerCancelModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header border-0">
-                    <h5 class="modal-title" id="customerCancelModalLabel">{{ translate('Customer_cancellation_reasons') }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
-                </div>
-                <div class="modal-body pt-0">
-                    <div class="mb-3">
-                        <label class="form-label">{{ translate('Customer_cancellation_reasons') }}</label>
-                        <select id="customer-cancel-reason-id" class="form-select">
-                            <option value="">{{ translate('Select') }}</option>
-                            @foreach($cancellationReasons as $reason)
-                                <option value="{{ $reason->id }}">{{ $reason->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="mb-0">
-                        <label class="form-label">{{ translate('Remarks') }} ({{ translate('Optional') }})</label>
-                        <textarea id="customer-cancel-remarks" class="form-control" rows="3" placeholder="{{ translate('Enter_cancellation_remarks') }}"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer border-0 d-flex justify-content-end gap-2 pb-4">
-                    <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">
-                        {{ translate('Cancel') }}
-                    </button>
-                    <button type="button" class="btn btn--primary" id="customer-cancel-save-btn">
-                        {{ translate('Save_changes') }}
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-@endif
-
-@if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER)
-    <div class="modal fade" id="providerCancelModal" tabindex="-1" aria-labelledby="providerCancelModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header border-0">
-                    <h5 class="modal-title" id="providerCancelModalLabel">{{ translate('Provider_cancellation_reasons') }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
-                </div>
-                <div class="modal-body pt-0">
-                    <div class="mb-3">
-                        <label class="form-label">{{ translate('Provider_cancellation_reasons') }}</label>
-                        <select id="provider-cancel-reason-id" class="form-select">
-                            <option value="">{{ translate('Select') }}</option>
-                            @foreach($providerCancellationReasons as $reason)
-                                <option value="{{ $reason->id }}">{{ $reason->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="mb-0">
-                        <label class="form-label">{{ translate('Remarks') }} ({{ translate('Optional') }})</label>
-                        <textarea id="provider-cancel-remarks" class="form-control" rows="3" placeholder="{{ translate('Enter_cancellation_remarks') }}"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer border-0 d-flex justify-content-end gap-2 pb-4">
-                    <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">
-                        {{ translate('Cancel') }}
-                    </button>
-                    <button type="button" class="btn btn--primary" id="provider-cancel-save-btn">
-                        {{ translate('Save_changes') }}
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-@endif
 
 @push('css_or_js')
     @include('zonemanagement::admin.partials._zone-select2-assets')
+    <link rel="stylesheet" href="{{ asset('assets/chatting-module/css/staff-chat-entity-badges.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/lead-detail-redesign.css') }}">
     <style>
         .btn-lead-type-invalid:hover:not(:disabled) {
             background-color: #dc3545; /* Bootstrap danger */
@@ -1335,17 +785,330 @@
             color: #fff;
         }
 
-        .lead-detail-fixed-card.lead-detail-history-card {
-            min-height: 480px;
-            height: 480px;
+        .lead-detail-history-card .card-body {
+            overflow: visible;
         }
-        .lead-detail-fixed-card .card-body {
+        .lead-followup-history-table th {
+            font-size: 0.8125rem;
+            white-space: nowrap;
+        }
+        .lead-followup-history-table td {
+            font-size: 0.875rem;
+            vertical-align: middle;
+        }
+        .followup-modal-section {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1rem 1rem 0.25rem;
+            background: #f8fafc;
+        }
+        .followup-modal-section + .followup-modal-section {
+            margin-top: 1rem;
+        }
+        .followup-modal-section-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 0.875rem;
+        }
+        .followup-modal-section-help {
+            font-size: 0.8125rem;
+            color: #64748b;
+            margin-top: -0.5rem;
+            margin-bottom: 0.875rem;
+        }
+        .voice-call-details-panel {
+            background: #f8f9fb;
+            border-top: 1px solid #e9ecef;
+        }
+        .voice-call-detail-box {
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #fff;
+        }
+        .voice-call-detail-box__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            background: #fff;
+            border-bottom: 1px solid #e9ecef;
+            font-weight: 600;
+            font-size: 13px;
+            padding: 8px 12px;
+        }
+        .voice-call-detail-box__header-title {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 0;
+        }
+        .voice-call-detail-box__header .material-icons {
+            font-size: 18px;
+            color: #6c757d;
+        }
+        .voice-call-detail-box .card-body {
+            padding: 12px;
+        }
+        .voice-call-copy-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: transparent;
+            color: #6c757d;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }
+        .voice-call-copy-btn:hover {
+            background: #f1f3f5;
+            color: #495057;
+        }
+        .voice-call-transcript {
+            max-height: 320px;
+            overflow: auto;
+            padding: 16px;
+            font-size: 13px;
+            line-height: 1.55;
+            text-align: left;
+            background: #fff;
+            color: #212529;
+        }
+        .voice-call-transcript-line {
+            margin-bottom: 6px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .voice-call-transcript-line--user {
+            color: #0d6efd;
+        }
+        .voice-call-transcript-line--llm {
+            color: #495057;
+        }
+        .voice-call-details-top-row {
+            align-items: stretch;
+        }
+        .voice-call-left-stack {
+            min-height: 100%;
+        }
+        .voice-call-recording-card {
+            flex: 0 0 auto;
+        }
+        .voice-call-summary-card {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            min-height: 180px;
+        }
+        .voice-call-summary-body {
+            flex: 1 1 auto;
+            min-height: 140px;
+            overflow: auto;
+        }
+        .voice-call-extracted-card {
+            display: flex;
+            flex-direction: column;
+        }
+        .voice-call-extracted-body {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
             overflow: hidden;
         }
-        .lead-detail-fixed-card .lead-detail-scroll-content {
-            flex: 1 1 0;
-            min-height: 0;
+        .voice-call-extracted-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            flex: 1 1 auto;
+            height: 100%;
             overflow: auto;
+            align-content: start;
+        }
+        @media (max-width: 1200px) {
+            .voice-call-extracted-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        @media (max-width: 768px) {
+            .voice-call-extracted-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        .voice-call-extracted-item {
+            background: #f8f9fb;
+            border: 1px solid #eef1f4;
+            border-radius: 8px;
+            padding: 10px 12px;
+            min-width: 0;
+        }
+        .voice-call-extracted-item__label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6c757d;
+            margin-bottom: 4px;
+        }
+        .voice-call-extracted-item__value {
+            font-size: 14px;
+            font-weight: 500;
+            word-break: break-word;
+        }
+        .voice-call-recording-box .voice-call-audio-player {
+            height: 36px;
+        }
+        .lead-followup-history-table tbody tr.voice-call-details-row > td {
+            box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.04);
+            background: #f8f9fb !important;
+        }
+        .lead-change-history-table th {
+            font-size: 0.8125rem;
+            white-space: nowrap;
+        }
+        .lead-change-history-table td {
+            font-size: 0.875rem;
+            vertical-align: middle;
+        }
+        .lead-comments-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .lead-comments-list-wrap {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1rem;
+            max-height: 420px;
+            overflow: auto;
+        }
+        .lead-comments-list {
+            display: flex;
+            flex-direction: column;
+            gap: .85rem;
+        }
+        .lead-comments-empty {
+            color: #94a3b8;
+            font-size: .875rem;
+            text-align: center;
+            padding: 2rem 1rem;
+        }
+        .lead-comment-item {
+            display: grid;
+            grid-template-columns: 36px 1fr;
+            gap: .75rem;
+            align-items: start;
+        }
+        .lead-comment-item.is-pinned .lead-comment-card {
+            border-color: #fcd34d;
+            background: #fffbeb;
+        }
+        .lead-comment-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #dbeafe;
+            color: #1d4ed8;
+            font-size: .72rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .lead-comment-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: .75rem .9rem;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        }
+        .lead-comment-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: .5rem;
+            margin-bottom: .4rem;
+        }
+        .lead-comment-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: .35rem .5rem;
+            font-size: .78rem;
+            color: #64748b;
+        }
+        .lead-comment-meta strong {
+            color: #0f172a;
+            font-size: .84rem;
+            font-weight: 650;
+        }
+        .lead-comment-time {
+            color: #94a3b8;
+        }
+        .lead-comment-pin-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: .15rem;
+            color: #b45309;
+            font-weight: 600;
+        }
+        .lead-comment-pin-badge .material-icons {
+            font-size: 14px;
+        }
+        .lead-comment-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: .15rem;
+            flex-shrink: 0;
+        }
+        .lead-comment-actions .material-icons {
+            font-size: 18px;
+        }
+        .lead-comment-actions .btn-link {
+            color: #64748b;
+            line-height: 1;
+            min-width: 28px;
+            min-height: 28px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .lead-comment-actions .btn-link:hover {
+            color: #0f172a;
+        }
+        .lead-comment-body {
+            font-size: .9rem;
+            color: #1e293b;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        .lead-comment-body .staff-chat-entity-link {
+            margin-right: 0.25rem;
+        }
+        .lead-comment-compose {
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: .625rem .75rem;
+            background: #fafbfc;
+        }
+        .lead-comment-compose__input {
+            width: 100%;
+            min-height: 56px;
+            resize: vertical;
+            background: #fff;
+        }
+        .lead-comment-compose__input:focus {
+            box-shadow: 0 0 0 2px rgba(37, 39, 77, .1);
+        }
+        .lead-comment-compose__footer {
+            border-top: 1px solid #e2e8f0;
+        }
+        .lead-comment-compose .staff-chat-compose-tools {
+            margin-bottom: 0;
         }
     </style>
 @endpush
@@ -1398,20 +1161,498 @@
         (function ($) {
             "use strict";
             $(document).on('click', '.lead-card-edit-btn', function () {
-                var $card = $(this).closest('.card');
+                var $card = $(this).closest('.panel, .card, .action-card');
                 $card.find('.lead-card-view').addClass('d-none');
                 $card.find('.lead-card-edit').removeClass('d-none');
+                if (typeof window.applyFollowupFutureMin === 'function') {
+                    window.applyFollowupFutureMin($card);
+                }
                 $card.find('.lead-card-edit .js-select').each(function () {
                     if ($(this).data('select2')) $(this).select2('destroy');
                     $(this).select2({ width: '100%' });
                 });
             });
             $(document).on('click', '.lead-card-cancel', function () {
-                var $card = $(this).closest('.card');
+                var $card = $(this).closest('.panel, .card, .action-card');
                 $card.find('.lead-card-edit').addClass('d-none');
                 $card.find('.lead-card-view').removeClass('d-none');
                 $card.find('.lead-card-edit .js-select').each(function () {
                     if ($(this).data('select2')) $(this).select2('destroy');
+                });
+            });
+
+            var $assigneeView = $('#lead-assignee-view');
+            var $assigneeEdit = $('#lead-assignee-edit');
+            var $assigneeEditBtn = $('#lead-assignee-edit-btn');
+            var $assigneeCancelBtn = $('#lead-assignee-cancel-btn');
+            var $assigneeSelect = $('#lead-assignee-select');
+
+            if ($assigneeView.length && $assigneeEdit.length) {
+                function openAssigneeEdit() {
+                    $assigneeView.addClass('d-none');
+                    $assigneeEdit.removeClass('d-none');
+                    $assigneeEditBtn.addClass('d-none');
+                    $assigneeCancelBtn.removeClass('d-none');
+                    if ($assigneeSelect.length && !$assigneeSelect.data('select2')) {
+                        $assigneeSelect.select2({ width: '100%' });
+                    }
+                }
+
+                function closeAssigneeEdit() {
+                    $assigneeEdit.addClass('d-none');
+                    $assigneeView.removeClass('d-none');
+                    $assigneeCancelBtn.addClass('d-none');
+                    $assigneeEditBtn.removeClass('d-none');
+                    if ($assigneeSelect.length && $assigneeSelect.data('select2')) {
+                        $assigneeSelect.select2('destroy');
+                    }
+                }
+
+                $assigneeEditBtn.on('click', openAssigneeEdit);
+                $assigneeCancelBtn.on('click', closeAssigneeEdit);
+            }
+
+            var providerSearchUrl = @json(route('admin.lead.search-providers'));
+            var $tempProviderView = $('#lead-temporary-provider-view');
+            var $tempProviderEdit = $('#lead-temporary-provider-edit');
+            var $tempProviderEditBtn = $('#lead-temporary-provider-edit-btn');
+            var $tempProviderCancelBtn = $('#lead-temporary-provider-cancel-btn');
+            var $tempProviderSelect = $('#lead-temporary-provider-select');
+            var $tempProviderClearBtn = $('#lead-temporary-provider-clear-btn');
+
+            function destroyTempProviderSelect2() {
+                if ($tempProviderSelect.length && $tempProviderSelect.data('select2')) {
+                    $tempProviderSelect.select2('destroy');
+                }
+            }
+
+            function initTempProviderSelect2() {
+                if (!$tempProviderSelect.length) {
+                    return;
+                }
+                destroyTempProviderSelect2();
+                var selected = $tempProviderSelect.data('selected') || '';
+                var tempProviderSelectOpts = {
+                    width: '100%',
+                    allowClear: true,
+                    placeholder: $tempProviderSelect.data('placeholder') || '',
+                    ajax: {
+                        url: providerSearchUrl,
+                        dataType: 'json',
+                        delay: 250,
+                        data: function (params) {
+                            return {
+                                q: params.term || '',
+                                selected: selected,
+                            };
+                        },
+                        processResults: function (data) {
+                            return data;
+                        },
+                        cache: true,
+                    },
+                    minimumInputLength: 0,
+                    dropdownParent: $(document.body),
+                };
+                $tempProviderSelect.select2(tempProviderSelectOpts);
+
+                if (selected) {
+                    $.get(providerSearchUrl, {
+                        selected: selected,
+                    }, function (data) {
+                        var match = (data.results || []).find(function (item) {
+                            return String(item.id) === String(selected);
+                        });
+                        if (match) {
+                            var option = new Option(match.text, match.id, true, true);
+                            $tempProviderSelect.append(option).trigger('change');
+                        }
+                    });
+                }
+            }
+
+            if ($tempProviderView.length && $tempProviderEdit.length) {
+                function openTempProviderEdit() {
+                    $tempProviderView.addClass('d-none');
+                    $tempProviderEdit.removeClass('d-none');
+                    $tempProviderEditBtn.addClass('d-none');
+                    $tempProviderCancelBtn.removeClass('d-none');
+                    initTempProviderSelect2();
+                }
+
+                function closeTempProviderEdit() {
+                    destroyTempProviderSelect2();
+                    $tempProviderEdit.addClass('d-none');
+                    $tempProviderView.removeClass('d-none');
+                    $tempProviderCancelBtn.addClass('d-none');
+                    $tempProviderEditBtn.removeClass('d-none');
+                }
+
+                $tempProviderEditBtn.on('click', openTempProviderEdit);
+                $tempProviderCancelBtn.on('click', closeTempProviderEdit);
+                $tempProviderClearBtn.on('click', function () {
+                    $tempProviderSelect.val(null).trigger('change');
+                    $(this).closest('form').trigger('submit');
+                });
+            }
+        })(jQuery);
+    </script>
+    <script>
+        (function ($) {
+            "use strict";
+
+            var followupModalLabels = {
+                take: @json(translate('Take_Follow_up')),
+                add: @json(translate('Add_Follow_up')),
+                nextFollowup: @json(translate('Next_Follow_up_Date')),
+                rescheduleTo: @json(translate('Reschedule_to')),
+                saveChanges: @json(translate('Save_changes')),
+                reschedule: @json(translate('Reschedule')),
+                callChannel: @json(\Modules\LeadManagement\Entities\LeadFollowup::CHANNEL_CALL),
+                thisFollowup: @json(translate('This_Follow_up')),
+                rescheduleDetails: @json(translate('Reschedule_Details'))
+            };
+
+            function toggleFollowupRecordingField() {
+                var channel = $('#followup-contact-channel').val();
+                var $group = $('#followup-recording-group');
+                var $input = $('#followup-recording-input');
+                var showRecording = channel === followupModalLabels.callChannel
+                    && !$('#followup-datetime-group').hasClass('d-none');
+
+                if (showRecording) {
+                    $group.removeClass('d-none');
+                } else {
+                    $group.addClass('d-none');
+                    $input.val('');
+                }
+            }
+
+            function configureFollowupModal(mode) {
+                mode = mode || 'add';
+                $('#followup-mode-input').val(mode);
+
+                if (mode === 'take') {
+                    $('#addFollowupModalLabel').text(followupModalLabels.take);
+                    $('#followup-status-group').removeClass('d-none');
+                } else {
+                    $('#addFollowupModalLabel').text(followupModalLabels.add);
+                    $('#followup-status-group').addClass('d-none');
+                    $('#followup-action-taken').prop('checked', true);
+                }
+
+                toggleFollowupActionFields();
+            }
+
+            function toggleFollowupActionFields() {
+                var mode = $('#followup-mode-input').val() || 'add';
+                var action = $('input[name="followup_action"]:checked').val() || '{{ \Modules\LeadManagement\Entities\LeadFollowup::STATUS_TAKEN }}';
+                var isReschedule = mode === 'take' && action === '{{ \Modules\LeadManagement\Entities\LeadFollowup::STATUS_RESCHEDULE }}';
+
+                $('#followup-datetime-group, #followup-channel-group').toggleClass('d-none', isReschedule);
+                $('#followup-at-input').prop('required', !isReschedule);
+
+                if (isReschedule) {
+                    $('#followup-recording-input').val('');
+                    $('#followup-recording-group').addClass('d-none');
+                    $('#followup-current-section-title').text(followupModalLabels.rescheduleDetails);
+                    $('#next-followup-label').html(followupModalLabels.rescheduleTo + ' <span class="text-danger">*</span>');
+                    $('#followup-submit-btn').text(followupModalLabels.reschedule);
+                } else {
+                    $('#followup-current-section-title').text(followupModalLabels.thisFollowup);
+                    $('#next-followup-label').html(followupModalLabels.nextFollowup + ' <span class="text-danger">*</span>');
+                    $('#followup-submit-btn').text(followupModalLabels.saveChanges);
+                    toggleFollowupRecordingField();
+                }
+
+                applyFollowupFutureMin($('#addFollowupModal'));
+            }
+
+            function localFollowupScheduleMin() {
+                var now = new Date();
+                now.setSeconds(0, 0);
+                now.setMilliseconds(0);
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                return now.toISOString().slice(0, 16);
+            }
+
+            function applyFollowupFutureMin($root) {
+                var min = localFollowupScheduleMin();
+                ($root && $root.length ? $root : $(document)).find('input.js-followup-future-only').each(function () {
+                    var $input = $(this);
+                    $input.attr('min', min);
+                    if ($input.val() && $input.val() < min) {
+                        var fallback = $input.data('default');
+                        $input.val(fallback && fallback >= min ? fallback : min);
+                    }
+                });
+            }
+
+            window.applyFollowupFutureMin = applyFollowupFutureMin;
+
+            $(function () {
+                var $modal = $('#addFollowupModal');
+
+                $modal.on('show.bs.modal', function (event) {
+                    var $trigger = $(event.relatedTarget);
+                    var mode = $trigger.data('followup-mode') || 'add';
+                    configureFollowupModal(mode);
+                    applyFollowupFutureMin($modal);
+                });
+
+                $(document).on('change', '#followup-contact-channel', toggleFollowupRecordingField);
+                $(document).on('change', 'input[name="followup_action"]', toggleFollowupActionFields);
+
+                @if($errors->any() && (old('followup_mode') || $errors->has('contact_channel') || $errors->has('recording') || $errors->has('next_followup_at')))
+                configureFollowupModal(@json(old('followup_mode', 'add')));
+                leadShowModal($modal);
+                @endif
+            });
+        })(jQuery);
+    </script>
+    <script>
+        (function ($) {
+            "use strict";
+
+            function formatTranscribedAt(iso) {
+                if (!iso) {
+                    return '';
+                }
+                var date = new Date(iso);
+                if (Number.isNaN(date.getTime())) {
+                    return iso;
+                }
+                return date.toLocaleString();
+            }
+
+            function escapeHtml(text) {
+                return $('<div>').text(text || '').html();
+            }
+
+            function buildTranscriptHtml(transcript) {
+                if (!transcript) {
+                    return '';
+                }
+
+                var lines = transcript.split(/\r\n|\r|\n|(?=Support:|Customer:|User:)/i).filter(function (part) {
+                    return String(part || '').trim() !== '';
+                });
+
+                return lines.map(function (line) {
+                    var trimmed = String(line || '').trim().replace(/^Customer:/i, 'User:');
+                    var lineClass = '';
+                    if (/^User:/i.test(trimmed)) {
+                        lineClass = 'voice-call-transcript-line--user';
+                    } else if (/^Support:/i.test(trimmed)) {
+                        lineClass = 'voice-call-transcript-line--llm';
+                    }
+                    return '<div class="voice-call-transcript-line ' + lineClass + '">' + escapeHtml(trimmed) + '</div>';
+                }).join('');
+            }
+
+            function copyTextFallback(text, done) {
+                var $temp = $('<textarea>').val(text).appendTo('body').select();
+                try {
+                    document.execCommand('copy');
+                    if (typeof done === 'function') {
+                        done();
+                    }
+                } catch (e) {
+                    // ignore
+                }
+                $temp.remove();
+            }
+
+            function bindFollowupCopyButtons($scope) {
+                $scope.find('.voice-call-copy-btn[data-copy-b64]').off('click.followupCopy').on('click.followupCopy', function () {
+                    var encoded = $(this).attr('data-copy-b64') || '';
+                    var text = '';
+                    try {
+                        text = atob(encoded);
+                    } catch (e) {
+                        return;
+                    }
+
+                    var done = function () {
+                        toastr.success(@json(translate('Copied')));
+                    };
+
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(text).then(done).catch(function () {
+                            copyTextFallback(text, done);
+                        });
+                    } else {
+                        copyTextFallback(text, done);
+                    }
+                });
+            }
+
+            function pauseFollowupRecordings($scope) {
+                $scope.find('.voice-call-audio-player').each(function () {
+                    this.pause();
+                });
+            }
+
+            function bindChangeHistoryRowHighlights() {
+                $(document).off('click.changeHistoryRow', '.lead-change-history-table tbody tr.lead-change-history-row')
+                    .on('click.changeHistoryRow', '.lead-change-history-table tbody tr.lead-change-history-row', function () {
+                        var $row = $(this);
+                        var $table = $row.closest('.lead-change-history-table');
+                        var wasOpen = $row.hasClass('is-open');
+                        $table.find('tr.lead-change-history-row.is-open').removeClass('is-open');
+                        if (!wasOpen) {
+                            $row.addClass('is-open');
+                        }
+                    });
+            }
+
+            function bindFollowupDetailToggles() {
+                $(document).off('click.followupDetails', '.lead-followup-history-table .voice-call-details-toggle')
+                    .on('click.followupDetails', '.lead-followup-history-table .voice-call-details-toggle', function () {
+                        var $btn = $(this);
+                        var $row = $btn.closest('tr');
+                        var $table = $btn.closest('.lead-followup-history-table');
+                        var $detailsRow = $row.next('tr.voice-call-details-row');
+                        if (!$detailsRow.length) {
+                            return;
+                        }
+
+                        var isHidden = $detailsRow.hasClass('d-none');
+
+                        if (isHidden) {
+                            $table.find('tr.lead-followup-row.is-open').removeClass('is-open');
+                            $table.find('tr.voice-call-details-row').addClass('d-none');
+                            $table.find('.voice-call-details-toggle[aria-expanded="true"]').each(function () {
+                                $(this).attr('aria-expanded', 'false').text(@json(translate('View')));
+                            });
+                            pauseFollowupRecordings($table.find('tr.voice-call-details-row'));
+                        }
+
+                        $detailsRow.toggleClass('d-none', !isHidden);
+                        $row.toggleClass('is-open', isHidden);
+                        $btn.attr('aria-expanded', isHidden ? 'true' : 'false');
+                        $btn.text(isHidden ? @json(translate('Hide')) : @json(translate('View')));
+
+                        if (isHidden) {
+                            bindFollowupCopyButtons($detailsRow);
+                        } else {
+                            pauseFollowupRecordings($detailsRow);
+                        }
+                    });
+
+                $(document).off('click.followupTimelineDetails', '#lead-activity-timeline .voice-call-details-toggle')
+                    .on('click.followupTimelineDetails', '#lead-activity-timeline .voice-call-details-toggle', function () {
+                        var $btn = $(this);
+                        var $inline = $btn.closest('.timeline-content').find('.voice-call-details-inline').first();
+                        if (!$inline.length) {
+                            return;
+                        }
+
+                        var isHidden = $inline.hasClass('d-none');
+                        $inline.toggleClass('d-none', !isHidden);
+                        $btn.attr('aria-expanded', isHidden ? 'true' : 'false');
+                        $btn.text(isHidden ? @json(translate('Hide')) : @json(translate('View')));
+
+                        if (isHidden) {
+                            bindFollowupCopyButtons($inline);
+                        } else {
+                            pauseFollowupRecordings($inline);
+                        }
+                    });
+            }
+
+            function renderFollowupTranscriptPanel($panel, data) {
+                $panel.find('.followup-recording-summary').text(data.summary || @json(translate('No_call_summary_available')));
+
+                var transcriptHtml = buildTranscriptHtml(data.transcript || '');
+                var $transcriptCard = $panel.find('.voice-call-detail-box').last();
+                $transcriptCard.find('.card-body')
+                    .removeClass('p-3')
+                    .addClass('p-0')
+                    .html('<div class="voice-call-transcript followup-recording-transcript-wrap">' + transcriptHtml + '</div>');
+
+                var $meta = $panel.find('.followup-transcript-meta');
+                $meta.removeClass('d-none').text(
+                    @json(translate('Transcribed_by')) + ' ' + @json(translate('Google_Gemini_AI'))
+                    + (data.transcribed_at ? ' · ' + formatTranscribedAt(data.transcribed_at) : '')
+                );
+
+                $panel.find('.js-transcribe-followup-recording[data-has-transcript="0"]').remove();
+
+                var transcribeUrl = String($panel.data('transcribe-url') || '');
+                if (!$panel.find('.js-transcribe-followup-recording[data-force="1"]').length && data.transcript && transcribeUrl !== '') {
+                    var $regenerateBtn = $('<button type="button" class="btn btn-sm btn-outline-secondary js-transcribe-followup-recording"></button>')
+                        .attr('data-followup-id', $panel.data('followup-id'))
+                        .attr('data-url', transcribeUrl)
+                        .attr('data-force', '1')
+                        .attr('data-has-transcript', '1')
+                        .text(@json(translate('Regenerate')));
+                    $panel.find('.voice-call-extracted-card .voice-call-detail-box__header').append($regenerateBtn);
+                }
+
+                var $transcriptHeaderActions = $transcriptCard.find('.voice-call-detail-box__header .d-flex.align-items-center.gap-1');
+                $transcriptHeaderActions.find('.js-transcribe-followup-recording[data-has-transcript="0"]').remove();
+
+                if (data.summary && !$panel.find('.voice-call-summary-card .voice-call-copy-btn').length) {
+                    var $copyBtn = $('<button type="button" class="voice-call-copy-btn"></button>')
+                        .attr('title', @json(translate('Copy')))
+                        .html('<span class="material-icons" aria-hidden="true">content_copy</span>');
+                    $copyBtn.attr('data-copy-b64', btoa(unescape(encodeURIComponent(data.summary))));
+                    $panel.find('.voice-call-summary-card .voice-call-detail-box__header').append($copyBtn);
+                }
+
+                if (data.transcript && !$transcriptHeaderActions.find('.voice-call-transcript-copy-btn').length) {
+                    var $transcriptCopy = $('<button type="button" class="voice-call-copy-btn voice-call-transcript-copy-btn"></button>')
+                        .attr('title', @json(translate('Copy')))
+                        .html('<span class="material-icons" aria-hidden="true">content_copy</span>');
+                    $transcriptCopy.attr('data-copy-b64', btoa(unescape(encodeURIComponent(data.transcript))));
+                    $transcriptHeaderActions.append($transcriptCopy);
+                }
+
+                bindFollowupCopyButtons($panel);
+            }
+
+            bindFollowupDetailToggles();
+            bindChangeHistoryRowHighlights();
+            bindFollowupCopyButtons($('.lead-followup-history-table'));
+
+            $(document).on('click', '.js-transcribe-followup-recording', function () {
+                var $btn = $(this);
+                var followupId = $btn.data('followup-id');
+                var url = $btn.data('url');
+                var force = String($btn.data('force')) === '1';
+                var $panel = $('#followup-transcript-panel-' + followupId);
+                var csrfToken = $('meta[name="csrf-token"]').attr('content') || $('input[name="_token"]').val();
+
+                var originalHtml = $btn.html();
+                $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>' + @json(translate('Transcribing')));
+
+                $.ajax({
+                    url: url,
+                    method: 'POST',
+                    data: {
+                        _token: csrfToken,
+                        force: force ? '1' : '0'
+                    }
+                }).done(function (response) {
+                    if (!response || !response.success) {
+                        toastr.error((response && response.message) ? response.message : @json(translate('Failed_to_transcribe_recording')));
+                        return;
+                    }
+
+                    renderFollowupTranscriptPanel($panel, response);
+
+                    if (force || !response.from_cache) {
+                        toastr.success(response.message || @json(translate('Recording_transcribed_successfully')));
+                    }
+                }).fail(function (xhr) {
+                    var message = @json(translate('Failed_to_transcribe_recording'));
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        message = xhr.responseJSON.message;
+                    }
+                    toastr.error(message);
+                }).always(function () {
+                    $btn.prop('disabled', false).html(originalHtml);
                 });
             });
         })(jQuery);
@@ -1808,7 +2049,7 @@
                 $view.removeClass('d-none');
             });
 
-            function performCustomerStatusUpdate(statusId, cancelReasonId, cancelRemarks) {
+            function performCustomerStatusUpdate(statusId, cancelReasonId, cancelRemarks, workflowConfirmed) {
                 var baseType = getSelectedBaseType();
                 $updateBtn.prop('disabled', true);
                 $.ajax({
@@ -1818,7 +2059,8 @@
                         _token: csrfToken,
                         customer_lead_status_id: statusId || null,
                         cancellation_reason_id: baseType === 'cancel' ? (cancelReasonId || null) : null,
-                        cancellation_remarks: baseType === 'cancel' ? (cancelRemarks || null) : null
+                        cancellation_remarks: baseType === 'cancel' ? (cancelRemarks || null) : null,
+                        workflow_confirmed: workflowConfirmed ? 1 : 0
                     },
                     success: function (res) {
                         if (res && res.success) {
@@ -1836,11 +2078,29 @@
                             if (typeof toastr !== 'undefined') toastr.success('{{ translate('Customer_lead_information_updated_successfully') }}');
                         }
                     },
-                    error: function () {
+                    error: function (xhr) {
                         $updateBtn.prop('disabled', false);
-                        if (typeof toastr !== 'undefined') toastr.error('{{ translate('Failed_to_update') }}');
+                        var res = xhr.responseJSON || {};
+                        if (res.workflow_gate && window.WorkflowGate) {
+                            window.WorkflowGate.showConfirmModal(res.workflow_gate, @json(\Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_LEAD_STATUS_BOOKED), function () {
+                                performCustomerStatusUpdate(statusId, cancelReasonId, cancelRemarks, true);
+                            });
+                            return;
+                        }
+                        if (typeof toastr !== 'undefined') toastr.error(res.message || '{{ translate('Failed_to_update') }}');
                     }
                 });
+            }
+
+            function maybeGateCustomerStatusUpdate(statusId, cancelReasonId, cancelRemarks) {
+                var baseType = getSelectedBaseType();
+                if ((baseType === 'booked' || baseType === 'completed') && window.WorkflowGate) {
+                    window.WorkflowGate.check(@json(\Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_LEAD_STATUS_BOOKED), function () {
+                        performCustomerStatusUpdate(statusId, cancelReasonId, cancelRemarks, true);
+                    });
+                    return;
+                }
+                performCustomerStatusUpdate(statusId, cancelReasonId, cancelRemarks, false);
             }
 
             $updateBtn.on('click', function () {
@@ -1860,7 +2120,7 @@
                     return;
                 }
 
-                performCustomerStatusUpdate(statusId, null, null);
+                maybeGateCustomerStatusUpdate(statusId, null, null);
             });
 
             if ($cancelModal.length) {
@@ -1876,7 +2136,7 @@
                         return;
                     }
                     var statusId = $select.val() || '';
-                    performCustomerStatusUpdate(statusId, reasonId, remarks);
+                    maybeGateCustomerStatusUpdate(statusId, reasonId, remarks);
                 });
             }
         })();
@@ -1926,9 +2186,9 @@
             function renderPills(tags, withRemoveButton) {
                 var html = '';
                 tags.forEach(function (t) {
-                    html += '<span class="badge rounded-pill d-inline-flex align-items-center gap-1 px-2 py-1 customer-lead-tag-pill" style="background-color: ' + (t.color || '#0d6efd') + '; color: #fff;" data-tag-id="' + t.id + '" data-tag-name="' + (t.name || '') + '" data-tag-color="' + (t.color || '#0d6efd') + '">' + (t.name || '');
+                    html += '<span class="tag customer-lead-tag-pill" style="background-color: ' + (t.color || '#0d6efd') + '; color: #fff;" data-tag-id="' + t.id + '" data-tag-name="' + (t.name || '') + '" data-tag-color="' + (t.color || '#0d6efd') + '">' + (t.name || '');
                     if (withRemoveButton) {
-                        html += '<button type="button" class="btn btn-link p-0 m-0 border-0 bg-transparent text-white opacity-75 customer-lead-tag-remove" style="font-size: 14px; line-height: 1;" title="{{ translate('Remove') }}" aria-label="{{ translate('Remove') }}">&times;</button>';
+                        html += '<button type="button" class="btn btn-link p-0 m-0 ms-1 border-0 bg-transparent text-white opacity-75 customer-lead-tag-remove" style="font-size: 14px;" title="{{ translate('Remove') }}" aria-label="{{ translate('Remove') }}">&times;</button>';
                     }
                     html += '</span>';
                 });
@@ -2339,6 +2599,250 @@
                 }
             });
         @endif
+    </script>
+    <script>
+        (function () {
+            'use strict';
+
+            if (window.__leadActivityFiltersBound) {
+                return;
+            }
+
+            function getEls(root) {
+                return {
+                    timeline: root.querySelector('#lead-activity-timeline'),
+                    table: root.querySelector('#lead-activity-table'),
+                    comments: root.querySelector('#lead-activity-comments'),
+                    followupSection: root.querySelector('.activity-table-section--followups'),
+                    changeSection: root.querySelector('.activity-table-section--changes'),
+                };
+            }
+
+            function filterTableSections(els, filter) {
+                if (els.followupSection) {
+                    els.followupSection.style.display = (filter === 'change') ? 'none' : '';
+                }
+                if (els.changeSection) {
+                    els.changeSection.style.display = (filter === 'followup') ? 'none' : '';
+                }
+            }
+
+            function setActivePill(root, filter) {
+                root.querySelectorAll('[data-activity-filter]').forEach(function (pill) {
+                    pill.classList.toggle('is-active', pill.getAttribute('data-activity-filter') === filter);
+                });
+            }
+
+            function getInitialActivityFilter(root) {
+                var params = new URLSearchParams(window.location.search);
+                var fromQuery = params.get('activity');
+                if (fromQuery === 'comment' || fromQuery === 'followup' || fromQuery === 'change') {
+                    return fromQuery;
+                }
+                if (window.location.hash === '#lead-comments') {
+                    return 'comment';
+                }
+                var active = root.querySelector('[data-activity-filter].is-active');
+                return active ? active.getAttribute('data-activity-filter') : 'comment';
+            }
+
+            function applyActivityFilter(root, filter) {
+                filter = filter || 'comment';
+                var els = getEls(root);
+                setActivePill(root, filter);
+
+                if (filter === 'comment') {
+                    if (els.timeline) {
+                        els.timeline.classList.add('is-hidden');
+                    }
+                    if (els.table) {
+                        els.table.classList.remove('is-visible');
+                    }
+                    if (els.comments) {
+                        els.comments.classList.add('is-visible');
+                    }
+                    return;
+                }
+
+                if (els.comments) {
+                    els.comments.classList.remove('is-visible');
+                }
+                if (els.timeline) {
+                    els.timeline.classList.add('is-hidden');
+                }
+                if (els.table) {
+                    els.table.classList.add('is-visible');
+                }
+                filterTableSections(els, filter);
+            }
+
+            function syncLeadActivityPanel(root) {
+                if (!root) {
+                    return;
+                }
+                applyActivityFilter(root, getInitialActivityFilter(root));
+            }
+
+            document.addEventListener('click', function (event) {
+                var root = event.target.closest('.lead-detail-v2');
+                if (!root) {
+                    return;
+                }
+
+                var pill = event.target.closest('[data-activity-filter]');
+                if (pill && root.contains(pill)) {
+                    event.preventDefault();
+                    applyActivityFilter(root, pill.getAttribute('data-activity-filter'));
+                }
+            });
+
+            function bootLeadActivityPanels() {
+                document.querySelectorAll('.lead-detail-v2').forEach(syncLeadActivityPanel);
+            }
+
+            document.addEventListener('DOMContentLoaded', bootLeadActivityPanels);
+            document.addEventListener('admin:page-loaded', function (event) {
+                var frame = event.detail && event.detail.root;
+                if (!frame) {
+                    bootLeadActivityPanels();
+                    return;
+                }
+                if (frame.classList && frame.classList.contains('lead-detail-v2')) {
+                    syncLeadActivityPanel(frame);
+                }
+                frame.querySelectorAll('.lead-detail-v2').forEach(syncLeadActivityPanel);
+            });
+
+            if (document.readyState !== 'loading') {
+                bootLeadActivityPanels();
+            }
+
+            window.__leadActivityFiltersBound = true;
+        })();
+    </script>
+    <script>
+        window.staffChatEntitySearchUrl = @json(route('admin.chat.entity-search'));
+    </script>
+    <script src="{{ asset('assets/chatting-module/js/staff-chat-compose.js') }}"></script>
+    <script>
+        (function () {
+            var commentForm = document.getElementById('leadCommentForm');
+            if (commentForm) {
+                commentForm.addEventListener('submit', function () {
+                    var body = document.getElementById('leadCommentBody');
+                    if (body && typeof window.resolveStaffChatTags === 'function') {
+                        body.value = window.resolveStaffChatTags(body.value);
+                    }
+                });
+            }
+
+            function csrfToken() {
+                return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            }
+
+            document.querySelectorAll('.lead-comment-pin-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var url = btn.getAttribute('data-url');
+                    if (!url) return;
+                    btn.disabled = true;
+                    fetch(url, {
+                        method: 'PUT',
+                        headers: {
+                            'X-CSRF-TOKEN': csrfToken(),
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                    })
+                        .then(function (r) { return r.json(); })
+                        .then(function () { window.location.reload(); })
+                        .catch(function () {
+                            btn.disabled = false;
+                            if (typeof toastr !== 'undefined') toastr.error(@json(translate('Failed_to_update')));
+                        });
+                });
+            });
+
+            document.querySelectorAll('.lead-comment-delete-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    if (!confirm(@json(translate('Are_you_sure')))) return;
+                    var url = btn.getAttribute('data-url');
+                    if (!url) return;
+                    btn.disabled = true;
+                    fetch(url, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-TOKEN': csrfToken(),
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                    })
+                        .then(function (r) {
+                            if (!r.ok) throw new Error('delete failed');
+                            return r.json();
+                        })
+                        .then(function () { window.location.reload(); })
+                        .catch(function () {
+                            btn.disabled = false;
+                            if (typeof toastr !== 'undefined') toastr.error(@json(translate('Failed_to_update')));
+                        });
+                });
+            });
+
+            var commentsWrap = document.getElementById('leadCommentsListWrap');
+            if (commentsWrap) {
+                commentsWrap.scrollTop = commentsWrap.scrollHeight;
+            }
+
+            document.querySelectorAll('.workflow-gated-link').forEach(function (link) {
+                link.addEventListener('click', function (e) {
+                    if (!window.WorkflowGate) return;
+                    var action = link.dataset.workflowAction;
+                    if (!action) return;
+                    e.preventDefault();
+                    window.WorkflowGate.check(action, function () {
+                        var url = new URL(link.href, window.location.origin);
+                        url.searchParams.set('workflow_confirmed', '1');
+                        if (link.target === '_top') {
+                            window.top.location.href = url.toString();
+                        } else {
+                            window.location.href = url.toString();
+                        }
+                    });
+                });
+            });
+
+            @if(session('workflow_gate'))
+            $(function () {
+                var gateAction = @json(session('workflow_gate_action'));
+                var gateData = @json(session('workflow_gate'));
+                if (!window.WorkflowGate || !gateAction) return;
+
+                if (gateAction === @json(\Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_LEAD_CREATE_BOOKING)) {
+                    window.WorkflowGate.showConfirmModal(gateData, gateAction, function () {
+                        window.location.href = '{{ route('admin.booking.create-from-lead', ['lead' => $lead->id, 'context' => !empty($inModal) ? 'lead_modal' : 'lead', 'workflow_confirmed' => 1]) }}';
+                    });
+                } else if (gateAction === @json(\Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_LEAD_TYPE_CHANGE)) {
+                    window.WorkflowGate.showConfirmModal(gateData, gateAction, function () {
+                        if (typeof toastr !== 'undefined') {
+                            toastr.warning(@json(session('error') ?: translate('Complete_required_workflow_steps_first')));
+                        }
+                    });
+                }
+            });
+            @endif
+
+            @if(session('workflow_post_action'))
+            $(function () {
+                var postAction = @json(session('workflow_post_action_action'));
+                var postData = @json(session('workflow_post_action'));
+                if (!window.WorkflowGate || !postAction) return;
+
+                window.WorkflowGate.showConfirmModal(postData, postAction, function () {
+                    window.location.reload();
+                }, 'post');
+            });
+            @endif
+        })();
     </script>
 @endpush
 

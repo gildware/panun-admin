@@ -6,18 +6,55 @@
     <link rel="stylesheet" href="{{ asset('assets/admin-module/plugins/dataTables/jquery.dataTables.min.css') }}"/>
     <link rel="stylesheet" href="{{ asset('assets/admin-module/plugins/dataTables/select.dataTables.min.css') }}"/>
     <style>
-        #leadDetailModal .lead-detail-modal-dialog {
-            margin: 20px;
-            max-width: calc(100% - 40px);
-            width: calc(100% - 40px);
-            max-height: calc(100vh - 40px);
-            height: calc(100vh - 40px);
-        }
-        #leadDetailModal .modal-content { max-height: 100%; }
-        .table-leads-fixed-layout { min-width: 1100px; }
+        /* Full page — moderate compact (not cramped) */
+        .lead-index-page .page-title-wrap { margin-bottom: 0.75rem !important; gap: 0.75rem !important; }
+        .lead-index-page .page-title { font-size: 1.35rem; margin-bottom: 0; }
+        .lead-index-page .lead-index-tabs { margin-bottom: 0.75rem !important; gap: 0.5rem !important; }
+        .lead-index-page .lead-index-toolbar.card { margin-bottom: 0.75rem !important; }
+        .lead-index-page .lead-index-toolbar .card-body { padding: 0.75rem 1rem; }
+        .lead-index-page .lead-index-toolbar .row { --bs-gutter-y: 0.5rem; }
+
+        /* Table — between default and ultra-compact */
+        .table-leads-card .card-body { padding: 1rem 1.25rem; }
+        .table-leads-fixed-layout { min-width: 1050px; font-size: 0.875rem; }
         .table-leads-fixed-layout th,
-        .table-leads-fixed-layout td { white-space: nowrap; }
-        .table-leads-fixed-layout td.lead-ad-source-cell { white-space: normal; min-width: 180px; max-width: 280px; vertical-align: middle; }
+        .table-leads-fixed-layout td {
+            white-space: nowrap;
+            padding: 0.65rem 0.85rem;
+            vertical-align: middle;
+        }
+        .table-leads-fixed-layout thead th {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--bs-secondary-color, #6c757d);
+            background-color: var(--bg-color, #f8f9fa);
+        }
+        .table-leads-fixed-layout .badge {
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .table-leads-fixed-layout .lead-followup-cell {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            text-align: center;
+        }
+        .table-leads-fixed-layout td.lead-followup-col,
+        .table-leads-fixed-layout th.lead-followup-col {
+            text-align: center;
+        }
+        .table-leads-fixed-layout .lead-followup-cell__date {
+            white-space: nowrap;
+        }
+        .table-leads-fixed-layout .lead-followup-badge {
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+        .lead-table-row { cursor: pointer; }
+        .lead-table-row:hover { background-color: rgba(13, 110, 253, 0.06); }
         .lead-filter-btn { overflow: visible; }
         .lead-filter-btn-margin { margin-right: 1rem; }
         .lead-filter-offcanvas { display: flex; flex-direction: column; }
@@ -31,7 +68,7 @@
     <div class="main-content">
         <div class="container-fluid">
             <div class="row">
-                <div class="col-12">
+                <div class="col-12 lead-index-page">
                     <div class="page-title-wrap d-flex justify-content-between flex-wrap align-items-center gap-3 mb-3">
                         <h2 class="page-title">{{ translate('Lead_Management') }}</h2>
                         <div>
@@ -42,7 +79,7 @@
                         </div>
                     </div>
 
-                    <div class="d-flex flex-wrap justify-content-between align-items-center border-bottom mx-lg-4 mb-10 gap-3">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center border-bottom mx-lg-4 mb-10 gap-3 lead-index-tabs">
                         @php
                             $baseQuery = request()->only(['tab']);
                         @endphp
@@ -125,11 +162,16 @@
                         $leadStatusFilter = $leadStatusFilter ?? 'all';
                         $estimatedDateFrom = $estimatedDateFrom ?? '';
                         $estimatedDateTo = $estimatedDateTo ?? '';
+                        $followupFrom = $followupFrom ?? '';
+                        $followupTo = $followupTo ?? '';
                         $outboundEnquiryFilter = $outboundEnquiryFilter ?? 'all';
                         $outboundEnquiryCount = $outboundEnquiryCount ?? '';
                         $filtersAppliedCount = count($sourceIds) + count($adSourceIds) + $handledByFilterSelections
                             + (!empty($dateFrom) && !empty($dateTo) ? 1 : 0);
                         if ($leadStatusFilter !== 'all') {
+                            $filtersAppliedCount += 1;
+                        }
+                        if (in_array($tab, ['all', 'unknown', 'customer', 'provider'], true) && !empty($followupFrom) && !empty($followupTo)) {
                             $filtersAppliedCount += 1;
                         }
                         if ($tab === 'provider') {
@@ -143,9 +185,9 @@
                         }
                     @endphp
 
-                    <div class="card mb-3">
+                    <div class="card mb-3 lead-index-toolbar">
                         <div class="card-body">
-                            <div class="row g-3 align-items-center">
+                            <div class="row g-2 align-items-center">
                                 <div class="col-md-6 col-lg-8">
                                     <input type="text"
                                            name="search"
@@ -224,6 +266,16 @@
                                             <label class="form-label">{{ translate('To_Date') }}</label>
                                             <input type="date" name="date_to" class="form-control" value="{{ $dateTo ?? '' }}">
                                         </div>
+                                        @if(in_array($tab, ['all', 'unknown', 'customer', 'provider'], true))
+                                        <div>
+                                            <label class="form-label">{{ translate('Followup_Date_Time') }} ({{ translate('From_Date') }})</label>
+                                            <input type="datetime-local" name="followup_from" class="form-control" value="{{ $followupFrom }}">
+                                        </div>
+                                        <div>
+                                            <label class="form-label">{{ translate('Followup_Date_Time') }} ({{ translate('To_Date') }})</label>
+                                            <input type="datetime-local" name="followup_to" class="form-control" value="{{ $followupTo }}">
+                                        </div>
+                                        @endif
                                     </div>
                                 </div>
 
@@ -353,20 +405,6 @@
                     <div class="tab-content">
                         <div class="tab-pane fade show active" id="lead-list-wrapper">
                             @include('leadmanagement::admin.leads.partials._table')
-                        </div>
-                    </div>
-
-                    <!-- Lead Detail Modal (fullscreen with margin) -->
-                    <div class="modal fade" id="leadDetailModal" tabindex="-1" aria-labelledby="leadDetailModalLabel" aria-hidden="true">
-                        <div class="modal-dialog lead-detail-modal-dialog">
-                            <div class="modal-content d-flex flex-column h-100">
-                                <div class="modal-body p-0 flex-grow-1 overflow-hidden position-relative" style="min-height: 0;">
-                                    <button type="button" class="btn btn-sm btn--secondary position-absolute top-0 end-0 m-2 z-1" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}" title="{{ translate('Close') }}">
-                                        <span class="material-icons" style="font-size: 1.25rem;">close</span>
-                                    </button>
-                                    <iframe id="leadDetailIframe" name="leadDetailIframe" style="width:100%; height:100%; min-height: 400px; border: none;"></iframe>
-                                </div>
-                            </div>
                         </div>
                     </div>
 
@@ -610,50 +648,17 @@
                 }, 400);
             });
 
-            function getLeadDetailModal() {
-                var modalEl = document.getElementById('leadDetailModal');
-                if (!modalEl || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
-                    return null;
-                }
-                return bootstrap.Modal.getOrCreateInstance(modalEl);
-            }
-
-            // Lead detail modal: open with iframe to show page
-            $(document).on('click', '.btn-lead-view', function (e) {
-                e.preventDefault();
-                var url = $(this).data('lead-url') || $(this).attr('href');
-                if (!url) {
+            $(document).on('click', '.lead-table-row', function (e) {
+                if ($(e.target).closest('a, button, input, select, textarea, label').length) {
                     return;
                 }
-
-                var modal = getLeadDetailModal();
-                if (!modal) {
+                var url = $(this).data('lead-url');
+                if (url && typeof window.adminPartialNavLoad === 'function') {
+                    window.adminPartialNavLoad(url, { advance: true });
+                } else if (url) {
                     window.location.href = url;
-                    return;
                 }
-
-                $('#leadDetailIframe').attr('src', url);
-                modal.show();
             });
-
-            var leadDetailModalEl = document.getElementById('leadDetailModal');
-            if (leadDetailModalEl) {
-                leadDetailModalEl.addEventListener('hidden.bs.modal', function () {
-                    $('#leadDetailIframe').attr('src', 'about:blank');
-                    reloadLeads();
-                });
-            }
-
-            window.closeLeadDetailModal = function () {
-                var modalEl = document.getElementById('leadDetailModal');
-                if (!modalEl || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
-                    return;
-                }
-                var modal = bootstrap.Modal.getInstance(modalEl);
-                if (modal) {
-                    modal.hide();
-                }
-            };
 
             const TYPE_INVALID_MODAL = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_INVALID }}';
             const TYPE_FUTURE_MODAL = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER }}';

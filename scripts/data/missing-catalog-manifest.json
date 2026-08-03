@@ -2599,7 +2599,7 @@
       ]
     },
     {
-      "name": "Gas refill & leak fix",
+      "name": "Fridge gas refill & leak fix",
       "category": "Home Appliances",
       "sub_category": "Refrigerators",
       "category_id": "028602bc-174a-41f9-b583-ae8f4850e646",
@@ -2610,7 +2610,7 @@
       "variants": [
         {
           "variant_key": "standard",
-          "title": "Gas refill & leak fix",
+          "title": "Fridge Gas Refill & Leak Fix",
           "variation_label": "\u2014",
           "price": 1499.0
         }

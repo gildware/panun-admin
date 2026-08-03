@@ -1,0 +1,67 @@
+Asset validation passed for 18 services.
+Category ready: Cleaning Services (cleaning)
+Category ready: Home & Commercial Cleaning (home-commercial-cleaning)
+Category ready: Furniture & Fabric Cleaning (furniture-fabric-cleaning)
+Category ready: Appliance & Utility Cleaning (appliance-utility-cleaning)
+Category ready: Post-Construction Cleaning (post-construction-cleaning)
+Deactivated subcategory: home-cleaning
+Deactivated subcategory: office-commercial-cleaning
+CREATED service: Bathroom Cleaning
+  variants: 4 x 20 zones
+CREATED service: Room Cleaning
+  variants: 2 x 20 zones
+CREATED service: Shop Cleaning
+  variants: 2 x 20 zones
+UPDATED service: Kitchen Cleaning
+  variants: 2 x 20 zones
+CREATED service: Pantry Cleaning
+  variants: 2 x 20 zones
+CREATED service: Restaurant Kitchen Cleaning
+  variants: 2 x 20 zones
+CREATED service: Windows Cleaning
+  variants: 2 x 20 zones
+CREATED service: Floor Cleaning
+  variants: 2 x 20 zones
+CREATED service: Sofa Cleaning
+  variants: 4 x 20 zones
+CREATED service: Office Chair Cleaning
+  variants: 2 x 20 zones
+UPDATED service: Mattress Cleaning
+  variants: 2 x 20 zones
+UPDATED service: Carpet Cleaning
+  variants: 3 x 20 zones
+UPDATED service: Fan Cleaning
+  variants: 2 x 20 zones
+CREATED service: Fridge Cleaning
+  variants: 2 x 20 zones
+CREATED service: Oven / Microwave Cleaning
+  variants: 2 x 20 zones
+CREATED service: Chimney Cleaning
+  variants: 2 x 20 zones
+CREATED service: Water Tank Cleaning
+  variants: 2 x 20 zones
+CREATED service: Post-Construction Cleaning
+  variants: 5 x 20 zones
+Deactivated old service: showcase-cabinet
+Deactivated old service: fabric-sofa-cleaning
+Deactivated old service: sofa-cum-bed
+Deactivated old service: sofa-windows-cobweb-cleaning
+Deactivated old service: bedroom-essential-cleaning
+Deactivated old service: fabric-headboard
+Deactivated old service: dining-table-chairs-cleaning
+Deactivated old service: ottoman
+Deactivated old service: windows-without-grill-glass-doors-cleaning
+Deactivated old service: bed-cleaning
+Deactivated old service: leather-sofa-cleaning-polishing
+Deactivated old service: 3-visits-mattress-cleaning
+Deactivated old service: tanky-cleaning
+Deactivated old service: windows-with-grills-glass-doors-cleaning
+Deactivated old service: full-home-cleaning
+Deactivated old service: 2-visits-fabric-sofa-cleaning
+Deactivated old service: mirror-cleaning
+Deactivated old service: recliner-lounge-chair
+Deactivated old service: sofa-center-table
+Deactivated old service: study-table-chair
+
+Cleaning catalog seeded: 1 category, 4 sub-categories, 18 services.
+Deactivated obsolete services: 20 (plus any already inactive).

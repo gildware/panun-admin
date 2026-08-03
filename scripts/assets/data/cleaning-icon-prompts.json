@@ -1,0 +1,383 @@
+{
+  "categories": [
+    {
+      "slug": "cleaning",
+      "filename": "cleaning.png",
+      "prompt": "Category icon: mop and sparkle representing professional cleaning services. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "home-commercial-cleaning",
+      "filename": "home-commercial-cleaning.png",
+      "prompt": "Category icon: house and shop storefront with mop, home and commercial cleaning. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "furniture-fabric-cleaning",
+      "filename": "furniture-fabric-cleaning.png",
+      "prompt": "Category icon: sofa silhouette with soft sparkle, furniture and fabric cleaning. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "appliance-utility-cleaning",
+      "filename": "appliance-utility-cleaning.png",
+      "prompt": "Category icon: ceiling fan and refrigerator outline, appliance and utility cleaning. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "post-construction-cleaning",
+      "filename": "post-construction-cleaning.png",
+      "prompt": "Category icon: hard hat and broom over unfinished room, post construction cleaning. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ],
+  "variants": [
+    {
+      "service_slug": "bathroom-cleaning",
+      "service_name": "Bathroom Cleaning",
+      "variant_key": "standard-upto-20-sq-ft",
+      "variant_title": "Standard \u2014 Upto 20 sq ft",
+      "filename": "bathroom-cleaning-standard-upto-20-sq-ft.png",
+      "prompt": "Variation icon for bathroom cleaning: small bathroom tiles and shower representing standard clean up to 20 sq ft. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "bathroom-cleaning",
+      "service_name": "Bathroom Cleaning",
+      "variant_key": "intense-upto-20-sq-ft",
+      "variant_title": "Intense \u2014 Upto 20 sq ft",
+      "filename": "bathroom-cleaning-intense-upto-20-sq-ft.png",
+      "prompt": "Variation icon for bathroom cleaning: small bathroom with deep scrub brush representing intense clean up to 20 sq ft. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "bathroom-cleaning",
+      "service_name": "Bathroom Cleaning",
+      "variant_key": "standard-upto-50-sq-ft",
+      "variant_title": "Standard \u2014 Upto 50 sq ft",
+      "filename": "bathroom-cleaning-standard-upto-50-sq-ft.png",
+      "prompt": "Variation icon for bathroom cleaning: larger bathroom floor plan icon representing standard clean up to 50 sq ft. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "bathroom-cleaning",
+      "service_name": "Bathroom Cleaning",
+      "variant_key": "intense-upto-50-sq-ft",
+      "variant_title": "Intense \u2014 Upto 50 sq ft",
+      "filename": "bathroom-cleaning-intense-upto-50-sq-ft.png",
+      "prompt": "Variation icon for bathroom cleaning: larger bathroom with deep clean brush representing intense clean up to 50 sq ft. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "room-cleaning",
+      "service_name": "Room Cleaning",
+      "variant_key": "home-unfurnished",
+      "variant_title": "Home \u2014 Unfurnished",
+      "filename": "room-cleaning-home-unfurnished.png",
+      "prompt": "Variation icon for room cleaning: empty unfurnished room with bare floor icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "room-cleaning",
+      "service_name": "Room Cleaning",
+      "variant_key": "home-furnished",
+      "variant_title": "Home \u2014 Furnished",
+      "filename": "room-cleaning-home-furnished.png",
+      "prompt": "Variation icon for room cleaning: furnished room with bed and chair icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "shop-cleaning",
+      "service_name": "Shop Cleaning",
+      "variant_key": "shop-upto-200-sq-ft",
+      "variant_title": "Shop \u2014 Upto 200 sq ft",
+      "filename": "shop-cleaning-shop-upto-200-sq-ft.png",
+      "prompt": "Variation icon for shop cleaning: small retail shop storefront icon up to 200 sq ft. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "shop-cleaning",
+      "service_name": "Shop Cleaning",
+      "variant_key": "shop-upto-500-sq-ft",
+      "variant_title": "Shop \u2014 Upto 500 sq ft",
+      "filename": "shop-cleaning-shop-upto-500-sq-ft.png",
+      "prompt": "Variation icon for shop cleaning: medium retail shop storefront icon up to 500 sq ft. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "kitchen-cleaning",
+      "service_name": "Kitchen Cleaning",
+      "variant_key": "home-standard",
+      "variant_title": "Home \u2014 Standard",
+      "filename": "kitchen-cleaning-home-standard.png",
+      "prompt": "Variation icon for kitchen cleaning: home kitchen cabinets and stove standard clean icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "kitchen-cleaning",
+      "service_name": "Kitchen Cleaning",
+      "variant_key": "home-intense",
+      "variant_title": "Home \u2014 Intense",
+      "filename": "kitchen-cleaning-home-intense.png",
+      "prompt": "Variation icon for kitchen cleaning: home kitchen with grease scrub brush intense clean icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "pantry-cleaning",
+      "service_name": "Pantry Cleaning",
+      "variant_key": "office-standard",
+      "variant_title": "Office \u2014 Standard",
+      "filename": "pantry-cleaning-office-standard.png",
+      "prompt": "Variation icon for pantry cleaning: office pantry counter and kettle standard clean icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "pantry-cleaning",
+      "service_name": "Pantry Cleaning",
+      "variant_key": "office-intense",
+      "variant_title": "Office \u2014 Intense",
+      "filename": "pantry-cleaning-office-intense.png",
+      "prompt": "Variation icon for pantry cleaning: office pantry with deep clean sponge intense icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "restaurant-kitchen-cleaning",
+      "service_name": "Restaurant Kitchen Cleaning",
+      "variant_key": "restaurant-standard",
+      "variant_title": "Restaurant \u2014 Standard",
+      "filename": "restaurant-kitchen-cleaning-restaurant-standard.png",
+      "prompt": "Variation icon for restaurant kitchen cleaning: restaurant kitchen stove standard clean icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "restaurant-kitchen-cleaning",
+      "service_name": "Restaurant Kitchen Cleaning",
+      "variant_key": "restaurant-intense",
+      "variant_title": "Restaurant \u2014 Intense",
+      "filename": "restaurant-kitchen-cleaning-restaurant-intense.png",
+      "prompt": "Variation icon for restaurant kitchen cleaning: restaurant kitchen with heavy grease scrub intense icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "windows-cleaning",
+      "service_name": "Windows Cleaning",
+      "variant_key": "glass-doors-windows",
+      "variant_title": "Glass doors & windows",
+      "filename": "windows-cleaning-glass-doors-windows.png",
+      "prompt": "Variation icon for windows cleaning: glass door and window panes icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "windows-cleaning",
+      "service_name": "Windows Cleaning",
+      "variant_key": "windows-with-net-glass-doors",
+      "variant_title": "Windows with net & glass doors",
+      "filename": "windows-cleaning-windows-with-net-glass-doors.png",
+      "prompt": "Variation icon for windows cleaning: window with mosquito net and glass door icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "floor-cleaning",
+      "service_name": "Floor Cleaning",
+      "variant_key": "tile-marble-mopping-upto-500-sq-ft",
+      "variant_title": "Tile/Marble \u2014 Mopping upto 500 sq ft",
+      "filename": "floor-cleaning-tile-marble-mopping-upto-500-sq-ft.png",
+      "prompt": "Variation icon for floor cleaning: tile floor with mop representing mopping up to 500 sq ft. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "floor-cleaning",
+      "service_name": "Floor Cleaning",
+      "variant_key": "tile-marble-deep-scrub-upto-500-sq-ft",
+      "variant_title": "Tile/Marble \u2014 Deep scrub upto 500 sq ft",
+      "filename": "floor-cleaning-tile-marble-deep-scrub-upto-500-sq-ft.png",
+      "prompt": "Variation icon for floor cleaning: marble floor with scrubber machine deep clean icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "sofa-cleaning",
+      "service_name": "Sofa Cleaning",
+      "variant_key": "leather-5-seater",
+      "variant_title": "Leather \u2014 5 Seater",
+      "filename": "sofa-cleaning-leather-5-seater.png",
+      "prompt": "Variation icon for sofa cleaning: leather sofa five seater icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "sofa-cleaning",
+      "service_name": "Sofa Cleaning",
+      "variant_key": "leather-7-seater",
+      "variant_title": "Leather \u2014 7 Seater",
+      "filename": "sofa-cleaning-leather-7-seater.png",
+      "prompt": "Variation icon for sofa cleaning: large leather sofa seven seater icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "sofa-cleaning",
+      "service_name": "Sofa Cleaning",
+      "variant_key": "fabric-5-seater",
+      "variant_title": "Fabric \u2014 5 Seater",
+      "filename": "sofa-cleaning-fabric-5-seater.png",
+      "prompt": "Variation icon for sofa cleaning: fabric sofa five seater icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "sofa-cleaning",
+      "service_name": "Sofa Cleaning",
+      "variant_key": "fabric-7-seater",
+      "variant_title": "Fabric \u2014 7 Seater",
+      "filename": "sofa-cleaning-fabric-7-seater.png",
+      "prompt": "Variation icon for sofa cleaning: large fabric sofa seven seater icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "office-chair-cleaning",
+      "service_name": "Office Chair Cleaning",
+      "variant_key": "executive-chair",
+      "variant_title": "Executive chair",
+      "filename": "office-chair-cleaning-executive-chair.png",
+      "prompt": "Variation icon for office chair cleaning: executive office chair icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "office-chair-cleaning",
+      "service_name": "Office Chair Cleaning",
+      "variant_key": "visitor-workstation-chair",
+      "variant_title": "Visitor / workstation chair",
+      "filename": "office-chair-cleaning-visitor-workstation-chair.png",
+      "prompt": "Variation icon for office chair cleaning: visitor workstation office chair icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "mattress-cleaning",
+      "service_name": "Mattress Cleaning",
+      "variant_key": "double-mattress",
+      "variant_title": "Double mattress",
+      "filename": "mattress-cleaning-double-mattress.png",
+      "prompt": "Variation icon for mattress cleaning: double bed mattress icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "mattress-cleaning",
+      "service_name": "Mattress Cleaning",
+      "variant_key": "single-mattress",
+      "variant_title": "Single mattress",
+      "filename": "mattress-cleaning-single-mattress.png",
+      "prompt": "Variation icon for mattress cleaning: single bed mattress icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "carpet-cleaning",
+      "service_name": "Carpet Cleaning",
+      "variant_key": "upto-10-sq-ft",
+      "variant_title": "Upto 10 sq ft",
+      "filename": "carpet-cleaning-upto-10-sq-ft.png",
+      "prompt": "Variation icon for carpet cleaning: small carpet rug up to 10 sq ft icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "carpet-cleaning",
+      "service_name": "Carpet Cleaning",
+      "variant_key": "upto-50-sq-ft",
+      "variant_title": "Upto 50 sq ft",
+      "filename": "carpet-cleaning-upto-50-sq-ft.png",
+      "prompt": "Variation icon for carpet cleaning: medium carpet up to 50 sq ft icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "carpet-cleaning",
+      "service_name": "Carpet Cleaning",
+      "variant_key": "upto-100-sq-ft",
+      "variant_title": "Upto 100 sq ft",
+      "filename": "carpet-cleaning-upto-100-sq-ft.png",
+      "prompt": "Variation icon for carpet cleaning: large carpet up to 100 sq ft icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "fan-cleaning",
+      "service_name": "Fan Cleaning",
+      "variant_key": "table-pedestal-fan",
+      "variant_title": "Table / pedestal fan",
+      "filename": "fan-cleaning-table-pedestal-fan.png",
+      "prompt": "Variation icon for fan cleaning: table pedestal fan icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "fan-cleaning",
+      "service_name": "Fan Cleaning",
+      "variant_key": "ceiling-fan",
+      "variant_title": "Ceiling fan",
+      "filename": "fan-cleaning-ceiling-fan.png",
+      "prompt": "Variation icon for fan cleaning: ceiling fan blades icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "fridge-cleaning",
+      "service_name": "Fridge Cleaning",
+      "variant_key": "standard",
+      "variant_title": "Standard",
+      "filename": "fridge-cleaning-standard.png",
+      "prompt": "Variation icon for fridge cleaning: standard cleaning sparkle badge icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "fridge-cleaning",
+      "service_name": "Fridge Cleaning",
+      "variant_key": "intense",
+      "variant_title": "Intense",
+      "filename": "fridge-cleaning-intense.png",
+      "prompt": "Variation icon for fridge cleaning: intense deep cleaning scrub brush badge icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "oven-microwave-cleaning",
+      "service_name": "Oven / Microwave Cleaning",
+      "variant_key": "standard",
+      "variant_title": "Standard",
+      "filename": "oven-microwave-cleaning-standard.png",
+      "prompt": "Variation icon for oven / microwave cleaning: standard cleaning sparkle badge icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "oven-microwave-cleaning",
+      "service_name": "Oven / Microwave Cleaning",
+      "variant_key": "intense",
+      "variant_title": "Intense",
+      "filename": "oven-microwave-cleaning-intense.png",
+      "prompt": "Variation icon for oven / microwave cleaning: intense deep cleaning scrub brush badge icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "chimney-cleaning",
+      "service_name": "Chimney Cleaning",
+      "variant_key": "standard",
+      "variant_title": "Standard",
+      "filename": "chimney-cleaning-standard.png",
+      "prompt": "Variation icon for chimney cleaning: standard cleaning sparkle badge icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "chimney-cleaning",
+      "service_name": "Chimney Cleaning",
+      "variant_key": "intense",
+      "variant_title": "Intense",
+      "filename": "chimney-cleaning-intense.png",
+      "prompt": "Variation icon for chimney cleaning: intense deep cleaning scrub brush badge icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "water-tank-cleaning",
+      "service_name": "Water Tank Cleaning",
+      "variant_key": "500-ltr",
+      "variant_title": "500 ltr",
+      "filename": "water-tank-cleaning-500-ltr.png",
+      "prompt": "Variation icon for water tank cleaning: water tank 500 litre drum icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "water-tank-cleaning",
+      "service_name": "Water Tank Cleaning",
+      "variant_key": "1000-ltr",
+      "variant_title": "1000 ltr",
+      "filename": "water-tank-cleaning-1000-ltr.png",
+      "prompt": "Variation icon for water tank cleaning: large water tank 1000 litre drum icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "post-construction-cleaning-service",
+      "service_name": "Post-Construction Cleaning",
+      "variant_key": "home-upto-1000-sq-ft",
+      "variant_title": "Home \u2014 upto 1000 sq ft",
+      "filename": "post-construction-cleaning-service-home-upto-1000-sq-ft.png",
+      "prompt": "Variation icon for post-construction cleaning: home floor plan up to 1000 sq ft icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "post-construction-cleaning-service",
+      "service_name": "Post-Construction Cleaning",
+      "variant_key": "home-upto-5000-sq-ft",
+      "variant_title": "Home \u2014 upto 5000 sq ft",
+      "filename": "post-construction-cleaning-service-home-upto-5000-sq-ft.png",
+      "prompt": "Variation icon for post-construction cleaning: large home floor plan up to 5000 sq ft icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "post-construction-cleaning-service",
+      "service_name": "Post-Construction Cleaning",
+      "variant_key": "office-shop-upto-1000-sq-ft",
+      "variant_title": "Office / Shop \u2014 upto 1000 sq ft",
+      "filename": "post-construction-cleaning-service-office-shop-upto-1000-sq-ft.png",
+      "prompt": "Variation icon for post-construction cleaning: office shop floor plan up to 1000 sq ft icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "post-construction-cleaning-service",
+      "service_name": "Post-Construction Cleaning",
+      "variant_key": "hotel-restaurant-clinic-upto-1000-sq-ft",
+      "variant_title": "Hotel / Restaurant / Clinic \u2014 upto 1000 sq ft",
+      "filename": "post-construction-cleaning-service-hotel-restaurant-clinic-upto-1000-sq-ft.png",
+      "prompt": "Variation icon for post-construction cleaning: hotel restaurant clinic building up to 1000 sq ft icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "post-construction-cleaning-service",
+      "service_name": "Post-Construction Cleaning",
+      "variant_key": "book-on-site-inspection",
+      "variant_title": "Book on Site Inspection",
+      "filename": "post-construction-cleaning-service-book-on-site-inspection.png",
+      "prompt": "Variation icon for post-construction cleaning: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ]
+}

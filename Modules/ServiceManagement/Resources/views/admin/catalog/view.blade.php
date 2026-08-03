@@ -610,6 +610,13 @@
             }
 
             const catalogTree = @json($tree);
+            const currentZoneId = @json($zoneId);
+            const currentStatus = @json($status);
+            const catalogEndpoints = {
+                subcategories: @json(route('admin.catalog.subcategories')),
+                services: @json(route('admin.catalog.services')),
+                variations: @json(route('admin.catalog.variations')),
+            };
             const labels = {
                 active: @json(translate('active')),
                 inactive: @json(translate('inactive')),
@@ -628,6 +635,7 @@
                 edit: @json(translate('edit')),
                 viewDetails: @json(translate('View_Details')),
                 dragToReorder: @json(translate('Drag_to_reorder')),
+                loading: @json(translate('please_wait')),
             };
             const canReorderCategories = @json(\Illuminate\Support\Facades\Gate::allows('category_update'));
             const canReorderServices = @json(\Illuminate\Support\Facades\Gate::allows('service_update'));
@@ -663,6 +671,13 @@
                 subCategory: @json(route('admin.sub-category.create')),
                 service: @json(route('admin.service.create')),
                 variation: @json(url('/admin/service')),
+            };
+
+            let loadToken = 0;
+            const loadedChildren = {
+                subcategory: new Set(),
+                service: new Set(),
+                variation: new Set(),
             };
 
             function setColumnCount(elementId, value) {
@@ -740,13 +755,10 @@
             const serviceMap = new Map();
 
             catalogTree.forEach(function (cat) {
+                if (!Array.isArray(cat.children)) {
+                    cat.children = [];
+                }
                 categoryMap.set(cat.id, cat);
-                (cat.children || []).forEach(function (sub) {
-                    subcategoryMap.set(sub.id, { node: sub, parentId: cat.id });
-                    (sub.children || []).forEach(function (svc) {
-                        serviceMap.set(svc.id, { node: svc, parentId: sub.id });
-                    });
-                });
             });
 
             function escapeHtml(str) {
@@ -780,6 +792,86 @@
 
             function emptyCol(message) {
                 return '<div class="catalog-empty-col"><span class="material-icons">inbox</span><p>' + escapeHtml(message) + '</p></div>';
+            }
+
+            function loadingCol(message) {
+                return '<div class="catalog-empty-col"><span class="material-icons">hourglass_empty</span><p>' + escapeHtml(message || labels.loading) + '</p></div>';
+            }
+
+            function fetchCatalogJson(url, params) {
+                const query = new URLSearchParams(params);
+                return fetch(url + '?' + query.toString(), {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    credentials: 'same-origin',
+                }).then(function (res) {
+                    if (!res.ok) {
+                        throw new Error('Catalog request failed');
+                    }
+                    return res.json();
+                });
+            }
+
+            function rememberSubcategories(categoryId, items) {
+                const cat = categoryMap.get(categoryId);
+                if (!cat) {
+                    return;
+                }
+                cat.children = items || [];
+                cat.sub_count = cat.children.length;
+                loadedChildren.subcategory.add(categoryId);
+
+                Array.from(subcategoryMap.keys()).forEach(function (key) {
+                    const entry = subcategoryMap.get(key);
+                    if (entry && entry.parentId === categoryId) {
+                        subcategoryMap.delete(key);
+                        loadedChildren.service.delete(key);
+                    }
+                });
+
+                cat.children.forEach(function (sub) {
+                    if (!Array.isArray(sub.children)) {
+                        sub.children = [];
+                    }
+                    subcategoryMap.set(sub.id, { node: sub, parentId: categoryId });
+                });
+            }
+
+            function rememberServices(subcategoryId, items) {
+                const entry = subcategoryMap.get(subcategoryId);
+                if (!entry) {
+                    return;
+                }
+                entry.node.children = items || [];
+                entry.node.service_count = entry.node.children.length;
+                loadedChildren.service.add(subcategoryId);
+
+                Array.from(serviceMap.keys()).forEach(function (key) {
+                    const svcEntry = serviceMap.get(key);
+                    if (svcEntry && svcEntry.parentId === subcategoryId) {
+                        serviceMap.delete(key);
+                        loadedChildren.variation.delete(key);
+                    }
+                });
+
+                entry.node.children.forEach(function (svc) {
+                    if (!Array.isArray(svc.children)) {
+                        svc.children = [];
+                    }
+                    serviceMap.set(svc.id, { node: svc, parentId: subcategoryId });
+                });
+            }
+
+            function rememberVariations(serviceId, items) {
+                const entry = serviceMap.get(serviceId);
+                if (!entry) {
+                    return;
+                }
+                entry.node.children = items || [];
+                entry.node.variation_count = entry.node.children.length;
+                loadedChildren.variation.add(serviceId);
             }
 
             function statusPill(isActive) {
@@ -1122,7 +1214,7 @@
                 initColumnSortable(colCategories);
             }
 
-            function renderSubcategories(categoryId) {
+            function paintSubcategories(categoryId) {
                 const cat = categoryMap.get(categoryId);
                 if (!cat) {
                     colSubcategories.innerHTML = emptyCol(labels.noData);
@@ -1143,13 +1235,14 @@
                 });
                 colSubcategories.innerHTML = html;
                 setColumnCount('count-subcategories', subs.length);
-                setColumnCount('count-services', 0);
-                setColumnCount('count-variations', 0);
                 updateAddLinks();
                 initColumnSortable(colSubcategories);
+                if (searchInput && searchInput.value) {
+                    applySearch(searchInput.value);
+                }
             }
 
-            function renderServices(subcategoryId) {
+            function paintServices(subcategoryId) {
                 const entry = subcategoryMap.get(subcategoryId);
                 if (!entry) {
                     colServices.innerHTML = emptyCol(labels.noData);
@@ -1174,12 +1267,14 @@
                 });
                 colServices.innerHTML = html;
                 setColumnCount('count-services', services.length);
-                setColumnCount('count-variations', 0);
                 updateAddLinks();
                 initColumnSortable(colServices);
+                if (searchInput && searchInput.value) {
+                    applySearch(searchInput.value);
+                }
             }
 
-            function renderVariations(serviceId) {
+            function paintVariations(serviceId) {
                 const entry = serviceMap.get(serviceId);
                 if (!entry) {
                     colVariations.innerHTML = emptyCol(labels.noData);
@@ -1218,6 +1313,113 @@
                 setColumnCount('count-variations', variations.length);
                 updateAddLinks();
                 initColumnSortable(colVariations);
+                if (searchInput && searchInput.value) {
+                    applySearch(searchInput.value);
+                }
+            }
+
+            function loadSubcategories(categoryId) {
+                const token = ++loadToken;
+                const cat = categoryMap.get(categoryId);
+                if (!cat) {
+                    return;
+                }
+                subcategorySubtitle.textContent = cat.name;
+                if (loadedChildren.subcategory.has(categoryId)) {
+                    paintSubcategories(categoryId);
+                    return;
+                }
+                colSubcategories.innerHTML = loadingCol(labels.loading);
+                setColumnCount('count-subcategories', '…');
+                fetchCatalogJson(catalogEndpoints.subcategories, {
+                    zone_id: currentZoneId,
+                    category_id: categoryId,
+                    status: currentStatus,
+                }).then(function (payload) {
+                    if (token !== loadToken || selectedCategoryId !== categoryId) {
+                        return;
+                    }
+                    rememberSubcategories(categoryId, payload.items || []);
+                    paintSubcategories(categoryId);
+                }).catch(function () {
+                    if (token !== loadToken || selectedCategoryId !== categoryId) {
+                        return;
+                    }
+                    colSubcategories.innerHTML = emptyCol(labels.noData);
+                    setColumnCount('count-subcategories', 0);
+                    if (window.toastr) {
+                        toastr.error(@json(translate('something_went_wrong')));
+                    }
+                });
+            }
+
+            function loadServices(subcategoryId) {
+                const token = ++loadToken;
+                const entry = subcategoryMap.get(subcategoryId);
+                if (!entry) {
+                    return;
+                }
+                serviceSubtitle.textContent = entry.node.name;
+                if (loadedChildren.service.has(subcategoryId)) {
+                    paintServices(subcategoryId);
+                    return;
+                }
+                colServices.innerHTML = loadingCol(labels.loading);
+                setColumnCount('count-services', '…');
+                fetchCatalogJson(catalogEndpoints.services, {
+                    zone_id: currentZoneId,
+                    subcategory_id: subcategoryId,
+                    status: currentStatus,
+                }).then(function (payload) {
+                    if (token !== loadToken || selectedSubcategoryId !== subcategoryId) {
+                        return;
+                    }
+                    rememberServices(subcategoryId, payload.items || []);
+                    paintServices(subcategoryId);
+                }).catch(function () {
+                    if (token !== loadToken || selectedSubcategoryId !== subcategoryId) {
+                        return;
+                    }
+                    colServices.innerHTML = emptyCol(labels.noData);
+                    setColumnCount('count-services', 0);
+                    if (window.toastr) {
+                        toastr.error(@json(translate('something_went_wrong')));
+                    }
+                });
+            }
+
+            function loadVariations(serviceId) {
+                const token = ++loadToken;
+                const entry = serviceMap.get(serviceId);
+                if (!entry) {
+                    return;
+                }
+                variationSubtitle.textContent = entry.node.name;
+                if (loadedChildren.variation.has(serviceId)) {
+                    paintVariations(serviceId);
+                    return;
+                }
+                colVariations.innerHTML = loadingCol(labels.loading);
+                setColumnCount('count-variations', '…');
+                fetchCatalogJson(catalogEndpoints.variations, {
+                    zone_id: currentZoneId,
+                    service_id: serviceId,
+                }).then(function (payload) {
+                    if (token !== loadToken || selectedServiceId !== serviceId) {
+                        return;
+                    }
+                    rememberVariations(serviceId, payload.items || []);
+                    paintVariations(serviceId);
+                }).catch(function () {
+                    if (token !== loadToken || selectedServiceId !== serviceId) {
+                        return;
+                    }
+                    colVariations.innerHTML = emptyCol(labels.noData);
+                    setColumnCount('count-variations', 0);
+                    if (window.toastr) {
+                        toastr.error(@json(translate('something_went_wrong')));
+                    }
+                });
             }
 
             function resetFromColumn(col) {
@@ -1300,7 +1502,7 @@
                 }
                 selectedCategoryId = id;
                 setSelected(colCategories, id);
-                renderSubcategories(id);
+                loadSubcategories(id);
                 updateAddLinks();
             });
 
@@ -1313,7 +1515,7 @@
                 }
                 selectedSubcategoryId = id;
                 setSelected(colSubcategories, id);
-                renderServices(id);
+                loadServices(id);
                 updateAddLinks();
             });
 
@@ -1324,9 +1526,12 @@
                 const btn = e.target.closest('.catalog-col-item[data-type="service"]');
                 if (!btn) return;
                 const id = btn.getAttribute('data-id');
+                if (selectedServiceId !== id) {
+                    resetFromColumn('service');
+                }
                 selectedServiceId = id;
                 setSelected(colServices, id);
-                renderVariations(id);
+                loadVariations(id);
                 updateAddLinks();
             });
 

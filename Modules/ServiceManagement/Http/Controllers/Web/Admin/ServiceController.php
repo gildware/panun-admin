@@ -951,15 +951,12 @@ class ServiceController extends Controller
         $this->authorize('service_delete');
         $service = $this->service->where('id', $id)->first();
         if (isset($service)) {
-            foreach (['thumbnail', 'cover_image'] as $item) {
-                file_remover('service/', $service[$item]);
-            }
-            $service->translations()->delete();
-            $service->serviceVariants()->delete();
-            $service->variations()->delete();
-            $service->delete();
-
-            Toastr::success(translate(DEFAULT_DELETE_200['message']));
+            $mode = $service->deleteConsideringBookings();
+            Toastr::success(translate(
+                $mode === 'soft'
+                    ? 'Service_soft_deleted_due_to_bookings'
+                    : DEFAULT_DELETE_200['message']
+            ));
             return back();
         }
         Toastr::success(translate(DEFAULT_204['message']));

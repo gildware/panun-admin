@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Modules\AdminModule\Entities\UserNotification;
 use Modules\AdminModule\Services\AdminInboxNotificationService;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -17,16 +18,24 @@ class NotificationController extends Controller
     {
         $userId = (string) $request->user()->id;
         $filter = $request->query('filter');
+        $category = $request->query('category');
 
         if (! in_array($filter, ['unread', 'read', null], true)) {
             $filter = null;
         }
 
+        if (! in_array($category, [UserNotification::CATEGORY_EXTERNAL, UserNotification::CATEGORY_INTERNAL, null], true)) {
+            $category = null;
+        }
+
         return view('adminmodule::admin.notifications.index', [
-            'notifications' => $inboxNotificationService->paginated($userId, $filter),
+            'notifications' => $inboxNotificationService->paginated($userId, $filter, $category),
             'filter' => $filter,
-            'unreadCount' => $inboxNotificationService->unreadCount($userId),
-            'readCount' => $inboxNotificationService->readCount($userId),
+            'category' => $category,
+            'externalUnreadCount' => $inboxNotificationService->unreadCount($userId, UserNotification::CATEGORY_EXTERNAL),
+            'internalUnreadCount' => $inboxNotificationService->unreadCount($userId, UserNotification::CATEGORY_INTERNAL),
+            'externalReadCount' => $inboxNotificationService->readCount($userId, UserNotification::CATEGORY_EXTERNAL),
+            'internalReadCount' => $inboxNotificationService->readCount($userId, UserNotification::CATEGORY_INTERNAL),
         ]);
     }
 
@@ -80,9 +89,14 @@ class NotificationController extends Controller
 
     public function markAllRead(Request $request, AdminInboxNotificationService $inboxNotificationService): RedirectResponse
     {
-        $inboxNotificationService->markAllAsRead((string) $request->user()->id);
+        $category = $request->input('category');
+        if (! in_array($category, [UserNotification::CATEGORY_EXTERNAL, UserNotification::CATEGORY_INTERNAL, null], true)) {
+            $category = null;
+        }
+
+        $inboxNotificationService->markAllAsRead((string) $request->user()->id, $category);
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));
 
-        return redirect()->route('admin.notifications.index', $request->only('filter'));
+        return redirect()->route('admin.notifications.index', $request->only(['filter', 'category']));
     }
 }

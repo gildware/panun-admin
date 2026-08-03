@@ -5,6 +5,37 @@
 @push('css_or_js')
 
     <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/swiper/swiper-bundle.min.css')}}">
+    <style>
+        /* Keep Proceed / Submit / Reset + validation alert visible while scrolling */
+        #create-provider-form.wizard {
+            padding-bottom: 5.5rem;
+        }
+        #create-provider-form.wizard > .actions,
+        #create-provider-form.wizard > #provider-create-form-validation-alert {
+            position: sticky;
+            z-index: 50;
+            background: var(--bs-body-bg, #fff);
+        }
+        #create-provider-form.wizard > #provider-create-form-validation-alert {
+            bottom: 3.25rem;
+            margin-block-start: 1rem;
+            margin-block-end: 0;
+            padding-top: 0.5rem;
+        }
+        #create-provider-form.wizard > .actions {
+            bottom: 0;
+            margin-block-start: 0;
+            padding: 0.75rem 0;
+            border-top: 1px solid var(--border-color, #eff1f4);
+            box-shadow: 0 -0.375rem 0.75rem rgba(17, 38, 146, 0.04);
+        }
+        #create-provider-form.wizard > .actions ul {
+            margin: 0;
+        }
+        #create-provider-form.wizard > .actions li.disabled {
+            display: none;
+        }
+    </style>
 
 @endpush
 
@@ -24,7 +55,7 @@
                             <div class="modal-body pt-0">
                                 <p class="mb-4 text-muted">{{ translate('The_provider_has_been_added_you_can_manage_subscriptions_anytime') }}</p>
                                 <div class="d-flex flex-row flex-nowrap gap-2 w-100">
-                                    <a href="{{ route('admin.provider.create') }}" class="btn btn--secondary text-center flex-fill">
+                                    <a href="{{ route('admin.provider.create', ['reset' => 1]) }}" class="btn btn--secondary text-center flex-fill" data-turbo="false">
                                         {{ translate('Add_other_provider') }}
                                     </a>
                                     <a href="{{ route('admin.provider.details', [$created['id'], 'web_page' => 'overview']) }}" class="btn btn--primary text-center flex-fill">
@@ -76,16 +107,6 @@
                                 </div>
                             </div>
                             @include('providermanagement::admin.provider.partials.provider-add-edit-form', ['mode' => 'add', 'zones' => $zones, 'zoneTree' => $zoneTree, 'provider' => null])
-
-                            <div id="provider-create-form-validation-alert" class="d-none mt-3" role="region" aria-live="polite">
-                                <div class="alert alert-danger d-flex align-items-start mb-0" role="alert">
-                                    <div class="media gap-2 flex-grow-1">
-                                        <img src="{{ asset('assets/admin-module/img/WarningOctagon.svg') }}" class="svg mt-1" alt="">
-                                        <div class="media-body" id="provider-create-form-validation-alert-body"></div>
-                                    </div>
-                                    <button type="button" class="btn-close shadow-none provider-create-form-validation-alert-close" aria-label="{{ translate('close') }}"></button>
-                                </div>
-                            </div>
 
                             @if(false)
                             <fieldset disabled class="d-none">
@@ -607,6 +628,7 @@
     <script src="{{asset('assets/provider-module')}}/js//tags-input.min.js"></script>
     <script src="{{asset('assets/provider-module')}}/js/spartan-multi-image-picker.js"></script>
     <script src="{{asset('assets/provider-module')}}/plugins/jquery-steps/jquery.steps.min.js"></script>
+    <script src="{{asset('assets/provider-module')}}/plugins/jquery-validation/jquery.validate.min.js"></script>
 
     <script src="https://maps.googleapis.com/maps/api/js?key={{business_config('google_map', 'third_party')?->live_values['map_api_key_client']}}&libraries=places&v=3.45.8"></script>
 
@@ -669,15 +691,346 @@
             };
         })();
 
-        $(document).ready(function () {
+        function resetProviderCreateWizard(formWizard) {
+            if (!formWizard || !formWizard.length) {
+                return;
+            }
+
+            if (formWizard.hasClass("wizard")) {
+                try {
+                    formWizard.steps("destroy");
+                } catch (e) {
+                    var $sections = formWizard.find("section");
+                    if ($sections.length && $sections.first().parent().hasClass("content")) {
+                        $sections.detach().appendTo(formWizard);
+                    }
+                    formWizard.children(".content").remove();
+                    formWizard.children(".steps").remove();
+                    formWizard.removeClass("wizard clearfix vertical");
+                }
+            }
+
+            formWizard.removeData("validator");
+            formWizard.removeData("providerCreateWizardInitialized");
+            formWizard.find(".actions").remove();
+            formWizard.find(".provider-jqv-error").remove();
+            formWizard.find(".is-invalid").removeClass("is-invalid");
+        }
+
+        function scheduleProviderCreateWizardBoot() {
+            tryBootProviderCreateWizardPage(0);
+        }
+
+        function bootProviderCreateWizardPage() {
+            if (!document.getElementById("create-provider-form")) {
+                return true;
+            }
+
+            var formWizard = $("#create-provider-form");
+            if (formWizard.data("providerCreateWizardInitialized")) {
+                return true;
+            }
+
+            if (typeof window.jQuery !== "undefined") {
+                if (typeof window.jQuery.fn.steps !== "function" || typeof window.jQuery.fn.validate !== "function") {
+                    return false;
+                }
+            } else if (typeof $.fn.steps !== "function" || typeof $.fn.validate !== "function") {
+                return false;
+            }
+
+            try {
+            resetProviderCreateWizard(formWizard);
+
+            var formEl = document.getElementById("create-provider-form");
+            if (formEl) {
+                delete formEl.dataset.submitting;
+            }
+
             var successModalEl = document.getElementById("providerCreatedSuccessModal");
             if (successModalEl && typeof bootstrap !== "undefined") {
                 new bootstrap.Modal(successModalEl).show();
             }
 
-            var formWizard = $("#create-provider-form");
+            function isProviderCompanyType() {
+                return formWizard.find('.provider-add-edit-form-root input[name="provider_type"]:checked').val() === "company";
+            }
 
-            window.refreshProviderCreateStep0ValidationSummary = function () {};
+            function providerCreateJqvIgnoreFilter(index, element) {
+                var $el = $(element);
+                if ($el.is(":disabled") || !element || !element.name) {
+                    return true;
+                }
+                // Skip company-only controls while Individual is selected (may be :hidden but not :disabled)
+                if (!isProviderCompanyType()) {
+                    var nSkip = element.name || "";
+                    if (nSkip === "logo" || nSkip === "company_name" || nSkip === "company_phone" || nSkip === "company_email"
+                        || nSkip === "company_identity_type" || nSkip === "company_identity_number"
+                        || nSkip.indexOf("company_identity_") === 0) {
+                        return true;
+                    }
+                    if ($el.closest(".provider-company-fields, .provider-logo-fields, .provider-company-identity-fields").length) {
+                        return true;
+                    }
+                }
+                if ($el.is('input[type="file"]')) {
+                    // Modal picker is staging-only; row inputs carry files for submit.
+                    if ($el.attr("id") === "additional_doc_files_input") {
+                        return true;
+                    }
+                    // Additional docs are optional and rehydrated from draft on the server after redirect.
+                    var fileFieldName = element.name || "";
+                    if ($el.is(":hidden") && (fileFieldName.indexOf("additional_documents") !== -1 || $el.is("[data-doc-row-files]"))) {
+                        return true;
+                    }
+                    return false;
+                }
+                if ($el.hasClass("provider-zone-leaf-cb")) {
+                    return false;
+                }
+                var n = element.name || "";
+                // intl-tel-input moves the POST name onto a hidden sibling
+                if (n === "contact_person_phone" || n === "company_phone") {
+                    return false;
+                }
+                if (n === "contact_person_photo" || n === "logo") {
+                    return false;
+                }
+                if ($el.is(":hidden")) {
+                    return true;
+                }
+                return false;
+            }
+
+            function providerUploadHasFile(inputName) {
+                var $inp = formWizard.find('[name="' + inputName + '"]');
+                var inp = $inp[0];
+                if (!inp) {
+                    return false;
+                }
+                if (inp.files && inp.files.length) {
+                    return true;
+                }
+                var wrap = inp.closest(".provider-upload-wrapper");
+                if (!wrap) {
+                    return false;
+                }
+                var removeField = wrap.getAttribute("data-remove-field") || "";
+                var hidden = removeField ? wrap.querySelector('input[type="hidden"][name="' + removeField + '"]') : null;
+                if (hidden && hidden.value === "1") {
+                    return false;
+                }
+                var img = wrap.querySelector("img[data-placeholder-src]");
+                if (!img || !img.dataset.placeholderSrc) {
+                    return false;
+                }
+                return String(img.src || "") !== String(img.dataset.placeholderSrc || "");
+            }
+
+            function clearProviderCreateValidationAlert() {
+                var $alert = $("#provider-create-form-validation-alert");
+                if ($alert.length) {
+                    $alert.addClass("d-none");
+                    $("#provider-create-form-validation-alert-body").empty();
+                }
+            }
+
+            function showProviderCreateValidationAlert(messages) {
+                var $alert = $("#provider-create-form-validation-alert");
+                var $body = $("#provider-create-form-validation-alert-body");
+                if (!$alert.length || !$body.length) {
+                    return;
+                }
+                var seen = {};
+                var list = [];
+                (messages || []).forEach(function (m) {
+                    var t = (m || "").trim();
+                    if (t && !seen[t]) {
+                        seen[t] = true;
+                        list.push(t);
+                    }
+                });
+                if (!list.length) {
+                    clearProviderCreateValidationAlert();
+                    return;
+                }
+                var esc = function (s) {
+                    return String(s)
+                        .replace(/&/g, "&amp;")
+                        .replace(/</g, "&lt;")
+                        .replace(/>/g, "&gt;")
+                        .replace(/"/g, "&quot;");
+                };
+                var html = '<p class="mb-2 fw-semibold">' + esc("{{ addslashes(translate('Please_review_the_following_issues')) }}") + '</p><ul class="mb-0 ps-3">';
+                list.forEach(function (msg) {
+                    html += "<li>" + esc(msg) + "</li>";
+                });
+                html += "</ul>";
+                $body.html(html);
+                $alert.removeClass("d-none");
+            }
+
+            window.refreshProviderCreateStep0ValidationSummary = function () {
+                var msgs = [];
+                formWizard.find(".provider-contact-unique-error, .provider-jqv-error, .identity-docs-error-msg, .company-identity-docs-error-msg").each(function () {
+                    var t = ($(this).text() || "").trim();
+                    if (t) {
+                        msgs.push(t);
+                    }
+                });
+                var validator = formWizard.data("validator");
+                if (validator && validator.errorList && validator.errorList.length) {
+                    validator.errorList.forEach(function (e) {
+                        if (e && e.message) {
+                            msgs.push(e.message);
+                        }
+                    });
+                }
+                if (msgs.length) {
+                    showProviderCreateValidationAlert(msgs);
+                } else {
+                    clearProviderCreateValidationAlert();
+                }
+            };
+
+            $.validator.addMethod("providerZoneLeafPick", function () {
+                var form = document.getElementById("create-provider-form");
+                if (!form) {
+                    return true;
+                }
+                return form.querySelectorAll("input.provider-zone-leaf-cb:checked").length > 0;
+            }, "{{ addslashes(translate('Select_Zone')) }}");
+
+            formWizard.validate({
+                errorElement: "div",
+                errorClass: "provider-jqv-error",
+                ignore: providerCreateJqvIgnoreFilter,
+                errorPlacement: function (error, element) {
+                    error.addClass("invalid-feedback d-block text-danger small mt-1");
+                    if (element.hasClass("provider-zone-leaf-cb")) {
+                        var $ze = $("#provider-create-zone-error");
+                        if ($ze.length) {
+                            $ze.removeClass("d-none").html(error.html());
+                        } else {
+                            element.closest(".form-check").after(error);
+                        }
+                        return;
+                    }
+                    if (element.attr("type") === "radio" && element.attr("name") === "provider_type") {
+                        element.closest(".d-flex.flex-wrap.gap-3").append(error);
+                        return;
+                    }
+                    if (element.is('input[type="hidden"]')) {
+                        var hn = element.attr("name") || "";
+                        if (hn === "contact_person_phone" || hn === "company_phone") {
+                            var $tel = element.parent().find('input[type="tel"]').first();
+                            if (!$tel.length) {
+                                $tel = element.closest(".form-floting-fix, .form-floating, .form-error-wrap").find('input[type="tel"]').first();
+                            }
+                            if ($tel.length) {
+                                $tel.closest(".form-floting-fix, .form-floating, .form-error-wrap").first().after(error);
+                                return;
+                            }
+                        }
+                    }
+                    if (element.is('input[type="file"]') && (element.name || "").indexOf("additional_documents") !== -1) {
+                        var $docRow = element.closest(".additional-document-row");
+                        if ($docRow.length) {
+                            $docRow.append(error);
+                            return;
+                        }
+                    }
+                    var $wrap = element.parents(".form-floating, .form-floting-fix, .form-error-wrap").first();
+                    if ($wrap.length) {
+                        $wrap.after(error);
+                    } else {
+                        element.after(error);
+                    }
+                },
+                highlight: function (element) {
+                    var $el = $(element);
+                    $el.addClass("is-invalid");
+                    if ($el.is('input[type="hidden"]')) {
+                        var hn = $el.attr("name") || "";
+                        if (hn === "contact_person_phone" || hn === "company_phone") {
+                            $el.parent().find('input[type="tel"]').addClass("is-invalid");
+                        }
+                    }
+                },
+                unhighlight: function (element) {
+                    var $el = $(element);
+                    $el.removeClass("is-invalid");
+                    if ($el.is('input[type="hidden"]')) {
+                        var hn = $el.attr("name") || "";
+                        if (hn === "contact_person_phone" || hn === "company_phone") {
+                            $el.parent().find('input[type="tel"]').removeClass("is-invalid");
+                        }
+                    }
+                },
+                rules: {
+                    provider_type: { required: true },
+                    contact_person_name: { required: true, maxlength: 191 },
+                    contact_person_phone: {
+                        required: true,
+                        minlength: 8
+                    },
+                    contact_person_email: { required: true, email: true },
+                    company_address: { required: true },
+                    identity_type: { required: true },
+                    identity_number: { required: true },
+                    latitude: { required: true },
+                    longitude: { required: true },
+                    company_name: {
+                        required: function () {
+                            return isProviderCompanyType();
+                        },
+                        maxlength: 191
+                    },
+                    company_phone: {
+                        required: function () {
+                            return isProviderCompanyType();
+                        },
+                        minlength: 8
+                    },
+                    company_email: {
+                        required: function () {
+                            return isProviderCompanyType();
+                        },
+                        email: true
+                    },
+                    company_identity_type: {
+                        required: function () {
+                            return isProviderCompanyType();
+                        }
+                    },
+                    company_identity_number: {
+                        required: function () {
+                            return isProviderCompanyType();
+                        }
+                    },
+                    logo: {
+                        required: function () {
+                            if (!isProviderCompanyType()) {
+                                return false;
+                            }
+                            return !providerUploadHasFile("logo");
+                        }
+                    },
+                    contact_person_photo: {
+                        required: function () {
+                            return !providerUploadHasFile("contact_person_photo");
+                        }
+                    }
+                }
+            });
+
+            formWizard.find("input.provider-zone-leaf-cb").first().each(function () {
+                $(this).rules("add", { providerZoneLeafPick: true });
+            });
+
+            $(document).on("change", "#create-provider-form input.provider-zone-leaf-cb", function () {
+                $("#provider-create-zone-error").addClass("d-none").empty();
+            });
 
             formWizard.steps({
                 headerTag: "h3",
@@ -691,25 +1044,32 @@
                     previous: "Back"
                 },
                 onInit: function () {
-                    var $actions = formWizard.find("ul.actions");
+                    var $actions = formWizard.find(".actions > ul");
+                    if (!$actions.length) {
+                        $actions = formWizard.find(".actions ul").first();
+                    }
                     if ($actions.length && !document.getElementById("provider-create-form-validation-alert")) {
+                        var closeLabel = @json(translate('Close'));
                         var alertHtml =
-                            '<div id="provider-create-form-validation-alert" class="d-none mt-3">' +
+                            '<div id="provider-create-form-validation-alert" class="d-none mt-3 mb-2" role="region" aria-live="polite">' +
                             '<div class="alert alert-danger d-flex align-items-start mb-0" role="alert">' +
                             '<div class="media gap-2 flex-grow-1">' +
                             '<img src="{{ asset("assets/admin-module/img/WarningOctagon.svg") }}" class="svg mt-1" alt="">' +
                             '<div class="media-body" id="provider-create-form-validation-alert-body"></div>' +
                             "</div>" +
-                            '<button type="button" class="btn-close shadow-none provider-create-form-validation-alert-close" aria-label="{{ addslashes(translate('Close')) }}"></button>' +
+                            '<button type="button" class="btn-close shadow-none provider-create-form-validation-alert-close" aria-label="' + String(closeLabel).replace(/"/g, "&quot;") + '"></button>' +
                             "</div></div>";
-                        $(alertHtml).insertAfter($actions);
+                        $(alertHtml).insertBefore($actions.closest(".actions").length ? $actions.closest(".actions") : $actions);
+                    } else if ($actions.length) {
+                        var $wrap = $actions.closest(".actions");
+                        $("#provider-create-form-validation-alert").insertBefore($wrap.length ? $wrap : $actions);
                     }
                     if ($actions.length && !document.getElementById("provider-create-reset-btn")) {
                         var resetUrl = "{{ route('admin.provider.create', ['reset' => 1]) }}";
                         var $nextLi = $actions.find('a[href="#next"]').closest("li");
                         var $resetLi = $("<li></li>").attr("id", "provider-create-reset-li").append(
                             $('<button type="button" id="provider-create-reset-btn" class="btn btn--secondary btn-sm"></button>')
-                                .text("{{ addslashes(translate('Reset')) }}")
+                                .text(@json(translate('Reset')))
                                 .on("click", function () {
                                     window.location.href = resetUrl;
                                 })
@@ -726,19 +1086,163 @@
                 },
                 onStepChanging: function (event, currentIndex, newIndex) {
                     if (newIndex < currentIndex) {
-                        $("#provider-create-form-validation-alert").addClass("d-none");
+                        clearProviderCreateValidationAlert();
                         return true;
                     }
-                    if (currentIndex === 0 && newIndex === 1 && typeof window.loadProviderCreateSubscribedServices === "function") {
+
+                    if (typeof window.syncProviderWizardIntlPhoneHiddens === "function") {
+                        window.syncProviderWizardIntlPhoneHiddens(document.getElementById("create-provider-form"));
+                    }
+
+                    formWizard.validate().settings.ignore = providerCreateJqvIgnoreFilter;
+                    var providerType = $(".provider-add-edit-form-root").find("input[name='provider_type']:checked").val();
+                    var identityDocsOk = true;
+
+                    $(".identity-docs-error-msg").remove();
+                    var existingContactPreviews = $("#multi_image_picker img:not(.spartan_image_placeholder)").filter(function () {
+                        var src = ($(this).attr("src") || "").trim();
+                        return src.length > 0 && src.indexOf("banner-upload-file.png") === -1;
+                    }).length + $("#multi_image_picker a:not(.spartan_remove_row)").filter(function () {
+                        var href = ($(this).attr("href") || "").trim();
+                        return href && href.indexOf("javascript:") !== 0;
+                    }).length;
+                    var contactImageCount = $("#multi_image_picker .spartan_image_input[type=\"file\"]").filter(function () {
+                        return this.files && this.files.length > 0;
+                    }).length || 0;
+                    var identityDraftCount = parseInt($("#multi_image_picker").attr("data-identity-draft-count") || "0", 10) || 0;
+
+                    if (contactImageCount < 1 && existingContactPreviews < 1 && identityDraftCount < 1) {
+                        $("#multi_image_picker")
+                            .closest(".upload-file")
+                            .after('<div class="identity-docs-error-msg error text-danger mt-2 fs-12">{{ addslashes(translate('Please upload at least one contact identity image')) }}</div>');
+                        identityDocsOk = false;
+                    }
+
+                    $(".company-identity-docs-error-msg").remove();
+                    if (providerType === "company") {
+                        var existingCompanyPreviews = $("#company_multi_image_picker img:not(.spartan_image_placeholder)").filter(function () {
+                            var src = ($(this).attr("src") || "").trim();
+                            return src.length > 0 && src.indexOf("banner-upload-file.png") === -1;
+                        }).length + $("#company_multi_image_picker a:not(.spartan_remove_row)").filter(function () {
+                            var href = ($(this).attr("href") || "").trim();
+                            return href && href.indexOf("javascript:") !== 0;
+                        }).length;
+                        var companyImageCount = $("#company_multi_image_picker .spartan_image_input[type=\"file\"]").filter(function () {
+                            return this.files && this.files.length > 0;
+                        }).length || 0;
+                        var companyDraftCount = parseInt($("#company_multi_image_picker").attr("data-company-identity-draft-count") || "0", 10) || 0;
+
+                        if (companyImageCount < 1 && existingCompanyPreviews < 1 && companyDraftCount < 1) {
+                            $("#company_multi_image_picker")
+                                .closest(".upload-file")
+                                .after('<div class="company-identity-docs-error-msg error text-danger mt-2 fs-12">{{ addslashes(translate('Please upload at least one company identity image')) }}</div>');
+                            identityDocsOk = false;
+                        }
+                    }
+
+                    if (!identityDocsOk) {
+                        var idMsgs = [];
+                        $(".identity-docs-error-msg, .company-identity-docs-error-msg").each(function () {
+                            var t = ($(this).text() || "").trim();
+                            if (t) {
+                                idMsgs.push(t);
+                            }
+                        });
+                        showProviderCreateValidationAlert(idMsgs);
+                        var $firstIdErr = $(".identity-docs-error-msg, .company-identity-docs-error-msg").first();
+                        if ($firstIdErr.length && $firstIdErr[0].scrollIntoView) {
+                            $firstIdErr[0].scrollIntoView({ behavior: "smooth", block: "nearest" });
+                        }
+                        return false;
+                    }
+
+                    var validator = formWizard.data("validator");
+                    if (!validator) {
+                        return formWizard.valid();
+                    }
+                    var $currentSection = formWizard.find("section").eq(currentIndex);
+                    var stepValid = true;
+                    $currentSection.find(":input").each(function () {
+                        if (!this.name) {
+                            return;
+                        }
+                        if ($(this).is(":button") || $(this).attr("type") === "submit") {
+                            return;
+                        }
+                        if ($(this).is(":disabled")) {
+                            return;
+                        }
+                        if (providerCreateJqvIgnoreFilter(0, this)) {
+                            return;
+                        }
+                        // jquery.validate can return undefined for some file inputs; only explicit false fails the step
+                        if (validator.element(this) === false) {
+                            stepValid = false;
+                        }
+                    });
+
+                    if (newIndex > currentIndex && !stepValid) {
+                        var stepMsgs = [];
+                        if (validator.errorList && validator.errorList.length) {
+                            validator.errorList.forEach(function (e) {
+                                if (e && e.message) {
+                                    stepMsgs.push(e.message);
+                                }
+                            });
+                        }
+                        formWizard.find(".provider-jqv-error:visible").each(function () {
+                            var t = ($(this).text() || "").trim();
+                            if (t) {
+                                stepMsgs.push(t);
+                            }
+                        });
+                        if (!stepMsgs.length) {
+                            stepMsgs.push("{{ addslashes(translate('Please_complete_all_required_fields_before_proceeding')) }}");
+                        }
+                        showProviderCreateValidationAlert(stepMsgs);
+                        validator.focusInvalid();
+                        var $firstVisibleErr = formWizard.find(".provider-jqv-error:visible, .is-invalid:visible").first();
+                        if (!$firstVisibleErr.length) {
+                            $firstVisibleErr = formWizard.find(".provider-jqv-error, .is-invalid").first();
+                        }
+                        if ($firstVisibleErr.length && $firstVisibleErr[0].scrollIntoView) {
+                            $firstVisibleErr[0].scrollIntoView({ behavior: "smooth", block: "nearest" });
+                        }
+                        return false;
+                    }
+
+                    if (currentIndex === 0 && newIndex === 1) {
+                        if (!stepValid) {
+                            return false;
+                        }
+                        clearProviderCreateValidationAlert();
+                        if (typeof window.checkOwnerContactUniqueSync === "function") {
+                            if (!window.checkOwnerContactUniqueSync()) {
+                                showProviderCreateValidationAlert(["{{ addslashes(translate('Please_fix_contact_details_errors')) }}"]);
+                                if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                                    window.refreshProviderCreateStep0ValidationSummary();
+                                }
+                                return false;
+                            }
+                        }
+                        clearProviderCreateValidationAlert();
+                    }
+
+                    if (stepValid && currentIndex === 0 && newIndex === 1 && typeof window.loadProviderCreateSubscribedServices === "function") {
                         window.loadProviderCreateSubscribedServices();
                     }
-                    return true;
+                    return stepValid;
                 },
                 onFinished: function () {
                     var el = document.getElementById("create-provider-form");
                     if (!el || typeof el.submit !== "function") {
                         return;
                     }
+                    if (el.dataset.submitting === "1") {
+                        return;
+                    }
+                    el.dataset.submitting = "1";
+                    formWizard.find('a[href="#finish"]').addClass("disabled").attr("aria-disabled", "true");
                     if (typeof window.syncProviderWizardIntlPhoneHiddens === "function") {
                         window.syncProviderWizardIntlPhoneHiddens(el);
                     }
@@ -747,52 +1251,94 @@
             });
 
             $(document).on("click", ".provider-create-form-validation-alert-close", function () {
-                $("#provider-create-form-validation-alert").addClass("d-none");
+                clearProviderCreateValidationAlert();
             });
+
+            formWizard.data("providerCreateWizardInitialized", true);
+
+            return true;
+            } catch (bootError) {
+                console.error("Provider create wizard boot failed:", bootError);
+                resetProviderCreateWizard(formWizard);
+                return false;
+            }
+        }
+
+        function tryBootProviderCreateWizardPage(attempt) {
+            var formWizard = window.jQuery ? window.jQuery("#create-provider-form") : null;
+            if (formWizard && formWizard.length && formWizard.data("providerCreateWizardInitialized")) {
+                return;
+            }
+            if (bootProviderCreateWizardPage()) {
+                return;
+            }
+            if ((attempt || 0) >= 100) {
+                return;
+            }
+            setTimeout(function () {
+                tryBootProviderCreateWizardPage((attempt || 0) + 1);
+            }, 100);
+        }
+
+        if (typeof window.jQuery !== "undefined") {
+            window.jQuery(document).ready(scheduleProviderCreateWizardBoot);
+            window.jQuery(window).on("load.providerCreateWizard", scheduleProviderCreateWizardBoot);
+        } else {
+            document.addEventListener("DOMContentLoaded", scheduleProviderCreateWizardBoot);
+            window.addEventListener("load", scheduleProviderCreateWizardBoot);
+        }
+
+        document.addEventListener("admin:page-loaded", function () {
+            if (document.getElementById("create-provider-form")) {
+                scheduleProviderCreateWizardBoot();
+            }
         });
+
+        window.scheduleProviderCreateWizardBoot = scheduleProviderCreateWizardBoot;
 
     </script>
 
     <script>
         "use strict";
 
-        $(document).ready(function () {
+        function bootProviderCreateTypeToggle() {
+            if (!document.getElementById("create-provider-form")) {
+                return true;
+            }
+            if ($(".provider-add-edit-form-root").data("providerTypeToggleInitialized")) {
+                return true;
+            }
+            $(".provider-add-edit-form-root").data("providerTypeToggleInitialized", true);
+
+            function setCompanyContactFieldsEnabled(isCompany) {
+                const $formRoot = $(".provider-add-edit-form-root");
+
+                if (isCompany) {
+                    $(".provider-company-fields").show();
+                    $(".provider-logo-fields").show();
+                    $(".provider-company-identity-fields").show();
+                    $formRoot.find('[name="company_name"]').prop('required', true).prop('disabled', false);
+                    $formRoot.find('#company_phone, [name="company_phone"], [name="company_phone_country_code"]').prop('required', false).prop('disabled', false);
+                    $formRoot.find('#company_phone, [name="company_phone"]').prop('required', true);
+                    $formRoot.find('[name="company_email"]').prop('required', true).prop('disabled', false);
+                    $formRoot.find('[name="company_identity_type"], [name="company_identity_number"]').prop('required', true).prop('disabled', false);
+                } else {
+                    $(".provider-company-fields").hide();
+                    $(".provider-logo-fields").hide();
+                    $(".provider-company-identity-fields").hide();
+                    $formRoot.find('[name="company_name"]').prop('required', false).prop('disabled', true);
+                    $formRoot.find('#company_phone, [name="company_phone"], [name="company_phone_country_code"]').prop('required', false).prop('disabled', true);
+                    $formRoot.find('[name="company_email"]').prop('required', false).prop('disabled', true);
+                    $formRoot.find('[name="company_identity_type"], [name="company_identity_number"]').prop('required', false).prop('disabled', true);
+                }
+            }
+
             function toggleProviderTypeFields() {
                 const $formRoot = $(".provider-add-edit-form-root");
                 const providerType = $formRoot.find("input[name='provider_type']:checked").val();
                 const isIndividual = providerType === "individual";
 
-                if (isIndividual) {
-                    $(".provider-company-fields").hide();
-                    $(".provider-logo-fields").hide();
-                    $(".provider-company-identity-fields").hide();
-                    $formRoot.find('[name="company_name"]').prop('required', false);
-                    $formRoot.find('[name="company_name"]').prop('disabled', true);
-                    $formRoot.find('#company_phone').prop('disabled', true);
-                    $formRoot.find('[name="company_phone"]').prop('required', false);
-                    $formRoot.find('[name="company_phone"]').prop('disabled', true);
-                    $formRoot.find('[name="company_email"]').prop('required', false);
-                    $formRoot.find('[name="company_email"]').prop('disabled', true);
-                    $formRoot.find('[name="company_identity_type"]').prop('required', false);
-                    $formRoot.find('[name="company_identity_type"]').prop('disabled', true);
-                    $formRoot.find('[name="company_identity_number"]').prop('required', false);
-                    $formRoot.find('[name="company_identity_number"]').prop('disabled', true);
-                } else {
-                    $(".provider-company-fields").show();
-                    $(".provider-logo-fields").show();
-                    $(".provider-company-identity-fields").show();
-                    $formRoot.find('[name="company_name"]').prop('required', true);
-                    $formRoot.find('[name="company_name"]').prop('disabled', false);
-                    $formRoot.find('#company_phone').prop('disabled', false);
-                    $formRoot.find('[name="company_phone"]').prop('required', true);
-                    $formRoot.find('[name="company_phone"]').prop('disabled', false);
-                    $formRoot.find('[name="company_email"]').prop('required', true);
-                    $formRoot.find('[name="company_email"]').prop('disabled', false);
-                    $formRoot.find('[name="company_identity_type"]').prop('required', true);
-                    $formRoot.find('[name="company_identity_type"]').prop('disabled', false);
-                    $formRoot.find('[name="company_identity_number"]').prop('required', true);
-                    $formRoot.find('[name="company_identity_number"]').prop('disabled', false);
-                }
+                setCompanyContactFieldsEnabled(!isIndividual);
 
                 // Toggle identity type options based on provider type.
                 const $identityType = $formRoot.find("select[name='identity_type']");
@@ -810,6 +1356,7 @@
 
             toggleProviderTypeFields();
             $("input[name='provider_type']").on("change", toggleProviderTypeFields);
+            window.reapplyProviderCreateCompanyFieldState = toggleProviderTypeFields;
 
             // Account info defaults to contact person details.
             $('#account_email').val($('[name="contact_person_email"]').val());
@@ -827,7 +1374,35 @@
                 $('#account_phone').val($(this).val());
             });
 
+            return true;
+        }
 
+        function tryBootProviderCreateTypeToggle(attempt) {
+            if (bootProviderCreateTypeToggle()) {
+                return;
+            }
+            if ((attempt || 0) >= 40) {
+                return;
+            }
+            setTimeout(function () {
+                tryBootProviderCreateTypeToggle((attempt || 0) + 1);
+            }, 50);
+        }
+
+        $(document).ready(function () {
+            tryBootProviderCreateTypeToggle(0);
+        });
+
+        document.addEventListener("admin:page-loaded", function () {
+            if (document.getElementById("create-provider-form")) {
+                tryBootProviderCreateTypeToggle(0);
+            }
+        });
+
+        document.addEventListener("intl-tel-input:initialized", function () {
+            if (document.getElementById("create-provider-form") && typeof window.reapplyProviderCreateCompanyFieldState === "function") {
+                window.reapplyProviderCreateCompanyFieldState();
+            }
         });
 
     </script>
@@ -856,87 +1431,161 @@
                 });
             }
 
-            setAcceptForAllInputs();
-
-            $("#multi_image_picker").spartanMultiImagePicker({
-                fieldName: 'identity_images[]',
-                maxCount: 2,
-                allowedExt: 'png|jpg|jpeg|webp|gif',
-                rowHeight: 'auto',
-                groupClassName: 'item',
-                maxFileSize: maxFileSize,
-                dropFileLabel: "{{translate('Drop_here')}}",
-                placeholderImage: {
-                    image: '{{asset('assets/admin-module')}}/img/media/banner-upload-file.png',
-                    width: '100%',
-                },
-
-                onRenderedPreview: function (index) {
-                    toastr.success('{{translate('Image_added')}}', {
-                        CloseButton: true,
-                        ProgressBar: true
-                    });
-                    if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
-                        window.refreshProviderCreateStep0ValidationSummary();
+            function collectSpartanDraftUrls($picker) {
+                var urls = [];
+                var placeholderNeedle = "banner-upload-file.png";
+                $picker.children("img").each(function () {
+                    var src = ($(this).attr("src") || "").trim();
+                    if (src && src.indexOf(placeholderNeedle) === -1) {
+                        urls.push(src);
                     }
-                },
-                onAddRow: function (index) {
-                    setAcceptForAllInputs();
-                    $('.identity-docs-error-msg, .company-identity-docs-error-msg').remove();
-                    if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
-                        window.refreshProviderCreateStep0ValidationSummary();
-                    }
-                },
-                // Identity validation is handled by the wizard (images OR PDFs).
-                onExtensionErr: function (index, file) {
-                    toastr.error('{{ translate("Please only input png|jpg|jpeg|gif|webp type file") }}', {
-                        CloseButton: true,
-                        ProgressBar: true
-                    });
-                },
-                onSizeErr: function () {
-                    toastr.error('File size must be less than ' + maxSizeReadable);
+                });
+                return urls;
+            }
+
+            function showSpartanPreviewAt($picker, index, url) {
+                $picker.find('img[data-spartanindexi="' + index + '"]').hide();
+                $picker.find('a[data-spartanindexremove="' + index + '"]').show();
+                $picker.find('img[data-spartanindeximage="' + index + '"]').attr("src", url).show();
+            }
+
+            function initProviderCreateSpartanPicker(selector, pickerOptions) {
+                var $picker = $(selector);
+                if (!$picker.length) {
+                    return true;
+                }
+                if ($picker.data("spartanInitialized")) {
+                    return true;
+                }
+                if (typeof $.fn.spartanMultiImagePicker !== "function") {
+                    return false;
                 }
 
-            });
+                var draftUrls = collectSpartanDraftUrls($picker);
+                $picker.empty();
 
-            if ($("#company_multi_image_picker").length) {
-                $("#company_multi_image_picker").spartanMultiImagePicker({
-                    fieldName: 'company_identity_images[]',
+                $picker.spartanMultiImagePicker(pickerOptions);
+                $picker.data("spartanInitialized", true);
+
+                draftUrls.forEach(function (url, idx) {
+                    showSpartanPreviewAt($picker, idx, url);
+                });
+
+                return true;
+            }
+
+            function bootProviderCreateSpartanPickers() {
+                if (!document.getElementById("create-provider-form")) {
+                    return true;
+                }
+
+                setAcceptForAllInputs();
+
+                var contactReady = initProviderCreateSpartanPicker("#multi_image_picker", {
+                    fieldName: "identity_images[]",
                     maxCount: 2,
-                    allowedExt: 'png|jpg|jpeg|webp|gif',
-                    rowHeight: 'auto',
-                    groupClassName: 'item',
+                    allowedExt: "png|jpg|jpeg|webp|gif",
+                    rowHeight: "auto",
+                    groupClassName: "item",
                     maxFileSize: maxFileSize,
                     dropFileLabel: "{{translate('Drop_here')}}",
                     placeholderImage: {
-                        image: '{{asset('assets/admin-module')}}/img/media/banner-upload-file.png',
-                        width: '100%',
+                        image: "{{asset('assets/admin-module')}}/img/media/banner-upload-file.png",
+                        width: "100%",
                     },
-
                     onRenderedPreview: function () {
+                        toastr.success("{{translate('Image_added')}}", {
+                            CloseButton: true,
+                            ProgressBar: true
+                        });
                         if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
                             window.refreshProviderCreateStep0ValidationSummary();
                         }
                     },
-                    onAddRow: function (index) {
+                    onAddRow: function () {
                         setAcceptForAllInputs();
-                        $('.identity-docs-error-msg, .company-identity-docs-error-msg').remove();
+                        $(".identity-docs-error-msg, .company-identity-docs-error-msg").remove();
                         if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
                             window.refreshProviderCreateStep0ValidationSummary();
                         }
                     },
-                    onExtensionErr: function (index, file) {
+                    onExtensionErr: function () {
                         toastr.error('{{ translate("Please only input png|jpg|jpeg|gif|webp type file") }}', {
                             CloseButton: true,
                             ProgressBar: true
                         });
                     },
                     onSizeErr: function () {
-                        toastr.error('File size must be less than ' + maxSizeReadable);
+                        toastr.error("File size must be less than " + maxSizeReadable);
                     }
                 });
+
+                var companyReady = true;
+                if ($("#company_multi_image_picker").length) {
+                    companyReady = initProviderCreateSpartanPicker("#company_multi_image_picker", {
+                        fieldName: "company_identity_images[]",
+                        maxCount: 2,
+                        allowedExt: "png|jpg|jpeg|webp|gif",
+                        rowHeight: "auto",
+                        groupClassName: "item",
+                        maxFileSize: maxFileSize,
+                        dropFileLabel: "{{translate('Drop_here')}}",
+                        placeholderImage: {
+                            image: "{{asset('assets/admin-module')}}/img/media/banner-upload-file.png",
+                            width: "100%",
+                        },
+                        onRenderedPreview: function () {
+                            if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                                window.refreshProviderCreateStep0ValidationSummary();
+                            }
+                        },
+                        onAddRow: function () {
+                            setAcceptForAllInputs();
+                            $(".identity-docs-error-msg, .company-identity-docs-error-msg").remove();
+                            if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                                window.refreshProviderCreateStep0ValidationSummary();
+                            }
+                        },
+                        onExtensionErr: function () {
+                            toastr.error('{{ translate("Please only input png|jpg|jpeg|gif|webp type file") }}', {
+                                CloseButton: true,
+                                ProgressBar: true
+                            });
+                        },
+                        onSizeErr: function () {
+                            toastr.error("File size must be less than " + maxSizeReadable);
+                        }
+                    });
+                }
+
+                return contactReady && companyReady;
             }
+
+            function tryBootProviderCreateSpartanPickers(attempt) {
+                if (bootProviderCreateSpartanPickers()) {
+                    return;
+                }
+                if ((attempt || 0) >= 40) {
+                    return;
+                }
+                setTimeout(function () {
+                    tryBootProviderCreateSpartanPickers((attempt || 0) + 1);
+                }, 50);
+            }
+
+            tryBootProviderCreateSpartanPickers(0);
+
+            document.addEventListener("admin:page-loaded", function () {
+                if (document.getElementById("create-provider-form")) {
+                    tryBootProviderCreateSpartanPickers(0);
+                }
+            });
+
+            window.addEventListener("pageshow", function (event) {
+                if (event.persisted && document.getElementById("create-provider-form")) {
+                    window.location.replace("{{ route('admin.provider.create', ['reset' => 1]) }}");
+                }
+            });
 
             // Multi-attachment uploader for PDF + additional documents.
             // Handles preview + remove while syncing selected files into the real <input type="file">.
@@ -1262,6 +1911,10 @@
                     $(this).text('visibility');
                 }
             });
+
+            if (typeof window.scheduleProviderCreateWizardBoot === "function") {
+                window.scheduleProviderCreateWizardBoot();
+            }
 
         });
 

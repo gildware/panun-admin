@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use Modules\AdminModule\Entities\UserNotification;
 use Modules\AdminModule\Services\AdminInboxNotificationService;
 use Modules\CustomerModule\Services\CustomerHomeCacheWarmState;
 
@@ -22,9 +23,15 @@ final class AdminChromeViewData
         $user = auth()->user();
         $menuCounts = AdminMenuCounts::all();
         $maxBookingAmount = (float) ((business_config('max_booking_amount', 'booking_setup'))->live_values ?? 0);
-        $notificationUnreadCount = $user
-            ? (int) app(AdminInboxNotificationService::class)->unreadCount((string) $user->id)
-            : 0;
+        $notificationExternalUnreadCount = 0;
+        $notificationInternalUnreadCount = 0;
+        if ($user) {
+            $inboxService = app(AdminInboxNotificationService::class);
+            $userId = (string) $user->id;
+            $notificationExternalUnreadCount = (int) $inboxService->unreadCount($userId, UserNotification::CATEGORY_EXTERNAL);
+            $notificationInternalUnreadCount = (int) $inboxService->unreadCount($userId, UserNotification::CATEGORY_INTERNAL);
+        }
+        $notificationUnreadCount = $notificationExternalUnreadCount + $notificationInternalUnreadCount;
 
         self::$payload = [
             'menuCounts' => $menuCounts,
@@ -32,6 +39,8 @@ final class AdminChromeViewData
             'staffUnreadCount' => AdminHeaderChatCounts::staffUnreadMessages($user),
             'whatsappUnreadCount' => AdminHeaderChatCounts::whatsappUnreadChats($user),
             'notificationUnreadCount' => $notificationUnreadCount,
+            'notificationExternalUnreadCount' => $notificationExternalUnreadCount,
+            'notificationInternalUnreadCount' => $notificationInternalUnreadCount,
             'all_bookings_menu_count' => $menuCounts['all_bookings'],
             'pending_booking_reviews_count' => $menuCounts['pending_booking_reviews'],
             'special_scenarios_menu_count' => $menuCounts['special_scenarios'],

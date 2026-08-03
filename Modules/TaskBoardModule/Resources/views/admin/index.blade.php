@@ -3,6 +3,7 @@
 @section('title', translate('Task_Board'))
 
 @push('css_or_js')
+    <link rel="stylesheet" href="{{ asset('assets/chatting-module/css/staff-chat-entity-badges.css') }}">
     <style>
         .staff-chat-entity-link { display: inline-flex; align-items: center; gap: .15rem; }
         .staff-chat-entity-type { font-size: .7rem; text-transform: uppercase; letter-spacing: .02em; }
@@ -857,6 +858,9 @@
                         'title' => translate('Title'),
                     ];
                     $activeFilterCount = 0;
+                    if (!empty($filters['my_tickets'])) {
+                        $activeFilterCount++;
+                    }
                     if (!empty($filters['overdue'])) {
                         $activeFilterCount++;
                     }
@@ -936,9 +940,12 @@
                                 @endif
                             </button>
                             <div class="dropdown-menu dropdown-menu-end task-board-filter-menu">
-                                @if(!empty($filters['my_tickets']))
-                                    <input type="hidden" name="my_tickets" value="1">
-                                @endif
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="my_tickets" value="1" id="filterMyTickets" @checked(!empty($filters['my_tickets']))>
+                                        <label class="form-check-label" for="filterMyTickets">{{ translate('My_tickets') }}</label>
+                                    </div>
+                                </div>
 
                                 <div class="mb-3">
                                     <div class="form-check">

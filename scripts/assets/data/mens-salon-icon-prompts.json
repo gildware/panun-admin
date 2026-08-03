@@ -1,0 +1,206 @@
+{
+  "categories": [
+    {
+      "slug": "mens-salon",
+      "filename": "mens-salon.png",
+      "prompt": "Category icon: men's scissors and comb with neat beard silhouette, men's salon at home. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-hair-services",
+      "filename": "mens-hair-services.png",
+      "prompt": "Category icon: hair clippers and comb, men's haircut and hair services. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-beard-shaving",
+      "filename": "mens-beard-shaving.png",
+      "prompt": "Category icon: beard silhouette with trimmer and razor, men's beard and shaving. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-skin-grooming-care",
+      "filename": "mens-skin-grooming-care.png",
+      "prompt": "Category icon: male face with spa leaf and grooming brush, men's skin and grooming. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ],
+  "variants": [
+    {
+      "slug": "mens-hair-cut",
+      "variant_key": "standard-hair-cut",
+      "filename": "mens-hair-cut-standard-hair-cut.png",
+      "prompt": "Variation icon for men's salon: men haircut scissors and comb silhouette for Standard Hair Cut. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-hair-cut",
+      "variant_key": "premium-hair-cut",
+      "filename": "mens-hair-cut-premium-hair-cut.png",
+      "prompt": "Variation icon for men's salon: premium men haircut clippers and styling comb silhouette for Premium Hair Cut. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-kids-hair-cut",
+      "variant_key": "kids-hair-cut",
+      "filename": "mens-kids-hair-cut-kids-hair-cut.png",
+      "prompt": "Variation icon for men's salon: boy haircut scissors and small comb silhouette for Kids Hair Cut. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-hair-color",
+      "variant_key": "hair-color-with-product",
+      "filename": "mens-hair-color-hair-color-with-product.png",
+      "prompt": "Variation icon for men's salon: hair dye brush and color bowl silhouette for Hair Color With Product. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-hair-color",
+      "variant_key": "hair-color-without-product",
+      "filename": "mens-hair-color-hair-color-without-product.png",
+      "prompt": "Variation icon for men's salon: hair color application brush only silhouette for Hair Color Without Product. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-hair-treatment",
+      "variant_key": "standard-hair-treatment",
+      "filename": "mens-hair-treatment-standard-hair-treatment.png",
+      "prompt": "Variation icon for men's salon: hair treatment bottle and scalp massage hands silhouette for Standard Hair Treatment. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-hair-treatment",
+      "variant_key": "premium-hair-treatment",
+      "filename": "mens-hair-treatment-premium-hair-treatment.png",
+      "prompt": "Variation icon for men's salon: premium hair mask jar and treatment brush silhouette for Premium Hair Treatment. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-beard-trimming",
+      "variant_key": "beard-trim",
+      "filename": "mens-beard-trimming-beard-trim.png",
+      "prompt": "Variation icon for men's salon: beard trimmer and beard outline silhouette for Beard Trim. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-beard-trimming",
+      "variant_key": "beard-mustache-trim",
+      "filename": "mens-beard-trimming-beard-mustache-trim.png",
+      "prompt": "Variation icon for men's salon: beard and mustache trim silhouette for Beard & Mustache Trim. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-clean-shave",
+      "variant_key": "standard-clean-shave",
+      "filename": "mens-clean-shave-standard-clean-shave.png",
+      "prompt": "Variation icon for men's salon: safety razor and shaving foam brush silhouette for Standard Clean Shave. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-clean-shave",
+      "variant_key": "premium-clean-shave",
+      "filename": "mens-clean-shave-premium-clean-shave.png",
+      "prompt": "Variation icon for men's salon: straight razor and hot towel silhouette for Premium Clean Shave. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-beard-color",
+      "variant_key": "beard-color-with-product",
+      "filename": "mens-beard-color-beard-color-with-product.png",
+      "prompt": "Variation icon for men's salon: beard dye brush and small color tube silhouette for Beard Color With Product. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-beard-color",
+      "variant_key": "beard-color-without-product",
+      "filename": "mens-beard-color-beard-color-without-product.png",
+      "prompt": "Variation icon for men's salon: beard color application brush silhouette for Beard Color Without Product. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-detan",
+      "variant_key": "face-neck-detan",
+      "filename": "mens-detan-face-neck-detan.png",
+      "prompt": "Variation icon for men's salon: male face and neck with sponge pad silhouette for Face & Neck Detan. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-detan",
+      "variant_key": "hands-detan",
+      "filename": "mens-detan-hands-detan.png",
+      "prompt": "Variation icon for men's salon: hands with detan cream pad silhouette for Hands Detan. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-waxing",
+      "variant_key": "underarm-waxing",
+      "filename": "mens-waxing-underarm-waxing.png",
+      "prompt": "Variation icon for men's salon: underarm wax strip silhouette for Underarm Waxing. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-waxing",
+      "variant_key": "chest-waxing",
+      "filename": "mens-waxing-chest-waxing.png",
+      "prompt": "Variation icon for men's salon: male chest wax strip silhouette for Chest Waxing. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-waxing",
+      "variant_key": "back-waxing",
+      "filename": "mens-waxing-back-waxing.png",
+      "prompt": "Variation icon for men's salon: male back wax strip silhouette for Back Waxing. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-waxing",
+      "variant_key": "full-arms-waxing",
+      "filename": "mens-waxing-full-arms-waxing.png",
+      "prompt": "Variation icon for men's salon: arm wax strip silhouette for Full Arms Waxing. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-facial-cleanup",
+      "variant_key": "instant-cleanup",
+      "filename": "mens-facial-cleanup-instant-cleanup.png",
+      "prompt": "Variation icon for men's salon: face cleanup sponge and cotton pad silhouette for Instant Cleanup. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-facial-cleanup",
+      "variant_key": "deep-cleanup-facial",
+      "filename": "mens-facial-cleanup-deep-cleanup-facial.png",
+      "prompt": "Variation icon for men's salon: facial bowl brush and steam face silhouette for Deep Cleanup Facial. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-threading",
+      "variant_key": "eyebrow-threading",
+      "filename": "mens-threading-eyebrow-threading.png",
+      "prompt": "Variation icon for men's salon: eyebrow threading thread loop silhouette for Eyebrow Threading. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-threading",
+      "variant_key": "full-face-threading",
+      "filename": "mens-threading-full-face-threading.png",
+      "prompt": "Variation icon for men's salon: full face threading outline silhouette for Full Face Threading. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-pedicure",
+      "variant_key": "express-pedicure",
+      "filename": "mens-pedicure-express-pedicure.png",
+      "prompt": "Variation icon for men's salon: male foot and nail file silhouette for Express Pedicure. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-manicure",
+      "variant_key": "express-manicure",
+      "filename": "mens-manicure-express-manicure.png",
+      "prompt": "Variation icon for men's salon: male hand and nail clipper silhouette for Express Manicure. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-nail-cut-file",
+      "variant_key": "hands-nail-cut-file",
+      "filename": "mens-nail-cut-file-hands-nail-cut-file.png",
+      "prompt": "Variation icon for men's salon: hand nail cut and file silhouette for Hands Nail Cut & File. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-nail-cut-file",
+      "variant_key": "feet-nail-cut-file",
+      "filename": "mens-nail-cut-file-feet-nail-cut-file.png",
+      "prompt": "Variation icon for men's salon: foot nail cut and file silhouette for Feet Nail Cut & File. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-massage",
+      "variant_key": "head-massage-10-min",
+      "filename": "mens-massage-head-massage-10-min.png",
+      "prompt": "Variation icon for men's salon: head massage hands on scalp silhouette 10 minute for Head Massage 10 Min. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-massage",
+      "variant_key": "head-massage-20-min",
+      "filename": "mens-massage-head-massage-20-min.png",
+      "prompt": "Variation icon for men's salon: head massage hands on scalp silhouette 20 minute for Head Massage 20 Min. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "mens-massage",
+      "variant_key": "head-neck-shoulder-massage",
+      "filename": "mens-massage-head-neck-shoulder-massage.png",
+      "prompt": "Variation icon for men's salon: neck and shoulder massage hands silhouette for Head Neck & Shoulder Massage. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ]
+}

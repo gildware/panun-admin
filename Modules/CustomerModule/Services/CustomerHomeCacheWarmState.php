@@ -71,6 +71,18 @@ class CustomerHomeCacheWarmState
         Cache::put(self::REBUILD_UPDATED_AT_KEY, now()->timestamp, now()->addHours(2));
     }
 
+    /**
+     * Keep a long-running unit from looking "stale" to the admin poller.
+     */
+    public static function touchRebuildHeartbeat(): void
+    {
+        if ((string) Cache::get(self::REBUILD_STATUS_KEY, self::STATUS_IDLE) !== self::STATUS_RUNNING) {
+            return;
+        }
+
+        Cache::put(self::REBUILD_UPDATED_AT_KEY, now()->timestamp, now()->addHours(2));
+    }
+
     public static function markRebuildComplete(): void
     {
         $total = (int) Cache::get(self::REBUILD_TOTAL_KEY, 0);

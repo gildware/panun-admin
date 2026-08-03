@@ -5,6 +5,9 @@ namespace Modules\TaskBoardModule\Services;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Modules\AdminModule\Entities\UserNotification;
+use Modules\AdminModule\Services\AdminInboxNotificationService;
+use Modules\ChattingModule\Services\StaffChatMessageParser;
 use Modules\TaskBoardModule\Entities\TaskColumn;
 use Modules\TaskBoardModule\Entities\TaskTicket;
 use Modules\TaskBoardModule\Entities\TaskTicketAttachment;
@@ -16,6 +19,8 @@ class TaskBoardService
 {
     public function __construct(
         private readonly TaskActivityLogger $activityLogger,
+        private readonly StaffChatMessageParser $messageParser,
+        private readonly AdminInboxNotificationService $notificationService,
     ) {
     }
 
@@ -293,10 +298,16 @@ class TaskBoardService
 
     public function addComment(TaskTicket $ticket, string $body, array $files = []): TaskTicketComment
     {
+        $authorId = auth()->id();
+        $mentionedUserIds = $this->filterActiveAdminIds(
+            $this->messageParser->extractStaffMentionIds($body)
+        );
+
         $comment = TaskTicketComment::query()->create([
             'ticket_id' => $ticket->id,
-            'user_id' => auth()->id(),
+            'user_id' => $authorId,
             'body' => $body,
+            'mentioned_user_ids' => $mentionedUserIds,
         ]);
 
         $this->storeAttachments($ticket, $files, $comment->id);
@@ -312,7 +323,80 @@ class TaskBoardService
             ],
         );
 
+        $this->notifyCommentRecipients(
+            $ticket->fresh(['assignees']),
+            $comment,
+            $authorId ? (string) $authorId : null,
+        );
+
         return $comment->load(['user', 'attachments']);
+    }
+
+    private function notifyCommentRecipients(TaskTicket $ticket, TaskTicketComment $comment, ?string $authorId): void
+    {
+        if (! $authorId) {
+            return;
+        }
+
+        $recipientIds = [];
+
+        foreach ($ticket->assignees as $assignee) {
+            if ((string) $assignee->id !== $authorId) {
+                $recipientIds[] = (string) $assignee->id;
+            }
+        }
+
+        foreach ($comment->mentioned_user_ids ?? [] as $userId) {
+            if ((string) $userId !== $authorId) {
+                $recipientIds[] = (string) $userId;
+            }
+        }
+
+        $recipientIds = array_values(array_unique($recipientIds));
+        if ($recipientIds === []) {
+            return;
+        }
+
+        $author = User::query()->find($authorId);
+        $authorName = $author
+            ? trim(($author->first_name ?? '').' '.($author->last_name ?? '')) ?: (string) ($author->email ?? translate('Staff'))
+            : translate('Staff');
+
+        $preview = $this->messageParser->plainPreview($comment->body, 140);
+        $ticketLabel = $ticket->title ?: translate('Ticket');
+        $actionUrl = route('admin.task-board.index').'?ticket='.$ticket->id;
+
+        foreach ($recipientIds as $userId) {
+            $this->notificationService->notifyUser(
+                $userId,
+                UserNotification::TYPE_TICKET_COMMENT,
+                translate('New_comment_on_ticket').' — '.$ticketLabel,
+                $authorName.': '.$preview,
+                $actionUrl,
+                'ticket_comment',
+                (string) $comment->id.':'.$userId,
+            );
+        }
+    }
+
+    /**
+     * @param  array<int, string>  $userIds
+     * @return array<int, string>
+     */
+    private function filterActiveAdminIds(array $userIds): array
+    {
+        if ($userIds === []) {
+            return [];
+        }
+
+        return User::query()
+            ->whereIn('id', $userIds)
+            ->whereIn('user_type', ADMIN_USER_TYPES)
+            ->where('is_active', 1)
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id)
+            ->values()
+            ->all();
     }
 
     public function deleteComment(TaskTicketComment $comment): void
@@ -553,6 +637,8 @@ class TaskBoardService
 
     private function syncAssignees(TaskTicket $ticket, array $assigneeIds): void
     {
+        $previousAssigneeIds = $ticket->assignees()->pluck('users.id')->map(fn ($id) => (string) $id)->all();
+
         $assigneeIds = array_values(array_unique(array_filter($assigneeIds)));
         $validIds = User::query()
             ->whereIn('user_type', ADMIN_USER_TYPES)
@@ -561,6 +647,19 @@ class TaskBoardService
             ->all();
 
         $ticket->assignees()->sync($validIds);
+
+        $newAssigneeIds = array_values(array_diff(
+            array_map('strval', $validIds),
+            $previousAssigneeIds,
+        ));
+
+        if ($newAssigneeIds !== [] && function_exists('admin_inbox_notify_ticket_assigned')) {
+            $actor = auth()->user();
+            $freshTicket = $ticket->fresh(['column']);
+            foreach ($newAssigneeIds as $assigneeId) {
+                admin_inbox_notify_ticket_assigned($assigneeId, $freshTicket, $actor);
+            }
+        }
     }
 
     private function syncLinks(TaskTicket $ticket, array $bookingIds, array $leadIds): void

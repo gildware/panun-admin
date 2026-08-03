@@ -1,0 +1,151 @@
+Asset validation passed for 15 services.
+Category ready: Men's Salon (mens-salon)
+Category ready: Men's Hair Services (mens-hair-services)
+Category ready: Men's Beard & Shaving (mens-beard-shaving)
+Category ready: Men's Skin & Grooming (mens-skin-grooming-care)
+UPDATED service: Men's Hair Cut
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+  variants: 2 x 20 zones
+CREATED service: Men's Kids Hair Cut
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+  variants: 1 x 20 zones
+CREATED service: Men's Hair Color
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+  variants: 2 x 20 zones
+UPDATED service: Men's Hair Treatment
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+  variants: 2 x 20 zones
+CREATED service: Men's Beard Trimming
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+  variants: 2 x 20 zones
+CREATED service: Men's Clean Shave
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+  variants: 2 x 20 zones
+CREATED service: Men's Beard Color
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+  variants: 2 x 20 zones
+CREATED service: Men's Detan
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+  variants: 2 x 20 zones
+UPDATED service: Men's Waxing
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+  variants: 4 x 20 zones
+UPDATED service: Men's Facial & Cleanup
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+  variants: 2 x 20 zones
+CREATED service: Men's Threading
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+  variants: 2 x 20 zones
+UPDATED service: Men's Pedicure
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+  variants: 1 x 20 zones
+CREATED service: Men's Manicure
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+  variants: 1 x 20 zones
+UPDATED service: Men's Nail Cut & File
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+  variants: 2 x 20 zones
+CREATED service: Men's Massage
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+   WARNING  Undefined array key 0 in scripts/seed-mens-salon-live.php on line 424.
+   WARNING  Undefined array key 1 in scripts/seed-mens-salon-live.php on line 425.
+  variants: 3 x 20 zones
+Deactivated old service: garnier-hair-color
+Deactivated old service: haircut-color
+Deactivated old service: mens-threading-services
+Deactivated old service: mens-beard-trim-styling
+Deactivated old service: head-massage
+Deactivated old service: make-your-own-package
+Deactivated old service: mens-detan-treatment
+Deactivated old service: hair-color-only-application
+Deactivated old service: haircut-massage
+Deactivated old service: body-massage
+Deactivated old service: express-manicure
+Deactivated old service: hot-bed
+Deactivated old service: men-clean-shave-service
+Deactivated old service: beard-color-with-product
+
+Men's Salon catalog seeded: 1 category, 3 sub-categories, 15 services.
+Deactivated obsolete services: 14 (plus any already inactive).
+

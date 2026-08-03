@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lead Details — Redesigned Demo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #25274D;
+            --primary-dark: #1A1C38;
+            --primary-soft: rgba(37, 39, 77, 0.06);
+            --bg: #EFF1F4;
+            --surface: #ffffff;
+            --border: #E2E5EB;
+            --text: #18181a;
+            --muted: #5E6472;
+            --faint: #A1A5AF;
+            --radius: 10px;
+            --radius-sm: 6px;
+            --shadow: 0 1px 3px rgba(0,0,0,.05);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--muted);
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            font-size: 0.8125rem;
+            line-height: 1.45;
+            margin: 0;
+        }
+
+        a { color: var(--primary); text-decoration: none; }
+        a:hover { color: var(--primary-dark); }
+
+        /* ── Demo notice ── */
+        .demo-notice {
+            background: linear-gradient(90deg, #25274D, #3d4078);
+            color: rgba(255,255,255,.9);
+            padding: .45rem 1rem;
+            font-size: .75rem;
+            text-align: center;
+        }
+        .demo-notice strong { color: #fff; }
+
+        .page-wrap {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: .875rem 1rem 5rem;
+        }
+
+        /* ── Breadcrumb ── */
+        .breadcrumb-bar {
+            display: flex;
+            align-items: center;
+            gap: .375rem;
+            font-size: .75rem;
+            color: var(--faint);
+            margin-bottom: .625rem;
+        }
+        .breadcrumb-bar a { color: var(--muted); }
+        .breadcrumb-bar .material-icons-outlined { font-size: 14px; }
+
+        /* ── Identity hero ── */
+        .lead-hero {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: .875rem 1rem;
+            margin-bottom: .625rem;
+        }
+
+        .lead-hero__top {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            gap: .75rem;
+        }
+
+        .lead-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: .875rem;
+            flex-shrink: 0;
+        }
+
+        .lead-identity { flex: 1; min-width: 180px; }
+
+        .lead-name {
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: var(--text);
+            margin: 0 0 .125rem;
+            line-height: 1.25;
+        }
+
+        .lead-contact {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: .5rem .75rem;
+            font-size: .8125rem;
+        }
+
+        .lead-contact a.phone {
+            display: inline-flex;
+            align-items: center;
+            gap: .25rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .lead-contact a.phone:hover { color: var(--primary); }
+        .lead-contact a.phone .material-icons-outlined { font-size: 15px; color: var(--primary); }
+
+        .lead-meta {
+            font-size: .75rem;
+            color: var(--faint);
+            margin-top: .25rem;
+        }
+        .lead-meta span + span::before { content: "·"; margin: 0 .35rem; }
+
+        .lead-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .3rem;
+            align-items: center;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: .2rem;
+            font-size: .6875rem;
+            font-weight: 600;
+            padding: .2em .55em;
+            border-radius: 50rem;
+            line-height: 1.3;
+        }
+        .chip--success { background: #d1e7dd; color: #0f5132; }
+        .chip--danger  { background: #f8d7da; color: #842029; }
+        .chip--warning { background: #fff3cd; color: #664d03; }
+        .chip--primary { background: var(--primary-soft); color: var(--primary); }
+        .chip--info    { background: #cff4fc; color: #055160; }
+
+        .lead-hero__actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: .375rem;
+            margin-top: .75rem;
+            padding-top: .75rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .status-select-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: .375rem;
+            margin-right: auto;
+        }
+
+        .status-badge-lg {
+            font-size: .75rem;
+            font-weight: 600;
+            padding: .35em .75em;
+            border-radius: 50rem;
+            background: #0d6efd;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: .25rem;
+            font-size: .75rem;
+            font-weight: 600;
+            padding: .4rem .75rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid transparent;
+            cursor: pointer;
+            line-height: 1.3;
+            white-space: nowrap;
+        }
+        .btn .material-icons-outlined { font-size: 16px; }
+
+        .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .btn-primary:hover { background: var(--primary-dark); }
+
+        .btn-warning { background: #ffc107; color: #000; border-color: #ffc107; }
+        .btn-warning:hover { background: #e0a800; }
+
+        .btn-outline { background: #fff; color: var(--muted); border-color: var(--border); }
+        .btn-outline:hover { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
+
+        .btn-ghost { background: transparent; color: var(--muted); border-color: var(--border); }
+        .btn-ghost:hover { background: #f5f5f5; }
+
+        .btn-icon {
+            padding: .4rem;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--muted);
+            cursor: pointer;
+        }
+        .btn-icon .material-icons-outlined { font-size: 18px; }
+
+        /* ── Status pipeline ── */
+        .pipeline {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: .625rem 1rem;
+            margin-bottom: .75rem;
+            overflow-x: auto;
+        }
+
+        .pipeline__track {
+            display: flex;
+            align-items: center;
+            min-width: max-content;
+            gap: 0;
+        }
+
+        .pipeline__step {
+            display: flex;
+            align-items: center;
+            gap: .375rem;
+            font-size: .75rem;
+            color: var(--faint);
+            white-space: nowrap;
+        }
+
+        .pipeline__step.is-done { color: var(--primary); font-weight: 600; }
+        .pipeline__step.is-current { color: var(--text); font-weight: 700; }
+
+        .pipeline__dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--border);
+            flex-shrink: 0;
+        }
+        .pipeline__step.is-done .pipeline__dot { background: var(--primary); }
+        .pipeline__step.is-current .pipeline__dot {
+            background: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37,39,77,.2);
+        }
+
+        .pipeline__line {
+            width: 32px;
+            height: 2px;
+            background: var(--border);
+            margin: 0 .25rem;
+            flex-shrink: 0;
+        }
+        .pipeline__line.is-done { background: var(--primary); }
+
+        /* ── Layout grid ── */
+        .lead-grid {
+            display: grid;
+            grid-template-columns: 1fr 280px;
+            gap: .75rem;
+            align-items: start;
+        }
+
+        @media (max-width: 991px) {
+            .lead-grid { grid-template-columns: 1fr; }
+            .lead-sidebar { order: -1; }
+        }
+
+        /* ── Section blocks ── */
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: .625rem;
+            overflow: hidden;
+        }
+
+        .panel:last-child { margin-bottom: 0; }
+
+        .panel__head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: .5rem .75rem;
+            background: #fafbfc;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .panel__title {
+            display: flex;
+            align-items: center;
+            gap: .375rem;
+            font-size: .6875rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--primary);
+            margin: 0;
+        }
+        .panel__title .material-icons-outlined { font-size: 15px; opacity: .7; }
+
+        .panel__edit {
+            font-size: .6875rem;
+            font-weight: 600;
+            color: var(--primary);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: .125rem .375rem;
+            border-radius: 4px;
+        }
+        .panel__edit:hover { background: var(--primary-soft); }
+
+        .panel__body { padding: .625rem .75rem .75rem; }
+
+        /* ── Definition list grid ── */
+        .dl-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: .5rem .75rem;
+        }
+
+        .dl-grid--3 { grid-template-columns: repeat(3, 1fr); }
+
+        @media (max-width: 576px) {
+            .dl-grid, .dl-grid--3 { grid-template-columns: 1fr; }
+        }
+
+        .dl-item { min-width: 0; }
+
+        .dl-item--full { grid-column: 1 / -1; }
+
+        .dl-item dt {
+            font-size: .6875rem;
+            color: var(--faint);
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            margin: 0 0 .125rem;
+            font-weight: 500;
+        }
+
+        .dl-item dd {
+            font-size: .8125rem;
+            font-weight: 600;
+            color: var(--text);
+            margin: 0;
+            word-break: break-word;
+        }
+
+        .dl-item dd.text-warning { color: #997404; }
+        .dl-item dd.text-danger  { color: #dc3545; }
+
+        .dl-item--alert {
+            background: #fff8e1;
+            border: 1px solid #ffc107;
+            border-radius: var(--radius-sm);
+            padding: .375rem .5rem;
+        }
+
+        .ad-thumb {
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            object-fit: cover;
+            vertical-align: middle;
+            margin-right: .375rem;
+        }
+
+        .remarks-text {
+            font-size: .8125rem;
+            color: var(--text);
+            font-weight: 400;
+            line-height: 1.5;
+            background: var(--primary-soft);
+            border-radius: var(--radius-sm);
+            padding: .5rem .625rem;
+        }
+
+        /* ── Sidebar ── */
+        .lead-sidebar { position: sticky; top: .75rem; }
+
+        .action-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: .625rem;
+            overflow: hidden;
+        }
+
+        .action-card--urgent {
+            border-color: #ffc107;
+            background: linear-gradient(180deg, #fffbeb 0%, #fff 40%);
+        }
+
+        .action-card__head {
+            padding: .5rem .75rem;
+            font-size: .6875rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--faint);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .action-card--urgent .action-card__head {
+            color: #997404;
+            border-bottom-color: #ffe082;
+        }
+
+        .action-card__body { padding: .625rem .75rem; }
+
+        .action-card__due {
+            font-size: .9375rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: .125rem;
+        }
+
+        .action-card__sub {
+            font-size: .75rem;
+            color: var(--muted);
+            margin-bottom: .625rem;
+        }
+
+        .action-card .btn { width: 100%; justify-content: center; }
+
+        .quick-links { list-style: none; padding: 0; margin: 0; }
+
+        .quick-links li + li { border-top: 1px solid var(--border); }
+
+        .quick-links a {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            padding: .5rem .75rem;
+            color: var(--text);
+            font-size: .8125rem;
+            font-weight: 500;
+        }
+        .quick-links a:hover { background: var(--primary-soft); color: var(--primary); }
+        .quick-links a .material-icons-outlined { font-size: 18px; color: var(--faint); }
+
+        .tag-list { display: flex; flex-wrap: wrap; gap: .3rem; }
+
+        .tag {
+            font-size: .6875rem;
+            font-weight: 600;
+            padding: .2em .55em;
+            border-radius: 50rem;
+            color: #fff;
+        }
+
+        .assignee {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+        }
+
+        .assignee__avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #6c757d;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .6875rem;
+            font-weight: 700;
+        }
+
+        .assignee__name { font-weight: 600; color: var(--text); font-size: .8125rem; }
+        .assignee__role { font-size: .6875rem; color: var(--faint); }
+
+        /* ── Activity section ── */
+        .activity-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-top: .75rem;
+            overflow: hidden;
+        }
+
+        .activity-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: .5rem;
+            padding: .5rem .75rem;
+            border-bottom: 1px solid var(--border);
+            background: #fafbfc;
+        }
+
+        .filter-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .25rem;
+        }
+
+        .filter-pill {
+            font-size: .75rem;
+            font-weight: 500;
+            padding: .3em .65em;
+            border-radius: 50rem;
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--muted);
+            cursor: pointer;
+        }
+        .filter-pill.is-active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #fff;
+        }
+        .filter-pill .count {
+            font-size: .625rem;
+            opacity: .8;
+            margin-left: .2rem;
+        }
+
+        /* ── Timeline ── */
+        .timeline { padding: .75rem; }
+
+        .timeline-item {
+            display: grid;
+            grid-template-columns: 28px 1fr;
+            gap: 0 .625rem;
+            padding-bottom: .875rem;
+            position: relative;
+        }
+
+        .timeline-item:not(:last-child)::before {
+            content: "";
+            position: absolute;
+            left: 13px;
+            top: 28px;
+            bottom: 0;
+            width: 2px;
+            background: var(--border);
+        }
+
+        .timeline-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            z-index: 1;
+        }
+        .timeline-icon .material-icons-outlined { font-size: 15px; }
+
+        .timeline-icon--followup { background: #fff3cd; color: #997404; }
+        .timeline-icon--change   { background: var(--primary-soft); color: var(--primary); }
+        .timeline-icon--comment  { background: #d1e7dd; color: #0f5132; }
+        .timeline-icon--pending  { background: #f8d7da; color: #842029; }
+
+        .timeline-content {
+            background: #fafbfc;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: .5rem .625rem;
+        }
+
+        .timeline-head {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: .25rem .5rem;
+            margin-bottom: .25rem;
+        }
+
+        .timeline-title {
+            font-size: .8125rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .timeline-time {
+            font-size: .6875rem;
+            color: var(--faint);
+        }
+
+        .timeline-body {
+            font-size: .8125rem;
+            color: var(--muted);
+        }
+
+        .timeline-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .375rem;
+            margin-top: .375rem;
+        }
+
+        .timeline-meta .chip { font-size: .625rem; }
+
+        /* ── Table view (toggle) ── */
+        .table-view { display: none; padding: .75rem; }
+        .table-view.is-visible { display: block; }
+        .timeline-view.is-hidden { display: none; }
+
+        .data-table {
+            width: 100%;
+            font-size: .75rem;
+            border-collapse: collapse;
+        }
+        .data-table th {
+            text-align: left;
+            font-size: .6875rem;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            color: var(--faint);
+            font-weight: 600;
+            padding: .375rem .5rem;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        .data-table td {
+            padding: .375rem .5rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text);
+            vertical-align: middle;
+        }
+        .data-table tr:last-child td { border-bottom: none; }
+
+        /* ── Comment compose ── */
+        .comment-bar {
+            display: flex;
+            gap: .375rem;
+            padding: .625rem .75rem;
+            border-top: 1px solid var(--border);
+            background: #fafbfc;
+        }
+        .comment-bar input {
+            flex: 1;
+            font-size: .8125rem;
+            padding: .4rem .625rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+        }
+        .comment-bar input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(37,39,77,.1);
+        }
+
+        /* ── View toggle FAB ── */
+        .view-fab {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            display: flex;
+            gap: .375rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 50px;
+            padding: .3rem;
+            box-shadow: 0 4px 16px rgba(0,0,0,.12);
+            z-index: 100;
+        }
+        .view-fab .btn { border-radius: 50px; padding: .35rem .75rem; }
+    </style>
+</head>
+<body>
+
+<div class="demo-notice">
+    <strong>UI Preview v2</strong> — Better organised lead details. Toggle bottom-right to compare with current layout.
+</div>
+
+<div class="page-wrap" id="page">
+
+    <!-- Breadcrumb -->
+    <nav class="breadcrumb-bar">
+        <a href="#">Leads</a>
+        <span class="material-icons-outlined">chevron_right</span>
+        <span style="color:var(--text);font-weight:600;">#1042 — Aisha Khan</span>
+    </nav>
+
+    <!-- ═══ IDENTITY HERO ═══ -->
+    <section class="lead-hero">
+        <div class="lead-hero__top">
+            <div class="lead-avatar">AK</div>
+            <div class="lead-identity">
+                <h1 class="lead-name">Aisha Khan</h1>
+                <div class="lead-contact">
+                    <a href="tel:+919876543210" class="phone">
+                        <span class="material-icons-outlined">phone</span>
+                        +91 98765 43210
+                    </a>
+                </div>
+                <div class="lead-meta">
+                    <span>Lead #1042</span>
+                    <span>Booking <a href="#">BK-2026-0841</a></span>
+                    <span>Received 28 Jul 2026</span>
+                </div>
+            </div>
+            <div class="lead-badges">
+                <span class="chip chip--success">Customer</span>
+                <span class="chip chip--danger">Open</span>
+                <span class="chip chip--warning">Pending Follow-up</span>
+            </div>
+        </div>
+
+        <div class="lead-hero__actions">
+            <div class="status-select-wrap">
+                <span class="status-badge-lg">Qualified</span>
+                <button class="btn-icon" title="Change status">
+                    <span class="material-icons-outlined">edit</span>
+                </button>
+            </div>
+            <button class="btn btn-warning">
+                <span class="material-icons-outlined">event_available</span>
+                Take Follow-up
+            </button>
+            <button class="btn btn-primary">
+                <span class="material-icons-outlined">add_circle</span>
+                Create Booking
+            </button>
+            <a href="#" class="btn btn-outline">
+                <span class="material-icons-outlined">chat</span>
+                AI Chat
+            </a>
+            <a href="#" class="btn btn-ghost">Back to Leads</a>
+        </div>
+    </section>
+
+    <!-- ═══ STATUS PIPELINE ═══ -->
+    <section class="pipeline" aria-label="Lead status pipeline">
+        <div class="pipeline__track">
+            <div class="pipeline__step is-done">
+                <span class="pipeline__dot"></span> New
+            </div>
+            <div class="pipeline__line is-done"></div>
+            <div class="pipeline__step is-done">
+                <span class="pipeline__dot"></span> Contacted
+            </div>
+            <div class="pipeline__line is-done"></div>
+            <div class="pipeline__step is-current">
+                <span class="pipeline__dot"></span> Qualified
+            </div>
+            <div class="pipeline__line"></div>
+            <div class="pipeline__step">
+                <span class="pipeline__dot"></span> Booked
+            </div>
+            <div class="pipeline__line"></div>
+            <div class="pipeline__step">
+                <span class="pipeline__dot"></span> Completed
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══ MAIN GRID ═══ -->
+    <div class="lead-grid">
+
+        <!-- LEFT: Structured data sections -->
+        <main class="lead-main">
+
+            <!-- Contact & Team -->
+            <section class="panel">
+                <div class="panel__head">
+                    <h2 class="panel__title">
+                        <span class="material-icons-outlined">person</span>
+                        Contact &amp; Team
+                    </h2>
+                    <button class="panel__edit">Edit</button>
+                </div>
+                <div class="panel__body">
+                    <dl class="dl-grid dl-grid--3">
+                        <div class="dl-item">
+                            <dt>Name</dt>
+                            <dd>Aisha Khan</dd>
+                        </div>
+                        <div class="dl-item">
+                            <dt>Phone</dt>
+                            <dd>+91 98765 43210</dd>
+                        </div>
+                        <div class="dl-item">
+                            <dt>Added By</dt>
+                            <dd>WhatsApp Bot</dd>
+                        </div>
+                        <div class="dl-item">
+                            <dt>Handled By</dt>
+                            <dd>Rahul Sharma</dd>
+                        </div>
+                        <div class="dl-item">
+                            <dt>Lead Type</dt>
+                            <dd>Customer</dd>
+                        </div>
+                    </dl>
+                </div>
+            </section>
+
+            <!-- Schedule -->
+            <section class="panel">
+                <div class="panel__head">
+                    <h2 class="panel__title">
+                        <span class="material-icons-outlined">schedule</span>
+                        Schedule
+                    </h2>
+                    <button class="panel__edit">Edit</button>
+                </div>
+                <div class="panel__body">
+                    <dl class="dl-grid">
+                        <div class="dl-item">
+                            <dt>Received On</dt>
+                            <dd>28 Jul 2026, 02:15 PM</dd>
+                        </div>
+                        <div class="dl-item dl-item--alert">
+                            <dt>Next Follow-up</dt>
+                            <dd class="text-warning">
+                                01 Aug 2026, 10:00 AM
+                                <span class="chip chip--warning" style="margin-left:.25rem;">Pending</span>
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
+            </section>
+
+            <!-- Source -->
+            <section class="panel">
+                <div class="panel__head">
+                    <h2 class="panel__title">
+                        <span class="material-icons-outlined">campaign</span>
+                        Source &amp; Attribution
+                    </h2>
+                    <button class="panel__edit">Edit</button>
+                </div>
+                <div class="panel__body">
+                    <dl class="dl-grid dl-grid--3">
+                        <div class="dl-item">
+                            <dt>Source</dt>
+                            <dd>Facebook Ads</dd>
+                        </div>
+                        <div class="dl-item">
+                            <dt>Ad Source</dt>
+                            <dd>
+                                <img src="https://placehold.co/28x28/25274D/fff?text=A" alt="" class="ad-thumb">
+                                Summer Promo 2026
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
+            </section>
+
+            <!-- Customer requirements -->
+            <section class="panel">
+                <div class="panel__head">
+                    <h2 class="panel__title">
+                        <span class="material-icons-outlined">home_repair_service</span>
+                        Customer Requirements
+                    </h2>
+                    <button class="panel__edit">Edit</button>
+                </div>
+                <div class="panel__body">
+                    <dl class="dl-grid dl-grid--3">
+                        <div class="dl-item">
+                            <dt>Service</dt>
+                            <dd>Home Cleaning</dd>
+                        </div>
+                        <div class="dl-item">
+                            <dt>Area</dt>
+                            <dd>Srinagar — Lal Chowk</dd>
+                        </div>
+                        <div class="dl-item">
+                            <dt>Property</dt>
+                            <dd>3 BHK Apartment</dd>
+                        </div>
+                        <div class="dl-item">
+                            <dt>Preferred Date</dt>
+                            <dd>03 Aug 2026</dd>
+                        </div>
+                        <div class="dl-item">
+                            <dt>Budget</dt>
+                            <dd>₹2,000 – ₹3,500</dd>
+                        </div>
+                        <div class="dl-item">
+                            <dt>Urgency</dt>
+                            <dd><span class="chip chip--warning">Medium</span></dd>
+                        </div>
+                    </dl>
+                </div>
+            </section>
+
+            <!-- Remarks -->
+            <section class="panel">
+                <div class="panel__head">
+                    <h2 class="panel__title">
+                        <span class="material-icons-outlined">notes</span>
+                        Initial Remarks
+                    </h2>
+                    <button class="panel__edit">Edit</button>
+                </div>
+                <div class="panel__body">
+                    <p class="remarks-text mb-0">Interested in home cleaning service. Prefers weekend slots. Asked about pricing for 3BHK.</p>
+                </div>
+            </section>
+        </main>
+
+        <!-- RIGHT: Sticky sidebar -->
+        <aside class="lead-sidebar">
+
+            <!-- Next action (urgent) -->
+            <div class="action-card action-card--urgent">
+                <div class="action-card__head">Next Action Required</div>
+                <div class="action-card__body">
+                    <div class="action-card__due">Follow-up due today</div>
+                    <div class="action-card__sub">01 Aug 2026 at 10:00 AM</div>
+                    <button class="btn btn-warning">
+                        <span class="material-icons-outlined">event_available</span>
+                        Take Follow-up
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quick links -->
+            <div class="action-card">
+                <div class="action-card__head">Quick Actions</div>
+                <ul class="quick-links">
+                    <li><a href="#"><span class="material-icons-outlined">chat</span> View AI Chat</a></li>
+                    <li><a href="#"><span class="material-icons-outlined">add_circle</span> Create Booking</a></li>
+                    <li><a href="#"><span class="material-icons-outlined">event</span> Schedule Follow-up</a></li>
+                    <li><a href="#"><span class="material-icons-outlined">edit</span> Edit Lead Details</a></li>
+                </ul>
+            </div>
+
+            <!-- Tags -->
+            <div class="action-card">
+                <div class="action-card__head" style="display:flex;justify-content:space-between;align-items:center;">
+                    Tags
+                    <button class="panel__edit">Edit</button>
+                </div>
+                <div class="action-card__body">
+                    <div class="tag-list">
+                        <span class="tag" style="background:#0d6efd;">Hot Lead</span>
+                        <span class="tag" style="background:#198754;">Weekend</span>
+                        <span class="tag" style="background:#6f42c1;">3BHK</span>
+                        <span class="tag" style="background:#fd7e14;">Price Sensitive</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Assignee -->
+            <div class="action-card">
+                <div class="action-card__head">Assigned To</div>
+                <div class="action-card__body">
+                    <div class="assignee">
+                        <div class="assignee__avatar">RS</div>
+                        <div>
+                            <div class="assignee__name">Rahul Sharma</div>
+                            <div class="assignee__role">Sales Executive</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- ═══ ACTIVITY (unified timeline) ═══ -->
+    <section class="activity-panel">
+        <div class="activity-toolbar">
+            <div class="filter-pills">
+                <button class="filter-pill is-active" data-filter="all">All <span class="count">8</span></button>
+                <button class="filter-pill" data-filter="followup">Follow-ups <span class="count">3</span></button>
+                <button class="filter-pill" data-filter="change">Changes <span class="count">4</span></button>
+                <button class="filter-pill" data-filter="comment">Comments <span class="count">2</span></button>
+            </div>
+            <div class="d-flex gap-1">
+                <button class="btn btn-ghost" id="btn-timeline-view" onclick="setActivityView('timeline')">
+                    <span class="material-icons-outlined">timeline</span> Timeline
+                </button>
+                <button class="btn btn-outline" id="btn-table-view" onclick="setActivityView('table')">
+                    <span class="material-icons-outlined">table_rows</span> Table
+                </button>
+                <button class="btn btn-primary">
+                    <span class="material-icons-outlined">add</span> Add Follow-up
+                </button>
+            </div>
+        </div>
+
+        <!-- Timeline view -->
+        <div class="timeline-view" id="timeline-view">
+            <div class="timeline">
+                <div class="timeline-item" data-type="followup">
+                    <div class="timeline-icon timeline-icon--pending">
+                        <span class="material-icons-outlined">pending_actions</span>
+                    </div>
+                    <div class="timeline-content">
+                        <div class="timeline-head">
+                            <span class="timeline-title">Follow-up pending</span>
+                            <span class="timeline-time">Due 01 Aug, 10:00 AM</span>
+                        </div>
+                        <div class="timeline-body">Scheduled follow-up not yet taken. Assigned to Rahul Sharma.</div>
+                        <div class="timeline-meta">
+                            <span class="chip chip--warning">Pending</span>
+                            <span class="chip chip--warning">Medium urgency</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item" data-type="comment">
+                    <div class="timeline-icon timeline-icon--comment">
+                        <span class="material-icons-outlined">comment</span>
+                    </div>
+                    <div class="timeline-content">
+                        <div class="timeline-head">
+                            <span class="timeline-title">Rahul Sharma commented</span>
+                            <span class="timeline-time">30 Jul, 11:30 AM</span>
+                        </div>
+                        <div class="timeline-body">Customer confirmed weekend availability. Will call back Monday morning.</div>
+                    </div>
+                </div>
+
+                <div class="timeline-item" data-type="followup">
+                    <div class="timeline-icon timeline-icon--followup">
+                        <span class="material-icons-outlined">phone_callback</span>
+                    </div>
+                    <div class="timeline-content">
+                        <div class="timeline-head">
+                            <span class="timeline-title">Follow-up completed</span>
+                            <span class="timeline-time">30 Jul, 11:22 AM</span>
+                        </div>
+                        <div class="timeline-body">Called customer. Discussed pricing and weekend slots. Next follow-up set for 01 Aug.</div>
+                        <div class="timeline-meta">
+                            <span class="chip chip--success">On time</span>
+                            <span class="chip chip--primary">Phone</span>
+                            <button class="btn btn-outline" style="padding:.2rem .5rem;font-size:.6875rem;">View Recording</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item" data-type="change">
+                    <div class="timeline-icon timeline-icon--change">
+                        <span class="material-icons-outlined">swap_horiz</span>
+                    </div>
+                    <div class="timeline-content">
+                        <div class="timeline-head">
+                            <span class="timeline-title">Status changed</span>
+                            <span class="timeline-time">30 Jul, 11:25 AM</span>
+                        </div>
+                        <div class="timeline-body">Rahul Sharma changed status from <strong>New</strong> to <strong>Qualified</strong>.</div>
+                    </div>
+                </div>
+
+                <div class="timeline-item" data-type="followup">
+                    <div class="timeline-icon timeline-icon--followup">
+                        <span class="material-icons-outlined">chat</span>
+                    </div>
+                    <div class="timeline-content">
+                        <div class="timeline-head">
+                            <span class="timeline-title">Follow-up completed</span>
+                            <span class="timeline-time">28 Jul, 04:10 PM</span>
+                        </div>
+                        <div class="timeline-body">Initial WhatsApp contact. Sent pricing brochure.</div>
+                        <div class="timeline-meta">
+                            <span class="chip chip--danger">Delayed 1h 10m</span>
+                            <span class="chip chip--primary">WhatsApp</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item" data-type="change">
+                    <div class="timeline-icon timeline-icon--change">
+                        <span class="material-icons-outlined">swap_horiz</span>
+                    </div>
+                    <div class="timeline-content">
+                        <div class="timeline-head">
+                            <span class="timeline-title">Lead type changed</span>
+                            <span class="timeline-time">28 Jul, 02:18 PM</span>
+                        </div>
+                        <div class="timeline-body">Priya Mehta changed lead type from <strong>Unknown</strong> to <strong>Customer</strong>.</div>
+                    </div>
+                </div>
+
+                <div class="timeline-item" data-type="comment">
+                    <div class="timeline-icon timeline-icon--comment">
+                        <span class="material-icons-outlined">comment</span>
+                    </div>
+                    <div class="timeline-content">
+                        <div class="timeline-head">
+                            <span class="timeline-title">Priya Mehta commented</span>
+                            <span class="timeline-time">28 Jul, 04:15 PM</span>
+                        </div>
+                        <div class="timeline-body">Initial contact made via WhatsApp. Sent pricing brochure.</div>
+                    </div>
+                </div>
+
+                <div class="timeline-item" data-type="change">
+                    <div class="timeline-icon timeline-icon--change">
+                        <span class="material-icons-outlined">person_add</span>
+                    </div>
+                    <div class="timeline-content">
+                        <div class="timeline-head">
+                            <span class="timeline-title">Lead created</span>
+                            <span class="timeline-time">28 Jul, 02:15 PM</span>
+                        </div>
+                        <div class="timeline-body">Lead received via Facebook Ads — Summer Promo 2026.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table view -->
+        <div class="table-view" id="table-view">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Scheduled</th>
+                        <th>Taken On</th>
+                        <th>Delay</th>
+                        <th>Next</th>
+                        <th>Urgency</th>
+                        <th>By</th>
+                        <th>Status</th>
+                        <th>Channel</th>
+                        <th>Recording</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>01 Aug, 10:00 AM</td>
+                        <td>—</td>
+                        <td><span class="chip chip--warning">Pending</span></td>
+                        <td>—</td>
+                        <td><span class="chip chip--warning">Medium</span></td>
+                        <td>—</td>
+                        <td><span class="chip chip--warning">Pending</span></td>
+                        <td>—</td>
+                        <td>—</td>
+                    </tr>
+                    <tr>
+                        <td>30 Jul, 11:00 AM</td>
+                        <td>30 Jul, 11:22 AM</td>
+                        <td><span class="chip chip--success">On time</span></td>
+                        <td>01 Aug, 10:00 AM</td>
+                        <td><span class="chip chip--warning">Medium</span></td>
+                        <td>Rahul S.</td>
+                        <td><span class="chip chip--success">Done</span></td>
+                        <td>Phone</td>
+                        <td><button class="btn btn-outline" style="padding:.15rem .4rem;font-size:.6875rem;">View</button></td>
+                    </tr>
+                    <tr>
+                        <td>28 Jul, 03:00 PM</td>
+                        <td>28 Jul, 04:10 PM</td>
+                        <td><span class="chip chip--danger">Delayed 1h 10m</span></td>
+                        <td>30 Jul, 11:00 AM</td>
+                        <td><span class="chip chip--danger">High</span></td>
+                        <td>Priya M.</td>
+                        <td><span class="chip chip--success">Done</span></td>
+                        <td>WhatsApp</td>
+                        <td>—</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Comment compose -->
+        <div class="comment-bar">
+            <input type="text" placeholder="Add an internal comment…">
+            <button class="btn btn-primary">Post</button>
+        </div>
+    </section>
+
+</div>
+
+<!-- Compare toggle -->
+<div class="view-fab">
+    <button class="btn btn-primary" id="fab-new">New Design</button>
+    <button class="btn btn-ghost" id="fab-old" onclick="window.open('lead-details-current.html','_blank')">Current Page</button>
+</div>
+
+<script>
+    // Activity filter pills
+    document.querySelectorAll('.filter-pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+            document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('is-active'));
+            pill.classList.add('is-active');
+            const filter = pill.dataset.filter;
+            document.querySelectorAll('.timeline-item').forEach(item => {
+                if (filter === 'all') {
+                    item.style.display = '';
+                } else {
+                    item.style.display = item.dataset.type === filter ? '' : 'none';
+                }
+            });
+        });
+    });
+
+    // Timeline vs table toggle
+    function setActivityView(mode) {
+        const timeline = document.getElementById('timeline-view');
+        const table = document.getElementById('table-view');
+        const btnT = document.getElementById('btn-timeline-view');
+        const btnTb = document.getElementById('btn-table-view');
+
+        if (mode === 'table') {
+            timeline.classList.add('is-hidden');
+            table.classList.add('is-visible');
+            btnTb.className = 'btn btn-primary';
+            btnT.className = 'btn btn-ghost';
+        } else {
+            timeline.classList.remove('is-hidden');
+            table.classList.remove('is-visible');
+            btnT.className = 'btn btn-primary';
+            btnTb.className = 'btn btn-outline';
+        }
+    }
+</script>
+</body>
+</html>

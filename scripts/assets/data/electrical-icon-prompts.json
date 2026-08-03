@@ -1,0 +1,498 @@
+{
+  "categories": [
+    {
+      "slug": "electrical",
+      "filename": "electrical.png",
+      "prompt": "Category icon: lightning bolt with gear and plug, professional electrician services. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "electric-installation",
+      "filename": "electric-installation.png",
+      "prompt": "Category icon: wall socket with plus install mark and screwdriver, electric installation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "electric-repair",
+      "filename": "electric-repair.png",
+      "prompt": "Category icon: lightning bolt with wrench and magnifying glass, electric repairs. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "electric-inspection",
+      "filename": "electric-inspection.png",
+      "prompt": "Category icon: clipboard checklist with lightning bolt and shield, electric inspection. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ],
+  "variants": [
+    {
+      "service_slug": "electric-light-install",
+      "service_name": "Electric Light Install",
+      "variant_key": "bulb",
+      "variant_title": "Bulb",
+      "filename": "electric-light-install-bulb.png",
+      "prompt": "Variation icon for electric light install: light bulb silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-light-install",
+      "service_name": "Electric Light Install",
+      "variant_key": "tube-light",
+      "variant_title": "Tube Light",
+      "filename": "electric-light-install-tube-light.png",
+      "prompt": "Variation icon for electric light install: tube light bar silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-light-install",
+      "service_name": "Electric Light Install",
+      "variant_key": "ceiling-light",
+      "variant_title": "Ceiling Light",
+      "filename": "electric-light-install-ceiling-light.png",
+      "prompt": "Variation icon for electric light install: round ceiling light fixture silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-light-install",
+      "service_name": "Electric Light Install",
+      "variant_key": "hanging-light",
+      "variant_title": "Hanging Light",
+      "filename": "electric-light-install-hanging-light.png",
+      "prompt": "Variation icon for electric light install: hanging pendant lamp silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-light-install",
+      "service_name": "Electric Light Install",
+      "variant_key": "chandelier",
+      "variant_title": "Chandelier",
+      "filename": "electric-light-install-chandelier.png",
+      "prompt": "Variation icon for electric light install: chandelier light fixture silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-light-install",
+      "service_name": "Electric Light Install",
+      "variant_key": "decorative-light",
+      "variant_title": "Decorative Light",
+      "filename": "electric-light-install-decorative-light.png",
+      "prompt": "Variation icon for electric light install: decorative wall light silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-fan-install",
+      "service_name": "Electric Fan Install",
+      "variant_key": "ceiling-fan",
+      "variant_title": "Ceiling Fan",
+      "filename": "electric-fan-install-ceiling-fan.png",
+      "prompt": "Variation icon for electric fan install: ceiling fan blades silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-fan-install",
+      "service_name": "Electric Fan Install",
+      "variant_key": "exhaust-fan",
+      "variant_title": "Exhaust Fan",
+      "filename": "electric-fan-install-exhaust-fan.png",
+      "prompt": "Variation icon for electric fan install: square exhaust fan grille silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-fan-install",
+      "service_name": "Electric Fan Install",
+      "variant_key": "bldc-fan",
+      "variant_title": "BLDC Fan",
+      "filename": "electric-fan-install-bldc-fan.png",
+      "prompt": "Variation icon for electric fan install: modern BLDC ceiling fan silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-switch-install",
+      "service_name": "Electric Switch Install",
+      "variant_key": "switch",
+      "variant_title": "Switch",
+      "filename": "electric-switch-install-switch.png",
+      "prompt": "Variation icon for electric switch install: wall switch plate silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-switch-install",
+      "service_name": "Electric Switch Install",
+      "variant_key": "socket",
+      "variant_title": "Socket",
+      "filename": "electric-switch-install-socket.png",
+      "prompt": "Variation icon for electric switch install: 3-pin wall socket silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-switch-install",
+      "service_name": "Electric Switch Install",
+      "variant_key": "fan-regulator",
+      "variant_title": "Fan Regulator",
+      "filename": "electric-switch-install-fan-regulator.png",
+      "prompt": "Variation icon for electric switch install: fan speed regulator dial silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-switch-install",
+      "service_name": "Electric Switch Install",
+      "variant_key": "switchboard",
+      "variant_title": "Switchboard",
+      "filename": "electric-switch-install-switchboard.png",
+      "prompt": "Variation icon for electric switch install: multi-switch switchboard silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-switch-install",
+      "service_name": "Electric Switch Install",
+      "variant_key": "ac-switchboard",
+      "variant_title": "AC Switchboard",
+      "filename": "electric-switch-install-ac-switchboard.png",
+      "prompt": "Variation icon for electric switch install: AC isolator switchboard silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-wiring-install",
+      "service_name": "Electric Wiring Install",
+      "variant_key": "internal-wiring",
+      "variant_title": "Internal Wiring",
+      "filename": "electric-wiring-install-internal-wiring.png",
+      "prompt": "Variation icon for electric wiring install: internal house wiring cable silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-wiring-install",
+      "service_name": "Electric Wiring Install",
+      "variant_key": "external-wiring",
+      "variant_title": "External Wiring",
+      "filename": "electric-wiring-install-external-wiring.png",
+      "prompt": "Variation icon for electric wiring install: external casing wire run silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-wiring-install",
+      "service_name": "Electric Wiring Install",
+      "variant_key": "concealed-wiring",
+      "variant_title": "Concealed Wiring",
+      "filename": "electric-wiring-install-concealed-wiring.png",
+      "prompt": "Variation icon for electric wiring install: concealed in-wall wiring conduit silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-wiring-install",
+      "service_name": "Electric Wiring Install",
+      "variant_key": "underground-wiring",
+      "variant_title": "Underground Wiring",
+      "filename": "electric-wiring-install-underground-wiring.png",
+      "prompt": "Variation icon for electric wiring install: underground cable trench silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-wiring-install",
+      "service_name": "Electric Wiring Install",
+      "variant_key": "new-room-wiring",
+      "variant_title": "New Room Wiring",
+      "filename": "electric-wiring-install-new-room-wiring.png",
+      "prompt": "Variation icon for electric wiring install: room floor plan with wiring points silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-full-house-wiring",
+      "service_name": "Electric Full House Wiring",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "electric-full-house-wiring-book-inspection.png",
+      "prompt": "Variation icon for electric full house wiring: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-point-install",
+      "service_name": "Electric Point Install",
+      "variant_key": "geyser-point",
+      "variant_title": "Geyser Point",
+      "filename": "electric-point-install-geyser-point.png",
+      "prompt": "Variation icon for electric point install: geyser water heater power point silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-point-install",
+      "service_name": "Electric Point Install",
+      "variant_key": "ac-point",
+      "variant_title": "AC Point",
+      "filename": "electric-point-install-ac-point.png",
+      "prompt": "Variation icon for electric point install: air conditioner power point silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-point-install",
+      "service_name": "Electric Point Install",
+      "variant_key": "exhaust-chimney-point",
+      "variant_title": "Exhaust / Chimney Point",
+      "filename": "electric-point-install-exhaust-chimney-point.png",
+      "prompt": "Variation icon for electric point install: kitchen chimney power point silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-mcb-install",
+      "service_name": "Electric MCB Install",
+      "variant_key": "mcb",
+      "variant_title": "MCB",
+      "filename": "electric-mcb-install-mcb.png",
+      "prompt": "Variation icon for electric mcb install: MCB circuit breaker switch silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-mcb-install",
+      "service_name": "Electric MCB Install",
+      "variant_key": "db-panel",
+      "variant_title": "DB Panel",
+      "filename": "electric-mcb-install-db-panel.png",
+      "prompt": "Variation icon for electric mcb install: electrical distribution board panel silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-earthing-install",
+      "service_name": "Electric Earthing Install",
+      "variant_key": "new-earthing",
+      "variant_title": "New Earthing",
+      "filename": "electric-earthing-install-new-earthing.png",
+      "prompt": "Variation icon for electric earthing install: earthing ground rod with earth symbol silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-accessory-install",
+      "service_name": "Electric Accessory Install",
+      "variant_key": "stabilizer",
+      "variant_title": "Stabilizer",
+      "filename": "electric-accessory-install-stabilizer.png",
+      "prompt": "Variation icon for electric accessory install: voltage stabilizer unit silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-accessory-install",
+      "service_name": "Electric Accessory Install",
+      "variant_key": "submeter",
+      "variant_title": "Submeter",
+      "filename": "electric-accessory-install-submeter.png",
+      "prompt": "Variation icon for electric accessory install: electric submeter dial silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-accessory-install",
+      "service_name": "Electric Accessory Install",
+      "variant_key": "doorbell",
+      "variant_title": "Doorbell",
+      "filename": "electric-accessory-install-doorbell.png",
+      "prompt": "Variation icon for electric accessory install: doorbell button silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-inverter-install",
+      "service_name": "Electric Inverter Install",
+      "variant_key": "inverter-ups-with-wiring",
+      "variant_title": "Inverter / UPS with Wiring",
+      "filename": "electric-inverter-install-inverter-ups-with-wiring.png",
+      "prompt": "Variation icon for electric inverter install: home inverter UPS with battery wiring silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-solar-inverter-install",
+      "service_name": "Electric Solar Inverter Install",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "electric-solar-inverter-install-book-inspection.png",
+      "prompt": "Variation icon for electric solar inverter install: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-temporary-wiring",
+      "service_name": "Electric Temporary Wiring",
+      "variant_key": "event-temporary-setup",
+      "variant_title": "Event / Temporary Setup",
+      "filename": "electric-temporary-wiring-event-temporary-setup.png",
+      "prompt": "Variation icon for electric temporary wiring: temporary event power cable board silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-light-repair",
+      "service_name": "Electric Light Repair",
+      "variant_key": "bulb-tube-ceiling-light",
+      "variant_title": "Bulb / Tube / Ceiling Light",
+      "filename": "electric-light-repair-bulb-tube-ceiling-light.png",
+      "prompt": "Variation icon for electric light repair: bulb and tube light repair silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-fan-repair",
+      "service_name": "Electric Fan Repair",
+      "variant_key": "not-spinning",
+      "variant_title": "Not Spinning",
+      "filename": "electric-fan-repair-not-spinning.png",
+      "prompt": "Variation icon for electric fan repair: ceiling fan with stop symbol silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-fan-repair",
+      "service_name": "Electric Fan Repair",
+      "variant_key": "slow-speed",
+      "variant_title": "Slow Speed",
+      "filename": "electric-fan-repair-slow-speed.png",
+      "prompt": "Variation icon for electric fan repair: ceiling fan with slow speed arrows silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-fan-repair",
+      "service_name": "Electric Fan Repair",
+      "variant_key": "noisy",
+      "variant_title": "Noisy",
+      "filename": "electric-fan-repair-noisy.png",
+      "prompt": "Variation icon for electric fan repair: ceiling fan with sound waves silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-switch-repair",
+      "service_name": "Electric Switch Repair",
+      "variant_key": "switch-socket",
+      "variant_title": "Switch / Socket",
+      "filename": "electric-switch-repair-switch-socket.png",
+      "prompt": "Variation icon for electric switch repair: switch and socket pair silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-switch-repair",
+      "service_name": "Electric Switch Repair",
+      "variant_key": "switchboard",
+      "variant_title": "Switchboard",
+      "filename": "electric-switch-repair-switchboard.png",
+      "prompt": "Variation icon for electric switch repair: multi-switch switchboard silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-mcb-repair",
+      "service_name": "Electric MCB Repair",
+      "variant_key": "mcb",
+      "variant_title": "MCB",
+      "filename": "electric-mcb-repair-mcb.png",
+      "prompt": "Variation icon for electric mcb repair: MCB circuit breaker switch silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-mcb-repair",
+      "service_name": "Electric MCB Repair",
+      "variant_key": "fuse",
+      "variant_title": "Fuse",
+      "filename": "electric-mcb-repair-fuse.png",
+      "prompt": "Variation icon for electric mcb repair: electrical fuse cartridge silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-wiring-repair",
+      "service_name": "Electric Wiring Repair",
+      "variant_key": "internal-wiring",
+      "variant_title": "Internal Wiring",
+      "filename": "electric-wiring-repair-internal-wiring.png",
+      "prompt": "Variation icon for electric wiring repair: internal house wiring cable silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-wiring-repair",
+      "service_name": "Electric Wiring Repair",
+      "variant_key": "external-wiring",
+      "variant_title": "External Wiring",
+      "filename": "electric-wiring-repair-external-wiring.png",
+      "prompt": "Variation icon for electric wiring repair: external casing wire run silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-wiring-repair",
+      "service_name": "Electric Wiring Repair",
+      "variant_key": "concealed-wiring",
+      "variant_title": "Concealed Wiring",
+      "filename": "electric-wiring-repair-concealed-wiring.png",
+      "prompt": "Variation icon for electric wiring repair: concealed in-wall wiring conduit silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-wiring-repair",
+      "service_name": "Electric Wiring Repair",
+      "variant_key": "underground-wiring",
+      "variant_title": "Underground Wiring",
+      "filename": "electric-wiring-repair-underground-wiring.png",
+      "prompt": "Variation icon for electric wiring repair: underground cable trench silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-wiring-repair",
+      "service_name": "Electric Wiring Repair",
+      "variant_key": "burnt-damaged-wire",
+      "variant_title": "Burnt / Damaged Wire",
+      "filename": "electric-wiring-repair-burnt-damaged-wire.png",
+      "prompt": "Variation icon for electric wiring repair: burnt damaged electrical wire silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-power-repair",
+      "service_name": "Electric Power Repair",
+      "variant_key": "short-circuit",
+      "variant_title": "Short Circuit",
+      "filename": "electric-power-repair-short-circuit.png",
+      "prompt": "Variation icon for electric power repair: short circuit spark warning silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-power-repair",
+      "service_name": "Electric Power Repair",
+      "variant_key": "tripping-voltage-issue",
+      "variant_title": "Tripping / Voltage Issue",
+      "filename": "electric-power-repair-tripping-voltage-issue.png",
+      "prompt": "Variation icon for electric power repair: voltage fluctuation gauge silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-power-repair",
+      "service_name": "Electric Power Repair",
+      "variant_key": "pcb-auto-cut",
+      "variant_title": "PCB / Auto-Cut",
+      "filename": "electric-power-repair-pcb-auto-cut.png",
+      "prompt": "Variation icon for electric power repair: PCB circuit board with auto-cut silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-db-panel-repair",
+      "service_name": "Electric DB Panel Repair",
+      "variant_key": "panel-fault-overheating",
+      "variant_title": "Panel Fault / Overheating",
+      "filename": "electric-db-panel-repair-panel-fault-overheating.png",
+      "prompt": "Variation icon for electric db panel repair: overheating DB panel warning silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-earthing-repair",
+      "service_name": "Electric Earthing Repair",
+      "variant_key": "earthing-fix",
+      "variant_title": "Earthing Fix",
+      "filename": "electric-earthing-repair-earthing-fix.png",
+      "prompt": "Variation icon for electric earthing repair: earthing repair ground symbol with wrench silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-site-check",
+      "service_name": "Electric Site Check",
+      "variant_key": "fault-check",
+      "variant_title": "Fault Check",
+      "filename": "electric-site-check-fault-check.png",
+      "prompt": "Variation icon for electric site check: magnifying glass over lightning bolt fault check silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-site-check",
+      "service_name": "Electric Site Check",
+      "variant_key": "unknown-problem",
+      "variant_title": "Unknown Problem",
+      "filename": "electric-site-check-unknown-problem.png",
+      "prompt": "Variation icon for electric site check: question mark with lightning bolt silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-safety-check",
+      "service_name": "Electric Safety Check",
+      "variant_key": "full-home-safety-check",
+      "variant_title": "Full Home Safety Check",
+      "filename": "electric-safety-check-full-home-safety-check.png",
+      "prompt": "Variation icon for electric safety check: home shield with lightning safety check silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-safety-check",
+      "service_name": "Electric Safety Check",
+      "variant_key": "earthing-check",
+      "variant_title": "Earthing Check",
+      "filename": "electric-safety-check-earthing-check.png",
+      "prompt": "Variation icon for electric safety check: earthing test probe and earth symbol silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-safety-check",
+      "service_name": "Electric Safety Check",
+      "variant_key": "mcb-db-panel-check",
+      "variant_title": "MCB / DB Panel Check",
+      "filename": "electric-safety-check-mcb-db-panel-check.png",
+      "prompt": "Variation icon for electric safety check: DB panel inspection checklist silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-safety-check",
+      "service_name": "Electric Safety Check",
+      "variant_key": "voltage-load-check",
+      "variant_title": "Voltage / Load Check",
+      "filename": "electric-safety-check-voltage-load-check.png",
+      "prompt": "Variation icon for electric safety check: voltage meter load check silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-safety-check",
+      "service_name": "Electric Safety Check",
+      "variant_key": "short-circuit-risk-check",
+      "variant_title": "Short Circuit Risk Check",
+      "filename": "electric-safety-check-short-circuit-risk-check.png",
+      "prompt": "Variation icon for electric safety check: short circuit risk warning shield silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-pre-work-check",
+      "service_name": "Electric Pre-Work Check",
+      "variant_key": "before-renovation-wiring-check",
+      "variant_title": "Before Renovation Wiring Check",
+      "filename": "electric-pre-work-check-before-renovation-wiring-check.png",
+      "prompt": "Variation icon for electric pre-work check: renovation house wiring survey clipboard silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "electric-pre-work-check",
+      "service_name": "Electric Pre-Work Check",
+      "variant_key": "full-house-wiring-survey",
+      "variant_title": "Full House Wiring Survey",
+      "filename": "electric-pre-work-check-full-house-wiring-survey.png",
+      "prompt": "Variation icon for electric pre-work check: full house wiring floor plan survey silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ]
+}

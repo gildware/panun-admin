@@ -1,0 +1,832 @@
+{
+  "categories": [
+    {
+      "slug": "home-appliance",
+      "filename": "home-appliance.png",
+      "prompt": "Category icon: home appliance toolkit with wrench and plug, professional appliance services. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "air-conditioners",
+      "filename": "air-conditioners.png",
+      "prompt": "Category icon: split air conditioner indoor unit silhouette, AC services. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "battery-inverters",
+      "filename": "battery-inverters.png",
+      "prompt": "Category icon: home inverter with battery pack silhouette, power backup services. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "cctv",
+      "filename": "cctv.png",
+      "prompt": "Category icon: security CCTV camera silhouette, surveillance services. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "geysers",
+      "filename": "geysers.png",
+      "prompt": "Category icon: wall mounted water geyser heater silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "led-smart-tv",
+      "filename": "led-smart-tv.png",
+      "prompt": "Category icon: flat smart TV screen silhouette, TV services. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "refrigerators",
+      "filename": "refrigerators.png",
+      "prompt": "Category icon: double door refrigerator silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "washing-machine",
+      "filename": "washing-machine.png",
+      "prompt": "Category icon: front load washing machine silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "ro-purifier",
+      "filename": "ro-purifier.png",
+      "prompt": "Category icon: RO water purifier dispenser silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "induction-heaters",
+      "filename": "induction-heaters.png",
+      "prompt": "Category icon: small kitchen appliances cluster microwave mixer chimney silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ],
+  "variants": [
+    {
+      "service_slug": "ac-installation",
+      "service_name": "AC Installation",
+      "variant_key": "split-ac",
+      "title": "Split AC",
+      "filename": "ac-installation-split-ac.png",
+      "prompt": "Variation icon for ac installation: split AC indoor outdoor unit pair silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "ac-installation",
+      "service_name": "AC Installation",
+      "variant_key": "window-ac",
+      "title": "Window AC",
+      "filename": "ac-installation-window-ac.png",
+      "prompt": "Variation icon for ac installation: window air conditioner unit silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "ac-repair",
+      "service_name": "AC Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "ac-repair-book-site-inspection.png",
+      "prompt": "Variation icon for ac repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "ac-repair",
+      "service_name": "AC Repair",
+      "variant_key": "lessno-cooling",
+      "title": "Less/no cooling",
+      "filename": "ac-repair-lessno-cooling.png",
+      "prompt": "Variation icon for ac repair: AC with weak cold air arrows silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "ac-repair",
+      "service_name": "AC Repair",
+      "variant_key": "power-issue",
+      "title": "Power issue",
+      "filename": "ac-repair-power-issue.png",
+      "prompt": "Variation icon for ac repair: power plug with warning spark silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "ac-repair",
+      "service_name": "AC Repair",
+      "variant_key": "unwanted-noisesmell",
+      "title": "Unwanted noise/smell",
+      "filename": "ac-repair-unwanted-noisesmell.png",
+      "prompt": "Variation icon for ac repair: AC with sound waves and odor lines silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "ac-repair",
+      "service_name": "AC Repair",
+      "variant_key": "water-leakage",
+      "title": "Water leakage",
+      "filename": "ac-repair-water-leakage.png",
+      "prompt": "Variation icon for ac repair: AC with water drip leak silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "ac-servicing",
+      "service_name": "AC Servicing",
+      "variant_key": "general-servicing",
+      "title": "General Servicing",
+      "filename": "ac-servicing-general-servicing.png",
+      "prompt": "Variation icon for ac servicing: AC filter cleaning brush service silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "ac-servicing",
+      "service_name": "AC Servicing",
+      "variant_key": "foam-jet-servicing",
+      "title": "Foam-jet Servicing",
+      "filename": "ac-servicing-foam-jet-servicing.png",
+      "prompt": "Variation icon for ac servicing: AC foam jet deep cleaning spray silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "ac-uninstallation",
+      "service_name": "AC Uninstallation",
+      "variant_key": "split-ac",
+      "title": "Split AC",
+      "filename": "ac-uninstallation-split-ac.png",
+      "prompt": "Variation icon for ac uninstallation: split AC indoor outdoor unit pair silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "ac-uninstallation",
+      "service_name": "AC Uninstallation",
+      "variant_key": "window-ac",
+      "title": "Window AC",
+      "filename": "ac-uninstallation-window-ac.png",
+      "prompt": "Variation icon for ac uninstallation: window air conditioner unit silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "gas-refill-check-up",
+      "service_name": "Gas refill & check-up",
+      "variant_key": "gas-refill-check-up",
+      "title": "Gas Refill & Check-up",
+      "filename": "gas-refill-check-up-gas-refill-check-up.png",
+      "prompt": "Variation icon for gas refill & check-up: AC gas refill manifold gauge silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "inverter-installation",
+      "service_name": "Inverter/battery Installation",
+      "variant_key": "single-battery",
+      "title": "Single Battery",
+      "filename": "inverter-installation-single-battery.png",
+      "prompt": "Variation icon for inverter/battery installation: single inverter battery silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "inverter-installation",
+      "service_name": "Inverter/battery Installation",
+      "variant_key": "double-battery",
+      "title": "Double Battery",
+      "filename": "inverter-installation-double-battery.png",
+      "prompt": "Variation icon for inverter/battery installation: twin inverter batteries silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "inverter-repair",
+      "service_name": "Inverter Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "inverter-repair-book-site-inspection.png",
+      "prompt": "Variation icon for inverter repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "inverter-servicing",
+      "service_name": "Inverter Servicing",
+      "variant_key": "inverter-servicing",
+      "title": "Inverter Servicing",
+      "filename": "inverter-servicing-inverter-servicing.png",
+      "prompt": "Variation icon for inverter servicing: inverter service tools and battery terminal silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "inverter-uninstallation",
+      "service_name": "Inverter Uninstallation",
+      "variant_key": "inverter-uninstallation",
+      "title": "Inverter Uninstallation",
+      "filename": "inverter-uninstallation-inverter-uninstallation.png",
+      "prompt": "Variation icon for inverter uninstallation: inverter removal disconnect silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "cctv-installation",
+      "service_name": "CCTV Installation",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "cctv-installation-book-site-inspection.png",
+      "prompt": "Variation icon for cctv installation: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "cctv-repair",
+      "service_name": "CCTV Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "cctv-repair-book-site-inspection.png",
+      "prompt": "Variation icon for cctv repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "geyser-installation",
+      "service_name": "Geyser Installation",
+      "variant_key": "storage-geyser",
+      "title": "Storage Geyser",
+      "filename": "geyser-installation-storage-geyser.png",
+      "prompt": "Variation icon for geyser installation: storage water geyser tank silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "geyser-installation",
+      "service_name": "Geyser Installation",
+      "variant_key": "instant-geyser",
+      "title": "Instant Geyser",
+      "filename": "geyser-installation-instant-geyser.png",
+      "prompt": "Variation icon for geyser installation: instant water heater geyser silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "geyser-repair",
+      "service_name": "Geyser Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "geyser-repair-book-site-inspection.png",
+      "prompt": "Variation icon for geyser repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "geyser-repair",
+      "service_name": "Geyser Repair",
+      "variant_key": "no-heating",
+      "title": "No heating",
+      "filename": "geyser-repair-no-heating.png",
+      "prompt": "Variation icon for geyser repair: appliance with no heat symbol silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "geyser-repair",
+      "service_name": "Geyser Repair",
+      "variant_key": "leakage",
+      "title": "Leakage",
+      "filename": "geyser-repair-leakage.png",
+      "prompt": "Variation icon for geyser repair: water leak drip from appliance silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "geyser-repair",
+      "service_name": "Geyser Repair",
+      "variant_key": "thermostat-issue",
+      "title": "Thermostat issue",
+      "filename": "geyser-repair-thermostat-issue.png",
+      "prompt": "Variation icon for geyser repair: thermostat dial fault silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "geyser-repair",
+      "service_name": "Geyser Repair",
+      "variant_key": "heating-element-issue",
+      "title": "Heating element issue",
+      "filename": "geyser-repair-heating-element-issue.png",
+      "prompt": "Variation icon for geyser repair: heating element coil silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "geyser-repair",
+      "service_name": "Geyser Repair",
+      "variant_key": "connection-leak",
+      "title": "Connection leak",
+      "filename": "geyser-repair-connection-leak.png",
+      "prompt": "Variation icon for geyser repair: pipe connection leak drip silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "geyser-cleaning",
+      "service_name": "Geyser Cleaning",
+      "variant_key": "geyser-cleaning",
+      "title": "Geyser Cleaning",
+      "filename": "geyser-cleaning-geyser-cleaning.png",
+      "prompt": "Variation icon for geyser cleaning: geyser tank cleaning brush silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "geyser-uninstallation",
+      "service_name": "Geyser Uninstallation",
+      "variant_key": "geyser-uninstallation",
+      "title": "Geyser Uninstallation",
+      "filename": "geyser-uninstallation-geyser-uninstallation.png",
+      "prompt": "Variation icon for geyser uninstallation: geyser removal wall bracket silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "tv-installation",
+      "service_name": "TV Installation",
+      "variant_key": "upto-30-inch",
+      "title": "Up to 30 inch",
+      "filename": "tv-installation-upto-30-inch.png",
+      "prompt": "Variation icon for tv installation: small TV up to 30 inch screen silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "tv-installation",
+      "service_name": "TV Installation",
+      "variant_key": "32-to-43-inch",
+      "title": "32 to 43 inch",
+      "filename": "tv-installation-32-to-43-inch.png",
+      "prompt": "Variation icon for tv installation: medium TV 32 to 43 inch screen silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "tv-installation",
+      "service_name": "TV Installation",
+      "variant_key": "46-to-55-inch",
+      "title": "46 to 55 inch",
+      "filename": "tv-installation-46-to-55-inch.png",
+      "prompt": "Variation icon for tv installation: TV 46 to 55 inch screen silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "tv-installation",
+      "service_name": "TV Installation",
+      "variant_key": "56-to-65-inch",
+      "title": "56 to 65 inch",
+      "filename": "tv-installation-56-to-65-inch.png",
+      "prompt": "Variation icon for tv installation: large TV 56 to 65 inch screen silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "tv-installation",
+      "service_name": "TV Installation",
+      "variant_key": "over-75-inch",
+      "title": "Over 75 inch",
+      "filename": "tv-installation-over-75-inch.png",
+      "prompt": "Variation icon for tv installation: extra large TV over 75 inch screen silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "tv-repair",
+      "service_name": "TV Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "tv-repair-book-site-inspection.png",
+      "prompt": "Variation icon for tv repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "tv-repair",
+      "service_name": "TV Repair",
+      "variant_key": "display-issue",
+      "title": "Display issue",
+      "filename": "tv-repair-display-issue.png",
+      "prompt": "Variation icon for tv repair: display screen with broken lines silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "tv-repair",
+      "service_name": "TV Repair",
+      "variant_key": "power-issue",
+      "title": "Power issue",
+      "filename": "tv-repair-power-issue.png",
+      "prompt": "Variation icon for tv repair: power plug with warning spark silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "tv-repair",
+      "service_name": "TV Repair",
+      "variant_key": "sound-issue",
+      "title": "Sound issue",
+      "filename": "tv-repair-sound-issue.png",
+      "prompt": "Variation icon for tv repair: speaker with muted sound waves silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "tv-uninstallation",
+      "service_name": "TV Uninstallation",
+      "variant_key": "upto-46-inch",
+      "title": "Up to 46 inch",
+      "filename": "tv-uninstallation-upto-46-inch.png",
+      "prompt": "Variation icon for tv uninstallation: TV up to 46 inch uninstall silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "tv-uninstallation",
+      "service_name": "TV Uninstallation",
+      "variant_key": "46-to-55-inch",
+      "title": "46 to 55 inch",
+      "filename": "tv-uninstallation-46-to-55-inch.png",
+      "prompt": "Variation icon for tv uninstallation: TV 46 to 55 inch screen silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "tv-uninstallation",
+      "service_name": "TV Uninstallation",
+      "variant_key": "over-65-inch",
+      "title": "Over 65 inch",
+      "filename": "tv-uninstallation-over-65-inch.png",
+      "prompt": "Variation icon for tv uninstallation: large TV over 65 inch silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "refrigerator-installation",
+      "service_name": "Refrigerator Installation",
+      "variant_key": "single-door",
+      "title": "Single Door",
+      "filename": "refrigerator-installation-single-door.png",
+      "prompt": "Variation icon for refrigerator installation: single door refrigerator silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "refrigerator-installation",
+      "service_name": "Refrigerator Installation",
+      "variant_key": "double-door",
+      "title": "Double Door",
+      "filename": "refrigerator-installation-double-door.png",
+      "prompt": "Variation icon for refrigerator installation: double door refrigerator silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "refrigerator-installation",
+      "service_name": "Refrigerator Installation",
+      "variant_key": "side-by-side",
+      "title": "Side by Side",
+      "filename": "refrigerator-installation-side-by-side.png",
+      "prompt": "Variation icon for refrigerator installation: side by side refrigerator silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "refrigerator-installation",
+      "service_name": "Refrigerator Installation",
+      "variant_key": "french-door",
+      "title": "French Door",
+      "filename": "refrigerator-installation-french-door.png",
+      "prompt": "Variation icon for refrigerator installation: french door refrigerator silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "refrigerator-repair",
+      "service_name": "Refrigerator Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "refrigerator-repair-book-site-inspection.png",
+      "prompt": "Variation icon for refrigerator repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "refrigerator-repair",
+      "service_name": "Refrigerator Repair",
+      "variant_key": "cooling-issue",
+      "title": "Cooling issue",
+      "filename": "refrigerator-repair-cooling-issue.png",
+      "prompt": "Variation icon for refrigerator repair: fridge with weak cooling snowflake silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "refrigerator-repair",
+      "service_name": "Refrigerator Repair",
+      "variant_key": "leak",
+      "title": "Leak",
+      "filename": "refrigerator-repair-leak.png",
+      "prompt": "Variation icon for refrigerator repair: fridge water leak drip silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "refrigerator-repair",
+      "service_name": "Refrigerator Repair",
+      "variant_key": "noise",
+      "title": "Noise",
+      "filename": "refrigerator-repair-noise.png",
+      "prompt": "Variation icon for refrigerator repair: appliance with noise sound waves silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "refrigerator-repair",
+      "service_name": "Refrigerator Repair",
+      "variant_key": "thermostat-issue",
+      "title": "Thermostat issue",
+      "filename": "refrigerator-repair-thermostat-issue.png",
+      "prompt": "Variation icon for refrigerator repair: thermostat dial fault silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "refrigerator-repair",
+      "service_name": "Refrigerator Repair",
+      "variant_key": "power-issue",
+      "title": "Power issue",
+      "filename": "refrigerator-repair-power-issue.png",
+      "prompt": "Variation icon for refrigerator repair: power plug with warning spark silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "gas-refill-leak-fix",
+      "service_name": "Fridge gas refill & leak fix",
+      "variant_key": "gas-refill-leak-fix",
+      "title": "Fridge Gas Refill & Leak Fix",
+      "filename": "gas-refill-leak-fix-gas-refill-leak-fix.png",
+      "prompt": "Variation icon for fridge gas refill & leak fix: refrigerator with refrigerant manifold gauges and snowflake silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "washing-machine-installation",
+      "service_name": "Washing Machine Installation",
+      "variant_key": "front-load",
+      "title": "Front Load",
+      "filename": "washing-machine-installation-front-load.png",
+      "prompt": "Variation icon for washing machine installation: front load washing machine silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "washing-machine-installation",
+      "service_name": "Washing Machine Installation",
+      "variant_key": "top-load",
+      "title": "Top Load",
+      "filename": "washing-machine-installation-top-load.png",
+      "prompt": "Variation icon for washing machine installation: top load washing machine silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "washing-machine-installation",
+      "service_name": "Washing Machine Installation",
+      "variant_key": "semi-automatic",
+      "title": "Semi-automatic",
+      "filename": "washing-machine-installation-semi-automatic.png",
+      "prompt": "Variation icon for washing machine installation: semi automatic twin tub washer silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "washing-machine-repair",
+      "service_name": "Washing Machine Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "washing-machine-repair-book-site-inspection.png",
+      "prompt": "Variation icon for washing machine repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "washing-machine-repair",
+      "service_name": "Washing Machine Repair",
+      "variant_key": "drain-issue",
+      "title": "Drain issue",
+      "filename": "washing-machine-repair-drain-issue.png",
+      "prompt": "Variation icon for washing machine repair: washing machine drain hose blockage silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "washing-machine-repair",
+      "service_name": "Washing Machine Repair",
+      "variant_key": "not-spinning-washing",
+      "title": "Not spinning/washing",
+      "filename": "washing-machine-repair-not-spinning-washing.png",
+      "prompt": "Variation icon for washing machine repair: washer drum not spinning silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "washing-machine-repair",
+      "service_name": "Washing Machine Repair",
+      "variant_key": "noise",
+      "title": "Noise",
+      "filename": "washing-machine-repair-noise.png",
+      "prompt": "Variation icon for washing machine repair: appliance with noise sound waves silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "washing-machine-repair",
+      "service_name": "Washing Machine Repair",
+      "variant_key": "water-leakage",
+      "title": "Water leakage",
+      "filename": "washing-machine-repair-water-leakage.png",
+      "prompt": "Variation icon for washing machine repair: AC with water drip leak silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "washing-machine-repair",
+      "service_name": "Washing Machine Repair",
+      "variant_key": "power-issue",
+      "title": "Power issue",
+      "filename": "washing-machine-repair-power-issue.png",
+      "prompt": "Variation icon for washing machine repair: power plug with warning spark silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "washing-machine-repair",
+      "service_name": "Washing Machine Repair",
+      "variant_key": "display-error",
+      "title": "Display error",
+      "filename": "washing-machine-repair-display-error.png",
+      "prompt": "Variation icon for washing machine repair: appliance display error code silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "washing-machine-servicing",
+      "service_name": "Washing Machine Servicing",
+      "variant_key": "front-load",
+      "title": "Front Load",
+      "filename": "washing-machine-servicing-front-load.png",
+      "prompt": "Variation icon for washing machine servicing: front load washing machine silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "washing-machine-servicing",
+      "service_name": "Washing Machine Servicing",
+      "variant_key": "top-load",
+      "title": "Top Load",
+      "filename": "washing-machine-servicing-top-load.png",
+      "prompt": "Variation icon for washing machine servicing: top load washing machine silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "washing-machine-servicing",
+      "service_name": "Washing Machine Servicing",
+      "variant_key": "descaling",
+      "title": "Descaling",
+      "filename": "washing-machine-servicing-descaling.png",
+      "prompt": "Variation icon for washing machine servicing: washing machine descaling powder bottle silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "washing-machine-servicing",
+      "service_name": "Washing Machine Servicing",
+      "variant_key": "machine-cover",
+      "title": "Machine Cover",
+      "filename": "washing-machine-servicing-machine-cover.png",
+      "prompt": "Variation icon for washing machine servicing: washing machine protective cover silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "washing-machine-uninstallation",
+      "service_name": "Washing Machine Uninstallation",
+      "variant_key": "front-load",
+      "title": "Front Load",
+      "filename": "washing-machine-uninstallation-front-load.png",
+      "prompt": "Variation icon for washing machine uninstallation: front load washing machine silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "washing-machine-uninstallation",
+      "service_name": "Washing Machine Uninstallation",
+      "variant_key": "top-load",
+      "title": "Top Load",
+      "filename": "washing-machine-uninstallation-top-load.png",
+      "prompt": "Variation icon for washing machine uninstallation: top load washing machine silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "washing-machine-uninstallation",
+      "service_name": "Washing Machine Uninstallation",
+      "variant_key": "semi-automatic",
+      "title": "Semi-automatic",
+      "filename": "washing-machine-uninstallation-semi-automatic.png",
+      "prompt": "Variation icon for washing machine uninstallation: semi automatic twin tub washer silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "ro-installation",
+      "service_name": "RO Installation",
+      "variant_key": "ro-installation",
+      "title": "RO Installation",
+      "filename": "ro-installation-ro-installation.png",
+      "prompt": "Variation icon for ro installation: RO water purifier install silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "ro-service",
+      "service_name": "RO Service / Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "ro-service-book-site-inspection.png",
+      "prompt": "Variation icon for ro service / repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "ro-service",
+      "service_name": "RO Service / Repair",
+      "variant_key": "filter-replacement",
+      "title": "Filter replacement",
+      "filename": "ro-service-filter-replacement.png",
+      "prompt": "Variation icon for ro service / repair: RO filter cartridge replacement silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "ro-service",
+      "service_name": "RO Service / Repair",
+      "variant_key": "low-water-output",
+      "title": "Low water output",
+      "filename": "ro-service-low-water-output.png",
+      "prompt": "Variation icon for ro service / repair: RO with low water flow drops silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "ro-service",
+      "service_name": "RO Service / Repair",
+      "variant_key": "leakage",
+      "title": "Leakage",
+      "filename": "ro-service-leakage.png",
+      "prompt": "Variation icon for ro service / repair: water leak drip from appliance silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "ro-service",
+      "service_name": "RO Service / Repair",
+      "variant_key": "no-power",
+      "title": "No power",
+      "filename": "ro-service-no-power.png",
+      "prompt": "Variation icon for ro service / repair: appliance power off symbol silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "fan-repair",
+      "service_name": "Fan Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "fan-repair-book-site-inspection.png",
+      "prompt": "Variation icon for fan repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "fan-repair",
+      "service_name": "Fan Repair",
+      "variant_key": "ceiling-fan",
+      "title": "Ceiling fan",
+      "filename": "fan-repair-ceiling-fan.png",
+      "prompt": "Variation icon for fan repair: ceiling fan blades silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "fan-repair",
+      "service_name": "Fan Repair",
+      "variant_key": "pedestal-table-fan",
+      "title": "Pedestal/Table fan",
+      "filename": "fan-repair-pedestal-table-fan.png",
+      "prompt": "Variation icon for fan repair: pedestal table fan silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "microwave-repair",
+      "service_name": "Microwave Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "microwave-repair-book-site-inspection.png",
+      "prompt": "Variation icon for microwave repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "microwave-repair",
+      "service_name": "Microwave Repair",
+      "variant_key": "no-heating",
+      "title": "No heating",
+      "filename": "microwave-repair-no-heating.png",
+      "prompt": "Variation icon for microwave repair: appliance with no heat symbol silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "microwave-repair",
+      "service_name": "Microwave Repair",
+      "variant_key": "display-issue",
+      "title": "Display issue",
+      "filename": "microwave-repair-display-issue.png",
+      "prompt": "Variation icon for microwave repair: display screen with broken lines silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "microwave-repair",
+      "service_name": "Microwave Repair",
+      "variant_key": "turntable-issue",
+      "title": "Turntable issue",
+      "filename": "microwave-repair-turntable-issue.png",
+      "prompt": "Variation icon for microwave repair: microwave turntable plate silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "induction-heater-repair",
+      "service_name": "Induction Heater Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "induction-heater-repair-book-site-inspection.png",
+      "prompt": "Variation icon for induction heater repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "oven-otg-repair",
+      "service_name": "Oven / OTG Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "oven-otg-repair-book-site-inspection.png",
+      "prompt": "Variation icon for oven / otg repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "vacuum-cleaner-repair",
+      "service_name": "Vacuum Cleaner Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "vacuum-cleaner-repair-book-site-inspection.png",
+      "prompt": "Variation icon for vacuum cleaner repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "mixer-grinder-repair",
+      "service_name": "Mixer Grinder Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "mixer-grinder-repair-book-site-inspection.png",
+      "prompt": "Variation icon for mixer grinder repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "chimney-repair",
+      "service_name": "Chimney Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "chimney-repair-book-site-inspection.png",
+      "prompt": "Variation icon for chimney repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "chimney-repair",
+      "service_name": "Chimney Repair",
+      "variant_key": "no-suction",
+      "title": "No suction",
+      "filename": "chimney-repair-no-suction.png",
+      "prompt": "Variation icon for chimney repair: chimney with weak suction arrows silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "chimney-repair",
+      "service_name": "Chimney Repair",
+      "variant_key": "noise",
+      "title": "Noise",
+      "filename": "chimney-repair-noise.png",
+      "prompt": "Variation icon for chimney repair: appliance with noise sound waves silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "chimney-repair",
+      "service_name": "Chimney Repair",
+      "variant_key": "light-issue",
+      "title": "Light issue",
+      "filename": "chimney-repair-light-issue.png",
+      "prompt": "Variation icon for chimney repair: chimney light bulb fault silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "chimney-installation",
+      "service_name": "Chimney Installation",
+      "variant_key": "chimney-installation",
+      "title": "Chimney Installation",
+      "filename": "chimney-installation-chimney-installation.png",
+      "prompt": "Variation icon for chimney installation: kitchen chimney install silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "hob-repair",
+      "service_name": "Hob Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "hob-repair-book-site-inspection.png",
+      "prompt": "Variation icon for hob repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "hob-installation",
+      "service_name": "Hob Installation",
+      "variant_key": "hob-installation",
+      "title": "Hob Installation",
+      "filename": "hob-installation-hob-installation.png",
+      "prompt": "Variation icon for hob installation: kitchen gas hob install silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "air-cooler-repair",
+      "service_name": "Air Cooler Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "air-cooler-repair-book-site-inspection.png",
+      "prompt": "Variation icon for air cooler repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "room-heater-repair",
+      "service_name": "Room Heater Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "room-heater-repair-book-site-inspection.png",
+      "prompt": "Variation icon for room heater repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "dishwasher-repair",
+      "service_name": "Dishwasher Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "dishwasher-repair-book-site-inspection.png",
+      "prompt": "Variation icon for dishwasher repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "dishwasher-installation",
+      "service_name": "Dishwasher Installation",
+      "variant_key": "dishwasher-installation",
+      "title": "Dishwasher Installation",
+      "filename": "dishwasher-installation-dishwasher-installation.png",
+      "prompt": "Variation icon for dishwasher installation: dishwasher install silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ]
+}

@@ -25,8 +25,30 @@
                      alt="{{ translate('image') }}">
                 <span class="d-none d-sm-inline">Panun Kaergar Admin</span>
             </a>
+            <button type="button"
+                    id="top-chrome-mode-toggle"
+                    class="top-chrome-mode-toggle"
+                    aria-pressed="true"
+                    data-label-pin="{{ translate('Pin_header') }}"
+                    data-label-unpin="{{ translate('Unpin_header') }}"
+                    data-text-pin="{{ translate('Pin') }}"
+                    data-text-unpin="{{ translate('Unpin') }}"
+                    title="{{ translate('Unpin_header') }}"
+                    aria-label="{{ translate('Unpin_header') }}">
+                <span class="material-icons top-chrome-mode-icon" aria-hidden="true">push_pin</span>
+                <span class="top-chrome-mode-label d-none d-md-inline">{{ translate('Unpin') }}</span>
+            </button>
         </div>
         <div class="top-utility-end">
+            <a href="{{ route('admin.process-guides.index') }}"
+               class="top-utility-action-btn"
+               @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif
+               title="{{ translate('Process_Guides') }}"
+               aria-label="{{ translate('Process_Guides') }}">
+                <span class="material-symbols-outlined">menu_book</span>
+                <span class="d-none d-lg-inline">{{ translate('Process_Guides') }}</span>
+            </a>
+
             <a href="{{ route('admin.task-board.index') }}"
                class="top-utility-action-btn"
                @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif
@@ -121,28 +143,15 @@
                 </a>
             @endcan
 
-            <div class="dropdown top-utility-item">
-                <button type="button"
-                        class="top-utility-icon-btn notification-icon"
-                        data-bs-toggle="dropdown"
-                        data-bs-offset="0,6"
-                        data-bs-popper-config='{"strategy":"fixed"}'
-                        title="{{ translate('Notifications') }}"
-                        aria-label="{{ translate('Notifications') }}">
-                    <span class="material-symbols-outlined">notifications</span>
-                    <span class="count" id="notification_count" style="display:{{ ($notificationUnreadCount ?? 0) > 0 ? 'flex' : 'none' }};">{{ ($notificationUnreadCount ?? 0) > 0 ? (($notificationUnreadCount > 99) ? '99+' : $notificationUnreadCount) : '' }}</span>
-                </button>
-                <div class="dropdown-menu dropdown-menu-end p-0" style="min-width:22rem;max-width:26rem;">
-                    <div class="show-notification-list" id="show-notification-list" style="max-height:24rem;overflow-y:auto;"></div>
-                    <div class="border-top py-2 px-3 text-center bg-white">
-                        <a href="{{ route('admin.notifications.index') }}"
-                           class="btn btn-sm btn-link text-decoration-none fw-semibold js-view-all-notifications"
-                           @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
-                            {{ translate('view_all') }}
-                        </a>
-                    </div>
-                </div>
-            </div>
+            @include('adminmodule::layouts.partials._notification-dropdown', [
+                'category' => \Modules\AdminModule\Entities\UserNotification::CATEGORY_EXTERNAL,
+                'isTopChrome' => true,
+            ])
+
+            @include('adminmodule::layouts.partials._notification-dropdown', [
+                'category' => \Modules\AdminModule\Entities\UserNotification::CATEGORY_INTERNAL,
+                'isTopChrome' => true,
+            ])
 
             <div class="dropdown top-utility-user-wrap">
                 <button type="button"

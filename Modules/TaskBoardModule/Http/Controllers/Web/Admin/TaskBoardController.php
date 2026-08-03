@@ -21,16 +21,10 @@ class TaskBoardController extends Controller
 
     public function index(Request $request): View
     {
-        // First visit (no query string): show only tickets created by or assigned to the logged-in user.
-        // After a form submit, respect the checkbox (unchecked = show all).
-        $myTickets = $request->query() === []
-            ? true
-            : $request->boolean('my_tickets');
-
         $filters = [
             'search' => $request->input('search'),
             'assignee_ids' => array_filter((array) $request->input('assignee_ids', [])),
-            'my_tickets' => $myTickets,
+            'my_tickets' => $request->boolean('my_tickets'),
             'overdue' => $request->boolean('overdue'),
             'end_date_from' => $request->input('end_date_from'),
             'end_date_to' => $request->input('end_date_to'),

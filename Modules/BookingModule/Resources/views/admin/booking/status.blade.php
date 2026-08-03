@@ -2,6 +2,10 @@
 
 @section('title', translate('Booking_Status'))
 
+@push('css_or_js')
+    @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')
+@endpush
+
 @section('content')
     <div class="main-content">
         <div class="container-fluid">
@@ -16,24 +20,7 @@
                             <h3 class="c1 mb-0">{{ translate('Booking') }} # {{ $booking['readable_id'] }}</h3>
                         </div>
                         <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
-                            @php
-                                $__st = strtolower((string) ($booking->booking_status ?? ''));
-                                $__badgeClass = match ($__st) {
-                                    'ongoing' => 'warning',
-                                    'on_hold' => 'secondary',
-                                    'completed' => 'success',
-                                    'canceled', 'cancelled' => 'danger',
-                                    default => 'info',
-                                };
-                                $__hasDisputedSnapshot = !empty($booking->reopen_disputed_snapshot) && is_array($booking->reopen_disputed_snapshot);
-                                $__disputedSnap = $__hasDisputedSnapshot ? (array) $booking->reopen_disputed_snapshot : null;
-                                $__dsRetained = $__hasDisputedSnapshot ? round((float) ($__disputedSnap['retained_from_customer'] ?? $__disputedSnap['final_net_to_customer'] ?? 0), 2) : 0.0;
-                                $__dsZeroRetained = $__hasDisputedSnapshot && $__dsRetained <= 0.009;
-                                if ($__hasDisputedSnapshot) {
-                                    $__badgeClass = $__dsZeroRetained ? 'danger' : 'warning-dark';
-                                }
-                            @endphp
-                            <span class="badge badge-{{ $__badgeClass }}">{{ booking_admin_booking_status_display_label($booking) }}</span>
+                            @include('bookingmodule::admin.booking.partials._booking-list-status-badge', ['booking' => $booking])
                         </div>
                         <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
                             @include('bookingmodule::admin.booking.partials._booking-admin-status-tags', ['booking' => $booking, 'bookingStatusTagsVariant' => 'header', 'bookingListTagStacked' => true])

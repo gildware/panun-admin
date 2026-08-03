@@ -35,6 +35,8 @@ class AdminModuleServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 \Modules\AdminModule\Console\BackfillStaffActivityReplyAssignCommand::class,
+                \Modules\AdminModule\Console\SyncProcessGuideMiroBoardCommand::class,
+                \Modules\AdminModule\Console\LayoutProcessGuideBoardCommand::class,
             ]);
         }
     }

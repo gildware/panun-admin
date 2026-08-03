@@ -2,6 +2,10 @@
 
 @section('title',translate('Booking_List'))
 
+@push('css')
+    @include('bookingmodule::admin.booking.partials._booking-followup-styles')
+@endpush
+
 @section('content')
     <div class="filter-aside">
         <div class="filter-aside__header d-flex justify-content-between align-items-center">
@@ -235,8 +239,20 @@
                                                 $nextFuCustomer = $scheduled->where('for', 'customer')->first();
                                                 $nextFuProvider = $scheduled->where('for', 'provider')->first();
                                             @endphp
-                                            <td>{{ $nextFuCustomer && $nextFuCustomer->date ? \Carbon\Carbon::parse($nextFuCustomer->date)->format('d-M-Y') : '—' }}</td>
-                                            <td>{{ $nextFuProvider && $nextFuProvider->date ? \Carbon\Carbon::parse($nextFuProvider->date)->format('d-M-Y') : '—' }}</td>
+                                            <td>
+                                                @include('bookingmodule::admin.booking.partials._booking-followup-list-cell', [
+                                                    'booking' => $booking,
+                                                    'party' => 'customer',
+                                                    'followup' => $nextFuCustomer,
+                                                ])
+                                            </td>
+                                            <td>
+                                                @include('bookingmodule::admin.booking.partials._booking-followup-list-cell', [
+                                                    'booking' => $booking,
+                                                    'party' => 'provider',
+                                                    'followup' => $nextFuProvider,
+                                                ])
+                                            </td>
                                             <td>
                                                 @switch(strtolower((string)($booking->booking_source ?? 'app')))
                                                     @case('app'){{ translate('App') }}@break

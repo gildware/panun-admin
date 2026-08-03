@@ -297,5 +297,5 @@ return [
     'playground_type_message' => 'Your message',
     'playground_send' => 'Send',
     'playground_loading' => 'Loading…',
-    'playground_gemini_fallback_notice' => 'Gemini did not return a real reply (invalid, expired, or missing GEMINI_API_KEY — check storage/logs/laravel.log). The generic fallback text below is not from the model. Fix the key in .env, run php artisan config:clear, restart the server, then try again.',
+    'playground_gemini_fallback_notice' => 'Gemini did not return a usable reply (invalid, expired, or missing GEMINI_API_KEY — check storage/logs/laravel.log). No customer message was sent. Fix the key in .env, run php artisan config:clear, restart the server, then try again.',
 ];

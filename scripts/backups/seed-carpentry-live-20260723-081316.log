@@ -1,0 +1,54 @@
+Asset validation passed for 19 services.
+Category ready: Carpentry Services (carpentary)
+Category ready: Carpentry Installation (carpentry-installation)
+Category ready: Carpentry Making (carpentry-making)
+Category ready: Carpentry Repairs (carpentry-repairs)
+Category ready: Roofing Works (roofing-works)
+UPDATED service: Door Installation
+  variants: 2 x 20 zones
+UPDATED service: Window Installation
+  variants: 2 x 20 zones
+CREATED service: Bed Installation
+  variants: 6 x 20 zones
+CREATED service: Table Installation
+  variants: 3 x 20 zones
+CREATED service: Bed Making
+  variants: 1 x 20 zones
+CREATED service: Wardrobe Making
+  variants: 1 x 20 zones
+CREATED service: Almirah Making
+  variants: 1 x 20 zones
+CREATED service: Table Making
+  variants: 1 x 20 zones
+CREATED service: Shop Shelves Making
+  variants: 1 x 20 zones
+CREATED service: Kitchen Cabinet Making
+  variants: 1 x 20 zones
+CREATED service: Custom Carpentry Work
+  variants: 1 x 20 zones
+UPDATED service: Door Repair
+  variants: 1 x 20 zones
+UPDATED service: Furniture Repair
+  variants: 1 x 20 zones
+UPDATED service: Kitchen Cabinet Repair
+  variants: 1 x 20 zones
+UPDATED service: Wardrobe Repair
+  variants: 1 x 20 zones
+UPDATED service: Window Repair
+  variants: 1 x 20 zones
+CREATED service: Other Carpentry Repair
+  variants: 1 x 20 zones
+UPDATED service: Roof Installation
+  variants: 1 x 20 zones
+UPDATED service: Roof Repair
+  variants: 1 x 20 zones
+Deactivated old service: wardrobe-installation
+Deactivated old service: wooden-panel-installation
+Deactivated old service: furniture-installation
+Deactivated old service: kitchen-cabinet-installation
+Deactivated old service: wooden-panel-repair
+Deactivated old service: book-a-carpenter
+Deactivated old service: test-service
+
+Carpentry catalog seeded: 1 category, 4 sub-categories, 19 services.
+Deactivated obsolete services: 7 (plus any already inactive).

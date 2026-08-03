@@ -94,6 +94,7 @@
             el.classList.remove('is-open');
             resetDropdownPosition(el.querySelector('.top-nav-dropdown'));
         });
+        syncChromeExpandedState();
     }
 
     function onDocumentScroll(event) {
@@ -123,11 +124,124 @@
         });
     }
 
+    var CHROME_MODE_KEY = 'admin_top_chrome_mode';
+
+    function isChromeAutoHideEnabled() {
+        return document.body.classList.contains('top-chrome-auto-hide');
+    }
+
+    function applyChromeMode(mode) {
+        var isAutoHide = mode !== 'fixed';
+        document.body.classList.toggle('top-chrome-auto-hide', isAutoHide);
+
+        try {
+            localStorage.setItem(CHROME_MODE_KEY, isAutoHide ? 'auto-hide' : 'fixed');
+        } catch (error) {}
+
+        var toggle = document.getElementById('top-chrome-mode-toggle');
+        if (toggle) {
+            toggle.setAttribute('aria-pressed', isAutoHide ? 'false' : 'true');
+            var nextAction = isAutoHide
+                ? (toggle.getAttribute('data-label-pin') || 'Pin header')
+                : (toggle.getAttribute('data-label-unpin') || 'Unpin header');
+            toggle.title = nextAction;
+            toggle.setAttribute('aria-label', nextAction);
+
+            var pinOption = toggle.querySelector('.top-chrome-mode-option--pin');
+            var unpinOption = toggle.querySelector('.top-chrome-mode-option--unpin');
+            if (pinOption && unpinOption) {
+                pinOption.hidden = !isAutoHide;
+                unpinOption.hidden = isAutoHide;
+                pinOption.style.setProperty('display', isAutoHide ? 'inline-flex' : 'none', 'important');
+                unpinOption.style.setProperty('display', isAutoHide ? 'none' : 'inline-flex', 'important');
+            } else {
+                var label = toggle.querySelector('.top-chrome-mode-label');
+                if (label) {
+                    label.textContent = isAutoHide
+                        ? (toggle.getAttribute('data-text-pin') || 'Pin')
+                        : (toggle.getAttribute('data-text-unpin') || 'Unpin');
+                }
+
+                var icon = toggle.querySelector('.top-chrome-mode-icon')
+                    || toggle.querySelector('.material-icons');
+                if (icon) {
+                    icon.style.transform = isAutoHide ? '' : 'rotate(45deg)';
+                    icon.style.opacity = isAutoHide ? '' : '0.85';
+                }
+            }
+        }
+
+        if (!isAutoHide) {
+            document.body.classList.remove('top-chrome-expanded');
+        } else {
+            syncChromeExpandedState();
+        }
+    }
+
+    function bindChromeModeToggle() {
+        var toggle = document.getElementById('top-chrome-mode-toggle');
+        if (!toggle || toggle.dataset.modeBound === '1') {
+            return;
+        }
+
+        toggle.dataset.modeBound = '1';
+        applyChromeMode(isChromeAutoHideEnabled() ? 'auto-hide' : 'fixed');
+
+        toggle.addEventListener('click', function () {
+            applyChromeMode(isChromeAutoHideEnabled() ? 'fixed' : 'auto-hide');
+        });
+    }
+
+    function syncChromeExpandedState() {
+        if (!document.body.classList.contains('nav-top') || !isChromeAutoHideEnabled()) {
+            document.body.classList.remove('top-chrome-expanded');
+            return;
+        }
+
+        var chrome = getChrome();
+        if (!chrome) {
+            return;
+        }
+
+        var keepOpen = document.body.classList.contains('admin-pins-editing')
+            || chrome.querySelector('.dropdown.show, .dropdown-menu.show')
+            || chrome.querySelector('.top-nav-item.is-open, .top-utility-item.is-open');
+
+        document.body.classList.toggle('top-chrome-expanded', !!keepOpen);
+    }
+
+    function bindChromeAutoHide() {
+        if (!document.body.classList.contains('nav-top')) {
+            return;
+        }
+
+        var chrome = getChrome();
+        if (!chrome || chrome.dataset.autoHideBound === '1') {
+            return;
+        }
+
+        chrome.dataset.autoHideBound = '1';
+
+        chrome.addEventListener('show.bs.dropdown', syncChromeExpandedState);
+        chrome.addEventListener('hidden.bs.dropdown', syncChromeExpandedState);
+
+        if (typeof MutationObserver === 'function') {
+            var observer = new MutationObserver(syncChromeExpandedState);
+            observer.observe(chrome, {
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['class']
+            });
+        }
+    }
+
     function bindTopNav() {
         if (bound || !document.body.classList.contains('nav-top')) {
             return;
         }
         bound = true;
+        bindChromeAutoHide();
+        bindChromeModeToggle();
 
         document.addEventListener('click', function (e) {
             if (!document.body.classList.contains('nav-top')) {
@@ -156,6 +270,7 @@
                         item.classList.add('is-open');
                         positionDropdown(item);
                     }
+                    syncChromeExpandedState();
                     return;
                 }
             }
@@ -192,5 +307,8 @@
         disposeChromeBootstrapDropdowns();
         cleanupStaleAdminOverlays();
         bindNavImageFallbacks(document.querySelector('.top-chrome'));
+        bindChromeAutoHide();
+        bindChromeModeToggle();
+        syncChromeExpandedState();
     });
 })();

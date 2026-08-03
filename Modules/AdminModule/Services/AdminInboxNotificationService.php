@@ -18,7 +18,10 @@ class AdminInboxNotificationService
         ?string $actionUrl = null,
         ?string $referenceType = null,
         ?string $referenceId = null,
+        ?string $category = null,
     ): void {
+        $category = $category ?? UserNotification::categoryForType($type);
+
         $adminIds = User::query()
             ->whereIn('user_type', ADMIN_USER_TYPES)
             ->where('is_active', 1)
@@ -33,6 +36,7 @@ class AdminInboxNotificationService
                 $actionUrl,
                 $referenceType,
                 $referenceId,
+                $category,
             );
         }
     }
@@ -45,7 +49,10 @@ class AdminInboxNotificationService
         ?string $actionUrl = null,
         ?string $referenceType = null,
         ?string $referenceId = null,
+        ?string $category = null,
     ): ?UserNotification {
+        $category = $category ?? UserNotification::categoryForType($type);
+
         if ($referenceType !== null && $referenceId !== null) {
             $exists = UserNotification::query()
                 ->where('user_id', $userId)
@@ -63,6 +70,7 @@ class AdminInboxNotificationService
         $notification = UserNotification::create([
             'user_id' => $userId,
             'type' => $type,
+            'category' => $category,
             'title' => $title,
             'body' => $body,
             'action_url' => $actionUrl,
@@ -75,32 +83,46 @@ class AdminInboxNotificationService
         return $notification;
     }
 
-    public function unreadCount(string $userId): int
+    public function unreadCount(string $userId, ?string $category = null): int
     {
-        return UserNotification::query()
+        $query = UserNotification::query()
             ->where('user_id', $userId)
-            ->whereNull('read_at')
-            ->count();
+            ->whereNull('read_at');
+
+        if ($category !== null) {
+            $query->where('category', $category);
+        }
+
+        return $query->count();
     }
 
-    public function readCount(string $userId): int
+    public function readCount(string $userId, ?string $category = null): int
     {
-        return UserNotification::query()
+        $query = UserNotification::query()
             ->where('user_id', $userId)
-            ->whereNotNull('read_at')
-            ->count();
+            ->whereNotNull('read_at');
+
+        if ($category !== null) {
+            $query->where('category', $category);
+        }
+
+        return $query->count();
     }
 
-    public function recent(string $userId, int $limit = 50): Collection
+    public function recent(string $userId, int $limit = 50, ?string $category = null): Collection
     {
-        return UserNotification::query()
+        $query = UserNotification::query()
             ->where('user_id', $userId)
-            ->latest()
-            ->take($limit)
-            ->get();
+            ->latest();
+
+        if ($category !== null) {
+            $query->where('category', $category);
+        }
+
+        return $query->take($limit)->get();
     }
 
-    public function paginated(string $userId, ?string $filter = null, int $perPage = 20): LengthAwarePaginator
+    public function paginated(string $userId, ?string $filter = null, ?string $category = null, int $perPage = 20): LengthAwarePaginator
     {
         $query = UserNotification::query()
             ->where('user_id', $userId)
@@ -110,6 +132,10 @@ class AdminInboxNotificationService
             $query->whereNull('read_at');
         } elseif ($filter === 'read') {
             $query->whereNotNull('read_at');
+        }
+
+        if ($category !== null) {
+            $query->where('category', $category);
         }
 
         return $query->paginate($perPage)->withQueryString();
@@ -123,12 +149,16 @@ class AdminInboxNotificationService
             ->first();
     }
 
-    public function unreadSince(string $userId, ?string $sinceId = null): Collection
+    public function unreadSince(string $userId, ?string $sinceId = null, ?string $category = null): Collection
     {
         $query = UserNotification::query()
             ->where('user_id', $userId)
             ->whereNull('read_at')
             ->latest();
+
+        if ($category !== null) {
+            $query->where('category', $category);
+        }
 
         if ($sinceId) {
             $since = UserNotification::query()->find($sinceId);
@@ -155,12 +185,17 @@ class AdminInboxNotificationService
         return (bool) $updated;
     }
 
-    public function markAllAsRead(string $userId): int
+    public function markAllAsRead(string $userId, ?string $category = null): int
     {
-        $updated = UserNotification::query()
+        $query = UserNotification::query()
             ->where('user_id', $userId)
-            ->whereNull('read_at')
-            ->update(['read_at' => now()]);
+            ->whereNull('read_at');
+
+        if ($category !== null) {
+            $query->where('category', $category);
+        }
+
+        $updated = $query->update(['read_at' => now()]);
 
         if ($updated) {
             $this->clearUserCache($userId);

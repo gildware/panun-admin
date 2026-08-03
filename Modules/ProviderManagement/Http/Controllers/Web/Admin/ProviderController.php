@@ -65,6 +65,7 @@ use Modules\TransactionModule\Entities\Account;
 use Modules\TransactionModule\Entities\LedgerTransaction;
 use Modules\TransactionModule\Entities\Transaction;
 use Modules\ProviderManagement\Services\ProviderBookingSettlementNetResolver;
+use Modules\ProviderManagement\Services\ProviderContactUniquenessGuard;
 use Modules\ProviderManagement\Services\ProviderPerformanceService;
 use Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService;
 use Modules\WhatsAppModule\Services\LedgerPaymentWhatsAppService;
@@ -157,55 +158,118 @@ class ProviderController extends Controller
         $this->authorize('provider_view');
 
         Validator::make($request->all(), [
-            'search' => 'string',
-            'status' => 'required|in:active,inactive,all',
+            'search' => 'nullable|string',
+            'status' => 'nullable|in:active,inactive,all',
             'performance_filter' => 'nullable|in:all,warning,blacklisted',
+            'category_id' => 'nullable|string',
+            'zone_id' => 'nullable|uuid',
+            'sort' => 'nullable|in:latest,oldest,name_asc,name_desc,rating_desc,bookings_desc',
         ]);
 
-        $search = $request->has('search') ? $request['search'] : '';
-        $status = $request->has('status') ? $request['status'] : 'all';
-        $performanceFilter = $request->has('performance_filter') ? $request['performance_filter'] : 'all';
-        $queryParam = ['search' => $search, 'status' => $status, 'performance_filter' => $performanceFilter];
+        $search = $request->input('search', '');
+        $status = $request->input('status', 'all') ?: 'all';
+        $performanceFilter = $request->input('performance_filter', 'all') ?: 'all';
+        $categoryId = $request->input('category_id', '') ?: '';
+        $zoneId = $request->input('zone_id', '') ?: '';
+        $sort = $request->input('sort', 'latest') ?: 'latest';
+        $queryParam = [
+            'search' => $search,
+            'status' => $status,
+            'performance_filter' => $performanceFilter,
+            'category_id' => $categoryId,
+            'zone_id' => $zoneId,
+            'sort' => $sort,
+        ];
 
         // Full list features restored. Speed fix is list avatars skipping Storage::exists()
         // (see Provider::getListAvatarFullPathAttribute) plus bookings.provider_id indexes.
-        $providers = $this->provider
-            ->with(['owner', 'storage'])
-            ->where(['is_approved' => 1])
-            ->withCount(['subscribed_services'])
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                return $query->where(function ($query) use ($keys) {
-                    foreach ($keys as $key) {
-                        $query->orWhere('company_phone', 'LIKE', '%' . $key . '%')
-                            ->orWhere('company_email', 'LIKE', '%' . $key . '%')
-                            ->orWhere('company_name', 'LIKE', '%' . $key . '%');
+        $applyListFilters = function ($query) use ($search, $categoryId, $zoneId, $performanceFilter) {
+            return $query
+                ->when($search !== '' && $search !== null, function ($query) use ($search) {
+                    $keys = explode(' ', $search);
+                    return $query->where(function ($query) use ($keys) {
+                        foreach ($keys as $key) {
+                            $query->orWhere('company_phone', 'LIKE', '%' . $key . '%')
+                                ->orWhere('company_email', 'LIKE', '%' . $key . '%')
+                                ->orWhere('company_name', 'LIKE', '%' . $key . '%');
+                        }
+                    });
+                })
+                ->when($categoryId !== '' && $categoryId !== null, function ($query) use ($categoryId) {
+                    if ($categoryId === 'none') {
+                        $query->whereDoesntHave('subscribed_services');
+                    } elseif (Str::isUuid($categoryId)) {
+                        $query->whereHas('subscribed_services', function ($q) use ($categoryId) {
+                            $q->where('category_id', $categoryId)->where('is_subscribed', 1);
+                        });
+                    }
+                })
+                ->when($zoneId !== '' && $zoneId !== null, function ($query) use ($zoneId) {
+                    $query->where(function ($q) use ($zoneId) {
+                        $q->whereHas('zones', function ($zq) use ($zoneId) {
+                            $zq->where('zones.id', $zoneId);
+                        })->orWhere('zone_id', $zoneId);
+                    });
+                })
+                ->when($performanceFilter !== 'all', function ($query) use ($performanceFilter) {
+                    if ($performanceFilter === 'warning') {
+                        $query->where('performance_status', 'warning');
+                    } elseif ($performanceFilter === 'blacklisted') {
+                        $query->where('performance_status', 'blacklisted');
                     }
                 });
-            })
+        };
+
+        $providers = $this->provider
+            ->with([
+                'owner',
+                'storage',
+                'subscribed_services.category',
+            ])
+            ->withCount('bookings')
+            ->where(['is_approved' => 1])
             ->ofApproval(1)
-            ->when($request->has('status') && $request['status'] != 'all', function ($query) use ($request) {
-                return $query->ofStatus(($request['status'] == 'active') ? 1 : 0);
-            })->latest()
-            ->when($performanceFilter !== 'all', function ($query) use ($performanceFilter) {
-                if ($performanceFilter === 'warning') {
-                    $query->where('performance_status', 'warning');
-                } elseif ($performanceFilter === 'blacklisted') {
-                    $query->where('performance_status', 'blacklisted');
-                }
+            ->tap($applyListFilters)
+            ->when($status != 'all', function ($query) use ($status) {
+                return $query->ofStatus(($status == 'active') ? 1 : 0);
             })
+            ->when($sort === 'oldest', fn ($q) => $q->oldest())
+            ->when($sort === 'name_asc', fn ($q) => $q->orderBy('company_name'))
+            ->when($sort === 'name_desc', fn ($q) => $q->orderByDesc('company_name'))
+            ->when($sort === 'rating_desc', fn ($q) => $q->orderByDesc('avg_rating'))
+            ->when($sort === 'bookings_desc', fn ($q) => $q->orderByDesc('bookings_count'))
+            ->when($sort === 'latest' || ! in_array($sort, ['oldest', 'name_asc', 'name_desc', 'rating_desc', 'bookings_desc'], true), fn ($q) => $q->latest())
             ->paginate(pagination_limit())->appends($queryParam);
 
-        $approvalCounts = $this->provider
-            ->selectRaw("SUM(CASE WHEN is_approved = 1 THEN 1 ELSE 0 END) as total_providers, SUM(CASE WHEN is_approved = 2 THEN 1 ELSE 0 END) as total_onboarding_requests, SUM(CASE WHEN is_approved = 1 AND is_active = 1 THEN 1 ELSE 0 END) as total_active_providers, SUM(CASE WHEN is_approved = 1 AND is_active = 0 THEN 1 ELSE 0 END) as total_inactive_providers")
-            ->first();
-
+        // Widget counts follow the same filters as the list.
         $topCards = [
-            'total_providers' => (int) ($approvalCounts->total_providers ?? 0),
-            'total_onboarding_requests' => (int) ($approvalCounts->total_onboarding_requests ?? 0),
-            'total_active_providers' => (int) ($approvalCounts->total_active_providers ?? 0),
-            'total_inactive_providers' => (int) ($approvalCounts->total_inactive_providers ?? 0),
+            'total_providers' => $this->provider->newQuery()
+                ->tap($applyListFilters)
+                ->where('is_approved', 1)
+                ->when($status != 'all', fn ($q) => $q->ofStatus(($status == 'active') ? 1 : 0))
+                ->count(),
+            'total_onboarding_requests' => $this->provider->newQuery()
+                ->tap($applyListFilters)
+                ->where('is_approved', 2)
+                ->count(),
+            'total_active_providers' => $status === 'inactive'
+                ? 0
+                : $this->provider->newQuery()
+                    ->tap($applyListFilters)
+                    ->where('is_approved', 1)
+                    ->where('is_active', 1)
+                    ->count(),
+            'total_inactive_providers' => $status === 'active'
+                ? 0
+                : $this->provider->newQuery()
+                    ->tap($applyListFilters)
+                    ->where('is_approved', 1)
+                    ->where('is_active', 0)
+                    ->count(),
         ];
+
+        $categories = $this->category->ofType('main')->ofStatus(1)->ordered()->get(['id', 'name']);
+        $zones = $this->zone->ofStatus(1)->orderBy('name')->get(['id', 'name']);
 
         $performanceService = app(ProviderPerformanceService::class);
         $metrics = $performanceService->getAggregatedProviderPerformanceMetrics(
@@ -217,21 +281,24 @@ class ProviderController extends Controller
 
             $row = $metrics->get($provider->id);
 
-            $jobsCompleted = (int) ($row?->bookings_completed_count ?? $row?->jobs_completed_count ?? 0);
-            $jobsCancelled = (int) ($row?->bookings_cancelled_count ?? 0);
-            $complaintsCount = (int) ($row?->complaints_count ?? 0);
-            $noShowCount = (int) ($row?->no_show_count ?? 0);
-            $totalRelevant = max(1, ($jobsCompleted + $jobsCancelled));
-
-            $provider->bookings_count = (int) ($row?->bookings_count ?? 0);
+            $provider->bookings_count = (int) ($row?->bookings_count ?? $provider->bookings_count ?? 0);
             $provider->performance_score = (int) ($row?->performance_score ?? 0);
-            $provider->complaints_percent = round(($complaintsCount / $totalRelevant) * 100, 2);
-            $provider->no_show_percent = round(($noShowCount / $totalRelevant) * 100, 2);
 
             return $provider;
         });
 
-        return view('providermanagement::admin.provider.index', compact('providers', 'topCards', 'search', 'status', 'performanceFilter'));
+        return view('providermanagement::admin.provider.index', compact(
+            'providers',
+            'topCards',
+            'search',
+            'status',
+            'performanceFilter',
+            'categoryId',
+            'zoneId',
+            'sort',
+            'categories',
+            'zones'
+        ));
     }
 
     /**
@@ -520,6 +587,11 @@ class ProviderController extends Controller
             $request->merge(['contact_person_email' => null]);
         }
 
+        if ($request->input('provider_type') === 'individual') {
+            $request->request->remove('company_phone');
+            $request->request->remove('company_phone_country_code');
+        }
+
         $formKey = 'create';
         $this->attachProviderFormDraftToRequest($request, $formKey);
 
@@ -551,11 +623,11 @@ class ProviderController extends Controller
             'account_email' => 'nullable|email',
             'account_phone' => 'nullable|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
 
-            'company_name' => 'required_if:provider_type,company|string|max:191',
-            'company_phone' => 'required_if:provider_type,company|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
+            'company_name' => 'exclude_if:provider_type,individual|required_if:provider_type,company|string|max:191',
+            'company_phone' => 'exclude_if:provider_type,individual|required_if:provider_type,company|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
             'company_address' => 'required',
-            'company_email' => 'required_if:provider_type,company|email',
-            'logo' => 'required_if:provider_type,company|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+            'company_email' => 'exclude_if:provider_type,individual|required_if:provider_type,company|email',
+            'logo' => 'exclude_if:provider_type,individual|required_if:provider_type,company|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
 
             'contact_person_photo' => 'required|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
 
@@ -568,11 +640,11 @@ class ProviderController extends Controller
             'identity_pdf_files.*' => 'file|mimes:pdf|max:' . uploadMaxFileSizeInKB('file'),
 
             // Company identity docs & identity (Box 3)
-            'company_identity_type' => 'required_if:provider_type,company|in:trade_license,company_id',
-            'company_identity_number' => 'required_if:provider_type,company|string|max:191',
-            'company_identity_images' => 'array',
+            'company_identity_type' => 'exclude_if:provider_type,individual|required_if:provider_type,company|in:trade_license,company_id',
+            'company_identity_number' => 'exclude_if:provider_type,individual|required_if:provider_type,company|string|max:191',
+            'company_identity_images' => 'exclude_if:provider_type,individual|array',
             'company_identity_images.*' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
-            'company_identity_pdf_files' => 'nullable|array',
+            'company_identity_pdf_files' => 'exclude_if:provider_type,individual|nullable|array',
             'company_identity_pdf_files.*' => 'file|mimes:pdf|max:' . uploadMaxFileSizeInKB('file'),
 
             'additional_documents' => 'nullable|array',
@@ -613,7 +685,7 @@ class ProviderController extends Controller
         }
 
         // Enforce at least one contact identity image (PDF upload removed from UI).
-        $hasContactImages = $request->has('identity_images') && is_array($request->identity_images) && count($request->identity_images) > 0;
+        $hasContactImages = count(array_filter((array) $request->file('identity_images', []))) > 0;
         if (!$hasContactImages) {
             Toastr::error(translate('Please upload at least one contact identity image'));
 
@@ -622,7 +694,7 @@ class ProviderController extends Controller
 
         // Enforce at least one company identity image when provider is company.
         if ($request->provider_type === 'company') {
-            $hasCompanyImages = $request->has('company_identity_images') && is_array($request->company_identity_images) && count($request->company_identity_images) > 0;
+            $hasCompanyImages = count(array_filter((array) $request->file('company_identity_images', []))) > 0;
             if (!$hasCompanyImages) {
                 Toastr::error(translate('Please upload at least one company identity image'));
 
@@ -762,49 +834,55 @@ class ProviderController extends Controller
         $owner->password = bcrypt(provider_default_password_plain($request->contact_person_phone));
         $owner->user_type = 'provider-admin';
 
-        DB::transaction(function () use ($provider, $owner, $request, $leafZoneIds) {
-            $owner->save();
-            $owner->zones()->sync($leafZoneIds);
-            $provider->user_id = $owner->id;
-            $provider->save();
-            $provider->zones()->sync(
-                collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
-            );
+        app(ProviderContactUniquenessGuard::class)->run(
+            (string) $request->contact_person_phone,
+            (string) $request->contact_person_email,
+            function () use ($provider, $owner, $request, $leafZoneIds) {
+                DB::transaction(function () use ($provider, $owner, $request, $leafZoneIds) {
+                    $owner->save();
+                    $owner->zones()->sync($leafZoneIds);
+                    $provider->user_id = $owner->id;
+                    $provider->save();
+                    $provider->zones()->sync(
+                        collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
+                    );
 
-            $serviceLocation = ['customer'];
-            ProviderSetting::create([
-                'provider_id'   => $provider->id,
-                'key_name'      => 'service_location',
-                'live_values'   => json_encode($serviceLocation),
-                'test_values'   => json_encode($serviceLocation),
-                'settings_type' => 'provider_config',
-                'mode'          => 'live',
-                'is_active'     => 1,
-            ]);
+                    $serviceLocation = ['customer'];
+                    ProviderSetting::create([
+                        'provider_id'   => $provider->id,
+                        'key_name'      => 'service_location',
+                        'live_values'   => json_encode($serviceLocation),
+                        'test_values'   => json_encode($serviceLocation),
+                        'settings_type' => 'provider_config',
+                        'mode'          => 'live',
+                        'is_active'     => 1,
+                    ]);
 
-            $allSubs = $this->subCategoriesForZonesQuery($leafZoneIds)->get();
-            $allowedIds = $allSubs->pluck('id')->all();
-            $rawIds = $request->input('subscribed_sub_category_ids', []);
-            if (! is_array($rawIds)) {
-                $rawIds = [];
-            }
-            $requested = [];
-            foreach ($rawIds as $rid) {
-                if (is_string($rid) && Str::isUuid($rid) && in_array($rid, $allowedIds, true)) {
-                    $requested[] = $rid;
-                }
-            }
-            $requested = array_values(array_unique($requested));
+                    $allSubs = $this->subCategoriesForZonesQuery($leafZoneIds)->get();
+                    $allowedIds = $allSubs->pluck('id')->all();
+                    $rawIds = $request->input('subscribed_sub_category_ids', []);
+                    if (! is_array($rawIds)) {
+                        $rawIds = [];
+                    }
+                    $requested = [];
+                    foreach ($rawIds as $rid) {
+                        if (is_string($rid) && Str::isUuid($rid) && in_array($rid, $allowedIds, true)) {
+                            $requested[] = $rid;
+                        }
+                    }
+                    $requested = array_values(array_unique($requested));
 
-            foreach ($allSubs as $subCategory) {
-                $this->subscribedService->create([
-                    'provider_id' => $provider->id,
-                    'category_id' => $subCategory->parent_id,
-                    'sub_category_id' => $subCategory->id,
-                    'is_subscribed' => in_array($subCategory->id, $requested, true) ? 1 : 0,
-                ]);
+                    foreach ($allSubs as $subCategory) {
+                        $this->subscribedService->create([
+                            'provider_id' => $provider->id,
+                            'category_id' => $subCategory->parent_id,
+                            'sub_category_id' => $subCategory->id,
+                            'is_subscribed' => in_array($subCategory->id, $requested, true) ? 1 : 0,
+                        ]);
+                    }
+                });
             }
-        });
+        );
 
         // Upload additional documents (optional).
         $additionalDocuments = $request->input('additional_documents', []);
@@ -2310,10 +2388,10 @@ class ProviderController extends Controller
                 Rule::unique('users', 'email')->ignore($provider->user_id),
             ],
 
-            'company_name' => 'required_if:provider_type,company|string|max:191',
-            'company_phone' => 'required_if:provider_type,company|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
+            'company_name' => 'exclude_if:provider_type,individual|required_if:provider_type,company|string|max:191',
+            'company_phone' => 'exclude_if:provider_type,individual|required_if:provider_type,company|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
             'company_address' => 'required',
-            'company_email' => 'required_if:provider_type,company|email',
+            'company_email' => 'exclude_if:provider_type,individual|required_if:provider_type,company|email',
             'logo' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
             'contact_person_photo' => 'nullable|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
 
@@ -2327,11 +2405,11 @@ class ProviderController extends Controller
             'identity_pdf_files.*' => 'file|mimes:pdf|max:' . uploadMaxFileSizeInKB('file'),
 
             // Company identity docs & identity (Box 3)
-            'company_identity_type' => 'required_if:provider_type,company|in:trade_license,company_id',
-            'company_identity_number' => 'required_if:provider_type,company|string|max:191',
-            'company_identity_images' => 'array',
+            'company_identity_type' => 'exclude_if:provider_type,individual|required_if:provider_type,company|in:trade_license,company_id',
+            'company_identity_number' => 'exclude_if:provider_type,individual|required_if:provider_type,company|string|max:191',
+            'company_identity_images' => 'exclude_if:provider_type,individual|array',
             'company_identity_images.*' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
-            'company_identity_pdf_files' => 'nullable|array',
+            'company_identity_pdf_files' => 'exclude_if:provider_type,individual|nullable|array',
             'company_identity_pdf_files.*' => 'file|mimes:pdf|max:' . uploadMaxFileSizeInKB('file'),
 
             'additional_documents' => 'nullable|array',
