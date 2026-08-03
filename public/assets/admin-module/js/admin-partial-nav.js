@@ -251,6 +251,154 @@
         return { doc: doc, frame: null };
     }
 
+    function clearPartialStyles() {
+        document.querySelectorAll('head [data-admin-partial-style]').forEach(function (el) {
+            el.remove();
+        });
+    }
+
+    function resolveStylesheetHref(href) {
+        try {
+            return new URL(href, window.location.href).href;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function findHeadStylesheet(href) {
+        var absoluteHref = resolveStylesheetHref(href);
+        if (!absoluteHref) {
+            return null;
+        }
+
+        var links = document.querySelectorAll('head link[rel="stylesheet"]');
+        for (var i = 0; i < links.length; i++) {
+            if (resolveStylesheetHref(links[i].getAttribute('href') || links[i].href) === absoluteHref) {
+                return links[i];
+            }
+        }
+
+        return null;
+    }
+
+    function stylesheetIsReady(link) {
+        if (!link) {
+            return false;
+        }
+
+        try {
+            return !!link.sheet;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function loadStylesheetIntoHead(href) {
+        return new Promise(function (resolve) {
+            var absoluteHref = resolveStylesheetHref(href);
+            if (!absoluteHref) {
+                resolve();
+                return;
+            }
+
+            var existing = findHeadStylesheet(absoluteHref);
+            if (existing) {
+                if (stylesheetIsReady(existing)) {
+                    resolve();
+                    return;
+                }
+
+                existing.addEventListener('load', function () {
+                    resolve();
+                }, { once: true });
+                existing.addEventListener('error', function () {
+                    resolve();
+                }, { once: true });
+                return;
+            }
+
+            var link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = absoluteHref;
+            link.setAttribute('data-admin-partial-style', '1');
+            link.addEventListener('load', function () {
+                resolve();
+            }, { once: true });
+            link.addEventListener('error', function () {
+                resolve();
+            }, { once: true });
+            document.head.appendChild(link);
+        });
+    }
+
+    function applyPartialStyles(frameEl) {
+        clearPartialStyles();
+
+        var hrefs = [];
+        frameEl.querySelectorAll('link[rel="stylesheet"][href]').forEach(function (link) {
+            var href = link.getAttribute('href');
+            if (href && hrefs.indexOf(href) === -1) {
+                hrefs.push(href);
+            }
+        });
+
+        var styleTexts = [];
+        frameEl.querySelectorAll('style').forEach(function (style) {
+            var css = style.textContent || '';
+            if (css.trim() !== '') {
+                styleTexts.push(css);
+            }
+        });
+
+        styleTexts.forEach(function (css) {
+            var style = document.createElement('style');
+            style.setAttribute('data-admin-partial-style', '1');
+            style.textContent = css;
+            document.head.appendChild(style);
+        });
+
+        return Promise.all(hrefs.map(loadStylesheetIntoHead));
+    }
+
+    function frameContentWithoutAssets(frameEl) {
+        var clone = frameEl.cloneNode(true);
+        clone.querySelectorAll('link[rel="stylesheet"], style').forEach(function (el) {
+            el.remove();
+        });
+        return clone.innerHTML;
+    }
+
+    function setFrameLoading(frame, loading) {
+        if (!frame) {
+            return;
+        }
+
+        frame.classList.toggle('admin-main-frame--loading', !!loading);
+        frame.setAttribute('aria-busy', loading ? 'true' : 'false');
+    }
+
+    async function prepareFrameContent(frameEl) {
+        await applyPartialStyles(frameEl);
+        return frameContentWithoutAssets(frameEl);
+    }
+
+    async function hoistInitialFrameStyles(frame) {
+        if (!frame) {
+            return;
+        }
+
+        if (!frame.querySelector('link[rel="stylesheet"], style')) {
+            return;
+        }
+
+        setFrameLoading(frame, true);
+        try {
+            frame.innerHTML = await prepareFrameContent(frame);
+        } finally {
+            setFrameLoading(frame, false);
+        }
+    }
+
     function isPartialNavLink(link) {
         if (!link || !link.getAttribute('href') || link.getAttribute('href') === '#') {
             return false;
@@ -315,7 +463,10 @@
             syncChromeFromHtml(html);
             runFlashToastsFromHtml(html);
 
-            frame.innerHTML = parsed.frame.innerHTML;
+            setFrameLoading(frame, true);
+            var frameHtml = await prepareFrameContent(parsed.frame);
+            frame.innerHTML = frameHtml;
+            setFrameLoading(frame, false);
             activateScripts(frame);
 
             if (options.advance !== false) {
@@ -389,7 +540,15 @@
     });
 
     markFullPageLinks();
-    initPageWidgets(document.getElementById(FRAME_ID));
+
+    var initialFrame = document.getElementById(FRAME_ID);
+    if (initialFrame) {
+        hoistInitialFrameStyles(initialFrame).finally(function () {
+            initPageWidgets(initialFrame);
+        });
+    } else {
+        initPageWidgets(initialFrame);
+    }
 
     try {
         sessionStorage.setItem('admin_shell_ready', '1');

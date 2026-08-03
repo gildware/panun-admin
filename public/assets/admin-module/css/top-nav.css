@@ -1275,6 +1275,11 @@ body.nav-top .admin-main-frame {
     width: 100%;
 }
 
+body.nav-top turbo-frame.admin-main-frame.admin-main-frame--loading,
+body.nav-top .admin-main-frame.admin-main-frame--loading {
+    visibility: hidden;
+}
+
 body.nav-top .main-area {
     block-size: auto !important;
     min-block-size: 100vh;
