@@ -217,6 +217,17 @@
 
 {!! Toastr::message() !!}
 
+@if ($errors->any())
+<script data-admin-flash-toasts="1">
+    @foreach($errors->all() as $error)
+    toastr.error(@json($error), @json(translate('error')), {
+        CloseButton: true,
+        ProgressBar: true
+    });
+    @endforeach
+</script>
+@endif
+
 <audio id="audio-element">
     <source src="{{asset('assets/provider-module')}}/sound/notification.mp3" type="audio/mpeg">
 </audio>
@@ -235,15 +246,6 @@
             });
         }
     });
-
-    @if ($errors->any())
-        @foreach($errors->all() as $error)
-        toastr.error(@json($error), @json(translate('error')), {
-            CloseButton: true,
-            ProgressBar: true
-        });
-        @endforeach
-   @endif
 
     function checkDemoResetTime() {
         let currentMinute = new Date().getMinutes();
