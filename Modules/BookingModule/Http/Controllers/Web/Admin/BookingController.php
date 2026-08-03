@@ -374,8 +374,9 @@ class BookingController extends Controller
             ->get();
 
         $bookingTabCounts = $this->adminBookingListStatusTabCounts();
+        $followupListMeta = app(BookingFollowupService::class)->buildBookingFollowupListMeta($bookings->getCollection());
 
-        return view('bookingmodule::admin.booking.list', compact('bookings', 'zones', 'categories', 'subCategories', 'assigneeUsers', 'queryParams', 'filterCounter', 'bookingTabCounts'));
+        return view('bookingmodule::admin.booking.list', compact('bookings', 'zones', 'categories', 'subCategories', 'assigneeUsers', 'queryParams', 'filterCounter', 'bookingTabCounts', 'followupListMeta'));
     }
 
     /**
@@ -2257,7 +2258,9 @@ class BookingController extends Controller
         $categories = $this->category->select('id', 'parent_id', 'name')->where('position', 1)->get();
         $subCategories = $this->category->select('id', 'parent_id', 'name')->where('position', 2)->get();
 
-        return view('bookingmodule::admin.booking.verification-list', compact('bookings', 'zones', 'categories', 'subCategories', 'queryParams', 'filterCounter', 'type'));
+        $followupListMeta = app(BookingFollowupService::class)->buildBookingFollowupListMeta($bookings->getCollection());
+
+        return view('bookingmodule::admin.booking.verification-list', compact('bookings', 'zones', 'categories', 'subCategories', 'queryParams', 'filterCounter', 'type', 'followupListMeta'));
     }
 
     /**
@@ -2367,7 +2370,9 @@ class BookingController extends Controller
         $categories = $this->category->select('id', 'parent_id', 'name')->where('position', 1)->get();
         $subCategories = $this->category->select('id', 'parent_id', 'name')->where('position', 2)->get();
 
-        return view('bookingmodule::admin.booking.offline-payment-list', compact('bookings', 'zones', 'categories', 'subCategories', 'queryParams', 'filterCounter'));
+        $followupListMeta = app(BookingFollowupService::class)->buildBookingFollowupListMeta($bookings->getCollection());
+
+        return view('bookingmodule::admin.booking.offline-payment-list', compact('bookings', 'zones', 'categories', 'subCategories', 'queryParams', 'filterCounter', 'followupListMeta'));
     }
 
     /**
@@ -2672,9 +2677,15 @@ class BookingController extends Controller
                 ->select('id', 'first_name', 'last_name', 'email', 'phone', 'user_type')
                 ->get();
 
-            $scheduledNext = ($booking->followups ?? collect())->where('status', 'scheduled')->sortBy('date');
-            $nextFollowupCustomer = $scheduledNext->where('for', 'customer')->first();
-            $nextFollowupProvider = $scheduledNext->where('for', 'provider')->first();
+            $followupService = app(BookingFollowupService::class);
+            $nextScheduled = $followupService->nextScheduledFollowups($booking);
+            $nextFollowupCustomer = $nextScheduled['customer'];
+            $nextFollowupProvider = $nextScheduled['provider'];
+            $followupDetailMeta = $followupService->buildBookingFollowupDetailMeta(
+                $booking,
+                $nextFollowupCustomer,
+                $nextFollowupProvider
+            );
             $customerName = booking_display_customer_name($booking, $customerAddress);
             $customerPhone = booking_display_customer_phone($booking, $customerAddress);
 
@@ -2718,7 +2729,7 @@ class BookingController extends Controller
                 $workflowContext = app(\Modules\AdminModule\Services\WorkflowNextStepService::class)->forBooking($booking);
 
                 return view('bookingmodule::admin.booking.details', array_merge(
-                    compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'bookingEditCategories', 'providers', 'sort_by', 'assignees', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone', 'remainingDueForAddPayment', 'maxRefundAmount', 'additionalChargesDisplayRows', 'financialSettlementOutcomes', 'defaultVisitFeeCompanyPercent', 'bfsDefaultCustomAdminCommission', 'advancePaymentMethodGroups', 'allowDeleteAdminBookingPartialPayments', 'workflowContext'),
+                    compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'bookingEditCategories', 'providers', 'sort_by', 'assignees', 'nextFollowupCustomer', 'nextFollowupProvider', 'followupDetailMeta', 'customerName', 'customerPhone', 'remainingDueForAddPayment', 'maxRefundAmount', 'additionalChargesDisplayRows', 'financialSettlementOutcomes', 'defaultVisitFeeCompanyPercent', 'bfsDefaultCustomAdminCommission', 'advancePaymentMethodGroups', 'allowDeleteAdminBookingPartialPayments', 'workflowContext'),
                     $this->bookingConfigurationReasonVariables()
                 ));
             } catch (Throwable $e) {
@@ -2760,9 +2771,15 @@ class BookingController extends Controller
 
                 return $b->date <=> $a->date;
             })->values());
-            $scheduledNext = ($booking->followups ?? collect())->where('status', 'scheduled')->sortBy('date');
-            $nextFollowupCustomer = $scheduledNext->where('for', 'customer')->first();
-            $nextFollowupProvider = $scheduledNext->where('for', 'provider')->first();
+            $followupService = app(BookingFollowupService::class);
+            $nextScheduled = $followupService->nextScheduledFollowups($booking);
+            $nextFollowupCustomer = $nextScheduled['customer'];
+            $nextFollowupProvider = $nextScheduled['provider'];
+            $followupDetailMeta = $followupService->buildBookingFollowupDetailMeta(
+                $booking,
+                $nextFollowupCustomer,
+                $nextFollowupProvider
+            );
             $customerName = $booking->customer ? trim(($booking->customer->first_name ?? '') . ' ' . ($booking->customer->last_name ?? '')) : ($booking->service_address->contact_person_name ?? '');
             $customerPhone = $booking->customer ? ($booking->customer->phone ?? '') : ($booking->service_address->contact_person_number ?? '');
             $requiresMandatoryNextFollowup = $booking->requiresMandatoryNextFollowup();
@@ -2772,6 +2789,7 @@ class BookingController extends Controller
                 'webPage',
                 'nextFollowupCustomer',
                 'nextFollowupProvider',
+                'followupDetailMeta',
                 'customerName',
                 'customerPhone',
                 'requiresMandatoryNextFollowup'

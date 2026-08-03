@@ -4,6 +4,7 @@
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/plugins/swiper/swiper-bundle.min.css') }}">
+    @include('bookingmodule::admin.booking.partials._booking-followup-styles')
     <style>
         .booking-details-overview-row {
             align-items: stretch;
@@ -502,6 +503,11 @@
                         </div>
                         <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
                             <span class="badge badge-{{ $__headerMainBadgeClass }}">{{ $__bookingStatusDisplayLabel }}</span>
+                            @if(!empty($followupDetailMeta['has_any_pending']))
+                                <span class="badge {{ !empty($followupDetailMeta['has_any_overdue']) ? 'bg-danger' : 'bg-warning text-dark' }}">
+                                    {{ !empty($followupDetailMeta['has_any_overdue']) ? translate('Missed_Follow_up') : translate('Pending_Follow_up') }}
+                                </span>
+                            @endif
                         </div>
                         <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
                             @include('bookingmodule::admin.booking.partials._booking-admin-status-tags', ['booking' => $booking, 'bookingStatusTagsVariant' => 'header', 'bookingListTagStacked' => true])
@@ -856,6 +862,8 @@
                     </div>
                 </div>
             </div>
+
+            @include('bookingmodule::admin.booking.partials._booking-followup-alerts', ['booking' => $booking, 'followupDetailMeta' => $followupDetailMeta ?? null])
 
             @if($__headerHasDisputedSnapshot)
                 <div class="alert alert-secondary mb-3" role="alert">
@@ -1316,7 +1324,7 @@
 
             <div class="row mb-3 g-3 align-items-stretch">
                 <div class="col-xl-4 col-md-6 d-flex">
-                    <div class="card h-100 w-100">
+                    <div class="card h-100 w-100 {{ !empty($followupDetailMeta['provider']['has_pending']) ? 'booking-followup-card--alert booking-followup-card--' . (!empty($followupDetailMeta['provider']['is_overdue']) ? 'missed' : 'pending') : '' }}">
                         <div class="card-body py-3 px-3 d-flex flex-column">
                             <div class="d-flex align-items-center justify-content-between gap-2 border-bottom pb-2 mb-2 flex-shrink-0 flex-wrap">
                                 <h6 class="c1 mb-0 d-flex align-items-center gap-1 fz-12 text-uppercase">
@@ -1325,6 +1333,11 @@
                                 </h6>
                                 <span class="fz-12 fw-semibold text-uppercase c1 flex-shrink-0">{{ translate('Provider') }}</span>
                             </div>
+                            @if(!empty($followupDetailMeta['provider']['has_pending']))
+                                <div class="small fw-semibold mb-2 {{ !empty($followupDetailMeta['provider']['is_overdue']) ? 'text-danger' : 'text-warning' }}">
+                                    {{ !empty($followupDetailMeta['provider']['is_overdue']) ? translate('Missed_Follow_up') : translate('Follow_up_due') }}
+                                </div>
+                            @endif
                             <div class="booking-overview-kv-rows flex-grow-1 fz-12">
                                 @if($booking->provider)
                                     <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
@@ -1341,14 +1354,10 @@
                                 <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
                                     <span class="title-color flex-shrink-0">{{ translate('Date_&_Time') }}:</span>
                                     <span class="text-break text-end fw-semibold">
-                                        @if($nextFollowupProvider ?? null)
-                                            {{ $nextFollowupProvider->date->format('d-M-Y h:ia') }}
-                                            @if($nextFollowupProvider->reason)
-                                                <span class="text-muted fw-normal"> ({{ Str::limit($nextFollowupProvider->reason, 60) }})</span>
-                                            @endif
-                                        @else
-                                            <span class="text-muted fw-normal">—</span>
-                                        @endif
+                                        @include('bookingmodule::admin.booking.partials._booking-followup-date-value', [
+                                            'followup' => $nextFollowupProvider ?? null,
+                                            'partyMeta' => $followupDetailMeta['provider'] ?? null,
+                                        ])
                                     </span>
                                 </div>
                             </div>
@@ -1356,7 +1365,7 @@
                     </div>
                 </div>
                 <div class="col-xl-4 col-md-6 d-flex">
-                    <div class="card h-100 w-100">
+                    <div class="card h-100 w-100 {{ !empty($followupDetailMeta['customer']['has_pending']) ? 'booking-followup-card--alert booking-followup-card--' . (!empty($followupDetailMeta['customer']['is_overdue']) ? 'missed' : 'pending') : '' }}">
                         <div class="card-body py-3 px-3 d-flex flex-column">
                             <div class="d-flex align-items-center justify-content-between gap-2 border-bottom pb-2 mb-2 flex-shrink-0 flex-wrap">
                                 <h6 class="c1 mb-0 d-flex align-items-center gap-1 fz-12 text-uppercase">
@@ -1365,6 +1374,11 @@
                                 </h6>
                                 <span class="fz-12 fw-semibold text-uppercase c1 flex-shrink-0">{{ translate('Customer') }}</span>
                             </div>
+                            @if(!empty($followupDetailMeta['customer']['has_pending']))
+                                <div class="small fw-semibold mb-2 {{ !empty($followupDetailMeta['customer']['is_overdue']) ? 'text-danger' : 'text-warning' }}">
+                                    {{ !empty($followupDetailMeta['customer']['is_overdue']) ? translate('Missed_Follow_up') : translate('Follow_up_due') }}
+                                </div>
+                            @endif
                             <div class="booking-overview-kv-rows flex-grow-1 fz-12">
                                 @if(($customerName ?? '') || ($customerPhone ?? ''))
                                     <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
@@ -1385,14 +1399,10 @@
                                 <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
                                     <span class="title-color flex-shrink-0">{{ translate('Date_&_Time') }}:</span>
                                     <span class="text-break text-end fw-semibold">
-                                        @if($nextFollowupCustomer ?? null)
-                                            {{ $nextFollowupCustomer->date->format('d-M-Y h:ia') }}
-                                            @if($nextFollowupCustomer->reason)
-                                                <span class="text-muted fw-normal"> ({{ Str::limit($nextFollowupCustomer->reason, 60) }})</span>
-                                            @endif
-                                        @else
-                                            <span class="text-muted fw-normal">—</span>
-                                        @endif
+                                        @include('bookingmodule::admin.booking.partials._booking-followup-date-value', [
+                                            'followup' => $nextFollowupCustomer ?? null,
+                                            'partyMeta' => $followupDetailMeta['customer'] ?? null,
+                                        ])
                                     </span>
                                 </div>
                             </div>

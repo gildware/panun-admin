@@ -2,6 +2,10 @@
 
 @section('title', translate('Booking_Followups'))
 
+@push('css')
+    @include('bookingmodule::admin.booking.partials._booking-followup-styles')
+@endpush
+
 @section('content')
     <div class="main-content">
         <div class="container-fluid">
@@ -20,6 +24,11 @@
                         }}">
                             {{ ucwords($booking->booking_status) }}
                         </span>
+                        @if(!empty($followupDetailMeta['has_any_pending']))
+                            <span class="badge {{ !empty($followupDetailMeta['has_any_overdue']) ? 'bg-danger' : 'bg-warning text-dark' }}">
+                                {{ !empty($followupDetailMeta['has_any_overdue']) ? translate('Missed_Follow_up') : translate('Pending_Follow_up') }}
+                            </span>
+                        @endif
                     </div>
                     <p class="opacity-75 fz-12">{{ translate('Booking_Placed') }}
                         : {{ date('d-M-Y h:ia', strtotime($booking->created_at)) }}</p>
@@ -32,6 +41,8 @@
             </div>
 
             @include('bookingmodule::admin.booking.partials.details._special-financial-settlement-banner', ['booking' => $booking])
+
+            @include('bookingmodule::admin.booking.partials._booking-followup-alerts', ['booking' => $booking, 'followupDetailMeta' => $followupDetailMeta ?? null])
 
             <div class="d-flex flex-wrap justify-content-between align-items-center flex-xxl-nowrap gap-3 mb-4">
                 <ul class="nav nav--tabs nav--tabs__style2">
@@ -52,31 +63,38 @@
 
             <div class="row mb-3 g-3">
                 <div class="col-md-6">
-                    <div class="card h-100">
+                    <div class="card h-100 {{ !empty($followupDetailMeta['provider']['has_pending']) ? 'booking-followup-card--alert booking-followup-card--' . (!empty($followupDetailMeta['provider']['is_overdue']) ? 'missed' : 'pending') : '' }}">
                         <div class="card-body c1-light-bg">
                             <h5 class="mb-2">{{ translate('Next_Follow_up_Date_Provider') }}</h5>
+                            @if(!empty($followupDetailMeta['provider']['has_pending']))
+                                <div class="small fw-semibold mb-2 {{ !empty($followupDetailMeta['provider']['is_overdue']) ? 'text-danger' : 'text-warning' }}">
+                                    {{ !empty($followupDetailMeta['provider']['is_overdue']) ? translate('Missed_Follow_up') : translate('Follow_up_due') }}
+                                </div>
+                            @endif
                             @if($booking->provider)
                                 <p class="mb-1 fw-semibold">{{ $booking->provider->company_name ?? '' }}</p>
                                 <p class="mb-1 small">
                                     <a href="tel:{{ $booking->provider->contact_person_phone ?? $booking->provider->company_phone ?? '' }}">{{ $booking->provider->contact_person_phone ?? $booking->provider->company_phone ?? '—' }}</a>
                                 </p>
                             @endif
-                            @if($nextFollowupProvider ?? null)
-                                <p class="mb-0 fw-semibold">{{ $nextFollowupProvider->date->format('d-M-Y h:ia') }}
-                                    @if($nextFollowupProvider->reason)
-                                        <span class="text-muted">({{ Str::limit($nextFollowupProvider->reason, 60) }})</span>
-                                    @endif
-                                </p>
-                            @else
-                                <p class="mb-0 text-muted">—</p>
-                            @endif
+                            <p class="mb-0 fw-semibold">
+                                @include('bookingmodule::admin.booking.partials._booking-followup-date-value', [
+                                    'followup' => $nextFollowupProvider ?? null,
+                                    'partyMeta' => $followupDetailMeta['provider'] ?? null,
+                                ])
+                            </p>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-6">
-                    <div class="card h-100">
+                    <div class="card h-100 {{ !empty($followupDetailMeta['customer']['has_pending']) ? 'booking-followup-card--alert booking-followup-card--' . (!empty($followupDetailMeta['customer']['is_overdue']) ? 'missed' : 'pending') : '' }}">
                         <div class="card-body c1-light-bg">
                             <h5 class="mb-2">{{ translate('Next_Follow_up_Date_Customer') }}</h5>
+                            @if(!empty($followupDetailMeta['customer']['has_pending']))
+                                <div class="small fw-semibold mb-2 {{ !empty($followupDetailMeta['customer']['is_overdue']) ? 'text-danger' : 'text-warning' }}">
+                                    {{ !empty($followupDetailMeta['customer']['is_overdue']) ? translate('Missed_Follow_up') : translate('Follow_up_due') }}
+                                </div>
+                            @endif
                             @if(($customerName ?? '') || ($customerPhone ?? ''))
                                 <p class="mb-1 fw-semibold">{{ ($customerName ?? '') ?: '—' }}</p>
                                 <p class="mb-1 small">
@@ -87,15 +105,12 @@
                                     @endif
                                 </p>
                             @endif
-                            @if($nextFollowupCustomer ?? null)
-                                <p class="mb-0 fw-semibold">{{ $nextFollowupCustomer->date->format('d-M-Y h:ia') }}
-                                    @if($nextFollowupCustomer->reason)
-                                        <span class="text-muted">({{ Str::limit($nextFollowupCustomer->reason, 60) }})</span>
-                                    @endif
-                                </p>
-                            @else
-                                <p class="mb-0 text-muted">—</p>
-                            @endif
+                            <p class="mb-0 fw-semibold">
+                                @include('bookingmodule::admin.booking.partials._booking-followup-date-value', [
+                                    'followup' => $nextFollowupCustomer ?? null,
+                                    'partyMeta' => $followupDetailMeta['customer'] ?? null,
+                                ])
+                            </p>
                         </div>
                     </div>
                 </div>
