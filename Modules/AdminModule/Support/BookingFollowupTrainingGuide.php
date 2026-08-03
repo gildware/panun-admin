@@ -936,7 +936,7 @@ class BookingFollowupTrainingGuide
                         ['label' => 'Follow up Taken on', 'text' => 'Call or WhatsApp channel logged on Take.'],
                         ['label' => 'Action', 'text' => 'Take Follow-up (scheduled rows) · View (recording + transcript).'],
                     ],
-                    'booking-followups-tab.png',
+                    'booking-followup-history-table.png',
                 ),
                 self::panelMap(
                     'Missed / pending follow-up alerts',
@@ -946,7 +946,7 @@ class BookingFollowupTrainingGuide
                         ['label' => 'Missed Follow-up', 'text' => 'Past due — red banner. Handle before new Add Follow-up work.'],
                         ['label' => 'Take Follow-up (banner)', 'text' => 'Same modal as table row — pre-filled with that scheduled follow-up.'],
                     ],
-                    'booking-followups-tab.png',
+                    'booking-followup-alerts.png',
                 ),
                 self::panelMap(
                     'Today\'s follow-up queue',
@@ -956,7 +956,7 @@ class BookingFollowupTrainingGuide
                         ['label' => 'Open booking from row', 'text' => '→ Follow-ups tab or Activity Followups → Take Follow-up after contact.'],
                         ['label' => 'Provider / Customer cards', 'text' => 'Overview cards show next scheduled follow-up per party on booking details.'],
                     ],
-                    'booking-followups-tab.png',
+                    'booking-todays-followups.png',
                 ),
             ],
             'messages' => [

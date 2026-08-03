@@ -10,6 +10,7 @@ const EMAIL = process.env.CAPTURE_ADMIN_EMAIL || 'aalim.hameed@gildware.com';
 const PASSWORD = process.env.CAPTURE_ADMIN_PASSWORD || 'TrainingCapture2026!';
 const BOOKING_ID = process.env.CAPTURE_BOOKING_ID || 'e4dbbd4b-a82e-4e92-92e7-94ab886078c3';
 const ACCEPTED_BOOKING_ID = process.env.CAPTURE_ACCEPTED_BOOKING_ID || '5777fd30-1601-4ab1-8bc6-552e5a4df289';
+const ALERTS_BOOKING_ID = process.env.CAPTURE_ALERTS_BOOKING_ID || '5dbee80f-b5fd-4e4e-b185-9f1f6625e3cd';
 
 const warnings = [];
 
@@ -223,7 +224,53 @@ async function main() {
         await page.setViewportSize({ width: 1440, height: 900 });
     });
 
-    // ── Follow-ups subpage (v2 layout) ──────────────────────────────────
+    // ── Follow-up history table (full columns on subpage) ───────────────
+    await tryCapture('booking-followup-history-table', async () => {
+        await page.setViewportSize({ width: 1600, height: 1200 });
+        await page.goto(`${BASE}/admin/booking/details/${BOOKING_ID}?web_page=followups`, { waitUntil: 'networkidle' });
+        await page.waitForTimeout(600);
+        const historyPanel = page.locator('.booking-detail-v2 .booking-subpage-panel').first();
+        await historyPanel.scrollIntoViewIfNeeded();
+        await page.waitForTimeout(300);
+        await shotLocator(historyPanel, 'booking-followup-history-table.png');
+        await page.setViewportSize({ width: 1440, height: 900 });
+    });
+
+    // ── Missed / pending follow-up alert banners ────────────────────────
+    await tryCapture('booking-followup-alerts', async () => {
+        await page.setViewportSize({ width: 1440, height: 1200 });
+        await page.goto(`${BASE}/admin/booking/details/${ALERTS_BOOKING_ID}?web_page=followups`, { waitUntil: 'networkidle' });
+        await page.waitForTimeout(600);
+        const alerts = page.locator('.booking-followup-alert');
+        if (!(await alerts.count())) {
+            throw new Error('No follow-up alert banners on booking');
+        }
+        await shotVerticalRegion(
+            page,
+            'booking-followup-alerts.png',
+            '.booking-followup-alert',
+            '.booking-followups-preview',
+        );
+        await page.setViewportSize({ width: 1440, height: 900 });
+    });
+
+    // ── Today's booking follow-up queue ───────────────────────────────────
+    await tryCapture('booking-todays-followups', async () => {
+        await page.setViewportSize({ width: 1440, height: 1200 });
+        await page.goto(`${BASE}/admin/booking/todays-followups`, { waitUntil: 'networkidle' });
+        await page.waitForTimeout(800);
+        const resultsCard = page.locator('.main-content .card').filter({ has: page.locator('table.table-hover') }).last();
+        await resultsCard.waitFor({ state: 'visible', timeout: 15000 });
+        await shotVerticalRegion(
+            page,
+            'booking-todays-followups.png',
+            '.page-title-wrap',
+            '.main-content .card:last-child',
+        );
+        await page.setViewportSize({ width: 1440, height: 900 });
+    });
+
+    // ── Follow-ups subpage overview (legacy / optional) ─────────────────
     await tryCapture('booking-followups-tab', async () => {
         await page.setViewportSize({ width: 1440, height: 1600 });
         await page.goto(`${BASE}/admin/booking/details/${BOOKING_ID}?web_page=followups`, { waitUntil: 'networkidle' });
