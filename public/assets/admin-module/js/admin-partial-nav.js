@@ -780,6 +780,7 @@
     }
 
     window.adminPartialNavLoad = loadPartialPage;
+    window.__adminPartialNavFlashStrict = true;
 
     document.addEventListener('click', function (event) {
         var link = event.target.closest('a[href]');
