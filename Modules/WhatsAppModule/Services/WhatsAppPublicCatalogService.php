@@ -22,7 +22,8 @@ class WhatsAppPublicCatalogService
      */
     public function buildPublicSnapshot(): array
     {
-        $services = $this->safeActiveServiceNames();
+        $categories = $this->safeActiveCategoryNames();
+        $catalog = $this->buildActiveServiceCatalog();
         $zones = $this->safeActiveZoneNames();
         $zonesWithIds = $this->safeActiveZonesWithIds();
 
@@ -39,7 +40,9 @@ class WhatsAppPublicCatalogService
             'visiting_charge_note' => $this->resolveVisitingChargeNote(),
             'service_coverage_policy_note' => $coverageNote !== '' ? $coverageNote : null,
             'service_area_note' => $this->scalarBusinessValue('service_area', 'business_information'),
-            'service_names_sample' => array_slice($services, 0, 40),
+            'active_service_categories' => $categories,
+            'active_service_catalog' => $catalog,
+            'service_listing_hint' => 'When the customer asks what services you offer (or kya/kon si services), list EVERY name in active_service_categories — do not omit any. For a detailed list, walk active_service_catalog and include every category, subcategory, and service — never invent services and never give a partial hardcoded list (e.g. only electrician/plumber).',
             'zone_names_sample' => array_slice($zones, 0, 30),
             'zones_for_ai' => $zonesWithIds,
             'zones_for_address_matching' => $this->zonesDetailForAddressMatching(),
@@ -118,18 +121,17 @@ class WhatsAppPublicCatalogService
     /**
      * @return list<string>
      */
-    private function safeActiveServiceNames(): array
+    private function safeActiveCategoryNames(): array
     {
         try {
-            if (!class_exists(\Modules\CategoryManagement\Entities\Category::class)) {
+            if (!class_exists(Category::class)) {
                 return [];
             }
 
-            return \Modules\CategoryManagement\Entities\Category::query()
+            return Category::query()
                 ->where('is_active', 1)
-                ->where('position', 2)
+                ->where('position', 1)
                 ->orderBy('name')
-                ->limit(60)
                 ->pluck('name')
                 ->filter()
                 ->map(fn ($n) => (string) $n)
@@ -143,8 +145,67 @@ class WhatsAppPublicCatalogService
     }
 
     /**
-     * @return list<string>
+     * Full active catalog grouped for customer-facing service lists.
+     *
+     * @return list<array{category: string, subcategories: list<array{name: string, services: list<string>}>}>
      */
+    private function buildActiveServiceCatalog(): array
+    {
+        try {
+            if (!class_exists(Category::class) || !class_exists(Service::class)) {
+                return [];
+            }
+
+            $parentCategories = Category::query()
+                ->where('is_active', 1)
+                ->where('position', 1)
+                ->orderBy('name')
+                ->get(['id', 'name']);
+
+            $subcategories = Category::query()
+                ->where('is_active', 1)
+                ->where('position', 2)
+                ->orderBy('name')
+                ->get(['id', 'name', 'parent_id'])
+                ->groupBy('parent_id');
+
+            $services = Service::query()
+                ->where('is_active', 1)
+                ->orderBy('name')
+                ->get(['name', 'category_id', 'sub_category_id'])
+                ->groupBy('sub_category_id');
+
+            $out = [];
+            foreach ($parentCategories as $parent) {
+                $subs = ($subcategories[(string) $parent->id] ?? collect())->sortBy('name');
+                $subOut = [];
+                foreach ($subs as $sub) {
+                    $svcNames = ($services[(string) $sub->id] ?? collect())
+                        ->pluck('name')
+                        ->map(fn ($n) => (string) $n)
+                        ->sort()
+                        ->values()
+                        ->all();
+                    $subOut[] = [
+                        'name' => (string) $sub->name,
+                        'services' => $svcNames,
+                    ];
+                }
+
+                $out[] = [
+                    'category' => (string) $parent->name,
+                    'subcategories' => $subOut,
+                ];
+            }
+
+            return $out;
+        } catch (\Throwable $e) {
+            Log::warning('WhatsAppPublicCatalogService: active_service_catalog', ['error' => $e->getMessage()]);
+
+            return [];
+        }
+    }
+
     /**
      * Compact category / service UUID hints so the model can prefill admin booking when the customer picks a known service.
      *
@@ -161,7 +222,6 @@ class WhatsAppPublicCatalogService
                 ->where('position', 1)
                 ->where('is_active', 1)
                 ->orderBy('name')
-                ->limit(22)
                 ->get(['id', 'name'])
                 ->map(fn ($c) => ['id' => (string) $c->id, 'name' => (string) $c->name])
                 ->values()
@@ -171,7 +231,6 @@ class WhatsAppPublicCatalogService
                 ->where('position', 2)
                 ->where('is_active', 1)
                 ->orderBy('name')
-                ->limit(40)
                 ->get(['id', 'name', 'parent_id'])
                 ->map(fn ($c) => [
                     'id' => (string) $c->id,
@@ -184,7 +243,6 @@ class WhatsAppPublicCatalogService
             $services = Service::query()
                 ->where('is_active', 1)
                 ->orderBy('name')
-                ->limit(28)
                 ->get(['id', 'name', 'category_id', 'sub_category_id', 'variation_pricing']);
 
             $servicesOut = [];
@@ -214,7 +272,7 @@ class WhatsAppPublicCatalogService
             return [
                 'categories' => $categories,
                 'subcategories' => $subcategories,
-                'services_sample' => $servicesOut,
+                'services' => $servicesOut,
                 'hint' => 'When the customer clearly matches a listed service, pass service_id, variant_key, category_id, sub_category_id, and zone_id (if known) into upsert_my_draft_booking so staff see prefilled admin data.',
             ];
         } catch (\Throwable $e) {

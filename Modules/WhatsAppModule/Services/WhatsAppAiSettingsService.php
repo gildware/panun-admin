@@ -197,15 +197,43 @@ class WhatsAppAiSettingsService
             }
         }
         $out = str_replace(['{customer_name}', '{customer_name_lead_in}'], [$customerName, $customerNameLeadIn], $out);
+        $out = str_replace('{active_service_categories}', $this->activeServiceCategoriesForTemplates(), $out);
 
         return trim($out);
+    }
+
+    /**
+     * Comma-separated active top-level service categories for customer templates.
+     */
+    private function activeServiceCategoriesForTemplates(): string
+    {
+        try {
+            if (!class_exists(\Modules\CategoryManagement\Entities\Category::class)) {
+                return '';
+            }
+
+            $names = \Modules\CategoryManagement\Entities\Category::query()
+                ->where('is_active', 1)
+                ->where('position', 1)
+                ->orderBy('name')
+                ->pluck('name')
+                ->filter()
+                ->map(fn ($n) => (string) $n)
+                ->values()
+                ->all();
+
+            return implode(', ', $names);
+        } catch (\Throwable) {
+            return '';
+        }
     }
 
     public function defaultGreetingMessageTemplate(): string
     {
         return "✨ Assalam-u-Alaikum & welcome to Panun Kaergar! 🏠\n\n"
             ."I'm Kaera, your AI assistant 🤖\n"
-            ."We provide trusted and reliable home services across Kashmir — from electricians ⚡, plumbers 🔧 and carpenters 🪚 to appliance repair 🛠️, cleaning 🧹 and more.\n\n"
+            ."We provide trusted and reliable home services across Kashmir:\n"
+            ."{active_service_categories}\n\n"
             ."I can help you:\n"
             ."📅 Book a home service\n"
             ."🛠️ Troubleshoot an issue before booking\n"
