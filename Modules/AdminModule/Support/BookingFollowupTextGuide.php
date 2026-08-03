@@ -32,12 +32,29 @@ class BookingFollowupTextGuide
                 ],
             ],
             [
+                'title' => '2B. Workflow checklist',
+                'steps' => [
+                    ['title' => 'FAB on booking details', 'body' => 'Tick steps as you work — post-create, touchpoints, close checklist. Links to training slides.'],
+                    ['title' => 'Workflow Stuck Items', 'body' => 'Process Guides → Stuck Items — bookings with pending steps.'],
+                    ['title' => 'Hard vs soft gates', 'body' => 'Completed blocked until due zero (hard). Bill steps may soft-confirm if checkbox missed.'],
+                ],
+            ],
+            [
                 'title' => '3. How to create booking',
                 'steps' => [
                     ['title' => 'From lead', 'body' => 'Create Booking for this Lead → Preview → Store.'],
                     ['title' => 'From web / app / WhatsApp', 'body' => 'Open queue → Create Booking on linked lead or WhatsApp draft.'],
                     ['title' => 'Direct', 'body' => 'Add New Booking → fill all sections → Store.'],
                     ['title' => 'After save', 'body' => 'WhatsApp both parties → Follow-ups tab → first follow-up → assignee.'],
+                    ['title' => 'Re Assign provider', 'body' => 'Before Ongoing only — provider section → Re Assign → WA all parties within 15 min.'],
+                ],
+            ],
+            [
+                'title' => '3B. App booking requests (Pending)',
+                'steps' => [
+                    ['title' => 'Not the same as lead Create Booking', 'body' => 'App customer booking → Pending tab until provider accepts in app.'],
+                    ['title' => 'Admin role', 'body' => 'Monitor Pending at shift start — call provider or Re Assign if stuck — WA customer.'],
+                    ['title' => 'App Custom Request', 'body' => 'Different list — creates lead to qualify, not a Pending booking.'],
                 ],
             ],
             [
@@ -58,6 +75,8 @@ class BookingFollowupTextGuide
                     ['title' => 'Pending → Accepted → Ongoing → Completed', 'body' => 'Normal path.'],
                     ['title' => 'On hold', 'body' => 'Pause with reason + new date.'],
                     ['title' => 'Canceled', 'body' => 'Before visit or via Save and cancel on special scenario.'],
+                    ['title' => 'Plain cancel', 'body' => 'Status → Canceled + reason + responsible party + WA — before visit only.'],
+                    ['title' => 'Pending cancellation', 'body' => 'Provider/customer requested cancel — admin approve or deny on booking details.'],
                     ['title' => 'List tabs', 'body' => 'Main: All, Pending, Accepted, Cancelled, Ongoing, Completed. View more: Reopened, Disputed, Hold after visit, Loss Making, etc.'],
                 ],
             ],

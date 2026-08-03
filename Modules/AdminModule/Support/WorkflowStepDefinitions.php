@@ -112,6 +112,39 @@ class WorkflowStepDefinitions
                 'training' => ['guide' => 'booking-followup', 'slide' => 'create-booking'],
             ],
 
+            // —— Provider lead onboarding ——
+            'lead.provider.brief_call' => [
+                'label' => 'Step 1 — Brief onboarding call',
+                'detail' => 'Explain Panun Kaergar model, commission, trade, area, document deadline.',
+                'manual' => true,
+                'training' => ['guide' => 'lead-qualification', 'slide' => 'handling-providers'],
+            ],
+            'lead.provider.agreement_whatsapp' => [
+                'label' => 'Step 2 — Agreement + document list via WhatsApp',
+                'detail' => 'Send agreement template, required docs, and submit-by date same day as Step 1.',
+                'manual' => true,
+                'training' => ['guide' => 'lead-qualification', 'slide' => 'handling-providers'],
+            ],
+            'lead.provider.documents_received' => [
+                'label' => 'Documents received — verified',
+                'detail' => 'ID, skill proof, bank details received on WhatsApp — tick checklist in panel.',
+                'manual' => true,
+                'training' => ['guide' => 'lead-qualification', 'slide' => 'handling-providers'],
+            ],
+            'lead.provider.final_call' => [
+                'label' => 'Step 3 — Final call (group rules + payment)',
+                'detail' => '10-minute YES reply rule, provider group, payment flow — only after docs in.',
+                'manual' => true,
+                'training' => ['guide' => 'lead-qualification', 'slide' => 'handling-providers'],
+            ],
+            'lead.provider.add_to_panel' => [
+                'label' => 'Step 4 — Add provider in Provider admin + WhatsApp group',
+                'detail' => 'Providers → Add New Provider — phone must match lead. Add to trade/area group.',
+                'manual' => true,
+                'auto' => 'lead_provider_in_panel',
+                'training' => ['guide' => 'lead-qualification', 'slide' => 'handling-providers'],
+            ],
+
             // —— Booking active ——
             'booking.post_create.confirm_whatsapp' => [
                 'label' => 'Confirm WhatsApp sent to customer and provider',
@@ -216,6 +249,13 @@ class WorkflowStepDefinitions
             ],
             'lead.customer.booked' => [
                 'lead.customer.create_booking',
+            ],
+            'lead.provider.onboarding' => [
+                'lead.provider.brief_call',
+                'lead.provider.agreement_whatsapp',
+                'lead.provider.documents_received',
+                'lead.provider.final_call',
+                'lead.provider.add_to_panel',
             ],
             'booking.active' => [
                 'booking.post_create.confirm_whatsapp',
@@ -387,6 +427,18 @@ class WorkflowStepDefinitions
                         'booking.close.panel_bill',
                         'booking.close.customer_confirm',
                         'booking.close.due_zero',
+                    ],
+                ],
+            ],
+            'lead.provider.onboarding' => [
+                [
+                    'label' => 'Provider onboarding (from workflow)',
+                    'step_keys' => [
+                        'lead.provider.brief_call',
+                        'lead.provider.agreement_whatsapp',
+                        'lead.provider.documents_received',
+                        'lead.provider.final_call',
+                        'lead.provider.add_to_panel',
                     ],
                 ],
             ],

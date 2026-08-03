@@ -9,6 +9,8 @@ use Modules\AdminModule\Support\WorkflowStepDefinitions;
 use Modules\BookingModule\Entities\Booking;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
+use Modules\LeadManagement\Entities\ProviderLeadStatus;
+use Modules\LeadManagement\Services\ProviderLeadPanelMatchService;
 
 class WorkflowNextStepService
 {
@@ -91,7 +93,7 @@ class WorkflowNextStepService
     public function findStuckLeads(int $limit = 100): array
     {
         $leads = Lead::query()
-            ->whereIn('lead_type', [Lead::TYPE_UNKNOWN, Lead::TYPE_CUSTOMER])
+            ->whereIn('lead_type', [Lead::TYPE_UNKNOWN, Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER])
             ->where(function ($q) {
                 $q->whereNull('next_followup_at')
                     ->orWhere('next_followup_at', '<=', now());
@@ -324,6 +326,7 @@ class WorkflowNextStepService
             'lead_has_booking' => $this->leadHasBooking($detectCtx),
             'booking_has_followup' => $this->bookingHasFollowup($detectCtx),
             'booking_due_zero' => $this->bookingDueZero($detectCtx),
+            'lead_provider_in_panel' => $this->leadProviderInPanel($detectCtx),
             default => false,
         };
     }
@@ -427,6 +430,24 @@ class WorkflowNextStepService
     /**
      * @param  array<string, mixed>  $detectCtx
      */
+    private function leadProviderInPanel(array $detectCtx): bool
+    {
+        if (! empty($detectCtx['panelProviderMatch'])) {
+            return true;
+        }
+
+        /** @var Lead|null $lead */
+        $lead = $detectCtx['lead'] ?? null;
+        if (! $lead) {
+            return false;
+        }
+
+        return app(ProviderLeadPanelMatchService::class)->matchForLead($lead) !== null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $detectCtx
+     */
     private function bookingHasFollowup(array $detectCtx): bool
     {
         /** @var Booking|null $booking */
@@ -488,6 +509,13 @@ class WorkflowNextStepService
         if ($lead->lead_type === Lead::TYPE_UNKNOWN) {
             return 'lead.unknown';
         }
+        if ($lead->lead_type === Lead::TYPE_PROVIDER) {
+            if (! $this->isOpenProviderLead($customerData)) {
+                return null;
+            }
+
+            return 'lead.provider.onboarding';
+        }
         if ($lead->lead_type !== Lead::TYPE_CUSTOMER) {
             return null;
         }
@@ -505,6 +533,21 @@ class WorkflowNextStepService
         return 'lead.customer.path_a';
     }
 
+    /**
+     * @param  array<string, mixed>  $typeHistoryData
+     */
+    private function isOpenProviderLead(array $typeHistoryData): bool
+    {
+        $statusId = $typeHistoryData['provider_lead_status_id'] ?? null;
+        if (! $statusId) {
+            return true;
+        }
+        $status = ProviderLeadStatus::find($statusId);
+        $baseType = strtolower((string) ($status?->base_type ?? 'pending'));
+
+        return ! in_array($baseType, ['completed', 'cancel'], true);
+    }
+
     private function scenarioLabel(string $scenario): string
     {
         return match ($scenario) {
@@ -512,6 +555,7 @@ class WorkflowNextStepService
             'lead.customer.path_a' => 'Customer — Path A (direct booking)',
             'lead.customer.path_b' => 'Customer — Path B (discussion first)',
             'lead.customer.booked' => 'Customer — booking linked',
+            'lead.provider.onboarding' => 'Provider — onboarding',
             'booking.active' => 'Active booking follow-up',
             'booking.close' => 'Close booking checklist',
             default => $scenario,

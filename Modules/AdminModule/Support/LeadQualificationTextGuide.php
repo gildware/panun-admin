@@ -100,6 +100,17 @@ class LeadQualificationTextGuide
                 ],
             ],
             [
+                'title' => '2B. Workflow checklist in the panel',
+                'intro' => 'Same steps as the training deck — floating FAB on lead details.',
+                'steps' => [
+                    ['title' => 'Workflow FAB', 'body' => 'Bottom-right on lead detail — tick manual steps, see next action.'],
+                    ['title' => 'Workflow Stuck Items', 'body' => 'Process Guides → queue of leads with pending steps.'],
+                    ['title' => 'Hard gates', 'body' => 'Unknown type change needs outbound call. Create Booking needs call + Path A/B in remarks.'],
+                    ['title' => 'Soft gates', 'body' => 'Create Booking may confirm skipped ₹100 / provider group / panel WA — only if truly done.'],
+                    ['title' => 'Provider leads', 'body' => 'Open provider leads show onboarding checklist — brief call through add to panel.'],
+                ],
+            ],
+            [
                 'title' => '3. Unknown lead — outbound call',
                 'steps' => [
                     [

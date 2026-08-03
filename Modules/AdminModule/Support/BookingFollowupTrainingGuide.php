@@ -13,7 +13,9 @@ class BookingFollowupTrainingGuide
             self::slideDeckGuide(),
             self::slidePrerequisites(),
             self::slideYourJob(),
+            self::slideWorkflowChecklist(),
             self::slideCreateBooking(),
+            self::slideAppBookingRequests(),
             self::slideFollowUp(),
             self::slideBookingStatuses(),
             self::slideSpecialScenarios(),
@@ -60,7 +62,9 @@ class BookingFollowupTrainingGuide
             'deck-guide' => ['icon' => 'info', 'overview' => 'Booking terms used in every slide — read before you start.'],
             'prerequisites' => ['icon' => 'checklist'],
             'your-job' => ['icon' => 'verified_user'],
+            'workflow-checklist' => ['icon' => 'checklist_rtl', 'overview' => 'The workflow FAB on booking details, stuck-items queue, and hard vs soft gates before status changes.'],
             'create-booking' => ['icon' => 'add_task'],
+            'app-booking-requests' => ['icon' => 'smartphone', 'overview' => 'When a customer books directly in the app — Pending tab, provider accept, and when admin must intervene.'],
             'follow-up' => ['icon' => 'schedule'],
             'booking-statuses' => ['icon' => 'label'],
             'special-scenarios' => ['icon' => 'tune'],
@@ -229,6 +233,10 @@ class BookingFollowupTrainingGuide
                 ['term' => 'Follow-ups tab', 'definition' => 'On booking details — log every call/WhatsApp, set next date until booking closes.'],
                 ['term' => 'Bill breakdown', 'definition' => 'Total = service charge + each part (name + price). Mandatory in panel before close.'],
                 ['term' => 'Assignee', 'definition' => 'Staff member accountable for the booking until Completed or Canceled.'],
+                ['term' => 'Workflow checklist', 'definition' => 'Floating steps on booking details — tick each box as you complete touchpoints and close checklist items.'],
+                ['term' => 'Hard gate', 'definition' => 'Panel blocks the action until required workflow steps are done (e.g. due balance zero before Completed).'],
+                ['term' => 'Soft gate', 'definition' => 'Panel shows a confirm modal listing skipped steps — you can proceed after ticking confirm.'],
+                ['term' => 'Pending cancellation', 'definition' => 'Provider or customer requested cancel — admin must approve or deny before booking closes.'],
             ],
         ];
     }
@@ -514,6 +522,220 @@ class BookingFollowupTrainingGuide
     }
 
     /** @return array<string, mixed> */
+    private static function slideWorkflowChecklist(): array
+    {
+        return [
+            'id' => 'workflow-checklist',
+            'title' => 'Workflow checklist in the panel',
+            'subtitle' => 'FAB on booking details · stuck queue · hard vs soft gates',
+            'type' => 'visual',
+            'panel_links' => [
+                self::panelLink('Workflow Stuck Items', '/admin/workflow/stuck'),
+                self::panelLink('Booking list', '/admin/booking/list'),
+                self::panelLink('Today\'s booking follow-ups', '/admin/booking/todays-followups'),
+            ],
+            'important' => 'The checklist is the same steps as this training deck — synced from the live workflow engine.',
+            'card_groups' => [
+                [
+                    'title' => 'Where to find it',
+                    'hint' => 'On every open booking detail page.',
+                    'layout' => 'row-3',
+                    'cards' => [
+                        [
+                            'icon' => 'pending_actions',
+                            'title' => 'Floating workflow FAB',
+                            'text' => 'Bottom-right on booking details — shows next step + progress %.',
+                            'color' => 'customer',
+                            'points' => [
+                                'Expand to see all steps for this booking',
+                                'Tick checkbox when you complete a manual step',
+                                'Training link on each step opens the matching slide',
+                            ],
+                        ],
+                        [
+                            'icon' => 'view_list',
+                            'title' => 'Workflow Stuck Items',
+                            'text' => 'Team queue of bookings with pending steps.',
+                            'color' => 'provider',
+                            'points' => [
+                                'Process Guides header → Workflow Stuck Items',
+                                'Also from Team nav when you have lead_view',
+                                'Work oldest / overdue service dates first',
+                            ],
+                        ],
+                        [
+                            'icon' => 'fact_check',
+                            'title' => 'Close checklist (before Completed)',
+                            'text' => 'Separate group when status is Accepted/Ongoing/On hold.',
+                            'color' => 'future',
+                            'points' => [
+                                'Provider bill breakdown',
+                                'Panel bill entry',
+                                'Customer billing confirm',
+                                'Due balance zero (hard gate)',
+                            ],
+                        ],
+                    ],
+                ],
+                [
+                    'title' => 'Hard vs soft gates',
+                    'hint' => 'Some actions block until steps are done; others ask you to confirm.',
+                    'layout' => 'row-2',
+                    'cards' => [
+                        [
+                            'icon' => 'block',
+                            'title' => 'Hard gate — cannot proceed',
+                            'text' => 'Panel stops the action until the step is done.',
+                            'color' => 'invalid',
+                            'points' => [
+                                'Mark Completed while Due Balance > 0',
+                                'Fix payment or loss-making settlement first',
+                            ],
+                        ],
+                        [
+                            'icon' => 'warning',
+                            'title' => 'Soft gate — confirm modal',
+                            'text' => 'Lists skipped checklist items — tick confirm to proceed anyway.',
+                            'color' => 'unknown',
+                            'points' => [
+                                'Bill breakdown not ticked but due is zero',
+                                'Use only when step is truly done but checkbox missed',
+                                'Never confirm steps you have not actually finished',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            'path_steps' => [
+                self::workflowTrainingGroup('booking.post_create', 'After create — tick on booking details'),
+                self::workflowTrainingGroup('booking.touchpoints', 'Active booking — three touchpoints'),
+                self::workflowTrainingGroup('booking.close', 'Before Completed — close checklist'),
+            ],
+            'remember' => [
+                'Tick checkboxes as you work — not at end of shift in bulk',
+                'Stuck Items page = bookings where next workflow step is overdue',
+                'Training slide link on each step if you forget the detail',
+            ],
+            'avoid' => [
+                'Ignoring the FAB because you “know the process”',
+                'Confirming soft gates for steps you skipped',
+                'Marking Completed before close checklist is truly done',
+            ],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private static function slideAppBookingRequests(): array
+    {
+        return [
+            'id' => 'app-booking-requests',
+            'title' => 'App booking requests (Pending)',
+            'subtitle' => 'Customer booked in mobile app — not the same as Create Booking from lead',
+            'type' => 'visual',
+            'important' => 'App Custom Request = lead to qualify. Booking Request = confirmed app booking waiting for provider accept.',
+            'panel_links' => [
+                self::panelLink('Booking Requests — Pending tab', '/admin/booking/list?booking_status=pending&service_type=all'),
+                self::panelLink('All bookings', '/admin/booking/list'),
+                self::panelLink('App Custom Requests (leads)', '/admin/booking/app-custom-requests'),
+            ],
+            'card_groups' => [
+                [
+                    'title' => 'Three paths — do not confuse them',
+                    'hint' => 'Wrong list = wrong workflow.',
+                    'layout' => 'row-3',
+                    'cards' => [
+                        [
+                            'icon' => 'add_task',
+                            'title' => 'Admin Create Booking from lead',
+                            'text' => 'You qualified customer in Leads → Create Booking.',
+                            'color' => 'customer',
+                            'points' => [
+                                'Store → status **Accepted** immediately',
+                                'Provider already assigned on form',
+                                'Follow create-booking + follow-up slides',
+                            ],
+                        ],
+                        [
+                            'icon' => 'smartphone',
+                            'title' => 'App Booking Request',
+                            'text' => 'Customer booked in app — auto row in panel.',
+                            'color' => 'provider',
+                            'points' => [
+                                'Starts **Pending** — provider must accept in app',
+                                'List → Pending Booking tab',
+                                'Admin monitors — intervene if no accept',
+                            ],
+                        ],
+                        [
+                            'icon' => 'help_outline',
+                            'title' => 'App Custom Request',
+                            'text' => 'Customer asked for non-standard service.',
+                            'color' => 'future',
+                            'points' => [
+                                'Creates a **lead** — qualify like phone',
+                                'App Custom Requests list — not Pending tab',
+                                'See Lead Qualification guide',
+                            ],
+                        ],
+                    ],
+                ],
+                [
+                    'title' => 'When status is Pending — your job',
+                    'layout' => 'row-2',
+                    'cards' => [
+                        [
+                            'icon' => 'hourglass_empty',
+                            'title' => 'Monitor at shift start',
+                            'text' => 'Open Pending Booking tab every shift.',
+                            'color' => 'unknown',
+                            'points' => [
+                                'Sort by newest or service date',
+                                'Check if provider accepted in provider app',
+                                'Call provider if accept is slow',
+                            ],
+                        ],
+                        [
+                            'icon' => 'engineering',
+                            'title' => 'Admin intervention',
+                            'text' => 'When provider ignores or declines.',
+                            'color' => 'provider',
+                            'points' => [
+                                'Re Assign provider on booking details (before Ongoing)',
+                                'WhatsApp customer within 15 minutes',
+                                'Log follow-up in Follow-ups tab',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            'ui_maps' => [
+                self::panelMap(
+                    'Pending → Accepted — what changes',
+                    'Provider accepts in app OR admin assigns provider on booking details.',
+                    [
+                        ['label' => 'Pending Booking tab', 'text' => 'Leads and bookings → Booking Requests → filter Pending. Row shows customer, service, schedule, assigned provider if any.'],
+                        ['label' => 'Provider accepts', 'text' => 'Status moves to Accepted automatically — start normal follow-up touchpoints.'],
+                        ['label' => 'No accept by SLA', 'text' => 'Call provider → Re Assign if needed → confirm WhatsApp to customer.'],
+                        ['label' => 'Assignee', 'text' => 'Set yourself on Pending rows you own — same as admin-created bookings.'],
+                        ['label' => 'Linked lead', 'text' => 'Some app bookings link to a lead — open lead for full history but work the booking row for status.'],
+                    ],
+                    'booking-web-bookings-list.png',
+                ),
+            ],
+            'remember' => [
+                'Pending = waiting on provider accept — not “waiting on you to create”',
+                'Admin create from lead skips Pending → goes straight to Accepted',
+                'Pin Pending tab if you handle app bookings',
+            ],
+            'avoid' => [
+                'Creating duplicate booking for same app request',
+                'Leaving Pending rows unchecked for days',
+                'Confusing App Custom Requests with Booking Requests',
+            ],
+        ];
+    }
+
+    /** @return array<string, mixed> */
     private static function slideCreateBooking(): array
     {
         return [
@@ -566,6 +788,18 @@ class BookingFollowupTrainingGuide
                         ['label' => 'Payments (if advance)', 'text' => 'Advance at create should appear in payment history.'],
                     ],
                     'booking-details-after-create.png',
+                ),
+                self::panelMap(
+                    'Re Assign provider — before Ongoing only',
+                    'Booking details → Provider section → Re Assign. Allowed while status is Pending, Accepted, On hold, or Pending cancellation — not after Ongoing.',
+                    [
+                        ['label' => 'When to use', 'text' => 'Provider unavailable, withdrew, or wrong trade/area. Day-before call finds no cover — reassign same day.'],
+                        ['label' => 'Provider feedback modal', 'text' => 'If changing from an assigned provider, panel may ask for performance feedback first — complete honestly, then confirm Re Assign.'],
+                        ['label' => 'Pick new provider', 'text' => 'Search provider covering zone + service → confirm. Auto WhatsApp to customer, old provider, new provider.'],
+                        ['label' => 'WhatsApp verify', 'text' => 'Within 15 minutes — customer must know new name + time. Remarks: “Re Assign to [name] — WA sent 3 Aug 10:20.”'],
+                        ['label' => 'After Ongoing', 'text' => 'Re Assign blocked — use On hold + new date, Cancel (before visit), or special scenario (after visit).'],
+                    ],
+                    'booking-create-form.png',
                 ),
             ],
             'messages' => [
@@ -804,9 +1038,96 @@ class BookingFollowupTrainingGuide
                         ],
                     ],
                 ],
+                [
+                    'title' => 'Plain cancel — before visit',
+                    'hint' => 'Use status dropdown Cancel — not special scenarios.',
+                    'layout' => 'row-3',
+                    'cards' => [
+                        [
+                            'icon' => 'person_off',
+                            'title' => 'Customer cancel',
+                            'text' => 'Customer changed mind before provider started.',
+                            'color' => 'customer',
+                            'points' => [
+                                'Status → Canceled → customer cancel reason',
+                                'WhatsApp provider — job cancelled',
+                                'Cancel open follow-ups',
+                            ],
+                        ],
+                        [
+                            'icon' => 'engineering',
+                            'title' => 'Provider cancel / no-show',
+                            'text' => 'Provider cannot attend before visit.',
+                            'color' => 'provider',
+                            'points' => [
+                                'Try Re Assign first if before service day',
+                                'If canceling: provider cancel reason + remarks',
+                                'Cancelled by Provider list tab for review',
+                            ],
+                        ],
+                        [
+                            'icon' => 'admin_panel_settings',
+                            'title' => 'Admin cancel',
+                            'text' => 'Duplicate, wrong service, customer unreachable.',
+                            'color' => 'unknown',
+                            'points' => [
+                                'Pick admin cancel reason from config',
+                                'Facts-only remarks — who decided what',
+                                'Never plain Cancel after visit — use special scenario',
+                            ],
+                        ],
+                    ],
+                ],
+                [
+                    'title' => 'Pending cancellation — admin review',
+                    'hint' => 'Provider or customer requested cancel in app — you approve or deny.',
+                    'layout' => 'row-2',
+                    'cards' => [
+                        [
+                            'icon' => 'pending',
+                            'title' => 'What it means',
+                            'text' => 'Status shows Pending cancellation — request waiting your decision.',
+                            'color' => 'future',
+                            'points' => [
+                                'Booking details banner — review who requested + reason',
+                                'Call both parties if facts unclear',
+                                'Approve → Canceled · Deny → back to previous status',
+                            ],
+                        ],
+                        [
+                            'icon' => 'view_list',
+                            'title' => 'List tabs',
+                            'text' => 'Find these quickly at shift start.',
+                            'color' => 'provider',
+                            'points' => [
+                                'Cancelled by Provider tab — withdrawals needing Re Assign',
+                                'Cancelled by Customer tab — review pattern',
+                                'Re Assign allowed while Pending cancellation if replacing provider',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            'ui_maps' => [
+                self::panelMap(
+                    'Cancel modal — before visit',
+                    'Booking details → Change status → Canceled. Not available after visit or on open reopen tickets.',
+                    [
+                        ['label' => 'Cancel reason *', 'text' => 'Pick from Booking Configuration — customer, provider, or admin reason lists.'],
+                        ['label' => 'Responsible party', 'text' => 'Who caused the cancel — affects reporting. Example: Customer — changed schedule.'],
+                        ['label' => 'Remarks', 'text' => 'Facts only — what was said on call, attempt to reassign if applicable.'],
+                        ['label' => 'WhatsApp', 'text' => 'Tell the other party within 15 minutes — customer or provider.'],
+                        ['label' => 'After visit', 'text' => 'If provider already visited → stop — use Configure special scenarios instead.'],
+                    ],
+                    'booking-dispute-close-modal.png',
+                ),
             ],
             'tab_groups' => self::listTabGroups(),
-            'remember' => ['List tabs find bookings — status dropdown on details changes them', 'Display may show Reopened and… or Hold after visit as labels'],
+            'remember' => [
+                'List tabs find bookings — status dropdown on details changes them',
+                'Plain Cancel = before visit · special scenario = after visit',
+                'Pending cancellation needs approve/deny — do not ignore the banner',
+            ],
         ];
     }
 
@@ -1446,6 +1767,30 @@ class BookingFollowupTrainingGuide
                     ],
                     'correct' => 1,
                     'explain' => 'Provider first so you know what was done before asking customer.',
+                ],
+                [
+                    'id' => 'q11',
+                    'question' => 'Customer booked via mobile app — booking shows Pending. What is your first check?',
+                    'options' => [
+                        'Create a new booking from the lead',
+                        'Open Pending tab — see if provider accepted; call provider or Re Assign if stuck',
+                        'Mark Completed',
+                        'Delete the row',
+                    ],
+                    'correct' => 1,
+                    'explain' => 'App bookings start Pending until provider accepts. Monitor the Pending tab — intervene with Re Assign + customer WA if needed.',
+                ],
+                [
+                    'id' => 'q12',
+                    'question' => 'Booking shows Pending cancellation. What must admin do?',
+                    'options' => [
+                        'Nothing — it closes automatically',
+                        'Review request on booking details — approve or deny after confirming facts',
+                        'Always approve immediately',
+                        'Use Dispute and close',
+                    ],
+                    'correct' => 1,
+                    'explain' => 'Pending cancellation is a review queue — approve moves to Canceled, deny restores previous status.',
                 ],
             ],
         ];

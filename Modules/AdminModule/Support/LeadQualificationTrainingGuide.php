@@ -21,6 +21,7 @@ class LeadQualificationTrainingGuide
             self::slideShiftRoutine(),
             self::slideLeadClassifications(),
             self::slideUsingLeadPage(),
+            self::slideWorkflowChecklist(),
             self::slideHandlingUnknowns(),
             self::slideHandlingCustomers(),
             self::slideHandlingProviders(),
@@ -89,6 +90,10 @@ class LeadQualificationTrainingGuide
             'using-lead-page' => [
                 'icon' => 'dashboard',
                 'overview' => 'Full panel guide — list, Add New Lead, follow-ups, Today\'s queue, comments, Open/Closed, dropdown names, click maps, and every sidebar action.',
+            ],
+            'workflow-checklist' => [
+                'icon' => 'checklist_rtl',
+                'overview' => 'The workflow FAB on lead details, Workflow Stuck Items queue, and hard vs soft gates before Create Booking or type change.',
             ],
             'handling-unknowns' => [
                 'icon' => 'contact_phone',
@@ -175,6 +180,23 @@ class LeadQualificationTrainingGuide
             'label' => $label,
             'steps' => array_merge($steps, $extraSteps),
         ];
+    }
+
+    /**
+     * @return array<int, array{text: string, detail?: string}>
+     */
+    private static function workflowStepsForScenario(string $scenarioKey): array
+    {
+        $steps = [];
+        foreach (WorkflowStepDefinitions::scenarioStepKeys($scenarioKey) as $key) {
+            $def = WorkflowStepDefinitions::step($key);
+            if ($def === null) {
+                continue;
+            }
+            $steps[] = WorkflowStepDefinitions::toTrainingStep($key, $def);
+        }
+
+        return $steps;
     }
 
     /** @return array{mandatory: bool, label: string, template: string, example: string, to: string} */
@@ -317,6 +339,9 @@ class LeadQualificationTrainingGuide
                 ['term' => 'Open / Closed', 'definition' => 'Lead queue state — Unknown stays Open; Invalid/Future always Closed; Customer/Provider Open until Completed or Cancelled status.'],
                 ['term' => 'Initial remarks', 'definition' => 'Customer-facing summary on the lead — what was said, promised, and next step. Always update after every call.'],
                 ['term' => 'Comments', 'definition' => 'Internal team notes on the lead — @mention staff, pin for shift handover. Not a substitute for follow-up rows.'],
+                ['term' => 'Workflow checklist', 'definition' => 'Floating steps on lead details — tick each box as you qualify and move toward booking.'],
+                ['term' => 'Hard gate', 'definition' => 'Panel blocks the action until required steps are done (e.g. outbound call before changing type from Unknown).'],
+                ['term' => 'Soft gate', 'definition' => 'Panel shows a confirm modal for skipped steps — tick confirm only if work is truly done.'],
             ],
         ];
     }
@@ -1944,6 +1969,115 @@ class LeadQualificationTrainingGuide
     }
 
     /** @return array<string, mixed> */
+    private static function slideWorkflowChecklist(): array
+    {
+        return [
+            'id' => 'workflow-checklist',
+            'title' => 'Workflow checklist in the panel',
+            'subtitle' => 'FAB on lead details · stuck queue · gates before Create Booking',
+            'type' => 'visual',
+            'panel_links' => [
+                self::panelLink('Workflow Stuck Items', '/admin/workflow/stuck'),
+                self::panelLink('Leads list', '/admin/lead'),
+                self::panelLink('Today\'s lead follow-ups', '/admin/lead/todays-followups'),
+            ],
+            'important' => 'Checklist steps match this training deck — the panel reads the same workflow definitions.',
+            'card_groups' => [
+                [
+                    'title' => 'Where to find it',
+                    'hint' => 'On open Unknown and Customer lead detail pages.',
+                    'layout' => 'row-3',
+                    'cards' => [
+                        [
+                            'icon' => 'pending_actions',
+                            'title' => 'Floating workflow FAB',
+                            'text' => 'Bottom-right on lead details — next step + progress.',
+                            'color' => 'customer',
+                            'points' => [
+                                'Expand to see qualification steps for this lead',
+                                'Tick checkbox when you finish a manual step',
+                                'Each step links to the matching training slide',
+                            ],
+                        ],
+                        [
+                            'icon' => 'view_list',
+                            'title' => 'Workflow Stuck Items',
+                            'text' => 'Team queue — leads with pending workflow steps.',
+                            'color' => 'provider',
+                            'points' => [
+                                'Process Guides → Workflow Stuck Items button',
+                                'Unknown + Customer leads with overdue follow-ups',
+                                'Open lead → complete next checkbox step',
+                            ],
+                        ],
+                        [
+                            'icon' => 'handshake',
+                            'title' => 'Provider onboarding checklist',
+                            'text' => 'Provider leads also show workflow steps while open.',
+                            'color' => 'future',
+                            'points' => [
+                                'Brief call → agreement WA → docs → final call → panel',
+                                'See Provider onboarding slide for full detail',
+                                'Tick steps as you complete each onboarding touch',
+                            ],
+                        ],
+                    ],
+                ],
+                [
+                    'title' => 'Hard vs soft gates on leads',
+                    'layout' => 'row-2',
+                    'cards' => [
+                        [
+                            'icon' => 'block',
+                            'title' => 'Hard gate — blocked',
+                            'text' => 'Cannot proceed until step is done.',
+                            'color' => 'invalid',
+                            'points' => [
+                                'Mark as Customer/Provider/Invalid from Unknown without outbound call logged',
+                                'Create Booking without call + Path A/B noted in remarks',
+                                'Mark customer Booked/Completed without booking linked',
+                            ],
+                        ],
+                        [
+                            'icon' => 'warning',
+                            'title' => 'Soft gate — confirm',
+                            'text' => 'Create Booking may warn if ₹100, provider group, or panel WA skipped.',
+                            'color' => 'unknown',
+                            'points' => [
+                                'Confirm only if you actually did the step',
+                                'Better: tick checkbox on FAB instead of skipping',
+                                'Hard gates cannot be bypassed — fix the step first',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            'path_steps' => [
+                [
+                    'label' => 'Unknown lead (from workflow)',
+                    'steps' => self::workflowStepsForScenario('lead.unknown'),
+                ],
+                self::workflowTrainingGroup('lead.customer.path_a', 'Customer Path A (from workflow)'),
+                self::workflowTrainingGroup('lead.customer.path_b', 'Customer Path B (from workflow)'),
+                [
+                    'label' => 'Provider onboarding (from workflow)',
+                    'steps' => self::workflowStepsForScenario('lead.provider.onboarding'),
+                ],
+            ],
+            'remember' => [
+                'FAB steps = same order as this training',
+                'Stuck Items = leads where you promised action but checklist is behind',
+                'Create Booking button respects gates — read the modal before confirming skip',
+            ],
+            'avoid' => [
+                'Bypassing hard gates by editing lead in wrong place',
+                'Confirming soft gates for steps you did not finish',
+                'Ignoring FAB on Provider leads during onboarding',
+            ],
+        ];
+    }
+
+    /** @return array<string, mixed> */
     private static function slideHandlingUnknowns(): array
     {
         return [
@@ -3124,6 +3258,18 @@ class LeadQualificationTrainingGuide
                     ],
                     'correct' => 1,
                     'explain' => 'Complete = closed OR documented open: type, remarks, WA, Followup On. Half-finished leads get lost at shift change.',
+                ],
+                [
+                    'id' => 'q35',
+                    'question' => 'You try Mark as Customer on an Unknown lead but panel blocks you. Most likely cause?',
+                    'options' => [
+                        'Lead is too old',
+                        'Hard gate — outbound call step not done (no follow-up logged / call not documented)',
+                        'Customer leads are disabled on weekends',
+                        'You need manager password',
+                    ],
+                    'correct' => 1,
+                    'explain' => 'Unknown → type change requires outbound contact logged. Call → Add follow-up → tick workflow step → then Mark as.',
                 ],
             ],
         ];
