@@ -25,11 +25,19 @@ final class AdminChromeViewData
         $maxBookingAmount = (float) ((business_config('max_booking_amount', 'booking_setup'))->live_values ?? 0);
         $notificationExternalUnreadCount = 0;
         $notificationInternalUnreadCount = 0;
+        $notificationExternalReadCount = 0;
+        $notificationInternalReadCount = 0;
+        $notificationExternalRecent = collect();
+        $notificationInternalRecent = collect();
         if ($user) {
             $inboxService = app(AdminInboxNotificationService::class);
             $userId = (string) $user->id;
             $notificationExternalUnreadCount = (int) $inboxService->unreadCount($userId, UserNotification::CATEGORY_EXTERNAL);
             $notificationInternalUnreadCount = (int) $inboxService->unreadCount($userId, UserNotification::CATEGORY_INTERNAL);
+            $notificationExternalReadCount = (int) $inboxService->readCount($userId, UserNotification::CATEGORY_EXTERNAL);
+            $notificationInternalReadCount = (int) $inboxService->readCount($userId, UserNotification::CATEGORY_INTERNAL);
+            $notificationExternalRecent = $inboxService->recent($userId, 10, UserNotification::CATEGORY_EXTERNAL);
+            $notificationInternalRecent = $inboxService->recent($userId, 10, UserNotification::CATEGORY_INTERNAL);
         }
         $notificationUnreadCount = $notificationExternalUnreadCount + $notificationInternalUnreadCount;
 
@@ -41,6 +49,10 @@ final class AdminChromeViewData
             'notificationUnreadCount' => $notificationUnreadCount,
             'notificationExternalUnreadCount' => $notificationExternalUnreadCount,
             'notificationInternalUnreadCount' => $notificationInternalUnreadCount,
+            'notificationExternalReadCount' => $notificationExternalReadCount,
+            'notificationInternalReadCount' => $notificationInternalReadCount,
+            'notificationExternalRecent' => $notificationExternalRecent,
+            'notificationInternalRecent' => $notificationInternalRecent,
             'all_bookings_menu_count' => $menuCounts['all_bookings'],
             'pending_booking_reviews_count' => $menuCounts['pending_booking_reviews'],
             'special_scenarios_menu_count' => $menuCounts['special_scenarios'],
