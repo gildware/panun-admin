@@ -239,6 +239,22 @@
     }
     .booking-detail-v2 .activity-table-section .table-responsive {
         padding: 0 .5rem .75rem;
+        overflow-x: auto;
+        max-width: 100%;
+    }
+    .booking-detail-v2 .activity-panel .booking-followup-history-table--activity td:nth-child(4) {
+        max-width: 12rem;
+        white-space: normal;
+        word-break: break-word;
+    }
+    .booking-detail-v2 .activity-panel .booking-followup-history-table--activity .booking-followups-table__action {
+        position: static;
+        box-shadow: none;
+        min-width: 0;
+        white-space: nowrap;
+    }
+    .booking-detail-v2 .activity-panel .booking-followup-history-table--activity thead .booking-followups-table__action {
+        background: transparent;
     }
     .booking-detail-v2 .ld-btn {
         display: inline-flex;

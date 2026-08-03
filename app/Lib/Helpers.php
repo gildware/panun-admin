@@ -3708,6 +3708,46 @@ if (!function_exists('effective_service_tax_label')) {
     }
 }
 
+if (! function_exists('process_guide_training_asset')) {
+    /**
+     * Versioned URL for process-guide training screenshots (cache-safe after deploy).
+     */
+    function process_guide_training_asset(string $filename, string $subdir = ''): string
+    {
+        $filename = ltrim($filename, '/');
+        $subdir = trim($subdir, '/');
+        $relative = 'assets/admin-module/process-guide/training'
+            .($subdir !== '' ? '/'.$subdir : '')
+            .'/'.$filename;
+        $path = public_path($relative);
+        $version = is_file($path) ? (int) filemtime($path) : time();
+
+        return asset($relative).'?v='.$version;
+    }
+}
+
+if (! function_exists('process_guide_training_asset_version')) {
+    /**
+     * Latest file mtime in a process-guide training asset folder (for JS-loaded images).
+     */
+    function process_guide_training_asset_version(string $subdir = ''): int
+    {
+        $dir = public_path('assets/admin-module/process-guide/training'.($subdir !== '' ? '/'.trim($subdir, '/') : ''));
+        if (! is_dir($dir)) {
+            return time();
+        }
+
+        $version = 0;
+        foreach (glob($dir.'/*') ?: [] as $file) {
+            if (is_file($file)) {
+                $version = max($version, (int) filemtime($file));
+            }
+        }
+
+        return $version ?: time();
+    }
+}
+
 
 
 

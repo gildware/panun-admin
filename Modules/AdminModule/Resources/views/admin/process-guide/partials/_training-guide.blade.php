@@ -760,6 +760,12 @@
         return base.charAt(base.length - 1) === '/' ? base : base + '/';
     }
 
+    function versionedAssetUrl(base, file, version) {
+        var url = assetBaseUrl(base) + file;
+        if (!version) return url;
+        return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'v=' + version;
+    }
+
     window.pgTrainingImageFallback = function (img) {
         if (!img) return;
         img.onerror = null;
@@ -770,7 +776,7 @@
         media.innerHTML = '<span class="material-icons" aria-hidden="true">' + icon + '</span>';
     };
 
-    function fillPointDrawerExamples(container, items, exampleBase, trainingBase) {
+    function fillPointDrawerExamples(container, items, exampleBase, trainingBase, exampleVersion, trainingVersion) {
         if (!container) return;
         container.innerHTML = '';
         (items || []).forEach(function (item) {
@@ -789,7 +795,7 @@
                 var media = document.createElement('div');
                 media.className = 'pg-training-point-example-media';
                 var img = document.createElement('img');
-                img.src = assetBaseUrl(exampleBase || trainingBase) + item.image;
+                img.src = versionedAssetUrl(exampleBase || trainingBase, item.image, exampleBase ? exampleVersion : trainingVersion);
                 img.alt = item.label || 'Example illustration';
                 img.loading = 'lazy';
                 img.onerror = function () {
@@ -873,6 +879,8 @@
         var heroImg = drawer.querySelector('[data-pg-point-drawer-hero-img]');
         var trainingBase = assetBaseUrl(root.getAttribute('data-pg-training-asset-base') || '');
         var exampleBase = assetBaseUrl(root.getAttribute('data-pg-example-asset-base') || '');
+        var trainingVersion = root.getAttribute('data-pg-training-asset-version') || '';
+        var exampleVersion = root.getAttribute('data-pg-example-asset-version') || '';
 
         if (titleEl) titleEl.textContent = card.title || '';
         if (iconEl) iconEl.textContent = card.icon || 'info';
@@ -901,7 +909,7 @@
                     heroImg.removeAttribute('src');
                     heroWrap.setAttribute('hidden', '');
                 };
-                heroImg.src = trainingBase + card.image;
+                heroImg.src = versionedAssetUrl(trainingBase, card.image, trainingVersion);
                 heroImg.alt = card.title || 'Training illustration';
                 heroWrap.removeAttribute('hidden');
             } else {
@@ -915,7 +923,9 @@
             drawer.querySelector('[data-pg-point-drawer-examples]'),
             card.examples,
             exampleBase,
-            trainingBase
+            trainingBase,
+            exampleVersion,
+            trainingVersion
         );
         fillPointDrawerList(drawer.querySelector('[data-pg-point-drawer-practices]'), card.best_practices);
         fillPointDrawerList(drawer.querySelector('[data-pg-point-drawer-avoid]'), card.avoid);

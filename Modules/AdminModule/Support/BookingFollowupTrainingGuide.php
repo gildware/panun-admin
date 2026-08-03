@@ -884,12 +884,12 @@ class BookingFollowupTrainingGuide
                     'Booking details — Activity panel (Followups)',
                     'On booking details → Activity section at bottom. Filter pills: Comments · Followups (count) · Change History. Add Follow-up opens the Follow-ups subpage.',
                     [
-                        ['label' => 'Followups pill', 'text' => 'Shows follow-up history table on the same page — same columns as full Follow-ups tab.'],
+                        ['label' => 'Followups pill', 'text' => 'Compact follow-up table: Scheduled for, Party, Status, Remarks, Taken by, and Take Follow-up on scheduled rows.'],
                         ['label' => 'Add Follow-up button', 'text' => 'Top-right of Activity → opens Follow-ups subpage (`web_page=followups`) where you schedule or take follow-ups.'],
                         ['label' => 'Take Follow-up (row)', 'text' => 'Scheduled rows show Take Follow-up — opens the Take modal (lead-style).'],
                         ['label' => 'View (recording)', 'text' => 'After Taken + Call with upload — expand row for playback, transcript, Transcribe.'],
                     ],
-                    'booking-followups-tab.png',
+                    'booking-activity-followups.png',
                 ),
                 self::panelMap(
                     'Follow-ups tab — Add Follow-up modal',

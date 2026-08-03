@@ -2,6 +2,8 @@
     @php
         $trainingAssetBase = rtrim(asset('assets/admin-module/process-guide/training'), '/') . '/';
         $exampleAssetBase = rtrim(asset('assets/admin-module/process-guide/training/examples'), '/') . '/';
+        $trainingAssetVersion = process_guide_training_asset_version();
+        $exampleAssetVersion = process_guide_training_asset_version('examples');
     @endphp
     <div
         class="pg-training-point-cards"
@@ -9,6 +11,8 @@
         data-pg-point-cards='@json($slide['point_cards'])'
         data-pg-training-asset-base="{{ $trainingAssetBase }}"
         data-pg-example-asset-base="{{ $exampleAssetBase }}"
+        data-pg-training-asset-version="{{ $trainingAssetVersion }}"
+        data-pg-example-asset-version="{{ $exampleAssetVersion }}"
     >
         <p class="pg-training-point-hint">
             <span class="material-icons" aria-hidden="true">touch_app</span>
@@ -26,7 +30,7 @@
                     @if (!empty($card['image']))
                         <div class="pg-training-point-card-media">
                             <img
-                                src="{{ $trainingAssetBase . $card['image'] }}"
+                                src="{{ process_guide_training_asset($card['image']) }}"
                                 alt=""
                                 loading="lazy"
                                 data-pg-fallback-icon="{{ $card['icon'] ?? 'info' }}"

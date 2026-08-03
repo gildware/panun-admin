@@ -163,7 +163,7 @@
                 @endif
                 @if (!empty($map['image']))
                     <div class="pg-training-ui-map-media">
-                        <img src="{{ rtrim(asset('assets/admin-module/process-guide/training'), '/') . '/' . $map['image'] }}"
+                        <img src="{{ process_guide_training_asset($map['image']) }}"
                              alt="{{ $map['title'] ?? 'Panel screenshot' }}"
                              loading="lazy">
                     </div>

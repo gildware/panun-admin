@@ -70,6 +70,8 @@
                 'followups' => $activityFollowups,
                 'followupDelayMeta' => $followupDelayMeta ?? [],
                 'showActionColumn' => true,
+                'showSectionLabel' => false,
+                'variant' => 'activity',
             ])
         </div>
     </div>

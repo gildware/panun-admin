@@ -208,6 +208,21 @@ async function main() {
         await shotLocator(actions, 'booking-dispute-button-area.png');
     });
 
+    // ── Activity panel — Followups tab (details page) ───────────────────
+    await tryCapture('booking-activity-followups', async () => {
+        await page.setViewportSize({ width: 1440, height: 1200 });
+        await page.goto(`${BASE}/admin/booking/details/${BOOKING_ID}?web_page=details`, { waitUntil: 'networkidle' });
+        await page.waitForTimeout(600);
+        const followupsPill = page.locator('#booking-activity [data-activity-filter="followup"]').first();
+        await followupsPill.waitFor({ state: 'visible', timeout: 15000 });
+        await followupsPill.click();
+        await page.waitForTimeout(400);
+        const activityPanel = page.locator('#booking-activity').first();
+        await activityPanel.scrollIntoViewIfNeeded();
+        await shotLocator(activityPanel, 'booking-activity-followups.png');
+        await page.setViewportSize({ width: 1440, height: 900 });
+    });
+
     // ── Follow-ups subpage (v2 layout) ──────────────────────────────────
     await tryCapture('booking-followups-tab', async () => {
         await page.setViewportSize({ width: 1440, height: 1600 });
