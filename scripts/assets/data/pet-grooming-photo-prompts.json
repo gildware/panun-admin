@@ -1,209 +1,242 @@
 [
-    {
-        "slug": "full-dog-grooming",
-        "name": "Full Dog Grooming",
-        "sub_category_slug": "dog-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of professional groomer giving full grooming to a dog with bath, brush, and trim, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Full Dog Grooming service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy dog, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/full-dog-grooming-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/full-dog-grooming-cover.png"
-    },
-    {
-        "slug": "dog-bath-and-brush",
-        "name": "Dog Bath & Brush",
-        "sub_category_slug": "dog-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of groomer bathing and blow-drying a dog with brush in hand, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Dog Bath & Brush service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy dog, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-bath-and-brush-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-bath-and-brush-cover.png"
-    },
-    {
-        "slug": "dog-haircut-and-trim",
-        "name": "Dog Haircut & Trim",
-        "sub_category_slug": "dog-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of groomer trimming dog coat with scissors and clippers, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Dog Haircut & Trim service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy dog, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-haircut-and-trim-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-haircut-and-trim-cover.png"
-    },
-    {
-        "slug": "dog-nail-clipping",
-        "name": "Dog Nail Clipping",
-        "sub_category_slug": "dog-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of close-up of groomer clipping dog nails carefully, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Dog Nail Clipping service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy dog, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-nail-clipping-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-nail-clipping-cover.png"
-    },
-    {
-        "slug": "dog-ear-cleaning",
-        "name": "Dog Ear Cleaning",
-        "sub_category_slug": "dog-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of groomer gently cleaning dog ears with cotton pad, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Dog Ear Cleaning service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy dog, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-ear-cleaning-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-ear-cleaning-cover.png"
-    },
-    {
-        "slug": "dog-teeth-brushing",
-        "name": "Dog Teeth Brushing",
-        "sub_category_slug": "dog-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of groomer brushing dog teeth with pet toothbrush, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Dog Teeth Brushing service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy dog, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-teeth-brushing-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-teeth-brushing-cover.png"
-    },
-    {
-        "slug": "dog-deshedding-treatment",
-        "name": "Dog Deshedding Treatment",
-        "sub_category_slug": "dog-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of groomer deshedding a dog with undercoat rake brush, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Dog Deshedding Treatment service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy dog, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-deshedding-treatment-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-deshedding-treatment-cover.png"
-    },
-    {
-        "slug": "dog-flea-tick-bath",
-        "name": "Dog Flea & Tick Bath",
-        "sub_category_slug": "dog-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of groomer giving medicated flea bath to a dog, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Dog Flea & Tick Bath service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy dog, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-flea-tick-bath-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-flea-tick-bath-cover.png"
-    },
-    {
-        "slug": "dog-paw-pad-trim",
-        "name": "Dog Paw Pad Trim",
-        "sub_category_slug": "dog-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of groomer trimming fur around dog paw pads, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Dog Paw Pad Trim service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy dog, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-paw-pad-trim-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-paw-pad-trim-cover.png"
-    },
-    {
-        "slug": "puppy-first-groom",
-        "name": "Puppy First Groom",
-        "sub_category_slug": "dog-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of gentle first grooming session for a young dog with patient groomer, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Puppy First Groom service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy dog, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/puppy-first-groom-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/puppy-first-groom-cover.png"
-    },
-    {
-        "slug": "senior-dog-gentle-groom",
-        "name": "Senior Dog Gentle Groom",
-        "sub_category_slug": "dog-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of gentle slow grooming of a senior dog on soft mat, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Senior Dog Gentle Groom service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy dog, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/senior-dog-gentle-groom-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/senior-dog-gentle-groom-cover.png"
-    },
-    {
-        "slug": "dog-spa-package",
-        "name": "Dog Spa Package",
-        "sub_category_slug": "dog-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of spa grooming with massage and paw balm for a relaxed dog, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Dog Spa Package service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy dog, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-spa-package-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-spa-package-cover.png"
-    },
-    {
-        "slug": "dog-monthly-grooming-plan",
-        "name": "Dog Monthly Grooming Plan",
-        "sub_category_slug": "dog-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of regular monthly grooming visit, groomer with portable kit greeting dog owner at Indian home, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Dog Monthly Grooming Plan service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy dog, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-monthly-grooming-plan-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-monthly-grooming-plan-cover.png"
-    },
-    {
-        "slug": "full-cat-grooming",
-        "name": "Full Cat Grooming",
-        "sub_category_slug": "cat-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of professional groomer giving full grooming to a cat with bath, brush, and trim, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Full Cat Grooming service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy cat, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/full-cat-grooming-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/full-cat-grooming-cover.png"
-    },
-    {
-        "slug": "cat-bath-and-brush",
-        "name": "Cat Bath & Brush",
-        "sub_category_slug": "cat-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of groomer bathing and blow-drying a cat with brush in hand, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Cat Bath & Brush service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy cat, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-bath-and-brush-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-bath-and-brush-cover.png"
-    },
-    {
-        "slug": "cat-mat-removal",
-        "name": "Cat Mat Removal",
-        "sub_category_slug": "cat-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of groomer carefully dematting a long-haired cat coat, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Cat Mat Removal service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy cat, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-mat-removal-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-mat-removal-cover.png"
-    },
-    {
-        "slug": "cat-lion-cut",
-        "name": "Cat Lion Cut",
-        "sub_category_slug": "cat-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of groomer giving lion cut trim to a cat on grooming table, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Cat Lion Cut service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy cat, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-lion-cut-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-lion-cut-cover.png"
-    },
-    {
-        "slug": "cat-nail-trim",
-        "name": "Cat Nail Trim",
-        "sub_category_slug": "cat-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of close-up of groomer clipping cat nails carefully, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Cat Nail Trim service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy cat, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-nail-trim-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-nail-trim-cover.png"
-    },
-    {
-        "slug": "cat-ear-cleaning",
-        "name": "Cat Ear Cleaning",
-        "sub_category_slug": "cat-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of groomer gently cleaning cat ears with cotton pad, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Cat Ear Cleaning service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy cat, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-ear-cleaning-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-ear-cleaning-cover.png"
-    },
-    {
-        "slug": "kitten-first-groom",
-        "name": "Kitten First Groom",
-        "sub_category_slug": "cat-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of gentle first grooming session for a young cat with patient groomer, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Kitten First Groom service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy cat, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/kitten-first-groom-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/kitten-first-groom-cover.png"
-    },
-    {
-        "slug": "senior-cat-gentle-groom",
-        "name": "Senior Cat Gentle Groom",
-        "sub_category_slug": "cat-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of gentle slow grooming of a senior cat on soft mat, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Senior Cat Gentle Groom service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy cat, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/senior-cat-gentle-groom-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/senior-cat-gentle-groom-cover.png"
-    },
-    {
-        "slug": "cat-flea-tick-bath",
-        "name": "Cat Flea & Tick Bath",
-        "sub_category_slug": "cat-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of groomer giving medicated flea bath to a cat, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Cat Flea & Tick Bath service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy cat, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-flea-tick-bath-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-flea-tick-bath-cover.png"
-    },
-    {
-        "slug": "cat-monthly-grooming-plan",
-        "name": "Cat Monthly Grooming Plan",
-        "sub_category_slug": "cat-grooming",
-        "thumbnail_prompt": "Professional close-up photograph of regular monthly grooming visit, groomer with portable kit greeting cat owner at Indian home, clean modern Indian home living room or bathroom, at-home pet grooming visit, Kashmiri Indian pet groomer in clean uniform with grooming tools, natural soft lighting, shallow depth of field, photorealistic stock photo style. No text, no logos, no watermarks.",
-        "cover_prompt": "Wide landscape professional photograph showing Cat Monthly Grooming Plan service, clean modern Indian home living room or bathroom, at-home pet grooming visit, at-home pet grooming with professional groomer and happy cat, natural daylight, photorealistic home service photography. No text, no logos, no watermarks.",
-        "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-monthly-grooming-plan-thumbnail.png",
-        "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-monthly-grooming-plan-cover.png"
-    }
+  {
+    "slug": "full-dog-grooming",
+    "name": "Dog Full Grooming",
+    "sub_category_slug": "dog-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of dog full grooming in progress, giving full dog grooming with bath, brush, and coat trim to a calm dog, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and dog.",
+    "cover_prompt": "Wide landscape professional photograph showing dog full grooming, giving full dog grooming with bath, brush, and coat trim to a calm dog, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and dog.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/full-dog-grooming-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/full-dog-grooming-cover.png"
+  },
+  {
+    "slug": "dog-bath-and-brush",
+    "name": "Dog Bath & Brush",
+    "sub_category_slug": "dog-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of dog bath & brush in progress, bathing and blow-drying a dog with brush in hand, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and dog.",
+    "cover_prompt": "Wide landscape professional photograph showing dog bath & brush, bathing and blow-drying a dog with brush in hand, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and dog.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-bath-and-brush-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-bath-and-brush-cover.png"
+  },
+  {
+    "slug": "dog-haircut-and-trim",
+    "name": "Dog Haircut & Trim",
+    "sub_category_slug": "dog-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of dog haircut & trim in progress, trimming a dog coat with scissors and clippers, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and dog.",
+    "cover_prompt": "Wide landscape professional photograph showing dog haircut & trim, trimming a dog coat with scissors and clippers, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and dog.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-haircut-and-trim-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-haircut-and-trim-cover.png"
+  },
+  {
+    "slug": "dog-spa-package",
+    "name": "Dog Spa Package",
+    "sub_category_slug": "dog-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of dog spa package in progress, giving a spa bath and gentle massage to a relaxed dog, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and dog.",
+    "cover_prompt": "Wide landscape professional photograph showing dog spa package, giving a spa bath and gentle massage to a relaxed dog, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and dog.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-spa-package-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-spa-package-cover.png"
+  },
+  {
+    "slug": "dog-flea-tick-bath",
+    "name": "Dog Flea & Tick Bath",
+    "sub_category_slug": "dog-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of dog flea & tick bath in progress, giving a medicated flea and tick bath to a dog, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and dog.",
+    "cover_prompt": "Wide landscape professional photograph showing dog flea & tick bath, giving a medicated flea and tick bath to a dog, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and dog.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-flea-tick-bath-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-flea-tick-bath-cover.png"
+  },
+  {
+    "slug": "dog-deshedding-treatment",
+    "name": "Dog Deshedding Treatment",
+    "sub_category_slug": "dog-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of dog deshedding treatment in progress, deshedding a dog with an undercoat rake brush, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and dog.",
+    "cover_prompt": "Wide landscape professional photograph showing dog deshedding treatment, deshedding a dog with an undercoat rake brush, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and dog.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-deshedding-treatment-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-deshedding-treatment-cover.png"
+  },
+  {
+    "slug": "dog-mat-removal",
+    "name": "Dog Mat Removal",
+    "sub_category_slug": "dog-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of dog mat removal in progress, carefully dematting a dog coat with comb and clippers, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and dog.",
+    "cover_prompt": "Wide landscape professional photograph showing dog mat removal, carefully dematting a dog coat with comb and clippers, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and dog.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-mat-removal-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-mat-removal-cover.png"
+  },
+  {
+    "slug": "puppy-first-groom",
+    "name": "Puppy First Groom",
+    "sub_category_slug": "dog-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of puppy first groom in progress, gently introducing a puppy to first grooming with patient handling, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and dog.",
+    "cover_prompt": "Wide landscape professional photograph showing puppy first groom, gently introducing a puppy to first grooming with patient handling, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and dog.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/puppy-first-groom-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/puppy-first-groom-cover.png"
+  },
+  {
+    "slug": "senior-dog-gentle-groom",
+    "name": "Senior Dog Gentle Groom",
+    "sub_category_slug": "dog-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of senior dog gentle groom in progress, gently grooming a senior dog on a soft mat at a slow pace, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and dog.",
+    "cover_prompt": "Wide landscape professional photograph showing senior dog gentle groom, gently grooming a senior dog on a soft mat at a slow pace, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and dog.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/senior-dog-gentle-groom-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/senior-dog-gentle-groom-cover.png"
+  },
+  {
+    "slug": "dog-nail-clipping",
+    "name": "Dog Nail Clipping",
+    "sub_category_slug": "dog-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of dog nail clipping in progress, carefully clipping a dog nails with pet nail clippers, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and dog.",
+    "cover_prompt": "Wide landscape professional photograph showing dog nail clipping, carefully clipping a dog nails with pet nail clippers, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and dog.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-nail-clipping-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-nail-clipping-cover.png"
+  },
+  {
+    "slug": "dog-ear-cleaning",
+    "name": "Dog Ear Cleaning",
+    "sub_category_slug": "dog-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of dog ear cleaning in progress, gently cleaning a dog ears with cotton pad, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and dog.",
+    "cover_prompt": "Wide landscape professional photograph showing dog ear cleaning, gently cleaning a dog ears with cotton pad, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and dog.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-ear-cleaning-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-ear-cleaning-cover.png"
+  },
+  {
+    "slug": "dog-paw-pad-trim",
+    "name": "Dog Paw Pad Trim",
+    "sub_category_slug": "dog-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of dog paw pad trim in progress, trimming fur around a dog paw pads, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and dog.",
+    "cover_prompt": "Wide landscape professional photograph showing dog paw pad trim, trimming fur around a dog paw pads, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and dog.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-paw-pad-trim-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-paw-pad-trim-cover.png"
+  },
+  {
+    "slug": "dog-teeth-brushing",
+    "name": "Dog Teeth Brushing",
+    "sub_category_slug": "dog-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of dog teeth brushing in progress, brushing a dog teeth with pet toothbrush, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and dog.",
+    "cover_prompt": "Wide landscape professional photograph showing dog teeth brushing, brushing a dog teeth with pet toothbrush, a clean modern Srinagar Kashmir home living room or bathroom, at-home dog grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and dog.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-teeth-brushing-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/dog-teeth-brushing-cover.png"
+  },
+  {
+    "slug": "full-cat-grooming",
+    "name": "Cat Full Grooming",
+    "sub_category_slug": "cat-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of cat full grooming in progress, giving full cat grooming with bath, brush, and tidy trim to a calm cat, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and cat.",
+    "cover_prompt": "Wide landscape professional photograph showing cat full grooming, giving full cat grooming with bath, brush, and tidy trim to a calm cat, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and cat.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/full-cat-grooming-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/full-cat-grooming-cover.png"
+  },
+  {
+    "slug": "cat-bath-and-brush",
+    "name": "Cat Bath & Brush",
+    "sub_category_slug": "cat-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of cat bath & brush in progress, bathing and brushing a cat carefully, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and cat.",
+    "cover_prompt": "Wide landscape professional photograph showing cat bath & brush, bathing and brushing a cat carefully, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and cat.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-bath-and-brush-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-bath-and-brush-cover.png"
+  },
+  {
+    "slug": "cat-spa-package",
+    "name": "Cat Spa Package",
+    "sub_category_slug": "cat-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of cat spa package in progress, giving a spa bath and gentle massage to a relaxed cat, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and cat.",
+    "cover_prompt": "Wide landscape professional photograph showing cat spa package, giving a spa bath and gentle massage to a relaxed cat, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and cat.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-spa-package-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-spa-package-cover.png"
+  },
+  {
+    "slug": "cat-flea-tick-bath",
+    "name": "Cat Flea & Tick Bath",
+    "sub_category_slug": "cat-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of cat flea & tick bath in progress, giving a medicated flea and tick bath to a cat, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and cat.",
+    "cover_prompt": "Wide landscape professional photograph showing cat flea & tick bath, giving a medicated flea and tick bath to a cat, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and cat.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-flea-tick-bath-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-flea-tick-bath-cover.png"
+  },
+  {
+    "slug": "cat-lion-cut",
+    "name": "Cat Lion Cut",
+    "sub_category_slug": "cat-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of cat lion cut in progress, giving a lion cut trim to a cat on a grooming mat, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and cat.",
+    "cover_prompt": "Wide landscape professional photograph showing cat lion cut, giving a lion cut trim to a cat on a grooming mat, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and cat.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-lion-cut-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-lion-cut-cover.png"
+  },
+  {
+    "slug": "cat-mat-removal",
+    "name": "Cat Mat Removal",
+    "sub_category_slug": "cat-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of cat mat removal in progress, carefully dematting a long-haired cat coat, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and cat.",
+    "cover_prompt": "Wide landscape professional photograph showing cat mat removal, carefully dematting a long-haired cat coat, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and cat.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-mat-removal-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-mat-removal-cover.png"
+  },
+  {
+    "slug": "kitten-first-groom",
+    "name": "Kitten First Groom",
+    "sub_category_slug": "cat-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of kitten first groom in progress, gently introducing a kitten to first grooming with patient handling, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and cat.",
+    "cover_prompt": "Wide landscape professional photograph showing kitten first groom, gently introducing a kitten to first grooming with patient handling, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and cat.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/kitten-first-groom-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/kitten-first-groom-cover.png"
+  },
+  {
+    "slug": "senior-cat-gentle-groom",
+    "name": "Senior Cat Gentle Groom",
+    "sub_category_slug": "cat-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of senior cat gentle groom in progress, gently grooming a senior cat on a soft mat at a slow pace, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and cat.",
+    "cover_prompt": "Wide landscape professional photograph showing senior cat gentle groom, gently grooming a senior cat on a soft mat at a slow pace, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and cat.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/senior-cat-gentle-groom-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/senior-cat-gentle-groom-cover.png"
+  },
+  {
+    "slug": "cat-nail-trim",
+    "name": "Cat Nail Trim",
+    "sub_category_slug": "cat-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of cat nail trim in progress, carefully trimming a cat nails with pet nail clippers, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and cat.",
+    "cover_prompt": "Wide landscape professional photograph showing cat nail trim, carefully trimming a cat nails with pet nail clippers, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and cat.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-nail-trim-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-nail-trim-cover.png"
+  },
+  {
+    "slug": "cat-ear-cleaning",
+    "name": "Cat Ear Cleaning",
+    "sub_category_slug": "cat-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of cat ear cleaning in progress, gently cleaning a cat ears with cotton pad, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and cat.",
+    "cover_prompt": "Wide landscape professional photograph showing cat ear cleaning, gently cleaning a cat ears with cotton pad, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and cat.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-ear-cleaning-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-ear-cleaning-cover.png"
+  },
+  {
+    "slug": "cat-teeth-brushing",
+    "name": "Cat Teeth Brushing",
+    "sub_category_slug": "cat-grooming",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of cat teeth brushing in progress, brushing a cat teeth with pet toothbrush, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Focus on groomer and cat.",
+    "cover_prompt": "Wide landscape professional photograph showing cat teeth brushing, brushing a cat teeth with pet toothbrush, a clean modern Srinagar Kashmir home living room or bathroom, at-home cat grooming visit, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Focus on groomer and cat.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-teeth-brushing-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cat-teeth-brushing-cover.png"
+  }
 ]

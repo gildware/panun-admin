@@ -1,0 +1,29 @@
+<div class="modal fade" id="workflowConfirmModal" tabindex="-1" aria-labelledby="workflowConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="workflowConfirmModalLabel">
+                    <span class="material-icons align-middle me-1">help_outline</span>
+                    {{ translate('Confirm_previous_steps') }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3" id="workflow-confirm-intro">
+                    {{ translate('Please_confirm_you_completed_these_steps_before_continuing') }}
+                </p>
+                <p class="small text-muted mb-3 d-none" id="workflow-confirm-intro-post">
+                    {{ translate('You_updated_the_panel_confirm_you_also_completed') }}
+                </p>
+                <ul class="list-unstyled mb-0" id="workflow-confirm-steps"></ul>
+                <div class="alert alert-warning small d-none mt-3 mb-0" id="workflow-confirm-hard-notice"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Not_yet') }}</button>
+                <button type="button" class="btn btn--primary" id="workflow-confirm-proceed" disabled>
+                    {{ translate('Yes_continue') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

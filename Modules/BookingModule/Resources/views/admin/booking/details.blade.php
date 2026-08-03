@@ -3740,6 +3740,14 @@
         }
 
         function bookingDetailsPromptStatusUpdate(bookingStatus, previousStatus) {
+            var proceed = function () {
+                var route = '{{ route('admin.booking.status_update', [$booking->id]) }}' + '?booking_status=' + bookingStatus + '&workflow_confirmed=1';
+                update_booking_details(route, bookingDetailsStatusUpdateMessage(bookingStatus), 'booking_status', bookingStatus, previousStatus);
+            };
+            if (bookingStatus === 'completed' && window.WorkflowGate) {
+                window.WorkflowGate.check('{{ \Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_BOOKING_COMPLETED }}', proceed);
+                return;
+            }
             var route = '{{ route('admin.booking.status_update', [$booking->id]) }}' + '?booking_status=' + bookingStatus;
             update_booking_details(route, bookingDetailsStatusUpdateMessage(bookingStatus), 'booking_status', bookingStatus, previousStatus);
         }
@@ -4402,7 +4410,8 @@
                         ajaxOpts.method = 'POST';
                         ajaxOpts.data = {
                             _token: $('meta[name="csrf-token"]').attr('content'),
-                            booking_status: updatedValue
+                            booking_status: updatedValue,
+                            workflow_confirmed: (route.indexOf('workflow_confirmed=1') !== -1 || updatedValue === 'completed') ? 1 : 0
                         };
                         ajaxOpts.headers = { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' };
                         $.ajax(ajaxOpts);
@@ -5388,3 +5397,7 @@
 
     </script>
 @endpush
+
+@include('adminmodule::admin.workflow.partials._next-step-fab', ['workflowContext' => $workflowContext ?? []])
+@include('adminmodule::admin.workflow.partials._confirm-modal')
+@include('adminmodule::admin.workflow.partials._scripts', ['workflowContext' => $workflowContext ?? [], 'wfEntityType' => 'booking', 'wfEntityId' => (int) ($booking->id ?? 0)])

@@ -25,8 +25,34 @@
                      alt="{{ translate('image') }}">
                 <span class="d-none d-sm-inline">Panun Kaergar Admin</span>
             </a>
+            <button type="button"
+                    id="top-chrome-mode-toggle"
+                    class="top-chrome-mode-toggle"
+                    aria-pressed="true"
+                    data-label-pin="{{ translate('Pin_header') }}"
+                    data-label-unpin="{{ translate('Unpin_header') }}"
+                    title="{{ translate('Unpin_header') }}"
+                    aria-label="{{ translate('Unpin_header') }}">
+                <span class="top-chrome-mode-option top-chrome-mode-option--pin">
+                    <span class="material-icons" aria-hidden="true">push_pin</span>
+                    <span class="top-chrome-mode-label d-none d-md-inline">{{ translate('Pin') }}</span>
+                </span>
+                <span class="top-chrome-mode-option top-chrome-mode-option--unpin">
+                    <span class="material-icons" aria-hidden="true">push_pin</span>
+                    <span class="top-chrome-mode-label d-none d-md-inline">{{ translate('Unpin') }}</span>
+                </span>
+            </button>
         </div>
         <div class="top-utility-end">
+            <a href="{{ route('admin.process-guides.index') }}"
+               class="top-utility-action-btn"
+               @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif
+               title="{{ translate('Process_Guides') }}"
+               aria-label="{{ translate('Process_Guides') }}">
+                <span class="material-symbols-outlined">menu_book</span>
+                <span class="d-none d-lg-inline">{{ translate('Process_Guides') }}</span>
+            </a>
+
             <a href="{{ route('admin.task-board.index') }}"
                class="top-utility-action-btn"
                @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif

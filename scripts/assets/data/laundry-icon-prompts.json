@@ -1,0 +1,317 @@
+{
+  "categories": [
+    {
+      "slug": "laundry",
+      "filename": "laundry.png",
+      "prompt": "Category icon: hanging shirt and laundry basket representing dry cleaning and laundry services. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "wash-laundry",
+      "filename": "wash-laundry.png",
+      "prompt": "Category icon: washing machine and folded clothes stack representing laundry wash services. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "dry-clean",
+      "filename": "dry-clean.png",
+      "prompt": "Category icon: suit jacket on hanger with sparkle representing garment dry cleaning. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ],
+  "variants": [
+    {
+      "service_slug": "clothing-laundry",
+      "service_name": "Clothing Laundry",
+      "variant_key": "wash-fold-per-kg",
+      "variant_title": "Wash & Fold (Per Kg)",
+      "filename": "clothing-laundry-wash-fold-per-kg.png",
+      "prompt": "Variation icon for clothing laundry: folded clothes stack with laundry basket representing wash and fold per kg. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "clothing-laundry",
+      "service_name": "Clothing Laundry",
+      "variant_key": "wash-iron-per-kg",
+      "variant_title": "Wash & Iron (Per Kg)",
+      "filename": "clothing-laundry-wash-iron-per-kg.png",
+      "prompt": "Variation icon for clothing laundry: clothes iron and hung shirt representing wash and iron per kg. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "home-linen-laundry",
+      "service_name": "Home Linen Laundry",
+      "variant_key": "bedsheet-single",
+      "variant_title": "Bedsheet (Single)",
+      "filename": "home-linen-laundry-bedsheet-single.png",
+      "prompt": "Variation icon for home linen laundry: single bedsheet folded neatly icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "home-linen-laundry",
+      "service_name": "Home Linen Laundry",
+      "variant_key": "bedsheet-double",
+      "variant_title": "Bedsheet (Double)",
+      "filename": "home-linen-laundry-bedsheet-double.png",
+      "prompt": "Variation icon for home linen laundry: double bedsheet folded neatly icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "home-linen-laundry",
+      "service_name": "Home Linen Laundry",
+      "variant_key": "blanket-single",
+      "variant_title": "Blanket (Single)",
+      "filename": "home-linen-laundry-blanket-single.png",
+      "prompt": "Variation icon for home linen laundry: single blanket folded icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "home-linen-laundry",
+      "service_name": "Home Linen Laundry",
+      "variant_key": "blanket-double",
+      "variant_title": "Blanket (Double)",
+      "filename": "home-linen-laundry-blanket-double.png",
+      "prompt": "Variation icon for home linen laundry: double blanket folded thick icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "home-linen-laundry",
+      "service_name": "Home Linen Laundry",
+      "variant_key": "comforter-quilt-single",
+      "variant_title": "Comforter / Quilt (Single)",
+      "filename": "home-linen-laundry-comforter-quilt-single.png",
+      "prompt": "Variation icon for home linen laundry: single comforter quilt puff icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "home-linen-laundry",
+      "service_name": "Home Linen Laundry",
+      "variant_key": "comforter-quilt-double",
+      "variant_title": "Comforter / Quilt (Double)",
+      "filename": "home-linen-laundry-comforter-quilt-double.png",
+      "prompt": "Variation icon for home linen laundry: double comforter quilt puff icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "home-linen-laundry",
+      "service_name": "Home Linen Laundry",
+      "variant_key": "curtain",
+      "variant_title": "Curtain",
+      "filename": "home-linen-laundry-curtain.png",
+      "prompt": "Variation icon for home linen laundry: window curtain panel hanging icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "home-linen-laundry",
+      "service_name": "Home Linen Laundry",
+      "variant_key": "pillow-cover",
+      "variant_title": "Pillow Cover",
+      "filename": "home-linen-laundry-pillow-cover.png",
+      "prompt": "Variation icon for home linen laundry: pillow cover rectangular cushion icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "home-linen-laundry",
+      "service_name": "Home Linen Laundry",
+      "variant_key": "towel-small",
+      "variant_title": "Towel (Small)",
+      "filename": "home-linen-laundry-towel-small.png",
+      "prompt": "Variation icon for home linen laundry: small folded hand towel icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "home-linen-laundry",
+      "service_name": "Home Linen Laundry",
+      "variant_key": "towel-large",
+      "variant_title": "Towel (Large)",
+      "filename": "home-linen-laundry-towel-large.png",
+      "prompt": "Variation icon for home linen laundry: large bath towel folded icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "shoe-cleaning",
+      "service_name": "Shoe Cleaning",
+      "variant_key": "sneakers",
+      "variant_title": "Sneakers",
+      "filename": "shoe-cleaning-sneakers.png",
+      "prompt": "Variation icon for shoe cleaning: sneaker shoe side profile icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "shoe-cleaning",
+      "service_name": "Shoe Cleaning",
+      "variant_key": "leather-shoes",
+      "variant_title": "Leather Shoes",
+      "filename": "shoe-cleaning-leather-shoes.png",
+      "prompt": "Variation icon for shoe cleaning: leather formal shoe icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "shoe-cleaning",
+      "service_name": "Shoe Cleaning",
+      "variant_key": "sports-shoes",
+      "variant_title": "Sports Shoes",
+      "filename": "shoe-cleaning-sports-shoes.png",
+      "prompt": "Variation icon for shoe cleaning: sports running shoe icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "shoe-cleaning",
+      "service_name": "Shoe Cleaning",
+      "variant_key": "boots",
+      "variant_title": "Boots",
+      "filename": "shoe-cleaning-boots.png",
+      "prompt": "Variation icon for shoe cleaning: ankle boot shoe icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "bag-cleaning",
+      "service_name": "Bag Cleaning",
+      "variant_key": "school-bag",
+      "variant_title": "School Bag",
+      "filename": "bag-cleaning-school-bag.png",
+      "prompt": "Variation icon for bag cleaning: school backpack bag icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "bag-cleaning",
+      "service_name": "Bag Cleaning",
+      "variant_key": "backpack",
+      "variant_title": "Backpack",
+      "filename": "bag-cleaning-backpack.png",
+      "prompt": "Variation icon for bag cleaning: hiking backpack bag icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "bag-cleaning",
+      "service_name": "Bag Cleaning",
+      "variant_key": "handbag",
+      "variant_title": "Handbag",
+      "filename": "bag-cleaning-handbag.png",
+      "prompt": "Variation icon for bag cleaning: handbag purse icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "bag-cleaning",
+      "service_name": "Bag Cleaning",
+      "variant_key": "laptop-bag",
+      "variant_title": "Laptop Bag",
+      "filename": "bag-cleaning-laptop-bag.png",
+      "prompt": "Variation icon for bag cleaning: laptop messenger bag icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "garment-dry-cleaning",
+      "service_name": "Garment Dry Cleaning",
+      "variant_key": "shirt",
+      "variant_title": "Shirt",
+      "filename": "garment-dry-cleaning-shirt.png",
+      "prompt": "Variation icon for garment dry cleaning: button shirt on hanger icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "garment-dry-cleaning",
+      "service_name": "Garment Dry Cleaning",
+      "variant_key": "t-shirt",
+      "variant_title": "T-Shirt",
+      "filename": "garment-dry-cleaning-t-shirt.png",
+      "prompt": "Variation icon for garment dry cleaning: t-shirt flat icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "garment-dry-cleaning",
+      "service_name": "Garment Dry Cleaning",
+      "variant_key": "trouser-jeans",
+      "variant_title": "Trouser / Jeans",
+      "filename": "garment-dry-cleaning-trouser-jeans.png",
+      "prompt": "Variation icon for garment dry cleaning: trousers jeans pair icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "garment-dry-cleaning",
+      "service_name": "Garment Dry Cleaning",
+      "variant_key": "kurta-kurti",
+      "variant_title": "Kurta / Kurti",
+      "filename": "garment-dry-cleaning-kurta-kurti.png",
+      "prompt": "Variation icon for garment dry cleaning: kurta garment on hanger icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "garment-dry-cleaning",
+      "service_name": "Garment Dry Cleaning",
+      "variant_key": "salwar-suit",
+      "variant_title": "Salwar Suit",
+      "filename": "garment-dry-cleaning-salwar-suit.png",
+      "prompt": "Variation icon for garment dry cleaning: salwar suit set icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "garment-dry-cleaning",
+      "service_name": "Garment Dry Cleaning",
+      "variant_key": "saree",
+      "variant_title": "Saree",
+      "filename": "garment-dry-cleaning-saree.png",
+      "prompt": "Variation icon for garment dry cleaning: folded saree drape icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "garment-dry-cleaning",
+      "service_name": "Garment Dry Cleaning",
+      "variant_key": "suit-2-piece",
+      "variant_title": "Suit (2 Piece)",
+      "filename": "garment-dry-cleaning-suit-2-piece.png",
+      "prompt": "Variation icon for garment dry cleaning: two piece suit jacket and trouser icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "garment-dry-cleaning",
+      "service_name": "Garment Dry Cleaning",
+      "variant_key": "suit-3-piece",
+      "variant_title": "Suit (3 Piece)",
+      "filename": "garment-dry-cleaning-suit-3-piece.png",
+      "prompt": "Variation icon for garment dry cleaning: three piece suit with waistcoat icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "garment-dry-cleaning",
+      "service_name": "Garment Dry Cleaning",
+      "variant_key": "blazer",
+      "variant_title": "Blazer",
+      "filename": "garment-dry-cleaning-blazer.png",
+      "prompt": "Variation icon for garment dry cleaning: blazer jacket icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "garment-dry-cleaning",
+      "service_name": "Garment Dry Cleaning",
+      "variant_key": "jacket",
+      "variant_title": "Jacket",
+      "filename": "garment-dry-cleaning-jacket.png",
+      "prompt": "Variation icon for garment dry cleaning: casual jacket icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "garment-dry-cleaning",
+      "service_name": "Garment Dry Cleaning",
+      "variant_key": "coat",
+      "variant_title": "Coat",
+      "filename": "garment-dry-cleaning-coat.png",
+      "prompt": "Variation icon for garment dry cleaning: long overcoat icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "garment-dry-cleaning",
+      "service_name": "Garment Dry Cleaning",
+      "variant_key": "sweater",
+      "variant_title": "Sweater",
+      "filename": "garment-dry-cleaning-sweater.png",
+      "prompt": "Variation icon for garment dry cleaning: knitted sweater icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "garment-dry-cleaning",
+      "service_name": "Garment Dry Cleaning",
+      "variant_key": "lehenga",
+      "variant_title": "Lehenga",
+      "filename": "garment-dry-cleaning-lehenga.png",
+      "prompt": "Variation icon for garment dry cleaning: lehenga skirt flare icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "garment-dry-cleaning",
+      "service_name": "Garment Dry Cleaning",
+      "variant_key": "sherwani",
+      "variant_title": "Sherwani",
+      "filename": "garment-dry-cleaning-sherwani.png",
+      "prompt": "Variation icon for garment dry cleaning: sherwani traditional coat icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "home-linen-dry-cleaning",
+      "service_name": "Home Linen Dry Cleaning",
+      "variant_key": "curtain",
+      "variant_title": "Curtain",
+      "filename": "home-linen-dry-cleaning-curtain.png",
+      "prompt": "Variation icon for home linen dry cleaning: window curtain panel hanging icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "home-linen-dry-cleaning",
+      "service_name": "Home Linen Dry Cleaning",
+      "variant_key": "blanket",
+      "variant_title": "Blanket",
+      "filename": "home-linen-dry-cleaning-blanket.png",
+      "prompt": "Variation icon for home linen dry cleaning: folded blanket icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "home-linen-dry-cleaning",
+      "service_name": "Home Linen Dry Cleaning",
+      "variant_key": "comforter-quilt",
+      "variant_title": "Comforter / Quilt",
+      "filename": "home-linen-dry-cleaning-comforter-quilt.png",
+      "prompt": "Variation icon for home linen dry cleaning: comforter quilt icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ]
+}

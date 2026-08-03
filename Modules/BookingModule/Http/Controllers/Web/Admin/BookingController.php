@@ -604,6 +604,18 @@ class BookingController extends Controller
             return redirect()->route('admin.lead.show', $leadModel->id);
         }
 
+        if (! $request->boolean('workflow_confirmed')) {
+            $gate = app(\Modules\AdminModule\Services\WorkflowGate::class)
+                ->checkLeadAction($leadModel, \Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_LEAD_CREATE_BOOKING);
+            if (! $gate['allowed']) {
+                Toastr::warning($gate['message']);
+                return redirect()
+                    ->route('admin.lead.show', $leadModel->id)
+                    ->with('workflow_gate', $gate)
+                    ->with('workflow_gate_action', \Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_LEAD_CREATE_BOOKING);
+            }
+        }
+
         // Try to find existing customer by phone; otherwise create one
         $customer = User::findByContactPhoneScoped((string) $leadModel->phone_number, CUSTOMER_USER_TYPES);
 
@@ -2703,9 +2715,10 @@ class BookingController extends Controller
 
             try {
                 $advancePaymentMethodGroups = $this->getAdminAdvancePaymentMethodGroupsForCreate();
+                $workflowContext = app(\Modules\AdminModule\Services\WorkflowNextStepService::class)->forBooking($booking);
 
                 return view('bookingmodule::admin.booking.details', array_merge(
-                    compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'bookingEditCategories', 'providers', 'sort_by', 'assignees', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone', 'remainingDueForAddPayment', 'maxRefundAmount', 'additionalChargesDisplayRows', 'financialSettlementOutcomes', 'defaultVisitFeeCompanyPercent', 'bfsDefaultCustomAdminCommission', 'advancePaymentMethodGroups', 'allowDeleteAdminBookingPartialPayments'),
+                    compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'bookingEditCategories', 'providers', 'sort_by', 'assignees', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone', 'remainingDueForAddPayment', 'maxRefundAmount', 'additionalChargesDisplayRows', 'financialSettlementOutcomes', 'defaultVisitFeeCompanyPercent', 'bfsDefaultCustomAdminCommission', 'advancePaymentMethodGroups', 'allowDeleteAdminBookingPartialPayments', 'workflowContext'),
                     $this->bookingConfigurationReasonVariables()
                 ));
             } catch (Throwable $e) {
@@ -3864,6 +3877,17 @@ class BookingController extends Controller
                         'response_code' => 'default_400',
                         'message' => translate('Booking cannot be completed until full payment is received.'),
                     ]), 422);
+                }
+                if ($to === 'completed' && ! $request->boolean('workflow_confirmed')) {
+                    $gate = app(\Modules\AdminModule\Services\WorkflowGate::class)
+                        ->checkBookingAction($booking, \Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_BOOKING_COMPLETED);
+                    if (! $gate['allowed']) {
+                        return response()->json(response_formatter([
+                            'response_code' => 'default_400',
+                            'message' => $gate['message'],
+                            'workflow_gate' => $gate,
+                        ]), 422);
+                    }
                 }
                 if ($to === 'completed'
                     && (string) ($booking->settlement_outcome ?? '') === BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL) {

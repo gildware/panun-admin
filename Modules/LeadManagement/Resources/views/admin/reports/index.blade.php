@@ -16,6 +16,11 @@
                 align-content: flex-start;
                 max-height: 100%;
             }
+            .report-filter-offcanvas { display: flex; flex-direction: column; }
+            .report-filter-offcanvas .report-filter-form-flex { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+            .report-filter-offcanvas .report-filter-body { flex: 1; min-height: 0; }
+            .report-filter-offcanvas .report-filter-footer { flex-shrink: 0; }
+            .report-filter-btn-margin { margin-top: 0; }
         </style>
     @endif
 @endpush
@@ -23,16 +28,51 @@
 @section('content')
     <div class="main-content">
         <div class="container-fluid">
-            <div class="page-title-wrap mb-3 d-flex justify-content-between flex-wrap align-items-center gap-2">
-                <h2 class="page-title mb-1">{{ translate('Lead_Reports') }}</h2>
-            </div>
-
             @php
                 $activeTab = $tab ?? request()->input('tab', 'inbound');
                 if (!in_array($activeTab, ['inbound', 'outbound'], true)) {
                     $activeTab = 'inbound';
                 }
+                $filtersAppliedCount = 0;
+                if (request()->filled('date_from')) {
+                    $filtersAppliedCount++;
+                }
+                if (request()->filled('date_to')) {
+                    $filtersAppliedCount++;
+                }
+                if (!empty($selectedHandledByIds ?? [])) {
+                    $filtersAppliedCount++;
+                }
+                if ($activeTab === 'inbound') {
+                    if (!empty($selectedSourceIds ?? [])) {
+                        $filtersAppliedCount++;
+                    }
+                    if (!empty($selectedAdSourceIds ?? [])) {
+                        $filtersAppliedCount++;
+                    }
+                } elseif (!empty($selectedContactedThroughs ?? [])) {
+                    $filtersAppliedCount++;
+                }
+                $reportFilterResetParams = ['tab' => $activeTab];
+                if ($activeTab === 'inbound') {
+                    $reportFilterResetParams['inbound_report'] = $inboundReport ?? 'general';
+                }
             @endphp
+
+            <div class="page-title-wrap mb-3 d-flex justify-content-between flex-wrap align-items-center gap-2">
+                <h2 class="page-title mb-1">{{ translate('Lead_Reports') }}</h2>
+                <button type="button"
+                        class="btn btn-outline-primary d-inline-flex align-items-center gap-2 position-relative report-filter-btn report-filter-btn-margin"
+                        data-bs-toggle="offcanvas"
+                        data-bs-target="#reportFilterDrawer"
+                        aria-controls="reportFilterDrawer">
+                    <span class="material-icons">filter_list</span>
+                    {{ translate('Filter') }}
+                    @if($filtersAppliedCount > 0)
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="report-filter-count-badge">{{ $filtersAppliedCount }}</span>
+                    @endif
+                </button>
+            </div>
 
             <ul class="nav nav--tabs mb-3">
                 <li class="nav-item">
@@ -49,26 +89,32 @@
                 </li>
             </ul>
 
-            <div class="card mb-3">
-                <div class="card-body">
-                    <div class="mb-3 fz-16">{{ translate('Search_Data') }}</div>
-                    <form action="{{ route('admin.lead.reports.index') }}" method="GET">
-                        <input type="hidden" name="tab" value="{{ $activeTab }}">
-                        @if($activeTab === 'inbound')
-                            <input type="hidden" name="inbound_report" value="{{ $inboundReport ?? 'general' }}">
+            <div class="offcanvas offcanvas-end report-filter-offcanvas" tabindex="-1" id="reportFilterDrawer" aria-labelledby="reportFilterDrawerLabel" data-select-placeholder="{{ translate('All') }}" style="width: 560px; max-width: 95vw;">
+                <div class="offcanvas-header border-bottom">
+                    <h5 class="offcanvas-title" id="reportFilterDrawerLabel">{{ translate('Search_Data') }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="{{ translate('Close') }}"></button>
+                </div>
+                <form action="{{ route('admin.lead.reports.index') }}" method="GET" id="report-filter-form" class="report-filter-form-flex">
+                    <input type="hidden" name="tab" value="{{ $activeTab }}">
+                    @if($activeTab === 'inbound')
+                        <input type="hidden" name="inbound_report" value="{{ $inboundReport ?? 'general' }}">
+                        @if(($inboundReport ?? 'general') === 'customer')
+                            <input type="hidden" name="customer_status_tab" value="{{ $customerStatusTab ?? 'overview' }}">
                         @endif
-                        <div class="row g-3 align-items-end">
-                            <div class="col-lg-3 col-sm-6">
-                                <label class="mb-2">{{ translate('From_Date') }}</label>
-                                <input type="date" name="date_from" class="form-control h-45" value="{{ $dateFrom }}">
+                    @endif
+                    <div class="offcanvas-body pt-3 overflow-auto flex-grow-1 report-filter-body">
+                        <div class="d-flex flex-column gap-3">
+                            <div>
+                                <label class="form-label">{{ translate('From_Date') }}</label>
+                                <input type="date" name="date_from" class="form-control" value="{{ $dateFrom }}">
                             </div>
-                            <div class="col-lg-3 col-sm-6">
-                                <label class="mb-2">{{ translate('To_Date') }}</label>
-                                <input type="date" name="date_to" class="form-control h-45" value="{{ $dateTo }}">
+                            <div>
+                                <label class="form-label">{{ translate('To_Date') }}</label>
+                                <input type="date" name="date_to" class="form-control" value="{{ $dateTo }}">
                             </div>
                             @if($activeTab === 'outbound')
-                                <div class="col-lg-3 col-sm-6">
-                                    <label class="mb-2">{{ translate('Contacted_Through') }}</label>
+                                <div>
+                                    <label class="form-label">{{ translate('Contacted_Through') }}</label>
                                     <select name="contacted_throughs[]" class="js-select form-select" multiple>
                                         <option value="call" {{ in_array('call', $selectedContactedThroughs ?? [], false) ? 'selected' : '' }}>
                                             {{ translate('Call') }}
@@ -79,8 +125,8 @@
                                     </select>
                                 </div>
                             @endif
-                            <div class="col-lg-3 col-sm-6">
-                                <label class="mb-2">{{ translate('Handled_By') }}</label>
+                            <div>
+                                <label class="form-label">{{ translate('Handled_By') }}</label>
                                 <select name="handled_by_ids[]" class="js-select form-select" multiple>
                                     @foreach($filterEmployees as $employee)
                                         @php
@@ -94,8 +140,8 @@
                                 </select>
                             </div>
                             @if($activeTab === 'inbound')
-                                <div class="col-lg-3 col-sm-6">
-                                    <label class="mb-2">{{ translate('Source') }}</label>
+                                <div>
+                                    <label class="form-label">{{ translate('Source') }}</label>
                                     <select name="source_ids[]" class="js-select form-select" multiple>
                                         @foreach($filterSources as $source)
                                             <option value="{{ $source->id }}" {{ in_array($source->id, $selectedSourceIds ?? [], false) ? 'selected' : '' }}>
@@ -104,8 +150,8 @@
                                         @endforeach
                                     </select>
                                 </div>
-                                <div class="col-lg-3 col-sm-6">
-                                    <label class="mb-2">{{ translate('Ad_Source') }}</label>
+                                <div>
+                                    <label class="form-label">{{ translate('Ad_Source') }}</label>
                                     <select name="ad_source_ids[]" class="js-select form-select" multiple>
                                         @foreach($filterAdSources as $adSource)
                                             <option value="{{ $adSource->id }}" {{ in_array($adSource->id, $selectedAdSourceIds ?? [], false) ? 'selected' : '' }}>
@@ -115,13 +161,15 @@
                                     </select>
                                 </div>
                             @endif
-                            <div class="col-lg-3 col-sm-6 d-flex gap-2">
-                                <button type="submit" class="btn btn--primary mt-4 flex-grow-1">{{ translate('Filter') }}</button>
-                                <a href="{{ route('admin.lead.reports.index', $activeTab === 'inbound' ? ['tab' => 'inbound', 'inbound_report' => $inboundReport ?? 'general'] : ['tab' => $activeTab]) }}" class="btn btn--secondary mt-4 flex-grow-1">{{ translate('Reset') }}</a>
-                            </div>
                         </div>
-                    </form>
-                </div>
+                    </div>
+                    <div class="report-filter-footer border-top bg-body p-3 flex-shrink-0">
+                        <div class="d-flex gap-2">
+                            <a href="{{ route('admin.lead.reports.index', $reportFilterResetParams) }}" class="btn btn--secondary flex-grow-1">{{ translate('Reset') }}</a>
+                            <button type="submit" class="btn btn--primary flex-grow-1">{{ translate('Filter') }}</button>
+                        </div>
+                    </div>
+                </form>
             </div>
 
             @if($activeTab === 'inbound')
@@ -274,13 +322,18 @@
             @endphp
 
             @if($inboundReport === 'customer' && !empty($customerLeadAnalytics))
-                @include('leadmanagement::admin.reports.partials.customer-insights', ['analytics' => $customerLeadAnalytics])
+                @include('leadmanagement::admin.reports.partials.customer-insights', [
+                    'analytics' => $customerLeadAnalytics,
+                    'customerStatusTab' => $customerStatusTab ?? 'overview',
+                    'queryParams' => $queryParams ?? [],
+                ])
             @endif
 
             @if($inboundReport === 'provider' && !empty($providerLeadAnalytics))
                 @include('leadmanagement::admin.reports.partials.provider-insights', ['analytics' => $providerLeadAnalytics])
             @endif
 
+            @if($inboundReport !== 'customer')
             <div class="row gy-3 pt-2">
                 <div class="col-lg-4">
                     <div class="d-flex flex-column gap-3 h-100">
@@ -647,6 +700,7 @@
                     </div>
                 </div>
             </div>
+            @endif
             @endif
         </div>
     </div>
@@ -1047,10 +1101,56 @@
                 }).render();
             })();
 
-            @include('leadmanagement::admin.reports.partials.customer-insights-charts')
+            @include('leadmanagement::admin.reports.partials.customer-insights-charts', [
+                'customerLeadAnalytics' => $customerLeadAnalytics ?? null,
+                'customerStatusTab' => $customerStatusTab ?? 'overview',
+            ])
             @include('leadmanagement::admin.reports.partials.provider-insights-charts')
         })();
         @endif
+
+        (function ($) {
+            function cleanupReportFilterBackdrop() {
+                document.querySelectorAll('.modal-backdrop, .offcanvas-backdrop')
+                    .forEach(function (el) { el.remove(); });
+                document.body.classList.remove('modal-open', 'offcanvas-backdrop');
+                document.body.style.removeProperty('overflow');
+                document.body.style.removeProperty('padding-right');
+            }
+
+            function closeReportFilterDrawer() {
+                var drawerEl = document.getElementById('reportFilterDrawer');
+                if (!drawerEl) {
+                    return;
+                }
+                $('#reportFilterDrawer .select2-hidden-accessible').each(function () {
+                    var $el = $(this);
+                    if ($el.data('select2')) {
+                        $el.select2('close');
+                    }
+                });
+                var bs = bootstrap.Offcanvas.getInstance(drawerEl);
+                if (bs) {
+                    bs.hide();
+                } else {
+                    cleanupReportFilterBackdrop();
+                }
+            }
+
+            $(document).on('submit', '#report-filter-form', function () {
+                closeReportFilterDrawer();
+            });
+
+            var reportFilterDrawerEl = document.getElementById('reportFilterDrawer');
+            if (reportFilterDrawerEl) {
+                reportFilterDrawerEl.addEventListener('shown.bs.offcanvas', function () {
+                    if (typeof window.initAdminPageSelect2 === 'function') {
+                        window.initAdminPageSelect2(this, { force: true, includeSingle: true });
+                    }
+                });
+                reportFilterDrawerEl.addEventListener('hidden.bs.offcanvas', cleanupReportFilterBackdrop);
+            }
+        })(jQuery);
     </script>
 @endpush
 

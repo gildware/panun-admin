@@ -1,0 +1,224 @@
+[167/220] ERR womens-facial-services-Daimond--Facial.png: HTTP Error 429: Too Many Requests
+[168/220] ERR womens-facial-services-Lotus-Facial.png: HTTP Error 429: Too Many Requests
+[169/220] ERR womens-facial-services-Kanepeki-Facial.png: HTTP Error 429: Too Many Requests
+[170/220] ERR womens-facial-services-O3+-Shine-&-Glow.png: HTTP Error 429: Too Many Requests
+[171/220] ERR womens-facial-services-Pearl-Facial.png: HTTP Error 429: Too Many Requests
+[173/220] ERR womens-hair-coloring-Hair-Highlight.png: HTTP Error 429: Too Many Requests
+[174/220] ERR womens-hair-coloring-Hair-Color-(Application--Only).png: HTTP Error 429: Too Many Requests
+[175/220] ERR womens-hair-coloring-Hair-Color-(With-product).png: HTTP Error 429: Too Many Requests
+[176/220] ERR womens-hair-spa-basic-package.png: HTTP Error 429: Too Many Requests
+[178/220] ERR womens-hair-wash-basic-package.png: HTTP Error 429: Too Many Requests
+[179/220] ERR womens-hair-wash-premium-package.png: HTTP Error 429: Too Many Requests
+[180/220] ERR womens-manicure-Basic-Manicure.png: HTTP Error 429: Too Many Requests
+[181/220] ERR womens-manicure-DTan-Manicure.png: HTTP Error 429: Too Many Requests
+[182/220] ERR womens-manicure-Fruit-Manicure.png: HTTP Error 429: Too Many Requests
+[183/220] ERR womens-pedicure-Basic-Pedicure.png: HTTP Error 429: Too Many Requests
+[184/220] ERR womens-pedicure-DTan-Pedicure.png: HTTP Error 429: Too Many Requests
+[185/220] ERR womens-pedicure-Fruit-Pedicure.png: HTTP Error 429: Too Many Requests
+[186/220] ERR womens-threading-services-Chin-Threading.png: HTTP Error 429: Too Many Requests
+[187/220] ERR womens-threading-services-Eyebrows-Threading.png: HTTP Error 429: Too Many Requests
+[188/220] ERR womens-threading-services-Forehead-Threading.png: HTTP Error 429: Too Many Requests
+[189/220] ERR womens-threading-services-Full-Face-Threading.png: HTTP Error 429: Too Many Requests
+[190/220] ERR womens-threading-services-Upper-Lip-Threading.png: HTTP Error 429: Too Many Requests
+[191/220] ERR womens-waxing-services-Bikini-Waxing.png: HTTP Error 429: Too Many Requests
+[192/220] ERR womens-waxing-services-Eyebrow-Waxing.png: HTTP Error 429: Too Many Requests
+[193/220] ERR womens-waxing-services-Full-Arm-Waxing--Rica.png: HTTP Error 429: Too Many Requests
+[194/220] ERR womens-waxing-services-Full-Body-Waxing---RIca.png: HTTP Error 429: Too Many Requests
+[195/220] ERR womens-waxing-services-Full-Face-Waxing.png: HTTP Error 429: Too Many Requests
+[196/220] ERR womens-waxing-services-Full-Leg---Rica.png: HTTP Error 429: Too Many Requests
+[197/220] ERR womens-waxing-services-Underarms-Waxing.png: HTTP Error 429: Too Many Requests
+[198/220] ERR womens-waxing-services-Upper-Lip-Waxing.png: HTTP Error 429: Too Many Requests
+[199/220] ERR drip-irrigation-setup-book-site-inspection.png: HTTP Error 429: Too Many Requests
+[200/220] ERR garden-cleanup-weeding-large.png: HTTP Error 429: Too Many Requests
+[201/220] ERR garden-cleanup-weeding-medium.png: HTTP Error 429: Too Many Requests
+[202/220] ERR garden-cleanup-weeding-small.png: HTTP Error 429: Too Many Requests
+[203/220] ERR grass-edging-levelling-book-site-inspection.png: HTTP Error 429: Too Many Requests
+[204/220] ERR hedge-cutting-book-site-inspection.png: HTTP Error 429: Too Many Requests
+[205/220] ERR lawn-mowing-trimming-large.png: HTTP Error 429: Too Many Requests
+[206/220] ERR lawn-mowing-trimming-medium.png: HTTP Error 429: Too Many Requests
+[207/220] ERR lawn-mowing-trimming-small.png: HTTP Error 429: Too Many Requests
+[208/220] ERR leaf-debris-removal-large.png: HTTP Error 429: Too Many Requests
+[209/220] ERR leaf-debris-removal-small.png: HTTP Error 429: Too Many Requests
+[210/220] ERR monthly-garden-maintenance-plan-large.png: HTTP Error 429: Too Many Requests
+[211/220] ERR monthly-garden-maintenance-plan-medium.png: HTTP Error 429: Too Many Requests
+[212/220] ERR monthly-garden-maintenance-plan-small.png: HTTP Error 429: Too Many Requests
+[213/220] ERR plant-pest-disease-treatment-book-site-inspection.png: HTTP Error 429: Too Many Requests
+[214/220] ERR planting-repotting-book-site-inspection.png: HTTP Error 429: Too Many Requests
+[215/220] ERR plant-shaping-deadheading-book-site-inspection.png: HTTP Error 429: Too Many Requests
+[216/220] ERR seasonal-garden-maintenance-book-site-inspection.png: HTTP Error 429: Too Many Requests
+[217/220] ERR soil-preparation-fertilizing-book-site-inspection.png: HTTP Error 429: Too Many Requests
+[218/220] ERR terrace-balcony-garden-setup-large.png: HTTP Error 429: Too Many Requests
+[219/220] ERR terrace-balcony-garden-setup-small.png: HTTP Error 429: Too Many Requests
+[220/220] ERR tree-shrub-pruning-book-site-inspection.png: HTTP Error 429: Too Many Requests
+Generating 220 icons with gemini-2.5-flash-image workers=4
+[1/220] OK masonry-boundary-repair-book-inspection.png
+[2/220] OK masonry-crack-repair-book-inspection.png
+[3/220] OK masonry-boundary-install-book-inspection.png
+[4/220] OK masonry-brick-install-book-inspection.png
+[5/220] OK masonry-full-bathroom-setup-book-inspection.png
+[6/220] OK masonry-damp-repair-book-inspection.png
+[7/220] OK masonry-marble-install-book-inspection.png
+[8/220] OK masonry-marble-repair-book-inspection.png
+[9/220] OK masonry-plaster-install-book-inspection.png
+[10/220] OK masonry-pre-work-check-before-renovation-check.png
+[11/220] OK masonry-plaster-repair-book-inspection.png
+[12/220] OK masonry-safety-check-full-home-masonry-check.png
+[13/220] OK masonry-site-check-damp-check.png
+[14/220] OK masonry-site-check-crack-check.png
+[15/220] OK masonry-site-check-unknown-problem.png
+[16/220] OK masonry-stair-install-book-inspection.png
+[17/220] OK masonry-stone-install-book-inspection.png
+[18/220] OK masonry-stair-repair-book-inspection.png
+[19/220] OK masonry-tile-install-book-inspection.png
+[20/220] OK masonry-tile-repair-book-inspection.png
+[21/220] OK masonry-waterproof-install-book-inspection.png
+[22/220] OK ac-installation-split-ac.png
+[23/220] OK ac-installation-window-ac.png
+[24/220] OK ac-repair-book-site-inspection.png
+[25/220] OK ac-repair-lessno-cooling.png
+[26/220] OK ac-repair-power-issue.png
+[27/220] OK ac-repair-unwanted-noisesmell.png
+[28/220] OK ac-repair-water-leakage.png
+[29/220] OK ac-servicing-foam-jet-servicing.png
+[30/220] OK ac-servicing-general-servicing.png
+[31/220] OK ac-uninstallation-split-ac.png
+[32/220] OK ac-uninstallation-window-ac.png
+[33/220] OK air-cooler-repair-book-site-inspection.png
+[34/220] OK cctv-repair-book-site-inspection.png
+[35/220] OK cctv-installation-book-site-inspection.png
+[36/220] OK chimney-installation-chimney-installation.png
+[37/220] OK chimney-repair-book-site-inspection.png
+[38/220] OK chimney-repair-light-issue.png
+[39/220] OK chimney-repair-no-suction.png
+[40/220] OK dishwasher-repair-book-site-inspection.png
+[41/220] OK dishwasher-installation-dishwasher-installation.png
+[42/220] OK chimney-repair-noise.png
+[43/220] OK fan-repair-book-site-inspection.png
+[44/220] OK fan-repair-ceiling-fan.png
+[45/220] OK fan-repair-pedestal-table-fan.png
+[46/220] OK gas-refill-check-up-gas-refill-check-up.png
+[47/220] OK gas-refill-leak-fix-gas-refill-leak-fix.png
+[48/220] OK geyser-cleaning-geyser-cleaning.png
+[49/220] OK geyser-installation-instant-geyser.png
+[50/220] OK geyser-installation-storage-geyser.png
+[51/220] OK geyser-repair-book-site-inspection.png
+[52/220] OK geyser-repair-connection-leak.png
+[53/220] OK geyser-repair-no-heating.png
+[54/220] OK geyser-repair-heating-element-issue.png
+[55/220] OK geyser-repair-leakage.png
+[56/220] OK geyser-repair-thermostat-issue.png
+[57/220] OK geyser-uninstallation-geyser-uninstallation.png
+[58/220] OK hob-installation-hob-installation.png
+[59/220] OK hob-repair-book-site-inspection.png
+[60/220] OK inverter-repair-book-site-inspection.png
+[61/220] OK induction-heater-repair-book-site-inspection.png
+[62/220] OK inverter-servicing-inverter-servicing.png
+[63/220] OK inverter-uninstallation-inverter-uninstallation.png
+[64/220] OK inverter-installation-double-battery.png
+[65/220] OK inverter-installation-single-battery.png
+[66/220] OK microwave-repair-book-site-inspection.png
+[67/220] OK microwave-repair-display-issue.png
+[68/220] OK microwave-repair-no-heating.png
+[69/220] OK microwave-repair-turntable-issue.png
+[70/220] OK mixer-grinder-repair-book-site-inspection.png
+[71/220] OK oven-otg-repair-book-site-inspection.png
+[72/220] OK refrigerator-installation-double-door.png
+[73/220] OK refrigerator-installation-french-door.png
+[74/220] OK refrigerator-installation-side-by-side.png
+[75/220] OK refrigerator-installation-single-door.png
+[76/220] OK refrigerator-repair-book-site-inspection.png
+[77/220] OK refrigerator-repair-cooling-issue.png
+[78/220] OK refrigerator-repair-leak.png
+[79/220] OK refrigerator-repair-noise.png
+[80/220] OK refrigerator-repair-power-issue.png
+[81/220] OK refrigerator-repair-thermostat-issue.png
+[82/220] OK ro-installation-ro-installation.png
+[83/220] OK ro-service-book-site-inspection.png
+[84/220] OK ro-service-filter-replacement.png
+[85/220] OK ro-service-leakage.png
+[86/220] OK ro-service-low-water-output.png
+[87/220] OK ro-service-no-power.png
+[88/220] OK room-heater-repair-book-site-inspection.png
+[89/220] OK tv-installation-32-to-43-inch.png
+[90/220] OK tv-installation-46-to-55-inch.png
+[91/220] OK tv-installation-56-to-65-inch.png
+[92/220] OK tv-installation-over-75-inch.png
+[93/220] OK tv-repair-display-issue.png
+[94/220] OK tv-repair-book-site-inspection.png
+[95/220] OK tv-installation-upto-30-inch.png
+[96/220] OK tv-repair-power-issue.png
+[97/220] OK tv-repair-sound-issue.png
+[98/220] OK tv-uninstallation-over-65-inch.png
+[99/220] OK tv-uninstallation-46-to-55-inch.png
+[100/220] OK vacuum-cleaner-repair-book-site-inspection.png
+[101/220] OK tv-uninstallation-upto-46-inch.png
+[102/220] OK washing-machine-installation-semi-automatic.png
+[103/220] OK washing-machine-installation-front-load.png
+[104/220] OK washing-machine-repair-book-site-inspection.png
+[105/220] OK washing-machine-installation-top-load.png
+[106/220] OK washing-machine-repair-display-error.png
+[107/220] OK washing-machine-repair-drain-issue.png
+[108/220] OK washing-machine-repair-not-spinning-washing.png
+[109/220] OK washing-machine-repair-noise.png
+[110/220] OK washing-machine-repair-power-issue.png
+[111/220] OK washing-machine-repair-water-leakage.png
+[112/220] OK washing-machine-servicing-descaling.png
+[113/220] OK washing-machine-servicing-front-load.png
+[114/220] OK washing-machine-servicing-machine-cover.png
+[115/220] OK washing-machine-servicing-top-load.png
+[116/220] OK washing-machine-uninstallation-top-load.png
+[117/220] OK washing-machine-uninstallation-semi-automatic.png
+[118/220] OK washing-machine-uninstallation-front-load.png
+[119/220] OK bleaching-services-back.png
+[120/220] OK bleaching-services-back-bleach.png
+[121/220] OK bleaching-services-face-neck-bleach.png
+[122/220] OK bleaching-services-chest-bleach.png
+[123/220] OK curls-waves-standard.png
+[124/220] OK bleaching-services-full-arms-bleach.png
+[125/220] OK bleaching-services-full-legs-bleach.png
+[126/220] OK bleaching-services-full-body-bleach.png
+[127/220] OK cut-file-polish-standard.png
+[128/220] OK cut-file-polish-Cut,-File-&--polish-(feet).png
+[129/220] OK essential-mani-pedi-combo-standard.png
+[130/220] OK essential-mani-pedi-combo-DTan-Mani-&-Pedi.png
+[131/220] OK hair-botox-standard.png
+[132/220] OK hair-cut-styling-Hair-Flicks.png
+[133/220] OK essential-mani-pedi-combo-Fruit-Mani-&Pedi.png
+[134/220] OK hair-cut-styling-Layered-Cutting.png
+[135/220] OK hair-cut-styling-Step--Cutting.png
+[136/220] OK hair-keratin-long-length.png
+[137/220] OK hair-cut-styling-U-Cut-Style.png
+[138/220] OK hair-cut-styling-Temporary-Hair-straightening.png
+[139/220] OK hair-cut-styling-V-Cut-Style.png
+[140/220] OK skin-facial-care-make-your-own-package-chin-2.png
+[141/220] OK hair-keratin-Root-TouchUp.png
+[142/220] OK hair-keratin-Keratin-Smoothening.png
+[143/220] OK skin-facial-care-make-your-own-package-eyebrows.png
+[144/220] OK skin-facial-care-make-your-own-package-face.png
+[145/220] OK skin-facial-care-make-your-own-package-forehead-2.png
+[146/220] OK skin-facial-care-make-your-own-package-ice-cream-delight-manicure.png
+[147/220] OK skin-facial-care-make-your-own-package-ice-cream-delight-pedicure-with-heel-peel.png
+[148/220] OK skin-facial-care-make-your-own-package-full-body-2.png
+[149/220] OK skin-facial-care-make-your-own-package-Make-your-own-package----Full-Face-Waxing.png
+[150/220] OK skin-facial-care-make-your-own-package-full-legs-2.png
+[151/220] OK skin-facial-care-make-your-own-package-head-massage-20-mins.png
+[152/220] OK skin-facial-care-make-your-own-package-hair-color-application.png
+[153/220] OK skin-facial-care-make-your-own-package-power-glow-cleanup.png
+[154/220] OK skin-facial-care-make-your-own-package-henna-mehendi-application.png
+[155/220] OK skin-facial-care-make-your-own-package-sidelocks-2.png
+[156/220] OK skin-facial-care-make-your-own-package-o3-shine-glow-facial.png
+[157/220] OK skin-facial-care-make-your-own-package-full-arms.png
+[158/220] OK skin-facial-care-make-your-own-package-underarms-2.png
+[159/220] OK skin-facial-care-make-your-own-package-upper-lip-2.png
+[160/220] OK head-massage-1-Body-Polishing.png
+[161/220] OK head-massage-1-Body-Massage.png
+[162/220] OK head-massage-1-Head-Massage.png
+[163/220] OK womens-face-cleanup-Cleanup-Service.png
+[164/220] OK womens-facial-services-Anti-Tan-Facial.png
+[165/220] OK womens-facial-services-Anti-aging-Facial.png
+[166/220] OK womens-facial-services-Herbal--Facial.png
+[172/220] OK womens-facial-services-VLCC-Brightening-facial.png
+[177/220] OK womens-hair-spa-premium-package.png
+
+Done. OK=168 SKIP=0 ERR=52
+Errors written to /tmp/pk-fourcat-gen-errors.json

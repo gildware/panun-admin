@@ -1,0 +1,112 @@
+[
+  {
+    "slug": "floor-cleaning",
+    "name": "Floor Cleaning",
+    "sub_category_slug": "home-commercial-cleaning",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of floor cleaning in progress, mopping or scrubbing tile marble flooring, a clean modern Indian home or commercial interior in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing floor cleaning, mopping or scrubbing tile marble flooring, a clean modern Indian home or commercial interior in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/floor-cleaning-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/floor-cleaning-cover.png"
+  },
+  {
+    "slug": "sofa-cleaning",
+    "name": "Sofa Cleaning",
+    "sub_category_slug": "furniture-fabric-cleaning",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of sofa cleaning in progress, shampooing and cleaning a sofa, a clean modern Indian living room in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing sofa cleaning, shampooing and cleaning a sofa, a clean modern Indian living room in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/sofa-cleaning-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/sofa-cleaning-cover.png"
+  },
+  {
+    "slug": "office-chair-cleaning",
+    "name": "Office Chair Cleaning",
+    "sub_category_slug": "furniture-fabric-cleaning",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of office chair cleaning in progress, cleaning an office chair seat and backrest, a clean modern Indian living room in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing office chair cleaning, cleaning an office chair seat and backrest, a clean modern Indian living room in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/office-chair-cleaning-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/office-chair-cleaning-cover.png"
+  },
+  {
+    "slug": "mattress-cleaning",
+    "name": "Mattress Cleaning",
+    "sub_category_slug": "furniture-fabric-cleaning",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of mattress cleaning in progress, cleaning a mattress surface with professional tools, a clean modern Indian living room in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing mattress cleaning, cleaning a mattress surface with professional tools, a clean modern Indian living room in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mattress-cleaning-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mattress-cleaning-cover.png"
+  },
+  {
+    "slug": "carpet-cleaning",
+    "name": "Carpet Cleaning",
+    "sub_category_slug": "furniture-fabric-cleaning",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of carpet cleaning in progress, shampooing a carpet with cleaning equipment, a clean modern Indian living room in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing carpet cleaning, shampooing a carpet with cleaning equipment, a clean modern Indian living room in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/carpet-cleaning-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/carpet-cleaning-cover.png"
+  },
+  {
+    "slug": "fan-cleaning",
+    "name": "Fan Cleaning",
+    "sub_category_slug": "appliance-utility-cleaning",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of fan cleaning in progress, wiping ceiling fan blades carefully, a clean modern Indian kitchen or utility area in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing fan cleaning, wiping ceiling fan blades carefully, a clean modern Indian kitchen or utility area in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/fan-cleaning-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/fan-cleaning-cover.png"
+  },
+  {
+    "slug": "fridge-cleaning",
+    "name": "Fridge Cleaning",
+    "sub_category_slug": "appliance-utility-cleaning",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of fridge cleaning in progress, cleaning refrigerator shelves and door seals, a clean modern Indian kitchen or utility area in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing fridge cleaning, cleaning refrigerator shelves and door seals, a clean modern Indian kitchen or utility area in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/fridge-cleaning-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/fridge-cleaning-cover.png"
+  },
+  {
+    "slug": "oven-microwave-cleaning",
+    "name": "Oven / Microwave Cleaning",
+    "sub_category_slug": "appliance-utility-cleaning",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of oven / microwave cleaning in progress, cleaning the inside of an oven or microwave, a clean modern Indian kitchen or utility area in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing oven / microwave cleaning, cleaning the inside of an oven or microwave, a clean modern Indian kitchen or utility area in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/oven-microwave-cleaning-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/oven-microwave-cleaning-cover.png"
+  },
+  {
+    "slug": "chimney-cleaning",
+    "name": "Chimney Cleaning",
+    "sub_category_slug": "appliance-utility-cleaning",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of chimney cleaning in progress, cleaning a kitchen chimney filter and canopy, a clean modern Indian kitchen or utility area in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing chimney cleaning, cleaning a kitchen chimney filter and canopy, a clean modern Indian kitchen or utility area in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/chimney-cleaning-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/chimney-cleaning-cover.png"
+  },
+  {
+    "slug": "water-tank-cleaning",
+    "name": "Water Tank Cleaning",
+    "sub_category_slug": "appliance-utility-cleaning",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of water tank cleaning in progress, cleaning the interior of an overhead water tank, a clean modern Indian kitchen or utility area in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing water tank cleaning, cleaning the interior of an overhead water tank, a clean modern Indian kitchen or utility area in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/water-tank-cleaning-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/water-tank-cleaning-cover.png"
+  },
+  {
+    "slug": "post-construction-cleaning-service",
+    "name": "Post-Construction Cleaning",
+    "sub_category_slug": "post-construction-cleaning",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of post-construction cleaning in progress, removing post-construction dust from floors and fixtures, a recently renovated Indian home interior with light construction dust in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing post-construction cleaning, removing post-construction dust from floors and fixtures, a recently renovated Indian home interior with light construction dust in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/post-construction-cleaning-service-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/post-construction-cleaning-service-cover.png"
+  }
+]

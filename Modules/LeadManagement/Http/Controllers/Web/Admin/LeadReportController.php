@@ -46,7 +46,7 @@ class LeadReportController extends Controller
     /**
      * @throws AuthorizationException
      */
-    public function index(Request $request): Renderable
+    public function index(Request $request)
     {
         $this->authorize('lead_report_view');
 
@@ -58,15 +58,23 @@ class LeadReportController extends Controller
             ], fn ($v) => $v !== null && $v !== ''));
         }
 
-        $tab = $request->input('tab', 'inbound');
-        if (!in_array($tab, ['inbound', 'outbound'], true)) {
-            $tab = 'inbound';
+        if ($request->input('tab') === 'outbound') {
+            return redirect()->route('admin.lead.reports.outbound', $request->except(['tab']));
         }
+
+        return redirect()->route('admin.lead.reports.inbound', $request->except(['tab']));
+    }
+
+    /**
+     * @throws AuthorizationException
+     */
+    public function outbound(Request $request): Renderable
+    {
+        $this->authorize('lead_report_view');
 
         [$dateFrom, $dateTo] = $this->resolveDateRange($request);
 
-        if ($tab === 'outbound') {
-            $outboundBaseQuery = LeadOutboundEnquiry::query()
+        $outboundBaseQuery = LeadOutboundEnquiry::query()
                 ->when($dateFrom && $dateTo, function ($q) use ($dateFrom, $dateTo) {
                     $q->whereBetween('contacted_at', [
                         $dateFrom->copy()->startOfDay(),
@@ -230,7 +238,6 @@ class LeadReportController extends Controller
                 ->get(['id', 'first_name', 'last_name', 'email']);
 
             $queryParams = [
-                'tab' => 'outbound',
                 'date_from' => $dateFrom?->toDateString(),
                 'date_to' => $dateTo?->toDateString(),
             ];
@@ -241,8 +248,7 @@ class LeadReportController extends Controller
                 $queryParams['contacted_throughs'] = $selectedContactedThroughs;
             }
 
-            return view('leadmanagement::admin.reports.index', [
-                'tab' => 'outbound',
+            return view('leadmanagement::admin.reports.outbound', [
                 'dateFrom' => $dateFrom?->toDateString(),
                 'dateTo' => $dateTo?->toDateString(),
                 'filterEmployees' => $filterEmployees,
@@ -259,7 +265,16 @@ class LeadReportController extends Controller
                 'outboundUserCategories' => $userCategories,
                 'outboundUserStatusSeries' => $userStatusSeries,
             ]);
-        }
+    }
+
+    /**
+     * @throws AuthorizationException
+     */
+    public function inbound(Request $request): Renderable
+    {
+        $this->authorize('lead_report_view');
+
+        [$dateFrom, $dateTo] = $this->resolveDateRange($request);
 
         $inboundReport = $this->resolveInboundReport($request);
         if (
@@ -403,7 +418,6 @@ class LeadReportController extends Controller
             ->get(['id', 'first_name', 'last_name', 'email']);
 
         $queryParams = [
-            'tab' => 'inbound',
             'inbound_report' => $inboundReport,
             'date_from' => $dateFrom?->toDateString(),
             'date_to' => $dateTo?->toDateString(),
@@ -416,6 +430,15 @@ class LeadReportController extends Controller
         }
         if ($request->filled('handled_by_ids')) {
             $queryParams['handled_by_ids'] = (array) $request->input('handled_by_ids', []);
+        }
+
+        $customerStatusTab = 'overview';
+        if ($inboundReport === 'customer') {
+            $customerStatusTab = (string) $request->input('customer_status_tab', 'overview');
+            if (!in_array($customerStatusTab, ['overview', 'booked', 'cancelled', 'hold', 'pending'], true)) {
+                $customerStatusTab = 'overview';
+            }
+            $queryParams['customer_status_tab'] = $customerStatusTab;
         }
 
         $leadsForTable = (clone $baseQuery)
@@ -437,8 +460,7 @@ class LeadReportController extends Controller
             ? app(ProviderLeadReportAnalyticsService::class)->build($baseQuery, $dateFrom, $dateTo)
             : null;
 
-        return view('leadmanagement::admin.reports.index', [
-            'tab' => 'inbound',
+        return view('leadmanagement::admin.reports.inbound', [
             'inboundReport' => $inboundReport,
             'totalLeads' => $totalLeads,
             'leadsByType' => $leadsByType,
@@ -474,6 +496,7 @@ class LeadReportController extends Controller
             'invalidReasonByLead' => $invalidReasonByLead,
             'futureCustomerReasonByLead' => $futureCustomerReasonByLead,
             'customerLeadAnalytics' => $customerLeadAnalytics,
+            'customerStatusTab' => $customerStatusTab,
             'providerLeadAnalytics' => $providerLeadAnalytics,
         ]);
     }

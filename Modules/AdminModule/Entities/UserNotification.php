@@ -26,6 +26,7 @@ class UserNotification extends Model
     public const TYPE_WEB_BOOKING = 'web_booking';
     public const TYPE_WEB_PROVIDER_REQUEST = 'web_provider_request';
     public const TYPE_APP_CUSTOM_REQUEST = 'app_custom_request';
+    public const TYPE_LEAD_COMMENT = 'lead_comment';
 
     protected $fillable = [
         'user_id',
@@ -87,6 +88,7 @@ class UserNotification extends Model
             self::TYPE_WEB_BOOKING => 'language',
             self::TYPE_WEB_PROVIDER_REQUEST => 'handshake',
             self::TYPE_APP_CUSTOM_REQUEST => 'phone_iphone',
+            self::TYPE_LEAD_COMMENT => 'comment',
             default => 'notifications',
         };
     }
@@ -108,6 +110,7 @@ class UserNotification extends Model
             self::TYPE_WEB_BOOKING => translate('Web_Bookings'),
             self::TYPE_WEB_PROVIDER_REQUEST => translate('Web_Provider_Requests'),
             self::TYPE_APP_CUSTOM_REQUEST => translate('App_Custom_Requests'),
+            self::TYPE_LEAD_COMMENT => translate('Lead_Comment'),
             default => translate('Notification'),
         };
     }
@@ -132,6 +135,7 @@ class UserNotification extends Model
             self::TYPE_WEB_BOOKING => translate('View_Details'),
             self::TYPE_WEB_PROVIDER_REQUEST => translate('View_Details'),
             self::TYPE_APP_CUSTOM_REQUEST => translate('View_Details'),
+            self::TYPE_LEAD_COMMENT => translate('View_Lead'),
             default => translate('View_Details'),
         };
     }

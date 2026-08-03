@@ -145,6 +145,12 @@ if (! function_exists('infer_admin_notification_sender_identity')) {
                 : ['admin', null];
         }
 
+        if ($referenceType === 'lead_comment' && $referenceId !== '') {
+            $comment = \Modules\LeadManagement\Entities\LeadComment::query()->find($referenceId);
+
+            return resolve_admin_notification_sender_from_user($comment?->created_by);
+        }
+
         return ['admin', null];
     }
 }

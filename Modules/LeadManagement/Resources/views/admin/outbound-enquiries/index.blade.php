@@ -79,7 +79,7 @@
                                             <td>{{ $statusName }}</td>
                                             <td>
                                                 @if($enquiry->relatedLead)
-                                                    <a href="{{ route('admin.lead.show', $enquiry->relatedLead->id) }}?in_modal=1" class="link-primary">
+                                                    <a href="{{ route('admin.lead.show', $enquiry->relatedLead->id) }}" class="link-primary">
                                                         #{{ $enquiry->relatedLead->id }} — {{ $enquiry->relatedLead->name ?: '—' }}
                                                     </a>
                                                 @else

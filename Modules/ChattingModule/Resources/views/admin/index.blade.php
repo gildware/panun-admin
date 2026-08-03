@@ -5,6 +5,7 @@
 @push('css_or_js')
     <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/select2/select2.min.css')}}"/>
     <link rel="stylesheet" href="{{asset('assets/css/lightbox.css')}}">
+    <link rel="stylesheet" href="{{ asset('assets/chatting-module/css/staff-chat-entity-badges.css') }}">
     <style>
         .badge.bg--secondary {
             color: var(--bs-secondary, #6c757d);

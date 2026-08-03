@@ -20,6 +20,7 @@ class LeadManagementServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 \Modules\LeadManagement\Console\WhatsAppVoiceFollowupAutoDispatchCommand::class,
+                \Modules\LeadManagement\Console\LeadSanityTestCommand::class,
             ]);
         }
     }

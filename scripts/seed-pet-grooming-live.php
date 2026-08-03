@@ -11,9 +11,16 @@
  *
  * LIVE_DB_PASSWORD='...' php artisan tinker scripts/seed-pet-grooming-live.php
  *
- * Category light/dark icons (project standard):
- *   SLUGS=pet-grooming,dog-grooming,cat-grooming \
- *     LIVE_DB_PASSWORD='...' php artisan tinker scripts/upload-category-icons-live-slugs.php
+ * Prerequisites:
+ *   python3 scripts/assets/pet_grooming_icon_prompts.py
+ *   python3 scripts/assets/pet_grooming_photo_prompts.py
+ *   # generate AI assets into ~/.cursor/.../assets, then:
+ *   python3 scripts/prepare_pet_grooming_ai_icons.py
+ *   python3 scripts/assets/prepare_pet_grooming_assets.py
+ *   SLUGS=pet-grooming,dog-grooming,cat-grooming python3 scripts/assets/category-icons/make_theme_pairs.py
+ *
+ * Deactivates services listed in catalog deactivate_service_slugs (monthly plans) and any
+ * other active pet-grooming services not in the new catalog (no hard delete).
  *
  * Optional:
  *   PET_GROOMING_DRY_RUN=1   validate assets only, no DB writes
@@ -493,7 +500,27 @@ foreach ($catalog['services'] as $serviceSpec) {
     ]);
 
     echo "  variants: ".count($serviceSpec['variants'])." x {$zones->count()} zones\n";
-    sleep(2);
+    sleep(1);
+}
+
+$newServiceSlugs = array_column($catalog['services'], 'slug');
+$explicitDeactivate = $catalog['deactivate_service_slugs'] ?? [];
+
+$oldServices = Service::on($liveConnection)->withoutGlobalScopes()
+    ->where('category_id', $mainCategory->id)
+    ->where(function ($q) use ($newServiceSlugs, $explicitDeactivate) {
+        $q->whereNotIn('slug', $newServiceSlugs);
+        if ($explicitDeactivate !== []) {
+            $q->orWhereIn('slug', $explicitDeactivate);
+        }
+    })
+    ->get(['id', 'slug', 'name', 'is_active']);
+
+foreach ($oldServices as $old) {
+    if ((int) $old->is_active === 1) {
+        Service::on($liveConnection)->withoutGlobalScopes()->where('id', $old->id)->update(['is_active' => 0]);
+        echo "Deactivated old service: {$old->slug}\n";
+    }
 }
 
 if ($prefixSetting && $originalPrefix !== null) {
@@ -502,3 +529,4 @@ if ($prefixSetting && $originalPrefix !== null) {
 }
 
 echo "\nPet Grooming catalog seeded: 1 category, ".count($catalog['sub_categories']).' sub-categories, '.count($catalog['services'])." services.\n";
+echo 'Deactivated obsolete services: '.$oldServices->where('is_active', 1)->count()." (plus any already inactive).\n";

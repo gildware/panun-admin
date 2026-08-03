@@ -1,0 +1,38 @@
+Asset validation passed for 15 services.
+Category ready: Men's Salon (mens-salon)
+Category ready: Men's Hair Services (mens-hair-services)
+Category ready: Men's Beard & Shaving (mens-beard-shaving)
+Category ready: Men's Skin & Grooming (mens-skin-grooming-care)
+UPDATED service: Men's Hair Cut
+  variants: 2 x 20 zones
+UPDATED service: Men's Kids Hair Cut
+  variants: 1 x 20 zones
+UPDATED service: Men's Hair Color
+  variants: 2 x 20 zones
+UPDATED service: Men's Hair Treatment
+  variants: 2 x 20 zones
+UPDATED service: Men's Beard Trimming
+  variants: 2 x 20 zones
+UPDATED service: Men's Clean Shave
+  variants: 2 x 20 zones
+UPDATED service: Men's Beard Color
+  variants: 2 x 20 zones
+UPDATED service: Men's Detan
+  variants: 2 x 20 zones
+UPDATED service: Men's Waxing
+  variants: 4 x 20 zones
+UPDATED service: Men's Facial & Cleanup
+  variants: 2 x 20 zones
+UPDATED service: Men's Threading
+  variants: 2 x 20 zones
+UPDATED service: Men's Pedicure
+  variants: 1 x 20 zones
+UPDATED service: Men's Manicure
+  variants: 1 x 20 zones
+UPDATED service: Men's Nail Cut & File
+  variants: 2 x 20 zones
+UPDATED service: Men's Massage
+  variants: 3 x 20 zones
+
+Men's Salon catalog seeded: 1 category, 3 sub-categories, 15 services.
+Deactivated obsolete services: 0 (plus any already inactive).

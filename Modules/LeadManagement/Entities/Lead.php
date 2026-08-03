@@ -91,6 +91,14 @@ class Lead extends Model
         return $this->hasMany(LeadChangeLog::class)->latest('created_at');
     }
 
+    public function comments(): HasMany
+    {
+        return $this->hasMany(LeadComment::class)
+            ->orderByDesc('is_pinned')
+            ->orderByDesc('pinned_at')
+            ->latest('created_at');
+    }
+
     public function providerChecklist(): HasMany
     {
         return $this->hasMany(LeadProviderChecklist::class);

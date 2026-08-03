@@ -1,0 +1,123 @@
+Asset validation passed for 41 services.
+Category ready: Home Appliances (home-appliance)
+Category ready: Air Conditioners (air-conditioners)
+Category ready: Battery & Inverters (battery-inverters)
+Category ready: CCTV (cctv)
+Category ready: Geysers (geysers)
+Category ready: LED / Smart TV (led-smart-tv)
+Category ready: Refrigerators (refrigerators)
+Category ready: Washing Machine (washing-machine)
+Category ready: Water Purifier (ro-purifier)
+Category ready: Small Appliances (induction-heaters)
+UPDATED service: AC Installation
+  variants: 2 x 20 zones
+UPDATED service: AC Repair
+  variants: 5 x 20 zones
+UPDATED service: AC Servicing
+  variants: 2 x 20 zones
+UPDATED service: AC Uninstallation
+  variants: 2 x 20 zones
+UPDATED service: Gas refill & check-up
+  variants: 1 x 20 zones
+UPDATED service: Inverter/battery Installation
+  variants: 2 x 20 zones
+UPDATED service: Inverter Repair
+  variants: 1 x 20 zones
+UPDATED service: Inverter Servicing
+  variants: 1 x 20 zones
+UPDATED service: Inverter Uninstallation
+  variants: 1 x 20 zones
+CREATED service: CCTV Installation
+  variants: 1 x 20 zones
+UPDATED service: CCTV Repair
+  variants: 1 x 20 zones
+UPDATED service: Geyser Installation
+  variants: 2 x 20 zones
+UPDATED service: Geyser Repair
+  variants: 6 x 20 zones
+UPDATED service: Geyser Cleaning
+  variants: 1 x 20 zones
+UPDATED service: Geyser Uninstallation
+  variants: 1 x 20 zones
+UPDATED service: TV Installation
+  variants: 5 x 20 zones
+UPDATED service: TV Repair
+  variants: 4 x 20 zones
+UPDATED service: TV Uninstallation
+  variants: 3 x 20 zones
+UPDATED service: Refrigerator Installation
+  variants: 4 x 20 zones
+UPDATED service: Refrigerator Repair
+  variants: 6 x 20 zones
+UPDATED service: Gas refill & leak fix
+  variants: 1 x 20 zones
+UPDATED service: Washing Machine Installation
+  variants: 3 x 20 zones
+UPDATED service: Washing Machine Repair
+  variants: 7 x 20 zones
+CREATED service: Washing Machine Servicing
+  variants: 4 x 20 zones
+CREATED service: Washing Machine Uninstallation
+  variants: 3 x 20 zones
+CREATED service: RO Installation
+  variants: 1 x 20 zones
+UPDATED service: RO Service / Repair
+  variants: 5 x 20 zones
+UPDATED service: Fan Repair
+  variants: 3 x 20 zones
+CREATED service: Microwave Repair
+  variants: 4 x 20 zones
+CREATED service: Induction Heater Repair
+  variants: 1 x 20 zones
+CREATED service: Oven / OTG Repair
+  variants: 1 x 20 zones
+CREATED service: Vacuum Cleaner Repair
+  variants: 1 x 20 zones
+CREATED service: Mixer Grinder Repair
+  variants: 1 x 20 zones
+CREATED service: Chimney Repair
+  variants: 4 x 20 zones
+CREATED service: Chimney Installation
+  variants: 1 x 20 zones
+CREATED service: Hob Repair
+  variants: 1 x 20 zones
+CREATED service: Hob Installation
+  variants: 1 x 20 zones
+CREATED service: Air Cooler Repair
+  variants: 1 x 20 zones
+CREATED service: Room Heater Repair
+  variants: 1 x 20 zones
+CREATED service: Dishwasher Repair
+  variants: 1 x 20 zones
+CREATED service: Dishwasher Installation
+  variants: 1 x 20 zones
+Deactivated old service: tv-check-up
+Deactivated old service: induction-heaters
+Deactivated old service: geyser-connection-leakage-repair
+Deactivated old service: vacum-cleaner
+Deactivated old service: automatic-front-load-machine-check-up
+Deactivated old service: inverter-fuse-replacement
+Deactivated old service: inverter-check-up
+Deactivated old service: foam-jet-service-3-acs
+Deactivated old service: heating-element-replacement
+Deactivated old service: washing-machine-jet-service
+Deactivated old service: thermostat-replacement
+Deactivated old service: foam-jet-ac-service
+Deactivated old service: semi-automatic-machine-check-up
+Deactivated old service: foam-jet-service-5-acs
+Deactivated old service: led-smart-tv-tv-installation
+Deactivated old service: foam-jet-service-2-acs
+Deactivated old service: foam-jet-service-4-acs
+Deactivated old service: oven
+Deactivated old service: refrigerator-check-up
+Deactivated old service: automatic-top-load-machine-check-up
+Deactivated old service: annual-plan-2-timesyear
+Deactivated old service: anti-rust-spray-avoid-gas-leak
+Deactivated old service: washing-machine-installation-uninstallation
+Deactivated old service: geyser-check-up
+Deactivated old service: thermostat-repairreplacement
+Deactivated old service: led-smart-tv-tv-uninstallation
+Deactivated old service: fan
+
+Home Appliances catalog seeded: 1 category, 9 sub-categories, 41 services.
+Deactivated obsolete services: 27 (plus any already inactive).

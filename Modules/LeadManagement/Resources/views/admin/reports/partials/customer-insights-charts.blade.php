@@ -1,15 +1,18 @@
 @if(!empty($customerLeadAnalytics))
+@php
+    $customerStatusTab = $customerStatusTab ?? 'overview';
+    $analytics = $customerLeadAnalytics;
+@endphp
 (function () {
     var DD = window.ReportChartDrilldown;
     var showLead = window.LeadChartDrilldown.show;
     var analytics = {!! json_encode($customerLeadAnalytics) !!};
+    var activeTab = @json($customerStatusTab);
     var othersLabel = @json(translate('Others'));
     var leadsLabel = @json(translate('Leads'));
     var palette = [
         '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796',
         '#5a5c69', '#fd7e14', '#6f42c1', '#20c997', '#0dcaf0', '#d63384',
-        '#2c9faf', '#a3bffa', '#f8a07b', '#84cc16', '#ec4899', '#14b8a6',
-        '#8b5cf6', '#f59e0b',
     ];
     var drilldown = analytics.drilldown || {};
 
@@ -28,33 +31,9 @@
             labels: chartLabels,
             colors: colors || palette,
             legend: { position: 'left', horizontalAlign: 'left', fontSize: '11px', itemMargin: { horizontal: 6, vertical: 3 }, height: options.height || 220 },
-            plotOptions: {
-                pie: {
-                    donut: {
-                        size: '62%',
-                        labels: {
-                            show: !!options.showCenter,
-                            total: {
-                                show: !!options.showCenter,
-                                label: options.centerLabel || leadsLabel,
-                                fontSize: '11px',
-                                formatter: function () { return String(DD.sumValues(values)); },
-                            },
-                        },
-                    },
-                },
-            },
+            plotOptions: { pie: { donut: { size: '62%', labels: { show: !!options.showCenter, total: { show: !!options.showCenter, label: options.centerLabel || leadsLabel, fontSize: '11px', formatter: function () { return String(DD.sumValues(values)); } } } } } },
             dataLabels: { enabled: false },
             stroke: { width: 1, colors: ['#fff'] },
-            tooltip: {
-                y: {
-                    formatter: function (val, opts) {
-                        var name = labels[opts.seriesIndex] || '';
-                        var pct = DD.sumValues(values) > 0 ? Math.round((val / DD.sumValues(values)) * 1000) / 10 : 0;
-                        return name + ': ' + val + ' (' + pct + '%)';
-                    },
-                },
-            },
         });
         chart.render().then(function () {
             if (options.idsBySlice && options.idsBySlice.length) {
@@ -72,76 +51,53 @@
         });
     }
 
-    function renderCompactHourBars(el, categories, values, drilldownMap) {
-        if (!el) return;
-        if (!values.length || DD.sumValues(values) === 0) {
-            DD.showEmpty(el);
-            return;
-        }
-        var idsBySlice = (values || []).map(function (_, index) {
-            return drilldownMap[String(index)] || [];
-        });
-        var chart = new ApexCharts(el, {
-            series: [{ name: leadsLabel, data: values }],
-            chart: { type: 'bar', height: 200, toolbar: { show: false }, events: {
-                dataPointSelection: function (event, ctx, config) {
-                    var ids = idsBySlice[config.dataPointIndex] || [];
-                    if (ids.length) showLead(categories[config.dataPointIndex] || '—', ids);
-                },
-            }},
-            plotOptions: { bar: { columnWidth: '85%', borderRadius: 3 } },
-            colors: ['#6F8AED'],
-            dataLabels: { enabled: false },
-            xaxis: { categories: categories, labels: { style: { fontSize: '9px' }, rotate: -60, hideOverlappingLabels: true }, tickAmount: 12 },
-            yaxis: { labels: { style: { fontSize: '10px' } } },
-            grid: { strokeDashArray: 4 },
-            legend: { show: false },
-        });
-        chart.render().then(function () {
-            DD.renderCustomLegend(el, categories, values, idsBySlice, showLead);
-        });
-    }
-
-    function renderDayDonut(el, labels, values, drilldownMap) {
-        var idsBySlice = (labels || []).map(function (label) { return drilldownMap[label] || []; });
-        renderDonut(el, values, labels, palette.slice(0, 7), { idsBySlice: idsBySlice });
-    }
-
-    function renderOutcomeDonut(el, outcomeRows, outcomeMap) {
+    function renderOutcomeDonut(el, outcomeRows, outcomeMap, height) {
         var labels = outcomeRows.map(function (o) { return o.label; });
         var values = outcomeRows.map(function (o) { return o.total; });
         var colors = outcomeRows.map(function (o) { return o.color; });
         var idsBySlice = outcomeRows.map(function (o) { return outcomeMap[o.key] || []; });
-        renderDonut(el, values, labels, colors, { showCenter: true, centerLabel: leadsLabel, idsBySlice: idsBySlice });
+        renderDonut(el, values, labels, colors, { showCenter: true, centerLabel: leadsLabel, idsBySlice: idsBySlice, height: height || 260 });
     }
 
-    var outcome = analytics.outcome_breakdown || [];
-    renderOutcomeDonut(document.querySelector('#customer-outcome-chart'), outcome, drilldown.outcome || {});
-    renderDrilldownDonut(document.querySelector('#customer-category-chart'), analytics.category_wise || [], 12, drilldown.category_wise || {});
-    renderDrilldownDonut(document.querySelector('#customer-zone-chart'), analytics.zone_wise || [], 12, drilldown.zone_wise || {});
-    renderDayDonut(
-        document.querySelector('#customer-lead-day-chart'),
-        analytics.lead_received_by_day_labels || [],
-        analytics.lead_received_by_day || [],
-        drilldown.lead_received_by_day || {}
-    );
-    renderCompactHourBars(
-        document.querySelector('#customer-lead-hour-chart'),
-        analytics.lead_received_by_hour_labels || [],
-        analytics.lead_received_by_hour || [],
-        drilldown.lead_received_by_hour || {}
-    );
+    var breakdownChartHeight = 260;
 
-    var booked = analytics.booked || {};
-    var bookedDrilldown = drilldown.booked || {};
-    renderDrilldownDonut(document.querySelector('#customer-booked-category-chart'), booked.category_wise || [], 10, bookedDrilldown.category_wise || {});
-    renderDrilldownDonut(document.querySelector('#customer-booked-zone-chart'), booked.zone_wise || [], 10, bookedDrilldown.zone_wise || {});
-    renderDrilldownDonut(document.querySelector('#customer-booked-subcategory-chart'), booked.subcategory_wise || [], 10, bookedDrilldown.subcategory_wise || {});
+    if (activeTab === 'overview') {
+        var outcome = analytics.outcome_breakdown || [];
+        renderOutcomeDonut(document.querySelector('#customer-outcome-chart'), outcome, drilldown.outcome || {}, breakdownChartHeight);
+        renderDrilldownDonut(document.querySelector('#customer-category-chart'), analytics.category_wise || [], 12, drilldown.category_wise || {}, breakdownChartHeight);
+        renderDrilldownDonut(document.querySelector('#customer-zone-chart'), analytics.zone_wise || [], 12, drilldown.zone_wise || {}, breakdownChartHeight);
+    }
 
-    var cancelled = analytics.cancelled || {};
-    var cancelledDrilldown = drilldown.cancelled || {};
-    renderDrilldownDonut(document.querySelector('#customer-cancelled-category-chart'), cancelled.category_wise || [], 10, cancelledDrilldown.category_wise || {});
-    renderDrilldownDonut(document.querySelector('#customer-cancelled-zone-chart'), cancelled.zone_wise || [], 10, cancelledDrilldown.zone_wise || {});
-    renderDrilldownDonut(document.querySelector('#customer-cancel-reason-chart'), cancelled.reasons || [], 10, cancelledDrilldown.reasons || {});
+    if (activeTab === 'booked') {
+        var booked = analytics.booked || {};
+        var bookedDrilldown = drilldown.booked || {};
+        renderDrilldownDonut(document.querySelector('#customer-booked-category-chart'), booked.category_wise || [], 10, bookedDrilldown.category_wise || {}, breakdownChartHeight);
+        renderDrilldownDonut(document.querySelector('#customer-booked-zone-chart'), booked.zone_wise || [], 10, bookedDrilldown.zone_wise || {}, breakdownChartHeight);
+        renderDrilldownDonut(document.querySelector('#customer-booked-subcategory-chart'), booked.subcategory_wise || [], 10, bookedDrilldown.subcategory_wise || {}, breakdownChartHeight);
+    }
+
+    if (activeTab === 'cancelled') {
+        var cancelled = analytics.cancelled || {};
+        var cancelledDrilldown = drilldown.cancelled || {};
+        renderDrilldownDonut(document.querySelector('#customer-cancelled-category-chart'), cancelled.category_wise || [], 10, cancelledDrilldown.category_wise || {}, breakdownChartHeight);
+        renderDrilldownDonut(document.querySelector('#customer-cancelled-zone-chart'), cancelled.zone_wise || [], 10, cancelledDrilldown.zone_wise || {}, breakdownChartHeight);
+        renderDrilldownDonut(document.querySelector('#customer-cancel-reason-chart'), cancelled.reasons || [], 10, cancelledDrilldown.reasons || {}, breakdownChartHeight);
+    }
+
+    if (activeTab === 'hold') {
+        var hold = analytics.hold || {};
+        var holdDrilldown = drilldown.hold || {};
+        renderDrilldownDonut(document.querySelector('#customer-hold-category-chart'), hold.category_wise || [], 10, holdDrilldown.category_wise || {}, breakdownChartHeight);
+        renderDrilldownDonut(document.querySelector('#customer-hold-zone-chart'), hold.zone_wise || [], 10, holdDrilldown.zone_wise || {}, breakdownChartHeight);
+        renderDrilldownDonut(document.querySelector('#customer-hold-subcategory-chart'), hold.subcategory_wise || [], 10, holdDrilldown.subcategory_wise || {}, breakdownChartHeight);
+    }
+
+    if (activeTab === 'pending') {
+        var pending = analytics.pending || {};
+        var pendingDrilldown = drilldown.pending || {};
+        renderDrilldownDonut(document.querySelector('#customer-pending-category-chart'), pending.category_wise || [], 10, pendingDrilldown.category_wise || {}, breakdownChartHeight);
+        renderDrilldownDonut(document.querySelector('#customer-pending-zone-chart'), pending.zone_wise || [], 10, pendingDrilldown.zone_wise || {}, breakdownChartHeight);
+        renderDrilldownDonut(document.querySelector('#customer-pending-subcategory-chart'), pending.subcategory_wise || [], 10, pendingDrilldown.subcategory_wise || {}, breakdownChartHeight);
+    }
 })();
 @endif

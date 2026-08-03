@@ -1,0 +1,30 @@
+DEACTIVATED service: mens-beard-coloring (d91cda4c-f2c5-4aa2-a531-15ca4339041a) rows=1
+CREATED variant on garnier: Colour application only (bb668b59-4f8b-480e-99cf-203afdc65def)
+COPIED 20 zone prices for colour-application-only onto garnier
+DEACTIVATED service: mens-hair-coloring (b31a185b-6342-4a3b-b3c7-561ba76f4551) rows=1
+BOYS price sync onto mens-hair-cut: updated=0 inserted=20
+DEACTIVATED service: haircut-for-boys (236fd72f-f98a-4e2b-aebb-6d7360fd5a3c) rows=1
+DEACTIVATED service: massage-top-up-15-mins (c7573833-2972-4f8f-9165-d0e5a0c7ee90) rows=1
+DELETED duplicate body-massage variant 7f94de30-6dc2-47e6-aa43-8a6c1c2be896 (kept 25aa6535-bfc8-4b61-8eab-515850aaba8d)
+COMMIT OK
+
+=== ACTIVE MENS SERVICES NOW ===
+1. Men Clean Shave Service (men-clean-shave-service)
+2. Men's  Detan Treatment (mens-detan-treatment)
+3. Men's  Waxing Services (mens-waxing)
+4. Men's Hair Cut (mens-hair-cut)
+5. Men's Beard Trim & Styling (mens-beard-trim-styling)
+6. Men's Facial & Cleanup (mens-facial-cleanup)
+7. Men's Hair Treatment (mens-hair-treatment)
+8. Beard color (with product) (beard-color-with-product)
+9. Men's Threading Services (mens-threading-services)
+10. Garnier hair color (garnier-hair-color)
+11. Men's Pedicure (mens-pedicure)
+12. Haircut & color (haircut-color)
+13. Haircut & massage (haircut-massage)
+14. Express manicure (express-manicure)
+15. Make your own package (make-your-own-package)
+16. Head massage (head-massage)
+17. Body massage (body-massage)
+18. Men's Nail cut & file (mens-nail-cut-file)
+Count: 18

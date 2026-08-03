@@ -1,0 +1,295 @@
+{
+  "categories": [
+    {
+      "slug": "book-kaergar",
+      "filename": "book-kaergar.png",
+      "prompt": "Category icon: calendar clock with gear and person silhouette for booking a professional by time. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "slug": "home-trades",
+      "filename": "home-trades.png",
+      "prompt": "Category icon: crossed hammer wrench screwdriver for home trades carpenter electrician plumber painter. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "slug": "building-site",
+      "filename": "building-site.png",
+      "prompt": "Category icon: hard hat with brick and shovel for building site mason labour welder. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "slug": "home-care",
+      "filename": "home-care.png",
+      "prompt": "Category icon: house with leaf and broom for home care gardener cleaner. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "slug": "beauty-artists",
+      "filename": "beauty-artists.png",
+      "prompt": "Category icon: makeup brush and mehndi henna cone for beauty artists. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    }
+  ],
+  "variants": [
+    {
+      "service_slug": "book-a-carpenter",
+      "service_name": "Book Carpenter",
+      "variant_key": "hourly",
+      "variant_title": "Book for 1 hour",
+      "filename": "book-a-carpenter-hourly.png",
+      "prompt": "Variation icon named for Book Carpenter: large centered claw hammer and handsaw crossed (carpenter tools), plus small circular clock badge at bottom-right showing short one-hour hand position. Icon must clearly read as Book Carpenter booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-a-carpenter",
+      "service_name": "Book Carpenter",
+      "variant_key": "half-day",
+      "variant_title": "Book for half day (4 hours)",
+      "filename": "book-a-carpenter-half-day.png",
+      "prompt": "Variation icon named for Book Carpenter: large centered claw hammer and handsaw crossed (carpenter tools), plus small half-sun badge at bottom-right for half day four hours. Icon must clearly read as Book Carpenter booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-a-carpenter",
+      "service_name": "Book Carpenter",
+      "variant_key": "full-day",
+      "variant_title": "Book for full day (8 hours)",
+      "filename": "book-a-carpenter-full-day.png",
+      "prompt": "Variation icon named for Book Carpenter: large centered claw hammer and handsaw crossed (carpenter tools), plus small full sun badge at bottom-right for full day eight hours. Icon must clearly read as Book Carpenter booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-an-electrician",
+      "service_name": "Book Electrician",
+      "variant_key": "hourly",
+      "variant_title": "Book for 1 hour",
+      "filename": "book-an-electrician-hourly.png",
+      "prompt": "Variation icon named for Book Electrician: large centered lightning bolt through electrical plug (electrician), plus small circular clock badge at bottom-right showing short one-hour hand position. Icon must clearly read as Book Electrician booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-an-electrician",
+      "service_name": "Book Electrician",
+      "variant_key": "half-day",
+      "variant_title": "Book for half day (4 hours)",
+      "filename": "book-an-electrician-half-day.png",
+      "prompt": "Variation icon named for Book Electrician: large centered lightning bolt through electrical plug (electrician), plus small half-sun badge at bottom-right for half day four hours. Icon must clearly read as Book Electrician booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-an-electrician",
+      "service_name": "Book Electrician",
+      "variant_key": "full-day",
+      "variant_title": "Book for full day (8 hours)",
+      "filename": "book-an-electrician-full-day.png",
+      "prompt": "Variation icon named for Book Electrician: large centered lightning bolt through electrical plug (electrician), plus small full sun badge at bottom-right for full day eight hours. Icon must clearly read as Book Electrician booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-a-plumber",
+      "service_name": "Book Plumber",
+      "variant_key": "hourly",
+      "variant_title": "Book for 1 hour",
+      "filename": "book-a-plumber-hourly.png",
+      "prompt": "Variation icon named for Book Plumber: large centered pipe wrench and water faucet (plumber), plus small circular clock badge at bottom-right showing short one-hour hand position. Icon must clearly read as Book Plumber booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-a-plumber",
+      "service_name": "Book Plumber",
+      "variant_key": "half-day",
+      "variant_title": "Book for half day (4 hours)",
+      "filename": "book-a-plumber-half-day.png",
+      "prompt": "Variation icon named for Book Plumber: large centered pipe wrench and water faucet (plumber), plus small half-sun badge at bottom-right for half day four hours. Icon must clearly read as Book Plumber booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-a-plumber",
+      "service_name": "Book Plumber",
+      "variant_key": "full-day",
+      "variant_title": "Book for full day (8 hours)",
+      "filename": "book-a-plumber-full-day.png",
+      "prompt": "Variation icon named for Book Plumber: large centered pipe wrench and water faucet (plumber), plus small full sun badge at bottom-right for full day eight hours. Icon must clearly read as Book Plumber booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-a-painter",
+      "service_name": "Book Painter",
+      "variant_key": "hourly",
+      "variant_title": "Book for 1 hour",
+      "filename": "book-a-painter-hourly.png",
+      "prompt": "Variation icon named for Book Painter: large centered paint roller and paintbrush crossed (painter), plus small circular clock badge at bottom-right showing short one-hour hand position. Icon must clearly read as Book Painter booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-a-painter",
+      "service_name": "Book Painter",
+      "variant_key": "half-day",
+      "variant_title": "Book for half day (4 hours)",
+      "filename": "book-a-painter-half-day.png",
+      "prompt": "Variation icon named for Book Painter: large centered paint roller and paintbrush crossed (painter), plus small half-sun badge at bottom-right for half day four hours. Icon must clearly read as Book Painter booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-a-painter",
+      "service_name": "Book Painter",
+      "variant_key": "full-day",
+      "variant_title": "Book for full day (8 hours)",
+      "filename": "book-a-painter-full-day.png",
+      "prompt": "Variation icon named for Book Painter: large centered paint roller and paintbrush crossed (painter), plus small full sun badge at bottom-right for full day eight hours. Icon must clearly read as Book Painter booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-a-mason",
+      "service_name": "Book Mason",
+      "variant_key": "hourly",
+      "variant_title": "Book for 1 hour",
+      "filename": "book-a-mason-hourly.png",
+      "prompt": "Variation icon named for Book Mason: large centered brick wall block and trowel (mason), plus small circular clock badge at bottom-right showing short one-hour hand position. Icon must clearly read as Book Mason booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-a-mason",
+      "service_name": "Book Mason",
+      "variant_key": "half-day",
+      "variant_title": "Book for half day (4 hours)",
+      "filename": "book-a-mason-half-day.png",
+      "prompt": "Variation icon named for Book Mason: large centered brick wall block and trowel (mason), plus small half-sun badge at bottom-right for half day four hours. Icon must clearly read as Book Mason booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-a-mason",
+      "service_name": "Book Mason",
+      "variant_key": "full-day",
+      "variant_title": "Book for full day (8 hours)",
+      "filename": "book-a-mason-full-day.png",
+      "prompt": "Variation icon named for Book Mason: large centered brick wall block and trowel (mason), plus small full sun badge at bottom-right for full day eight hours. Icon must clearly read as Book Mason booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-labour",
+      "service_name": "Book Labour",
+      "variant_key": "hourly",
+      "variant_title": "Book for 1 hour",
+      "filename": "book-labour-hourly.png",
+      "prompt": "Variation icon named for Book Labour: large centered shovel and wheelbarrow (site labour), plus small circular clock badge at bottom-right showing short one-hour hand position. Icon must clearly read as Book Labour booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-labour",
+      "service_name": "Book Labour",
+      "variant_key": "half-day",
+      "variant_title": "Book for half day (4 hours)",
+      "filename": "book-labour-half-day.png",
+      "prompt": "Variation icon named for Book Labour: large centered shovel and wheelbarrow (site labour), plus small half-sun badge at bottom-right for half day four hours. Icon must clearly read as Book Labour booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-labour",
+      "service_name": "Book Labour",
+      "variant_key": "full-day",
+      "variant_title": "Book for full day (8 hours)",
+      "filename": "book-labour-full-day.png",
+      "prompt": "Variation icon named for Book Labour: large centered shovel and wheelbarrow (site labour), plus small full sun badge at bottom-right for full day eight hours. Icon must clearly read as Book Labour booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-a-welder",
+      "service_name": "Book Welder / Fabricator",
+      "variant_key": "hourly",
+      "variant_title": "Book for 1 hour",
+      "filename": "book-a-welder-hourly.png",
+      "prompt": "Variation icon named for Book Welder / Fabricator: large centered welding torch and metal spark burst (welder fabricator), plus small circular clock badge at bottom-right showing short one-hour hand position. Icon must clearly read as Book Welder / Fabricator booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-a-welder",
+      "service_name": "Book Welder / Fabricator",
+      "variant_key": "half-day",
+      "variant_title": "Book for half day (4 hours)",
+      "filename": "book-a-welder-half-day.png",
+      "prompt": "Variation icon named for Book Welder / Fabricator: large centered welding torch and metal spark burst (welder fabricator), plus small half-sun badge at bottom-right for half day four hours. Icon must clearly read as Book Welder / Fabricator booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-a-welder",
+      "service_name": "Book Welder / Fabricator",
+      "variant_key": "full-day",
+      "variant_title": "Book for full day (8 hours)",
+      "filename": "book-a-welder-full-day.png",
+      "prompt": "Variation icon named for Book Welder / Fabricator: large centered welding torch and metal spark burst (welder fabricator), plus small full sun badge at bottom-right for full day eight hours. Icon must clearly read as Book Welder / Fabricator booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-a-gardener",
+      "service_name": "Book Gardener",
+      "variant_key": "hourly",
+      "variant_title": "Book for 1 hour",
+      "filename": "book-a-gardener-hourly.png",
+      "prompt": "Variation icon named for Book Gardener: large centered leaf and garden watering can (gardener), plus small circular clock badge at bottom-right showing short one-hour hand position. Icon must clearly read as Book Gardener booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-a-gardener",
+      "service_name": "Book Gardener",
+      "variant_key": "half-day",
+      "variant_title": "Book for half day (4 hours)",
+      "filename": "book-a-gardener-half-day.png",
+      "prompt": "Variation icon named for Book Gardener: large centered leaf and garden watering can (gardener), plus small half-sun badge at bottom-right for half day four hours. Icon must clearly read as Book Gardener booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-a-gardener",
+      "service_name": "Book Gardener",
+      "variant_key": "full-day",
+      "variant_title": "Book for full day (8 hours)",
+      "filename": "book-a-gardener-full-day.png",
+      "prompt": "Variation icon named for Book Gardener: large centered leaf and garden watering can (gardener), plus small full sun badge at bottom-right for full day eight hours. Icon must clearly read as Book Gardener booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-a-cleaner",
+      "service_name": "Book Cleaner",
+      "variant_key": "hourly",
+      "variant_title": "Book for 1 hour",
+      "filename": "book-a-cleaner-hourly.png",
+      "prompt": "Variation icon named for Book Cleaner: large centered broom and spray bottle (cleaner), plus small circular clock badge at bottom-right showing short one-hour hand position. Icon must clearly read as Book Cleaner booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-a-cleaner",
+      "service_name": "Book Cleaner",
+      "variant_key": "half-day",
+      "variant_title": "Book for half day (4 hours)",
+      "filename": "book-a-cleaner-half-day.png",
+      "prompt": "Variation icon named for Book Cleaner: large centered broom and spray bottle (cleaner), plus small half-sun badge at bottom-right for half day four hours. Icon must clearly read as Book Cleaner booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-a-cleaner",
+      "service_name": "Book Cleaner",
+      "variant_key": "full-day",
+      "variant_title": "Book for full day (8 hours)",
+      "filename": "book-a-cleaner-full-day.png",
+      "prompt": "Variation icon named for Book Cleaner: large centered broom and spray bottle (cleaner), plus small full sun badge at bottom-right for full day eight hours. Icon must clearly read as Book Cleaner booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-makeup-artist",
+      "service_name": "Book Makeup Artist",
+      "variant_key": "hourly",
+      "variant_title": "Book for 1 hour",
+      "filename": "book-makeup-artist-hourly.png",
+      "prompt": "Variation icon named for Book Makeup Artist: large centered makeup brush and compact powder (makeup artist), plus small circular clock badge at bottom-right showing short one-hour hand position. Icon must clearly read as Book Makeup Artist booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-makeup-artist",
+      "service_name": "Book Makeup Artist",
+      "variant_key": "half-day",
+      "variant_title": "Book for half day (4 hours)",
+      "filename": "book-makeup-artist-half-day.png",
+      "prompt": "Variation icon named for Book Makeup Artist: large centered makeup brush and compact powder (makeup artist), plus small half-sun badge at bottom-right for half day four hours. Icon must clearly read as Book Makeup Artist booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-makeup-artist",
+      "service_name": "Book Makeup Artist",
+      "variant_key": "full-day",
+      "variant_title": "Book for full day (8 hours)",
+      "filename": "book-makeup-artist-full-day.png",
+      "prompt": "Variation icon named for Book Makeup Artist: large centered makeup brush and compact powder (makeup artist), plus small full sun badge at bottom-right for full day eight hours. Icon must clearly read as Book Makeup Artist booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-mehndi-artist",
+      "service_name": "Book Mehndi Artist",
+      "variant_key": "hourly",
+      "variant_title": "Book for 1 hour",
+      "filename": "book-mehndi-artist-hourly.png",
+      "prompt": "Variation icon named for Book Mehndi Artist: large centered mehndi henna cone and decorated hand outline (mehndi artist), plus small circular clock badge at bottom-right showing short one-hour hand position. Icon must clearly read as Book Mehndi Artist booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-mehndi-artist",
+      "service_name": "Book Mehndi Artist",
+      "variant_key": "half-day",
+      "variant_title": "Book for half day (4 hours)",
+      "filename": "book-mehndi-artist-half-day.png",
+      "prompt": "Variation icon named for Book Mehndi Artist: large centered mehndi henna cone and decorated hand outline (mehndi artist), plus small half-sun badge at bottom-right for half day four hours. Icon must clearly read as Book Mehndi Artist booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    },
+    {
+      "service_slug": "book-mehndi-artist",
+      "service_name": "Book Mehndi Artist",
+      "variant_key": "full-day",
+      "variant_title": "Book for full day (8 hours)",
+      "filename": "book-mehndi-artist-full-day.png",
+      "prompt": "Variation icon named for Book Mehndi Artist: large centered mehndi henna cone and decorated hand outline (mehndi artist), plus small full sun badge at bottom-right for full day eight hours. Icon must clearly read as Book Mehndi Artist booking package. Flat filled vector mobile app icon, perfect square 1:1 composition with equal padding. Solid dark navy blue #1A233A shapes ONLY on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no letters, no numbers, no gradients, no shadows, no gray, no outline strokes, centered."
+    }
+  ]
+}

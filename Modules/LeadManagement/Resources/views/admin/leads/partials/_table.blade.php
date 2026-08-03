@@ -1,5 +1,4 @@
     @php
-    $ctwaDisplayByPhone = $ctwaDisplayByPhone ?? [];
     $isProviderTab = isset($tab) && $tab === 'provider';
     $isCustomerTab = isset($tab) && $tab === 'customer';
     $isInvalidTab = isset($tab) && $tab === 'invalid';
@@ -8,19 +7,20 @@
     $providerLeadData = $providerLeadData ?? [];
     $customerLeadData = $customerLeadData ?? [];
     $reasonLeadData = $reasonLeadData ?? [];
+    $followupListMeta = $followupListMeta ?? [];
     $emptyColspan = match (true) {
         $isProviderTab => 14,
         $isCustomerTab => 16,
-        $isFutureCustomerTab => 11,
-        $isInvalidTab => 10,
-        default => 11,
+        $isFutureCustomerTab => 10,
+        $isInvalidTab => 9,
+        default => 9,
     };
 @endphp
-<div class="card">
+<div class="card table-leads-card">
     <div class="card-body">
         <div class="table-responsive overflow-auto">
-            <table class="table align-middle table-leads-fixed-layout">
-                <thead>
+            <table class="table table-hover align-middle table-leads-fixed-layout mb-0">
+                <thead class="table-light">
                 <tr>
                 <th>{{ translate('ID') }}</th>
                 <th>{{ translate('Name') }}</th>
@@ -42,18 +42,15 @@
                         <th>{{ translate('Sub_Category') }}</th>
                         <th>{{ translate('Estimated_Date_Time_of_Service') }}</th>
                     @elseif($isReasonTab)
-                        <th>{{ translate('Source') }}</th>
                         <th>{{ translate('Reason') }}</th>
                         @if($isFutureCustomerTab)
                             <th>{{ translate('Outbound_Enquiries') }}</th>
                         @endif
                     @else
                         <th>{{ translate('Lead_Type') }}</th>
-                        <th>{{ translate('Source') }}</th>
-                        <th>{{ translate('Ad_Source') }}</th>
                     @endif
                     <th>{{ translate('Recieved_On') }}</th>
-                    <th>{{ translate('Followup_On') }}</th>
+                    <th class="lead-followup-col">{{ translate('Followup_On') }}</th>
                     <th>{{ translate('Handled_By') }}</th>
                 <th>{{ translate('Lead_Status') }}</th>
                     @if($isCustomerTab)
@@ -65,7 +62,7 @@
                 <tbody>
                 @forelse($leads as $key => $lead)
                     @php
-                        $leadDetailUrl = route('admin.lead.show', $lead->id) . '?in_modal=1';
+                        $leadDetailUrl = route('admin.lead.show', $lead->id);
                     @endphp
                     <tr class="lead-table-row" data-lead-url="{{ $leadDetailUrl }}">
                         <td class="link-primary">{{ $lead->id }}</td>
@@ -114,7 +111,6 @@
                             <td>{{ $cd['sub_category_name'] ?? '—' }}</td>
                             <td>{{ $cd['estimated_service_at'] ?? '—' }}</td>
                         @elseif($isReasonTab)
-                            <td>{{ $lead->source?->name ?? '—' }}</td>
                             <td>{{ $reasonLeadData[$lead->id] ?? '—' }}</td>
                             @if($isFutureCustomerTab)
                                 <td>{{ $lead->outbound_enquiries_count ?? 0 }}</td>
@@ -134,49 +130,23 @@
                                 @endphp
                                 <span class="badge rounded-pill {{ $badgeClass }} text-capitalize">{{ $label }}</span>
                             </td>
-                            <td>{{ $lead->source?->name ?? '—' }}</td>
-                            <td class="lead-ad-source-cell">
-                                @php
-                                    $ctwaSvc = app(\Modules\LeadManagement\Services\LeadCtwaDisplayService::class);
-                                    $phoneKey = preg_replace('/\D+/', '', (string) ($lead->phone_number ?? '')) ?? '';
-                                    $phoneKey = strlen($phoneKey) >= 10 ? substr($phoneKey, -10) : '';
-                                    $ctwaRow = ($phoneKey !== '' && !empty($ctwaDisplayByPhone[$phoneKey] ?? null))
-                                        ? $ctwaDisplayByPhone[$phoneKey]
-                                        : null;
-                                    $adDisplay = $ctwaSvc->resolveDisplay($lead->adSource, $ctwaRow);
-                                @endphp
-                                @if($adDisplay['name'] || $adDisplay['image_url'])
-                                    <div class="d-flex flex-column align-items-start gap-1 py-1" style="max-width:120px;">
-                                        @if($adDisplay['image_url'])
-                                            @if(!empty($adDisplay['view_ad_url']))
-                                                <a href="{{ $adDisplay['view_ad_url'] }}" target="_blank" rel="noopener" class="d-inline-block" title="{{ translate('View ad') }}">
-                                                    <img src="{{ $adDisplay['image_url'] }}"
-                                                         alt="{{ $adDisplay['name'] ?? '' }}"
-                                                         class="rounded border"
-                                                         style="width:48px;height:48px;object-fit:cover;display:block;"
-                                                         loading="lazy"
-                                                         onerror="this.style.display='none'">
-                                                </a>
-                                            @else
-                                                <img src="{{ $adDisplay['image_url'] }}"
-                                                     alt="{{ $adDisplay['name'] ?? '' }}"
-                                                     class="rounded border"
-                                                     style="width:48px;height:48px;object-fit:cover;display:block;"
-                                                     loading="lazy"
-                                                     onerror="this.style.display='none'">
-                                            @endif
-                                        @endif
-                                        @if($adDisplay['name'])
-                                            <span class="text-muted text-wrap" style="font-size:0.72rem;line-height:1.2;">{{ $adDisplay['name'] }}</span>
-                                        @endif
-                                    </div>
-                                @else
-                                    —
-                                @endif
-                            </td>
                         @endif
-                        <td>{{ $lead->date_time_of_lead_received?->format('d F Y h:i a') ?? '—' }}</td>
-                        <td>{{ $lead->next_followup_at?->format('d F Y h:i a') ?? '—' }}</td>
+                        <td>{{ $lead->date_time_of_lead_received?->format('d M Y, h:i a') ?? '—' }}</td>
+                        <td class="lead-followup-col">
+                            @if($lead->next_followup_at)
+                                <div class="lead-followup-cell">
+                                    <span class="lead-followup-cell__date">{{ $lead->next_followup_at->format('d M Y, h:i a') }}</span>
+                                    @php $followupBadge = $followupListMeta[$lead->id] ?? null; @endphp
+                                    @if($followupBadge)
+                                        <span class="badge rounded-pill {{ $followupBadge['badge_class'] }} lead-followup-badge" title="{{ translate($followupBadge['label']) }}">
+                                            {{ translate($followupBadge['label']) }}
+                                        </span>
+                                    @endif
+                                </div>
+                            @else
+                                —
+                            @endif
+                        </td>
                         <td>
                             @php
                                 $handledBy = $lead->handled_by;

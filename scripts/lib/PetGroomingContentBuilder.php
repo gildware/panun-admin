@@ -100,7 +100,7 @@ class PetGroomingContentBuilder
             str_contains($slug, 'senior') => ['Senior pets', 'Low-stress grooming', 'Arthritis-friendly handling', 'Regular maintenance'],
             str_contains($slug, 'monthly') => ['Regular grooming routine', 'Busy pet parents', 'Seasonal shedding', 'Coat maintenance plans'],
             str_contains($slug, 'flea') => ['Flea or tick concerns', 'Outdoor pets', 'Post-walk hygiene', 'Preventive care'],
-            str_contains($slug, 'mat') => ['Tangled coats', 'Long-haired cats', 'Seasonal matting', 'Before full shave'],
+            str_contains($slug, 'mat') => ['Tangled coats', 'Long-haired pets', 'Seasonal matting', 'Before full shave'],
             default => $base,
         };
     }

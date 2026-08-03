@@ -1,0 +1,194 @@
+{
+  "categories": [
+    {
+      "slug": "masonry",
+      "filename": "masonry.png",
+      "prompt": "Category icon: brick wall with trowel and spirit level, professional masonry services. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "masonry-installation",
+      "filename": "masonry-installation.png",
+      "prompt": "Category icon: brick with plus install mark and trowel, masonry installation. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "masonry-repair",
+      "filename": "masonry-repair.png",
+      "prompt": "Category icon: cracked wall with trowel and patch, masonry repairs. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "slug": "masonry-inspection",
+      "filename": "masonry-inspection.png",
+      "prompt": "Category icon: clipboard checklist with brick and magnifying glass, masonry inspection. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ],
+  "variants": [
+    {
+      "service_slug": "masonry-brick-install",
+      "service_name": "Masonry Brick Install",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "masonry-brick-install-book-inspection.png",
+      "prompt": "Variation icon for masonry brick install: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "masonry-plaster-install",
+      "service_name": "Masonry Plaster Install",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "masonry-plaster-install-book-inspection.png",
+      "prompt": "Variation icon for masonry plaster install: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "masonry-tile-install",
+      "service_name": "Masonry Tile Install",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "masonry-tile-install-book-inspection.png",
+      "prompt": "Variation icon for masonry tile install: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "masonry-marble-install",
+      "service_name": "Masonry Marble Install",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "masonry-marble-install-book-inspection.png",
+      "prompt": "Variation icon for masonry marble install: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "masonry-stone-install",
+      "service_name": "Masonry Stone Install",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "masonry-stone-install-book-inspection.png",
+      "prompt": "Variation icon for masonry stone install: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "masonry-stair-install",
+      "service_name": "Masonry Stair Install",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "masonry-stair-install-book-inspection.png",
+      "prompt": "Variation icon for masonry stair install: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "masonry-waterproof-install",
+      "service_name": "Masonry Waterproof Install",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "masonry-waterproof-install-book-inspection.png",
+      "prompt": "Variation icon for masonry waterproof install: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "masonry-boundary-install",
+      "service_name": "Masonry Boundary Install",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "masonry-boundary-install-book-inspection.png",
+      "prompt": "Variation icon for masonry boundary install: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "masonry-full-bathroom-setup",
+      "service_name": "Masonry Full Bathroom Setup",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "masonry-full-bathroom-setup-book-inspection.png",
+      "prompt": "Variation icon for masonry full bathroom setup: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "masonry-crack-repair",
+      "service_name": "Masonry Crack Repair",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "masonry-crack-repair-book-inspection.png",
+      "prompt": "Variation icon for masonry crack repair: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "masonry-plaster-repair",
+      "service_name": "Masonry Plaster Repair",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "masonry-plaster-repair-book-inspection.png",
+      "prompt": "Variation icon for masonry plaster repair: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "masonry-tile-repair",
+      "service_name": "Masonry Tile Repair",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "masonry-tile-repair-book-inspection.png",
+      "prompt": "Variation icon for masonry tile repair: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "masonry-marble-repair",
+      "service_name": "Masonry Marble Repair",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "masonry-marble-repair-book-inspection.png",
+      "prompt": "Variation icon for masonry marble repair: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "masonry-stair-repair",
+      "service_name": "Masonry Stair Repair",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "masonry-stair-repair-book-inspection.png",
+      "prompt": "Variation icon for masonry stair repair: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "masonry-damp-repair",
+      "service_name": "Masonry Damp Repair",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "masonry-damp-repair-book-inspection.png",
+      "prompt": "Variation icon for masonry damp repair: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "masonry-boundary-repair",
+      "service_name": "Masonry Boundary Repair",
+      "variant_key": "book-inspection",
+      "variant_title": "Book Inspection",
+      "filename": "masonry-boundary-repair-book-inspection.png",
+      "prompt": "Variation icon for masonry boundary repair: clipboard with checklist and magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "masonry-site-check",
+      "service_name": "Masonry Site Check",
+      "variant_key": "crack-check",
+      "variant_title": "Crack Check",
+      "filename": "masonry-site-check-crack-check.png",
+      "prompt": "Variation icon for masonry site check: magnifying glass over cracked wall check silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "masonry-site-check",
+      "service_name": "Masonry Site Check",
+      "variant_key": "damp-check",
+      "variant_title": "Damp Check",
+      "filename": "masonry-site-check-damp-check.png",
+      "prompt": "Variation icon for masonry site check: magnifying glass over damp wall stain check silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "masonry-site-check",
+      "service_name": "Masonry Site Check",
+      "variant_key": "unknown-problem",
+      "variant_title": "Unknown Problem",
+      "filename": "masonry-site-check-unknown-problem.png",
+      "prompt": "Variation icon for masonry site check: question mark with brick wall silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "masonry-safety-check",
+      "service_name": "Masonry Safety Check",
+      "variant_key": "full-home-masonry-check",
+      "variant_title": "Full Home Masonry Check",
+      "filename": "masonry-safety-check-full-home-masonry-check.png",
+      "prompt": "Variation icon for masonry safety check: home shield with brick wall safety check silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "masonry-pre-work-check",
+      "service_name": "Masonry Pre-Work Check",
+      "variant_key": "before-renovation-check",
+      "variant_title": "Before Renovation Check",
+      "filename": "masonry-pre-work-check-before-renovation-check.png",
+      "prompt": "Variation icon for masonry pre-work check: renovation house masonry survey clipboard silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ]
+}
