@@ -146,41 +146,16 @@
         } catch (e) {}
     }
 
-    function isFlashToastScript(content) {
-        if (!content || content.indexOf('toastr.') === -1) {
-            return false;
-        }
-
-        if (/function\s|\.ajax\s*\(|\.on\s*\(|\$\(|document\.|window\.|=>/.test(content)) {
-            return false;
-        }
-
-        return /toastr\.(success|error|info|warning)\(/.test(content);
-    }
-
     function runFlashToastsFromHtml(html) {
         if (!html || typeof window.toastr === 'undefined') {
             return;
         }
 
         var doc = new DOMParser().parseFromString(html, 'text/html');
-        var frame = doc.querySelector('turbo-frame#' + FRAME_ID + ', #' + FRAME_ID + '.admin-main-frame');
 
-        doc.querySelectorAll('script').forEach(function (script) {
-            if (frame && frame.contains(script)) {
-                return;
-            }
-
-            if (script.getAttribute('data-admin-flash-toasts') === '0') {
-                return;
-            }
-
+        doc.querySelectorAll('script[data-admin-flash-toasts="1"]').forEach(function (script) {
             var content = (script.textContent || '').trim();
             if (!content || content.indexOf('toastr.') === -1) {
-                return;
-            }
-
-            if (script.getAttribute('data-admin-flash-toasts') !== '1' && !isFlashToastScript(content)) {
                 return;
             }
 
