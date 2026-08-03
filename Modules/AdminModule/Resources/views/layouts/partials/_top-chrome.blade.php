@@ -31,16 +31,12 @@
                     aria-pressed="true"
                     data-label-pin="{{ translate('Pin_header') }}"
                     data-label-unpin="{{ translate('Unpin_header') }}"
+                    data-text-pin="{{ translate('Pin') }}"
+                    data-text-unpin="{{ translate('Unpin') }}"
                     title="{{ translate('Unpin_header') }}"
                     aria-label="{{ translate('Unpin_header') }}">
-                <span class="top-chrome-mode-option top-chrome-mode-option--pin">
-                    <span class="material-icons" aria-hidden="true">push_pin</span>
-                    <span class="top-chrome-mode-label d-none d-md-inline">{{ translate('Pin') }}</span>
-                </span>
-                <span class="top-chrome-mode-option top-chrome-mode-option--unpin">
-                    <span class="material-icons" aria-hidden="true">push_pin</span>
-                    <span class="top-chrome-mode-label d-none d-md-inline">{{ translate('Unpin') }}</span>
-                </span>
+                <span class="material-icons top-chrome-mode-icon" aria-hidden="true">push_pin</span>
+                <span class="top-chrome-mode-label d-none d-md-inline">{{ translate('Unpin') }}</span>
             </button>
         </div>
         <div class="top-utility-end">
