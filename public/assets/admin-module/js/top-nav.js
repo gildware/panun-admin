@@ -146,6 +146,29 @@
                 : (toggle.getAttribute('data-label-unpin') || 'Unpin header');
             toggle.title = nextAction;
             toggle.setAttribute('aria-label', nextAction);
+
+            var pinOption = toggle.querySelector('.top-chrome-mode-option--pin');
+            var unpinOption = toggle.querySelector('.top-chrome-mode-option--unpin');
+            if (pinOption && unpinOption) {
+                pinOption.hidden = !isAutoHide;
+                unpinOption.hidden = isAutoHide;
+                pinOption.style.setProperty('display', isAutoHide ? 'inline-flex' : 'none', 'important');
+                unpinOption.style.setProperty('display', isAutoHide ? 'none' : 'inline-flex', 'important');
+            } else {
+                var label = toggle.querySelector('.top-chrome-mode-label');
+                if (label) {
+                    label.textContent = isAutoHide
+                        ? (toggle.getAttribute('data-text-pin') || 'Pin')
+                        : (toggle.getAttribute('data-text-unpin') || 'Unpin');
+                }
+
+                var icon = toggle.querySelector('.top-chrome-mode-icon')
+                    || toggle.querySelector('.material-icons');
+                if (icon) {
+                    icon.style.transform = isAutoHide ? '' : 'rotate(45deg)';
+                    icon.style.opacity = isAutoHide ? '' : '0.85';
+                }
+            }
         }
 
         if (!isAutoHide) {
