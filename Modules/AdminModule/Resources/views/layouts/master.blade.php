@@ -14,7 +14,7 @@
         (int) @filemtime(public_path('assets/admin-module/js/admin-image-fallback.js')),
         (int) @filemtime(public_path('assets/admin-module/js/admin-global-search.js')),
         (int) @filemtime(public_path('assets/admin-module/js/bootstrap-jquery-modal-bridge.js')),
-        2026080320,
+        2026080322,
     ) ?: time();
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{$site_direction}}">
@@ -65,6 +65,14 @@
         </style>
     @endif
     @if($adminUsesPartialNav)
+        <style>
+            html:not(.admin-shell-ready) body .main-area {
+                opacity: 0 !important;
+                pointer-events: none;
+            }
+            turbo-frame#admin-main.admin-main-frame--loading,
+            #admin-main.admin-main-frame--loading { visibility: hidden; }
+        </style>
         <script>
             if (sessionStorage.getItem('admin_shell_ready') === '1') {
                 document.documentElement.classList.add('admin-skip-preloader');
@@ -76,9 +84,7 @@
     <link rel="stylesheet" href="{{asset('assets/common')}}/css/image-crop-upload.css?v={{ @filemtime(public_path('assets/common/css/image-crop-upload.css')) ?: time() }}"/>
     <link rel="stylesheet" href="{{asset('assets/provider-module')}}/css/view-guideline.css"/>
 
-    @unless($adminUsesPartialNav)
-        @stack('css_or_js')
-    @endunless
+    @stack('css_or_js')
 </head>
 
 <body class="{{ $adminUsesTopNav ? 'nav-top' : '' }}"
@@ -118,8 +124,7 @@
 
 <main class="main-area">
     @if($adminUsesPartialNav)
-        <turbo-frame id="admin-main" class="admin-main-frame" data-turbo-cache="false">
-            @stack('css_or_js')
+        <turbo-frame id="admin-main" class="admin-main-frame admin-main-frame--loading" data-turbo-cache="false" aria-busy="true">
     @endif
 
     @yield('content')
