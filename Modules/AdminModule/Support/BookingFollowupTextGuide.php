@@ -60,9 +60,13 @@ class BookingFollowupTextGuide
             [
                 'title' => '4. Follow up bookings',
                 'steps' => [
+                    ['title' => 'Two modals', 'body' => 'Add Follow-up and Take Follow-up share the same layout — For, Taken/Reschedule, Follow up Taken on (Call/WhatsApp), optional recording on Call, Remarks, Next date.'],
+                    ['title' => 'Where in panel', 'body' => 'Booking details → Activity Followups pill, or Follow-ups subpage. Missed/pending banners have Take button.'],
                     ['title' => 'When to call', 'body' => 'At booking (always) · day before (only if service 3+ days away) · service day (always).'],
                     ['title' => 'Same-day / 1–2 days out', 'body' => 'Booking confirm + service day only — skip day-before call.'],
                     ['title' => '3+ days out', 'body' => 'Day before: provider first. Service day: morning + 1hr check → Ongoing.'],
+                    ['title' => 'After contact', 'body' => 'Take Follow-up → Taken → channel + remarks → Next Follow-up Date (mandatory on open bookings).'],
+                    ['title' => 'History table', 'body' => 'Scheduled for, Taken on, Delay, Next date, For, Status, Call/WhatsApp — Take on scheduled rows.'],
                     ['title' => 'After service', 'body' => 'Provider bill breakdown → panel → customer confirm → feedback both sides → Completed.'],
                     ['title' => 'Provider unavailable', 'body' => 'Re Assign (before Ongoing), On hold + new date, or Cancel + No-show feedback.'],
                     ['title' => 'Customer not ready', 'body' => 'Confirm before provider leaves; Cancel After Visit if provider visited and customer absent.'],

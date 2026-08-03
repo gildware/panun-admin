@@ -1,6 +1,6 @@
 @if(!empty($sidebarDemoMode))
-    <span class="badge badge-{{ $__overviewBadge }} text-capitalize fz-11 mb-2 d-inline-block" id="booking-status-overview-badge">
-        {{ $__bookingStatusDisplayLabel }}
+    <span id="booking-status-overview-badge" class="d-inline-block mb-2">
+        @include('bookingmodule::admin.booking.partials._booking-list-status-badge', ['booking' => $booking])
     </span>
     @can('booking_can_manage_status')
         @if(!$bookingNotEditable)
@@ -106,8 +106,8 @@
             @if($__showHeaderBookingCancelledWithRefunded && empty($__headerHasDisputedSnapshot))
                 <span class="badge bg-danger fz-11">{{ translate('Booking_cancelled') }}</span>
             @endif
-            <span class="badge badge-{{ $__overviewBadge }} text-capitalize fz-11" id="booking-status-overview-badge">
-                {{ $__bookingStatusDisplayLabel }}
+            <span id="booking-status-overview-badge">
+                @include('bookingmodule::admin.booking.partials._booking-list-status-badge', ['booking' => $booking])
             </span>
             @include('bookingmodule::admin.booking.partials._booking-admin-status-tags', ['booking' => $booking, 'bookingStatusTagsVariant' => 'compact', 'bookingListTagStacked' => true])
         </div>

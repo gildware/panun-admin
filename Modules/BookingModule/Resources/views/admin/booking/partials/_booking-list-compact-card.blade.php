@@ -4,8 +4,7 @@
 --}}
 @php
     $bookingListReasonTab = $bookingListReasonTab ?? ($queryParams['booking_status'] ?? '');
-    $statusSlug = strtolower((string) ($booking->booking_status ?? 'pending'));
-    $compactStatusClass = preg_replace('/[^a-z0-9_-]/', '', $statusSlug) ?: 'default';
+    $compactStatusClass = booking_admin_status_css_class($booking);
 
     $detailUrl = $booking->is_repeated
         ? route('admin.booking.repeat_details', [$booking->id, 'web_page' => 'details'])

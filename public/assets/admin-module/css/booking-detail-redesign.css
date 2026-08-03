@@ -12,9 +12,8 @@
   --bk-radius: 12px;
   --bk-radius-sm: 8px;
   --bk-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-  /* Status theme — matches booking list compact cards */
-  --detail-accent: #94a3b8;
-  --detail-accent-bg: #f8fafc;
+  --detail-accent: var(--bk-all, #94a3b8);
+  --detail-accent-bg: var(--bk-all-bg, #f8fafc);
   font-size: 0.8125rem;
   color: var(--bk-muted);
   line-height: 1.45;
@@ -23,28 +22,6 @@
   padding: .875rem .75rem 2.5rem;
   border-radius: var(--bk-radius);
 }
-
-.booking-detail-v2--accepted { --detail-accent: #0284c7; --detail-accent-bg: #f0f9ff; }
-.booking-detail-v2--ongoing { --detail-accent: #d97706; --detail-accent-bg: #fffbeb; }
-.booking-detail-v2--completed { --detail-accent: #16a34a; --detail-accent-bg: #f0fdf4; }
-.booking-detail-v2--pending { --detail-accent: #ca8a04; --detail-accent-bg: #fefce8; }
-.booking-detail-v2--canceled,
-.booking-detail-v2--cancelled { --detail-accent: #dc2626; --detail-accent-bg: #fef2f2; }
-.booking-detail-v2--reopened { --detail-accent: #ea580c; --detail-accent-bg: #fff7ed; }
-.booking-detail-v2--on_hold { --detail-accent: #64748b; --detail-accent-bg: #f8fafc; }
-.booking-detail-v2--resolved { --detail-accent: #059669; --detail-accent-bg: #ecfdf5; }
-.booking-detail-v2--disputed_cancelled { --detail-accent: #dc2626; --detail-accent-bg: #fef2f2; }
-.booking-detail-v2--disputed_completed { --detail-accent: #d97706; --detail-accent-bg: #fffbeb; }
-.booking-detail-v2--hold_after_visit { --detail-accent: #64748b; --detail-accent-bg: #f8fafc; }
-.booking-detail-v2--cancelled_after_visit { --detail-accent: #dc2626; --detail-accent-bg: #fef2f2; }
-.booking-detail-v2--completed_no_or_little { --detail-accent: #16a34a; --detail-accent-bg: #f0fdf4; }
-.booking-detail-v2--loss_making_pending,
-.booking-detail-v2--loss_making { --detail-accent: #dc2626; --detail-accent-bg: #fef2f2; }
-.booking-detail-v2--loss_recovered { --detail-accent: #059669; --detail-accent-bg: #ecfdf5; }
-.booking-detail-v2--loss_settled { --detail-accent: #0284c7; --detail-accent-bg: #f0f9ff; }
-.booking-detail-v2--refunded { --detail-accent: #16a34a; --detail-accent-bg: #f0fdf4; }
-.booking-detail-v2--pending_cancellation { --detail-accent: #d97706; --detail-accent-bg: #fffbeb; }
-.booking-detail-v2--default { --detail-accent: #94a3b8; --detail-accent-bg: #f8fafc; }
 
 .booking-detail-v2__wrap {
   max-width: 1320px;

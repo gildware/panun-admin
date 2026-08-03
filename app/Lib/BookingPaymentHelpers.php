@@ -1785,6 +1785,18 @@ if (! function_exists('booking_admin_status_display_key')) {
     }
 }
 
+if (! function_exists('booking_admin_status_css_class')) {
+    /**
+     * Sanitized CSS class suffix for booking status theming (list cards, detail page).
+     */
+    function booking_admin_status_css_class(Booking $booking): string
+    {
+        $key = booking_admin_status_display_key($booking);
+
+        return preg_replace('/[^a-z0-9_-]/', '', $key) ?: 'default';
+    }
+}
+
 if (! function_exists('booking_admin_status_tags_for_api')) {
     /**
      * Admin booking list tags for provider mobile API.

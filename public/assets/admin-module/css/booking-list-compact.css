@@ -32,26 +32,6 @@
     box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
 }
 
-.booking-compact-list .booking-compact-card--accepted { --accent: #0284c7; --accent-bg: #f0f9ff; }
-.booking-compact-list .booking-compact-card--ongoing { --accent: #d97706; --accent-bg: #fffbeb; }
-.booking-compact-list .booking-compact-card--completed { --accent: #16a34a; --accent-bg: #f0fdf4; }
-.booking-compact-list .booking-compact-card--pending { --accent: #ca8a04; --accent-bg: #fefce8; }
-.booking-compact-list .booking-compact-card--canceled,
-.booking-compact-list .booking-compact-card--cancelled { --accent: #dc2626; --accent-bg: #fef2f2; }
-.booking-compact-list .booking-compact-card--reopened { --accent: #ea580c; --accent-bg: #fff7ed; }
-.booking-compact-list .booking-compact-card--on_hold { --accent: #64748b; --accent-bg: #f8fafc; }
-.booking-compact-list .booking-compact-card--resolved { --accent: #059669; --accent-bg: #ecfdf5; }
-.booking-compact-list .booking-compact-card--disputed_cancelled { --accent: #dc2626; --accent-bg: #fef2f2; }
-.booking-compact-list .booking-compact-card--disputed_completed { --accent: #d97706; --accent-bg: #fffbeb; }
-.booking-compact-list .booking-compact-card--hold_after_visit { --accent: #64748b; --accent-bg: #f8fafc; }
-.booking-compact-list .booking-compact-card--cancelled_after_visit { --accent: #dc2626; --accent-bg: #fef2f2; }
-.booking-compact-list .booking-compact-card--completed_no_or_little { --accent: #16a34a; --accent-bg: #f0fdf4; }
-.booking-compact-list .booking-compact-card--loss_making_pending,
-.booking-compact-list .booking-compact-card--loss_making { --accent: #dc2626; --accent-bg: #fef2f2; }
-.booking-compact-list .booking-compact-card--loss_recovered { --accent: #059669; --accent-bg: #ecfdf5; }
-.booking-compact-list .booking-compact-card--loss_settled { --accent: #0284c7; --accent-bg: #f0f9ff; }
-.booking-compact-list .booking-compact-card--default { --accent: #94a3b8; --accent-bg: #f8fafc; }
-
 /* Row 1 */
 .booking-compact-list .bc-r1 {
     display: flex;
@@ -402,8 +382,6 @@
 }
 
 .booking-list-tab.active {
-    background: #14532d;
-    color: #fff;
     font-weight: 500;
 }
 
@@ -418,14 +396,51 @@
     font-weight: 600;
     line-height: 1;
     border-radius: 999px;
-    background: rgba(20, 83, 45, 0.15);
-    color: #14532d;
     flex-shrink: 0;
 }
 
 .booking-list-tab.active .count {
     background: rgba(255, 255, 255, 0.25);
     color: #fff;
+}
+
+/* Status tab colors — derived from shared semantic tokens */
+.booking-list-tab[data-status="all"] { --tab-bg: var(--bk-all-bg); --tab-fg: var(--bk-all); --tab-hover: #e2e8f0; --tab-active: var(--bk-all); --tab-count-bg: color-mix(in srgb, var(--bk-all) 18%, transparent); --tab-count-fg: var(--bk-all); }
+.booking-list-tab[data-status="pending"] { --tab-bg: var(--bk-pending-bg); --tab-fg: var(--bk-pending); --tab-hover: #fde68a; --tab-active: var(--bk-pending); --tab-count-bg: color-mix(in srgb, var(--bk-pending) 18%, transparent); --tab-count-fg: var(--bk-pending); }
+.booking-list-tab[data-status="accepted"] { --tab-bg: var(--bk-accepted-bg); --tab-fg: var(--bk-accepted); --tab-hover: #bae6fd; --tab-active: var(--bk-accepted); --tab-count-bg: color-mix(in srgb, var(--bk-accepted) 18%, transparent); --tab-count-fg: var(--bk-accepted); }
+.booking-list-tab[data-status="canceled"] { --tab-bg: var(--bk-cancel-bg); --tab-fg: var(--bk-cancel); --tab-hover: #fecaca; --tab-active: var(--bk-cancel); --tab-count-bg: color-mix(in srgb, var(--bk-cancel) 18%, transparent); --tab-count-fg: var(--bk-cancel); }
+.booking-list-tab[data-status="ongoing"] { --tab-bg: var(--bk-ongoing-bg); --tab-fg: var(--bk-ongoing); --tab-hover: #fed7aa; --tab-active: var(--bk-ongoing); --tab-count-bg: color-mix(in srgb, var(--bk-ongoing) 18%, transparent); --tab-count-fg: var(--bk-ongoing); }
+.booking-list-tab[data-status="completed"] { --tab-bg: var(--bk-completed-bg); --tab-fg: var(--bk-completed); --tab-hover: #bbf7d0; --tab-active: var(--bk-completed); --tab-count-bg: color-mix(in srgb, var(--bk-completed) 18%, transparent); --tab-count-fg: var(--bk-completed); }
+.booking-list-tab[data-status="reopened"] { --tab-bg: var(--bk-reopen-bg); --tab-fg: var(--bk-reopen); --tab-hover: #ddd6fe; --tab-active: var(--bk-reopen); --tab-count-bg: color-mix(in srgb, var(--bk-reopen) 18%, transparent); --tab-count-fg: var(--bk-reopen); }
+.booking-list-tab[data-status="resolved"] { --tab-bg: var(--bk-resolved-bg); --tab-fg: var(--bk-resolved); --tab-hover: #99f6e4; --tab-active: var(--bk-resolved); --tab-count-bg: color-mix(in srgb, var(--bk-resolved) 18%, transparent); --tab-count-fg: var(--bk-resolved); }
+.booking-list-tab[data-status="disputed_cancelled"] { --tab-bg: var(--bk-dispute-cancel-bg); --tab-fg: var(--bk-dispute-cancel); --tab-hover: #fecdd3; --tab-active: var(--bk-dispute-cancel); --tab-count-bg: color-mix(in srgb, var(--bk-dispute-cancel) 18%, transparent); --tab-count-fg: var(--bk-dispute-cancel); }
+.booking-list-tab[data-status="disputed_completed"] { --tab-bg: var(--bk-dispute-complete-bg); --tab-fg: var(--bk-dispute-complete); --tab-hover: #fdba74; --tab-active: var(--bk-dispute-complete); --tab-count-bg: color-mix(in srgb, var(--bk-dispute-complete) 18%, transparent); --tab-count-fg: var(--bk-dispute-complete); }
+.booking-list-tab[data-status="on_hold"] { --tab-bg: var(--bk-hold-bg); --tab-fg: var(--bk-hold); --tab-hover: #e4e4e7; --tab-active: var(--bk-hold); --tab-count-bg: color-mix(in srgb, var(--bk-hold) 18%, transparent); --tab-count-fg: var(--bk-hold); }
+.booking-list-tab[data-status="hold_after_visit"] { --tab-bg: var(--bk-hold-visit-bg); --tab-fg: var(--bk-hold-visit); --tab-hover: #d4d4d8; --tab-active: var(--bk-hold-visit); --tab-count-bg: color-mix(in srgb, var(--bk-hold-visit) 18%, transparent); --tab-count-fg: var(--bk-hold-visit); }
+.booking-list-tab[data-status="completed_no_or_little"] { --tab-bg: var(--bk-completed-alt-bg); --tab-fg: var(--bk-completed-alt); --tab-hover: #bbf7d0; --tab-active: var(--bk-completed-alt); --tab-count-bg: color-mix(in srgb, var(--bk-completed-alt) 18%, transparent); --tab-count-fg: var(--bk-completed-alt); }
+.booking-list-tab[data-status="cancelled_after_visit"] { --tab-bg: var(--bk-cancel-visit-bg); --tab-fg: var(--bk-cancel-visit); --tab-hover: #fecaca; --tab-active: var(--bk-cancel-visit); --tab-count-bg: color-mix(in srgb, var(--bk-cancel-visit) 18%, transparent); --tab-count-fg: var(--bk-cancel-visit); }
+.booking-list-tab[data-status="loss_making_pending"] { --tab-bg: var(--bk-loss-bg); --tab-fg: var(--bk-loss); --tab-hover: #fde68a; --tab-active: var(--bk-loss); --tab-count-bg: color-mix(in srgb, var(--bk-loss) 18%, transparent); --tab-count-fg: var(--bk-loss); }
+.booking-list-tab[data-status="loss_recovered"] { --tab-bg: var(--bk-loss-recovered-bg); --tab-fg: var(--bk-loss-recovered); --tab-hover: #a5f3fc; --tab-active: var(--bk-loss-recovered); --tab-count-bg: color-mix(in srgb, var(--bk-loss-recovered) 18%, transparent); --tab-count-fg: var(--bk-loss-recovered); }
+.booking-list-tab[data-status="loss_settled"] { --tab-bg: var(--bk-loss-settled-bg); --tab-fg: var(--bk-loss-settled); --tab-hover: #bfdbfe; --tab-active: var(--bk-loss-settled); --tab-count-bg: color-mix(in srgb, var(--bk-loss-settled) 18%, transparent); --tab-count-fg: var(--bk-loss-settled); }
+
+.booking-list-tab[data-status] {
+    background: var(--tab-bg, #e9ecef);
+    color: var(--tab-fg, #495057);
+}
+
+.booking-list-tab[data-status]:hover {
+    background: var(--tab-hover, #dee2e6);
+    color: var(--tab-fg, #495057);
+}
+
+.booking-list-tab[data-status].active {
+    background: var(--tab-active, #14532d);
+    color: #fff;
+}
+
+.booking-list-tab[data-status] .count {
+    background: var(--tab-count-bg, rgba(20, 83, 45, 0.15));
+    color: var(--tab-count-fg, #14532d);
 }
 
 .booking-list-tab.booking-status-tabs-toggle {

@@ -3,6 +3,7 @@
 @section('title', translate('Booking_Comments'))
 
 @push('css_or_js')
+    @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-detail-redesign.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/chatting-module/css/staff-chat-entity-badges.css') }}">
     @include('bookingmodule::admin.booking.partials._booking-comments-styles')
@@ -17,7 +18,7 @@
 
             <div class="row">
                 @php
-                    $__detailStatusClass = preg_replace('/[^a-z0-9_-]/', '', strtolower((string) ($booking->booking_status ?? 'pending'))) ?: 'default';
+                    $__detailStatusClass = booking_admin_status_css_class($booking);
                 @endphp
                 <div class="col-12 booking-detail-v2 booking-detail-v2--{{ $__detailStatusClass }}">
                     <div class="booking-detail-v2__wrap">

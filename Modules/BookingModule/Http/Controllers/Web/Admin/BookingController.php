@@ -2890,22 +2890,157 @@ class BookingController extends Controller
     {
         $this->authorize('booking_view');
         $booking = $this->booking->findOrFail($id);
+        $requiresNext = $booking->requiresMandatoryNextFollowup();
+        $followupAction = $request->input('followup_action', BookingFollowup::ACTION_TAKEN);
+
+        if (! in_array($followupAction, BookingFollowup::FOLLOWUP_ACTIONS, true)) {
+            $followupAction = BookingFollowup::ACTION_TAKEN;
+        }
+
+        if ($followupAction === BookingFollowup::ACTION_RESCHEDULE) {
+            return $this->storeRescheduledBookingFollowup($request, $booking, $requiresNext);
+        }
+
+        return $this->storeTakenBookingFollowup($request, $booking, $requiresNext);
+    }
+
+    protected function storeTakenBookingFollowup(
+        Request $request,
+        Booking $booking,
+        bool $requiresNext
+    ): RedirectResponse {
         $validated = $request->validate([
-            'date' => ['required', 'date'],
-            'reason' => ['nullable', 'string', 'max:500'],
             'for' => ['required', 'in:customer,provider'],
-            'urgency' => ['nullable', 'in:' . implode(',', \Modules\BookingModule\Entities\BookingFollowup::URGENCIES)],
+            'followup_at' => ['required', 'date'],
+            'remarks' => ['nullable', 'string', 'max:1000'],
+            'contact_channel' => ['nullable', 'in:'.implode(',', BookingFollowup::CONTACT_CHANNELS)],
+            'recording' => [
+                'nullable',
+                'file',
+                'max:10240',
+                'mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/webm,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/x-aac',
+            ],
+            'urgency' => ['nullable', 'in:'.implode(',', BookingFollowup::URGENCIES)],
+            'next_followup_at' => [
+                Rule::requiredIf(fn () => $requiresNext),
+                'nullable',
+                'date',
+                'after:now',
+            ],
+            'schedule_next' => ['nullable', 'in:1'],
+        ], [
+            'next_followup_at.required' => translate('Next_follow_up_date_is_required'),
+            'next_followup_at.after' => translate('Reschedule_date_must_be_in_the_future'),
+            'recording.mimetypes' => translate('Please_upload_a_valid_audio_recording'),
         ]);
+
+        if (($validated['contact_channel'] ?? null) !== BookingFollowup::CHANNEL_CALL && $request->hasFile('recording')) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->withErrors(['recording' => translate('Voice_recording_is_only_allowed_for_call_follow_ups')]);
+        }
+
+        $recordingData = [];
+        if (($validated['contact_channel'] ?? null) === BookingFollowup::CHANNEL_CALL && $request->hasFile('recording')) {
+            $recording = $request->file('recording');
+            $extension = $recording->getClientOriginalExtension() ?: 'webm';
+            $storedName = file_uploader('booking-followups/', $extension, $recording);
+
+            if ($storedName === 'def.png') {
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->withErrors(['recording' => translate('Failed_to_upload_voice_recording')]);
+            }
+
+            $recordingData = [
+                'recording_path' => $storedName,
+                'recording_disk' => getDisk(),
+                'recording_mime' => $recording->getMimeType(),
+                'recording_original_name' => $recording->getClientOriginalName(),
+            ];
+        }
+
+        BookingFollowup::create(array_merge([
+            'booking_id' => $booking->id,
+            'for' => $validated['for'],
+            'date' => $validated['followup_at'],
+            'followup_at' => $validated['followup_at'],
+            'status' => 'completed',
+            'remarks' => $validated['remarks'] ?? null,
+            'contact_channel' => $validated['contact_channel'] ?? null,
+            'urgency' => $validated['urgency'] ?? BookingFollowup::URGENCY_MEDIUM,
+            'created_by' => auth()->id(),
+        ], $recordingData));
+
+        $shouldScheduleNext = $requiresNext
+            || (! empty($validated['schedule_next']) && ! empty($validated['next_followup_at']));
+
+        if ($shouldScheduleNext) {
+            if (empty($validated['next_followup_at'])) {
+                throw ValidationException::withMessages([
+                    'next_followup_at' => [translate('Next_follow_up_date_is_required')],
+                ]);
+            }
+
+            app(BookingFollowupService::class)->schedule(
+                $booking,
+                $validated['next_followup_at'],
+                $validated['for'],
+                null,
+                null,
+                $validated['urgency'] ?? BookingFollowup::URGENCY_MEDIUM
+            );
+        }
+
+        Toastr::success(translate('Follow_up_added_successfully'));
+
+        return $this->redirectAfterBookingFollowup($request, $booking);
+    }
+
+    protected function storeRescheduledBookingFollowup(
+        Request $request,
+        Booking $booking,
+        bool $requiresNext
+    ): RedirectResponse {
+        $validated = $request->validate([
+            'for' => ['required', 'in:customer,provider'],
+            'remarks' => ['nullable', 'string', 'max:1000'],
+            'urgency' => ['nullable', 'in:'.implode(',', BookingFollowup::URGENCIES)],
+            'next_followup_at' => [
+                'required',
+                'date',
+                'after:now',
+            ],
+        ], [
+            'next_followup_at.required' => translate('Next_follow_up_date_is_required'),
+            'next_followup_at.after' => translate('Reschedule_date_must_be_in_the_future'),
+        ]);
+
+        BookingFollowup::create([
+            'booking_id' => $booking->id,
+            'for' => $validated['for'],
+            'status' => 'rescheduled',
+            'remarks' => $validated['remarks'] ?? null,
+            'reschedule_reason' => $validated['remarks'] ?? null,
+            'next_followup_at' => $validated['next_followup_at'],
+            'urgency' => $validated['urgency'] ?? BookingFollowup::URGENCY_MEDIUM,
+            'created_by' => auth()->id(),
+        ]);
+
         app(BookingFollowupService::class)->schedule(
             $booking,
-            $validated['date'],
+            $validated['next_followup_at'],
             $validated['for'],
-            $validated['reason'] ?? null,
-            auth()->id(),
-            $validated['urgency'] ?? \Modules\BookingModule\Entities\BookingFollowup::URGENCY_MEDIUM
+            null,
+            null,
+            $validated['urgency'] ?? BookingFollowup::URGENCY_MEDIUM
         );
-        Toastr::success(translate('Follow_up_added_successfully'));
-        return redirect()->route('admin.booking.details', [$id, 'web_page' => 'followups']);
+
+        Toastr::success(translate('Follow_up_rescheduled_successfully'));
+
+        return $this->redirectAfterBookingFollowup($request, $booking);
     }
 
     public function reopenFromCompleted(Request $request, string $id): RedirectResponse
