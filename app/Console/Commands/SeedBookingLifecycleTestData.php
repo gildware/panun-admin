@@ -8,13 +8,17 @@ use Illuminate\Console\Command;
 class SeedBookingLifecycleTestData extends Command
 {
     protected $signature = 'booking:seed-lifecycle-matrix
-                            {--fresh : Remove prior [LIFECYCLE-TEST-MATRIX] bookings first}';
+                            {--fresh : Remove prior [LIFECYCLE-TEST-MATRIX] bookings first}
+                            {--customer-phone= : Customer phone (defaults to orchestrator constant)}
+                            {--provider-phone= : Provider phone (defaults to orchestrator constant)}';
 
-    protected $description = 'Seed all booking lifecycle scenarios for customer 7889729790 + provider 9353294014 via real checkout flows.';
+    protected $description = 'Seed all booking lifecycle scenarios via real checkout flows (one booking per admin list tab).';
 
     public function handle(BookingTestMatrixOrchestrator $orchestrator): int
     {
-        $ctx = $orchestrator->resolveContext();
+        $customerPhone = $this->option('customer-phone') ?: null;
+        $providerPhone = $this->option('provider-phone') ?: null;
+        $ctx = $orchestrator->resolveContext($customerPhone, $providerPhone);
         $this->info('Customer: ' . $ctx['customer']->phone . ' (' . $ctx['customer']->id . ')');
         $this->info('Provider: ' . $ctx['provider_user']->phone . ' (' . $ctx['provider']->id . ')');
 

@@ -1,0 +1,30 @@
+Asset validation passed for 11 services.
+Category ready: Book Kaergar (book-kaergar)
+Category ready: Home Trades (home-trades)
+Category ready: Building & Site (building-site)
+Category ready: Home Care (home-care)
+Category ready: Beauty Artists (beauty-artists)
+UPDATED service: Book Carpenter
+  variants: 3 x 20 zones
+CREATED service: Book Electrician
+  variants: 3 x 20 zones
+CREATED service: Book Plumber
+  variants: 3 x 20 zones
+UPDATED service: Book Painter
+  variants: 3 x 20 zones
+UPDATED service: Book Mason
+  variants: 3 x 20 zones
+CREATED service: Book Labour
+  variants: 3 x 20 zones
+CREATED service: Book Welder / Fabricator
+  variants: 3 x 20 zones
+UPDATED service: Book Gardener
+  variants: 3 x 20 zones
+CREATED service: Book Cleaner
+  variants: 3 x 20 zones
+CREATED service: Book Makeup Artist
+  variants: 3 x 20 zones
+CREATED service: Book Mehndi Artist
+  variants: 3 x 20 zones
+
+Book Kaergar catalog seeded: 1 category, 4 sub-categories, 11 services.

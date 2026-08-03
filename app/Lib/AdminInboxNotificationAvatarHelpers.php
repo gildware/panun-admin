@@ -145,6 +145,54 @@ if (! function_exists('infer_admin_notification_sender_identity')) {
                 : ['admin', null];
         }
 
+        if ($referenceType === 'lead_comment' && $referenceId !== '') {
+            $commentId = explode(':', $referenceId, 2)[0];
+            $comment = \Modules\LeadManagement\Entities\LeadComment::query()->find($commentId);
+
+            return resolve_admin_notification_sender_from_user($comment?->created_by);
+        }
+
+        if ($referenceType === 'booking_comment' && $referenceId !== '') {
+            $commentId = explode(':', $referenceId, 2)[0];
+            $comment = \Modules\BookingModule\Entities\BookingComment::query()->find($commentId);
+
+            return resolve_admin_notification_sender_from_user($comment?->created_by);
+        }
+
+        if ($referenceType === 'ticket_comment' && $referenceId !== '') {
+            $commentId = explode(':', $referenceId, 2)[0];
+            $comment = \Modules\TaskBoardModule\Entities\TaskTicketComment::query()->find($commentId);
+
+            return resolve_admin_notification_sender_from_user($comment?->user_id);
+        }
+
+        if ($referenceType === 'booking_pending_cancellation' && $referenceId !== '') {
+            $booking = Booking::query()->find($referenceId);
+
+            return $booking?->provider_id
+                ? ['provider', (string) $booking->provider_id]
+                : ['admin', null];
+        }
+
+        if ($referenceType === 'whatsapp_human_support' && $referenceId !== '') {
+            $phone = explode(':', $referenceId, 2)[0];
+            $lead = \Modules\LeadManagement\Entities\Lead::query()
+                ->where('phone_number', 'like', '%' . substr($phone, -10))
+                ->latest('id')
+                ->first();
+
+            return $lead
+                ? ['customer', null]
+                : ['admin', null];
+        }
+
+        if ($referenceType === 'lead_followup_due' && $referenceId !== '') {
+            $leadId = explode(':', $referenceId, 2)[0];
+            $lead = \Modules\LeadManagement\Entities\Lead::query()->find($leadId);
+
+            return ['admin', null];
+        }
+
         return ['admin', null];
     }
 }

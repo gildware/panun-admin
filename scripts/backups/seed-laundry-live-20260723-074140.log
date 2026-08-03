@@ -1,0 +1,31 @@
+Asset validation passed for 6 services.
+Category ready: Dry Cleaning & Laundry (laundry)
+Category ready: Laundry (wash-laundry)
+Category ready: Dry Cleaning (dry-clean)
+CREATED service: Clothing Laundry
+  variants: 2 x 20 zones
+CREATED service: Home Linen Laundry
+  variants: 10 x 20 zones
+CREATED service: Shoe Cleaning
+  variants: 4 x 20 zones
+CREATED service: Bag Cleaning
+  variants: 4 x 20 zones
+CREATED service: Garment Dry Cleaning
+  variants: 14 x 20 zones
+CREATED service: Home Linen Dry Cleaning
+  variants: 3 x 20 zones
+Deactivated old service: shirt-dry-clean
+Deactivated old service: saree-dry-clean
+Deactivated old service: suit-dry-clean
+Deactivated old service: blazer-dry-clean
+Deactivated old service: lehenga-dry-clean
+Deactivated old service: iron-only
+Deactivated old service: wash-and-iron
+Deactivated old service: blanket-cleaning
+Deactivated old service: woolen-dry-clean
+Deactivated old service: shawl-pashmina-dry-clean
+Deactivated old service: curtain-cleaning
+Deactivated old service: bedsheet-linen-cleaning
+
+Laundry catalog seeded: 1 category, 2 sub-categories, 6 services.
+Deactivated obsolete services: 12 (plus any already inactive).

@@ -53,6 +53,7 @@
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/toastr.css">
 
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/style.css?v={{$adminAssetVersion}}"/>
+    <link rel="stylesheet" href="{{ asset('assets/chatting-module/css/staff-chat-entity-badges.css') }}?v={{ @filemtime(public_path('assets/chatting-module/css/staff-chat-entity-badges.css')) ?: time() }}"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/dev.css?v={{$adminAssetVersion}}"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/dev-tahir.css"/>
     @if($adminUsesTopNav)
@@ -81,6 +82,14 @@
       @if($adminUsesPartialNav) data-partial-nav="1"@endif>
 <script>
     localStorage.theme && document.querySelector('body').setAttribute("data-bs-theme", localStorage.theme);
+    (function () {
+        if (!document.body.classList.contains('nav-top')) {
+            return;
+        }
+        if (localStorage.getItem('admin_top_chrome_mode') === 'auto-hide') {
+            document.body.classList.add('top-chrome-auto-hide');
+        }
+    })();
 </script>
 
 <div class="offcanvas-overlay"></div>

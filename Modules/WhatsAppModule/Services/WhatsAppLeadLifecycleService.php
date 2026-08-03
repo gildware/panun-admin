@@ -177,7 +177,7 @@ class WhatsAppLeadLifecycleService
             return null;
         }
 
-        return Lead::create([
+        $lead = Lead::create([
             'name' => trim((string) ($name ?: ('WhatsApp ' . $leadPhone))),
             'phone_number' => $leadPhone,
             'source_id' => $this->resolveSourceIdForWhatsAppPhone($whatsAppPhone),
@@ -188,6 +188,12 @@ class WhatsAppLeadLifecycleService
             'created_by' => null,
             'next_followup_at' => app(LeadFollowupService::class)->defaultNextFollowupAt(),
         ]);
+
+        if (function_exists('admin_inbox_notify_lead_created')) {
+            admin_inbox_notify_lead_created($lead);
+        }
+
+        return $lead;
     }
 
     public function ensureLeadTypeForPhone(string $whatsAppPhone, string $leadType, ?string $name = null): ?Lead
@@ -239,6 +245,10 @@ class WhatsAppLeadLifecycleService
         ]);
         $this->seedDefaultTypeHistoryForTypedLead($lead);
         $this->reportCtwaLeadSubmittedIfCustomer($whatsAppPhone, $lead);
+
+        if (function_exists('admin_inbox_notify_lead_created')) {
+            admin_inbox_notify_lead_created($lead);
+        }
 
         return $lead;
     }

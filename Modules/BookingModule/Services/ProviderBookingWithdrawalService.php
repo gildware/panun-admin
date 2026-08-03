@@ -44,7 +44,12 @@ class ProviderBookingWithdrawalService
 
             AdminMenuCounts::forget();
 
-            return $booking->fresh();
+            $fresh = $booking->fresh(['provider', 'customer']);
+            if ($fresh && function_exists('admin_inbox_notify_booking_pending_cancellation')) {
+                admin_inbox_notify_booking_pending_cancellation($fresh);
+            }
+
+            return $fresh;
         });
     }
 
@@ -81,7 +86,13 @@ class ProviderBookingWithdrawalService
 
             AdminMenuCounts::forget();
 
-            return $repeat->fresh();
+            $freshRepeat = $repeat->fresh();
+            $parent = $freshRepeat->booking?->fresh(['provider', 'customer']);
+            if ($parent && function_exists('admin_inbox_notify_booking_pending_cancellation')) {
+                admin_inbox_notify_booking_pending_cancellation($parent);
+            }
+
+            return $freshRepeat;
         });
     }
 

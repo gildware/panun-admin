@@ -4,6 +4,7 @@ namespace App\Services\BookingTestMatrix;
 
 use Illuminate\Support\Facades\DB;
 use Modules\BookingModule\Entities\Booking;
+use Modules\BookingModule\Entities\BookingCompensation;
 use Modules\BookingModule\Entities\BookingDetail;
 use Modules\BookingModule\Entities\BookingPartialPayment;
 use Modules\BookingModule\Entities\BookingReopenEvent;
@@ -19,9 +20,9 @@ class BookingTestMatrixOrchestrator
 {
     public const TAG = '[LIFECYCLE-TEST-MATRIX]';
 
-    public const CUSTOMER_PHONE = '7889729790';
+    public const CUSTOMER_PHONE = '9353294016';
 
-    public const PROVIDER_PHONE = '9353294014';
+    public const PROVIDER_PHONE = '9090909090';
 
     public function __construct(
         private readonly BookingPlacementBridge $placement,
@@ -141,15 +142,12 @@ class BookingTestMatrixOrchestrator
             $b = $this->actions->providerStatus($b, $ctx['provider_user'], 'completed', null, true);
             $created['resolved'] = $this->actions->resolveReopen($b, $ctx['admin']);
 
-            // 11. Disputed + cancelled (full refund)
+            // 11. Disputed + cancelled (full refund from ongoing — never completed before dispute)
             $b = $this->placement->place($ctx['customer']->id, $ctx['service'], [
                 'payment_method' => 'digital_payment',
                 'service_schedule' => $schedulePast,
                 'provider_id' => $ctx['provider']->id,
             ], $tag('disputed_cancelled'));
-            $b = $this->actions->advanceToOngoing($b, $ctx['provider_user']);
-            $b = $this->actions->providerStatus($b, $ctx['provider_user'], 'completed', null, true);
-            $b = $this->actions->reopenInPlace($b, $ctx['admin'], 'accepted');
             $b = $this->actions->advanceToOngoing($b, $ctx['provider_user']);
             $b = $this->ensureRecordedCustomerPayment($b);
             $paid = round((float) get_booking_total_paid($b->fresh()), 2);
@@ -284,9 +282,58 @@ class BookingTestMatrixOrchestrator
                 round($loss * 0.5, 2),
             );
             $created['loss_settled'] = $this->actions->adminWriteOffScaledLoss($b, $ctx['admin']);
+
+            $this->seedCompensations($created, $ctx['admin']);
         });
 
         return $created;
+    }
+
+    /**
+     * @param  array<string, Booking>  $created
+     */
+    private function seedCompensations(array $created, User $admin): void
+    {
+        $samples = [
+            'completed' => [
+                'from_party' => BookingCompensation::PARTY_COMPANY,
+                'to_party' => BookingCompensation::PARTY_CUSTOMER,
+                'amount' => 150.0,
+                'reference_note' => 'Lifecycle demo — company compensated customer for service delay',
+            ],
+            'canceled' => [
+                'from_party' => BookingCompensation::PARTY_PROVIDER,
+                'to_party' => BookingCompensation::PARTY_CUSTOMER,
+                'amount' => 75.0,
+                'reference_note' => 'Lifecycle demo — provider goodwill after cancellation',
+            ],
+            'loss_settled' => [
+                'from_party' => BookingCompensation::PARTY_COMPANY,
+                'to_party' => BookingCompensation::PARTY_PROVIDER,
+                'amount' => 120.0,
+                'reference_note' => 'Lifecycle demo — company compensated provider for scaled loss share',
+            ],
+        ];
+
+        foreach ($samples as $key => $sample) {
+            $booking = $created[$key] ?? null;
+            if (! $booking instanceof Booking) {
+                continue;
+            }
+
+            BookingCompensation::query()->create([
+                'booking_id' => $booking->id,
+                'customer_id' => $booking->customer_id,
+                'provider_id' => $booking->provider_id,
+                'from_party' => $sample['from_party'],
+                'to_party' => $sample['to_party'],
+                'amount' => $sample['amount'],
+                'transaction_id' => 'DEMO-COMP-' . strtoupper(substr($key, 0, 4)) . '-' . substr($booking->readable_id, -4),
+                'reference_note' => $sample['reference_note'],
+                'date' => now()->toDateString(),
+                'created_by' => $admin->id,
+            ]);
+        }
     }
 
     public function wipe(): void
@@ -331,9 +378,12 @@ class BookingTestMatrixOrchestrator
      *   dispute_reason_id: int,
      * }
      */
-    public function resolveContext(): array
+    public function resolveContext(?string $customerPhone = null, ?string $providerPhone = null): array
     {
-        $phoneDigits = User::normalizeContactPhoneDigits(self::CUSTOMER_PHONE);
+        $customerPhone = $customerPhone ?: self::CUSTOMER_PHONE;
+        $providerPhone = $providerPhone ?: self::PROVIDER_PHONE;
+
+        $phoneDigits = User::normalizeContactPhoneDigits($customerPhone);
 
         // Same digits can exist on provider and customer rows; use the customer account only.
         $customer = User::ofType(CUSTOMER_USER_TYPES)
@@ -342,20 +392,21 @@ class BookingTestMatrixOrchestrator
             ->first();
 
         if (! $customer) {
-            throw new \RuntimeException('Customer app user not found for phone ' . self::CUSTOMER_PHONE);
+            throw new \RuntimeException('Customer app user not found for phone ' . $customerPhone);
         }
 
+        $providerDigits = User::normalizeContactPhoneDigits($providerPhone);
         $providerUser = User::query()
-            ->whereRaw("REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9]', '') LIKE ?", ['%' . self::PROVIDER_PHONE])
+            ->whereRaw("REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9]', '') LIKE ?", ['%' . $providerDigits])
             ->whereIn('user_type', ['provider-admin'])
             ->first();
         if (! $providerUser) {
-            throw new \RuntimeException('Provider user not found for phone ' . self::PROVIDER_PHONE);
+            throw new \RuntimeException('Provider user not found for phone ' . $providerPhone);
         }
 
         $provider = Provider::query()->where('user_id', $providerUser->id)->first();
         if (! $provider) {
-            throw new \RuntimeException('Provider record not found for phone ' . self::PROVIDER_PHONE);
+            throw new \RuntimeException('Provider record not found for phone ' . $providerPhone);
         }
 
         $admin = User::query()
@@ -397,7 +448,25 @@ class BookingTestMatrixOrchestrator
 
         $addressId = DB::table('user_addresses')->where('user_id', $customer->id)->value('id');
         if (! $addressId) {
-            throw new \RuntimeException('Customer has no saved address');
+            $addressId = DB::table('user_addresses')->insertGetId([
+                'user_id' => $customer->id,
+                'lat' => '34.0837',
+                'lon' => '74.7973',
+                'city' => 'Srinagar',
+                'street' => 'Demo Street, Jawahar Nagar',
+                'zip_code' => '190008',
+                'country' => 'India',
+                'address' => 'Demo Street, Jawahar Nagar, Srinagar',
+                'landmark' => 'Near demo landmark',
+                'address_type' => 'home',
+                'contact_person_name' => trim($customer->first_name . ' ' . $customer->last_name),
+                'contact_person_number' => $customer->phone,
+                'address_label' => 'Home',
+                'zone_id' => $zoneId,
+                'is_guest' => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
         }
         DB::table('user_addresses')->where('id', $addressId)->update([
             'zone_id' => $zoneId,

@@ -18,6 +18,11 @@ class TaskTicketComment extends Model
         'ticket_id',
         'user_id',
         'body',
+        'mentioned_user_ids',
+    ];
+
+    protected $casts = [
+        'mentioned_user_ids' => 'array',
     ];
 
     public function ticket(): BelongsTo

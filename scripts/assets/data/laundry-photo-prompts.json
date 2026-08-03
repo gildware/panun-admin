@@ -1,0 +1,62 @@
+[
+  {
+    "slug": "clothing-laundry",
+    "name": "Clothing Laundry",
+    "sub_category_slug": "wash-laundry",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of clothing laundry in progress, sorting freshly washed clothes and folding laundry neatly, a clean modern Indian laundry workspace or home service setting in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo (white gear with yellow gear and PANUN KAERGAR text), only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing clothing laundry, sorting freshly washed clothes and folding laundry neatly, a clean modern Indian laundry workspace or home service setting in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo (white gear with yellow gear and PANUN KAERGAR text), only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/clothing-laundry-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/clothing-laundry-cover.png"
+  },
+  {
+    "slug": "home-linen-laundry",
+    "name": "Home Linen Laundry",
+    "sub_category_slug": "wash-laundry",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of home linen laundry in progress, handling clean bedsheets blankets and folded home linen, a clean modern Indian laundry workspace or home service setting in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo (white gear with yellow gear and PANUN KAERGAR text), only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing home linen laundry, handling clean bedsheets blankets and folded home linen, a clean modern Indian laundry workspace or home service setting in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo (white gear with yellow gear and PANUN KAERGAR text), only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/home-linen-laundry-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/home-linen-laundry-cover.png"
+  },
+  {
+    "slug": "shoe-cleaning",
+    "name": "Shoe Cleaning",
+    "sub_category_slug": "wash-laundry",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of shoe cleaning in progress, professionally cleaning sneakers or leather shoes with care tools, a clean modern Indian laundry workspace or home service setting in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo (white gear with yellow gear and PANUN KAERGAR text), only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing shoe cleaning, professionally cleaning sneakers or leather shoes with care tools, a clean modern Indian laundry workspace or home service setting in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo (white gear with yellow gear and PANUN KAERGAR text), only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/shoe-cleaning-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/shoe-cleaning-cover.png"
+  },
+  {
+    "slug": "bag-cleaning",
+    "name": "Bag Cleaning",
+    "sub_category_slug": "wash-laundry",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of bag cleaning in progress, cleaning a backpack or handbag exterior carefully, a clean modern Indian laundry workspace or home service setting in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo (white gear with yellow gear and PANUN KAERGAR text), only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing bag cleaning, cleaning a backpack or handbag exterior carefully, a clean modern Indian laundry workspace or home service setting in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo (white gear with yellow gear and PANUN KAERGAR text), only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/bag-cleaning-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/bag-cleaning-cover.png"
+  },
+  {
+    "slug": "garment-dry-cleaning",
+    "name": "Garment Dry Cleaning",
+    "sub_category_slug": "dry-clean",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of garment dry cleaning in progress, pressing and inspecting a dry-cleaned shirt or suit garment on a hanger, a clean modern Indian dry-cleaning finishing area in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo (white gear with yellow gear and PANUN KAERGAR text), only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing garment dry cleaning, pressing and inspecting a dry-cleaned shirt or suit garment on a hanger, a clean modern Indian dry-cleaning finishing area in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo (white gear with yellow gear and PANUN KAERGAR text), only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/garment-dry-cleaning-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/garment-dry-cleaning-cover.png"
+  },
+  {
+    "slug": "home-linen-dry-cleaning",
+    "name": "Home Linen Dry Cleaning",
+    "sub_category_slug": "dry-clean",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of home linen dry cleaning in progress, handling a dry-cleaned curtain blanket or comforter carefully, a clean modern Indian dry-cleaning finishing area in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo (white gear with yellow gear and PANUN KAERGAR text), only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing home linen dry cleaning, handling a dry-cleaned curtain blanket or comforter carefully, a clean modern Indian dry-cleaning finishing area in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo (white gear with yellow gear and PANUN KAERGAR text), only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/home-linen-dry-cleaning-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/home-linen-dry-cleaning-cover.png"
+  }
+]

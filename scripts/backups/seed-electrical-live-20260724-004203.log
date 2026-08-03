@@ -1,0 +1,91 @@
+Asset validation passed for 23 services.
+Category ready: Electrician Services (electrical)
+Category ready: Electric Installation (electric-installation)
+Category ready: Electric Repair (electric-repair)
+Category ready: Electric Inspection (electric-inspection)
+Deactivated subcategory: installation-services
+Deactivated subcategory: repairing-services
+CREATED service: Electric Light Install
+  variants: 6 x 20 zones
+CREATED service: Electric Fan Install
+  variants: 3 x 20 zones
+CREATED service: Electric Switch Install
+  variants: 5 x 20 zones
+CREATED service: Electric Wiring Install
+  variants: 5 x 20 zones
+CREATED service: Electric Full House Wiring
+  variants: 1 x 20 zones
+CREATED service: Electric Point Install
+  variants: 3 x 20 zones
+CREATED service: Electric MCB Install
+  variants: 2 x 20 zones
+CREATED service: Electric Earthing Install
+  variants: 1 x 20 zones
+CREATED service: Electric Accessory Install
+  variants: 3 x 20 zones
+CREATED service: Electric Inverter Install
+  variants: 1 x 20 zones
+CREATED service: Electric Solar Inverter Install
+  variants: 1 x 20 zones
+CREATED service: Electric Temporary Wiring
+  variants: 1 x 20 zones
+CREATED service: Electric Light Repair
+  variants: 1 x 20 zones
+CREATED service: Electric Fan Repair
+  variants: 3 x 20 zones
+CREATED service: Electric Switch Repair
+  variants: 2 x 20 zones
+CREATED service: Electric MCB Repair
+  variants: 2 x 20 zones
+CREATED service: Electric Wiring Repair
+  variants: 5 x 20 zones
+CREATED service: Electric Power Repair
+  variants: 3 x 20 zones
+CREATED service: Electric DB Panel Repair
+  variants: 1 x 20 zones
+CREATED service: Electric Earthing Repair
+  variants: 1 x 20 zones
+CREATED service: Electric Site Check
+  variants: 2 x 20 zones
+CREATED service: Electric Safety Check
+  variants: 5 x 20 zones
+CREATED service: Electric Pre-Work Check
+  variants: 2 x 20 zones
+Deactivated old service: lighting-repair
+Deactivated old service: mcbfuse-replacement
+Deactivated old service: chandelier-installation
+Deactivated old service: electrical-wiring
+Deactivated old service: short-circuit-voltage-issues
+Deactivated old service: new-switchbox-installation
+Deactivated old service: smartbldc-fan-installation
+Deactivated old service: mcbfuse-repair
+Deactivated old service: submeter-installation
+Deactivated old service: plug-replacement
+Deactivated old service: new-external-wiring-per-5m
+Deactivated old service: fault-diagnosis
+Deactivated old service: tubelight-repair-installation
+Deactivated old service: decorative-fan-installation
+Deactivated old service: wireless-cctv-installation
+Deactivated old service: switchsocket-repair-replacement
+Deactivated old service: switch-sockets
+Deactivated old service: hanging-light-installation
+Deactivated old service: fancy-light-installationreplacement
+Deactivated old service: regular-doorbell-installation
+Deactivated old service: exhaustpedestaltower-fan-installation
+Deactivated old service: bulb-installationreplacement
+Deactivated old service: stabiliser-installation
+Deactivated old service: new-internal-wiring-per-5m
+Deactivated old service: regular-ceiling-fan-installation
+Deactivated old service: ceiling-light-installation
+Deactivated old service: lighting-installation
+Deactivated old service: fan-regulator-replacement
+Deactivated old service: karban-airzone-installation
+Deactivated old service: video-doorbell-installation
+Deactivated old service: sound-bar-installation
+Deactivated old service: pcb-transformer-auto-cut
+Deactivated old service: switchboard-repair-replacement
+Deactivated old service: home-theatre-installation
+Deactivated old service: book-a-consultation
+
+Electrical catalog seeded: 1 category, 3 sub-categories, 23 services.
+Deactivated obsolete services: 35 (plus any already inactive).

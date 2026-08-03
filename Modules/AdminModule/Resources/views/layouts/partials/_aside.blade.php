@@ -299,6 +299,8 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
             @canany(['report_view', 'lead_report_view'])
                 @php
                     $reportsMenuOpen = (request()->is('admin/report/*') && !request()->is('admin/report/transaction*'))
+                        || request()->routeIs('admin.lead.reports.inbound')
+                        || request()->routeIs('admin.lead.reports.outbound')
                         || request()->routeIs('admin.lead.reports.index')
                         || request()->routeIs('admin.lead.reports.user')
                         || request()->routeIs('admin.report.daily-employee');
@@ -331,9 +333,15 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         @endcan
                         @can('lead_report_view')
                             <li>
-                                <a href="{{ route('admin.lead.reports.index', ['tab' => 'inbound']) }}"
-                                   class="{{ request()->routeIs('admin.lead.reports.index') ? 'active-menu' : '' }}">
-                                    {{ translate('Lead_Reports') }}
+                                <a href="{{ route('admin.lead.reports.inbound') }}"
+                                   class="{{ request()->routeIs('admin.lead.reports.inbound') || request()->routeIs('admin.lead.reports.index') ? 'active-menu' : '' }}">
+                                    {{ translate('Inbound_Lead_Reports') }}
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('admin.lead.reports.outbound') }}"
+                                   class="{{ request()->routeIs('admin.lead.reports.outbound') ? 'active-menu' : '' }}">
+                                    {{ translate('Outbound_Lead_Reports') }}
                                 </a>
                             </li>
                             <li>

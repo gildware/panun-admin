@@ -25,10 +25,14 @@
         function alertConfigForType(type) {
             switch (type) {
                 case 'booking':
+                case 'booking_assigned':
                     return { icon: 'info' };
                 case 'provider_withdrawal':
                     return { icon: 'warning' };
                 case 'chat_message':
+                case 'whatsapp_assigned':
+                case 'whatsapp_human_support':
+                case 'lead_followup_due':
                     return { icon: 'info' };
                 case 'provider_request':
                     return { icon: 'info' };
@@ -39,14 +43,26 @@
                 case 'service_request':
                     return { icon: 'info' };
                 case 'web_booking':
+                case 'lead':
                     return { icon: 'info' };
                 case 'app_custom_request':
                     return { icon: 'info' };
                 case 'showcase':
                     return { icon: 'info' };
+                case 'ticket_assigned':
+                case 'ticket_comment':
+                case 'lead_assigned':
+                case 'booking_assigned':
+                case 'lead_comment':
+                case 'booking_comment':
+                    return { icon: 'info' };
                 default:
                     return { icon: 'info' };
             }
+        }
+
+        function typesWithDirectNavigation() {
+            return ['chat_message', 'whatsapp_assigned', 'whatsapp_human_support', 'ticket_assigned', 'ticket_comment', 'lead_assigned', 'booking_assigned', 'lead_comment', 'booking_comment', 'lead', 'lead_followup_due'];
         }
 
         function markNotificationRead(notificationId) {
@@ -78,7 +94,7 @@
         }
 
         function openNotificationTarget(notificationId, notificationType, actionUrl, dropdownEl) {
-            if (notificationType === 'chat_message' && actionUrl) {
+            if (typesWithDirectNavigation().indexOf(notificationType) !== -1 && actionUrl) {
                 hideNotificationDropdown(dropdownEl);
                 markNotificationRead(notificationId);
                 window.location.href = actionUrl;
@@ -86,6 +102,14 @@
             }
 
             window.pkOpenAdminNotificationModal(notificationId);
+        }
+
+        function updateNotificationBadge(countEl, unread) {
+            if (!countEl) {
+                return;
+            }
+            countEl.innerHTML = unread > 0 ? (unread > 99 ? '99+' : unread) : '';
+            countEl.style.display = unread > 0 ? 'flex' : 'none';
         }
 
         window.pkOpenAdminNotificationModal = function (notificationId) {
@@ -130,32 +154,38 @@
             opts = opts || {};
             var skipSound = !!opts.skipSound;
 
-            var countEl = document.getElementById('notification_count');
-            var listEl = document.getElementById('show-notification-list');
-            var unread = parseInt(data.notification_unread_count, 10);
-            if (isNaN(unread)) unread = 0;
+            var externalUnread = parseInt(data.notification_external_unread_count, 10);
+            var internalUnread = parseInt(data.notification_internal_unread_count, 10);
+            if (isNaN(externalUnread)) externalUnread = 0;
+            if (isNaN(internalUnread)) internalUnread = 0;
 
-            if (countEl) {
-                countEl.innerHTML = unread > 0 ? (unread > 99 ? '99+' : unread) : '';
-                countEl.style.display = unread > 0 ? 'flex' : 'none';
+            updateNotificationBadge(document.getElementById('notification_external_count'), externalUnread);
+            updateNotificationBadge(document.getElementById('notification_internal_count'), internalUnread);
+
+            var externalListEl = document.getElementById('show-notification-list-external');
+            if (externalListEl && data.notification_external_template) {
+                externalListEl.innerHTML = data.notification_external_template;
             }
 
-            if (listEl && data.notification_template) {
-                listEl.innerHTML = data.notification_template;
+            var internalListEl = document.getElementById('show-notification-list-internal');
+            if (internalListEl && data.notification_internal_template) {
+                internalListEl.innerHTML = data.notification_internal_template;
             }
 
-            if (!skipSound && unread > 0) {
+            var totalUnread = externalUnread + internalUnread;
+
+            if (!skipSound && totalUnread > 0) {
                 var prevKey = 'admin_notification_unread_count';
                 var prevRaw = sessionStorage.getItem(prevKey);
                 if (prevRaw !== null && prevRaw !== '') {
                     var prev = parseInt(prevRaw, 10) || 0;
-                    if (unread > prev && typeof window.pkPlayStaffNotificationSound === 'function') {
+                    if (totalUnread > prev && typeof window.pkPlayStaffNotificationSound === 'function') {
                         window.pkPlayStaffNotificationSound();
                     }
                 }
-                sessionStorage.setItem(prevKey, String(unread));
+                sessionStorage.setItem(prevKey, String(totalUnread));
             } else if (skipSound) {
-                sessionStorage.setItem('admin_notification_unread_count', String(unread));
+                sessionStorage.setItem('admin_notification_unread_count', String(totalUnread));
             }
 
             var alerts = data.new_notification_alerts || [];
@@ -171,6 +201,8 @@
                     return;
                 }
 
+                var directNav = typesWithDirectNavigation().indexOf(alert.type) !== -1 && alert.action_url;
+
                 Swal.fire({
                     title: alert.title || '{{ translate('New_Notification') }}',
                     text: alert.body || '',
@@ -179,15 +211,15 @@
                     showCancelButton: true,
                     cancelButtonText: '{{ translate('Dismiss') }}',
                     focusConfirm: false,
-                    confirmButtonText: alert.type === 'chat_message' && alert.action_url
-                        ? '{{ translate('Go_to_message') }}'
+                    confirmButtonText: directNav
+                        ? (alert.action_label || '{{ translate('View_Details') }}')
                         : '{{ translate('View_Details') }}',
                 }).then(function (result) {
                     if (!result.value || !alert.id) {
                         return;
                     }
 
-                    if (alert.type === 'chat_message' && alert.action_url) {
+                    if (directNav) {
                         markNotificationRead(alert.id);
                         window.location.href = alert.action_url;
                         return;
@@ -226,10 +258,12 @@
         $(document).on('click', '.js-mark-all-notifications-read', function (e) {
             e.preventDefault();
             e.stopPropagation();
+            var category = $(this).data('notification-category') || null;
             $.ajax({
                 url: '{{ route('admin.notifications.mark_all_read') }}',
                 type: 'POST',
                 dataType: 'json',
+                data: category ? { category: category } : {},
                 headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
                 success: function () {
                     refreshNotificationUi();

@@ -1,0 +1,112 @@
+[
+  {
+    "slug": "book-a-carpenter",
+    "name": "Book Carpenter",
+    "sub_category_slug": "home-trades",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of book carpenter in progress, using carpentry tools on wooden furniture or door fittings, a clean modern Indian home interior in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing book carpenter, using carpentry tools on wooden furniture or door fittings, a clean modern Indian home interior in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-a-carpenter-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-a-carpenter-cover.png"
+  },
+  {
+    "slug": "book-an-electrician",
+    "name": "Book Electrician",
+    "sub_category_slug": "home-trades",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of book electrician in progress, checking a switchboard and wiring with electrician tools, a clean modern Indian home interior in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing book electrician, checking a switchboard and wiring with electrician tools, a clean modern Indian home interior in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-an-electrician-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-an-electrician-cover.png"
+  },
+  {
+    "slug": "book-a-plumber",
+    "name": "Book Plumber",
+    "sub_category_slug": "home-trades",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of book plumber in progress, working on a sink pipe or plumbing fixture with wrench, a clean modern Indian home interior in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing book plumber, working on a sink pipe or plumbing fixture with wrench, a clean modern Indian home interior in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-a-plumber-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-a-plumber-cover.png"
+  },
+  {
+    "slug": "book-a-painter",
+    "name": "Book Painter",
+    "sub_category_slug": "home-trades",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of book painter in progress, rolling paint on an interior wall with brush and tray, a clean modern Indian home interior in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing book painter, rolling paint on an interior wall with brush and tray, a clean modern Indian home interior in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-a-painter-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-a-painter-cover.png"
+  },
+  {
+    "slug": "book-a-mason",
+    "name": "Book Mason",
+    "sub_category_slug": "building-site",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of book mason in progress, laying bricks or tiles with trowel and spirit level, a residential construction or renovation site in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing book mason, laying bricks or tiles with trowel and spirit level, a residential construction or renovation site in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-a-mason-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-a-mason-cover.png"
+  },
+  {
+    "slug": "book-labour",
+    "name": "Book Labour",
+    "sub_category_slug": "building-site",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of book labour in progress, carrying construction materials and assisting on a work site, a residential construction or renovation site in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing book labour, carrying construction materials and assisting on a work site, a residential construction or renovation site in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-labour-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-labour-cover.png"
+  },
+  {
+    "slug": "book-a-welder",
+    "name": "Book Welder / Fabricator",
+    "sub_category_slug": "building-site",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of book welder / fabricator in progress, welding metal with protective gear and fabrication tools, a residential construction or renovation site in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing book welder / fabricator, welding metal with protective gear and fabrication tools, a residential construction or renovation site in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-a-welder-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-a-welder-cover.png"
+  },
+  {
+    "slug": "book-a-gardener",
+    "name": "Book Gardener",
+    "sub_category_slug": "home-care",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of book gardener in progress, pruning plants and tending a garden with shears and trowel, a Kashmir home garden courtyard or clean living space in Srinagar, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing book gardener, pruning plants and tending a garden with shears and trowel, a Kashmir home garden courtyard or clean living space in Srinagar, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-a-gardener-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-a-gardener-cover.png"
+  },
+  {
+    "slug": "book-a-cleaner",
+    "name": "Book Cleaner",
+    "sub_category_slug": "home-care",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of book cleaner in progress, cleaning a home floor and surfaces with professional cleaning tools, a Kashmir home garden courtyard or clean living space in Srinagar, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing book cleaner, cleaning a home floor and surfaces with professional cleaning tools, a Kashmir home garden courtyard or clean living space in Srinagar, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-a-cleaner-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-a-cleaner-cover.png"
+  },
+  {
+    "slug": "book-makeup-artist",
+    "name": "Book Makeup Artist",
+    "sub_category_slug": "beauty-artists",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of book makeup artist in progress, applying professional makeup with brushes for an event client, a bright clean indoor event preparation space in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing book makeup artist, applying professional makeup with brushes for an event client, a bright clean indoor event preparation space in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-makeup-artist-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-makeup-artist-cover.png"
+  },
+  {
+    "slug": "book-mehndi-artist",
+    "name": "Book Mehndi Artist",
+    "sub_category_slug": "beauty-artists",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of book mehndi artist in progress, applying henna mehndi design carefully with a cone, a bright clean indoor event preparation space in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing book mehndi artist, applying henna mehndi design carefully with a cone, a bright clean indoor event preparation space in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-mehndi-artist-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/book-mehndi-artist-cover.png"
+  }
+]

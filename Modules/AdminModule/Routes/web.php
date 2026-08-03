@@ -19,6 +19,8 @@ use Modules\AdminModule\Http\Controllers\Web\Admin\AdminBusinessAiController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\AdminPinnedNavController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\NotificationController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\StaffPresenceController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\ProcessGuideController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\WorkflowStepController;
 
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
@@ -29,6 +31,16 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
 
     Route::post('search-routing', [AdminController::class, 'searchRouting'])->name('search.routing');
     Route::get('dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+
+    Route::get('workflow/stuck', [WorkflowStepController::class, 'stuckIndex'])->middleware(['can:lead_view'])->name('workflow.stuck');
+    Route::post('workflow/steps/toggle', [WorkflowStepController::class, 'toggle'])->name('workflow.steps.toggle');
+    Route::post('workflow/steps/confirm-bulk', [WorkflowStepController::class, 'confirmBulk'])->name('workflow.steps.confirm-bulk');
+    Route::post('workflow/check-gate', [WorkflowStepController::class, 'checkGate'])->name('workflow.check-gate');
+
+    Route::get('process-guides', [ProcessGuideController::class, 'index'])->name('process-guides.index');
+    Route::get('process-guides/board.json', [ProcessGuideController::class, 'board'])->name('process-guides.board');
+    Route::post('process-guides/board', [ProcessGuideController::class, 'saveBoard'])->name('process-guides.board.save');
+    Route::post('process-guides/groups', [ProcessGuideController::class, 'saveGroups'])->name('process-guides.groups.save');
 
     Route::get('business-ai', [AdminBusinessAiController::class, 'index'])->name('business-ai.index');
     Route::get('business-ai/messages', [AdminBusinessAiController::class, 'messages'])->name('business-ai.messages');

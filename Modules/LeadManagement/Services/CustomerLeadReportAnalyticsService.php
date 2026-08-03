@@ -26,7 +26,7 @@ class CustomerLeadReportAnalyticsService
     {
         $leads = (clone $baseQuery)
             ->where('lead_type', Lead::TYPE_CUSTOMER)
-            ->get(['id', 'date_time_of_lead_received', 'source_id', 'ad_source_id']);
+            ->get(['id', 'date_time_of_lead_received', 'source_id', 'ad_source_id', 'handled_by', 'phone_number', 'name', 'next_followup_at']);
 
         if ($leads->isEmpty()) {
             return $this->emptyPayload();
@@ -112,6 +112,18 @@ class CustomerLeadReportAnalyticsService
         $cancelledCategoryLeads = [];
         $cancelledZoneLeads = [];
         $cancelReasonLeads = [];
+        $holdCategory = [];
+        $holdZone = [];
+        $holdSubCategory = [];
+        $pendingCategory = [];
+        $pendingZone = [];
+        $pendingSubCategory = [];
+        $holdCategoryLeads = [];
+        $holdZoneLeads = [];
+        $holdSubCategoryLeads = [];
+        $pendingCategoryLeads = [];
+        $pendingZoneLeads = [];
+        $pendingSubCategoryLeads = [];
         $dayLeads = array_fill_keys(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], []);
         $hourLeads = array_fill_keys(array_map('strval', range(0, 23)), []);
         $bookingHourLeads = array_fill_keys(array_map('strval', range(0, 23)), []);
@@ -125,6 +137,7 @@ class CustomerLeadReportAnalyticsService
 
         $missingZone = 0;
         $missingCategory = 0;
+        $leadRows = [];
 
         foreach ($leads as $lead) {
             $leadId = (string) $lead->id;
@@ -147,16 +160,17 @@ class CustomerLeadReportAnalyticsService
             $categoryId = $this->normalizeReferenceId($data['service_category'] ?? null);
             $subCategoryId = $this->normalizeReferenceId($data['service_subcategory'] ?? null);
 
+            $categoryDim = $this->resolveCategoryDimension($data, $categories);
+            $zoneDim = $this->resolveDimension($zoneId, $zones);
+            $subCategoryDim = $this->resolveDimension($subCategoryId, $subCategories);
+            $reasonDim = ['key' => self::UNSPECIFIED_KEY, 'label' => translate('Not_Specified')];
+
             if (!$zoneId) {
                 $missingZone++;
             }
-            if (!$categoryId) {
+            if ($categoryDim['key'] === self::UNSPECIFIED_KEY) {
                 $missingCategory++;
             }
-
-            $categoryDim = $this->resolveDimension($categoryId, $categories);
-            $zoneDim = $this->resolveDimension($zoneId, $zones);
-            $subCategoryDim = $this->resolveDimension($subCategoryId, $subCategories);
 
             $this->incrementBucket($categoryBuckets, $categoryDim['key'], $categoryDim['label'], $outcome);
             $this->incrementBucket($zoneBuckets, $zoneDim['key'], $zoneDim['label'], $outcome);
@@ -181,7 +195,40 @@ class CustomerLeadReportAnalyticsService
                 $this->appendLeadId($cancelledCategoryLeads, $categoryDim['key'], $leadId);
                 $this->appendLeadId($cancelledZoneLeads, $zoneDim['key'], $leadId);
                 $this->appendLeadId($cancelReasonLeads, $reasonDim['key'], $leadId);
+            } else {
+                $statusTab = $this->resolveStatusTab($outcome, $lead, $status?->name ?? '');
+                if ($statusTab === 'hold') {
+                    $this->incrementSimple($holdCategory, $categoryDim['key'], $categoryDim['label']);
+                    $this->incrementSimple($holdZone, $zoneDim['key'], $zoneDim['label']);
+                    $this->incrementSimple($holdSubCategory, $subCategoryDim['key'], $subCategoryDim['label']);
+                    $this->appendLeadId($holdCategoryLeads, $categoryDim['key'], $leadId);
+                    $this->appendLeadId($holdZoneLeads, $zoneDim['key'], $leadId);
+                    $this->appendLeadId($holdSubCategoryLeads, $subCategoryDim['key'], $leadId);
+                } else {
+                    $this->incrementSimple($pendingCategory, $categoryDim['key'], $categoryDim['label']);
+                    $this->incrementSimple($pendingZone, $zoneDim['key'], $zoneDim['label']);
+                    $this->incrementSimple($pendingSubCategory, $subCategoryDim['key'], $subCategoryDim['label']);
+                    $this->appendLeadId($pendingCategoryLeads, $categoryDim['key'], $leadId);
+                    $this->appendLeadId($pendingZoneLeads, $zoneDim['key'], $leadId);
+                    $this->appendLeadId($pendingSubCategoryLeads, $subCategoryDim['key'], $leadId);
+                }
             }
+
+            $leadRows[] = [
+                'lead_id' => $lead->id,
+                'outcome' => $outcome,
+                'category' => $categoryDim,
+                'zone' => $zoneDim,
+                'subcategory' => $subCategoryDim,
+                'status_name' => $status?->name ?? '—',
+                'cancel_reason' => $outcome === 'cancelled'
+                    ? $this->resolveDimension(
+                        $this->normalizeReferenceId($data['cancellation_reason_id'] ?? null),
+                        $cancelReasons
+                    )
+                    : $reasonDim,
+                'cancellation_remarks' => $data['cancellation_remarks'] ?? null,
+            ];
 
             $receivedAt = $lead->date_time_of_lead_received;
             if ($receivedAt instanceof Carbon) {
@@ -243,12 +290,15 @@ class CustomerLeadReportAnalyticsService
             $cancelReasonCounts
         );
 
+        $deep = app(CustomerLeadDeepReportAnalyticsService::class)->build($leads->keyBy('id'), $leadRows);
+
         return [
             'summary' => [
                 'total' => $total,
                 'booked' => $booked,
                 'cancelled' => $cancelled,
                 'pending' => $pending,
+                'hold' => (int) ($deep['tab_counts']['hold'] ?? 0),
                 'conversion_rate' => $conversionRate,
                 'cancel_rate' => $cancelRate,
                 'missing_zone' => $missingZone,
@@ -273,6 +323,16 @@ class CustomerLeadReportAnalyticsService
                 'zone_wise' => $this->finalizeSimple($cancelledZone),
                 'reasons' => $this->finalizeSimple($cancelReasonCounts),
             ],
+            'hold' => [
+                'category_wise' => $this->finalizeSimple($holdCategory),
+                'zone_wise' => $this->finalizeSimple($holdZone),
+                'subcategory_wise' => $this->finalizeSimple($holdSubCategory),
+            ],
+            'pending' => [
+                'category_wise' => $this->finalizeSimple($pendingCategory),
+                'zone_wise' => $this->finalizeSimple($pendingZone),
+                'subcategory_wise' => $this->finalizeSimple($pendingSubCategory),
+            ],
             'drilldown' => [
                 'outcome' => $outcomeLeads,
                 'category_wise' => $categoryLeads,
@@ -291,6 +351,16 @@ class CustomerLeadReportAnalyticsService
                     'zone_wise' => $cancelledZoneLeads,
                     'reasons' => $cancelReasonLeads,
                 ],
+                'hold' => [
+                    'category_wise' => $holdCategoryLeads,
+                    'zone_wise' => $holdZoneLeads,
+                    'subcategory_wise' => $holdSubCategoryLeads,
+                ],
+                'pending' => [
+                    'category_wise' => $pendingCategoryLeads,
+                    'zone_wise' => $pendingZoneLeads,
+                    'subcategory_wise' => $pendingSubCategoryLeads,
+                ],
             ],
             'lead_received_by_hour' => array_values($leadHourCounts),
             'lead_received_by_hour_labels' => $this->hourLabels(),
@@ -300,7 +370,33 @@ class CustomerLeadReportAnalyticsService
             'booking_by_hour_labels' => $this->hourLabels(),
             'booking_timeline' => $bookingTimeline,
             'booking_per_day' => $bookingPerDay,
+            'cancelled_deep' => $deep['cancelled_deep'] ?? [],
+            'staff_performance' => $deep['staff_performance'] ?? [],
+            'engagement' => $deep['engagement'] ?? [],
+            'leads_by_tab' => $deep['leads_by_tab'] ?? [],
+            'tab_counts' => $deep['tab_counts'] ?? [],
         ];
+    }
+
+    /**
+     * Resolve category from ID or free-text name (website / app leads).
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{key: string, label: string}
+     */
+    private function resolveCategoryDimension(array $data, Collection $categories): array
+    {
+        $categoryId = $this->normalizeReferenceId($data['service_category'] ?? null);
+        if ($categoryId) {
+            return $this->resolveDimension($categoryId, $categories);
+        }
+
+        $name = trim((string) ($data['service_category_name'] ?? ''));
+        if ($name !== '') {
+            return ['key' => 'name:' . strtolower($name), 'label' => $name];
+        }
+
+        return ['key' => self::UNSPECIFIED_KEY, 'label' => translate('Not_Specified')];
     }
 
     private function classifyOutcome(string $baseType, string $bookingStatus, bool $hasBooking): string
@@ -310,6 +406,27 @@ class CustomerLeadReportAnalyticsService
         }
         if (in_array($baseType, ['completed', 'booked'], true) || $bookingStatus === 'booked' || $hasBooking) {
             return 'booked';
+        }
+
+        return 'pending';
+    }
+
+    private function resolveStatusTab(string $outcome, Lead $lead, string $statusName): string
+    {
+        if ($outcome === 'booked') {
+            return 'booked';
+        }
+        if ($outcome === 'cancelled') {
+            return 'cancelled';
+        }
+
+        if ($statusName !== '' && str_contains(strtolower($statusName), 'hold')) {
+            return 'hold';
+        }
+
+        $next = $lead->next_followup_at;
+        if ($next instanceof Carbon && $next->isFuture()) {
+            return 'hold';
         }
 
         return 'pending';
@@ -650,6 +767,7 @@ class CustomerLeadReportAnalyticsService
                 'booked' => 0,
                 'cancelled' => 0,
                 'pending' => 0,
+                'hold' => 0,
                 'conversion_rate' => 0,
                 'cancel_rate' => 0,
                 'missing_zone' => 0,
@@ -664,6 +782,8 @@ class CustomerLeadReportAnalyticsService
             'subcategory_wise' => [],
             'booked' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => []],
             'cancelled' => ['category_wise' => [], 'zone_wise' => [], 'reasons' => []],
+            'hold' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => []],
+            'pending' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => []],
             'drilldown' => [
                 'outcome' => ['pending' => [], 'booked' => [], 'cancelled' => []],
                 'category_wise' => [],
@@ -674,6 +794,8 @@ class CustomerLeadReportAnalyticsService
                 'booking_by_hour' => array_fill_keys(array_map('strval', range(0, 23)), []),
                 'booked' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => []],
                 'cancelled' => ['category_wise' => [], 'zone_wise' => [], 'reasons' => []],
+                'hold' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => []],
+                'pending' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => []],
             ],
             'lead_received_by_hour' => array_fill(0, 24, 0),
             'lead_received_by_hour_labels' => $this->hourLabels(),
@@ -683,6 +805,30 @@ class CustomerLeadReportAnalyticsService
             'booking_by_hour_labels' => $this->hourLabels(),
             'booking_timeline' => [],
             'booking_per_day' => [],
+            'cancelled_deep' => [
+                'category_reason_matrix' => [],
+                'category_zone_matrix' => [],
+                'reason_zone_matrix' => [],
+                'remarks' => [],
+            ],
+            'staff_performance' => [],
+            'engagement' => [
+                'summary' => [],
+                'no_response_analysis' => [],
+                'insights' => [],
+            ],
+            'leads_by_tab' => [
+                'booked' => [],
+                'cancelled' => [],
+                'pending' => [],
+                'hold' => [],
+            ],
+            'tab_counts' => [
+                'booked' => 0,
+                'cancelled' => 0,
+                'pending' => 0,
+                'hold' => 0,
+            ],
         ];
     }
 }

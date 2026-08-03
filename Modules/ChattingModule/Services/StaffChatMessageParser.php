@@ -42,6 +42,27 @@ class StaffChatMessageParser
     return \Illuminate\Support\Str::limit(trim(strip_tags($text)), $limit);
   }
 
+  /**
+   * @return array<int, string>
+   */
+  public function extractStaffMentionIds(?string $message): array
+  {
+    if ($message === null || trim($message) === '') {
+      return [];
+    }
+
+    $ids = [];
+    if (preg_match_all(self::TOKEN_PATTERN, $message, $matches, PREG_SET_ORDER)) {
+      foreach ($matches as $match) {
+        if (strtolower((string) ($match[2] ?? '')) === 'staff' && ! empty($match[3])) {
+          $ids[] = (string) $match[3];
+        }
+      }
+    }
+
+    return array_values(array_unique($ids));
+  }
+
   public function buildToken(string $type, string $id, string $label): string
   {
     $label = trim(preg_replace('/[\[\]]/', '', $label));
@@ -59,7 +80,7 @@ class StaffChatMessageParser
       ? ' data-entity-type="staff" data-entity-id="'.e($id).'" href="'.e($url).'"'
       : ' href="'.e($url).'" target="_blank" rel="noopener"';
 
-    return '<a class="'.$class.' badge bg-light text-primary border text-decoration-none"'.$attrs.'>'
+    return '<a class="'.$class.' staff-chat-entity-badge"'.$attrs.'>'
       .'<span class="staff-chat-entity-type">'.$safeType.'</span>'
       .'<span class="staff-chat-entity-sep"> · </span>'
       .'<span class="staff-chat-entity-name">'.$safeLabel.'</span>'

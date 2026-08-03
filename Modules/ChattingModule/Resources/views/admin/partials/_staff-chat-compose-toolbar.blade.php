@@ -1,18 +1,18 @@
 <div class="staff-chat-compose-wrap position-relative">
     <div class="staff-chat-compose-tools d-flex flex-wrap gap-2 mb-2">
-        <button type="button" class="btn btn-sm btn-outline-secondary staff-tag-trigger" data-tag-type="service">
+        <button type="button" class="btn btn-sm staff-tag-trigger staff-tag-btn staff-tag-btn-service" data-tag-type="service">
             {{ translate('Service') }}
         </button>
-        <button type="button" class="btn btn-sm btn-outline-secondary staff-tag-trigger" data-tag-type="provider">
+        <button type="button" class="btn btn-sm staff-tag-trigger staff-tag-btn staff-tag-btn-provider" data-tag-type="provider">
             {{ translate('Provider') }}
         </button>
-        <button type="button" class="btn btn-sm btn-outline-secondary staff-tag-trigger" data-tag-type="customer">
+        <button type="button" class="btn btn-sm staff-tag-trigger staff-tag-btn staff-tag-btn-customer" data-tag-type="customer">
             {{ translate('customer') }}
         </button>
-        <button type="button" class="btn btn-sm btn-outline-secondary staff-tag-trigger" data-tag-type="booking">
+        <button type="button" class="btn btn-sm staff-tag-trigger staff-tag-btn staff-tag-btn-booking" data-tag-type="booking">
             {{ translate('booking') }}
         </button>
-        <button type="button" class="btn btn-sm btn-outline-secondary staff-tag-trigger" data-tag-type="lead">
+        <button type="button" class="btn btn-sm staff-tag-trigger staff-tag-btn staff-tag-btn-lead" data-tag-type="lead">
             {{ translate('Lead') }}
         </button>
     </div>

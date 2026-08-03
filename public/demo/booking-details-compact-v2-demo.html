@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Details — Compact UI Demo</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+    <style>
+        :root {
+            --bk-accent: #0f766e;
+            --bk-accent-dark: #0d5c56;
+            --bk-accent-soft: rgba(15, 118, 110, 0.08);
+            --bk-accent-border: rgba(15, 118, 110, 0.22);
+            --bg: #eef2f6;
+            --surface: #ffffff;
+            --surface-2: #f8fafc;
+            --border: #dde3ea;
+            --text: #0f172a;
+            --muted: #64748b;
+            --faint: #94a3b8;
+            --radius: 12px;
+            --radius-sm: 8px;
+            --shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--muted);
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            font-size: 0.8125rem;
+            line-height: 1.45;
+            margin: 0;
+        }
+
+        a { color: var(--bk-accent); text-decoration: none; }
+        a:hover { color: var(--bk-accent-dark); }
+
+        .demo-notice {
+            background: linear-gradient(90deg, #0f766e, #115e59);
+            color: rgba(255,255,255,.92);
+            padding: .45rem 1rem;
+            font-size: .75rem;
+            text-align: center;
+        }
+        .demo-notice strong { color: #fff; }
+        .demo-notice a { color: #99f6e4; margin-left: .5rem; }
+
+        .page-wrap {
+            max-width: 1320px;
+            margin: 0 auto;
+            padding: .875rem 1rem 5rem;
+        }
+
+        .booking-detail-topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: .75rem;
+            margin-bottom: .625rem;
+        }
+
+        .breadcrumb-bar {
+            display: flex;
+            align-items: center;
+            gap: .375rem;
+            font-size: .75rem;
+            color: var(--faint);
+        }
+        .breadcrumb-bar a { color: var(--muted); }
+        .breadcrumb-bar .material-icons-outlined { font-size: 14px; }
+
+        .topbar-back {
+            display: inline-flex;
+            align-items: center;
+            gap: .25rem;
+            font-size: .75rem;
+            font-weight: 600;
+            color: var(--bk-accent);
+            white-space: nowrap;
+        }
+        .topbar-back .material-icons-outlined { font-size: 16px; }
+
+        .booking-header {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--bk-accent);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: .875rem 1rem;
+            margin-bottom: .625rem;
+        }
+
+        .booking-header__top {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            gap: .75rem;
+        }
+
+        .booking-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--bk-accent);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: .875rem;
+            flex-shrink: 0;
+        }
+
+        .booking-identity { flex: 1; min-width: 180px; }
+
+        .booking-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: var(--text);
+            margin: 0 0 .125rem;
+            line-height: 1.25;
+        }
+
+        .booking-contact {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: .5rem .75rem;
+            font-size: .8125rem;
+        }
+
+        .booking-contact a.phone {
+            display: inline-flex;
+            align-items: center;
+            gap: .25rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .booking-contact a.phone .material-icons-outlined { font-size: 15px; color: var(--bk-accent); }
+
+        .booking-meta {
+            font-size: .75rem;
+            color: var(--faint);
+            margin-top: .25rem;
+        }
+        .booking-meta span + span::before { content: "·"; margin: 0 .35rem; }
+
+        .booking-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .3rem;
+            align-items: center;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: .2rem;
+            font-size: .6875rem;
+            font-weight: 600;
+            padding: .2em .55em;
+            border-radius: 50rem;
+            line-height: 1.3;
+        }
+        .chip--success { background: #d1fae5; color: #065f46; }
+        .chip--danger  { background: #fee2e2; color: #991b1b; }
+        .chip--warning { background: #fef3c7; color: #92400e; }
+        .chip--primary { background: var(--bk-accent-soft); color: var(--bk-accent-dark); }
+        .chip--info    { background: #cffafe; color: #0e7490; }
+
+        .booking-header__actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: .375rem;
+            margin-top: .75rem;
+            padding-top: .75rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: .25rem;
+            font-size: .75rem;
+            font-weight: 600;
+            padding: .35em .75em;
+            border-radius: 50rem;
+            border: 1px solid transparent;
+            cursor: pointer;
+        }
+        .status-pill--warning { color: #856404; border-color: #ffc107; background: rgba(255,193,7,.18); }
+        .status-pill--success { color: #0f5132; border-color: #198754; background: rgba(25,135,84,.12); }
+        .status-pill--primary { color: var(--bk-accent-dark); border-color: var(--bk-accent); background: var(--bk-accent-soft); }
+        .status-pill--danger  { color: #842029; border-color: #dc3545; background: rgba(220,53,69,.12); }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: .25rem;
+            font-size: .75rem;
+            font-weight: 600;
+            padding: .4rem .75rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid transparent;
+            cursor: pointer;
+            line-height: 1.3;
+            white-space: nowrap;
+        }
+        .btn .material-icons-outlined { font-size: 16px; }
+        .btn-accent { background: var(--bk-accent); color: #fff; border-color: var(--bk-accent); }
+        .btn-accent:hover { background: var(--bk-accent-dark); }
+        .btn-outline { background: #fff; color: var(--muted); border-color: var(--border); }
+        .btn-outline:hover { border-color: var(--bk-accent); color: var(--bk-accent); }
+        .btn-success { background: #198754; color: #fff; border-color: #198754; }
+        .btn-warning { background: #ffc107; color: #000; border-color: #ffc107; }
+
+        .pipeline {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: .625rem 1rem;
+            margin-bottom: .75rem;
+            overflow-x: auto;
+        }
+        .pipeline__track { display: flex; align-items: center; min-width: max-content; }
+        .pipeline__step {
+            display: flex; align-items: center; gap: .375rem;
+            font-size: .75rem; color: var(--faint); white-space: nowrap;
+        }
+        .pipeline__step.is-done { color: var(--bk-accent-dark); font-weight: 600; }
+        .pipeline__step.is-current { color: var(--text); font-weight: 700; }
+        .pipeline__dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: var(--border); flex-shrink: 0;
+        }
+        .pipeline__step.is-done .pipeline__dot { background: var(--bk-accent); }
+        .pipeline__step.is-current .pipeline__dot {
+            background: var(--bk-accent);
+            box-shadow: 0 0 0 3px rgba(15,118,110,.2);
+        }
+        .pipeline__line {
+            width: 32px; height: 2px; background: var(--border);
+            margin: 0 .25rem; flex-shrink: 0;
+        }
+        .pipeline__line.is-done { background: var(--bk-accent); }
+
+        .overview-trio {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: .625rem;
+            margin-bottom: .75rem;
+        }
+        @media (max-width: 991px) {
+            .overview-trio { grid-template-columns: 1fr; }
+        }
+
+        .party-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .party-card--alert {
+            border-color: #fcd34d;
+            background: linear-gradient(180deg, #fffbeb 0%, #fff 55%);
+        }
+
+        .party-card__head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .5rem;
+            padding: .45rem .75rem;
+            background: var(--surface-2);
+            border-bottom: 1px solid var(--border);
+            font-size: .6875rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--faint);
+        }
+        .party-card__head .material-icons-outlined { font-size: 15px; vertical-align: middle; margin-right: .2rem; }
+
+        .party-card__body {
+            padding: .625rem .75rem;
+            flex: 1;
+            display: flex;
+            gap: .625rem;
+            align-items: flex-start;
+        }
+
+        .party-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex-shrink: 0;
+            background: #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .75rem;
+            font-weight: 700;
+            color: var(--bk-accent-dark);
+            background: var(--bk-accent-soft);
+        }
+
+        .party-info { min-width: 0; flex: 1; }
+        .party-name {
+            font-size: .8125rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: .1rem;
+            word-break: break-word;
+        }
+        .party-line {
+            font-size: .75rem;
+            color: var(--muted);
+            display: flex;
+            align-items: flex-start;
+            gap: .25rem;
+            margin-top: .2rem;
+        }
+        .party-line .material-icons-outlined { font-size: 13px; flex-shrink: 0; margin-top: .1rem; }
+
+        .stat-kv { display: grid; gap: .35rem; width: 100%; }
+        .stat-kv__row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: .5rem;
+            font-size: .75rem;
+        }
+        .stat-kv__label { color: var(--faint); }
+        .stat-kv__value { font-weight: 700; color: var(--text); text-align: right; }
+        .stat-kv__value.due { color: #dc2626; }
+        .stat-kv__value.paid { color: #059669; }
+
+        .summary-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            margin-bottom: .75rem;
+            overflow: hidden;
+        }
+
+        .summary-panel__head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: .5rem;
+            padding: .625rem .875rem;
+            background: linear-gradient(180deg, var(--bk-accent-soft) 0%, #fff 100%);
+            border-bottom: 1px solid var(--bk-accent-border);
+        }
+
+        .summary-panel__title {
+            display: flex;
+            align-items: center;
+            gap: .4rem;
+            margin: 0;
+            font-size: .9375rem;
+            font-weight: 800;
+            color: var(--text);
+        }
+        .summary-panel__title .material-icons-outlined { color: var(--bk-accent); font-size: 20px; }
+
+        .summary-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .5rem 1rem;
+            font-size: .75rem;
+            color: var(--muted);
+            padding: .5rem .875rem;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface-2);
+        }
+        .summary-meta span strong { color: var(--text); }
+
+        .summary-table-wrap { overflow-x: auto; border-bottom: 1px solid var(--border); }
+
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .75rem;
+            min-width: 720px;
+        }
+        .summary-table th {
+            text-align: left;
+            font-size: .6875rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            color: var(--faint);
+            padding: .5rem .625rem;
+            background: #fafbfc;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        .summary-table th:last-child,
+        .summary-table td:last-child { text-align: right; }
+        .summary-table td {
+            padding: .55rem .625rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text);
+            vertical-align: top;
+        }
+        .summary-table tr.extra-row { background: #f8fafc; }
+
+        .svc-name { font-weight: 700; color: var(--text); display: block; }
+        .svc-variant { font-size: .6875rem; color: var(--faint); margin-top: .1rem; }
+        .svc-badge {
+            display: inline-block;
+            margin-top: .25rem;
+            font-size: .625rem;
+            font-weight: 700;
+            padding: .15em .45em;
+            border-radius: 4px;
+            background: var(--bk-accent-soft);
+            color: var(--bk-accent-dark);
+        }
+        .svc-badge--spare { background: #e0f2fe; color: #0369a1; }
+
+        .price-struck {
+            display: block;
+            font-size: .6875rem;
+            color: var(--faint);
+            text-decoration: line-through;
+        }
+        .price-final { font-weight: 700; }
+
+        .summary-footer {
+            display: grid;
+            grid-template-columns: 1fr minmax(280px, 380px);
+            gap: 1rem;
+            padding: .875rem;
+            align-items: start;
+        }
+        @media (max-width: 768px) {
+            .summary-footer { grid-template-columns: 1fr; }
+        }
+
+        .breakdown-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .75rem;
+        }
+        .breakdown-table td {
+            padding: .35rem 0;
+            vertical-align: baseline;
+        }
+        .breakdown-table td:first-child { color: var(--muted); padding-right: .75rem; }
+        .breakdown-table td:last-child { text-align: right; font-weight: 600; color: var(--text); white-space: nowrap; }
+        .breakdown-table tr.row-subtotal td { border-top: 1px dashed var(--border); padding-top: .5rem; }
+        .breakdown-table tr.row-discount td:last-child { color: #059669; }
+        .breakdown-table tr.row-grand td { border-top: 2px solid var(--text); padding-top: .5rem; font-size: .875rem; font-weight: 800; }
+        .breakdown-table tr.row-payment td:last-child { color: #059669; }
+        .breakdown-table tr.row-due td:last-child { color: #dc2626; font-weight: 800; font-size: .875rem; }
+
+        .summary-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .375rem;
+            padding: 0 .875rem .875rem;
+        }
+
+        .lower-grid {
+            display: grid;
+            grid-template-columns: 1fr 260px;
+            gap: .75rem;
+            align-items: start;
+        }
+        @media (max-width: 991px) {
+            .lower-grid { grid-template-columns: 1fr; }
+        }
+
+        .info-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: .625rem;
+            overflow: hidden;
+        }
+        .info-panel__head {
+            padding: .5rem .75rem;
+            background: var(--surface-2);
+            border-bottom: 1px solid var(--border);
+            font-size: .6875rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--faint);
+            display: flex;
+            align-items: center;
+            gap: .35rem;
+        }
+        .info-panel__body { padding: .625rem .75rem; }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: .5rem .75rem;
+        }
+        @media (max-width: 576px) { .info-grid { grid-template-columns: 1fr; } }
+
+        .info-item dt {
+            font-size: .6875rem;
+            color: var(--faint);
+            text-transform: uppercase;
+            letter-spacing: .03em;
+            margin: 0 0 .1rem;
+        }
+        .info-item dd {
+            margin: 0;
+            font-size: .8125rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .sidebar-stack { position: sticky; top: .75rem; }
+
+        .side-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: .625rem;
+            overflow: hidden;
+        }
+        .side-card__head {
+            padding: .5rem .75rem;
+            font-size: .6875rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--faint);
+            border-bottom: 1px solid var(--border);
+        }
+        .side-card__body { padding: .5rem 0; }
+
+        .side-link {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            padding: .45rem .75rem;
+            color: var(--text);
+            font-size: .8125rem;
+            font-weight: 500;
+        }
+        .side-link:hover { background: var(--bk-accent-soft); color: var(--bk-accent-dark); }
+        .side-link .material-icons-outlined { font-size: 18px; color: var(--faint); }
+        .side-link + .side-link { border-top: 1px solid var(--border); }
+
+        .activity-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-top: .75rem;
+            overflow: hidden;
+        }
+        .activity-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: .5rem;
+            padding: .5rem .75rem;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface-2);
+        }
+        .filter-pills { display: flex; flex-wrap: wrap; gap: .25rem; }
+        .filter-pill {
+            font-size: .75rem;
+            font-weight: 500;
+            padding: .3em .65em;
+            border-radius: 50rem;
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--muted);
+            cursor: pointer;
+        }
+        .filter-pill.is-active {
+            background: var(--bk-accent);
+            border-color: var(--bk-accent);
+            color: #fff;
+        }
+        .filter-pill .count { font-size: .625rem; opacity: .85; margin-left: .15rem; }
+
+        .activity-view { display: none; padding: .75rem; }
+        .activity-view.is-visible { display: block; }
+
+        .comments-wrap {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: .75rem;
+            max-height: 280px;
+            overflow-y: auto;
+            margin-bottom: .625rem;
+        }
+        .comment-item {
+            display: grid;
+            grid-template-columns: 32px 1fr;
+            gap: .5rem;
+            margin-bottom: .75rem;
+        }
+        .comment-item:last-child { margin-bottom: 0; }
+        .comment-av {
+            width: 32px; height: 32px; border-radius: 50%;
+            background: var(--bk-accent-soft); color: var(--bk-accent-dark);
+            font-size: .65rem; font-weight: 700;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .comment-box {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: .45rem .55rem;
+        }
+        .comment-box.pinned { border-color: #fcd34d; background: #fffbeb; }
+        .comment-meta { font-size: .72rem; color: var(--faint); margin-bottom: .2rem; }
+        .comment-meta strong { color: var(--text); }
+        .comment-text { font-size: .8125rem; color: var(--muted); }
+
+        .comment-compose {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--surface-2);
+            padding: .625rem .75rem;
+        }
+        .comment-compose textarea {
+            width: 100%;
+            font-size: .8125rem;
+            min-height: 52px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: .4rem .55rem;
+            resize: vertical;
+            font-family: inherit;
+        }
+        .comment-compose__footer {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: .5rem;
+            margin-top: .5rem;
+            padding-top: .5rem;
+            border-top: 1px solid var(--border);
+        }
+        .tag-btn {
+            font-size: .6875rem;
+            padding: .2rem .5rem;
+            border: 1px solid var(--border);
+            border-radius: 50rem;
+            background: #fff;
+            color: var(--muted);
+            cursor: pointer;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .75rem;
+        }
+        .data-table th {
+            text-align: left;
+            font-size: .6875rem;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            color: var(--faint);
+            padding: .375rem .5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .data-table td {
+            padding: .375rem .5rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text);
+        }
+
+        .compare-fab {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            display: flex;
+            gap: .375rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 50px;
+            padding: .3rem;
+            box-shadow: 0 4px 16px rgba(0,0,0,.12);
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+<div class="demo-notice">
+    <strong>Booking Compact UI — Preview Demo</strong>
+    Booking-first layout with full summary. Not a copy of the lead page.
+    <a href="lead-details-compact-v2-approved.html">Compare with lead demo</a>
+</div>
+
+<div class="page-wrap">
+
+    <div class="booking-detail-topbar">
+        <nav class="breadcrumb-bar">
+            <a href="#">Bookings</a>
+            <span class="material-icons-outlined">chevron_right</span>
+            <span style="color:var(--text);font-weight:600;">#10452 — Aisha Khan</span>
+        </nav>
+        <a href="#" class="topbar-back">
+            <span class="material-icons-outlined">arrow_back</span>
+            Back to Bookings
+        </a>
+    </div>
+
+    <header class="booking-header">
+        <div class="booking-header__top">
+            <div class="booking-avatar">AK</div>
+            <div class="booking-identity">
+                <h1 class="booking-title">Booking #10452</h1>
+                <div class="booking-contact">
+                    <span style="font-weight:600;color:var(--text);">Aisha Khan</span>
+                    <a href="tel:+919876543210" class="phone">
+                        <span class="material-icons-outlined">phone</span>
+                        +91 98765 43210
+                    </a>
+                </div>
+                <div class="booking-meta">
+                    <span>Placed 28 Jul 2026, 02:15 PM</span>
+                    <span>Lead <a href="#">#1042</a></span>
+                    <span>Zone: Srinagar — Lal Chowk</span>
+                </div>
+            </div>
+            <div class="booking-badges">
+                <span class="chip chip--warning">Ongoing</span>
+                <span class="chip chip--primary">Cash After Service</span>
+                <span class="chip chip--success">Verified</span>
+                <span class="chip chip--danger">Provider Follow-up Due</span>
+            </div>
+        </div>
+        <div class="booking-header__actions">
+            <button class="status-pill status-pill--success" type="button">Complete</button>
+            <button class="status-pill status-pill--warning" type="button">On Hold</button>
+            <button class="status-pill status-pill--danger" type="button">Cancel</button>
+            <span style="flex:1;"></span>
+            <button class="btn btn-outline" type="button"><span class="material-icons-outlined">description</span> Invoice</button>
+            <button class="btn btn-accent" type="button"><span class="material-icons-outlined">payments</span> Add Payment</button>
+        </div>
+    </header>
+
+    <section class="pipeline" aria-label="Booking status pipeline">
+        <div class="pipeline__track">
+            <div class="pipeline__step is-done"><span class="pipeline__dot"></span> Pending</div>
+            <div class="pipeline__line is-done"></div>
+            <div class="pipeline__step is-done"><span class="pipeline__dot"></span> Accepted</div>
+            <div class="pipeline__line is-done"></div>
+            <div class="pipeline__step is-current"><span class="pipeline__dot"></span> Ongoing</div>
+            <div class="pipeline__line"></div>
+            <div class="pipeline__step"><span class="pipeline__dot"></span> Completed</div>
+        </div>
+    </section>
+
+    <div class="overview-trio">
+        <div class="party-card">
+            <div class="party-card__head">
+                <span><span class="material-icons-outlined">person</span> Customer</span>
+                <a href="#">View profile</a>
+            </div>
+            <div class="party-card__body">
+                <div class="party-avatar">AK</div>
+                <div class="party-info">
+                    <div class="party-name">Aisha Khan</div>
+                    <div class="party-line"><span class="material-icons-outlined">phone</span> +91 98765 43210</div>
+                    <div class="party-line"><span class="material-icons-outlined">location_on</span> House 42, Rajbagh, Srinagar</div>
+                </div>
+            </div>
+        </div>
+        <div class="party-card party-card--alert">
+            <div class="party-card__head">
+                <span><span class="material-icons-outlined">store</span> Provider</span>
+                <span class="chip chip--warning">Follow-up due</span>
+            </div>
+            <div class="party-card__body">
+                <div class="party-avatar">CP</div>
+                <div class="party-info">
+                    <div class="party-name"><a href="#">CleanPro Services</a></div>
+                    <div class="party-line"><span class="material-icons-outlined">phone</span> +91 99000 11223</div>
+                    <div class="party-line"><span class="material-icons-outlined">engineering</span> Serviceman: Imran Ahmad</div>
+                    <div class="party-line"><span class="material-icons-outlined">event</span> <span style="color:#92400e;font-weight:600;">Next follow-up: Today 4:00 PM</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="party-card">
+            <div class="party-card__head">
+                <span><span class="material-icons-outlined">account_balance_wallet</span> Payment Snapshot</span>
+                <a href="#">View all</a>
+            </div>
+            <div class="party-card__body">
+                <div class="stat-kv">
+                    <div class="stat-kv__row"><span class="stat-kv__label">Payment status</span><span class="chip chip--warning">Partially paid</span></div>
+                    <div class="stat-kv__row"><span class="stat-kv__label">Total amount</span><span class="stat-kv__value">₹3,672</span></div>
+                    <div class="stat-kv__row"><span class="stat-kv__label">Advance paid</span><span class="stat-kv__value paid">₹500</span></div>
+                    <div class="stat-kv__row"><span class="stat-kv__label">Due balance</span><span class="stat-kv__value due">₹3,172</span></div>
+                    <div class="stat-kv__row"><span class="stat-kv__label">Admin commission</span><span class="stat-kv__value">₹734 (20%)</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <section class="summary-panel" id="booking-summary">
+        <div class="summary-panel__head">
+            <h2 class="summary-panel__title">
+                <span class="material-icons-outlined">receipt_long</span>
+                Booking Summary
+            </h2>
+            <button class="btn btn-outline" type="button"><span class="material-icons-outlined">edit</span> Edit Services</button>
+        </div>
+        <div class="summary-meta">
+            <span><strong>Category:</strong> Home Services</span>
+            <span><strong>Sub Category:</strong> Cleaning</span>
+            <span><strong>Booking source:</strong> Admin Panel</span>
+            <span><strong>Service location:</strong> Customer Home</span>
+        </div>
+        <div class="summary-table-wrap">
+            <table class="summary-table">
+                <thead>
+                    <tr>
+                        <th>Service</th><th>Sub Category</th><th>Category</th>
+                        <th>Price</th><th>Qty</th><th>Discount</th><th>GST</th><th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="svc-name">Deep Home Cleaning</span><span class="svc-variant">3 BHK — Full deep clean</span><span class="svc-badge">Service</span></td>
+                        <td>Cleaning</td><td>Home Services</td>
+                        <td>₹2,800</td><td>1</td><td>₹200</td><td>₹252</td>
+                        <td><span class="price-struck">₹2,800</span><span class="price-final">₹2,852</span></td>
+                    </tr>
+                    <tr class="extra-row">
+                        <td><span class="svc-name">Kitchen Deep Clean</span><span class="svc-variant">Add-on</span><span class="svc-badge">Service</span></td>
+                        <td>Cleaning</td><td>Home Services</td>
+                        <td>₹600</td><td>1</td><td>₹0</td><td>₹54</td>
+                        <td><span class="price-final">₹654</span></td>
+                    </tr>
+                    <tr class="extra-row">
+                        <td><span class="svc-name">Cleaning supplies kit</span><span class="svc-badge svc-badge--spare">Spare Part</span></td>
+                        <td>Cleaning</td><td>Home Services</td>
+                        <td>₹150</td><td>1</td><td>₹0</td><td>—</td>
+                        <td><span class="price-final">₹150</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="summary-footer">
+            <div style="font-size:.75rem;color:var(--faint);">
+                Advance ₹500 collected via UPI. Remaining due on completion (cash after service).
+            </div>
+            <table class="breakdown-table">
+                <tbody>
+                    <tr><td>Service amount</td><td>₹2,852</td></tr>
+                    <tr><td>Extra services</td><td>₹654</td></tr>
+                    <tr><td>Spare parts</td><td>₹150</td></tr>
+                    <tr><td>Visit / convenience fee</td><td>₹16</td></tr>
+                    <tr class="row-subtotal"><td>Sub total</td><td><span class="price-struck" style="display:inline;margin-right:.35rem;">₹3,666</span> ₹3,672</td></tr>
+                    <tr class="row-discount"><td>Referral discount</td><td>− ₹0</td></tr>
+                    <tr><td>GST (18%)</td><td>₹306</td></tr>
+                    <tr class="row-grand"><td>Grand total</td><td>₹3,672</td></tr>
+                    <tr class="row-payment"><td>Advance paid (UPI)</td><td>₹500</td></tr>
+                    <tr class="row-due"><td>Due balance</td><td>₹3,172</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="summary-actions">
+            <button class="btn btn-accent" type="button"><span class="material-icons-outlined">payments</span> Record Payment</button>
+            <button class="btn btn-outline" type="button"><span class="material-icons-outlined">history</span> Payment History</button>
+            <button class="btn btn-outline" type="button"><span class="material-icons-outlined">percent</span> Commission Override</button>
+        </div>
+    </section>
+
+    <div class="lower-grid">
+        <div>
+            <div class="info-panel">
+                <div class="info-panel__head"><span class="material-icons-outlined" style="font-size:15px;">info</span> Booking Information</div>
+                <div class="info-panel__body">
+                    <dl class="info-grid">
+                        <div class="info-item"><dt>Readable ID</dt><dd>10452</dd></div>
+                        <div class="info-item"><dt>Assigned admin</dt><dd>Rahul Sharma</dd></div>
+                        <div class="info-item"><dt>Booking source</dt><dd>Admin Panel</dd></div>
+                        <div class="info-item"><dt>Verification</dt><dd><span class="chip chip--success">Verified</span></dd></div>
+                    </dl>
+                </div>
+            </div>
+            <div class="info-panel">
+                <div class="info-panel__head"><span class="material-icons-outlined" style="font-size:15px;">schedule</span> Schedule &amp; Location</div>
+                <div class="info-panel__body">
+                    <dl class="info-grid">
+                        <div class="info-item"><dt>Service schedule</dt><dd>03 Aug 2026, 10:00 AM</dd></div>
+                        <div class="info-item"><dt>Service location</dt><dd>Customer Home</dd></div>
+                        <div class="info-item" style="grid-column:1/-1;"><dt>Address</dt><dd style="font-weight:500;color:var(--muted);">House No. 42, Lane 3, Rajbagh, Srinagar — 190008</dd></div>
+                        <div class="info-item"><dt>Zone / Area</dt><dd>Srinagar — Lal Chowk</dd></div>
+                        <div class="info-item"><dt>Booking OTP</dt><dd>4829</dd></div>
+                    </dl>
+                </div>
+            </div>
+        </div>
+        <aside class="sidebar-stack">
+            <div class="side-card">
+                <div class="side-card__head">Quick Actions</div>
+                <div class="side-card__body">
+                    <a class="side-link" href="#"><span class="material-icons-outlined">forum</span> WhatsApp Customer</a>
+                    <a class="side-link" href="#"><span class="material-icons-outlined">forum</span> WhatsApp Provider</a>
+                    <a class="side-link" href="#"><span class="material-icons-outlined">schedule</span> Reschedule</a>
+                    <a class="side-link" href="#"><span class="material-icons-outlined">swap_horiz</span> Reassign Provider</a>
+                    <a class="side-link" href="#"><span class="material-icons-outlined">event</span> Schedule Follow-up</a>
+                </div>
+            </div>
+            <div class="side-card">
+                <div class="side-card__head">Status Actions</div>
+                <div class="side-card__body" style="padding:.625rem .75rem;display:flex;flex-direction:column;gap:.375rem;">
+                    <button class="btn btn-success" type="button" style="width:100%;justify-content:center;">Mark Complete</button>
+                    <button class="btn btn-warning" type="button" style="width:100%;justify-content:center;">Put On Hold</button>
+                    <button class="btn btn-outline" type="button" style="width:100%;justify-content:center;">Configure Special Scenario</button>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <section class="activity-panel" id="booking-activity">
+        <div class="activity-toolbar">
+            <div class="filter-pills">
+                <button class="filter-pill is-active" data-filter="comment" type="button">Comments <span class="count">3</span></button>
+                <button class="filter-pill" data-filter="followup" type="button">Follow-ups <span class="count">4</span></button>
+                <button class="filter-pill" data-filter="change" type="button">Change History <span class="count">6</span></button>
+            </div>
+            <button class="btn btn-outline" type="button"><span class="material-icons-outlined">event</span> Add Follow-up</button>
+        </div>
+        <div class="activity-view is-visible" id="view-comment">
+            <p style="font-size:.75rem;color:var(--faint);margin:0 0 .5rem;">Team-only notes. Customer does not see these.</p>
+            <div class="comments-wrap">
+                <div class="comment-item">
+                    <div class="comment-av">RS</div>
+                    <div class="comment-box pinned">
+                        <div class="comment-meta"><strong>Rahul Sharma</strong> · 01 Aug, 9:15 AM · <span class="chip chip--warning">Pinned</span></div>
+                        <div class="comment-text">Back gate code: 4521. @Imran to note before visit.</div>
+                    </div>
+                </div>
+                <div class="comment-item">
+                    <div class="comment-av">IA</div>
+                    <div class="comment-box">
+                        <div class="comment-meta"><strong>Imran Ahmad</strong> · 31 Jul, 4:30 PM</div>
+                        <div class="comment-text">Kitchen add-on confirmed. Carrying extra supplies.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="comment-compose">
+                <textarea placeholder="Write a comment…"></textarea>
+                <div class="comment-compose__footer">
+                    <button class="tag-btn" type="button">Staff</button>
+                    <button class="tag-btn" type="button">Provider</button>
+                    <button class="tag-btn" type="button">Service</button>
+                    <span style="font-size:.75rem;color:var(--faint);flex:1;">Type @ for staff mentions</span>
+                    <button class="btn btn-accent" type="button">Add Comment</button>
+                </div>
+            </div>
+        </div>
+        <div class="activity-view" id="view-followup">
+            <table class="data-table">
+                <thead><tr><th>Scheduled for</th><th>Party</th><th>Status</th><th>Remarks</th><th>Taken by</th></tr></thead>
+                <tbody>
+                    <tr><td>03 Aug, 4:00 PM</td><td>Provider</td><td><span class="chip chip--warning">Scheduled</span></td><td>Confirm serviceman arrival</td><td>—</td></tr>
+                    <tr><td>01 Aug, 11:00 AM</td><td>Customer</td><td><span class="chip chip--success">Completed</span></td><td>Confirmed address</td><td>Rahul Sharma</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="activity-view" id="view-change">
+            <table class="data-table">
+                <thead><tr><th>Field</th><th>From</th><th>To</th><th>When</th><th>By</th></tr></thead>
+                <tbody>
+                    <tr><td>Status</td><td style="color:var(--faint);">Accepted</td><td>Ongoing</td><td>02 Aug, 9:00 AM</td><td>Imran Ahmad</td></tr>
+                    <tr><td>Advance payment</td><td style="color:var(--faint);">₹0</td><td>₹500</td><td>28 Jul, 2:22 PM</td><td>Rahul Sharma</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<div class="compare-fab">
+    <a href="lead-details-compact-v2-approved.html" class="btn btn-outline">Lead demo</a>
+    <span class="btn btn-accent">Booking demo</span>
+</div>
+
+<script>
+(function () {
+    var pills = document.querySelectorAll('.filter-pill');
+    var views = {
+        comment: document.getElementById('view-comment'),
+        followup: document.getElementById('view-followup'),
+        change: document.getElementById('view-change')
+    };
+    pills.forEach(function (pill) {
+        pill.addEventListener('click', function () {
+            var f = pill.getAttribute('data-filter');
+            pills.forEach(function (p) { p.classList.remove('is-active'); });
+            pill.classList.add('is-active');
+            Object.keys(views).forEach(function (k) {
+                if (views[k]) views[k].classList.toggle('is-visible', k === f);
+            });
+        });
+    });
+})();
+</script>
+</body>
+</html>

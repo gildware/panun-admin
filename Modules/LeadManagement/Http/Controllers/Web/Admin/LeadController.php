@@ -31,6 +31,8 @@ use Modules\LeadManagement\Entities\LeadChangeLog;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\AdminModule\Services\StaffActivityLogger;
 use Modules\LeadManagement\Entities\LeadOutboundEnquiryStatus;
+use Modules\LeadManagement\Services\LeadChangeLogService;
+use Modules\LeadManagement\Services\LeadFollowupRecordingTranscriptionService;
 use Modules\LeadManagement\Services\LeadFollowupService;
 use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\LeadManagement\Services\ProviderLeadPanelMatchService;
@@ -39,6 +41,7 @@ use Modules\UserManagement\Entities\User;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\BookingModule\Entities\Booking;
+use Modules\ProviderManagement\Entities\Provider;
 use Modules\WhatsAppModule\Entities\ProviderLead;
 use Modules\WhatsAppModule\Entities\WhatsAppBooking;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
@@ -101,7 +104,7 @@ class LeadController extends Controller
             ? max(0, (int) $request->get('outbound_enquiry_count'))
             : null;
 
-        $with = ['source', 'adSource'];
+        $with = [];
         if ($tab === 'customer') {
             $with[] = 'customerLeadTags';
         }
@@ -235,8 +238,6 @@ class LeadController extends Controller
         }
 
         $leads = $query->paginate(pagination_limit())->appends($queryParams);
-
-        $ctwaDisplayByPhone = app(LeadCtwaDisplayService::class)->mapByLeadPhones($leads->getCollection());
 
         // handled_by stores the user ID (string/UUID). Build a map id => display name.
         $handledByIds = $leads->pluck('handled_by')
@@ -470,8 +471,11 @@ class LeadController extends Controller
         }
 
         $leadStatusMeta = [];
+        $followupListMeta = [];
         if ($leads->isNotEmpty()) {
-            $leadStatusMeta = $this->buildLeadStatusMeta($leads->getCollection());
+            $collection = $leads->getCollection();
+            $leadStatusMeta = $this->buildLeadStatusMeta($collection);
+            $followupListMeta = app(LeadFollowupService::class)->buildLeadFollowupListMeta($collection, $leadStatusMeta);
         }
 
         if ($request->ajax() || $request->boolean('ajax')) {
@@ -493,7 +497,7 @@ class LeadController extends Controller
             if ($tab === 'future_customer' && $outboundEnquiryFilter !== 'all') {
                 $filtersAppliedCount += 1;
             }
-            $html = view('leadmanagement::admin.leads.partials._table', compact('leads', 'handledByNames', 'tab', 'providerLeadData', 'customerLeadData', 'reasonLeadData', 'leadStatusMeta'))->render();
+            $html = view('leadmanagement::admin.leads.partials._table', compact('leads', 'handledByNames', 'tab', 'providerLeadData', 'customerLeadData', 'reasonLeadData', 'leadStatusMeta', 'followupListMeta'))->render();
             return response()->json([
                 'html' => $html,
                 'total' => $leads->total(),
@@ -514,7 +518,7 @@ class LeadController extends Controller
             'customerLeadData',
             'reasonLeadData',
             'leadStatusMeta',
-            'ctwaDisplayByPhone',
+            'followupListMeta',
             'filterSources',
             'filterAdSources',
             'filterEmployees',
@@ -922,7 +926,7 @@ class LeadController extends Controller
             'ad_source_id' => 'nullable|exists:adsources,id',
             'handled_by' => 'nullable|string|max:64',
             'remarks' => 'nullable|string|max:1000',
-            'next_followup_at' => ['nullable', 'date'],
+            'next_followup_at' => ['nullable', 'date', 'after:now'],
             'invalid_reason_id' => 'nullable|required_if:lead_type,invalid|exists:lead_invalid_reasons,id',
             'invalid_remarks' => 'nullable|string|max:1000',
             'future_customer_reason_id' => 'nullable|required_if:lead_type,future_customer|exists:lead_future_customer_reasons,id',
@@ -1026,6 +1030,10 @@ class LeadController extends Controller
             );
         }
 
+        if (function_exists('admin_inbox_notify_lead_created')) {
+            admin_inbox_notify_lead_created($lead);
+        }
+
         app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
 
         toastr()->success(translate('Lead created successfully'));
@@ -1051,10 +1059,13 @@ class LeadController extends Controller
                 'sometimes',
                 'nullable',
                 'date',
+                'after:now',
             ],
         ];
 
-        $validated = $request->validate($rules);
+        $validated = $request->validate($rules, [
+            'next_followup_at.after' => translate('Reschedule_date_must_be_in_the_future'),
+        ]);
 
         if (array_key_exists('name', $validated)) {
             $trimmedName = trim((string) ($validated['name'] ?? ''));
@@ -1075,13 +1086,7 @@ class LeadController extends Controller
         $lead->update($validated);
 
         $changes = $this->buildLeadChangeDiff($oldValues, $validated);
-        if (!empty($changes)) {
-            LeadChangeLog::create([
-                'lead_id' => $lead->id,
-                'changed_by' => Auth::id(),
-                'changes' => $changes,
-            ]);
-        }
+        app(LeadChangeLogService::class)->record($lead->id, $changes);
 
         if (array_key_exists('handled_by', $validated)) {
             $oldHandler = $oldValues['handled_by'] ?? null;
@@ -1228,11 +1233,25 @@ class LeadController extends Controller
     public function updateType(Request $request, int $id): RedirectResponse
     {
         $lead = Lead::findOrFail($id);
+        $changeLogService = app(LeadChangeLogService::class);
 
         $leadType = $request->input('lead_type');
+        $typeHistoryChanges = [];
 
         if (!in_array($leadType, ['customer', 'provider', 'invalid', 'future_customer'], true)) {
             abort(400, 'Invalid lead type');
+        }
+
+        if ($lead->lead_type === Lead::TYPE_UNKNOWN && ! $request->boolean('workflow_confirmed')) {
+            $gate = app(\Modules\AdminModule\Services\WorkflowGate::class)
+                ->checkLeadAction($lead, \Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_LEAD_TYPE_CHANGE);
+            if (! $gate['allowed']) {
+                return back()
+                    ->withInput()
+                    ->with('workflow_gate', $gate)
+                    ->with('workflow_gate_action', \Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_LEAD_TYPE_CHANGE)
+                    ->with('error', $gate['message']);
+            }
         }
 
         if ($leadType === 'invalid') {
@@ -1242,6 +1261,8 @@ class LeadController extends Controller
                 'area_id' => 'nullable|string|max:255',
             ]);
             $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null);
+
+            $typeHistoryChanges = $changeLogService->buildTypeHistoryDiff(Lead::TYPE_INVALID, [], $data);
 
             LeadTypeHistory::create([
                 'lead_id' => $lead->id,
@@ -1256,6 +1277,8 @@ class LeadController extends Controller
                 'area_id' => 'nullable|string|max:255',
             ]);
             $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null);
+
+            $typeHistoryChanges = $changeLogService->buildTypeHistoryDiff(Lead::TYPE_FUTURE_CUSTOMER, [], $data);
 
             LeadTypeHistory::create([
                 'lead_id' => $lead->id,
@@ -1342,6 +1365,11 @@ class LeadController extends Controller
                     unset($payload['cancellation_reason_id'], $payload['cancellation_remarks']);
                 }
 
+                $changeLogService->record(
+                    $lead->id,
+                    $changeLogService->buildTypeHistoryDiff(Lead::TYPE_CUSTOMER, $existing, $payload)
+                );
+
                 if ($customerHistory) {
                     $customerHistory->update(['data' => $payload]);
                 } else {
@@ -1362,12 +1390,13 @@ class LeadController extends Controller
                 return redirect($url);
             }
 
+            $customerPayload = array_merge($data, ['booking_status' => 'pending']);
+            $typeHistoryChanges = $changeLogService->buildTypeHistoryDiff(Lead::TYPE_CUSTOMER, [], $customerPayload);
+
             LeadTypeHistory::create([
                 'lead_id' => $lead->id,
                 'type' => 'customer',
-                'data' => array_merge($data, [
-                    'booking_status' => 'pending',
-                ]),
+                'data' => $customerPayload,
                 'created_by' => Auth::id(),
             ]);
         } elseif ($leadType === 'provider') {
@@ -1450,6 +1479,11 @@ class LeadController extends Controller
                     unset($payload['provider_cancellation_reason_id'], $payload['provider_cancellation_remarks']);
                 }
 
+                $changeLogService->record(
+                    $lead->id,
+                    $changeLogService->buildTypeHistoryDiff(Lead::TYPE_PROVIDER, $existing, $payload)
+                );
+
                 if ($providerHistory) {
                     $providerHistory->update(['data' => $payload]);
                 } else {
@@ -1470,6 +1504,8 @@ class LeadController extends Controller
                 return redirect($url);
             }
 
+            $typeHistoryChanges = $changeLogService->buildTypeHistoryDiff(Lead::TYPE_PROVIDER, [], $data);
+
             LeadTypeHistory::create([
                 'lead_id' => $lead->id,
                 'type' => 'provider',
@@ -1482,17 +1518,15 @@ class LeadController extends Controller
         $lead->lead_type = $leadType;
         $lead->save();
 
-        LeadChangeLog::create([
-            'lead_id' => $lead->id,
-            'changed_by' => Auth::id(),
-            'changes' => [
-                'lead_type' => [
-                    'label' => 'Lead_Type',
-                    'old' => $this->leadChangeDisplayValue('lead_type', $oldType),
-                    'new' => $this->leadChangeDisplayValue('lead_type', $leadType),
-                ],
-            ],
-        ]);
+        $changes = $typeHistoryChanges;
+        if ($oldType !== $leadType) {
+            $changes['lead_type'] = [
+                'label' => 'Lead_Type',
+                'old' => $this->leadChangeDisplayValue('lead_type', $oldType),
+                'new' => $this->leadChangeDisplayValue('lead_type', $leadType),
+            ];
+        }
+        $changeLogService->record($lead->id, $changes);
 
         app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
 
@@ -1502,6 +1536,17 @@ class LeadController extends Controller
         if ($request->boolean('in_modal')) {
             $url .= '?in_modal=1';
         }
+
+        if ($oldType === Lead::TYPE_UNKNOWN) {
+            $postGate = app(\Modules\AdminModule\Services\WorkflowGate::class)
+                ->checkPostPanelUpdate($lead->fresh());
+            if (! $postGate['allowed']) {
+                return redirect($url)
+                    ->with('workflow_post_action', $postGate)
+                    ->with('workflow_post_action_action', \Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_LEAD_PANEL_UPDATED);
+            }
+        }
+
         return redirect($url);
     }
 
@@ -1512,6 +1557,8 @@ class LeadController extends Controller
             'adSource',
             'followups.createdBy',
             'changeLogs.changedByUser',
+            'comments.createdBy',
+            'comments.pinnedByUser',
             'createdBy',
             'customerLeadTags',
             'outboundEnquiries' => fn ($q) => $q->with(['handledBy', 'createdBy', 'statusConfig', 'relatedLead', 'booking']),
@@ -1642,6 +1689,44 @@ class LeadController extends Controller
             ? app(ProviderLeadPanelMatchService::class)->matchForLead($lead)
             : null;
 
+        $followupService = app(LeadFollowupService::class);
+        $hasPendingFollowup = $followupService->leadHasPendingFollowup($lead, (bool) $leadOpenStatus);
+        $pendingFollowupIsOverdue = $hasPendingFollowup
+            && $followupService->pendingFollowupIsOverdue($lead->next_followup_at);
+        $followupNeedsAttention = $followupService->leadFollowupNeedsAttention(
+            $lead->next_followup_at,
+            (bool) $leadOpenStatus,
+            (string) $lead->lead_type
+        );
+        $followupDelayMeta = $followupService->buildFollowupDelayMeta($lead, $lead->followups);
+
+        $currentCustomerStatusId = ($typeHistory && is_array($typeHistory->data ?? null))
+            ? ($typeHistory->data['customer_lead_status_id'] ?? '')
+            : '';
+        $currentCustomerStatus = $customerLeadStatuses->firstWhere('id', $currentCustomerStatusId);
+        $isPendingCustomerStatus = ! $currentCustomerStatus || ($currentCustomerStatus->base_type ?? 'pending') === 'pending';
+
+        $workflowContext = app(\Modules\AdminModule\Services\WorkflowNextStepService::class)->forLead($lead, [
+            'typeHistory' => $typeHistory,
+            'leadBooking' => $leadBooking,
+            'isPendingCustomerStatus' => $isPendingCustomerStatus,
+        ]);
+
+        $customerHistoryData = ($lead->lead_type === Lead::TYPE_CUSTOMER && $typeHistory && is_array($typeHistory->data ?? null))
+            ? $typeHistory->data
+            : [];
+        $temporaryProvider = !empty($customerHistoryData['temporary_provider_id'])
+            ? Provider::find($customerHistoryData['temporary_provider_id'])
+            : null;
+        $temporaryProviderAssignedAt = null;
+        if (!empty($customerHistoryData['temporary_provider_assigned_at'])) {
+            try {
+                $temporaryProviderAssignedAt = \Carbon\Carbon::parse($customerHistoryData['temporary_provider_assigned_at']);
+            } catch (\Throwable $e) {
+                $temporaryProviderAssignedAt = null;
+            }
+        }
+
         return view('leadmanagement::admin.leads.show', compact(
             'lead',
             'handledByName',
@@ -1672,7 +1757,16 @@ class LeadController extends Controller
             'changeLogs',
             'outboundEnquiryStatuses',
             'leadCtwaDisplay',
-            'panelProviderMatch'
+            'panelProviderMatch',
+            'hasPendingFollowup',
+            'pendingFollowupIsOverdue',
+            'followupNeedsAttention',
+            'followupDelayMeta',
+            'customerHistoryData',
+            'temporaryProvider',
+            'temporaryProviderAssignedAt',
+            'workflowContext',
+            'isPendingCustomerStatus',
         ));
     }
 
@@ -1695,8 +1789,20 @@ class LeadController extends Controller
             ],
             ['is_done' => false]
         );
+        $wasDone = $entry->is_done;
         $entry->is_done = $request->boolean('is_done');
         $entry->save();
+
+        if ($wasDone !== $entry->is_done) {
+            $itemName = ProviderChecklistItem::find($checklistItem)?->name ?? (string) $checklistItem;
+            app(LeadChangeLogService::class)->record($lead->id, [
+                'provider_checklist_' . $checklistItem => [
+                    'label' => $itemName,
+                    'old' => $wasDone ? translate('Done') : translate('Pending'),
+                    'new' => $entry->is_done ? translate('Done') : translate('Pending'),
+                ],
+            ]);
+        }
 
         if ($request->expectsJson()) {
             return response()->json(['success' => true, 'is_done' => $entry->is_done]);
@@ -1756,11 +1862,7 @@ class LeadController extends Controller
         }
 
         if (!empty($changes)) {
-            LeadChangeLog::create([
-                'lead_id' => $lead->id,
-                'changed_by' => Auth::id(),
-                'changes' => $changes,
-            ]);
+            app(LeadChangeLogService::class)->record($lead->id, $changes);
         }
 
         if ($request->expectsJson()) {
@@ -1776,6 +1878,7 @@ class LeadController extends Controller
             return response()->json(['message' => translate('Lead_is_not_a_provider')], 422);
         }
 
+        $changeLogService = app(LeadChangeLogService::class);
         $validated = $request->validate([
             'provider_lead_status_id' => 'nullable|exists:provider_lead_statuses,id',
             'provider_cancellation_reason_id' => 'nullable|exists:provider_cancellation_reasons,id',
@@ -1802,6 +1905,7 @@ class LeadController extends Controller
         }
 
         $data = $history && is_array($history->data) ? $history->data : [];
+        $oldData = $data;
         $data['provider_lead_status_id'] = $statusId;
         if ($baseType === 'cancel') {
             $data['provider_cancellation_reason_id'] = $request->input('provider_cancellation_reason_id');
@@ -1809,6 +1913,12 @@ class LeadController extends Controller
         } else {
             unset($data['provider_cancellation_reason_id'], $data['provider_cancellation_remarks']);
         }
+
+        $changeLogService->record(
+            $lead->id,
+            $changeLogService->buildTypeHistoryDiff(Lead::TYPE_PROVIDER, $oldData, $data)
+        );
+
         if ($history) {
             $history->update(['data' => $data]);
         } else {
@@ -1834,6 +1944,7 @@ class LeadController extends Controller
             return response()->json(['message' => translate('Lead_is_not_a_customer')], 422);
         }
 
+        $changeLogService = app(LeadChangeLogService::class);
         $validated = $request->validate([
             'customer_lead_status_id' => 'nullable|exists:customer_lead_statuses,id',
             'cancellation_reason_id' => 'nullable|exists:lead_cancellation_reasons,id',
@@ -1853,6 +1964,17 @@ class LeadController extends Controller
         $statusModel = $statusId ? CustomerLeadStatus::find($statusId) : null;
         $baseType = $statusModel?->base_type ?? 'pending';
 
+        if (in_array($baseType, ['booked', 'completed'], true) && ! $request->boolean('workflow_confirmed')) {
+            $gate = app(\Modules\AdminModule\Services\WorkflowGate::class)
+                ->checkLeadAction($lead, \Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_LEAD_STATUS_BOOKED);
+            if (! $gate['allowed']) {
+                return response()->json([
+                    'message' => $gate['message'],
+                    'workflow_gate' => $gate,
+                ], 422);
+            }
+        }
+
         if ($baseType === 'cancel') {
             $request->validate([
                 'cancellation_reason_id' => 'required|exists:lead_cancellation_reasons,id',
@@ -1860,6 +1982,7 @@ class LeadController extends Controller
         }
 
         $data = $history && is_array($history->data) ? $history->data : [];
+        $oldData = $data;
         $data['customer_lead_status_id'] = $statusId;
         if ($baseType === 'cancel') {
             $data['cancellation_reason_id'] = $request->input('cancellation_reason_id');
@@ -1867,6 +1990,12 @@ class LeadController extends Controller
         } else {
             unset($data['cancellation_reason_id'], $data['cancellation_remarks']);
         }
+
+        $changeLogService->record(
+            $lead->id,
+            $changeLogService->buildTypeHistoryDiff(Lead::TYPE_CUSTOMER, $oldData, $data)
+        );
+
         if ($history) {
             $history->update(['data' => $data]);
         } else {
@@ -1897,6 +2026,12 @@ class LeadController extends Controller
             'tag_ids.*' => 'exists:customer_lead_tags,id',
         ]);
         $tagIds = $validated['tag_ids'] ?? [];
+        $oldTagIds = $lead->customerLeadTags()->pluck('customer_lead_tags.id')->all();
+        $changeLogService = app(LeadChangeLogService::class);
+        $changeLogService->record(
+            $lead->id,
+            $changeLogService->buildCustomerTagsDiff($oldTagIds, $tagIds)
+        );
         $lead->customerLeadTags()->sync($tagIds);
 
         $tags = $lead->customerLeadTags()
@@ -1997,6 +2132,16 @@ class LeadController extends Controller
             if (!empty($data['cancellation_remarks'])) {
                 $rows[] = ['label' => translate('Cancellation_Remarks'), 'value' => $data['cancellation_remarks']];
             }
+            if (!empty($data['temporary_provider_id'])) {
+                $tempProvider = Provider::find($data['temporary_provider_id']);
+                $tempLabel = $tempProvider
+                    ? trim(($tempProvider->company_name ?? '') . ($tempProvider->contact_person_name ? ' — ' . $tempProvider->contact_person_name : ''))
+                    : (string) $data['temporary_provider_id'];
+                if ($tempProvider) {
+                    $tempLabel = '<a href="' . route('admin.provider.details', $tempProvider->id) . '">' . e($tempLabel ?: translate('Provider')) . '</a>';
+                }
+                $rows[] = ['label' => translate('Temporary_Provider'), 'value' => $tempLabel, 'raw' => true];
+            }
             $headerStatusColor = $customerStatus && !empty($customerStatus->color) ? $customerStatus->color : '#0d6efd';
             return ['rows' => $rows, 'header_status' => $customerStatus?->name ?? '—', 'header_status_color' => $headerStatusColor];
         } elseif ($leadType === 'provider') {
@@ -2087,20 +2232,114 @@ class LeadController extends Controller
     {
         $lead = Lead::findOrFail($leadId);
         $requiresNext = $this->leadRequiresMandatoryFollowup($lead);
+        $followupMode = $request->input('followup_mode', 'add');
+        $followupAction = $followupMode === 'take'
+            ? $request->input('followup_action', LeadFollowup::STATUS_TAKEN)
+            : LeadFollowup::STATUS_TAKEN;
+
+        if (! in_array($followupAction, LeadFollowup::FOLLOWUP_STATUSES, true)) {
+            $followupAction = LeadFollowup::STATUS_TAKEN;
+        }
+
+        if ($followupAction === LeadFollowup::STATUS_RESCHEDULE) {
+            return $this->storeRescheduledFollowup($request, $lead, $requiresNext);
+        }
 
         $validated = $request->validate([
             'followup_at' => 'required|date',
             'remarks' => 'nullable|string|max:1000',
+            'contact_channel' => ['nullable', 'in:' . implode(',', LeadFollowup::CONTACT_CHANNELS)],
+            'recording' => [
+                'nullable',
+                'file',
+                'max:10240',
+                'mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/webm,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/x-aac',
+            ],
             'urgency' => ['nullable', 'in:' . implode(',', LeadFollowup::URGENCIES)],
-            'next_followup_at' => $requiresNext ? 'required|date' : 'nullable|date',
+            'next_followup_at' => [
+                Rule::requiredIf(fn () => $requiresNext),
+                'nullable',
+                'date',
+                'after:now',
+            ],
         ], [
             'next_followup_at.required' => translate('Next_follow_up_date_is_required'),
+            'next_followup_at.after' => translate('Reschedule_date_must_be_in_the_future'),
+            'recording.mimetypes' => translate('Please_upload_a_valid_audio_recording'),
+        ]);
+
+        if (($validated['contact_channel'] ?? null) !== LeadFollowup::CHANNEL_CALL && $request->hasFile('recording')) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->withErrors(['recording' => translate('Voice_recording_is_only_allowed_for_call_follow_ups')]);
+        }
+
+        $recordingData = [];
+        if (($validated['contact_channel'] ?? null) === LeadFollowup::CHANNEL_CALL && $request->hasFile('recording')) {
+            $recording = $request->file('recording');
+            $extension = $recording->getClientOriginalExtension() ?: 'webm';
+            $storedName = file_uploader('lead-followups/', $extension, $recording);
+
+            if ($storedName === 'def.png') {
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->withErrors(['recording' => translate('Failed_to_upload_voice_recording')]);
+            }
+
+            $recordingData = [
+                'recording_path' => $storedName,
+                'recording_disk' => getDisk(),
+                'recording_mime' => $recording->getMimeType(),
+                'recording_original_name' => $recording->getClientOriginalName(),
+            ];
+        }
+
+        LeadFollowup::create(array_merge([
+            'lead_id' => $lead->id,
+            'followup_at' => $validated['followup_at'],
+            'due_followup_at' => $lead->next_followup_at,
+            'remarks' => $validated['remarks'] ?? null,
+            'contact_channel' => $validated['contact_channel'] ?? null,
+            'followup_status' => LeadFollowup::STATUS_TAKEN,
+            'urgency' => $validated['urgency'] ?? LeadFollowup::URGENCY_MEDIUM,
+            'next_followup_at' => $validated['next_followup_at'] ?? null,
+            'created_by' => Auth::id(),
+        ], $recordingData));
+
+        if ($requiresNext || ! empty($validated['next_followup_at'])) {
+            $lead->next_followup_at = $validated['next_followup_at'] ?? null;
+            $lead->save();
+        }
+
+        toastr()->success(translate('Follow_up_added_successfully'));
+
+        return $this->redirectAfterFollowup($request, $lead);
+    }
+
+    protected function storeRescheduledFollowup(Request $request, Lead $lead, bool $requiresNext): RedirectResponse
+    {
+        $validated = $request->validate([
+            'remarks' => 'nullable|string|max:1000',
+            'urgency' => ['nullable', 'in:' . implode(',', LeadFollowup::URGENCIES)],
+            'next_followup_at' => [
+                Rule::requiredIf(fn () => $requiresNext),
+                'nullable',
+                'date',
+                'after:now',
+            ],
+        ], [
+            'next_followup_at.required' => translate('Next_follow_up_date_is_required'),
+            'next_followup_at.after' => translate('Reschedule_date_must_be_in_the_future'),
         ]);
 
         LeadFollowup::create([
             'lead_id' => $lead->id,
-            'followup_at' => $validated['followup_at'],
+            'followup_at' => null,
+            'due_followup_at' => $lead->next_followup_at,
             'remarks' => $validated['remarks'] ?? null,
+            'followup_status' => LeadFollowup::STATUS_RESCHEDULE,
             'urgency' => $validated['urgency'] ?? LeadFollowup::URGENCY_MEDIUM,
             'next_followup_at' => $validated['next_followup_at'] ?? null,
             'created_by' => Auth::id(),
@@ -2111,13 +2350,69 @@ class LeadController extends Controller
             $lead->save();
         }
 
-        toastr()->success(translate('Follow_up_added_successfully'));
+        toastr()->success(translate('Follow_up_rescheduled_successfully'));
 
-        $url = route('admin.lead.show', $lead->id);
+        return $this->redirectAfterFollowup($request, $lead);
+    }
+
+    protected function redirectAfterFollowup(Request $request, Lead $lead): RedirectResponse
+    {
+        $query = ['activity' => 'followup'];
         if ($request->boolean('in_modal')) {
-            $url .= '?in_modal=1';
+            $query['in_modal'] = 1;
         }
-        return redirect($url);
+
+        return redirect(route('admin.lead.show', $lead->id).'?'.http_build_query($query).'#lead-activity');
+    }
+
+    public function transcribeFollowupRecording(Request $request, int $leadId, int $followupId): JsonResponse
+    {
+        @set_time_limit(300);
+
+        $lead = Lead::findOrFail($leadId);
+        $followup = LeadFollowup::query()
+            ->where('lead_id', $lead->id)
+            ->whereKey($followupId)
+            ->firstOrFail();
+
+        if (! $followup->hasRecording()) {
+            return response()->json([
+                'success' => false,
+                'message' => translate('No_recording_available_for_this_follow_up'),
+            ], 422);
+        }
+
+        try {
+            $result = app(LeadFollowupRecordingTranscriptionService::class)
+                ->transcribeAndSummarize($followup, $request->boolean('force'));
+
+            return response()->json([
+                'success' => true,
+                'message' => $result['from_cache']
+                    ? translate('Transcript_loaded_from_saved_copy')
+                    : translate('Recording_transcribed_successfully'),
+                'transcript' => $result['transcript'],
+                'summary' => $result['summary'],
+                'transcribed_at' => $result['transcribed_at'],
+                'from_cache' => $result['from_cache'],
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Lead follow-up recording transcription failed', [
+                'lead_id' => $lead->id,
+                'followup_id' => $followup->id,
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage() ?: translate('Failed_to_transcribe_recording'),
+            ], 500);
+        }
     }
 
     /**
@@ -2224,6 +2519,112 @@ class LeadController extends Controller
             ->where('phone', 'like', '%' . $last10)
             ->orderByDesc('created_at')
             ->value('phone');
+    }
+
+    public function searchProvidersForLead(Request $request): JsonResponse
+    {
+        $q = trim((string) $request->query('q', ''));
+        $selected = $request->query('selected');
+
+        if ($selected) {
+            $provider = Provider::query()->find($selected);
+            if ($provider) {
+                return response()->json(['results' => [[
+                    'id' => $provider->id,
+                    'text' => $this->formatProviderSelectLabel($provider),
+                ]]]);
+            }
+
+            return response()->json(['results' => []]);
+        }
+
+        $query = Provider::query()->ofStatus(1)->ofApproval(1);
+
+        if ($q !== '') {
+            $terms = preg_split('/\s+/', $q, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            foreach ($terms as $term) {
+                $like = '%'.$term.'%';
+                $query->where(function ($builder) use ($like) {
+                    $builder->where('company_name', 'like', $like)
+                        ->orWhere('contact_person_name', 'like', $like)
+                        ->orWhere('contact_person_phone', 'like', $like)
+                        ->orWhere('company_phone', 'like', $like);
+                });
+            }
+        }
+
+        $results = $query->orderBy('company_name')->limit(30)->get()->map(fn (Provider $provider) => [
+            'id' => $provider->id,
+            'text' => $this->formatProviderSelectLabel($provider),
+        ])->values();
+
+        return response()->json(['results' => $results]);
+    }
+
+    public function updateTemporaryProvider(Request $request, int $id): RedirectResponse
+    {
+        $lead = Lead::findOrFail($id);
+        if ($lead->lead_type !== Lead::TYPE_CUSTOMER) {
+            toastr()->error(translate('Lead_must_be_a_customer_lead'));
+            return redirect()->route('admin.lead.show', $lead->id);
+        }
+
+        $validated = $request->validate([
+            'temporary_provider_id' => 'nullable|uuid|exists:providers,id',
+        ]);
+
+        $customerHistory = LeadTypeHistory::where('lead_id', $lead->id)
+            ->where('type', Lead::TYPE_CUSTOMER)
+            ->latest()
+            ->first();
+
+        if (!$customerHistory || !is_array($customerHistory->data)) {
+            toastr()->error(translate('Add_customer_lead_information_before_assigning_a_provider'));
+            $url = route('admin.lead.show', $lead->id);
+            if ($request->boolean('in_modal')) {
+                $url .= '?in_modal=1';
+            }
+            return redirect($url);
+        }
+
+        $existing = $customerHistory->data;
+        $newProviderId = $validated['temporary_provider_id'] ?? null;
+        $payload = $existing;
+        $payload['temporary_provider_id'] = $newProviderId;
+        $payload['temporary_provider_assigned_at'] = $newProviderId ? now()->toIso8601String() : null;
+
+        app(LeadChangeLogService::class)->record(
+            $lead->id,
+            app(LeadChangeLogService::class)->buildTypeHistoryDiff(Lead::TYPE_CUSTOMER, $existing, $payload)
+        );
+
+        $customerHistory->update(['data' => $payload]);
+
+        toastr()->success(translate('Temporary_provider_updated_successfully'));
+
+        $url = route('admin.lead.show', $lead->id);
+        if ($request->boolean('in_modal')) {
+            $url .= '?in_modal=1';
+        }
+
+        return redirect($url);
+    }
+
+    protected function formatProviderSelectLabel(Provider $provider): string
+    {
+        $name = trim((string) ($provider->company_name ?? ''));
+        $contact = trim((string) ($provider->contact_person_name ?? ''));
+        $phone = trim((string) ($provider->contact_person_phone ?? $provider->company_phone ?? ''));
+
+        $label = $name !== '' ? $name : ('Provider #'.substr((string) $provider->id, 0, 8));
+        if ($contact !== '') {
+            $label .= ' — '.$contact;
+        }
+        if ($phone !== '') {
+            $label .= ' ('.$phone.')';
+        }
+
+        return $label;
     }
 
     public function destroy(int $id): RedirectResponse

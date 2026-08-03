@@ -1,0 +1,56 @@
+Asset validation passed for 1 services.
+Category ready: Home Appliances (home-appliance)
+Category ready: Air Conditioners (air-conditioners)
+Category ready: Battery & Inverters (battery-inverters)
+Category ready: CCTV (cctv)
+Category ready: Geysers (geysers)
+Category ready: LED / Smart TV (led-smart-tv)
+Category ready: Refrigerators (refrigerators)
+Category ready: Washing Machine (washing-machine)
+Category ready: Water Purifier (ro-purifier)
+Category ready: Small Appliances (induction-heaters)
+UPDATED service: Fridge gas refill & leak fix
+  variants: 1 x 20 zones
+Deactivated old service: induction-heater-repair
+Deactivated old service: ac-uninstallation
+Deactivated old service: ac-installation
+Deactivated old service: ac-servicing
+Deactivated old service: geyser-installation
+Deactivated old service: gas-refill-check-up
+Deactivated old service: room-heater-repair
+Deactivated old service: tv-installation
+Deactivated old service: air-cooler-repair
+Deactivated old service: ro-service
+Deactivated old service: inverter-repair
+Deactivated old service: geyser-repair
+Deactivated old service: cctv-installation
+Deactivated old service: oven-otg-repair
+Deactivated old service: dishwasher-installation
+Deactivated old service: inverter-installation
+Deactivated old service: washing-machine-uninstallation
+Deactivated old service: tv-uninstallation
+Deactivated old service: tv-repair
+Deactivated old service: cctv-repair
+Deactivated old service: hob-repair
+Deactivated old service: washing-machine-installation
+Deactivated old service: inverter-uninstallation
+Deactivated old service: washing-machine-repair
+Deactivated old service: mixer-grinder-repair
+Deactivated old service: vacuum-cleaner-repair
+Deactivated old service: dishwasher-repair
+Deactivated old service: chimney-installation
+Deactivated old service: geyser-cleaning
+Deactivated old service: washing-machine-servicing
+Deactivated old service: geyser-uninstallation
+Deactivated old service: inverter-servicing
+Deactivated old service: fan-repair
+Deactivated old service: ac-repair
+Deactivated old service: refrigerator-repair
+Deactivated old service: ro-installation
+Deactivated old service: refrigerator-installation
+Deactivated old service: chimney-repair
+Deactivated old service: hob-installation
+Deactivated old service: microwave-repair
+
+Home Appliances catalog seeded: 1 category, 9 sub-categories, 1 services.
+Deactivated obsolete services: 40 (plus any already inactive).

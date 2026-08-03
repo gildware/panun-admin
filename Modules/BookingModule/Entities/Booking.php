@@ -437,6 +437,14 @@ class Booking extends Model
         return $this->hasMany(BookingFollowup::class)->orderByDesc('date')->orderByDesc('created_at');
     }
 
+    public function comments(): HasMany
+    {
+        return $this->hasMany(BookingComment::class)
+            ->orderByDesc('is_pinned')
+            ->orderByDesc('pinned_at')
+            ->latest('created_at');
+    }
+
     public function change_logs(): HasMany
     {
         return $this->hasMany(BookingChangeLog::class)->orderByDesc('created_at');

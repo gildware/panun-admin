@@ -3,6 +3,9 @@
 @section('title', translate('Notifications'))
 
 @section('content')
+    @php
+        use Modules\AdminModule\Entities\UserNotification;
+    @endphp
     <div class="main-content">
         <div class="container-fluid">
             <div class="row">
@@ -11,16 +14,19 @@
                         <div>
                             <h2 class="page-title mb-1">{{ translate('Notifications') }}</h2>
                             <p class="text-muted mb-0 small">
-                                <span class="text-danger fw-semibold">{{ $unreadCount }}</span> {{ translate('unread') }}
+                                <span class="text-danger fw-semibold">{{ $externalUnreadCount + $internalUnreadCount }}</span> {{ translate('unread') }}
                                 &middot;
-                                <span>{{ $readCount }}</span> {{ translate('read') }}
+                                <span>{{ $externalReadCount + $internalReadCount }}</span> {{ translate('read') }}
                             </p>
                         </div>
-                        @if($unreadCount > 0)
+                        @if(($externalUnreadCount + $internalUnreadCount) > 0)
                             <form action="{{ route('admin.notifications.mark_all_read_page') }}" method="POST">
                                 @csrf
                                 @if($filter)
                                     <input type="hidden" name="filter" value="{{ $filter }}">
+                                @endif
+                                @if($category)
+                                    <input type="hidden" name="category" value="{{ $category }}">
                                 @endif
                                 <button type="submit" class="btn btn--primary btn-sm">
                                     {{ translate('Mark_all_read') }}
@@ -31,26 +37,46 @@
 
                     <div class="card mb-3">
                         <div class="card-body py-2">
-                            <ul class="nav nav-pills gap-2">
+                            <ul class="nav nav-pills gap-2 flex-wrap">
                                 <li class="nav-item">
-                                    <a href="{{ route('admin.notifications.index') }}"
+                                    <a href="{{ route('admin.notifications.index', array_filter(['category' => $category])) }}"
                                        class="nav-link {{ empty($filter) ? 'active' : '' }}"
                                        @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
                                         {{ translate('all') }}
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a href="{{ route('admin.notifications.index', ['filter' => 'unread']) }}"
+                                    <a href="{{ route('admin.notifications.index', array_filter(['filter' => 'unread', 'category' => $category])) }}"
                                        class="nav-link {{ $filter === 'unread' ? 'active' : '' }}"
                                        @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
                                         {{ translate('unread') }}
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a href="{{ route('admin.notifications.index', ['filter' => 'read']) }}"
+                                    <a href="{{ route('admin.notifications.index', array_filter(['filter' => 'read', 'category' => $category])) }}"
                                        class="nav-link {{ $filter === 'read' ? 'active' : '' }}"
                                        @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
                                         {{ translate('read') }}
+                                    </a>
+                                </li>
+                                <li class="nav-item ms-md-auto">
+                                    <a href="{{ route('admin.notifications.index', array_filter(['filter' => $filter, 'category' => UserNotification::CATEGORY_EXTERNAL])) }}"
+                                       class="nav-link {{ ($category ?? null) === UserNotification::CATEGORY_EXTERNAL ? 'active' : '' }}"
+                                       @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
+                                        {{ translate('External') }}
+                                        @if($externalUnreadCount > 0)
+                                            <span class="badge bg-danger rounded-pill ms-1">{{ $externalUnreadCount }}</span>
+                                        @endif
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="{{ route('admin.notifications.index', array_filter(['filter' => $filter, 'category' => UserNotification::CATEGORY_INTERNAL])) }}"
+                                       class="nav-link {{ ($category ?? null) === UserNotification::CATEGORY_INTERNAL ? 'active' : '' }}"
+                                       @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
+                                        {{ translate('Internal') }}
+                                        @if($internalUnreadCount > 0)
+                                            <span class="badge bg-danger rounded-pill ms-1">{{ $internalUnreadCount }}</span>
+                                        @endif
                                     </a>
                                 </li>
                             </ul>
@@ -65,33 +91,10 @@
                                 </div>
                             @else
                                 <div class="list-group list-group-flush">
-                                    @foreach($notifications as $notification)
-                                        <button type="button"
-                                                class="list-group-item list-group-item-action px-3 py-3 border-0 js-admin-notification-list-item {{ $notification->isUnread() ? 'bg-light' : '' }}"
-                                                data-notification-id="{{ $notification->id }}"
-                                                data-notification-type="{{ $notification->type }}"
-                                                data-action-url="{{ $notification->action_url }}">
-                                            <div class="d-flex gap-3 align-items-start">
-                                                @include('adminmodule::admin.partials._notification-avatar', ['notification' => $notification])
-                                                <div class="flex-grow-1 min-w-0">
-                                                    <div class="d-flex flex-wrap gap-2 align-items-center mb-1">
-                                                        <h5 class="mb-0 {{ $notification->isUnread() ? 'fw-bold' : '' }}">
-                                                            {{ $notification->title }}
-                                                        </h5>
-                                                        @if($notification->isUnread())
-                                                            <span class="badge bg-danger rounded-pill">{{ translate('new') }}</span>
-                                                        @endif
-                                                        <span class="badge bg-secondary-subtle text-secondary">{{ $notification->typeLabel() }}</span>
-                                                    </div>
-                                                    @if($notification->body)
-                                                        <p class="mb-1 text-muted fz-14">{{ Str::limit($notification->body, 160) }}</p>
-                                                    @endif
-                                                    @include('adminmodule::admin.partials._notification-time', ['notification' => $notification])
-                                                </div>
-                                                <span class="material-symbols-outlined text-muted flex-shrink-0">chevron_right</span>
-                                            </div>
-                                        </button>
-                                    @endforeach
+                                    @include('adminmodule::admin.partials._notification-items', [
+                                        'notifications' => $notifications,
+                                        'compact' => false,
+                                    ])
                                 </div>
 
                                 @if($notifications->hasPages())

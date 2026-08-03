@@ -2,6 +2,12 @@
 
 @section('title', translate('Booking_Followups'))
 
+@push('css')
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-detail-redesign.css') }}">
+    @include('bookingmodule::admin.booking.partials._booking-followup-styles')
+    @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')
+@endpush
+
 @section('content')
     <div class="main-content">
         <div class="container-fluid">
@@ -9,419 +15,99 @@
                 <h2 class="page-title">{{ translate('Booking_Details') }}</h2>
             </div>
 
-            <div class="pb-3 d-flex justify-content-between align-items-center gap-3 flex-wrap">
-                <div>
-                    <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
-                        <h3 class="c1">{{ translate('Booking') }} # {{ $booking['readable_id'] }}</h3>
-                        <span class="badge badge-{{
-                            $booking->booking_status == 'ongoing' ? 'warning' :
-                            ($booking->booking_status == 'completed' ? 'success' :
-                            ($booking->booking_status == 'canceled' ? 'danger' : 'info'))
-                        }}">
-                            {{ ucwords($booking->booking_status) }}
-                        </span>
-                    </div>
-                    <p class="opacity-75 fz-12">{{ translate('Booking_Placed') }}
-                        : {{ date('d-M-Y h:ia', strtotime($booking->created_at)) }}</p>
-                </div>
-                <div class="d-flex flex-wrap gap-3">
-                    <a href="{{ route('admin.booking.invoice', [$booking->id]) }}" class="btn btn-primary" target="_blank">
-                        <span class="material-icons">description</span>{{ translate('Invoice') }}
-                    </a>
-                </div>
-            </div>
+            <div class="row">
+                @php
+                    $__detailStatusClass = booking_admin_status_css_class($booking);
+                @endphp
+                <div class="col-12 booking-detail-v2 booking-detail-v2--{{ $__detailStatusClass }}">
+                    <div class="booking-detail-v2__wrap">
+                        @include('bookingmodule::admin.booking.partials._booking-detail-compact-topbar', ['booking' => $booking])
+                        @include('bookingmodule::admin.booking.partials._booking-detail-pipeline', ['booking' => $booking])
+                        @include('bookingmodule::admin.booking.partials._booking-detail-subpage-header', [
+                            'booking' => $booking,
+                            'followupDetailMeta' => $followupDetailMeta ?? null,
+                        ])
 
-            @include('bookingmodule::admin.booking.partials.details._special-financial-settlement-banner', ['booking' => $booking])
+                        @include('bookingmodule::admin.booking.partials.details._special-financial-settlement-banner', ['booking' => $booking])
 
-            <div class="d-flex flex-wrap justify-content-between align-items-center flex-xxl-nowrap gap-3 mb-4">
-                <ul class="nav nav--tabs nav--tabs__style2">
-                    <li class="nav-item">
-                        <a class="nav-link {{ $webPage == 'details' ? 'active' : '' }}"
-                            href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'details']) }}">{{ translate('details') }}</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ $webPage == 'history' ? 'active' : '' }}"
-                            href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'history']) }}">{{ translate('History') }}</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ $webPage == 'followups' ? 'active' : '' }}"
-                            href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'followups']) }}">{{ translate('Followups') }}</a>
-                    </li>
-                </ul>
-            </div>
-
-            <div class="row mb-3 g-3">
-                <div class="col-md-6">
-                    <div class="card h-100">
-                        <div class="card-body c1-light-bg">
-                            <h5 class="mb-2">{{ translate('Next_Follow_up_Date_Provider') }}</h5>
-                            @if($booking->provider)
-                                <p class="mb-1 fw-semibold">{{ $booking->provider->company_name ?? '' }}</p>
-                                <p class="mb-1 small">
-                                    <a href="tel:{{ $booking->provider->contact_person_phone ?? $booking->provider->company_phone ?? '' }}">{{ $booking->provider->contact_person_phone ?? $booking->provider->company_phone ?? '—' }}</a>
-                                </p>
-                            @endif
-                            @if($nextFollowupProvider ?? null)
-                                <p class="mb-0 fw-semibold">{{ $nextFollowupProvider->date->format('d-M-Y h:ia') }}
-                                    @if($nextFollowupProvider->reason)
-                                        <span class="text-muted">({{ Str::limit($nextFollowupProvider->reason, 60) }})</span>
-                                    @endif
-                                </p>
-                            @else
-                                <p class="mb-0 text-muted">—</p>
-                            @endif
+                        <div class="d-flex flex-wrap justify-content-between align-items-center flex-xxl-nowrap gap-3 mb-3 booking-detail-nav-wrap">
+                            @include('bookingmodule::admin.booking.partials._booking-detail-nav-tabs', [
+                                'booking' => $booking,
+                                'webPage' => $webPage,
+                            ])
                         </div>
-                    </div>
+
+                        @include('bookingmodule::admin.booking.partials._booking-followup-alerts', [
+                            'booking' => $booking,
+                            'followupDetailMeta' => $followupDetailMeta ?? null,
+                        ])
+
+            <div class="booking-followups-preview mb-3">
+                <div class="booking-followups-preview__cell">
+                    @include('bookingmodule::admin.booking.partials._booking-overview-party-provider', [
+                        'booking' => $booking,
+                        'followupDetailMeta' => $followupDetailMeta ?? null,
+                        'nextFollowupProvider' => $nextFollowupProvider ?? null,
+                        'bookingNotEditable' => $bookingNotEditable ?? false,
+                    ])
                 </div>
-                <div class="col-md-6">
-                    <div class="card h-100">
-                        <div class="card-body c1-light-bg">
-                            <h5 class="mb-2">{{ translate('Next_Follow_up_Date_Customer') }}</h5>
-                            @if(($customerName ?? '') || ($customerPhone ?? ''))
-                                <p class="mb-1 fw-semibold">{{ ($customerName ?? '') ?: '—' }}</p>
-                                <p class="mb-1 small">
-                                    @if($customerPhone ?? null)
-                                        <a href="tel:{{ $customerPhone }}">{{ $customerPhone }}</a>
-                                    @else
-                                        —
-                                    @endif
-                                </p>
-                            @endif
-                            @if($nextFollowupCustomer ?? null)
-                                <p class="mb-0 fw-semibold">{{ $nextFollowupCustomer->date->format('d-M-Y h:ia') }}
-                                    @if($nextFollowupCustomer->reason)
-                                        <span class="text-muted">({{ Str::limit($nextFollowupCustomer->reason, 60) }})</span>
-                                    @endif
-                                </p>
-                            @else
-                                <p class="mb-0 text-muted">—</p>
-                            @endif
-                        </div>
-                    </div>
+                <div class="booking-followups-preview__cell">
+                    @include('bookingmodule::admin.booking.partials._booking-overview-party-customer', [
+                        'booking' => $booking,
+                        'customerName' => $customerName ?? null,
+                        'customerPhone' => $customerPhone ?? null,
+                        'customerAddress' => $customerAddress ?? null,
+                        'followupDetailMeta' => $followupDetailMeta ?? null,
+                        'nextFollowupCustomer' => $nextFollowupCustomer ?? null,
+                    ])
                 </div>
             </div>
 
             <div class="row gy-3">
                 <div class="col-12">
-                    <div class="card">
+                    <div class="card booking-subpage-panel">
                         <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                             <h4 class="mb-0">{{ translate('Follow_up_History') }}</h4>
                             <button type="button" class="btn btn--primary" data-bs-toggle="modal" data-bs-target="#addFollowupModal">
                                 <span class="material-icons">add</span>{{ translate('Add_Follow_up') }}
                             </button>
                         </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-hover align-middle">
-                                    <thead class="text-nowrap">
-                                        <tr>
-                                            <th>{{ translate('Date_Time') }}</th>
-                                            <th>{{ translate('Reason') }}</th>
-                                            <th>{{ translate('For') }}</th>
-                                            <th>{{ translate('Customer_Info') }}</th>
-                                            <th>{{ translate('Provider_Info') }}</th>
-                                            <th>{{ translate('Status') }}</th>
-                                            <th>{{ translate('Urgency') }}</th>
-                                            <th>{{ translate('Remarks') }}</th>
-                                            <th>{{ translate('Reschedule_Reason') }}</th>
-                                            <th>{{ translate('Recorded_By') }}</th>
-                                            <th class="text-end">{{ translate('Action') }}</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @forelse($booking->followups as $followup)
-                                            <tr>
-                                                <td>{{ $followup->date->format('d-M-Y h:ia') }}</td>
-                                                <td>{{ $followup->reason ?: '—' }}</td>
-                                                <td>{{ translate(ucfirst($followup->for)) }}</td>
-                                                <td>
-                                                    @if($booking->customer)
-                                                        <div>{{ trim(($booking->customer->first_name ?? '') . ' ' . ($booking->customer->last_name ?? '')) ?: '—' }}</div>
-                                                        <div class="small"><a href="tel:{{ $booking->customer->phone ?? '' }}">{{ $booking->customer->phone ?? '—' }}</a></div>
-                                                    @else
-                                                        —
-                                                    @endif
-                                                </td>
-                                                <td>
-                                                    @if($booking->provider)
-                                                        <div>{{ $booking->provider->company_name ?? '—' }}</div>
-                                                        <div class="small"><a href="tel:{{ $booking->provider->contact_person_phone ?? $booking->provider->company_phone ?? '' }}">{{ $booking->provider->contact_person_phone ?? $booking->provider->company_phone ?? '—' }}</a></div>
-                                                    @else
-                                                        —
-                                                    @endif
-                                                </td>
-                                                <td>
-                                                    <span class="badge badge-{{ $followup->status == 'completed' ? 'success' : ($followup->status == 'cancelled' ? 'danger' : ($followup->status == 'rescheduled' ? 'warning' : 'info')) }}">
-                                                        {{ translate(ucfirst($followup->status)) }}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    @php($fuUrgency = $followup->urgency ?: 'medium')
-                                                    <span class="badge badge-{{ $fuUrgency === 'high' ? 'danger' : ($fuUrgency === 'low' ? 'secondary' : 'warning') }}">
-                                                        {{ translate(ucfirst($fuUrgency)) }}
-                                                    </span>
-                                                </td>
-                                                <td class="text-break">{{ Str::limit($followup->remarks, 80) ?: '—' }}</td>
-                                                <td class="text-break">{{ $followup->status === 'rescheduled' && $followup->reschedule_reason ? Str::limit($followup->reschedule_reason, 60) : '—' }}</td>
-                                                <td>
-                                                    @if($followup->createdBy)
-                                                        {{ $followup->createdBy->first_name }} {{ $followup->createdBy->last_name }}
-                                                    @else
-                                                        —
-                                                    @endif
-                                                </td>
-                                                <td class="text-end">
-                                                    @if($followup->status === 'scheduled')
-                                                        <button type="button" class="btn btn-sm btn--primary"
-                                                                data-bs-toggle="modal"
-                                                                data-bs-target="#takeFollowupModal--{{ $followup->id }}"
-                                                                data-followup-id="{{ $followup->id }}">
-                                                            {{ translate('Take_Follow_up') }}
-                                                        </button>
-                                                    @endif
-                                                </td>
-                                            </tr>
-
-                                            @if($followup->status === 'scheduled')
-                                                <div class="modal fade" id="takeFollowupModal--{{ $followup->id }}" tabindex="-1">
-                                                    <div class="modal-dialog">
-                                                        <div class="modal-content">
-                                                            <form method="post" id="followup-update-form--{{ $followup->id }}" action="{{ route('admin.booking.followup.update', [$booking->id, $followup->id]) }}">
-                                                                @csrf
-                                                                @method('PUT')
-                                                                <div class="modal-header">
-                                                                    <h5 class="modal-title">{{ translate('Take_Follow_up') }} — {{ $followup->date->format('d-M-Y h:ia') }}</h5>
-                                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                                                </div>
-                                                                <div class="modal-body">
-                                                                    <p class="text-muted small">{{ translate('For') }}: {{ translate(ucfirst($followup->for)) }}
-                                                                        @if($followup->reason) — {{ $followup->reason }} @endif
-                                                                    </p>
-                                                                    <div class="mb-3">
-                                                                        <label class="form-label">{{ translate('Status') }}</label>
-                                                                        <select name="status" class="form-select followup-status-select" required data-modal-id="takeFollowupModal--{{ $followup->id }}">
-                                                                            <option value="completed">{{ translate('Completed') }}</option>
-                                                                            <option value="rescheduled">{{ translate('Rescheduled') }}</option>
-                                                                        </select>
-                                                                    </div>
-                                                                    <div class="mb-3 reschedule-fields-wrap" id="reschedule-fields-wrap--{{ $followup->id }}" style="display: none;">
-                                                                        <label class="form-label">{{ translate('New_Date_Time') }} <span class="text-danger">*</span></label>
-                                                                        <input type="datetime-local" name="reschedule_date" class="form-control reschedule-date-input mb-2" value="{{ $followup->date->format('Y-m-d\TH:i') }}">
-                                                                        <label class="form-label">{{ translate('Reschedule_Reason') }} <span class="text-danger">*</span></label>
-                                                                        <textarea name="reschedule_reason" class="form-control reschedule-reason-input" rows="2" placeholder="{{ translate('Reason_for_reschedule') }}" maxlength="500"></textarea>
-                                                                    </div>
-                                                                    <div class="mb-3 completed-remarks-wrap">
-                                                                        <label class="form-label">{{ translate('Remarks') }} <span class="text-danger">*</span></label>
-                                                                        <textarea name="remarks" class="form-control remarks-input" rows="4" placeholder="{{ translate('Add_remarks_from_follow_up') }}">{{ $followup->remarks }}</textarea>
-                                                                    </div>
-                                                                    @php($requiresMandatoryNextFollowup = $requiresMandatoryNextFollowup ?? $booking->requiresMandatoryNextFollowup())
-                                                                    <div class="mb-3 add-another-wrap" id="add-another-wrap--{{ $followup->id }}" style="display: none;" data-mandatory-next="{{ $requiresMandatoryNextFollowup ? '1' : '0' }}">
-                                                                        @if(!$requiresMandatoryNextFollowup)
-                                                                            <div class="form-check mb-2">
-                                                                                <input type="checkbox" class="form-check-input add-another-checkbox" name="add_another_followup" value="1" id="add_another--{{ $followup->id }}" data-followup-id="{{ $followup->id }}">
-                                                                                <label class="form-check-label" for="add_another--{{ $followup->id }}">{{ translate('Schedule_another_follow_up') }}</label>
-                                                                            </div>
-                                                                        @endif
-                                                                        <div class="add-another-fields border rounded p-3 bg-light" id="add-another-fields--{{ $followup->id }}" style="{{ $requiresMandatoryNextFollowup ? '' : 'display: none;' }}">
-                                                                            <label class="form-label fw-semibold">{{ translate('Next_Follow_up_Date') }} <span class="text-danger">*</span></label>
-                                                                            <div class="mb-2">
-                                                                                <label class="form-label">{{ translate('Date_Time') }} <span class="text-danger">*</span></label>
-                                                                                <input type="datetime-local" name="add_another_date" class="form-control add-another-date-input" value="{{ now()->addDay()->format('Y-m-d\TH:i') }}" {{ $requiresMandatoryNextFollowup ? 'required' : '' }}>
-                                                                            </div>
-                                                                            <div class="mb-2">
-                                                                                <label class="form-label">{{ translate('Reason') }}</label>
-                                                                                <input type="text" name="add_another_reason" class="form-control" maxlength="500">
-                                                                            </div>
-                                                                            <div class="mb-2">
-                                                                                <label class="form-label">{{ translate('For') }} <span class="text-danger">*</span></label>
-                                                                                <select name="add_another_for" class="form-select add-another-for-select" {{ $requiresMandatoryNextFollowup ? 'required' : '' }}>
-                                                                                    <option value="customer" {{ $followup->for === 'customer' ? 'selected' : '' }}>{{ translate('Customer') }}</option>
-                                                                                    <option value="provider" {{ $followup->for === 'provider' ? 'selected' : '' }}>{{ translate('Provider') }}</option>
-                                                                                </select>
-                                                                            </div>
-                                                                            <div>
-                                                                                <label class="form-label">{{ translate('Urgency') }}</label>
-                                                                                <select name="add_another_urgency" class="form-select">
-                                                                                    <option value="high" {{ $followup->urgency === 'high' ? 'selected' : '' }}>{{ translate('High') }}</option>
-                                                                                    <option value="medium" {{ ($followup->urgency ?: 'medium') === 'medium' ? 'selected' : '' }}>{{ translate('Medium') }}</option>
-                                                                                    <option value="low" {{ $followup->urgency === 'low' ? 'selected' : '' }}>{{ translate('Low') }}</option>
-                                                                                </select>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="modal-footer">
-                                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('cancel') }}</button>
-                                                                    <button type="submit" class="btn btn--primary">{{ translate('submit') }}</button>
-                                                                </div>
-                                                            </form>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            @endif
-                                        @empty
-                                            <tr>
-                                                <td colspan="11" class="text-center py-5 text-muted">{{ translate('No_follow_ups_yet') }}</td>
-                                            </tr>
-                                        @endforelse
-                                    </tbody>
-                                </table>
-                            </div>
+                        <div class="card-body p-0">
+                            @include('bookingmodule::admin.booking.partials._booking-followup-history-table', [
+                                'booking' => $booking,
+                                'followups' => $booking->followups,
+                                'followupDelayMeta' => $followupDelayMeta ?? [],
+                                'showActionColumn' => true,
+                                'showSectionLabel' => false,
+                                'tableClass' => 'table table-hover align-middle',
+                            ])
+                            @include('bookingmodule::admin.booking.partials._booking-scheduled-followup-modals', [
+                                'booking' => $booking,
+                                'redirectWebPage' => 'followups',
+                                'requiresMandatoryNextFollowup' => $requiresMandatoryNextFollowup ?? $booking->requiresMandatoryNextFollowup(),
+                                'followupScheduleMinAt' => $followupScheduleMinAt ?? now()->format('Y-m-d\TH:i'),
+                            ])
                         </div>
+                    </div>
+                </div>
+            </div>
+                    @include('bookingmodule::admin.booking.partials._booking-detail-delete-footer', ['booking' => $booking])
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- Add Follow-up Modal --}}
-    <div class="modal fade" id="addFollowupModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form method="post" action="{{ route('admin.booking.followup.store', $booking->id) }}">
-                    @csrf
-                    <div class="modal-header">
-                        <h5 class="modal-title">{{ translate('Add_Follow_up') }}</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">{{ translate('Date_Time') }} <span class="text-danger">*</span></label>
-                            <input type="datetime-local" name="date" class="form-control" value="{{ date('Y-m-d\TH:i') }}" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">{{ translate('Reason') }}</label>
-                            <input type="text" name="reason" class="form-control" placeholder="{{ translate('Reason_for_follow_up') }}" maxlength="500">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">{{ translate('For') }} <span class="text-danger">*</span></label>
-                            <select name="for" class="form-select" required>
-                                <option value="customer">{{ translate('Customer') }}</option>
-                                <option value="provider">{{ translate('Provider') }}</option>
-                            </select>
-                        </div>
-                        <div class="mb-0">
-                            <label class="form-label">{{ translate('Urgency') }}</label>
-                            <select name="urgency" class="form-select">
-                                <option value="high">{{ translate('High') }}</option>
-                                <option value="medium" selected>{{ translate('Medium') }}</option>
-                                <option value="low">{{ translate('Low') }}</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('cancel') }}</button>
-                        <button type="submit" class="btn btn--primary">{{ translate('submit') }}</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
+    {{-- Add Follow-up Modal (lead-style — Taken on, recording, next date) --}}
+    @include('bookingmodule::admin.booking.partials._booking-add-followup-modal', [
+        'booking' => $booking,
+        'requiresMandatoryNextFollowup' => $requiresMandatoryNextFollowup ?? $booking->requiresMandatoryNextFollowup(),
+        'followupScheduleMinAt' => $followupScheduleMinAt ?? now()->format('Y-m-d\TH:i'),
+        'redirectWebPage' => 'followups',
+    ])
 @endsection
 
 @push('script')
-    <script>
-        (function () {
-            function toggleTakeFollowupModal(followupId, status) {
-                var modal = document.getElementById('takeFollowupModal--' + followupId);
-                if (!modal) return;
-                var rescheduleWrap = document.getElementById('reschedule-fields-wrap--' + followupId);
-                var addAnotherWrap = document.getElementById('add-another-wrap--' + followupId);
-                var remarksInput = modal.querySelector('.remarks-input');
-                if (remarksInput) {
-                    if (status === 'completed') remarksInput.setAttribute('required', 'required');
-                    else remarksInput.removeAttribute('required');
-                }
-                if (rescheduleWrap) {
-                    var dateInput = rescheduleWrap.querySelector('.reschedule-date-input');
-                    var reasonInput = rescheduleWrap.querySelector('.reschedule-reason-input');
-                    if (status === 'rescheduled') {
-                        rescheduleWrap.style.display = 'block';
-                        if (dateInput) dateInput.setAttribute('required', 'required');
-                        if (reasonInput) reasonInput.setAttribute('required', 'required');
-                    } else {
-                        rescheduleWrap.style.display = 'none';
-                        if (dateInput) { dateInput.removeAttribute('required'); dateInput.value = ''; }
-                        if (reasonInput) { reasonInput.removeAttribute('required'); reasonInput.value = ''; }
-                    }
-                }
-                if (addAnotherWrap) {
-                    var mandatoryNext = addAnotherWrap.getAttribute('data-mandatory-next') === '1';
-                    addAnotherWrap.style.display = status === 'completed' ? 'block' : 'none';
-                    var checkbox = addAnotherWrap.querySelector('.add-another-checkbox');
-                    var fields = document.getElementById('add-another-fields--' + followupId);
-                    if (status === 'completed' && fields) {
-                        fields.style.display = mandatoryNext ? 'block' : 'none';
-                        var dateInput = fields.querySelector('.add-another-date-input');
-                        var forSelect = fields.querySelector('.add-another-for-select');
-                        if (mandatoryNext) {
-                            if (dateInput) dateInput.setAttribute('required', 'required');
-                            if (forSelect) forSelect.setAttribute('required', 'required');
-                        } else if (checkbox) {
-                            checkbox.checked = false;
-                            fields.querySelectorAll('input, select').forEach(function (el) { el.removeAttribute('required'); });
-                        }
-                    } else {
-                        if (checkbox) checkbox.checked = false;
-                        if (fields) {
-                            fields.style.display = 'none';
-                            fields.querySelectorAll('input, select').forEach(function (el) { el.removeAttribute('required'); });
-                        }
-                    }
-                }
-            }
-            document.querySelectorAll('.followup-status-select').forEach(function (select) {
-                select.addEventListener('change', function () {
-                    var modalId = this.getAttribute('data-modal-id');
-                    var followupId = modalId.replace('takeFollowupModal--', '');
-                    toggleTakeFollowupModal(followupId, this.value);
-                });
-            });
-            document.querySelectorAll('.add-another-checkbox').forEach(function (cb) {
-                cb.addEventListener('change', function () {
-                    var followupId = this.getAttribute('data-followup-id');
-                    var fields = document.getElementById('add-another-fields--' + followupId);
-                    if (!fields) return;
-                    if (this.checked) {
-                        fields.style.display = 'block';
-                        var dateInput = fields.querySelector('input[name="add_another_date"]');
-                        var forSelect = fields.querySelector('select[name="add_another_for"]');
-                        if (dateInput) dateInput.setAttribute('required', 'required');
-                        if (forSelect) forSelect.setAttribute('required', 'required');
-                    } else {
-                        fields.style.display = 'none';
-                        fields.querySelectorAll('input, select').forEach(function (el) { el.removeAttribute('required'); el.value = ''; });
-                    }
-                });
-            });
-            document.querySelectorAll('[id^="takeFollowupModal--"]').forEach(function (modal) {
-                if (!modal.id || !modal.id.startsWith('takeFollowupModal--')) return;
-                var followupId = modal.id.replace('takeFollowupModal--', '');
-                modal.addEventListener('show.bs.modal', function () {
-                    var select = modal.querySelector('.followup-status-select');
-                    if (select) toggleTakeFollowupModal(followupId, select.value);
-                });
-            });
-            document.querySelectorAll('form[id^="followup-update-form--"]').forEach(function (form) {
-                form.addEventListener('submit', function () {
-                    var status = form.querySelector('.followup-status-select');
-                    if (status && status.value === 'completed') {
-                        var remarks = form.querySelector('.remarks-input');
-                        if (remarks && !remarks.value.trim()) { remarks.focus(); return false; }
-                    }
-                    var addAnotherWrap = form.querySelector('.add-another-wrap');
-                    var mandatoryNext = addAnotherWrap && addAnotherWrap.getAttribute('data-mandatory-next') === '1';
-                    var addAnother = form.querySelector('.add-another-checkbox');
-                    if (status && status.value === 'completed' && (mandatoryNext || (addAnother && addAnother.checked))) {
-                        var dateInput = form.querySelector('input[name="add_another_date"]');
-                        var forSelect = form.querySelector('select[name="add_another_for"]');
-                        if (dateInput && !dateInput.value) { dateInput.focus(); return false; }
-                        if (forSelect && !forSelect.value) { forSelect.focus(); return false; }
-                    }
-                    return true;
-                });
-            });
-        })();
-    </script>
+    @include('bookingmodule::admin.booking.partials._booking-add-followup-scripts')
+    @include('bookingmodule::admin.booking.partials._booking-take-followup-scripts')
 @endpush

@@ -3,6 +3,7 @@
 @section('title', translate('Task_Board'))
 
 @push('css_or_js')
+    <link rel="stylesheet" href="{{ asset('assets/chatting-module/css/staff-chat-entity-badges.css') }}">
     <style>
         .staff-chat-entity-link { display: inline-flex; align-items: center; gap: .15rem; }
         .staff-chat-entity-type { font-size: .7rem; text-transform: uppercase; letter-spacing: .02em; }

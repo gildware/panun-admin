@@ -2,6 +2,12 @@
 
 @section('title', translate('Booking_List'))
 
+@push('css_or_js')
+    @include('bookingmodule::admin.booking.partials._booking-followup-styles')
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-list-compact.css') }}?v={{ filemtime(public_path('assets/admin-module/css/booking-list-compact.css')) }}">
+    @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')
+@endpush
+
 @section('content')
     @php
         $isCancelledByProviderList = request()->routeIs('admin.booking.list.cancelled_by_provider');
@@ -17,36 +23,50 @@
                 'provider_assigned' => $queryParams['provider_assigned'],
             ]));
     @endphp
-    <div class="filter-aside">
+    <div class="filter-aside filter-aside--booking-compact">
         <div class="filter-aside__header d-flex justify-content-between align-items-center">
-            <h3 class="filter-aside__title">{{ translate('Filter_your_Booking') }}</h3>
+            <h3 class="filter-aside__title mb-0">{{ translate('Filter_your_Booking') }}</h3>
             <button type="button" class="btn-close p-2 btn-close-white"></button>
         </div>
         <form action="{{ $bookingListFilterAction }}" method="POST"
-            enctype="multipart/form-data" id="filter-form">
+            enctype="multipart/form-data" id="filter-form" class="filter-aside__form">
             @csrf
             <div class="filter-aside__body d-flex flex-column">
-                <div class="filter-aside__date_range">
-                    <h4 class="fw-normal mb-4">{{ translate('Select_Date_Range') }}</h4>
-                    <div class="mb-30">
-                        <div class="form-floating">
-                            <input type="date" class="form-control" placeholder="{{ translate('start_date') }}"
+                <div class="filter-aside__section">
+                    <label class="filter-aside__section-label">{{ translate('Booked_Date_Range') }}</label>
+                    <div class="filter-aside__date-row">
+                        <div class="filter-aside__field">
+                            <label class="filter-aside__field-label" for="filter-booked-start-date">{{ translate('Start_Date') }}</label>
+                            <input type="date" id="filter-booked-start-date" class="form-control filter-aside__date-input"
                                 name="start_date" value="{{ $queryParams['start_date'] }}">
-                            <label for="floatingInput">{{ translate('Start_Date') }}</label>
                         </div>
-                    </div>
-                    <div class="fw-normal mb-30">
-                        <div class="form-floating">
-                            <input type="date" class="form-control" placeholder="{{ translate('end_date') }}"
+                        <div class="filter-aside__field">
+                            <label class="filter-aside__field-label" for="filter-booked-end-date">{{ translate('End_Date') }}</label>
+                            <input type="date" id="filter-booked-end-date" class="form-control filter-aside__date-input"
                                 name="end_date" value="{{ $queryParams['end_date'] }}">
-                            <label for="floatingInput">{{ translate('End_Date') }}</label>
                         </div>
                     </div>
                 </div>
 
-                <div class="filter-aside__category_select">
-                    <h4 class="fw-normal mb-2">{{ translate('Select_Categories') }}</h4>
-                    <div class="mb-30">
+                <div class="filter-aside__section">
+                    <label class="filter-aside__section-label">{{ translate('Scheduled_Date_Range') }}</label>
+                    <div class="filter-aside__date-row">
+                        <div class="filter-aside__field">
+                            <label class="filter-aside__field-label" for="filter-scheduled-start-date">{{ translate('Start_Date') }}</label>
+                            <input type="date" id="filter-scheduled-start-date" class="form-control filter-aside__date-input"
+                                name="schedule_start_date" value="{{ $queryParams['schedule_start_date'] }}">
+                        </div>
+                        <div class="filter-aside__field">
+                            <label class="filter-aside__field-label" for="filter-scheduled-end-date">{{ translate('End_Date') }}</label>
+                            <input type="date" id="filter-scheduled-end-date" class="form-control filter-aside__date-input"
+                                name="schedule_end_date" value="{{ $queryParams['schedule_end_date'] }}">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="filter-aside__section">
+                    <label class="filter-aside__section-label">{{ translate('Select_Categories') }}</label>
+                    <div class="filter-aside__field">
                         <select class="category-select theme-input-style w-100" name="category_ids[]" multiple="multiple"
                             id="category_selector__select">
                             <option value="all">{{ translate('Select All') }}</option>
@@ -59,9 +79,9 @@
                         </select>
                     </div>
                 </div>
-                <div class="filter-aside__category_select">
-                    <h4 class="fw-normal mb-2">{{ translate('Select_Sub_Categories') }}</h4>
-                    <div class="mb-30">
+                <div class="filter-aside__section">
+                    <label class="filter-aside__section-label">{{ translate('Select_Sub_Categories') }}</label>
+                    <div class="filter-aside__field">
                         <select class="subcategory-select theme-input-style w-100" name="sub_category_ids[]"
                             multiple="multiple" id="sub_category_selector__select">
                             <option value="all">{{ translate('Select All') }}</option>
@@ -74,9 +94,9 @@
                         </select>
                     </div>
                 </div>
-                <div class="filter-aside__zone_select">
-                    <h4 class="mb-2 fw-normal">{{ translate('Select_Zones') }}</h4>
-                    <div class="mb-30">
+                <div class="filter-aside__section">
+                    <label class="filter-aside__section-label">{{ translate('Select_Zones') }}</label>
+                    <div class="filter-aside__field">
                         <select class="zone-select theme-input-style w-100" name="zone_ids[]" multiple="multiple"
                             id="zone_selector__select">
                             <option value="all">{{ translate('Select All') }}</option>
@@ -89,9 +109,9 @@
                         </select>
                     </div>
                 </div>
-                <div class="filter-aside__assignee_select">
-                    <h4 class="mb-2 fw-normal">{{ translate('Select_Assignee') }}</h4>
-                    <div class="mb-30">
+                <div class="filter-aside__section">
+                    <label class="filter-aside__section-label">{{ translate('Select_Assignee') }}</label>
+                    <div class="filter-aside__field">
                         <select class="assignee-select theme-input-style w-100" name="assignee_ids[]" multiple="multiple"
                             id="assignee_selector__select">
                             <option value="all">{{ translate('Select All') }}</option>
@@ -111,12 +131,10 @@
                     </div>
                 </div>
             </div>
-            <div class="filter-aside__bottom_btns p-20">
-                <div class="d-flex justify-content-center gap-20">
-                    <button class="btn btn--secondary text-capitalize" id="reset-btn"
-                        type="reset">{{ translate('Clear_all_Filter') }}</button>
-                    <button class="btn btn--primary text-capitalize" type="submit">{{ translate('Filter') }}</button>
-                </div>
+            <div class="filter-aside__bottom_btns">
+                <button class="btn btn--secondary text-capitalize" id="reset-btn"
+                    type="reset">{{ translate('Clear_all_Filter') }}</button>
+                <button class="btn btn--primary text-capitalize" type="submit">{{ translate('Filter') }}</button>
             </div>
         </form>
     </div>
@@ -153,9 +171,26 @@
                             <h2 class="page-title">{{ translate('Booking_Requests') }}</h2>
                         @endif
 
-                        <div class="d-flex gap-2 fw-medium">
-                            <span class="opacity-75">{{ translate('Total_Request') }}:</span>
-                            <span class="title-color">{{ $bookings->total() }}</span>
+                        <div class="d-flex flex-wrap align-items-center gap-3 fw-medium">
+                            <div class="d-flex gap-2 align-items-center">
+                                <span class="opacity-75">{{ translate('Total_Request') }}:</span>
+                                <span class="title-color">{{ $bookings->total() }}</span>
+                            </div>
+                            @can('booking_export')
+                                <div class="dropdown">
+                                    <button type="button"
+                                        class="btn btn--secondary text-capitalize dropdown-toggle btn-sm h-45"
+                                        data-bs-toggle="dropdown">
+                                        <span class="material-icons">file_download</span>
+                                        {{ translate('download') }}
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
+                                        <li><a class="dropdown-item"
+                                                href="{{ route('admin.booking.download', $queryParams) }}">{{ translate('excel') }}</a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            @endcan
                         </div>
                     </div>
                     @if($isCancelledByProviderList)
@@ -184,150 +219,160 @@
                             'loss_settled',
                         ];
                         $bookingStatusExtraTabActive = in_array($bookingListTabStatus, $bookingStatusExtraTabs, true);
+                        $isStandardListMode = ! $isCancelledByProviderList && ! $isCancelledByCustomerList;
                     @endphp
-                    @unless($isCancelledByProviderList || $isCancelledByCustomerList)
-                    <div class="booking-status-tabs-wrap mt-30 mb-30">
-                        <ul class="nav nav--tabs nav--tabs__style2 nav--tabs__booking-tally flex-wrap gap-2 align-items-center" id="booking-status-tabs">
-                            <li class="nav-item">
-                                <a class="nav-link {{ $bookingListTabStatus === 'all' ? 'active' : '' }}"
+
+                    @if($isStandardListMode)
+                    <div class="booking-list-compact-tabs booking-status-tabs-wrap {{ $bookingStatusExtraTabActive ? 'is-expanded' : '' }}" id="tabs-wrap">
+                        <ul class="booking-list-tabs" id="booking-status-tabs">
+                            <li>
+                                <a class="booking-list-tab {{ $bookingListTabStatus === 'all' ? 'active' : '' }}"
+                                   data-status="all"
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'all'])) }}">
                                     {{ translate('All Booking') }}
                                     <span class="count">{{ $bookingTabCounts['all'] }}</span>
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{ $bookingListTabStatus === 'pending' ? 'active' : '' }}"
+                            <li>
+                                <a class="booking-list-tab {{ $bookingListTabStatus === 'pending' ? 'active' : '' }}"
+                                   data-status="pending"
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'pending'])) }}">
                                     {{ translate('Pending_Booking') }}
                                     <span class="count">{{ $bookingTabCounts['pending'] }}</span>
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{ $bookingListTabStatus === 'accepted' ? 'active' : '' }}"
+                            <li>
+                                <a class="booking-list-tab {{ $bookingListTabStatus === 'accepted' ? 'active' : '' }}"
+                                   data-status="accepted"
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'accepted'])) }}">
                                     {{ translate('Accepted') }}
                                     <span class="count">{{ $bookingTabCounts['accepted'] }}</span>
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{ $bookingListTabStatus === 'canceled' ? 'active' : '' }}"
+                            <li>
+                                <a class="booking-list-tab {{ $bookingListTabStatus === 'canceled' ? 'active' : '' }}"
+                                   data-status="canceled"
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'canceled'])) }}">
                                     {{ translate('Cancelled') }}
                                     <span class="count">{{ $bookingTabCounts['canceled'] }}</span>
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{ $bookingListTabStatus === 'ongoing' ? 'active' : '' }}"
+                            <li>
+                                <a class="booking-list-tab {{ $bookingListTabStatus === 'ongoing' ? 'active' : '' }}"
+                                   data-status="ongoing"
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'ongoing'])) }}">
                                     {{ translate('Ongoing') }}
                                     <span class="count">{{ $bookingTabCounts['ongoing'] }}</span>
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{ $bookingListTabStatus === 'completed' ? 'active' : '' }}"
+                            <li>
+                                <a class="booking-list-tab {{ $bookingListTabStatus === 'completed' ? 'active' : '' }}"
+                                   data-status="completed"
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'completed'])) }}">
                                     {{ translate('Completed') }}
                                     <span class="count">{{ $bookingTabCounts['completed'] }}</span>
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <button type="button"
-                                        class="nav-link booking-status-tabs-toggle border-0 bg-transparent d-inline-flex align-items-center gap-1"
-                                        aria-expanded="{{ $bookingStatusExtraTabActive ? 'true' : 'false' }}"
-                                        aria-controls="booking-status-tabs-extra">
-                                    <span class="toggle-state-more d-inline-flex align-items-center gap-1 {{ $bookingStatusExtraTabActive ? 'd-none' : '' }}">
-                                        <span>{{ translate('View more') }}</span>
-                                        <span class="material-icons">keyboard_arrow_down</span>
-                                    </span>
-                                    <span class="toggle-state-less d-inline-flex align-items-center gap-1 {{ $bookingStatusExtraTabActive ? '' : 'd-none' }}">
-                                        <span>{{ translate('Hide more') }}</span>
-                                        <span class="material-icons">keyboard_arrow_up</span>
-                                    </span>
-                                </button>
-                            </li>
-                        </ul>
-                        <ul class="nav nav--tabs nav--tabs__style2 nav--tabs__booking-tally flex-wrap gap-2 booking-status-tabs-extra-row mt-2 {{ $bookingStatusExtraTabActive ? '' : 'd-none' }}"
-                            id="booking-status-tabs-extra">
-                            <li class="nav-item">
-                                <a class="nav-link {{ $bookingListTabStatus === 'reopened' ? 'active' : '' }}"
+                            <li class="booking-status-tab-extra">
+                                <a class="booking-list-tab {{ $bookingListTabStatus === 'reopened' ? 'active' : '' }}"
+                                   data-status="reopened"
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'reopened'])) }}">
                                     {{ translate('Reopened') }}
                                     <span class="count">{{ $bookingTabCounts['reopened'] }}</span>
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{ $bookingListTabStatus === 'resolved' ? 'active' : '' }}"
+                            <li class="booking-status-tab-extra">
+                                <a class="booking-list-tab {{ $bookingListTabStatus === 'resolved' ? 'active' : '' }}"
+                                   data-status="resolved"
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'resolved'])) }}">
                                     {{ translate('Resolved') }}
                                     <span class="count">{{ $bookingTabCounts['resolved'] ?? 0 }}</span>
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{ $bookingListTabStatus === 'disputed_cancelled' ? 'active' : '' }}"
+                            <li class="booking-status-tab-extra">
+                                <a class="booking-list-tab {{ $bookingListTabStatus === 'disputed_cancelled' ? 'active' : '' }}"
+                                   data-status="disputed_cancelled"
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'disputed_cancelled'])) }}">
                                     {{ translate('Disputed_and_Cancelled') }}
                                     <span class="count">{{ $bookingTabCounts['disputed_cancelled'] ?? 0 }}</span>
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{ $bookingListTabStatus === 'disputed_completed' ? 'active' : '' }}"
+                            <li class="booking-status-tab-extra">
+                                <a class="booking-list-tab {{ $bookingListTabStatus === 'disputed_completed' ? 'active' : '' }}"
+                                   data-status="disputed_completed"
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'disputed_completed'])) }}">
                                     {{ translate('Disputed_and_Completed') }}
                                     <span class="count">{{ $bookingTabCounts['disputed_completed'] ?? 0 }}</span>
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{ $bookingListTabStatus === 'on_hold' ? 'active' : '' }}"
+                            <li class="booking-status-tab-extra">
+                                <a class="booking-list-tab {{ $bookingListTabStatus === 'on_hold' ? 'active' : '' }}"
+                                   data-status="on_hold"
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'on_hold'])) }}">
                                     {{ translate('On_hold') }}
                                     <span class="count">{{ $bookingTabCounts['on_hold'] }}</span>
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{ $bookingListTabStatus === 'hold_after_visit' ? 'active' : '' }}"
+                            <li class="booking-status-tab-extra">
+                                <a class="booking-list-tab {{ $bookingListTabStatus === 'hold_after_visit' ? 'active' : '' }}"
+                                   data-status="hold_after_visit"
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'hold_after_visit'])) }}">
                                     {{ translate('Hold_after_visit') }}
                                     <span class="count">{{ $bookingTabCounts['hold_after_visit'] ?? 0 }}</span>
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{ $bookingListTabStatus === 'completed_no_or_little' ? 'active' : '' }}"
+                            <li class="booking-status-tab-extra">
+                                <a class="booking-list-tab {{ $bookingListTabStatus === 'completed_no_or_little' ? 'active' : '' }}"
+                                   data-status="completed_no_or_little"
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'completed_no_or_little'])) }}">
                                     {{ translate('Booking_tag_complete_no_service') }}
                                     <span class="count">{{ $bookingTabCounts['completed_no_or_little'] ?? 0 }}</span>
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{ $bookingListTabStatus === 'cancelled_after_visit' ? 'active' : '' }}"
+                            <li class="booking-status-tab-extra">
+                                <a class="booking-list-tab {{ $bookingListTabStatus === 'cancelled_after_visit' ? 'active' : '' }}"
+                                   data-status="cancelled_after_visit"
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'cancelled_after_visit'])) }}">
                                     {{ translate('Booking_tag_cancel_after_visit') }}
                                     <span class="count">{{ $bookingTabCounts['cancelled_after_visit'] ?? 0 }}</span>
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{ in_array($bookingListTabStatus, ['loss_making_pending', 'loss_making'], true) ? 'active' : '' }}"
+                            <li class="booking-status-tab-extra">
+                                <a class="booking-list-tab {{ in_array($bookingListTabStatus, ['loss_making_pending', 'loss_making'], true) ? 'active' : '' }}"
+                                   data-status="loss_making_pending"
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'loss_making_pending'])) }}">
                                     {{ translate('Bfs_list_badge_loss_making') }}
                                     <span class="count">{{ $bookingTabCounts['loss_making_pending'] ?? 0 }}</span>
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{ $bookingListTabStatus === 'loss_recovered' ? 'active' : '' }}"
+                            <li class="booking-status-tab-extra">
+                                <a class="booking-list-tab {{ $bookingListTabStatus === 'loss_recovered' ? 'active' : '' }}"
+                                   data-status="loss_recovered"
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'loss_recovered'])) }}">
                                     {{ translate('Bfs_list_badge_loss_recovered') }}
                                     <span class="count">{{ $bookingTabCounts['loss_recovered'] ?? 0 }}</span>
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{ $bookingListTabStatus === 'loss_settled' ? 'active' : '' }}"
+                            <li class="booking-status-tab-extra">
+                                <a class="booking-list-tab {{ $bookingListTabStatus === 'loss_settled' ? 'active' : '' }}"
+                                   data-status="loss_settled"
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'loss_settled'])) }}">
                                     {{ translate('Settled') }}
                                     <span class="count">{{ $bookingTabCounts['loss_settled'] ?? 0 }}</span>
                                 </a>
                             </li>
+                            <li>
+                                <button type="button"
+                                        class="booking-list-tab booking-status-tabs-toggle"
+                                        aria-expanded="{{ $bookingStatusExtraTabActive ? 'true' : 'false' }}"
+                                        aria-controls="booking-status-tabs-extra">
+                                    <span class="toggle-state-more {{ $bookingStatusExtraTabActive ? 'd-none' : '' }}">{{ translate('View more') }} ▼</span>
+                                    <span class="toggle-state-less {{ $bookingStatusExtraTabActive ? '' : 'd-none' }}">{{ translate('Hide more') }} ▲</span>
+                                </button>
+                            </li>
                         </ul>
                     </div>
-                    @endunless
+                    @endif
 
                     <div class="card">
                         <div class="card-body">
@@ -335,44 +380,31 @@
 
                                 <form
                                     action="{{ $bookingListFilterAction }}"
-                                    class="search-form search-form_style-two" method="POST">
+                                    id="booking-list-search-form"
+                                    class="search-form search-form_style-two booking-list-search-form" method="POST">
                                     @csrf
+                                    @foreach (['start_date', 'end_date', 'schedule_start_date', 'schedule_end_date'] as $dateParam)
+                                        @if(!empty($queryParams[$dateParam]))
+                                            <input type="hidden" name="{{ $dateParam }}" value="{{ $queryParams[$dateParam] }}">
+                                        @endif
+                                    @endforeach
+                                    @foreach (['category_ids', 'sub_category_ids', 'zone_ids', 'assignee_ids'] as $arrayParam)
+                                        @foreach ($queryParams[$arrayParam] ?? [] as $selectedId)
+                                            <input type="hidden" name="{{ $arrayParam }}[]" value="{{ $selectedId }}">
+                                        @endforeach
+                                    @endforeach
                                     <div class="input-group search-form__input_group">
                                         <span class="search-form__icon">
                                             <span class="material-icons">search</span>
                                         </span>
-                                        <input type="search" class="theme-input-style search-form__input"
+                                        <input type="search" id="booking-list-search-input"
+                                            class="theme-input-style search-form__input"
                                             value="{{ $queryParams['search'] ?? '' }}" name="search"
-                                            placeholder="{{ translate('search_here') }}">
+                                            placeholder="{{ translate('Search_admin_booking_list') }}"
+                                            autocomplete="off">
                                     </div>
-                                    <button type="submit"
-                                        class="btn btn--primary">{{ translate('search') }}</button>
                                 </form>
                                 <div class="d-flex flex-wrap align-items-center gap-3">
-                                    @if(!$isCancelledByProviderList && request()->booking_status != 'ongoing' && request()->booking_status != 'on_hold' && request()->booking_status != 'accepted' && request()->booking_status != 'completed')
-                                        <div class="">
-                                            <select class="custom-select form-select min-w-120" name="provider_assigned" id="providerAssigned">
-                                                <option value="all" {{ request('provider_assigned') == 'all' ? 'selected' : '' }}>{{ translate('All Booking') }}</option>
-                                                <option value="assigned" {{ request('provider_assigned') == 'assigned' ? 'selected' : '' }}>{{ translate('Assigned') }}</option>
-                                                <option value="unassigned" {{ request('provider_assigned') == 'unassigned' ? 'selected' : '' }}>{{ translate('Unassigned') }}</option>
-                                            </select>
-                                        </div>
-                                    @endif
-                                    @can('booking_export')
-                                        <div class="dropdown">
-                                            <button type="button"
-                                                class="btn btn--secondary text-capitalize dropdown-toggle h-45"
-                                                data-bs-toggle="dropdown">
-                                                <span class="material-icons">file_download</span>
-                                                {{ translate('download') }}
-                                            </button>
-                                            <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
-                                                <li><a class="dropdown-item"
-                                                        href="{{ route('admin.booking.download', $queryParams) }}">{{ translate('excel') }}</a>
-                                                </li>
-                                            </ul>
-                                        </div>
-                                    @endcan
                                     <button type="button" class="btn text-capitalize filter-btn border px-3">
                                         <span class="material-icons">filter_list</span> {{ translate('Filter') }}
                                         <span class="count">{{ $filterCounter ?? 0 }}</span>
@@ -380,444 +412,29 @@
                                 </div>
                             </div>
 
-                            <div class="table-responsive">
-                                <table id="example" class="table align-middle tr-hover">
-                                    <thead class="text-nowrap">
-                                        <tr>
-                                            <th>{{ translate('SL') }}</th>
-                                            <th>{{ translate('Booking_ID') }}</th>
-                                            <th>{{ translate('Booking_Status') }}</th>
-                                            <th>{{ translate('Tag') }}</th>
-                                            <th>{{ translate('Booking_Date') }}</th>
-                                            <th>{{ translate('Schedule_Date') }}</th>
-                                            <th>{{ translate('Customer_Info') }}</th>
-                                            <th>{{ translate('Provider_Info') }}</th>
-                                            <th>{{ translate('Total_Amount') }}</th>
-                                            <th>{{ translate('Payment_Status') }}</th>
-                                            @if($isCancelledByProviderList)
-                                                <th>{{ translate('Cancellation_requested_at') }}</th>
-                                            @endif
-                                            @php $bookingListReasonTab = $queryParams['booking_status'] ?? ''; @endphp
-                                            @if($bookingListReasonTab === 'canceled')
-                                                <th>{{ translate('Booking_list_reason_remarks_column') }}</th>
-                                            @elseif($isCancelledByProviderList)
-                                                <th>{{ translate('Booking_list_reason_remarks_column') }}</th>
-                                            @elseif($bookingListReasonTab === 'on_hold')
-                                                <th>{{ translate('Booking_list_reason_remarks_column') }}</th>
-                                            @elseif($bookingListReasonTab === 'reopened')
-                                                <th>{{ translate('Booking_list_reason_remarks_column') }}</th>
-                                            @endif
-                                            @if(request('booking_status') === 'reopened')
-                                                <th>{{ translate('Reopened_from') }}</th>
-                                            @else
-                                                <th>{{ translate('Lead_ID') }}</th>
-                                            @endif
-                                            <th>{{ translate('Assignee') }}</th>
-                                            <th>{{ translate('Fup_Customer') }}</th>
-                                            <th>{{ translate('Fup_Provider') }}</th>
-                                            <th>{{ translate('Source') }}</th>
-                                            <th>{{ translate('Action') }}</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @forelse ($bookings as $key => $booking)
-                                            <tr>
-                                                <td
-                                                    @if($booking->is_repeated)
-                                                        data-bs-custom-class="review-tooltip custom"
-                                                        data-bs-toggle="tooltip"
-                                                        data-bs-html="true"
-                                                        data-bs-placement="bottom"
-                                                        data-bs-title="{{ translate('This is a repeat booking.') }} <br> {{ translate('Customer has requested total ')}} {{count($booking->repeat)}}<br> {{ translate('bookings under this Bookings.') }} <br> {{ translate('Check the details') }}"
-                                                    @endif
-                                                >{{ $key + $bookings?->firstItem() }}</td>
-                                                <td
-                                                    @if($booking->is_repeated)
-                                                        data-bs-custom-class="review-tooltip custom"
-                                                        data-bs-toggle="tooltip"
-                                                        data-bs-html="true"
-                                                        data-bs-placement="bottom"
-                                                        data-bs-title="{{ translate('This is a repeat booking.') }} <br> {{ translate('Customer has requested total ')}} {{count($booking->repeat)}}<br> {{ translate('bookings under this Bookings.') }} <br> {{ translate('Check the details') }}"
-                                                    @endif
-                                                >
-                                                    @if($booking->is_repeated)
-                                                        <a href="{{ route('admin.booking.repeat_details', [$booking->id, 'web_page' => 'details']) }}">
-                                                            {{ $booking->readable_id }}
-                                                        </a>
-                                                        <img width="34" height="34"
-                                                             src="{{ asset('assets/admin-module/img/icons/repeat.svg') }}"
-                                                             class="rounded-circle repeat-icon"
-                                                             alt="{{ translate('repeat') }}">
-                                                    @else
-                                                    <a href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'details']) }}">
-                                                        {{ $booking->readable_id }}</a>
-                                                    @endif
-                                                </td>
-                                                <td>
-                                                    @include('bookingmodule::admin.booking.partials._booking-list-status-badge', ['booking' => $booking])
-                                                </td>
-                                                <td class="text-nowrap">
-                                                    @include('bookingmodule::admin.booking.partials._booking-list-tags-cell', ['booking' => $booking])
-                                                </td>
-                                                <td
-                                                    @if($booking->is_repeated)
-                                                        data-bs-custom-class="review-tooltip custom"
-                                                        data-bs-toggle="tooltip"
-                                                        data-bs-html="true"
-                                                        data-bs-placement="bottom"
-                                                        data-bs-title="{{ translate('This is a repeat booking.') }} <br> {{ translate('Customer has requested total ')}} {{count($booking->repeat)}}<br> {{ translate('bookings under this Bookings.') }} <br> {{ translate('Check the details') }}"
-                                                    @endif
-                                                >
-                                                    <div>{{ date('d-M-Y', strtotime($booking->created_at)) }}</div>
-                                                    <div>{{ date('h:ia', strtotime($booking->created_at)) }}</div>
-                                                </td>
-                                                <td
-                                                    @if($booking->is_repeated)
-                                                        data-bs-custom-class="review-tooltip custom"
-                                                        data-bs-toggle="tooltip"
-                                                        data-bs-html="true"
-                                                        data-bs-placement="bottom"
-                                                        data-bs-title="{{ translate('This is a repeat booking.') }} <br> {{ translate('Customer has requested total ')}} {{count($booking->repeat)}}<br> {{ translate('bookings under this Bookings.') }} <br> {{ translate('Check the details') }}"
-                                                    @endif
-                                                >
-                                                    @if($booking->is_repeated)
-                                                        @if(empty($booking->nextService))
-                                                            <div>{{ date('d-M-Y', strtotime($booking?->lastRepeat?->service_schedule)) }}</div>
-                                                            <div>{{ date('h:ia', strtotime($booking?->lastRepeat?->service_schedule)) }}</div>
-                                                        @else
-                                                            <span>{{translate('Next upcoming')}}</span>
-                                                            <div>{{ date('d-M-Y', strtotime($booking?->nextService?->service_schedule)) }}</div>
-                                                            <div>{{ date('h:ia', strtotime($booking?->nextService?->service_schedule)) }}</div>
-                                                        @endif
-                                                    @else
-                                                        <div>{{ date('d-M-Y', strtotime($booking->service_schedule)) }}</div>
-                                                        <div>{{ date('h:ia', strtotime($booking->service_schedule)) }}</div>
-                                                    @endif
-                                                </td>
-                                                <td
-                                                    @if($booking->is_repeated)
-                                                        data-bs-custom-class="review-tooltip custom"
-                                                        data-bs-toggle="tooltip"
-                                                        data-bs-html="true"
-                                                        data-bs-placement="bottom"
-                                                        data-bs-title="{{ translate('This is a repeat booking.') }} <br> {{ translate('Customer has requested total ')}} {{count($booking->repeat)}}<br> {{ translate('bookings under this Bookings.') }} <br> {{ translate('Check the details') }}"
-                                                    @endif
-                                                >
-                                                    <div>
-                                                        @if ($booking->customer)
-                                                            <a
-                                                                href="{{ route('admin.customer.detail', [$booking?->customer?->id, 'web_page' => 'overview']) }}">
-                                                                @php
-                                                                    $fullName =
-                                                                        ($booking?->customer?->first_name ?? '') .
-                                                                        ' ' .
-                                                                        ($booking?->customer?->last_name ?? '');
-                                                                    $limitedFullName = Str::limit($fullName, 30);
-                                                                @endphp
-
-                                                                {{ $limitedFullName }}
-                                                            </a>
-                                                        @else
-                                                            <span>
-                                                                {{ Str::limit($booking?->service_address?->contact_person_name, 30) }}
-                                                            </span>
-                                                        @endif
-                                                    </div>
-                                                    {{ $booking->customer ? $booking?->customer?->phone : $booking?->service_address?->contact_person_number }}
-                                                </td>
-                                                <td
-                                                    @if($booking->is_repeated)
-                                                        data-bs-custom-class="review-tooltip custom"
-                                                        data-bs-toggle="tooltip"
-                                                        data-bs-html="true"
-                                                        data-bs-placement="bottom"
-                                                        data-bs-title="{{ translate('This is a repeat booking.') }} <br> {{ translate('Customer has requested total ')}} {{count($booking->repeat)}}<br> {{ translate('bookings under this Bookings.') }} <br> {{ translate('Check the details') }}"
-                                                    @endif
-                                                >
-                                                    @if(isset($booking->provider))
-                                                        <div>
-                                                            <a href="{{route('admin.provider.details',[$booking->provider_id, 'web_page'=>'overview'])}}">{{ $booking->provider->company_name }}</a>
-                                                        </div>
-                                                        <span class="text-light-gray">{{ $booking->provider->company_phone }}</span>
-                                                    @elseif($isCancelledByProviderList && $booking->providerCancelledByProvider)
-                                                        <div class="text-muted small mb-1">{{ $booking->isProviderRejectedPendingBooking() ? translate('Provider_rejected_request') : translate('Withdrawn_provider') }}</div>
-                                                        <div>
-                                                            <a href="{{route('admin.provider.details',[$booking->provider_cancelled_by_provider_id, 'web_page'=>'overview'])}}">{{ $booking->providerCancelledByProvider->company_name }}</a>
-                                                        </div>
-                                                        <span class="text-light-gray">{{ $booking->providerCancelledByProvider->company_phone }}</span>
-                                                    @else
-                                                        <span class="badge badge badge-danger radius-50">
-                                                            {{ translate('unassigned') }}
-                                                        </span>
-                                                    @endif
-                                                </td>
-                                                <td
-                                                    @if($booking->is_repeated)
-                                                        data-bs-custom-class="review-tooltip custom"
-                                                        data-bs-toggle="tooltip"
-                                                        data-bs-html="true"
-                                                        data-bs-placement="bottom"
-                                                        data-bs-title="{{ translate('This is a repeat booking.') }} <br> {{ translate('Customer has requested total ')}} {{count($booking->repeat)}}<br> {{ translate('bookings under this Bookings.') }} <br> {{ translate('Check the details') }}"
-                                                    @endif
-                                                >{{ with_currency_symbol(get_booking_total_amount($booking)) }}</td>
-                                                <td
-                                                    @if($booking->is_repeated)
-                                                        data-bs-custom-class="review-tooltip"
-                                                        data-bs-toggle="tooltip"
-                                                        data-bs-html="true"
-                                                        data-bs-placement="bottom"
-                                                        data-bs-title="{{ translate('This is a repeat booking.') }} <br> {{ translate('Customer has requested total ')}} {{count($booking->repeat)}}<br> {{ translate('bookings under this Bookings.') }} <br> {{ translate('Check the details') }}"
-                                                    @endif
-                                                >
-                                                    <span
-                                                        class="badge badge badge-{{ $booking->is_paid ? 'success' : 'danger' }} radius-50">
-                                                        <span class="dot"></span>
-                                                        {{ $booking->is_paid ? translate('paid') : translate('unpaid') }}
-                                                    </span>
-                                                </td>
-                                                @if($isCancelledByProviderList)
-                                                    <td class="small text-nowrap">
-                                                        @if($booking->isProviderWithdrawnAwaitingAdmin())
-                                                            <span class="badge badge-warning text-dark mb-1">{{ translate('Provider_withdrew_or_rejected') }}</span>
-                                                            <div>{{ \Carbon\Carbon::parse($booking->provider_cancelled_at ?? $booking->updated_at)->format('d-M-Y h:i A') }}</div>
-                                                        @else
-                                                            —
-                                                        @endif
-                                                    </td>
-                                                @endif
-                                                @if($bookingListReasonTab === 'canceled')
-                                                    @php $__lc = $booking->latestParentCancellationStatusHistory; @endphp
-                                                    <td class="small text-break">
-                                                        @if($__lc && ($__lc->cancellationReason || filled($__lc->status_change_remarks)))
-                                                            @if($__lc->cancellationReason)
-                                                                <div class="fw-semibold">{{ $__lc->cancellationReason->name }}</div>
-                                                            @endif
-                                                            @if(filled($__lc->status_change_remarks))
-                                                                <div class="text-muted mt-1">{{ Str::limit(strip_tags($__lc->status_change_remarks), 200) }}</div>
-                                                            @endif
-                                                        @else
-                                                            —
-                                                        @endif
-                                                    </td>
-                                                @elseif($isCancelledByProviderList)
-                                                    @php
-                                                        $__lpc = $booking->latestPendingCancellationRequestHistory
-                                                            ?? $booking->latestParentProviderCancellationStatusHistory
-                                                            ?? $booking->latestProviderRejectionHistory;
-                                                    @endphp
-                                                    <td class="small text-break">
-                                                        @if($__lpc && ($__lpc->providerCancellationReason || filled($__lpc->status_change_remarks)))
-                                                            @if($__lpc->providerCancellationReason)
-                                                                <div class="fw-semibold">{{ $__lpc->providerCancellationReason->name }}</div>
-                                                            @endif
-                                                            @if(filled($__lpc->status_change_remarks))
-                                                                <div class="text-muted mt-1">{{ Str::limit(strip_tags($__lpc->status_change_remarks), 200) }}</div>
-                                                            @endif
-                                                        @else
-                                                            —
-                                                        @endif
-                                                    </td>
-                                                @elseif($bookingListReasonTab === 'on_hold')
-                                                    @php $__lh = $booking->latestParentHoldStatusHistory; @endphp
-                                                    <td class="small text-break">
-                                                        @if($__lh && ($__lh->holdReopenReason || filled($__lh->status_change_remarks)))
-                                                            @if($__lh->holdReopenReason)
-                                                                <div class="fw-semibold">{{ $__lh->holdReopenReason->name }}</div>
-                                                            @endif
-                                                            @if(filled($__lh->status_change_remarks))
-                                                                <div class="text-muted mt-1">{{ Str::limit(strip_tags($__lh->status_change_remarks), 200) }}</div>
-                                                            @endif
-                                                        @else
-                                                            —
-                                                        @endif
-                                                    </td>
-                                                @elseif($bookingListReasonTab === 'reopened')
-                                                    @php $__rev = $booking->reopenFromCompletedDisplayEvent(); @endphp
-                                                    <td class="small text-break">
-                                                        @if($__rev && ($__rev->holdReopenReason || filled($__rev->complaint_notes)))
-                                                            @if($__rev->holdReopenReason)
-                                                                <div class="fw-semibold">{{ $__rev->holdReopenReason->name }}</div>
-                                                            @endif
-                                                            @if(filled($__rev->complaint_notes))
-                                                                <div class="text-muted mt-1">{{ Str::limit(strip_tags($__rev->complaint_notes), 200) }}</div>
-                                                            @endif
-                                                        @else
-                                                            —
-                                                        @endif
-                                                    </td>
-                                                @endif
-                                                @if(request('booking_status') === 'reopened')
-                                                    <td>
-                                                        @if($booking->isReopenOriginatedFollowup())
-                                                            @php
-                                                                $reopenParent = $booking->originatedFromBooking;
-                                                            @endphp
-                                                            @if($reopenParent)
-                                                                <a href="{{ route('admin.booking.details', [$reopenParent->id, 'web_page' => 'details']) }}">
-                                                                    #{{ $reopenParent->readable_id ?? $booking->originated_from_booking_id }}
-                                                                </a>
-                                                            @else
-                                                                <span class="text-muted">{{ $booking->originated_from_booking_id }}</span>
-                                                            @endif
-                                                        @else
-                                                            <span class="text-muted">{{ translate('Reopened_from_self') }}</span>
-                                                        @endif
-                                                    </td>
-                                                @else
-                                                    <td>
-                                                        @if(!empty($booking->lead_id))
-                                                            <a href="{{ route('admin.lead.show', $booking->lead_id) }}">
-                                                                #{{ $booking->lead_id }}
-                                                            </a>
-                                                        @else
-                                                            —
-                                                        @endif
-                                                    </td>
-                                                @endif
-                                                <td>
-                                                    @if($booking->assignee)
-                                                        <div>{{ $booking->assignee->first_name }} {{ $booking->assignee->last_name }}</div>
-                                                        <div class="text-muted small">
-                                                            {{ $booking->assignee->user_type === 'super-admin' ? translate('Admin') : translate('Employee') }}
-                                                            @if($booking->assignee->email)
-                                                                — {{ $booking->assignee->email }}
-                                                            @elseif($booking->assignee->phone)
-                                                                — {{ $booking->assignee->phone }}
-                                                            @endif
-                                                        </div>
-                                                    @else
-                                                        <span class="text-muted small">{{ translate('Unassigned') }}</span>
-                                                    @endif
-                                                </td>
-                                                @php
-                                                    $scheduled = ($booking->followups ?? collect())->where('status', 'scheduled')->sortBy('date');
-                                                    $nextFuCustomer = $scheduled->where('for', 'customer')->first();
-                                                    $nextFuProvider = $scheduled->where('for', 'provider')->first();
-                                                @endphp
-                                                <td>{{ $nextFuCustomer && $nextFuCustomer->date ? \Carbon\Carbon::parse($nextFuCustomer->date)->format('d-M-Y') : '—' }}</td>
-                                                <td>{{ $nextFuProvider && $nextFuProvider->date ? \Carbon\Carbon::parse($nextFuProvider->date)->format('d-M-Y') : '—' }}</td>
-                                                <td>
-                                                    @switch(strtolower((string)($booking->booking_source ?? 'app')))
-                                                        @case('app'){{ translate('App') }}@break
-                                                        @case('call'){{ translate('Call') }}@break
-                                                        @case('whatsapp'){{ translate('Whatsapp') }}@break
-                                                        @case('social_media'){{ translate('Social_Media') }}@break
-                                                        @default{{ ucfirst(strtolower((string)($booking->booking_source ?? 'app'))) }}
-                                                    @endswitch
-                                                </td>
-                                                <td>
-                                                    <div class="table-actions d-flex gap-2">
-                                                        @if($booking->is_repeated)
-                                                            <div class="dropdown">
-                                                                <button type="button"
-                                                                        class="action-btn btn--light-primary fw-medium text-capitalize fz-14"
-                                                                        style="--size: 30px" data-bs-toggle="dropdown">
-                                                                    <span class="material-icons">visibility</span>
-                                                                </button>
-                                                                <ul
-                                                                    class="dropdown-menu border-none dropdown-menu-lg dropdown-menu-right">
-                                                                    <li class="mx-2"><a
-                                                                            class="dropdown-item d-flex align-items-center gap-1"
-                                                                            href="{{ route('admin.booking.repeat_details', [$booking->id, 'web_page' => 'details']) }}">
-                                                                                <span
-                                                                                    class="material-icons">visibility</span>
-                                                                            {{ translate('Full_Booking_Details') }}
-                                                                        </a>
-                                                                    </li>
-                                                                    @if($booking->nextServiceId && $booking['booking_status'] != 'pending')
-                                                                    <li class="mx-2"><a
-                                                                            class="dropdown-item d-flex align-items-center gap-1"
-                                                                            href="{{ route('admin.booking.repeat_single_details', [$booking->nextServiceId, 'web_page' => 'details'])}}">
-                                                                                <span
-                                                                                    class="material-icons">visibility</span>
-                                                                            {{ translate('Ongoing_Booking_Details') }}
-                                                                        </a>
-                                                                    </li>
-                                                                    @endif
-                                                                </ul>
-                                                            </div>
-                                                            <div class="dropdown">
-                                                                <button type="button"
-                                                                        class="action-btn btn--light-primary fw-medium text-capitalize fz-14"
-                                                                        style="--size: 30px" data-bs-toggle="dropdown">
-                                                                    <span class="material-icons">download</span>
-                                                                </button>
-                                                                <ul
-                                                                    class="dropdown-menu border-none dropdown-menu-lg dropdown-menu-right">
-                                                                    <li class="mx-2"><a
-                                                                            class="dropdown-item d-flex align-items-center gap-1"
-                                                                            target="_blank"
-                                                                            href="{{ route('admin.booking.full_repeat_invoice', [$booking->id]) }}">
-                                                                                <span
-                                                                                    class="material-icons">download</span>
-                                                                            {{ translate('Full invoice') }}
-                                                                        </a>
-                                                                    </li>
-                                                                    @if($booking->nextServiceId && $booking['booking_status'] != 'pending')
-                                                                        <li class="mx-2">
-                                                                            <a
-                                                                                class="dropdown-item d-flex align-items-center gap-1"
-                                                                                target="_blank"
-                                                                                href="{{ route('admin.booking.single_invoice', [$booking->nextServiceId]) }}">
-                                                                                    <span
-                                                                                        class="material-icons">download</span>
-                                                                                {{ translate('Ongoing Booking invoice') }}
-                                                                            </a>
-                                                                        </li>
-                                                                    @endif
-                                                                </ul>
-                                                            </div>
-                                                        @else
-                                                            <a href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'details']) }}"
-                                                                type="button"
-                                                                class="action-btn tooltip-hide btn--light-primary fw-medium text-capitalize fz-14"
-                                                                style="--size: 30px">
-                                                                <span class="material-icons">visibility</span>
-                                                            </a>
-                                                            @if($isCancelledByProviderList)
-                                                                <a href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'details']) }}"
-                                                                   type="button"
-                                                                   class="action-btn tooltip-hide btn--warning fw-medium text-capitalize fz-14"
-                                                                   style="--size: 30px"
-                                                                   title="{{ translate('Review_cancellation_request') }}">
-                                                                    <span class="material-icons">gavel</span>
-                                                                </a>
-                                                            @endif
-                                                            <a href="{{ route('admin.booking.invoice', [$booking->id]) }}"
-                                                                type="button" target="_blank"
-                                                                class="action-btn tooltip-hide btn--light-primary fw-medium text-capitalize fz-14"
-                                                                style="--size: 30px">
-                                                                <span class="material-icons">download</span>
-                                                            </a>
-                                                            @can('booking_can_manage_status')
-                                                                @if(request('booking_status') === 'reopened' && $booking->canMarkReopenResolved())
-                                                                    <button type="button" class="action-btn btn-success fw-medium text-capitalize fz-14" style="--size: 30px"
-                                                                        title="{{ translate('Mark_reopen_resolved') }}"
-                                                                        data-bs-toggle="modal" data-bs-target="#reopenResolveModalGlobal"
-                                                                        data-resolve-action="{{ route('admin.booking.reopen-resolve', $booking->id) }}">
-                                                                        <span class="material-icons">check_circle</span>
-                                                                    </button>
-                                                                @endif
-                                                            @endcan
-                                                        @endif
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        @empty
-                                            <tr class="text-center">
-                                                <td colspan="99">
-                                                    @if($isCancelledByProviderList)
-                                                        {{ translate('Cancelled_by_provider_list_empty') }}
-                                                    @elseif($isCancelledByCustomerList)
-                                                        {{ translate('Cancelled_by_customer_list_empty') }}
-                                                    @else
-                                                        {{ translate('no data available') }}
-                                                    @endif
-                                                </td>
-                                            </tr>
-                                        @endforelse
-                                    </tbody>
-                                </table>
+                            @php $bookingListReasonTab = $queryParams['booking_status'] ?? ''; @endphp
+                            <div class="booking-compact-list">
+                                @forelse ($bookings as $key => $booking)
+                                    @include('bookingmodule::admin.booking.partials._booking-list-compact-card', [
+                                        'booking' => $booking,
+                                        'index' => $key + $bookings->firstItem(),
+                                        'isCancelledByProviderList' => $isCancelledByProviderList,
+                                        'isCancelledByCustomerList' => $isCancelledByCustomerList,
+                                        'bookingListReasonTab' => $bookingListReasonTab,
+                                        'queryParams' => $queryParams,
+                                        'followupListMeta' => $followupListMeta ?? [],
+                                    ])
+                                @empty
+                                    <div class="text-center py-5 text-muted">
+                                        @if($isCancelledByProviderList)
+                                            {{ translate('Cancelled_by_provider_list_empty') }}
+                                        @elseif($isCancelledByCustomerList)
+                                            {{ translate('Cancelled_by_customer_list_empty') }}
+                                        @else
+                                            {{ translate('no data available') }}
+                                        @endif
+                                    </div>
+                                @endforelse
                             </div>
                             <div class="d-flex justify-content-end">
                                 {!! $bookings->links() !!}
@@ -844,15 +461,6 @@
         .booking-status-tabs-toggle {
             cursor: pointer;
             white-space: nowrap;
-        }
-
-        .booking-status-tabs-toggle .material-icons {
-            font-size: 1.25rem;
-            line-height: 1;
-        }
-
-        .booking-status-tabs-extra-row {
-            width: 100%;
         }
     </style>
 @endpush
@@ -907,37 +515,6 @@
                 placeholder: "{{ translate('Select_Assignee') }}"
             });
 
-            $('#providerAssigned').change(function() {
-                var bookingStatus = '{{ $isCancelledByProviderList ? 'all' : ($queryParams['booking_status'] ?? 'all') }}';
-                var serviceType = 'all';
-
-                @if(isset($queryParams['search']))
-                var search = '{{ $queryParams['search'] }}';
-                @endif
-
-                var providerAssigned = $(this).val();
-
-                var baseUrl = '{{ $isCancelledByProviderList ? route('admin.booking.list.cancelled_by_provider') : route('admin.booking.list') }}';
-
-                var params = new URLSearchParams({
-                    provider_assigned: providerAssigned,
-                    service_type: serviceType,
-                    @if(isset($queryParams['search']))
-                    search: search,
-                    @endif
-                });
-
-                if (!{{ $isCancelledByProviderList ? 'true' : 'false' }}) {
-                    params.set('booking_status', bookingStatus);
-                }
-
-                var urlWithParams = baseUrl + '?' + params.toString();
-                window.location.href = urlWithParams;
-            });
-
-
-
-
         })(jQuery);
     </script>
 
@@ -976,9 +553,9 @@
                 return document;
             }
 
-            function setExtraTabsExpanded(toggleBtn, extraRow, expanded) {
-                if (extraRow) {
-                    extraRow.classList.toggle('d-none', !expanded);
+            function setExtraTabsExpanded(toggleBtn, tabsWrap, expanded) {
+                if (tabsWrap) {
+                    tabsWrap.classList.toggle('is-expanded', expanded);
                 }
 
                 var stateMore = toggleBtn.querySelector('.toggle-state-more');
@@ -999,21 +576,21 @@
             function initBookingStatusTabsToggle(root) {
                 root = getBookingStatusTabsRoot(root);
                 var toggleBtn = root.querySelector('.booking-status-tabs-toggle');
-                var extraRow = root.querySelector('.booking-status-tabs-extra-row');
-                if (!toggleBtn || !extraRow || toggleBtn.dataset.tabsToggleInit === '1') {
+                var tabsWrap = root.querySelector('.booking-status-tabs-wrap');
+                if (!toggleBtn || !tabsWrap || toggleBtn.dataset.tabsToggleInit === '1') {
                     return;
                 }
 
                 toggleBtn.dataset.tabsToggleInit = '1';
 
-                var initiallyExpanded = extraRow.classList.contains('d-none') === false;
+                var initiallyExpanded = tabsWrap.classList.contains('is-expanded');
                 if (!initiallyExpanded) {
                     try {
                         initiallyExpanded = localStorage.getItem(storageKey) === '1';
                     } catch (e) {}
                 }
 
-                setExtraTabsExpanded(toggleBtn, extraRow, initiallyExpanded);
+                setExtraTabsExpanded(toggleBtn, tabsWrap, initiallyExpanded);
             }
 
             function handleBookingStatusTabsToggleClick(event) {
@@ -1030,9 +607,8 @@
                     return;
                 }
 
-                var extraRow = tabsWrap.querySelector('.booking-status-tabs-extra-row');
                 var isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
-                setExtraTabsExpanded(toggleBtn, extraRow, !isExpanded);
+                setExtraTabsExpanded(toggleBtn, tabsWrap, !isExpanded);
             }
 
             if (!window.__bookingStatusTabsToggleBound) {
@@ -1065,5 +641,48 @@
                 @endif
             });
         });
+    </script>
+
+    <script>
+        (function () {
+            var form = document.getElementById('booking-list-search-form');
+            var input = document.getElementById('booking-list-search-input');
+            if (!form || !input) {
+                return;
+            }
+
+            var debounceTimer = null;
+            var lastSubmitted = (input.value || '').trim();
+
+            function submitSearch() {
+                var next = (input.value || '').trim();
+                if (next === lastSubmitted) {
+                    return;
+                }
+                lastSubmitted = next;
+                form.submit();
+            }
+
+            input.addEventListener('input', function () {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(submitSearch, 400);
+            });
+
+            input.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    clearTimeout(debounceTimer);
+                    submitSearch();
+                }
+            });
+
+            if (input.value) {
+                input.focus();
+                var len = input.value.length;
+                try {
+                    input.setSelectionRange(len, len);
+                } catch (err) {}
+            }
+        })();
     </script>
 @endpush

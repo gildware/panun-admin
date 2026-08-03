@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Modules\AdminModule\Entities\StaffActivityEvent;
 use Modules\LeadManagement\Entities\Lead;
+use Modules\UserManagement\Entities\User;
 
 class StaffActivityLogger
 {
@@ -36,6 +37,14 @@ class StaffActivityLogger
                 'from_kind' => $this->handlerKind($from),
             ], $extraMeta)
         );
+
+        if (function_exists('admin_inbox_notify_lead_assigned')) {
+            $lead = Lead::query()->find($leadId);
+            $actor = $actorId ? User::query()->find($actorId) : null;
+            if ($lead) {
+                admin_inbox_notify_lead_assigned((string) $employeeId, $lead, $actor);
+            }
+        }
     }
 
     public function logWhatsAppAssigned(
@@ -71,6 +80,12 @@ class StaffActivityLogger
                 'from_kind' => $fromKind,
             ], $extraMeta)
         );
+
+        if (function_exists('admin_inbox_notify_whatsapp_assigned')) {
+            $actor = $actorId ? User::query()->find($actorId) : null;
+            $leadId = isset($extraMeta['lead_id']) ? (int) $extraMeta['lead_id'] : null;
+            admin_inbox_notify_whatsapp_assigned((string) $employeeId, $phone, $actor, $leadId);
+        }
     }
 
     public function logWhatsAppChatClosed(

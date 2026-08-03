@@ -1,0 +1,152 @@
+[
+  {
+    "slug": "mens-hair-cut",
+    "name": "Men's Hair Cut",
+    "sub_category_slug": "mens-hair-services",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of men's hair cut in progress, giving a neat men's haircut with clippers and comb to a male client, a clean modern Srinagar Kashmir home living room grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Male client only.",
+    "cover_prompt": "Wide landscape professional photograph showing men's hair cut, giving a neat men's haircut with clippers and comb to a male client, a clean modern Srinagar Kashmir home living room grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Male client only.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-hair-cut-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-hair-cut-cover.png"
+  },
+  {
+    "slug": "mens-kids-hair-cut",
+    "name": "Men's Kids Hair Cut",
+    "sub_category_slug": "mens-hair-services",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of men's kids hair cut in progress, giving a careful boys haircut with scissors to a young male client, a clean modern Srinagar Kashmir home living room grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Male client only.",
+    "cover_prompt": "Wide landscape professional photograph showing men's kids hair cut, giving a careful boys haircut with scissors to a young male client, a clean modern Srinagar Kashmir home living room grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Male client only.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-kids-hair-cut-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-kids-hair-cut-cover.png"
+  },
+  {
+    "slug": "mens-hair-color",
+    "name": "Men's Hair Color",
+    "sub_category_slug": "mens-hair-services",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of men's hair color in progress, applying men's hair color carefully to a male client's hair, a clean modern Srinagar Kashmir home living room grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Male client only.",
+    "cover_prompt": "Wide landscape professional photograph showing men's hair color, applying men's hair color carefully to a male client's hair, a clean modern Srinagar Kashmir home living room grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Male client only.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-hair-color-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-hair-color-cover.png"
+  },
+  {
+    "slug": "mens-hair-treatment",
+    "name": "Men's Hair Treatment",
+    "sub_category_slug": "mens-hair-services",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of men's hair treatment in progress, applying hair treatment to a male client's scalp and hair, a clean modern Srinagar Kashmir home living room grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Male client only.",
+    "cover_prompt": "Wide landscape professional photograph showing men's hair treatment, applying hair treatment to a male client's scalp and hair, a clean modern Srinagar Kashmir home living room grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Male client only.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-hair-treatment-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-hair-treatment-cover.png"
+  },
+  {
+    "slug": "mens-beard-trimming",
+    "name": "Men's Beard Trimming",
+    "sub_category_slug": "mens-beard-shaving",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of men's beard trimming in progress, trimming and shaping a male client's beard with a trimmer, a clean modern Srinagar Kashmir home living room with grooming chair setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Male client only.",
+    "cover_prompt": "Wide landscape professional photograph showing men's beard trimming, trimming and shaping a male client's beard with a trimmer, a clean modern Srinagar Kashmir home living room with grooming chair setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Male client only.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-beard-trimming-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-beard-trimming-cover.png"
+  },
+  {
+    "slug": "mens-clean-shave",
+    "name": "Men's Clean Shave",
+    "sub_category_slug": "mens-beard-shaving",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of men's clean shave in progress, performing a clean shave for a male client with razor and foam, a clean modern Srinagar Kashmir home living room with grooming chair setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Male client only.",
+    "cover_prompt": "Wide landscape professional photograph showing men's clean shave, performing a clean shave for a male client with razor and foam, a clean modern Srinagar Kashmir home living room with grooming chair setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Male client only.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-clean-shave-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-clean-shave-cover.png"
+  },
+  {
+    "slug": "mens-beard-color",
+    "name": "Men's Beard Color",
+    "sub_category_slug": "mens-beard-shaving",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of men's beard color in progress, applying beard color carefully to a male client's beard, a clean modern Srinagar Kashmir home living room with grooming chair setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Male client only.",
+    "cover_prompt": "Wide landscape professional photograph showing men's beard color, applying beard color carefully to a male client's beard, a clean modern Srinagar Kashmir home living room with grooming chair setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Male client only.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-beard-color-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-beard-color-cover.png"
+  },
+  {
+    "slug": "mens-detan",
+    "name": "Men's Detan",
+    "sub_category_slug": "mens-skin-grooming-care",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of men's detan in progress, applying face detan cream carefully to a male client's face, a clean modern Srinagar Kashmir home living room spa grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Male client only.",
+    "cover_prompt": "Wide landscape professional photograph showing men's detan, applying face detan cream carefully to a male client's face, a clean modern Srinagar Kashmir home living room spa grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Male client only.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-detan-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-detan-cover.png"
+  },
+  {
+    "slug": "mens-waxing",
+    "name": "Men's Waxing",
+    "sub_category_slug": "mens-skin-grooming-care",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of men's waxing in progress, performing men's chest or body waxing carefully on a male client, a clean modern Srinagar Kashmir home living room spa grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Male client only.",
+    "cover_prompt": "Wide landscape professional photograph showing men's waxing, performing men's chest or body waxing carefully on a male client, a clean modern Srinagar Kashmir home living room spa grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Male client only.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-waxing-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-waxing-cover.png"
+  },
+  {
+    "slug": "mens-facial-cleanup",
+    "name": "Men's Facial & Cleanup",
+    "sub_category_slug": "mens-skin-grooming-care",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of men's facial & cleanup in progress, doing a men's facial cleanup on a male client's face, a clean modern Srinagar Kashmir home living room spa grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Male client only.",
+    "cover_prompt": "Wide landscape professional photograph showing men's facial & cleanup, doing a men's facial cleanup on a male client's face, a clean modern Srinagar Kashmir home living room spa grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Male client only.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-facial-cleanup-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-facial-cleanup-cover.png"
+  },
+  {
+    "slug": "mens-threading",
+    "name": "Men's Threading",
+    "sub_category_slug": "mens-skin-grooming-care",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of men's threading in progress, threading a male client's eyebrows carefully, a clean modern Srinagar Kashmir home living room spa grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Male client only.",
+    "cover_prompt": "Wide landscape professional photograph showing men's threading, threading a male client's eyebrows carefully, a clean modern Srinagar Kashmir home living room spa grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Male client only.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-threading-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-threading-cover.png"
+  },
+  {
+    "slug": "mens-pedicure",
+    "name": "Men's Pedicure",
+    "sub_category_slug": "mens-skin-grooming-care",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of men's pedicure in progress, performing a men's express pedicure on a male client's feet, a clean modern Srinagar Kashmir home living room spa grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Male client only.",
+    "cover_prompt": "Wide landscape professional photograph showing men's pedicure, performing a men's express pedicure on a male client's feet, a clean modern Srinagar Kashmir home living room spa grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Male client only.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-pedicure-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-pedicure-cover.png"
+  },
+  {
+    "slug": "mens-manicure",
+    "name": "Men's Manicure",
+    "sub_category_slug": "mens-skin-grooming-care",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of men's manicure in progress, performing a men's express manicure on a male client's hands, a clean modern Srinagar Kashmir home living room spa grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Male client only.",
+    "cover_prompt": "Wide landscape professional photograph showing men's manicure, performing a men's express manicure on a male client's hands, a clean modern Srinagar Kashmir home living room spa grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Male client only.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-manicure-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-manicure-cover.png"
+  },
+  {
+    "slug": "mens-nail-cut-file",
+    "name": "Men's Nail Cut & File",
+    "sub_category_slug": "mens-skin-grooming-care",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of men's nail cut & file in progress, cutting and filing a male client's nails carefully, a clean modern Srinagar Kashmir home living room spa grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Male client only.",
+    "cover_prompt": "Wide landscape professional photograph showing men's nail cut & file, cutting and filing a male client's nails carefully, a clean modern Srinagar Kashmir home living room spa grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Male client only.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-nail-cut-file-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-nail-cut-file-cover.png"
+  },
+  {
+    "slug": "mens-massage",
+    "name": "Men's Massage",
+    "sub_category_slug": "mens-skin-grooming-care",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of men's massage in progress, giving a head and neck massage to a male client, a clean modern Srinagar Kashmir home living room spa grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field. Male client only.",
+    "cover_prompt": "Wide landscape professional photograph showing men's massage, giving a head and neck massage to a male client, a clean modern Srinagar Kashmir home living room spa grooming setup, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition. Male client only.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-massage-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/mens-massage-cover.png"
+  }
+]
