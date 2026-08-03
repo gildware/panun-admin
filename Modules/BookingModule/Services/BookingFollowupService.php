@@ -13,6 +13,12 @@ class BookingFollowupService
 
     public const BOOKING_CLOSED_NOTE = 'Booking closed — follow-up cancelled';
 
+    /** Show “Follow-up due” when scheduled time is within this many hours (and still in the future). */
+    public const FOLLOWUP_DUE_HOURS = 2;
+
+    /** List “Follow-up due soon” badge for scheduled times within this window (beyond due hours). */
+    public const FOLLOWUP_DUE_SOON_HOURS = 24;
+
     /**
      * Cancel open scheduled follow-ups for one party on a booking.
      */
@@ -122,11 +128,94 @@ class BookingFollowupService
     }
 
     /**
-     * Follow-up was scheduled before today (missed / overdue).
+     * Scheduled follow-up datetime has passed (missed / overdue), including earlier today.
      */
     public function pendingFollowupIsOverdue(Carbon $followupDate): bool
     {
-        return ! $followupDate->isToday() && $followupDate->isPast();
+        return $followupDate->isPast();
+    }
+
+    /**
+     * Follow-up is still in the future but due within the next N hours (default 2).
+     */
+    public function pendingFollowupIsDue(Carbon $followupDate, ?int $hours = null): bool
+    {
+        if ($followupDate->isPast()) {
+            return false;
+        }
+
+        $hours = $hours ?? self::FOLLOWUP_DUE_HOURS;
+
+        return $followupDate->lte(Carbon::now()->addHours(max(1, $hours)));
+    }
+
+    /**
+     * Missed or due within the action window — used for badges, alerts, and detail chips.
+     */
+    public function followupNeedsAttention(?BookingFollowup $followup, bool $bookingOpen): bool
+    {
+        $status = $this->followupDisplayStatus($followup, $bookingOpen);
+
+        return in_array($status, ['missed', 'due'], true);
+    }
+
+    /**
+     * @return 'missed'|'due'|'due_soon'|null
+     */
+    public function followupDisplayStatus(?BookingFollowup $followup, bool $bookingOpen): ?string
+    {
+        if (! $followup || ! $bookingOpen || $followup->status !== 'scheduled' || ! $followup->date) {
+            return null;
+        }
+
+        $date = $followup->date instanceof Carbon
+            ? $followup->date
+            : Carbon::parse($followup->date);
+
+        if ($this->pendingFollowupIsOverdue($date)) {
+            return 'missed';
+        }
+
+        if ($this->pendingFollowupIsDue($date)) {
+            return 'due';
+        }
+
+        if ($date->lte(Carbon::now()->addHours(self::FOLLOWUP_DUE_SOON_HOURS))) {
+            return 'due_soon';
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{status: string, label: string, badge_class: string, date_class: string, cell_class: string}|null
+     */
+    private function followupDisplayMetaFromStatus(?string $status): ?array
+    {
+        return match ($status) {
+            'missed' => [
+                'status' => 'missed',
+                'label' => 'Missed_Follow_up',
+                'badge_class' => 'bg-danger',
+                'date_class' => 'text-danger fw-semibold',
+                'cell_class' => 'booking-followup-cell--missed',
+            ],
+            'due' => [
+                'status' => 'due',
+                'label' => 'Follow_up_due',
+                'badge_class' => 'bg-warning text-dark',
+                'date_class' => 'text-warning fw-semibold',
+                'cell_class' => 'booking-followup-cell--upcoming',
+            ],
+            'due_soon' => [
+                'status' => 'due_soon',
+                'label' => 'Follow_up_due_soon',
+                'badge_class' => 'bg-warning-subtle text-warning-emphasis border border-warning',
+                'date_class' => 'text-warning fw-semibold',
+                'cell_class' => 'booking-followup-cell--upcoming',
+            ],
+            default => null,
+        };
     }
 
     /**
@@ -174,57 +263,25 @@ class BookingFollowupService
      */
     public function buildFollowupListCellMeta(?BookingFollowup $followup, bool $bookingOpen): ?array
     {
-        if (! $followup || ! $bookingOpen || ! $followup->date || $followup->status !== 'scheduled') {
-            return null;
-        }
-
-        $date = $followup->date instanceof Carbon
-            ? $followup->date
-            : Carbon::parse($followup->date);
-
-        if ($this->pendingFollowupIsOverdue($date)) {
-            return [
-                'status' => 'missed',
-                'label' => 'Missed_Follow_up',
-                'badge_class' => 'bg-danger',
-                'date_class' => 'text-danger fw-semibold',
-                'cell_class' => 'booking-followup-cell--missed',
-            ];
-        }
-
-        return [
-            'status' => 'upcoming',
-            'label' => $date->isToday() ? 'Follow_up_due' : 'Follow_up_due_soon',
-            'badge_class' => 'bg-warning text-dark',
-            'date_class' => 'text-warning fw-semibold',
-            'cell_class' => 'booking-followup-cell--upcoming',
-        ];
+        return $this->followupDisplayMetaFromStatus(
+            $this->followupDisplayStatus($followup, $bookingOpen)
+        );
     }
 
     /**
-     * Follow-up badges for one scheduled row (missed, due today, due soon).
+     * Follow-up badges for one scheduled row (missed, due within 2h, due soon within 24h).
      *
      * @return array{status: string, label: string, badge_class: string}|null
      */
     public function buildFollowupBadgeMeta(
         ?BookingFollowup $followup,
         bool $bookingOpen,
-        int $dueSoonHours = 24
+        ?int $dueHours = null,
+        ?int $dueSoonHours = null
     ): ?array {
         $cellMeta = $this->buildFollowupListCellMeta($followup, $bookingOpen);
         if ($cellMeta === null) {
             return null;
-        }
-
-        if ($cellMeta['status'] === 'upcoming' && $followup?->date) {
-            $date = $followup->date instanceof Carbon
-                ? $followup->date
-                : Carbon::parse($followup->date);
-            $dueSoonUntil = Carbon::now()->addHours(max(1, $dueSoonHours));
-
-            if (! $date->isToday() && $date->gt($dueSoonUntil)) {
-                return null;
-            }
         }
 
         return [
@@ -284,22 +341,13 @@ class BookingFollowupService
         }
 
         $partyMeta = function (?BookingFollowup $followup) use ($open): array {
-            $hasPending = $followup
-                ? $this->scheduledFollowupIsPending($followup, $open)
-                : false;
-            $isOverdue = false;
-
-            if ($hasPending && $followup?->date) {
-                $date = $followup->date instanceof Carbon
-                    ? $followup->date
-                    : Carbon::parse($followup->date);
-                $isOverdue = $this->pendingFollowupIsOverdue($date);
-            }
+            $displayStatus = $this->followupDisplayStatus($followup, $open);
 
             return [
                 'followup' => $followup,
-                'has_pending' => $hasPending,
-                'is_overdue' => $isOverdue,
+                'has_pending' => in_array($displayStatus, ['missed', 'due'], true),
+                'is_overdue' => $displayStatus === 'missed',
+                'is_due' => $displayStatus === 'due',
                 'badge' => $this->buildFollowupBadgeMeta($followup, $open),
             ];
         };

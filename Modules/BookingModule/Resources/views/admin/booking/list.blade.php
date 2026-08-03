@@ -3,9 +3,9 @@
 @section('title', translate('Booking_List'))
 
 @push('css_or_js')
-    @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')
     @include('bookingmodule::admin.booking.partials._booking-followup-styles')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-list-compact.css') }}?v={{ filemtime(public_path('assets/admin-module/css/booking-list-compact.css')) }}">
+    @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')
 @endpush
 
 @section('content')

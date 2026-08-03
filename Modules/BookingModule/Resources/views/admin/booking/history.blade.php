@@ -3,8 +3,8 @@
 @section('title', translate('Booking_History'))
 
 @push('css_or_js')
-    @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-detail-redesign.css') }}">
+    @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')
 @endpush
 
 @section('content')
@@ -41,6 +41,7 @@
                                 @include('bookingmodule::admin.booking.partials.booking-change-logs-timeline', ['changeLogs' => $booking->change_logs])
                             </div>
                         </div>
+                    @include('bookingmodule::admin.booking.partials._booking-detail-delete-footer', ['booking' => $booking])
                     </div>
                 </div>
             </div>

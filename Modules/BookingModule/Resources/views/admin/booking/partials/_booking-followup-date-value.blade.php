@@ -7,7 +7,7 @@
         {{ $followup->date->format('d-M-Y h:ia') }}
         @if(!empty($partyMeta['has_pending']))
             <span class="badge rounded-pill {{ !empty($partyMeta['is_overdue']) ? 'bg-danger' : 'bg-warning text-dark' }} ms-1">
-                {{ !empty($partyMeta['is_overdue']) ? translate('Missed') : translate('Pending') }}
+                {{ !empty($partyMeta['is_overdue']) ? translate('Missed') : translate('Follow_up_due') }}
             </span>
         @elseif(!empty($partyMeta['badge']))
             <span class="badge rounded-pill {{ $partyMeta['badge']['badge_class'] }} ms-1">

@@ -17,7 +17,7 @@
                 </span>
                 @if(!empty($partyMeta['has_pending']))
                     <span class="badge rounded-pill {{ !empty($partyMeta['is_overdue']) ? 'bg-danger' : 'bg-warning text-dark' }}">
-                        {{ !empty($partyMeta['is_overdue']) ? translate('Missed') : translate('Pending') }}
+                        {{ !empty($partyMeta['is_overdue']) ? translate('Missed') : translate('Follow_up_due') }}
                     </span>
                 @elseif(!empty($partyMeta['badge']))
                     <span class="badge rounded-pill {{ $partyMeta['badge']['badge_class'] }}">

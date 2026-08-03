@@ -1785,13 +1785,82 @@ if (! function_exists('booking_admin_status_display_key')) {
     }
 }
 
+if (! function_exists('booking_admin_status_theme_key')) {
+    /**
+     * CSS / list-tab theme key aligned with admin booking list status tabs (not raw booking_status alone).
+     */
+    function booking_admin_status_theme_key(Booking $booking): string
+    {
+        $bfs = BookingFinancialSettlementService::class;
+
+        $hasDisputedSnapshot = ! empty($booking->reopen_disputed_snapshot)
+            && is_array($booking->reopen_disputed_snapshot)
+            && $booking->reopen_disputed_snapshot !== [];
+        if ($hasDisputedSnapshot) {
+            $snap = (array) $booking->reopen_disputed_snapshot;
+            $retained = 0.0;
+            foreach (['retained_from_customer', 'final_net_to_customer'] as $k) {
+                if (isset($snap[$k]) && is_numeric($snap[$k])) {
+                    $retained = (float) $snap[$k];
+                    break;
+                }
+            }
+
+            return $retained > 0.009 ? 'disputed_completed' : 'disputed_cancelled';
+        }
+
+        if (booking_reopen_combined_status_key($booking) !== null || $booking->isOpenReopenTicket()) {
+            return 'reopened';
+        }
+
+        if ($booking->reopen_resolved_at !== null) {
+            return 'resolved';
+        }
+
+        if (booking_on_hold_is_after_visit_from_ongoing($booking)) {
+            return 'hold_after_visit';
+        }
+
+        $listOutcome = trim((string) ($booking->settlement_outcome ?? ''));
+        if ($listOutcome === $bfs::OUTCOME_SCALED_TO_PAYMENTS) {
+            $cfg = is_array($booking->settlement_config ?? null) ? $booking->settlement_config : [];
+            $snap = is_array($booking->settlement_snapshot ?? null) ? $booking->settlement_snapshot : [];
+            $writeoff = (float) ($cfg['scaled_loss_writeoff_amount'] ?? $snap['scaled_loss_writeoff_amount'] ?? 0);
+            if ($writeoff > 0.009) {
+                return 'loss_settled';
+            }
+            if ($booking->isScaledSettlementLossRecovered()) {
+                return 'loss_recovered';
+            }
+            if ($booking->isLossMakingFinancialSettlement()) {
+                return 'loss_making_pending';
+            }
+        }
+
+        if (booking_admin_should_show_cancel_after_visit_tag($booking)) {
+            return 'cancelled_after_visit';
+        }
+
+        if (booking_admin_should_show_complete_no_service_tag($booking)) {
+            return 'completed_no_or_little';
+        }
+
+        $st = strtolower((string) ($booking->booking_status ?? ''));
+        if ($st === 'cancelled') {
+            $st = 'canceled';
+        }
+
+        return $st !== '' ? $st : 'pending';
+    }
+}
+
 if (! function_exists('booking_admin_status_css_class')) {
     /**
      * Sanitized CSS class suffix for booking status theming (list cards, detail page).
      */
     function booking_admin_status_css_class(Booking $booking): string
     {
-        $key = booking_admin_status_display_key($booking);
+        $key = booking_admin_status_theme_key($booking);
 
         return preg_replace('/[^a-z0-9_-]/', '', $key) ?: 'default';
     }

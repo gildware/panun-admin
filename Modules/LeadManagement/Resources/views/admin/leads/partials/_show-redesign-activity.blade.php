@@ -22,12 +22,12 @@
     {{-- Timeline view (legacy, kept for recording toggles) --}}
     <div class="timeline-view is-hidden" id="lead-activity-timeline">
         <div class="timeline">
-            @if(!empty($hasPendingFollowup))
+            @if(!empty($followupNeedsAttention))
                 <div class="timeline-item" data-activity-type="followup">
                     <div class="timeline-icon timeline-icon--pending"><span class="material-icons">pending_actions</span></div>
                     <div class="timeline-content">
                         <div class="timeline-head">
-                            <span class="timeline-title">{{ !empty($pendingFollowupIsOverdue) ? translate('Missed_Follow_up') : translate('Pending_Follow_up') }}</span>
+                            <span class="timeline-title">{{ !empty($pendingFollowupIsOverdue) ? translate('Missed_Follow_up') : translate('Follow_up_due') }}</span>
                             <span class="timeline-time">{{ translate('due') }} {{ $lead->next_followup_at?->format('d M Y, h:i A') }}</span>
                         </div>
                         <div class="timeline-body">{{ translate('Please_take_action') }}</div>

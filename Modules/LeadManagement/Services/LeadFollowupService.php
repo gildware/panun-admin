@@ -9,6 +9,10 @@ use Modules\LeadManagement\Entities\LeadFollowup;
 
 class LeadFollowupService
 {
+    /** Show “Follow-up due” when scheduled time is within this many hours (and still in the future). */
+    public const FOLLOWUP_DUE_HOURS = 2;
+
+    public const FOLLOWUP_DUE_SOON_HOURS = 24;
     /**
      * Default next follow-up: tomorrow at 10:00 (app timezone).
      */
@@ -51,11 +55,45 @@ class LeadFollowupService
     }
 
     /**
-     * Follow-up was scheduled before today (missed / overdue).
+     * Scheduled follow-up datetime has passed (missed / overdue), including earlier today.
      */
     public function pendingFollowupIsOverdue(Carbon $nextFollowupAt): bool
     {
-        return ! $nextFollowupAt->isToday() && $nextFollowupAt->isPast();
+        return $nextFollowupAt->isPast();
+    }
+
+    /**
+     * Follow-up is still in the future but due within the next N hours (default 2).
+     */
+    public function pendingFollowupIsDue(Carbon $nextFollowupAt, ?int $hours = null): bool
+    {
+        if ($nextFollowupAt->isPast()) {
+            return false;
+        }
+
+        $hours = $hours ?? self::FOLLOWUP_DUE_HOURS;
+
+        return $nextFollowupAt->lte(Carbon::now()->addHours(max(1, $hours)));
+    }
+
+    /**
+     * Show missed / due badges and alerts (not merely scheduled later today).
+     */
+    public function leadFollowupNeedsAttention(?Carbon $nextFollowupAt, bool $isOpen, ?string $leadType = null): bool
+    {
+        if (! $isOpen || ! $nextFollowupAt) {
+            return false;
+        }
+
+        if ($leadType !== null && ! $this->leadTypeRequiresMandatoryFollowup($leadType)) {
+            return false;
+        }
+
+        $next = $nextFollowupAt instanceof Carbon
+            ? $nextFollowupAt
+            : Carbon::parse($nextFollowupAt);
+
+        return $this->pendingFollowupIsOverdue($next) || $this->pendingFollowupIsDue($next);
     }
 
     /**
@@ -83,20 +121,22 @@ class LeadFollowupService
                 ? $lead->next_followup_at
                 : Carbon::parse($lead->next_followup_at);
 
-            if ($this->leadHasPendingFollowup($lead, true)) {
-                if ($this->pendingFollowupIsOverdue($next)) {
-                    $meta[$leadId] = [
-                        'status' => 'missed',
-                        'label' => 'Missed_Follow_up',
-                        'badge_class' => 'bg-danger',
-                    ];
-                } else {
-                    $meta[$leadId] = [
-                        'status' => 'due_today',
-                        'label' => 'Follow_up_due',
-                        'badge_class' => 'bg-warning text-dark',
-                    ];
-                }
+            if ($this->pendingFollowupIsOverdue($next)) {
+                $meta[$leadId] = [
+                    'status' => 'missed',
+                    'label' => 'Missed_Follow_up',
+                    'badge_class' => 'bg-danger',
+                ];
+
+                continue;
+            }
+
+            if ($this->pendingFollowupIsDue($next)) {
+                $meta[$leadId] = [
+                    'status' => 'due',
+                    'label' => 'Follow_up_due',
+                    'badge_class' => 'bg-warning text-dark',
+                ];
 
                 continue;
             }

@@ -3,9 +3,9 @@
 @section('title', translate('Booking_Followups'))
 
 @push('css')
-    @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-detail-redesign.css') }}">
     @include('bookingmodule::admin.booking.partials._booking-followup-styles')
+    @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')
 @endpush
 
 @section('content')
@@ -91,6 +91,7 @@
                     </div>
                 </div>
             </div>
+                    @include('bookingmodule::admin.booking.partials._booking-detail-delete-footer', ['booking' => $booking])
                     </div>
                 </div>
             </div>

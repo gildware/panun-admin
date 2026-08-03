@@ -16,10 +16,8 @@
 }
 
 .booking-compact-list .booking-compact-card {
-    --accent: #94a3b8;
-    --accent-bg: #f8fafc;
-    background: var(--accent-bg) !important;
-    border: 1px solid var(--accent) !important;
+    background: var(--accent-bg, #f8fafc) !important;
+    border: 1px solid var(--accent, #94a3b8) !important;
     border-radius: 8px;
     padding: 0;
     font-size: 13px;

@@ -1693,6 +1693,11 @@ class LeadController extends Controller
         $hasPendingFollowup = $followupService->leadHasPendingFollowup($lead, (bool) $leadOpenStatus);
         $pendingFollowupIsOverdue = $hasPendingFollowup
             && $followupService->pendingFollowupIsOverdue($lead->next_followup_at);
+        $followupNeedsAttention = $followupService->leadFollowupNeedsAttention(
+            $lead->next_followup_at,
+            (bool) $leadOpenStatus,
+            (string) $lead->lead_type
+        );
         $followupDelayMeta = $followupService->buildFollowupDelayMeta($lead, $lead->followups);
 
         $currentCustomerStatusId = ($typeHistory && is_array($typeHistory->data ?? null))
@@ -1755,6 +1760,7 @@ class LeadController extends Controller
             'panelProviderMatch',
             'hasPendingFollowup',
             'pendingFollowupIsOverdue',
+            'followupNeedsAttention',
             'followupDelayMeta',
             'customerHistoryData',
             'temporaryProvider',

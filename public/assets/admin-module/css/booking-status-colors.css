@@ -3,10 +3,52 @@
  * Semantic families: pipeline (amber→blue→orange), success (green), cancel (red shades),
  * hold (zinc), reopen (violet→teal), financial (amber→cyan→blue).
  */
+:root {
+    --bk-all: #64748b;
+    --bk-all-bg: #f1f5f9;
+    --bk-pending: #d97706;
+    --bk-pending-bg: #fffbeb;
+    --bk-accepted: #0284c7;
+    --bk-accepted-bg: #f0f9ff;
+    --bk-ongoing: #ea580c;
+    --bk-ongoing-bg: #fff7ed;
+    --bk-completed: #16a34a;
+    --bk-completed-bg: #f0fdf4;
+    --bk-completed-alt: #15803d;
+    --bk-completed-alt-bg: #dcfce7;
+    --bk-cancel: #dc2626;
+    --bk-cancel-bg: #fef2f2;
+    --bk-cancel-visit: #b91c1c;
+    --bk-cancel-visit-bg: #fee2e2;
+    --bk-dispute-cancel: #e11d48;
+    --bk-dispute-cancel-bg: #fff1f2;
+    --bk-dispute-complete: #c2410c;
+    --bk-dispute-complete-bg: #ffedd5;
+    --bk-hold: #71717a;
+    --bk-hold-bg: #f4f4f5;
+    --bk-hold-visit: #52525b;
+    --bk-hold-visit-bg: #e4e4e7;
+    --bk-reopen: #7c3aed;
+    --bk-reopen-bg: #f5f3ff;
+    --bk-resolved: #0d9488;
+    --bk-resolved-bg: #f0fdfa;
+    --bk-loss: #b45309;
+    --bk-loss-bg: #fef3c7;
+    --bk-loss-recovered: #0891b2;
+    --bk-loss-recovered-bg: #ecfeff;
+    --bk-loss-settled: #1d4ed8;
+    --bk-loss-settled-bg: #eff6ff;
+    --bk-refund: #9333ea;
+    --bk-refund-bg: #faf5ff;
+    --bk-pending-cancel: #ca8a04;
+    --bk-pending-cancel-bg: #fef9c3;
+}
+
 .booking-status-theme,
 .booking-list-compact-tabs,
 .booking-compact-list,
 .booking-detail-v2 {
+    /* Re-expose on scoped containers for inheritance inside nested widgets */
     --bk-all: #64748b;
     --bk-all-bg: #f1f5f9;
     --bk-pending: #d97706;
@@ -48,30 +90,30 @@
 }
 
 /* ── Status badges (list, details, subpages) ── */
-.booking-status-badge[data-status="pending"] { background: var(--bk-pending); color: #fff; }
-.booking-status-badge[data-status="accepted"] { background: var(--bk-accepted); color: #fff; }
-.booking-status-badge[data-status="pending_cancellation"] { background: var(--bk-pending-cancel); color: #fff; }
+.booking-status-badge[data-status="pending"] { background-color: var(--bk-pending) !important; color: #fff !important; border: none !important; }
+.booking-status-badge[data-status="accepted"] { background-color: var(--bk-accepted) !important; color: #fff !important; border: none !important; }
+.booking-status-badge[data-status="pending_cancellation"] { background-color: var(--bk-pending-cancel) !important; color: #fff !important; border: none !important; }
 .booking-status-badge[data-status="canceled"],
 .booking-status-badge[data-status="cancelled"],
-.booking-status-badge[data-status="booking_cancelled"] { background: var(--bk-cancel); color: #fff; }
-.booking-status-badge[data-status="ongoing"] { background: var(--bk-ongoing); color: #fff; }
-.booking-status-badge[data-status="completed"] { background: var(--bk-completed); color: #fff; }
-.booking-status-badge[data-status="reopened"] { background: var(--bk-reopen); color: #fff; }
-.booking-status-badge[data-status="resolved"] { background: var(--bk-resolved); color: #fff; }
+.booking-status-badge[data-status="booking_cancelled"] { background-color: var(--bk-cancel) !important; color: #fff !important; border: none !important; }
+.booking-status-badge[data-status="ongoing"] { background-color: var(--bk-ongoing) !important; color: #fff !important; border: none !important; }
+.booking-status-badge[data-status="completed"] { background-color: var(--bk-completed) !important; color: #fff !important; border: none !important; }
+.booking-status-badge[data-status="reopened"] { background-color: var(--bk-reopen) !important; color: #fff !important; border: none !important; }
+.booking-status-badge[data-status="resolved"] { background-color: var(--bk-resolved) !important; color: #fff !important; border: none !important; }
 .booking-status-badge[data-status="disputed_cancelled"],
-.booking-status-badge[data-status="disputed_and_cancelled"] { background: var(--bk-dispute-cancel); color: #fff; }
+.booking-status-badge[data-status="disputed_and_cancelled"] { background-color: var(--bk-dispute-cancel) !important; color: #fff !important; border: none !important; }
 .booking-status-badge[data-status="disputed_completed"],
-.booking-status-badge[data-status="disputed_and_completed"] { background: var(--bk-dispute-complete); color: #fff; }
-.booking-status-badge[data-status="on_hold"] { background: var(--bk-hold); color: #fff; }
-.booking-status-badge[data-status="hold_after_visit"] { background: var(--bk-hold-visit); color: #fff; }
-.booking-status-badge[data-status="completed_no_or_little"] { background: var(--bk-completed-alt); color: #fff; }
-.booking-status-badge[data-status="cancelled_after_visit"] { background: var(--bk-cancel-visit); color: #fff; }
+.booking-status-badge[data-status="disputed_and_completed"] { background-color: var(--bk-dispute-complete) !important; color: #fff !important; border: none !important; }
+.booking-status-badge[data-status="on_hold"] { background-color: var(--bk-hold) !important; color: #fff !important; border: none !important; }
+.booking-status-badge[data-status="hold_after_visit"] { background-color: var(--bk-hold-visit) !important; color: #fff !important; border: none !important; }
+.booking-status-badge[data-status="completed_no_or_little"] { background-color: var(--bk-completed-alt) !important; color: #fff !important; border: none !important; }
+.booking-status-badge[data-status="cancelled_after_visit"] { background-color: var(--bk-cancel-visit) !important; color: #fff !important; border: none !important; }
 .booking-status-badge[data-status="loss_making_pending"],
-.booking-status-badge[data-status="loss_making"] { background: var(--bk-loss); color: #fff; }
-.booking-status-badge[data-status="loss_recovered"] { background: var(--bk-loss-recovered); color: #fff; }
-.booking-status-badge[data-status="loss_settled"] { background: var(--bk-loss-settled); color: #fff; }
-.booking-status-badge[data-status="refunded"] { background: var(--bk-refund); color: #fff; }
-.booking-status-badge[data-status^="reopened"] { background: var(--bk-reopen); color: #fff; }
+.booking-status-badge[data-status="loss_making"] { background-color: var(--bk-loss) !important; color: #fff !important; border: none !important; }
+.booking-status-badge[data-status="loss_recovered"] { background-color: var(--bk-loss-recovered) !important; color: #fff !important; border: none !important; }
+.booking-status-badge[data-status="loss_settled"] { background-color: var(--bk-loss-settled) !important; color: #fff !important; border: none !important; }
+.booking-status-badge[data-status="refunded"] { background-color: var(--bk-refund) !important; color: #fff !important; border: none !important; }
+.booking-status-badge[data-status^="reopened"] { background-color: var(--bk-reopen) !important; color: #fff !important; border: none !important; }
 
 .booking-status-badge {
     font-size: 12px;
@@ -79,7 +121,6 @@
     border-radius: 6px;
     font-weight: 600;
     line-height: 1.25;
-    border: none;
 }
 
 .booking-compact-list .bc-badges .booking-status-badge {
@@ -90,71 +131,84 @@
 
 .booking-detail-v2 .booking-status-badge,
 .booking-detail-v2 .booking-header__badges .booking-status-badge,
-.booking-detail-v2 .booking-hero .booking-status-badge {
+.booking-detail-v2 .booking-hero .booking-status-badge,
+.booking-detail-v2 .party-card--status .booking-status-badge {
     font-size: 0.75rem;
     padding: 0.35rem 0.65rem;
+    border-radius: 6px !important;
 }
 
 /* ── Compact list cards ── */
-.booking-compact-list .booking-compact-card--accepted { --accent: var(--bk-accepted); --accent-bg: var(--bk-accepted-bg); }
-.booking-compact-list .booking-compact-card--ongoing { --accent: var(--bk-ongoing); --accent-bg: var(--bk-ongoing-bg); }
-.booking-compact-list .booking-compact-card--completed { --accent: var(--bk-completed); --accent-bg: var(--bk-completed-bg); }
-.booking-compact-list .booking-compact-card--pending { --accent: var(--bk-pending); --accent-bg: var(--bk-pending-bg); }
-.booking-compact-list .booking-compact-card--pending_cancellation { --accent: var(--bk-pending-cancel); --accent-bg: var(--bk-pending-cancel-bg); }
-.booking-compact-list .booking-compact-card--canceled,
-.booking-compact-list .booking-compact-card--cancelled,
-.booking-compact-list .booking-compact-card--booking_cancelled { --accent: var(--bk-cancel); --accent-bg: var(--bk-cancel-bg); }
-.booking-compact-list .booking-compact-card--reopened { --accent: var(--bk-reopen); --accent-bg: var(--bk-reopen-bg); }
-.booking-compact-list .booking-compact-card--on_hold { --accent: var(--bk-hold); --accent-bg: var(--bk-hold-bg); }
-.booking-compact-list .booking-compact-card--resolved { --accent: var(--bk-resolved); --accent-bg: var(--bk-resolved-bg); }
-.booking-compact-list .booking-compact-card--disputed_cancelled,
-.booking-compact-list .booking-compact-card--disputed_and_cancelled { --accent: var(--bk-dispute-cancel); --accent-bg: var(--bk-dispute-cancel-bg); }
-.booking-compact-list .booking-compact-card--disputed_completed,
-.booking-compact-list .booking-compact-card--disputed_and_completed { --accent: var(--bk-dispute-complete); --accent-bg: var(--bk-dispute-complete-bg); }
-.booking-compact-list .booking-compact-card--hold_after_visit { --accent: var(--bk-hold-visit); --accent-bg: var(--bk-hold-visit-bg); }
-.booking-compact-list .booking-compact-card--cancelled_after_visit { --accent: var(--bk-cancel-visit); --accent-bg: var(--bk-cancel-visit-bg); }
-.booking-compact-list .booking-compact-card--completed_no_or_little { --accent: var(--bk-completed-alt); --accent-bg: var(--bk-completed-alt-bg); }
-.booking-compact-list .booking-compact-card--loss_making_pending,
-.booking-compact-list .booking-compact-card--loss_making { --accent: var(--bk-loss); --accent-bg: var(--bk-loss-bg); }
-.booking-compact-list .booking-compact-card--loss_recovered { --accent: var(--bk-loss-recovered); --accent-bg: var(--bk-loss-recovered-bg); }
-.booking-compact-list .booking-compact-card--loss_settled { --accent: var(--bk-loss-settled); --accent-bg: var(--bk-loss-settled-bg); }
-.booking-compact-list .booking-compact-card--refunded { --accent: var(--bk-refund); --accent-bg: var(--bk-refund-bg); }
-.booking-compact-list .booking-compact-card[class*="--reopened"] { --accent: var(--bk-reopen); --accent-bg: var(--bk-reopen-bg); }
-.booking-compact-list .booking-compact-card--default { --accent: var(--bk-all); --accent-bg: var(--bk-all-bg); }
+.booking-compact-list .booking-compact-card {
+    --accent: var(--bk-all);
+    --accent-bg: var(--bk-all-bg);
+}
+
+.booking-compact-list .booking-compact-card.booking-compact-card--accepted { --accent: var(--bk-accepted); --accent-bg: var(--bk-accepted-bg); }
+.booking-compact-list .booking-compact-card.booking-compact-card--ongoing { --accent: var(--bk-ongoing); --accent-bg: var(--bk-ongoing-bg); }
+.booking-compact-list .booking-compact-card.booking-compact-card--completed { --accent: var(--bk-completed); --accent-bg: var(--bk-completed-bg); }
+.booking-compact-list .booking-compact-card.booking-compact-card--pending { --accent: var(--bk-pending); --accent-bg: var(--bk-pending-bg); }
+.booking-compact-list .booking-compact-card.booking-compact-card--pending_cancellation { --accent: var(--bk-pending-cancel); --accent-bg: var(--bk-pending-cancel-bg); }
+.booking-compact-list .booking-compact-card.booking-compact-card--canceled,
+.booking-compact-list .booking-compact-card.booking-compact-card--cancelled,
+.booking-compact-list .booking-compact-card.booking-compact-card--booking_cancelled { --accent: var(--bk-cancel); --accent-bg: var(--bk-cancel-bg); }
+.booking-compact-list .booking-compact-card.booking-compact-card--reopened { --accent: var(--bk-reopen); --accent-bg: var(--bk-reopen-bg); }
+.booking-compact-list .booking-compact-card.booking-compact-card--on_hold { --accent: var(--bk-hold); --accent-bg: var(--bk-hold-bg); }
+.booking-compact-list .booking-compact-card.booking-compact-card--resolved { --accent: var(--bk-resolved); --accent-bg: var(--bk-resolved-bg); }
+.booking-compact-list .booking-compact-card.booking-compact-card--disputed_cancelled,
+.booking-compact-list .booking-compact-card.booking-compact-card--disputed_and_cancelled { --accent: var(--bk-dispute-cancel); --accent-bg: var(--bk-dispute-cancel-bg); }
+.booking-compact-list .booking-compact-card.booking-compact-card--disputed_completed,
+.booking-compact-list .booking-compact-card.booking-compact-card--disputed_and_completed { --accent: var(--bk-dispute-complete); --accent-bg: var(--bk-dispute-complete-bg); }
+.booking-compact-list .booking-compact-card.booking-compact-card--hold_after_visit { --accent: var(--bk-hold-visit); --accent-bg: var(--bk-hold-visit-bg); }
+.booking-compact-list .booking-compact-card.booking-compact-card--cancelled_after_visit { --accent: var(--bk-cancel-visit); --accent-bg: var(--bk-cancel-visit-bg); }
+.booking-compact-list .booking-compact-card.booking-compact-card--completed_no_or_little { --accent: var(--bk-completed-alt); --accent-bg: var(--bk-completed-alt-bg); }
+.booking-compact-list .booking-compact-card.booking-compact-card--loss_making_pending,
+.booking-compact-list .booking-compact-card.booking-compact-card--loss_making { --accent: var(--bk-loss); --accent-bg: var(--bk-loss-bg); }
+.booking-compact-list .booking-compact-card.booking-compact-card--loss_recovered { --accent: var(--bk-loss-recovered); --accent-bg: var(--bk-loss-recovered-bg); }
+.booking-compact-list .booking-compact-card.booking-compact-card--loss_settled { --accent: var(--bk-loss-settled); --accent-bg: var(--bk-loss-settled-bg); }
+.booking-compact-list .booking-compact-card.booking-compact-card--refunded { --accent: var(--bk-refund); --accent-bg: var(--bk-refund-bg); }
+.booking-compact-list .booking-compact-card[class*="booking-compact-card--reopened"] { --accent: var(--bk-reopen); --accent-bg: var(--bk-reopen-bg); }
+.booking-compact-list .booking-compact-card.booking-compact-card--default { --accent: var(--bk-all); --accent-bg: var(--bk-all-bg); }
 
 /* ── Booking detail page (header, pipeline, panels) ── */
-.booking-detail-v2--accepted { --detail-accent: var(--bk-accepted); --detail-accent-bg: var(--bk-accepted-bg); }
-.booking-detail-v2--ongoing { --detail-accent: var(--bk-ongoing); --detail-accent-bg: var(--bk-ongoing-bg); }
-.booking-detail-v2--completed { --detail-accent: var(--bk-completed); --detail-accent-bg: var(--bk-completed-bg); }
-.booking-detail-v2--pending { --detail-accent: var(--bk-pending); --detail-accent-bg: var(--bk-pending-bg); }
-.booking-detail-v2--pending_cancellation { --detail-accent: var(--bk-pending-cancel); --detail-accent-bg: var(--bk-pending-cancel-bg); }
-.booking-detail-v2--canceled,
-.booking-detail-v2--cancelled,
-.booking-detail-v2--booking_cancelled { --detail-accent: var(--bk-cancel); --detail-accent-bg: var(--bk-cancel-bg); }
-.booking-detail-v2--reopened { --detail-accent: var(--bk-reopen); --detail-accent-bg: var(--bk-reopen-bg); }
-.booking-detail-v2--on_hold { --detail-accent: var(--bk-hold); --detail-accent-bg: var(--bk-hold-bg); }
-.booking-detail-v2--resolved { --detail-accent: var(--bk-resolved); --detail-accent-bg: var(--bk-resolved-bg); }
-.booking-detail-v2--disputed_cancelled,
-.booking-detail-v2--disputed_and_cancelled { --detail-accent: var(--bk-dispute-cancel); --detail-accent-bg: var(--bk-dispute-cancel-bg); }
-.booking-detail-v2--disputed_completed,
-.booking-detail-v2--disputed_and_completed { --detail-accent: var(--bk-dispute-complete); --detail-accent-bg: var(--bk-dispute-complete-bg); }
-.booking-detail-v2--hold_after_visit { --detail-accent: var(--bk-hold-visit); --detail-accent-bg: var(--bk-hold-visit-bg); }
-.booking-detail-v2--cancelled_after_visit { --detail-accent: var(--bk-cancel-visit); --detail-accent-bg: var(--bk-cancel-visit-bg); }
-.booking-detail-v2--completed_no_or_little { --detail-accent: var(--bk-completed-alt); --detail-accent-bg: var(--bk-completed-alt-bg); }
-.booking-detail-v2--loss_making_pending,
-.booking-detail-v2--loss_making { --detail-accent: var(--bk-loss); --detail-accent-bg: var(--bk-loss-bg); }
-.booking-detail-v2--loss_recovered { --detail-accent: var(--bk-loss-recovered); --detail-accent-bg: var(--bk-loss-recovered-bg); }
-.booking-detail-v2--loss_settled { --detail-accent: var(--bk-loss-settled); --detail-accent-bg: var(--bk-loss-settled-bg); }
-.booking-detail-v2--refunded { --detail-accent: var(--bk-refund); --detail-accent-bg: var(--bk-refund-bg); }
-.booking-detail-v2[class*="--reopened"] { --detail-accent: var(--bk-reopen); --detail-accent-bg: var(--bk-reopen-bg); }
-.booking-detail-v2--default { --detail-accent: var(--bk-all); --detail-accent-bg: var(--bk-all-bg); }
+.booking-detail-v2 {
+    --detail-accent: var(--bk-all);
+    --detail-accent-bg: var(--bk-all-bg);
+}
+
+.booking-detail-v2.booking-detail-v2--accepted { --detail-accent: var(--bk-accepted); --detail-accent-bg: var(--bk-accepted-bg); }
+.booking-detail-v2.booking-detail-v2--ongoing { --detail-accent: var(--bk-ongoing); --detail-accent-bg: var(--bk-ongoing-bg); }
+.booking-detail-v2.booking-detail-v2--completed { --detail-accent: var(--bk-completed); --detail-accent-bg: var(--bk-completed-bg); }
+.booking-detail-v2.booking-detail-v2--pending { --detail-accent: var(--bk-pending); --detail-accent-bg: var(--bk-pending-bg); }
+.booking-detail-v2.booking-detail-v2--pending_cancellation { --detail-accent: var(--bk-pending-cancel); --detail-accent-bg: var(--bk-pending-cancel-bg); }
+.booking-detail-v2.booking-detail-v2--canceled,
+.booking-detail-v2.booking-detail-v2--cancelled,
+.booking-detail-v2.booking-detail-v2--booking_cancelled { --detail-accent: var(--bk-cancel); --detail-accent-bg: var(--bk-cancel-bg); }
+.booking-detail-v2.booking-detail-v2--reopened { --detail-accent: var(--bk-reopen); --detail-accent-bg: var(--bk-reopen-bg); }
+.booking-detail-v2.booking-detail-v2--on_hold { --detail-accent: var(--bk-hold); --detail-accent-bg: var(--bk-hold-bg); }
+.booking-detail-v2.booking-detail-v2--resolved { --detail-accent: var(--bk-resolved); --detail-accent-bg: var(--bk-resolved-bg); }
+.booking-detail-v2.booking-detail-v2--disputed_cancelled,
+.booking-detail-v2.booking-detail-v2--disputed_and_cancelled { --detail-accent: var(--bk-dispute-cancel); --detail-accent-bg: var(--bk-dispute-cancel-bg); }
+.booking-detail-v2.booking-detail-v2--disputed_completed,
+.booking-detail-v2.booking-detail-v2--disputed_and_completed { --detail-accent: var(--bk-dispute-complete); --detail-accent-bg: var(--bk-dispute-complete-bg); }
+.booking-detail-v2.booking-detail-v2--hold_after_visit { --detail-accent: var(--bk-hold-visit); --detail-accent-bg: var(--bk-hold-visit-bg); }
+.booking-detail-v2.booking-detail-v2--cancelled_after_visit { --detail-accent: var(--bk-cancel-visit); --detail-accent-bg: var(--bk-cancel-visit-bg); }
+.booking-detail-v2.booking-detail-v2--completed_no_or_little { --detail-accent: var(--bk-completed-alt); --detail-accent-bg: var(--bk-completed-alt-bg); }
+.booking-detail-v2.booking-detail-v2--loss_making_pending,
+.booking-detail-v2.booking-detail-v2--loss_making { --detail-accent: var(--bk-loss); --detail-accent-bg: var(--bk-loss-bg); }
+.booking-detail-v2.booking-detail-v2--loss_recovered { --detail-accent: var(--bk-loss-recovered); --detail-accent-bg: var(--bk-loss-recovered-bg); }
+.booking-detail-v2.booking-detail-v2--loss_settled { --detail-accent: var(--bk-loss-settled); --detail-accent-bg: var(--bk-loss-settled-bg); }
+.booking-detail-v2.booking-detail-v2--refunded { --detail-accent: var(--bk-refund); --detail-accent-bg: var(--bk-refund-bg); }
+.booking-detail-v2[class*="booking-detail-v2--reopened"] { --detail-accent: var(--bk-reopen); --detail-accent-bg: var(--bk-reopen-bg); }
+.booking-detail-v2.booking-detail-v2--default { --detail-accent: var(--bk-all); --detail-accent-bg: var(--bk-all-bg); }
 
 /* Detail status panel card — match list card accent */
 .booking-detail-v2 .party-card--status {
-    border-color: var(--detail-accent);
-    background: var(--detail-accent-bg);
+    border-color: var(--detail-accent) !important;
+    background: var(--detail-accent-bg) !important;
 }
 
 .booking-detail-v2 .party-card--status .party-card__head {
     border-bottom-color: color-mix(in srgb, var(--detail-accent) 25%, transparent);
+    background: color-mix(in srgb, var(--detail-accent-bg) 70%, #fff);
 }

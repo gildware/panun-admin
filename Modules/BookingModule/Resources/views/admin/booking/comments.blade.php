@@ -3,10 +3,10 @@
 @section('title', translate('Booking_Comments'))
 
 @push('css_or_js')
-    @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-detail-redesign.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/chatting-module/css/staff-chat-entity-badges.css') }}">
     @include('bookingmodule::admin.booking.partials._booking-comments-styles')
+    @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')
 @endpush
 
 @section('content')
@@ -92,6 +92,7 @@
                     @endcan
                 </div>
             </div>
+                    @include('bookingmodule::admin.booking.partials._booking-detail-delete-footer', ['booking' => $booking])
                     </div>
                 </div>
             </div>

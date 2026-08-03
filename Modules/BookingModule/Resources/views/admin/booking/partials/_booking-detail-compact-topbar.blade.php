@@ -9,16 +9,6 @@
         @endif
     </nav>
     <div class="d-flex align-items-center gap-2">
-        @can('booking_delete')
-            <button type="button"
-                    class="action-btn btn--danger rounded-circle"
-                    style="--size: 30px"
-                    data-bs-toggle="modal"
-                    data-bs-target="#bookingDeleteModal--{{ $booking['id'] }}"
-                    title="{{ translate('Delete') }}">
-                <span class="material-symbols-outlined" style="font-size:16px">delete</span>
-            </button>
-        @endcan
         <a href="{{ route('admin.booking.list') }}" class="booking-detail-topbar__back">
             <span class="material-icons">arrow_back</span>
             {{ translate('Back_to_Bookings') }}

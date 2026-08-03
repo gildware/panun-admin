@@ -11,7 +11,7 @@
                 @include('bookingmodule::admin.booking.partials._booking-list-status-badge', ['booking' => $booking])
                 @if(!empty($followupDetailMeta['has_any_pending']))
                     <span class="badge {{ !empty($followupDetailMeta['has_any_overdue']) ? 'bg-danger' : 'bg-warning text-dark' }}">
-                        {{ !empty($followupDetailMeta['has_any_overdue']) ? translate('Missed_Follow_up') : translate('Pending_Follow_up') }}
+                        {{ !empty($followupDetailMeta['has_any_overdue']) ? translate('Missed_Follow_up') : translate('Follow_up_due') }}
                     </span>
                 @endif
             </div>

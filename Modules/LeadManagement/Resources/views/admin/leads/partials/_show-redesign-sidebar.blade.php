@@ -202,7 +202,7 @@
             <button type="button" class="panel__edit lead-card-edit-btn">{{ translate('Edit') }}</button>
         </div>
         <div class="action-card__body">
-            @if(!empty($hasPendingFollowup))
+            @if(!empty($followupNeedsAttention))
                 <div class="schedule-mini__status mb-2">
                     {{ !empty($pendingFollowupIsOverdue) ? translate('Missed_Follow_up') : translate('Follow_up_due') }}
                 </div>
@@ -212,12 +212,12 @@
                     <span class="schedule-mini__label">{{ translate('Recieved_On') }}</span>
                     <span class="schedule-mini__value">{{ $lead->date_time_of_lead_received?->format('d M Y, h:i A') ?? '—' }}</span>
                 </div>
-                <div class="schedule-mini__item {{ !empty($hasPendingFollowup) ? 'schedule-mini__item--alert' : '' }}">
+                <div class="schedule-mini__item {{ !empty($followupNeedsAttention) ? 'schedule-mini__item--alert' : '' }}">
                     <span class="schedule-mini__label">{{ translate('Next_Follow_up_Date') }}</span>
-                    <span class="schedule-mini__value {{ !empty($hasPendingFollowup) ? (!empty($pendingFollowupIsOverdue) ? 'text-danger' : 'text-warning') : '' }}">
+                    <span class="schedule-mini__value {{ !empty($followupNeedsAttention) ? (!empty($pendingFollowupIsOverdue) ? 'text-danger' : 'text-warning') : '' }}">
                         {{ $lead->next_followup_at?->format('d M Y, h:i A') ?? '—' }}
-                        @if(!empty($hasPendingFollowup))
-                            <span class="chip chip--{{ !empty($pendingFollowupIsOverdue) ? 'danger' : 'warning' }} ms-1">{{ !empty($pendingFollowupIsOverdue) ? translate('Missed') : translate('Pending') }}</span>
+                        @if(!empty($followupNeedsAttention))
+                            <span class="chip chip--{{ !empty($pendingFollowupIsOverdue) ? 'danger' : 'warning' }} ms-1">{{ !empty($pendingFollowupIsOverdue) ? translate('Missed') : translate('Follow_up_due') }}</span>
                         @endif
                     </span>
                 </div>

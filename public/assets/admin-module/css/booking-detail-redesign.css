@@ -12,8 +12,6 @@
   --bk-radius: 12px;
   --bk-radius-sm: 8px;
   --bk-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-  --detail-accent: var(--bk-all, #94a3b8);
-  --detail-accent-bg: var(--bk-all-bg, #f8fafc);
   font-size: 0.8125rem;
   color: var(--bk-muted);
   line-height: 1.45;
@@ -83,11 +81,33 @@
   gap: .375rem;
 }
 
-/* Hero header */
+.booking-detail-v2 .booking-detail-delete-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 1.25rem;
+  padding: 1rem 0 0.25rem;
+  border-top: 1px solid var(--bk-border, #e2e8f0);
+}
+
+.booking-detail-v2 .booking-detail-delete-footer__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 7rem;
+  justify-content: center;
+}
+
+.booking-detail-v2 .booking-detail-delete-footer__btn .material-symbols-outlined {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* Hero header — status-themed via --detail-accent (see booking-status-colors.css) */
 .booking-detail-v2 .booking-hero {
-  background: #fff;
-  border: 1px solid var(--bk-border);
-  border-left: 4px solid var(--bk-accent);
+  background: var(--detail-accent-bg);
+  border: 1px solid var(--detail-accent);
+  border-left: 4px solid var(--detail-accent);
   border-radius: var(--bk-radius);
   box-shadow: var(--bk-shadow);
   padding: .875rem 1rem;
@@ -1011,7 +1031,7 @@
   padding: .32em .72em;
   line-height: 1.25;
 }
-.booking-detail-v2 .booking-header__badges .badge {
+.booking-detail-v2 .booking-header__badges .badge:not(.booking-status-badge) {
   font-size: .75rem !important;
   padding: .32em .72em !important;
   border-radius: 50rem !important;

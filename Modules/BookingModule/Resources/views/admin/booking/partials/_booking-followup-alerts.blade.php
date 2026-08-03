@@ -15,7 +15,7 @@
                             — {{ translate('Follow_up_for') }} {{ $partyLabel }} {{ translate('was_due_on') }}
                             {{ $partyMeta['followup']->date->format('d M Y, h:i A') }}.
                         @else
-                            <strong>{{ translate('Pending_Follow_up') }}</strong>
+                            <strong>{{ translate('Follow_up_due') }}</strong>
                             — {{ translate('Follow_up_for') }} {{ $partyLabel }} {{ translate('due') }}
                             {{ $partyMeta['followup']->date->format('d M Y, h:i A') }}.
                         @endif

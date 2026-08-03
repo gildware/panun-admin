@@ -106,9 +106,9 @@
             @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER)
                 <span class="chip chip--primary">{{ $lead->outbound_enquiries_count }} {{ translate('Outbound_Enquiries') }}</span>
             @endif
-            @if(!empty($hasPendingFollowup))
+            @if(!empty($followupNeedsAttention))
                 <span class="chip chip--{{ !empty($pendingFollowupIsOverdue) ? 'danger' : 'warning' }}">
-                    {{ !empty($pendingFollowupIsOverdue) ? translate('Missed_Follow_up') : translate('Pending_Follow_up') }}
+                    {{ !empty($pendingFollowupIsOverdue) ? translate('Missed_Follow_up') : translate('Follow_up_due') }}
                 </span>
             @endif
         </div>
@@ -124,7 +124,7 @@
     @endif
 </section>
 
-@if(!empty($hasPendingFollowup))
+@if(!empty($followupNeedsAttention))
     <div class="lead-followup-alert lead-followup-alert--{{ !empty($pendingFollowupIsOverdue) ? 'missed' : 'pending' }}" role="alert">
         <div class="lead-followup-alert__content">
             <span class="material-icons lead-followup-alert__icon">{{ !empty($pendingFollowupIsOverdue) ? 'error' : 'schedule' }}</span>
@@ -135,7 +135,7 @@
                     {{ $lead->next_followup_at->format('d M Y, h:i A') }}.
                     {{ translate('Please_take_action') }}
                 @else
-                    <strong>{{ translate('Pending_Follow_up') }}</strong>
+                    <strong>{{ translate('Follow_up_due') }}</strong>
                     — {{ translate('due') }} {{ $lead->next_followup_at->format('d M Y, h:i A') }}.
                     {{ translate('Please_take_action') }}
                 @endif
