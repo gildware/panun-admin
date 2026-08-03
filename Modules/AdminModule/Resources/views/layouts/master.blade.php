@@ -14,7 +14,7 @@
         (int) @filemtime(public_path('assets/admin-module/js/admin-image-fallback.js')),
         (int) @filemtime(public_path('assets/admin-module/js/admin-global-search.js')),
         (int) @filemtime(public_path('assets/admin-module/js/bootstrap-jquery-modal-bridge.js')),
-        2026080323,
+        2026080324,
     ) ?: time();
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{$site_direction}}">
@@ -173,6 +173,24 @@
 @endif
 @if($adminUsesPartialNav)
     <script src="{{asset('assets/admin-module')}}/js/admin-partial-nav.js?v={{$adminAssetVersion}}"></script>
+    <script>
+        (function () {
+            function revealAdminShellFallback() {
+                document.documentElement.classList.add('admin-shell-ready');
+                var frame = document.getElementById('admin-main');
+                if (frame) {
+                    frame.classList.remove('admin-main-frame--loading');
+                    frame.setAttribute('aria-busy', 'false');
+                }
+            }
+
+            window.setTimeout(function () {
+                if (!document.documentElement.classList.contains('admin-shell-ready')) {
+                    revealAdminShellFallback();
+                }
+            }, 3000);
+        })();
+    </script>
 @endif
 <script src="{{asset('assets/admin-module')}}/js/helper.js"></script>
 <script src="{{asset('assets/common')}}/js/common.js"></script>
