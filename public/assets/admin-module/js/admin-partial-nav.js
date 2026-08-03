@@ -271,7 +271,7 @@
             return null;
         }
 
-        var links = document.querySelectorAll('head link[rel="stylesheet"]');
+        var links = document.querySelectorAll('link[rel="stylesheet"]');
         for (var i = 0; i < links.length; i++) {
             if (resolveStylesheetHref(links[i].getAttribute('href') || links[i].href) === absoluteHref) {
                 return links[i];
@@ -293,6 +293,31 @@
         }
     }
 
+    function waitForStylesheetApplied(link) {
+        return new Promise(function (resolve) {
+            if (stylesheetIsReady(link)) {
+                requestAnimationFrame(function () {
+                    resolve();
+                });
+                return;
+            }
+
+            var attempts = 0;
+            function poll() {
+                if (stylesheetIsReady(link) || attempts++ > 60) {
+                    requestAnimationFrame(function () {
+                        resolve();
+                    });
+                    return;
+                }
+
+                requestAnimationFrame(poll);
+            }
+
+            poll();
+        });
+    }
+
     function loadStylesheetIntoHead(href) {
         return new Promise(function (resolve) {
             var absoluteHref = resolveStylesheetHref(href);
@@ -303,17 +328,7 @@
 
             var existing = findHeadStylesheet(absoluteHref);
             if (existing) {
-                if (stylesheetIsReady(existing)) {
-                    resolve();
-                    return;
-                }
-
-                existing.addEventListener('load', function () {
-                    resolve();
-                }, { once: true });
-                existing.addEventListener('error', function () {
-                    resolve();
-                }, { once: true });
+                waitForStylesheetApplied(existing).then(resolve);
                 return;
             }
 
@@ -322,7 +337,7 @@
             link.href = absoluteHref;
             link.setAttribute('data-admin-partial-style', '1');
             link.addEventListener('load', function () {
-                resolve();
+                waitForStylesheetApplied(link).then(resolve);
             }, { once: true });
             link.addEventListener('error', function () {
                 resolve();
@@ -331,33 +346,128 @@
         });
     }
 
-    function applyPartialStyles(frameEl) {
-        clearPartialStyles();
-
+    function getHeadStylesheetHrefs(doc) {
         var hrefs = [];
-        frameEl.querySelectorAll('link[rel="stylesheet"][href]').forEach(function (link) {
-            var href = link.getAttribute('href');
-            if (href && hrefs.indexOf(href) === -1) {
-                hrefs.push(href);
+        var root = doc ? doc.head : document.head;
+
+        root.querySelectorAll('link[rel="stylesheet"][href]').forEach(function (link) {
+            var abs = resolveStylesheetHref(link.getAttribute('href'));
+            if (abs && hrefs.indexOf(abs) === -1) {
+                hrefs.push(abs);
             }
         });
 
-        var styleTexts = [];
-        frameEl.querySelectorAll('style').forEach(function (style) {
-            var css = style.textContent || '';
-            if (css.trim() !== '') {
-                styleTexts.push(css);
+        return hrefs;
+    }
+
+    function copyNewInlineStyles(sourceDoc, frameEl) {
+        document.querySelectorAll('head style[data-admin-partial-style]').forEach(function (style) {
+            style.remove();
+        });
+
+        var existingStyleHashes = new Set();
+        document.querySelectorAll('head style:not([data-admin-partial-style])').forEach(function (style) {
+            var css = (style.textContent || '').trim();
+            if (css) {
+                existingStyleHashes.add(css);
             }
         });
 
-        styleTexts.forEach(function (css) {
+        function appendStyle(css) {
+            if (!css || existingStyleHashes.has(css)) {
+                return;
+            }
+
             var style = document.createElement('style');
             style.setAttribute('data-admin-partial-style', '1');
             style.textContent = css;
             document.head.appendChild(style);
+            existingStyleHashes.add(css);
+        }
+
+        if (sourceDoc) {
+            sourceDoc.querySelectorAll('head style').forEach(function (style) {
+                appendStyle((style.textContent || '').trim());
+            });
+        }
+
+        if (frameEl) {
+            frameEl.querySelectorAll('style').forEach(function (style) {
+                appendStyle((style.textContent || '').trim());
+            });
+        }
+    }
+
+    async function applyPartialStylesFromDocument(doc, frameEl) {
+        var existing = new Set(getHeadStylesheetHrefs(document));
+        var needed = new Set(getHeadStylesheetHrefs(doc));
+        var toLoad = [];
+
+        if (frameEl) {
+            frameEl.querySelectorAll('link[rel="stylesheet"][href]').forEach(function (link) {
+                var abs = resolveStylesheetHref(link.getAttribute('href'));
+                if (abs) {
+                    needed.add(abs);
+                }
+            });
+        }
+
+        needed.forEach(function (abs) {
+            if (!existing.has(abs)) {
+                toLoad.push(abs);
+            }
         });
 
-        return Promise.all(hrefs.map(loadStylesheetIntoHead));
+        await Promise.all(toLoad.map(loadStylesheetIntoHead));
+        copyNewInlineStyles(doc, frameEl);
+
+        document.querySelectorAll('[data-admin-partial-style]').forEach(function (el) {
+            if (el.tagName !== 'LINK') {
+                return;
+            }
+
+            var href = resolveStylesheetHref(el.getAttribute('href'));
+            if (href && !needed.has(href)) {
+                el.remove();
+            }
+        });
+    }
+
+    function waitForDocumentStyles() {
+        return new Promise(function (resolve) {
+            var links = document.querySelectorAll('link[rel="stylesheet"][href]');
+            var pending = [];
+
+            links.forEach(function (link) {
+                if (!stylesheetIsReady(link)) {
+                    pending.push(new Promise(function (res) {
+                        link.addEventListener('load', function () {
+                            waitForStylesheetApplied(link).then(res);
+                        }, { once: true });
+                        link.addEventListener('error', res, { once: true });
+                    }));
+                }
+            });
+
+            function finish() {
+                requestAnimationFrame(function () {
+                    requestAnimationFrame(function () {
+                        resolve();
+                    });
+                });
+            }
+
+            if (pending.length === 0) {
+                finish();
+                return;
+            }
+
+            Promise.all(pending).then(finish);
+        });
+    }
+
+    function revealAdminShell() {
+        document.documentElement.classList.add('admin-shell-ready');
     }
 
     function frameContentWithoutAssets(frameEl) {
@@ -377,25 +487,26 @@
         frame.setAttribute('aria-busy', loading ? 'true' : 'false');
     }
 
-    async function prepareFrameContent(frameEl) {
-        await applyPartialStyles(frameEl);
+    async function prepareFrameContent(doc, frameEl) {
+        await applyPartialStylesFromDocument(doc, frameEl);
         return frameContentWithoutAssets(frameEl);
     }
 
     async function hoistInitialFrameStyles(frame) {
         if (!frame) {
-            return;
-        }
-
-        if (!frame.querySelector('link[rel="stylesheet"], style')) {
+            revealAdminShell();
             return;
         }
 
         setFrameLoading(frame, true);
         try {
-            frame.innerHTML = await prepareFrameContent(frame);
+            if (frame.querySelector('link[rel="stylesheet"], style')) {
+                frame.innerHTML = await prepareFrameContent(document, frame);
+            }
+            await waitForDocumentStyles();
         } finally {
             setFrameLoading(frame, false);
+            revealAdminShell();
         }
     }
 
@@ -464,9 +575,11 @@
             runFlashToastsFromHtml(html);
 
             setFrameLoading(frame, true);
-            var frameHtml = await prepareFrameContent(parsed.frame);
+            var frameHtml = await prepareFrameContent(parsed.doc, parsed.frame);
             frame.innerHTML = frameHtml;
+            await waitForDocumentStyles();
             setFrameLoading(frame, false);
+            revealAdminShell();
             activateScripts(frame);
 
             if (options.advance !== false) {
@@ -477,6 +590,7 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
             initPageWidgets(frame);
             markFullPageLinks();
+            markPartialNavLinks(frame);
 
             try {
                 sessionStorage.setItem('admin_shell_ready', '1');
@@ -495,6 +609,57 @@
             activeController = null;
         }
     }
+
+    function markPartialNavLinks(root) {
+        root = root || document.getElementById(FRAME_ID) || document;
+
+        root.querySelectorAll('a[href]').forEach(function (link) {
+            if (link.getAttribute('data-turbo-frame') === FRAME_ID) {
+                return;
+            }
+
+            if (link.getAttribute('data-turbo') === 'false') {
+                return;
+            }
+
+            if (link.target === '_blank' || link.hasAttribute('download')) {
+                return;
+            }
+
+            if (link.classList.contains('admin-logout')) {
+                return;
+            }
+
+            var href = link.getAttribute('href');
+            if (!href || href === '#') {
+                return;
+            }
+
+            try {
+                var url = new URL(href, window.location.origin);
+                if (url.origin !== window.location.origin) {
+                    return;
+                }
+
+                if (!url.pathname.startsWith('/admin')) {
+                    return;
+                }
+
+                if (requiresFullPageNavigation(url.href)) {
+                    return;
+                }
+            } catch (e) {
+                return;
+            }
+
+            link.setAttribute('data-turbo-frame', FRAME_ID);
+            if (!link.hasAttribute('data-turbo-action')) {
+                link.setAttribute('data-turbo-action', 'advance');
+            }
+        });
+    }
+
+    window.adminPartialNavLoad = loadPartialPage;
 
     document.addEventListener('click', function (event) {
         var link = event.target.closest('a[href]');
@@ -536,14 +701,17 @@
 
     document.addEventListener('admin:chrome-updated', function () {
         markFullPageLinks();
+        markPartialNavLinks();
         initChromeTooltips();
     });
 
     markFullPageLinks();
+    markPartialNavLinks();
 
     var initialFrame = document.getElementById(FRAME_ID);
     if (initialFrame) {
         hoistInitialFrameStyles(initialFrame).finally(function () {
+            markPartialNavLinks(initialFrame);
             initPageWidgets(initialFrame);
         });
     } else {

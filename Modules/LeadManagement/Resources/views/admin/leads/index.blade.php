@@ -653,7 +653,9 @@
                     return;
                 }
                 var url = $(this).data('lead-url');
-                if (url) {
+                if (url && typeof window.adminPartialNavLoad === 'function') {
+                    window.adminPartialNavLoad(url, { advance: true });
+                } else if (url) {
                     window.location.href = url;
                 }
             });

@@ -2644,6 +2644,10 @@
             </div>
         </div>
     </div>
+
+    @include('adminmodule::admin.workflow.partials._next-step-fab', ['workflowContext' => $workflowContext ?? []])
+    @include('adminmodule::admin.workflow.partials._confirm-modal')
+    @include('adminmodule::admin.workflow.partials._scripts', ['workflowContext' => $workflowContext ?? [], 'wfEntityType' => 'booking', 'wfEntityId' => (int) ($booking->id ?? 0)])
 @endsection
 
 @push('script')
@@ -4798,7 +4802,3 @@
 
     </script>
 @endpush
-
-@include('adminmodule::admin.workflow.partials._next-step-fab', ['workflowContext' => $workflowContext ?? []])
-@include('adminmodule::admin.workflow.partials._confirm-modal')
-@include('adminmodule::admin.workflow.partials._scripts', ['workflowContext' => $workflowContext ?? [], 'wfEntityType' => 'booking', 'wfEntityId' => (int) ($booking->id ?? 0)])

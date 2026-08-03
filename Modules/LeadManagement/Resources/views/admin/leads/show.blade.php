@@ -682,79 +682,83 @@
 
         </div>
     </div>
+
+    @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER)
+        <div class="modal fade" id="customerCancelModal" tabindex="-1" aria-labelledby="customerCancelModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header border-0">
+                        <h5 class="modal-title" id="customerCancelModalLabel">{{ translate('Customer_cancellation_reasons') }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                    </div>
+                    <div class="modal-body pt-0">
+                        <div class="mb-3">
+                            <label class="form-label">{{ translate('Customer_cancellation_reasons') }}</label>
+                            <select id="customer-cancel-reason-id" class="form-select">
+                                <option value="">{{ translate('Select') }}</option>
+                                @foreach($cancellationReasons as $reason)
+                                    <option value="{{ $reason->id }}">{{ $reason->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label">{{ translate('Remarks') }} ({{ translate('Optional') }})</label>
+                            <textarea id="customer-cancel-remarks" class="form-control" rows="3" placeholder="{{ translate('Enter_cancellation_remarks') }}"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 d-flex justify-content-end gap-2 pb-4">
+                        <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">
+                            {{ translate('Cancel') }}
+                        </button>
+                        <button type="button" class="btn btn--primary" id="customer-cancel-save-btn">
+                            {{ translate('Save_changes') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER)
+        <div class="modal fade" id="providerCancelModal" tabindex="-1" aria-labelledby="providerCancelModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header border-0">
+                        <h5 class="modal-title" id="providerCancelModalLabel">{{ translate('Provider_cancellation_reasons') }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                    </div>
+                    <div class="modal-body pt-0">
+                        <div class="mb-3">
+                            <label class="form-label">{{ translate('Provider_cancellation_reasons') }}</label>
+                            <select id="provider-cancel-reason-id" class="form-select">
+                                <option value="">{{ translate('Select') }}</option>
+                                @foreach($providerCancellationReasons as $reason)
+                                    <option value="{{ $reason->id }}">{{ $reason->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label">{{ translate('Remarks') }} ({{ translate('Optional') }})</label>
+                            <textarea id="provider-cancel-remarks" class="form-control" rows="3" placeholder="{{ translate('Enter_cancellation_remarks') }}"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 d-flex justify-content-end gap-2 pb-4">
+                        <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">
+                            {{ translate('Cancel') }}
+                        </button>
+                        <button type="button" class="btn btn--primary" id="provider-cancel-save-btn">
+                            {{ translate('Save_changes') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @include('adminmodule::admin.workflow.partials._next-step-fab', ['workflowContext' => $workflowContext ?? [], 'wfCanEdit' => auth()->user()?->can('lead_update')])
+    @include('adminmodule::admin.workflow.partials._confirm-modal')
+    @include('adminmodule::admin.workflow.partials._scripts', ['workflowContext' => $workflowContext ?? [], 'wfEntityType' => 'lead', 'wfEntityId' => (int) $lead->id])
 @endsection
-
-@if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER)
-    <div class="modal fade" id="customerCancelModal" tabindex="-1" aria-labelledby="customerCancelModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header border-0">
-                    <h5 class="modal-title" id="customerCancelModalLabel">{{ translate('Customer_cancellation_reasons') }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
-                </div>
-                <div class="modal-body pt-0">
-                    <div class="mb-3">
-                        <label class="form-label">{{ translate('Customer_cancellation_reasons') }}</label>
-                        <select id="customer-cancel-reason-id" class="form-select">
-                            <option value="">{{ translate('Select') }}</option>
-                            @foreach($cancellationReasons as $reason)
-                                <option value="{{ $reason->id }}">{{ $reason->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="mb-0">
-                        <label class="form-label">{{ translate('Remarks') }} ({{ translate('Optional') }})</label>
-                        <textarea id="customer-cancel-remarks" class="form-control" rows="3" placeholder="{{ translate('Enter_cancellation_remarks') }}"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer border-0 d-flex justify-content-end gap-2 pb-4">
-                    <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">
-                        {{ translate('Cancel') }}
-                    </button>
-                    <button type="button" class="btn btn--primary" id="customer-cancel-save-btn">
-                        {{ translate('Save_changes') }}
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-@endif
-
-@if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER)
-    <div class="modal fade" id="providerCancelModal" tabindex="-1" aria-labelledby="providerCancelModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header border-0">
-                    <h5 class="modal-title" id="providerCancelModalLabel">{{ translate('Provider_cancellation_reasons') }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
-                </div>
-                <div class="modal-body pt-0">
-                    <div class="mb-3">
-                        <label class="form-label">{{ translate('Provider_cancellation_reasons') }}</label>
-                        <select id="provider-cancel-reason-id" class="form-select">
-                            <option value="">{{ translate('Select') }}</option>
-                            @foreach($providerCancellationReasons as $reason)
-                                <option value="{{ $reason->id }}">{{ $reason->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="mb-0">
-                        <label class="form-label">{{ translate('Remarks') }} ({{ translate('Optional') }})</label>
-                        <textarea id="provider-cancel-remarks" class="form-control" rows="3" placeholder="{{ translate('Enter_cancellation_remarks') }}"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer border-0 d-flex justify-content-end gap-2 pb-4">
-                    <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">
-                        {{ translate('Cancel') }}
-                    </button>
-                    <button type="button" class="btn btn--primary" id="provider-cancel-save-btn">
-                        {{ translate('Save_changes') }}
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-@endif
 
 @push('css_or_js')
     @include('zonemanagement::admin.partials._zone-select2-assets')
@@ -2841,10 +2845,6 @@
         })();
     </script>
 @endpush
-
-@include('adminmodule::admin.workflow.partials._next-step-fab', ['workflowContext' => $workflowContext ?? [], 'wfCanEdit' => auth()->user()?->can('lead_update')])
-@include('adminmodule::admin.workflow.partials._confirm-modal')
-@include('adminmodule::admin.workflow.partials._scripts', ['workflowContext' => $workflowContext ?? [], 'wfEntityType' => 'lead', 'wfEntityId' => (int) $lead->id])
 
 @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER)
     @include('leadmanagement::admin.outbound-enquiries.partials._form_script')
