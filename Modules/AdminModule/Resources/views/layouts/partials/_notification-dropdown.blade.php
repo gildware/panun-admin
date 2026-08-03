@@ -8,6 +8,12 @@
     $unreadCount = $isInternal
         ? (int) ($notificationInternalUnreadCount ?? 0)
         : (int) ($notificationExternalUnreadCount ?? 0);
+    $readCount = $isInternal
+        ? (int) ($notificationInternalReadCount ?? 0)
+        : (int) ($notificationExternalReadCount ?? 0);
+    $recentNotifications = $isInternal
+        ? ($notificationInternalRecent ?? collect())
+        : ($notificationExternalRecent ?? collect());
     $icon = $isInternal ? 'assignment_ind' : 'public';
     $title = $isInternal ? translate('Internal_Notifications') : translate('External_Notifications');
     $viewAllCategory = $category;
@@ -39,7 +45,15 @@
         </a>
     @endif
     <div class="dropdown-menu {{ $isTopChrome ? 'dropdown-menu-end' : 'dropdown-menu-right' }} p-0" style="min-width:22rem;max-width:26rem;">
-        <div class="show-notification-list" id="{{ $listId }}" data-notification-category="{{ $category }}" style="max-height:24rem;overflow-y:auto;"></div>
+        <div class="show-notification-list" id="{{ $listId }}" data-notification-category="{{ $category }}" style="max-height:24rem;overflow-y:auto;">
+            @include('adminmodule::admin.partials._notifications', [
+                'category' => $category,
+                'notifications' => $recentNotifications,
+                'unreadCount' => $unreadCount,
+                'readCount' => $readCount,
+                'compact' => true,
+            ])
+        </div>
         <div class="border-top py-2 px-3 text-center bg-white">
             <a href="{{ route('admin.notifications.index', ['category' => $viewAllCategory]) }}"
                class="btn btn-sm btn-link text-decoration-none fw-semibold js-view-all-notifications"

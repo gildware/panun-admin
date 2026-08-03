@@ -270,5 +270,12 @@
                 },
             });
         });
+
+        $(document).on('show.bs.dropdown', '.notification.update-notification, .top-utility-item', function (e) {
+            if (!this.querySelector('[id^="show-notification-list-"]')) {
+                return;
+            }
+            refreshNotificationUi();
+        });
     })();
 </script>
