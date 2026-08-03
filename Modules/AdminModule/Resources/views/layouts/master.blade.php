@@ -14,7 +14,7 @@
         (int) @filemtime(public_path('assets/admin-module/js/admin-image-fallback.js')),
         (int) @filemtime(public_path('assets/admin-module/js/admin-global-search.js')),
         (int) @filemtime(public_path('assets/admin-module/js/bootstrap-jquery-modal-bridge.js')),
-        2026080325,
+        2026080326,
     ) ?: time();
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{$site_direction}}">
@@ -172,8 +172,7 @@
     <script src="{{asset('assets/admin-module')}}/js/admin-pinned-nav.js?v={{$adminAssetVersion}}"></script>
 @endif
 @if($adminUsesPartialNav)
-    {{-- App origin (not CDN): partial-nav fixes must deploy with git pull --}}
-    <script src="{{ url('assets/admin-module/js/admin-partial-nav.js') }}?v={{$adminAssetVersion}}"></script>
+    <script src="{{asset('assets/admin-module')}}/js/admin-partial-nav.js?v={{$adminAssetVersion}}"></script>
     <script>
         (function () {
             function revealAdminShellFallback() {
