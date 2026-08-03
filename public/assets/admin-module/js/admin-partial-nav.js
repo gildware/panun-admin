@@ -524,29 +524,50 @@
         });
     }
 
-    function waitForDocumentStyles() {
+    function waitForDocumentStyles(maxMs) {
+        maxMs = maxMs || 8000;
+
         return new Promise(function (resolve) {
+            var settled = false;
+
+            function finish() {
+                if (settled) {
+                    return;
+                }
+
+                settled = true;
+                requestAnimationFrame(function () {
+                    requestAnimationFrame(resolve);
+                });
+            }
+
+            window.setTimeout(finish, maxMs);
+
             var links = document.querySelectorAll('link[rel="stylesheet"][href]');
             var pending = [];
 
             links.forEach(function (link) {
-                if (!stylesheetIsReady(link)) {
-                    pending.push(new Promise(function (res) {
-                        link.addEventListener('load', function () {
-                            waitForStylesheetApplied(link).then(res);
-                        }, { once: true });
-                        link.addEventListener('error', res, { once: true });
-                    }));
+                if (stylesheetIsReady(link)) {
+                    return;
                 }
-            });
 
-            function finish() {
-                requestAnimationFrame(function () {
-                    requestAnimationFrame(function () {
-                        resolve();
-                    });
-                });
-            }
+                pending.push(new Promise(function (res) {
+                    var settledLink = false;
+
+                    function done() {
+                        if (settledLink) {
+                            return;
+                        }
+
+                        settledLink = true;
+                        waitForStylesheetApplied(link).then(res);
+                    }
+
+                    window.setTimeout(done, maxMs);
+                    link.addEventListener('load', done, { once: true });
+                    link.addEventListener('error', done, { once: true });
+                }));
+            });
 
             if (pending.length === 0) {
                 finish();
@@ -589,13 +610,20 @@
             return;
         }
 
+        var revealTimer = window.setTimeout(function () {
+            setFrameLoading(frame, false);
+            revealAdminShell();
+        }, 10000);
+
         setFrameLoading(frame, true);
         try {
             if (frame.querySelector('link[rel="stylesheet"], style')) {
                 frame.innerHTML = await prepareFrameContent(document, frame);
             }
             await waitForDocumentStyles();
+        } catch (e) {
         } finally {
+            window.clearTimeout(revealTimer);
             setFrameLoading(frame, false);
             revealAdminShell();
         }
