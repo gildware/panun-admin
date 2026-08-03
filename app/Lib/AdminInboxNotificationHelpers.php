@@ -57,6 +57,7 @@ if (! function_exists('admin_inbox_notify_all')) {
         ?string $actionUrl = null,
         ?string $referenceType = null,
         ?string $referenceId = null,
+        ?string $category = null,
     ): void {
         app(AdminInboxNotificationService::class)->notifyAllAdmins(
             $type,
@@ -65,6 +66,7 @@ if (! function_exists('admin_inbox_notify_all')) {
             $actionUrl,
             $referenceType,
             $referenceId,
+            $category,
         );
     }
 }
@@ -494,6 +496,284 @@ if (! function_exists('admin_inbox_notify_app_custom_request_submitted')) {
             route('admin.booking.app-custom-requests.show', $customRequest->id),
             'app_custom_request_submitted',
             (string) $customRequest->id,
+        );
+    }
+}
+
+if (! function_exists('admin_inbox_notify_lead_created')) {
+    function admin_inbox_notify_lead_created(\Modules\LeadManagement\Entities\Lead $lead): void
+    {
+        $label = trim((string) ($lead->name ?? ''));
+        if ($label === '') {
+            $label = (string) ($lead->phone_number ?? translate('Lead'));
+        }
+
+        $typeLabel = match ($lead->lead_type) {
+            \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER => translate('Customer'),
+            \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER => translate('Provider'),
+            \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER => translate('Future_Customer'),
+            \Modules\LeadManagement\Entities\Lead::TYPE_INVALID => translate('Invalid_Lead'),
+            default => translate('Lead'),
+        };
+
+        $body = $label;
+        if (! empty($lead->phone_number)) {
+            $body .= ' — ' . $lead->phone_number;
+        }
+        $body .= ' · ' . $typeLabel;
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_LEAD,
+            translate('New_lead_created'),
+            $body,
+            route('admin.lead.show', $lead->id),
+            'lead_created',
+            (string) $lead->id,
+        );
+    }
+}
+
+if (! function_exists('admin_inbox_notify_lead_assigned')) {
+    function admin_inbox_notify_lead_assigned(
+        string $assigneeUserId,
+        \Modules\LeadManagement\Entities\Lead $lead,
+        ?User $actor = null,
+    ): void {
+        if (! \Modules\LeadManagement\Entities\Lead::assigneeIsHuman($assigneeUserId)) {
+            return;
+        }
+
+        if ($actor && (string) $actor->id === (string) $assigneeUserId) {
+            return;
+        }
+
+        $leadLabel = trim((string) ($lead->name ?? ''));
+        if ($leadLabel === '') {
+            $leadLabel = (string) ($lead->phone_number ?? translate('Lead') . ' #' . $lead->id);
+        }
+
+        $actorName = $actor
+            ? trim(($actor->first_name ?? '') . ' ' . ($actor->last_name ?? '')) ?: (string) ($actor->email ?? translate('Staff'))
+            : translate('Staff');
+
+        app(AdminInboxNotificationService::class)->notifyUser(
+            (string) $assigneeUserId,
+            UserNotification::TYPE_LEAD_ASSIGNED,
+            translate('Lead_assigned_to_you'),
+            $actorName . ' — ' . $leadLabel,
+            route('admin.lead.show', $lead->id),
+            'lead_assigned',
+            (string) $lead->id . ':' . (string) $assigneeUserId,
+        );
+    }
+}
+
+if (! function_exists('admin_inbox_notify_booking_assigned')) {
+    function admin_inbox_notify_booking_assigned(
+        string $assigneeUserId,
+        Booking $booking,
+        ?User $actor = null,
+    ): void {
+        if ($actor && (string) $actor->id === (string) $assigneeUserId) {
+            return;
+        }
+
+        $booking->loadMissing('customer');
+        $readableId = $booking->readable_id ?? $booking->id;
+        $customerName = trim(($booking->customer?->first_name ?? '') . ' ' . ($booking->customer?->last_name ?? ''));
+
+        $actorName = $actor
+            ? trim(($actor->first_name ?? '') . ' ' . ($actor->last_name ?? '')) ?: (string) ($actor->email ?? translate('Staff'))
+            : translate('Staff');
+
+        $body = $actorName . ' — #' . $readableId;
+        if ($customerName !== '') {
+            $body .= ' · ' . $customerName;
+        }
+
+        app(AdminInboxNotificationService::class)->notifyUser(
+            (string) $assigneeUserId,
+            UserNotification::TYPE_BOOKING_ASSIGNED,
+            translate('Booking_assigned_to_you') . ' #' . $readableId,
+            $body,
+            route('admin.booking.details', ['id' => $booking->id]),
+            'booking_assigned',
+            (string) $booking->id . ':' . (string) $assigneeUserId,
+        );
+    }
+}
+
+if (! function_exists('admin_inbox_notify_ticket_assigned')) {
+    function admin_inbox_notify_ticket_assigned(
+        string $assigneeUserId,
+        \Modules\TaskBoardModule\Entities\TaskTicket $ticket,
+        ?User $actor = null,
+    ): void {
+        if ($actor && (string) $actor->id === (string) $assigneeUserId) {
+            return;
+        }
+
+        $actorName = $actor
+            ? trim(($actor->first_name ?? '') . ' ' . ($actor->last_name ?? '')) ?: (string) ($actor->email ?? translate('Staff'))
+            : translate('Staff');
+
+        app(AdminInboxNotificationService::class)->notifyUser(
+            (string) $assigneeUserId,
+            UserNotification::TYPE_TICKET_ASSIGNED,
+            translate('Ticket_assigned_to_you'),
+            $actorName . ' — ' . ($ticket->title ?? translate('Ticket')),
+            route('admin.task-board.index') . '?ticket=' . $ticket->id,
+            'ticket_assigned',
+            (string) $ticket->id . ':' . (string) $assigneeUserId,
+        );
+    }
+}
+
+if (! function_exists('admin_inbox_notify_whatsapp_assigned')) {
+    function admin_inbox_notify_whatsapp_assigned(
+        string $assigneeUserId,
+        string $phone,
+        ?User $actor = null,
+        ?int $leadId = null,
+    ): void {
+        if (! \Modules\LeadManagement\Entities\Lead::assigneeIsHuman($assigneeUserId)) {
+            return;
+        }
+
+        if ($actor && (string) $actor->id === (string) $assigneeUserId) {
+            return;
+        }
+
+        $actorName = $actor
+            ? trim(($actor->first_name ?? '') . ' ' . ($actor->last_name ?? '')) ?: (string) ($actor->email ?? translate('Staff'))
+            : translate('Staff');
+
+        $actionUrl = route('admin.whatsapp.conversations.index', [
+            'channel' => 'whatsapp',
+            'tab' => 'chats',
+            'phone' => $phone,
+        ]);
+
+        app(AdminInboxNotificationService::class)->notifyUser(
+            (string) $assigneeUserId,
+            UserNotification::TYPE_WHATSAPP_ASSIGNED,
+            translate('WhatsApp_chat_assigned_to_you'),
+            $actorName . ' — ' . $phone,
+            $actionUrl,
+            'whatsapp_assigned',
+            $phone . ':' . (string) $assigneeUserId,
+        );
+    }
+}
+
+if (! function_exists('admin_inbox_notify_booking_pending_cancellation')) {
+    function admin_inbox_notify_booking_pending_cancellation(Booking $booking): void
+    {
+        $booking->loadMissing(['provider', 'customer']);
+        $readableId = $booking->readable_id ?? $booking->id;
+        $providerName = $booking->provider?->company_name ?? translate('Provider');
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_BOOKING,
+            translate('Provider_cancellation_request_pending') . ' #' . $readableId,
+            $providerName . ' ' . translate('requested_to_cancel_this_booking'),
+            route('admin.booking.details', ['id' => $booking->id]),
+            'booking_pending_cancellation',
+            (string) $booking->id,
+        );
+    }
+}
+
+if (! function_exists('admin_inbox_notify_whatsapp_human_support_requested')) {
+    function admin_inbox_notify_whatsapp_human_support_requested(
+        \Modules\WhatsAppModule\Entities\WhatsAppUser $waUser,
+        ?string $topic = null,
+    ): void {
+        $phone = trim((string) ($waUser->phone ?? ''));
+        if ($phone === '') {
+            return;
+        }
+
+        $channel = (string) ($waUser->channel ?? 'whatsapp');
+        $contactLabel = trim((string) ($waUser->name ?? ''));
+        if ($contactLabel === '') {
+            $contactLabel = $phone;
+        }
+
+        $body = $contactLabel;
+        if ($topic !== null && trim($topic) !== '') {
+            $body .= ' — ' . \Illuminate\Support\Str::limit(trim($topic), 120);
+        }
+
+        $actionUrl = route('admin.whatsapp.conversations.index', [
+            'channel' => $channel !== '' ? $channel : 'whatsapp',
+            'tab' => 'human_support',
+            'phone' => $phone,
+        ]);
+
+        $handledBy = (string) ($waUser->handled_by ?? '');
+        if (\Modules\LeadManagement\Entities\Lead::assigneeIsHuman($handledBy)) {
+            app(AdminInboxNotificationService::class)->notifyUser(
+                $handledBy,
+                UserNotification::TYPE_WHATSAPP_HUMAN_SUPPORT,
+                translate('Human_support_requested'),
+                $body,
+                $actionUrl,
+                'whatsapp_human_support',
+                $phone . ':' . $handledBy,
+                UserNotification::CATEGORY_INTERNAL,
+            );
+
+            return;
+        }
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_WHATSAPP_HUMAN_SUPPORT,
+            translate('Human_support_requested'),
+            $body,
+            $actionUrl,
+            'whatsapp_human_support',
+            $phone,
+        );
+    }
+}
+
+if (! function_exists('admin_inbox_notify_lead_followup_due')) {
+    function admin_inbox_notify_lead_followup_due(
+        \Modules\LeadManagement\Entities\Lead $lead,
+        bool $isOverdue = false,
+    ): ?UserNotification {
+        if (! \Modules\LeadManagement\Entities\Lead::assigneeIsHuman($lead->handled_by ?? null)) {
+            return null;
+        }
+
+        if (! $lead->next_followup_at) {
+            return null;
+        }
+
+        $assigneeId = (string) $lead->handled_by;
+        $dueAt = $lead->next_followup_at instanceof \Carbon\Carbon
+            ? $lead->next_followup_at
+            : \Carbon\Carbon::parse($lead->next_followup_at);
+
+        $leadLabel = trim((string) ($lead->name ?? ''));
+        if ($leadLabel === '') {
+            $leadLabel = (string) ($lead->phone_number ?? translate('Lead'));
+        }
+
+        $titleKey = $isOverdue ? 'Missed_Follow_up' : 'Follow_up_due';
+        $referenceId = $isOverdue
+            ? $lead->id . ':overdue:' . now()->toDateString()
+            : $lead->id . ':due:' . $dueAt->format('Y-m-d H:i');
+
+        return app(AdminInboxNotificationService::class)->notifyUser(
+            $assigneeId,
+            UserNotification::TYPE_LEAD_FOLLOWUP_DUE,
+            translate($titleKey) . ' — ' . $leadLabel,
+            $leadLabel . ' — ' . $dueAt->format('d M Y, h:i A'),
+            route('admin.lead.show', $lead->id),
+            'lead_followup_due',
+            $referenceId,
         );
     }
 }

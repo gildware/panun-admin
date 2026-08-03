@@ -3,7 +3,7 @@
     $followup = $followup ?? null;
 @endphp
 @if($followup && $followup->date)
-    <span class="{{ !empty($partyMeta['has_pending']) ? (!empty($partyMeta['is_overdue']) ? 'text-danger' : 'text-warning') : '' }}">
+    <span class="followup-value__when {{ !empty($partyMeta['has_pending']) ? (!empty($partyMeta['is_overdue']) ? 'text-danger' : 'text-warning') : '' }}">
         {{ $followup->date->format('d-M-Y h:ia') }}
         @if(!empty($partyMeta['has_pending']))
             <span class="badge rounded-pill {{ !empty($partyMeta['is_overdue']) ? 'bg-danger' : 'bg-warning text-dark' }} ms-1">
@@ -14,10 +14,10 @@
                 {{ translate($partyMeta['badge']['label']) }}
             </span>
         @endif
-        @if($followup->reason)
-            <span class="text-muted fw-normal"> ({{ Str::limit($followup->reason, 60) }})</span>
-        @endif
     </span>
+    @if($followup->reason)
+        <span class="followup-value__remark">{{ Str::limit($followup->reason, 80) }}</span>
+    @endif
 @else
-    <span class="text-muted fw-normal">—</span>
+    <span class="followup-value__when text-muted fw-normal">—</span>
 @endif

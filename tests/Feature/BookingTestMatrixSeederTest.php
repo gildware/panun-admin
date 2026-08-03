@@ -50,6 +50,7 @@ class BookingTestMatrixSeederTest extends TestCase
         $this->assertNotNull($created['reopened']->last_reopen_event_at);
         $this->assertNotNull($created['resolved']->reopen_resolved_at);
         $this->assertNotEmpty($created['disputed_cancelled']->reopen_disputed_snapshot);
+        $this->assertSame('canceled', $created['disputed_cancelled']->booking_status);
         $this->assertNotEmpty($created['disputed_completed']->reopen_disputed_snapshot);
         $this->assertSame('completed', $created['completed_no_or_little']->booking_status);
         $this->assertTrue($created['cancelled_after_visit']->after_visit_cancel);

@@ -67,6 +67,10 @@ class WhatsAppUser extends Model
         $u->human_support_requested_at = now();
         $u->save();
         WhatsAppActiveChatsListCache::forgetAll();
+
+        if (function_exists('admin_inbox_notify_whatsapp_human_support_requested')) {
+            admin_inbox_notify_whatsapp_human_support_requested($u->fresh());
+        }
     }
 
     public static function clearHumanSupportRequest(string $phone): void

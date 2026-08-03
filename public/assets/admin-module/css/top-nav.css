@@ -1263,6 +1263,27 @@ html.admin-skip-preloader .preloader {
 }
 
 body.nav-top .admin-main-frame {
-    display: block;
-    min-height: 1px;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0;
+    width: 100%;
+}
+
+body.nav-top .main-area {
+    block-size: auto !important;
+    min-block-size: 100vh;
+    min-block-size: 100dvh;
+    display: flex !important;
+    flex-direction: column !important;
+    box-sizing: border-box;
+}
+
+body.nav-top .main-area .main-content {
+    flex: 1 1 auto;
+}
+
+body.nav-top .main-area > turbo-frame.admin-main-frame > footer.footer {
+    flex-shrink: 0;
+    margin-top: auto !important;
 }

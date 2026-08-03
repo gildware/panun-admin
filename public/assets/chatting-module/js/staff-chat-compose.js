@@ -197,12 +197,19 @@
         highlight.style.lineHeight = cs.lineHeight;
         highlight.style.letterSpacing = cs.letterSpacing;
         highlight.style.padding = cs.padding;
+        highlight.style.paddingTop = cs.paddingTop;
+        highlight.style.paddingRight = cs.paddingRight;
+        highlight.style.paddingBottom = cs.paddingBottom;
+        highlight.style.paddingLeft = cs.paddingLeft;
         highlight.style.border = cs.border;
+        highlight.style.borderWidth = cs.borderWidth;
+        highlight.style.borderRadius = cs.borderRadius;
         highlight.style.boxSizing = cs.boxSizing;
         highlight.style.wordBreak = cs.wordBreak;
         highlight.style.overflowWrap = cs.overflowWrap;
         highlight.style.textAlign = cs.textAlign;
         highlight.style.minHeight = cs.minHeight;
+        highlight.style.width = "100%";
     }
 
     function syncComposeHighlight(textarea) {
@@ -227,7 +234,11 @@
     }
 
     function wrapComposeTextarea(textarea) {
-        if (!textarea || textarea.closest(".staff-chat-compose-editor")) {
+        if (
+            !textarea
+            || textarea.closest(".staff-chat-compose-editor")
+            || textarea.classList.contains("staff-chat-compose-plain")
+        ) {
             return;
         }
 
@@ -255,6 +266,9 @@
         });
 
         syncComposeHighlight(textarea);
+        requestAnimationFrame(function () {
+            syncComposeHighlight(textarea);
+        });
     }
 
     function initComposeHighlights(root) {
@@ -435,7 +449,7 @@
     }
 
     function findComposeTextarea(fromEl) {
-        var scope = fromEl.closest(".input_msg_write, form, .lead-comment-compose");
+        var scope = fromEl.closest(".input_msg_write, form, .lead-comment-compose, .comment-compose");
         if (scope) {
             var scoped = scope.querySelector(".staff-chat-message-input");
             if (scoped) {

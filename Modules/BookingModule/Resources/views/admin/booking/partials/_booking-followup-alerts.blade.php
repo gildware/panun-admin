@@ -22,11 +22,15 @@
                         {{ translate('Please_take_action') }}
                     </div>
                 </div>
-                <a href="{{ route('admin.booking.details', [$bookingRef->id, 'web_page' => 'followups']) }}"
-                   class="btn btn-sm {{ !empty($partyMeta['is_overdue']) ? 'btn-danger' : 'btn-warning' }}">
+                <button type="button"
+                        class="btn btn-sm {{ !empty($partyMeta['is_overdue']) ? 'btn-danger' : 'btn-warning' }}"
+                        data-bs-toggle="modal"
+                        data-bs-target="#takeFollowupModal"
+                        data-booking-take-followup
+                        data-followup-id="{{ $partyMeta['followup']->id }}">
                     <span class="material-icons">event_available</span>
                     {{ translate('Take_Follow_up') }}
-                </a>
+                </button>
             </div>
         @endif
     @endforeach

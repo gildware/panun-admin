@@ -1030,6 +1030,10 @@ class LeadController extends Controller
             );
         }
 
+        if (function_exists('admin_inbox_notify_lead_created')) {
+            admin_inbox_notify_lead_created($lead);
+        }
+
         app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
 
         toastr()->success(translate('Lead created successfully'));

@@ -407,6 +407,84 @@ trait BookingScopes
         });
     }
 
+    /**
+     * Admin booking list search: booking ID, customer, provider, assignee, and phone numbers.
+     */
+    public function scopeAdminListSearch($query, ?string $keywords): mixed
+    {
+        $term = trim((string) $keywords);
+        if ($term === '') {
+            return $query;
+        }
+
+        $like = '%' . $term . '%';
+        $bookingIdTerm = ltrim($term, '#');
+        $phoneDigits = preg_replace('/\D+/', '', $term) ?: '';
+
+        return $query->where(function ($query) use ($like, $bookingIdTerm, $phoneDigits) {
+            $query->where('readable_id', 'LIKE', '%' . $bookingIdTerm . '%');
+
+            $query->orWhereHas('customer', function ($customerQuery) use ($like, $phoneDigits) {
+                $customerQuery->where(function ($nameQuery) use ($like) {
+                    $nameQuery->where('first_name', 'LIKE', $like)
+                        ->orWhere('last_name', 'LIKE', $like)
+                        ->orWhere('phone', 'LIKE', $like)
+                        ->orWhere('email', 'LIKE', $like)
+                        ->orWhereRaw("CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?", [$like]);
+                });
+
+                if (strlen($phoneDigits) >= 3) {
+                    $customerQuery->orWhereRaw(
+                        "REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9]', '') LIKE ?",
+                        ['%' . $phoneDigits . '%']
+                    );
+                }
+            });
+
+            $query->orWhereHas('service_address', function ($addressQuery) use ($like, $phoneDigits) {
+                $addressQuery->where('contact_person_name', 'LIKE', $like)
+                    ->orWhere('contact_person_number', 'LIKE', $like);
+
+                if (strlen($phoneDigits) >= 3) {
+                    $addressQuery->orWhereRaw(
+                        "REGEXP_REPLACE(COALESCE(contact_person_number, ''), '[^0-9]', '') LIKE ?",
+                        ['%' . $phoneDigits . '%']
+                    );
+                }
+            });
+
+            $query->orWhereHas('provider', function ($providerQuery) use ($like, $phoneDigits) {
+                $providerQuery->where('company_name', 'LIKE', $like)
+                    ->orWhere('contact_person_name', 'LIKE', $like)
+                    ->orWhere('company_phone', 'LIKE', $like);
+
+                if (strlen($phoneDigits) >= 3) {
+                    $providerQuery->orWhereRaw(
+                        "REGEXP_REPLACE(COALESCE(company_phone, ''), '[^0-9]', '') LIKE ?",
+                        ['%' . $phoneDigits . '%']
+                    );
+                }
+            });
+
+            $query->orWhereHas('assignee', function ($assigneeQuery) use ($like, $phoneDigits) {
+                $assigneeQuery->where(function ($nameQuery) use ($like) {
+                    $nameQuery->where('first_name', 'LIKE', $like)
+                        ->orWhere('last_name', 'LIKE', $like)
+                        ->orWhere('email', 'LIKE', $like)
+                        ->orWhere('phone', 'LIKE', $like)
+                        ->orWhereRaw("CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?", [$like]);
+                });
+
+                if (strlen($phoneDigits) >= 3) {
+                    $assigneeQuery->orWhereRaw(
+                        "REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9]', '') LIKE ?",
+                        ['%' . $phoneDigits . '%']
+                    );
+                }
+            });
+        });
+    }
+
     public function scopeFilterByZoneId($query, $zoneId): mixed
     {
         return $query->when($zoneId, function ($query) use ($zoneId) {
@@ -477,6 +555,24 @@ trait BookingScopes
                 $query->whereDate('created_at', $fromDate->startOfDay());
             } else {
                 $query->whereBetween('created_at', [$fromDate->startOfDay(), $toDate->endOfDay()]);
+            }
+        });
+    }
+
+    public function scopeFilterByScheduleDateRange($query, $fromDate, $toDate): mixed
+    {
+        return $query->when($fromDate && $toDate, function ($query) use ($fromDate, $toDate) {
+            if (!($fromDate instanceof Carbon)) {
+                $fromDate = Carbon::parse($fromDate);
+            }
+            if (!($toDate instanceof Carbon)) {
+                $toDate = Carbon::parse($toDate);
+            }
+
+            if ($fromDate->equalTo($toDate)) {
+                $query->whereDate('service_schedule', $fromDate->startOfDay());
+            } else {
+                $query->whereBetween('service_schedule', [$fromDate->startOfDay(), $toDate->endOfDay()]);
             }
         });
     }

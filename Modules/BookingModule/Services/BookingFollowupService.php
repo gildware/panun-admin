@@ -74,6 +74,43 @@ class BookingFollowupService
         ]);
     }
 
+    /**
+     * Enforce at most one open scheduled follow-up per party (customer / provider).
+     * Keeps the earliest due date and cancels newer duplicates.
+     */
+    public function dedupeScheduledForParty(Booking $booking, string $for): ?BookingFollowup
+    {
+        $rows = BookingFollowup::query()
+            ->where('booking_id', $booking->id)
+            ->where('for', $for)
+            ->where('status', 'scheduled')
+            ->orderBy('date')
+            ->orderBy('id')
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return null;
+        }
+
+        $keep = $rows->first();
+        foreach ($rows->skip(1) as $row) {
+            $this->markCancelled($row, self::SUPERSEDED_NOTE);
+        }
+
+        return $keep;
+    }
+
+    public function dedupeAllScheduledParties(Booking $booking): void
+    {
+        foreach (['customer', 'provider'] as $for) {
+            $this->dedupeScheduledForParty($booking, $for);
+        }
+
+        if ($booking->relationLoaded('followups')) {
+            $booking->load('followups');
+        }
+    }
+
     private function markCancelled(BookingFollowup $row, string $reason): void
     {
         $remarks = trim((string) ($row->remarks ?? ''));
@@ -113,7 +150,14 @@ class BookingFollowupService
      */
     public function nextScheduledFollowups(Booking $booking): array
     {
-        $scheduled = ($booking->followups ?? collect())
+        $this->dedupeAllScheduledParties($booking);
+
+        $scheduled = ($booking->followups ?? BookingFollowup::query()
+            ->where('booking_id', $booking->id)
+            ->where('status', 'scheduled')
+            ->orderBy('date')
+            ->orderBy('id')
+            ->get())
             ->where('status', 'scheduled')
             ->sortBy('date');
 
@@ -269,5 +313,79 @@ class BookingFollowupService
             'has_any_pending' => $customer['has_pending'] || $provider['has_pending'],
             'has_any_overdue' => $customer['is_overdue'] || $provider['is_overdue'],
         ];
+    }
+
+    /**
+     * @param  Collection<int, BookingFollowup>  $followups
+     * @return array<int, array{due_at: ?Carbon, on_time: ?bool, delay_minutes: ?int, delay_label: ?string}>
+     */
+    public function buildFollowupDelayMeta(Collection $followups): array
+    {
+        if ($followups->isEmpty()) {
+            return [];
+        }
+
+        $meta = [];
+
+        foreach ($followups
+            ->filter(fn (BookingFollowup $followup) => in_array($followup->status, ['completed', 'rescheduled'], true))
+            ->sortBy(fn (BookingFollowup $followup) => $followup->followup_at ?? $followup->created_at) as $followup) {
+            $takenAt = $followup->followup_at instanceof Carbon
+                ? $followup->followup_at
+                : ($followup->followup_at ? Carbon::parse($followup->followup_at) : null);
+
+            if (! $takenAt && $followup->isRescheduled()) {
+                $takenAt = $followup->created_at instanceof Carbon
+                    ? $followup->created_at
+                    : Carbon::parse($followup->created_at);
+            }
+
+            $dueAt = $followup->due_followup_at ?? $followup->date;
+            if ($dueAt && ! $dueAt instanceof Carbon) {
+                $dueAt = Carbon::parse($dueAt);
+            }
+
+            $onTime = null;
+            $delayMinutes = null;
+            $delayLabel = null;
+
+            if ($dueAt && $takenAt && ! $followup->isRescheduled()) {
+                if ($takenAt->lte($dueAt)) {
+                    $onTime = true;
+                    $delayMinutes = 0;
+                } else {
+                    $onTime = false;
+                    $delayMinutes = (int) round($dueAt->diffInMinutes($takenAt));
+                    $delayLabel = $this->formatDelayDuration($delayMinutes);
+                }
+            }
+
+            $meta[(int) $followup->id] = [
+                'due_at' => $dueAt,
+                'on_time' => $onTime,
+                'delay_minutes' => $delayMinutes,
+                'delay_label' => $delayLabel,
+            ];
+        }
+
+        return $meta;
+    }
+
+    public function formatDelayDuration(int $totalMinutes): string
+    {
+        $days = intdiv($totalMinutes, 1440);
+        $hours = intdiv($totalMinutes % 1440, 60);
+
+        if ($days > 0 && $hours > 0) {
+            return $days.' '.translate('days').' '.$hours.' '.translate('hours');
+        }
+        if ($days > 0) {
+            return $days.' '.translate('days');
+        }
+        if ($hours > 0) {
+            return $hours.' '.translate('hours');
+        }
+
+        return translate('less_than_an_hour');
     }
 }

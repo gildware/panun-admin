@@ -16,6 +16,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         $schedule->command('notifications:send-booking-reminders')->everyFiveMinutes();
+        $schedule->command('notifications:send-lead-followup-reminders')->everyFiveMinutes();
         // Home-bundle cache is manual-rebuild only (admin Reset home cache).
         // Do not schedule customer:home-cache:warm — Hostinger keeps last build forever.
     }

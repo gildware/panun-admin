@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Booking List — Full Compact Demo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/admin-module/css/booking-list-compact.css?v=16">
+    <style>
+        :root { --demo-bg: #f4f6f9; --bs-primary: #14532d; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; background: var(--demo-bg); color: #1a1d21; padding: 24px 16px 48px; }
+        .wrap { max-width: 1140px; margin: 0 auto; }
+        .demo-banner {
+            background: linear-gradient(135deg, #fff7ed, #fef3c7);
+            border: 1px solid #fdba74; border-radius: 12px;
+            padding: 16px 20px; margin-bottom: 20px;
+        }
+        .demo-banner .tag {
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            color: #c2410c; background: #ffedd5; padding: 4px 10px; border-radius: 4px;
+        }
+        .demo-banner { padding: 12px 16px; margin-bottom: 14px; }
+        .demo-banner h1 { font-size: 17px; margin: 6px 0 4px; }
+        .demo-banner p { font-size: 12px; }
+        .page-header { margin-bottom: 12px; padding-bottom: 8px; }
+        .page-header h2 { font-size: 17px; }
+        .card { padding: 12px; }
+        .nav--tabs .nav-link { padding: 6px 11px; font-size: 12px; }
+        .nav--tabs .nav-link .count { min-width: 18px; height: 18px; font-size: 10px; }
+        .toolbar { margin-bottom: 10px; }
+        .search-box input { padding: 6px 10px; font-size: 13px; min-width: 160px; }
+        .btn { padding: 6px 12px; font-size: 12px; }
+        .active-tab-label { font-size: 11px; margin-bottom: 8px; }
+        .page-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(0,0,0,.08);
+        }
+        .page-header h2 { font-size: 20px; font-weight: 600; }
+        .card { background: #fff; border-radius: 10px; border: 1px solid rgba(0,0,0,.06); padding: 16px; }
+        .nav--tabs { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 0 0 16px; }
+        .nav--tabs .nav-link {
+            border: none; background: #e9ecef; color: #495057; border-radius: 6px;
+            padding: 9px 15px; font-size: 13px; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 8px; font-family: inherit;
+        }
+        .nav--tabs .nav-link.active { background: var(--bs-primary); color: #fff; font-weight: 500; }
+        .nav--tabs .nav-link .count {
+            min-width: 22px; height: 22px; padding: 0 6px; font-size: 11px; font-weight: 600;
+            border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
+            background: var(--bs-primary); color: #fff;
+        }
+        .nav--tabs .nav-link.active .count { background: rgba(255,255,255,.25); }
+        .nav--tabs .nav-link:not(.active) .count { background: rgba(20,83,45,.15); color: var(--bs-primary); }
+        .hidden { display: none !important; }
+        .toolbar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; margin-bottom: 14px; }
+        .search-box { display: flex; gap: 8px; }
+        .search-box input { border: 1px solid #dee2e6; border-radius: 6px; padding: 8px 12px; font-size: 14px; min-width: 200px; font-family: inherit; }
+        .btn { border: none; border-radius: 6px; padding: 8px 14px; font-size: 13px; cursor: pointer; font-family: inherit; }
+        .btn-primary { background: var(--bs-primary); color: #fff; }
+        .btn-outline { background: #fff; border: 1px solid #dee2e6; display: inline-flex; align-items: center; gap: 4px; }
+        .empty-state { text-align: center; padding: 40px; color: #6b7280; }
+        .badge { font-size: 11px; padding: 3px 7px; border-radius: 4px; font-weight: 500; text-transform: capitalize; display: inline-block; }
+        .badge-info { background: #cff4fc; color: #055160; }
+        .badge-warning { background: #fff3cd; color: #664d03; }
+        .badge-success { background: #d1e7dd; color: #0f5132; }
+        .badge-danger { background: #f8d7da; color: #842029; }
+        .badge-secondary { background: #e2e3e5; color: #41464b; }
+        .badge-dark { background: #212529; color: #fff; }
+        .booking-followup-cell { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; }
+        .booking-followup-cell--missed { background: #f8d7da; border: 1px solid #f1aeb5; }
+        .booking-followup-cell--upcoming { background: #fff3cd; border: 1px solid #ffe082; }
+        .booking-followup-badge { font-size: 10px; padding: 2px 6px; border-radius: 999px; font-weight: 600; }
+        .footer { margin-top: 24px; text-align: center; font-size: 13px; color: #6b7280; }
+        .footer a { color: var(--bs-primary); }
+        .active-tab-label { font-size: 13px; color: #6b7280; margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="demo-banner">
+        <span class="tag">Preview only — not live</span>
+        <h1>Compact Booking List — Demo</h1>
+        <p>Dense row layout — preview only, portal unchanged.</p>
+    </div>
+
+    <details class="field-checklist">
+        <summary>All table columns included in card →</summary>
+        <ul>
+            <li class="yes">SL, ID, Status, Tags, Amount, Payment, Actions</li>
+            <li class="yes">Customer, Provider, Schedule, Booked date</li>
+            <li class="yes">Assignee, Lead, Source, Location, Follow-ups</li>
+            <li class="tab-only">Reason — Cancelled / On hold / Reopened tabs</li>
+            <li class="tab-only">Cancellation date — Cancelled by provider list</li>
+        </ul>
+    </details>
+
+    <div class="page-header">
+        <h2 id="page-title">Booking Requests</h2>
+        <span style="color:#6b7280;font-size:14px">Showing: <strong id="total-count">0</strong></span>
+    </div>
+
+    <div class="list-mode-toggle" id="list-mode">
+        <button type="button" class="active" data-mode="standard" onclick="setListMode('standard')">Standard list</button>
+        <button type="button" data-mode="cancelled_by_provider" onclick="setListMode('cancelled_by_provider')">Cancelled by provider</button>
+        <button type="button" data-mode="cancelled_by_customer" onclick="setListMode('cancelled_by_customer')">Cancelled by customer</button>
+    </div>
+
+    <div id="tabs-wrap">
+        <ul class="nav--tabs" id="main-tabs"></ul>
+        <ul class="nav--tabs hidden" id="extra-tabs" style="margin-top:8px"></ul>
+    </div>
+
+    <div class="card">
+        <div class="toolbar">
+            <div class="search-box">
+                <input type="search" id="search" placeholder="Search booking ID…">
+                <button class="btn btn-primary" type="button" onclick="render()">Search</button>
+            </div>
+            <button class="btn btn-outline" type="button"><span class="material-icons" style="font-size:18px">filter_list</span> Filter</button>
+        </div>
+        <p class="active-tab-label">Tab: <strong id="active-tab-label">All Booking</strong></p>
+        <div class="booking-compact-list" id="list"></div>
+        <div class="empty-state hidden" id="empty"><span class="material-icons" style="font-size:48px;opacity:.25;display:block">inbox</span>No bookings in this view</div>
+    </div>
+
+    <p class="footer">Live portal unchanged: <a href="/admin/booking/list">/admin/booking/list</a></p>
+</div>
+
+<script>
+// Real data from DB (Aug 2026) + one sample row for UI fields not present in DB
+const bookings = [
+    {
+        readable_id: "PK16JUL26002", status: "accepted", is_repeated: false, is_example: false,
+        sub_category: "Air Conditioners", amount: "₹50", is_paid: "Unpaid",
+        booked: "16-Jul-2026", booked_time: "01:31 PM",
+        schedule: "21-Jul-2026", schedule_time: "03:00 PM", schedule_note: null,
+        customer: "Other Test", customer_phone: "9353294016",
+        provider: "Test Pro", provider_phone: "+919090909090", provider_unassigned: false,
+        assignee: "Kamran Maqbool", assignee_email: "admin@panunkaergar.com", assignee_type: "Admin",
+        lead_id: "401", source: "App custom request", location: "Your Location",
+        fup_customer: { date: "20-Jul-2026", badge: "Missed", badge_class: "badge-danger", cell_class: "booking-followup-cell--missed" },
+        fup_provider: { date: "20-Jul-2026", badge: "Missed", badge_class: "badge-danger", cell_class: "booking-followup-cell--missed" },
+        tags: [], reason: null, reopened_from: null, cancellation_requested_at: null,
+        actions: { repeat: false, review_cancel: false, reopen_resolve: false }
+    },
+    {
+        readable_id: "PK16JUL26001", status: "accepted", is_repeated: false, is_example: false,
+        sub_category: "Air Conditioners", amount: "₹50", is_paid: "Unpaid",
+        booked: "16-Jul-2026", booked_time: "01:27 PM",
+        schedule: "20-Jul-2026", schedule_time: "02:00 PM", schedule_note: null,
+        customer: "Other Test", customer_phone: "9353294016",
+        provider: "Test Pro", provider_phone: "+919090909090", provider_unassigned: false,
+        assignee: "Kamran Maqbool", assignee_email: "admin@panunkaergar.com", assignee_type: "Admin",
+        lead_id: null, source: "Website direct booking", location: "Your Location",
+        fup_customer: { date: "19-Jul-2026", badge: "Missed", badge_class: "badge-danger", cell_class: "booking-followup-cell--missed" },
+        fup_provider: { date: "19-Jul-2026", badge: "Missed", badge_class: "badge-danger", cell_class: "booking-followup-cell--missed" },
+        tags: [], reason: null, reopened_from: null, cancellation_requested_at: null,
+        actions: { repeat: false, review_cancel: false, reopen_resolve: false }
+    },
+    {
+        readable_id: "PK03JUL26001", status: "completed", is_repeated: false, is_example: false,
+        sub_category: null, amount: "₹100", is_paid: "Paid",
+        booked: "03-Jul-2026", booked_time: "07:56 PM",
+        schedule: "04-Jul-2026", schedule_time: "07:56 PM", schedule_note: null,
+        customer: "E2E Referee", customer_phone: "8583272133",
+        provider: null, provider_phone: null, provider_unassigned: true,
+        assignee: null, assignee_email: null, assignee_type: null,
+        lead_id: null, source: "App", location: "Customer Location",
+        fup_customer: { date: "03-Jul-2026", badge: "Done", badge_class: "badge-success", cell_class: "" },
+        fup_provider: { date: "03-Jul-2026", badge: "Done", badge_class: "badge-success", cell_class: "" },
+        tags: [], reason: null, reopened_from: null, cancellation_requested_at: null,
+        actions: { repeat: false, review_cancel: false, reopen_resolve: false }
+    },
+    {
+        readable_id: "PK28JUN26003", status: "ongoing", is_repeated: false, is_example: false,
+        sub_category: "Air Conditioners", amount: "₹50", is_paid: "Unpaid",
+        booked: "28-Jun-2026", booked_time: "11:56 PM",
+        schedule: "29-Jun-2026", schedule_time: "09:00 AM", schedule_note: null,
+        customer: null, customer_phone: null,
+        provider: "Test Pro", provider_phone: "+919090909090", provider_unassigned: false,
+        assignee: null, assignee_email: null, assignee_type: null,
+        lead_id: null, source: "App", location: "Customer Location",
+        fup_customer: { date: "28-Jun-2026", badge: "Missed", badge_class: "badge-danger", cell_class: "booking-followup-cell--missed" },
+        fup_provider: { date: "28-Jun-2026", badge: "Missed", badge_class: "badge-danger", cell_class: "booking-followup-cell--missed" },
+        tags: [], reason: null, reopened_from: null, cancellation_requested_at: null,
+        actions: { repeat: false, review_cancel: false, reopen_resolve: false }
+    },
+    // Sample — shows fields not in your DB (repeat, tags, reason, reopen, cancel review)
+    {
+        readable_id: "PK-SAMPLE-01", status: "reopened", is_repeated: true, is_example: true,
+        repeat_count: 4, sub_category: "Plumbing", amount: "₹350", is_paid: "Unpaid",
+        booked: "01-Aug-2026", booked_time: "10:00 AM",
+        schedule: "05-Aug-2026", schedule_time: "02:00 PM", schedule_note: "Next upcoming",
+        customer: "Sample Customer", customer_phone: "9876543210",
+        provider: "Sample Provider", provider_phone: "+919876543210", provider_unassigned: false,
+        assignee: "Staff User", assignee_email: "staff@example.com", assignee_type: "Employee",
+        lead_id: "882", source: "Whatsapp", location: "Customer Location",
+        fup_customer: { date: "04-Aug-2026", badge: "Upcoming", badge_class: "badge-warning", cell_class: "booking-followup-cell--upcoming" },
+        fup_provider: { date: "04-Aug-2026", badge: "Upcoming", badge_class: "badge-warning", cell_class: "booking-followup-cell--upcoming" },
+        tags: [
+            { label: "Pending refund", class: "badge-warning" },
+            { label: "Disputed", class: "badge-dark" },
+            { label: "Loss making", class: "badge-danger" }
+        ],
+        reason: { title: "Service quality issue", remarks: "Customer reported incomplete work on last visit." },
+        reopened_from: "PK03JUL26001", cancellation_requested_at: null,
+        actions: { repeat: true, review_cancel: false, reopen_resolve: true }
+    },
+    {
+        readable_id: "PK-SAMPLE-02", status: "canceled", is_repeated: false, is_example: true,
+        sub_category: "Electrical", amount: "₹200", is_paid: "Unpaid",
+        booked: "30-Jul-2026", booked_time: "03:00 PM",
+        schedule: "31-Jul-2026", schedule_time: "11:00 AM", schedule_note: null,
+        customer: "Cancel Demo", customer_phone: "9123456789",
+        provider: "Withdrawn Pro", provider_phone: "+919111111111", provider_unassigned: false,
+        provider_withdrawn: true,
+        assignee: "Kamran Maqbool", assignee_email: "admin@panunkaergar.com", assignee_type: "Admin",
+        lead_id: null, source: "Call", location: "Customer Location",
+        fup_customer: null, fup_provider: null,
+        tags: [{ label: "Refunded", class: "badge-success" }],
+        reason: { title: "Customer changed plans", remarks: "Requested cancellation before provider arrival." },
+        reopened_from: null,
+        cancellation_requested_at: "30-Jul-2026 04:15 PM",
+        actions: { repeat: false, review_cancel: true, reopen_resolve: false }
+    }
+];
+
+const mainTabs = [
+    { key: 'all', label: 'All Booking' },
+    { key: 'pending', label: 'Pending Booking' },
+    { key: 'accepted', label: 'Accepted' },
+    { key: 'canceled', label: 'Cancelled' },
+    { key: 'ongoing', label: 'Ongoing' },
+    { key: 'completed', label: 'Completed' },
+];
+const extraTabs = [
+    { key: 'reopened', label: 'Reopened' },
+    { key: 'resolved', label: 'Resolved' },
+    { key: 'disputed_cancelled', label: 'Disputed & Cancelled' },
+    { key: 'disputed_completed', label: 'Disputed & Completed' },
+    { key: 'on_hold', label: 'On hold' },
+    { key: 'hold_after_visit', label: 'Hold after visit' },
+    { key: 'completed_no_or_little', label: 'Complete no service' },
+    { key: 'cancelled_after_visit', label: 'Cancel after visit' },
+    { key: 'loss_making_pending', label: 'Loss making' },
+    { key: 'loss_recovered', label: 'Loss recovered' },
+    { key: 'loss_settled', label: 'Settled' },
+];
+
+let activeTab = 'all';
+let listMode = 'standard';
+let extraOpen = false;
+
+function countForTab(key) {
+    if (key === 'all') return bookings.filter(b => !b.is_example || true).length;
+    return bookings.filter(b => b.status === key || (key === 'canceled' && b.status === 'cancelled')).length;
+}
+
+function statusBadge(s) {
+    return ({ accepted:'badge-info', ongoing:'badge-warning', completed:'badge-success', pending:'badge-warning', canceled:'badge-danger', cancelled:'badge-danger', reopened:'badge-warning', on_hold:'badge-secondary' }[s] || 'badge-info');
+}
+
+function showReasonTab() {
+    return ['canceled', 'on_hold', 'reopened'].includes(activeTab) || listMode === 'cancelled_by_provider';
+}
+
+function showReopenedFrom() {
+    return activeTab === 'reopened';
+}
+
+function showCancellationRequested() {
+    return listMode === 'cancelled_by_provider';
+}
+
+function filteredBookings() {
+    const q = document.getElementById('search').value.trim().toLowerCase();
+    let list = bookings;
+    if (listMode === 'cancelled_by_provider') {
+        list = list.filter(b => b.cancellation_requested_at || b.actions.review_cancel);
+    } else if (listMode === 'cancelled_by_customer') {
+        list = list.filter(b => b.status === 'canceled' || b.status === 'cancelled');
+    } else if (activeTab !== 'all') {
+        list = list.filter(b => b.status === activeTab || (activeTab === 'canceled' && b.status === 'cancelled'));
+    }
+    if (q) list = list.filter(b => b.readable_id.toLowerCase().includes(q));
+    return list;
+}
+
+function pair(label, value) {
+    if (!value || value === '—') return '';
+    return `<span class="bc-pair"><span class="bc-lbl">${label}</span><span class="bc-val">${value}</span></span>`;
+}
+
+function sideBlock(side, mainLabel, mainVal, fupVal) {
+    if (!mainVal || mainVal === '—') return '';
+    let html = `<div class="bc-side bc-side--${side}"><span class="bc-pair"><span class="bc-lbl">${mainLabel}</span><span class="bc-val">${mainVal}</span></span>`;
+    if (fupVal) {
+        html += `<span class="bc-fup"><span class="bc-lbl">Fup</span><span class="bc-val">${fupVal}</span></span>`;
+    }
+    html += `</div>`;
+    return html;
+}
+
+function renderCard(b, i) {
+    const cust = b.customer
+        ? `<a href="#">${b.customer.trim()}</a>${b.customer_phone ? `, ${b.customer_phone}` : ''}`
+        : (b.customer_phone || '—');
+
+    let prov = '<span class="badge badge-danger">Unassigned</span>';
+    if (b.provider_withdrawn) prov = `<span style="color:#b45309">Withdrawn</span> <a href="#">${b.provider}</a>`;
+    else if (b.provider) prov = `<a href="#">${b.provider}</a>${b.provider_phone ? `, ${b.provider_phone}` : ''}`;
+
+
+    const assignee = b.assignee
+        ? `${b.assignee}${b.assignee_type ? ` (${b.assignee_type})` : ''}`
+        : null;
+
+    const leadLabel = showReopenedFrom() ? 'Reopened from' : 'Lead';
+    const leadVal = showReopenedFrom()
+        ? (b.reopened_from ? `<a href="#">#${b.reopened_from}</a>` : 'Self')
+        : (b.lead_id ? `<a href="#">#${b.lead_id}</a>` : null);
+
+    const tagsVal = b.tags.length
+        ? b.tags.map(t => `<span class="badge ${t.class}">${t.label}</span>`).join(' ')
+        : null;
+
+    const fupCust = b.fup_customer ? `${b.fup_customer.date} <span class="badge ${b.fup_customer.badge_class}">${b.fup_customer.badge}</span>` : null;
+    const fupProv = b.fup_provider ? `${b.fup_provider.date} <span class="badge ${b.fup_provider.badge_class}">${b.fup_provider.badge}</span>` : null;
+
+    const row2 = [
+        sideBlock('customer', 'Customer', cust, fupCust),
+        sideBlock('provider', 'Provider', prov, fupProv),
+    ].filter(Boolean).join('');
+
+    const row3 = [
+        pair('Assignee', assignee),
+        pair(leadLabel, leadVal),
+        pair('Source', b.source),
+        pair('Location', b.location),
+        pair('Tags', tagsVal),
+        showCancellationRequested() ? pair('Cancel req.', b.cancellation_requested_at) : '',
+    ].filter(Boolean).join('');
+
+    let reasonBlock = '';
+    if (showReasonTab() && b.reason) {
+        reasonBlock = `<div class="bc-reason"><span class="bc-lbl">Reason</span> <strong>${b.reason.title}</strong> — ${b.reason.remarks}</div>`;
+    }
+
+    let actions = `<button title="View"><span class="material-icons">visibility</span></button>`;
+    if (b.actions.review_cancel) {
+        actions += `<button title="Review"><span class="material-icons">gavel</span></button>`;
+    }
+    if (b.actions.reopen_resolve) {
+        actions += `<button title="Resolve"><span class="material-icons">check_circle</span></button>`;
+    }
+
+    return `
+<article class="booking-compact-card booking-compact-card--${b.status}">
+    <div class="bc-r1">
+        <span class="bc-sl">${i + 1}</span>
+        <a href="#" class="bc-id">#${b.readable_id}</a>
+        ${b.is_repeated ? `<img src="/assets/admin-module/img/icons/repeat.svg" class="bc-repeat" alt="">` : ''}
+        ${b.is_example ? '<span class="bc-sample">SAMPLE</span>' : ''}
+        ${b.sub_category ? `<span class="bc-service">${b.sub_category}</span>` : ''}
+        <span class="bc-badges">
+            <span class="badge ${statusBadge(b.status)}">${b.status.replace('_',' ')}</span>
+            <span class="badge ${b.is_paid === 'Paid' ? 'badge-success' : 'badge-danger'}">${b.is_paid}</span>
+        </span>
+        <span class="bc-grow"></span>
+        <span class="bc-header-schedule"><span class="bc-lbl">Schedule</span><span class="bc-val">${b.schedule_note ? b.schedule_note + ' · ' : ''}${b.schedule} ${b.schedule_time}</span></span>
+        <span class="bc-amount">${b.amount}</span>
+        <div class="bc-actions">${actions}</div>
+    </div>
+    ${row2 ? `<div class="bc-r2">${row2}</div>` : ''}
+    ${row3 ? `<div class="bc-r3">${row3}</div>` : ''}
+    ${reasonBlock}
+</article>`;
+}
+
+function buildTabs(container, tabs, withToggle) {
+    container.innerHTML = tabs.map(t => `
+        <li><button type="button" class="nav-link ${activeTab === t.key ? 'active' : ''}" onclick="setTab('${t.key}')">
+            ${t.label}<span class="count">${countForTab(t.key)}</span>
+        </button></li>`).join('') + (withToggle ? `
+        <li><button type="button" class="nav-link" onclick="toggleExtra()">
+            ${extraOpen ? 'Hide more ▲' : 'View more ▼'}
+        </button></li>` : '');
+}
+
+function setListMode(mode) {
+    listMode = mode;
+    document.querySelectorAll('#list-mode button').forEach(btn => btn.classList.toggle('active', btn.dataset.mode === mode));
+    document.getElementById('tabs-wrap').classList.toggle('hidden', mode !== 'standard');
+    document.getElementById('page-title').textContent = mode === 'cancelled_by_provider' ? 'Cancelled by provider'
+        : mode === 'cancelled_by_customer' ? 'Cancelled by customer' : 'Booking Requests';
+    render();
+}
+
+function setTab(key) {
+    activeTab = key;
+    if (extraTabs.some(t => t.key === key)) extraOpen = true;
+    buildTabs(document.getElementById('main-tabs'), mainTabs, true);
+    buildTabs(document.getElementById('extra-tabs'), extraTabs, false);
+    document.getElementById('extra-tabs').classList.toggle('hidden', !extraOpen);
+    const label = [...mainTabs, ...extraTabs].find(t => t.key === key)?.label || key;
+    document.getElementById('active-tab-label').textContent = label;
+    render();
+}
+
+function toggleExtra() {
+    extraOpen = !extraOpen;
+    document.getElementById('extra-tabs').classList.toggle('hidden', !extraOpen);
+    buildTabs(document.getElementById('main-tabs'), mainTabs, true);
+}
+
+function render() {
+    const list = filteredBookings();
+    document.getElementById('total-count').textContent = list.length;
+    document.getElementById('list').innerHTML = list.map(renderCard).join('');
+    document.getElementById('list').classList.toggle('hidden', list.length === 0);
+    document.getElementById('empty').classList.toggle('hidden', list.length > 0);
+}
+
+buildTabs(document.getElementById('main-tabs'), mainTabs, true);
+buildTabs(document.getElementById('extra-tabs'), extraTabs, false);
+render();
+document.getElementById('search').addEventListener('input', render);
+</script>
+</body>
+</html>

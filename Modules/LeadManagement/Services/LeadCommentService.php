@@ -101,7 +101,7 @@ class LeadCommentService
                 $authorName.': '.$preview,
                 $actionUrl,
                 'lead_comment',
-                (string) $comment->id,
+                (string) $comment->id.':'.$userId,
             );
         }
     }
