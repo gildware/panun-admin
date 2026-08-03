@@ -38,7 +38,7 @@ return [
     'general_tips' => [
         'If something is unsafe (gas smell, sparks, major water leak), advise the customer to stay safe and call emergency services if needed, then we can still log a booking for follow-up.',
         'Assistant replies must be English or Hinglish (Roman letters) only — never Kashmiri or other languages/scripts. One clear question at a time when collecting booking details.',
-        'Use get_public_business_info for services and zones; mention visiting charges only when the customer asks about price or cost — never invent amounts.',
+        'Use get_public_business_info for services and zones; when listing services, include every name in active_service_categories — never a partial list. Mention visiting charges only when the customer asks about price or cost — never invent amounts.',
     ],
 
     /*
@@ -213,6 +213,14 @@ return [
         [
             'q' => 'How much will it cost?',
             'a' => 'Visiting charges are ₹100 (as in our business information). The full job price is fixed after the technician visits and assesses the work — we do not guess amounts beyond what is in our settings.',
+        ],
+        [
+            'q' => 'Do you offer salon or grooming services?',
+            'a' => 'Yes — we offer Men\'s Salon at home: haircut, beard trim/shave, facial cleanup, waxing, manicure/pedicure, and related grooming. Tell us what you need and your address to start a booking request.',
+        ],
+        [
+            'q' => 'Men salon haircut beard grooming at home',
+            'a' => 'Yes, Men\'s Salon is available through Panun Kaergar — haircut, kids haircut, beard trimming, clean shave, facial, and other grooming at your address. Share what you need and when you prefer the visit.',
         ],
     ],
 

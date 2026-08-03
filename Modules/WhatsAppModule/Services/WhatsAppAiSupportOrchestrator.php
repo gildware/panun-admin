@@ -194,6 +194,8 @@ class WhatsAppAiSupportOrchestrator
         $pendingBookingRequestId = null;
         $autoInjectedPublicBusinessInfo = false;
         $unpromptedPricingRetry = false;
+        $serviceDenialRetry = false;
+        $serviceListingRetry = false;
         $maxRounds = (int) config('whatsappmodule.ai_gemini_max_tool_rounds', 6);
         while ($iter < $maxRounds) {
             $iter++;
@@ -334,6 +336,89 @@ class WhatsAppAiSupportOrchestrator
                         'role' => 'user',
                         'parts' => [[
                             'text' => 'The customer did NOT ask about price, cost, charges, fees, or kitna. Rewrite your reply: remove ALL rupee amounts, visiting charges, and fee lines. Answer only what they asked (service, booking, status, troubleshooting, etc.). Do not mention visiting_charge_note.',
+                        ]],
+                    ];
+
+                    continue;
+                }
+
+                if (
+                    !$serviceDenialRetry
+                    && !$hadPublicBusinessInfoThisRun
+                    && $this->customerReplyIncorrectlyDeniesCatalogService($candidate)
+                ) {
+                    $serviceDenialRetry = true;
+                    $recorder->step('gemini.guard', 'Detected service denial without get_public_business_info; injecting tool + retry', 'info', []);
+
+                    $pub = $this->toolExecutor->execute('get_public_business_info', [], $phone);
+                    $contents[] = [
+                        'role' => 'model',
+                        'parts' => [[
+                            'functionCall' => [
+                                'name' => 'get_public_business_info',
+                                'args' => (object) [],
+                            ],
+                        ]],
+                    ];
+                    $contents[] = [
+                        'role' => 'user',
+                        'parts' => [[
+                            'functionResponse' => [
+                                'name' => 'get_public_business_info',
+                                'response' => $pub,
+                            ],
+                        ]],
+                    ];
+                    $hadProductiveToolThisRun = true;
+                    $hadPublicBusinessInfoThisRun = true;
+
+                    $contents[] = [
+                        'role' => 'user',
+                        'parts' => [[
+                            'text' => 'Your last reply incorrectly said we do not offer a service. Rewrite using ONLY get_public_business_info: check active_service_categories, active_service_catalog, service_hints.categories, and service_hints.subcategories. Do not deny services that appear in the tool result. If we truly do not offer something, say so only after verifying it is absent from all catalog lists.',
+                        ]],
+                    ];
+
+                    continue;
+                }
+
+                if (
+                    !$serviceListingRetry
+                    && $this->customerMessageAsksForServiceList($text)
+                    && (
+                        !$hadPublicBusinessInfoThisRun
+                        || $this->customerReplyLooksLikePartialServiceList($candidate)
+                    )
+                ) {
+                    $serviceListingRetry = true;
+                    $recorder->step('gemini.guard', 'Customer asked for service list; forcing full catalog via get_public_business_info + retry', 'info', []);
+
+                    $pub = $this->toolExecutor->execute('get_public_business_info', [], $phone);
+                    $contents[] = [
+                        'role' => 'model',
+                        'parts' => [[
+                            'functionCall' => [
+                                'name' => 'get_public_business_info',
+                                'args' => (object) [],
+                            ],
+                        ]],
+                    ];
+                    $contents[] = [
+                        'role' => 'user',
+                        'parts' => [[
+                            'functionResponse' => [
+                                'name' => 'get_public_business_info',
+                                'response' => $pub,
+                            ],
+                        ]],
+                    ];
+                    $hadProductiveToolThisRun = true;
+                    $hadPublicBusinessInfoThisRun = true;
+
+                    $contents[] = [
+                        'role' => 'user',
+                        'parts' => [[
+                            'text' => 'The customer asked what services we offer. Rewrite your reply using ONLY get_public_business_info. List EVERY category in active_service_categories — do not omit any (include Men\'s Salon, Women\'s Salon, Cleaning, Laundry, etc. when present). Do not use a short hardcoded list. Follow service_listing_hint. Use WhatsApp-friendly formatting (numbered or hyphen lists).',
                         ]],
                     ];
 
@@ -1244,6 +1329,72 @@ class WhatsAppAiSupportOrchestrator
         $t = trim($text);
 
         return $t !== '' && (bool) preg_match('/(?:₹|\brs\.?\b|\brupees\b|\bfee\b|\bfees\b|\bcharge\b|\bcharges\b)/iu', $t);
+    }
+
+    /**
+     * True when the model denies offering a service without having loaded the catalog.
+     */
+    private function customerReplyIncorrectlyDeniesCatalogService(string $text): bool
+    {
+        $t = mb_strtolower(trim($text));
+        if ($t === '') {
+            return false;
+        }
+
+        $deniesService = (bool) preg_match(
+            '/(?:'
+            .'salon.*(?:nahi|nahin|not|don\'?t|do not|unavailable|offer nahi)|'
+            .'(?:nahi|nahin|not|don\'?t|do not|unavailable|offer nahi).*salon|'
+            .'(?:we|hum|ham).{0,40}(?:don\'?t|do not|nahi|nahin).{0,40}(?:provide|offer|dete|deti)|'
+            .'(?:don\'?t|do not) (?:provide|offer)'
+            .')/iu',
+            $t
+        );
+
+        return $deniesService;
+    }
+
+    private function customerMessageAsksForServiceList(string $text): bool
+    {
+        $t = mb_strtolower(trim($text));
+        if ($t === '') {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/(?:'
+            .'what\s+(?:all\s+)?services?|'
+            .'which\s+services?|'
+            .'list\s+(?:of\s+)?services?|'
+            .'services?\s+(?:do\s+you|you\s+(?:offer|provide|have|give|dete|deti))|'
+            .'kya\s+kya\s+services?|'
+            .'kon\s+si\s+services?|'
+            .'kaun\s+(?:si|se)\s+services?|'
+            .'all\s+services?|'
+            .'service\s+list|'
+            .'services?\s+available|'
+            .'offer\s+kya|'
+            .'provide\s+kya'
+            .')/iu',
+            $t
+        );
+    }
+
+    /**
+     * Detects replies that list only a few trades while omitting the full catalog.
+     */
+    private function customerReplyLooksLikePartialServiceList(string $text): bool
+    {
+        $t = mb_strtolower(trim($text));
+        if ($t === '') {
+            return false;
+        }
+
+        $mentionsTrade = (bool) preg_match('/(?:electrician|plumber|carpenter|appliance|repair|cleaning)/iu', $t);
+        $mentionsSalon = (bool) preg_match('/(?:salon|grooming|laundry|painting|mason|pet|dry cleaning)/iu', $t);
+        $deniesSalon = (bool) preg_match('/salon.*(?:nahi|nahin|not|don\'?t|do not)/iu', $t);
+
+        return $mentionsTrade && (!$mentionsSalon || $deniesSalon);
     }
 
     /**
