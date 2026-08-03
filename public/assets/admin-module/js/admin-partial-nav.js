@@ -95,6 +95,57 @@
         }
     }
 
+    function extractToastrCalls(content) {
+        var calls = [];
+        var i = 0;
+
+        while (i < content.length) {
+            var idx = content.indexOf('toastr.', i);
+            if (idx === -1) {
+                break;
+            }
+
+            var prefix = content.slice(idx).match(/^toastr\.(success|error|info|warning)\(/);
+            if (!prefix) {
+                i = idx + 7;
+                continue;
+            }
+
+            var start = idx;
+            var pos = idx + prefix[0].length;
+            var depth = 1;
+
+            while (pos < content.length && depth > 0) {
+                var ch = content.charAt(pos);
+                if (ch === '(') {
+                    depth++;
+                } else if (ch === ')') {
+                    depth--;
+                }
+                pos++;
+            }
+
+            while (pos < content.length && /[\s;]/.test(content.charAt(pos))) {
+                pos++;
+            }
+
+            calls.push(content.slice(start, pos).trim());
+            i = pos;
+        }
+
+        return calls;
+    }
+
+    function runToastrCall(call) {
+        if (!call || typeof window.toastr === 'undefined') {
+            return;
+        }
+
+        try {
+            (new Function('toastr', call))(window.toastr);
+        } catch (e) {}
+    }
+
     function runFlashToastsFromHtml(html) {
         if (!html || typeof window.toastr === 'undefined') {
             return;
@@ -107,10 +158,7 @@
                 return;
             }
 
-            var runner = document.createElement('script');
-            runner.textContent = content;
-            document.body.appendChild(runner);
-            runner.remove();
+            extractToastrCalls(content).forEach(runToastrCall);
         });
     }
 
@@ -225,19 +273,62 @@
         });
     }
 
-    function activateScripts(root) {
-        if (!root) {
-            return;
+    function scriptSrcIsLoaded(src) {
+        var absoluteSrc = resolveStylesheetHref(src);
+        if (!absoluteSrc) {
+            return false;
         }
 
-        root.querySelectorAll('script').forEach(function (oldScript) {
+        var scripts = document.querySelectorAll('script[src]');
+        for (var i = 0; i < scripts.length; i++) {
+            if (resolveStylesheetHref(scripts[i].getAttribute('src') || scripts[i].src) === absoluteSrc) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    function activateOneScript(oldScript) {
+        return new Promise(function (resolve) {
             var script = document.createElement('script');
             Array.prototype.forEach.call(oldScript.attributes, function (attr) {
                 script.setAttribute(attr.name, attr.value);
             });
+
+            var src = oldScript.getAttribute('src');
+            if (src) {
+                if (scriptSrcIsLoaded(src)) {
+                    oldScript.remove();
+                    resolve();
+                    return;
+                }
+
+                script.addEventListener('load', function () {
+                    resolve();
+                }, { once: true });
+                script.addEventListener('error', function () {
+                    resolve();
+                }, { once: true });
+                oldScript.replaceWith(script);
+                return;
+            }
+
             script.textContent = oldScript.textContent;
             oldScript.replaceWith(script);
+            resolve();
         });
+    }
+
+    async function activateScripts(root) {
+        if (!root) {
+            return;
+        }
+
+        var scripts = Array.prototype.slice.call(root.querySelectorAll('script'));
+        for (var i = 0; i < scripts.length; i++) {
+            await activateOneScript(scripts[i]);
+        }
     }
 
     function extractFrameDocument(html) {
@@ -580,7 +671,10 @@
             await waitForDocumentStyles();
             setFrameLoading(frame, false);
             revealAdminShell();
-            activateScripts(frame);
+            await activateScripts(frame);
+            initPageWidgets(frame);
+            markFullPageLinks();
+            markPartialNavLinks(frame);
 
             if (options.advance !== false) {
                 window.history.pushState({ adminPartialNav: true }, '', url);
@@ -588,9 +682,6 @@
 
             hideProgressSoon();
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            initPageWidgets(frame);
-            markFullPageLinks();
-            markPartialNavLinks(frame);
 
             try {
                 sessionStorage.setItem('admin_shell_ready', '1');
