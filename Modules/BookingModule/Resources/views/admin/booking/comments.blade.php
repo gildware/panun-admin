@@ -62,7 +62,8 @@
                         <form method="POST"
                               action="{{ route('admin.booking.comments.store', $booking->id) }}"
                               id="bookingCommentForm"
-                              class="lead-comment-compose staff-chat-compose-wrap position-relative mt-3">
+                              class="lead-comment-compose staff-chat-compose-wrap position-relative mt-3"
+                              enctype="multipart/form-data">
                             @csrf
                             <input type="hidden" name="redirect_web_page" value="comments">
                             @include('leadmanagement::admin.leads.partials._comment-compose')
@@ -70,9 +71,9 @@
                                       id="bookingCommentBody"
                                       class="form-control form-control-sm staff-chat-message-input lead-comment-compose__input w-100"
                                       rows="2"
-                                      required
                                       maxlength="5000"
                                       placeholder="{{ translate('Write_a_comment') }}"></textarea>
+                            @include('leadmanagement::admin.leads.partials._comment-attachments-compose')
                             <div class="lead-comment-compose__footer d-flex flex-wrap align-items-center gap-2 pt-2">
                                 <div class="lead-comment-compose__tags d-flex flex-wrap align-items-center gap-1">
                                     <button type="button" class="btn btn-sm staff-tag-trigger staff-tag-btn staff-tag-btn-staff" data-tag-type="staff">

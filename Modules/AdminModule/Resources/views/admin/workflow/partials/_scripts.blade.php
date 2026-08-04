@@ -215,16 +215,25 @@
             const proceedBtn = document.getElementById('workflow-confirm-proceed');
             const introPre = document.getElementById('workflow-confirm-intro');
             const introPost = document.getElementById('workflow-confirm-intro-post');
+            const introHard = document.getElementById('workflow-confirm-intro-hard');
+            const modalTitle = document.getElementById('workflowConfirmModalLabel');
             const isPost = mode === 'post';
-            if (introPre) introPre.classList.toggle('d-none', isPost);
-            if (introPost) introPost.classList.toggle('d-none', !isPost);
-
-            stepsEl.innerHTML = '';
             const pending = Array.isArray(data.pending) ? data.pending : [];
             const hardPending = Array.isArray(data.hard_pending) ? data.hard_pending : [];
             const hardKeys = new Set(hardPending.map(function (p) { return p.key; }));
             const stepsToShow = pending.length ? pending : hardPending;
             const hasHard = hardPending.length > 0;
+
+            if (introPre) introPre.classList.toggle('d-none', isPost || hasHard);
+            if (introPost) introPost.classList.toggle('d-none', !isPost);
+            if (introHard) introHard.classList.toggle('d-none', !hasHard || isPost);
+            if (modalTitle) {
+                modalTitle.innerHTML = hasHard
+                    ? '<span class="material-icons align-middle me-1">block</span> ' + @json(translate('Action_blocked_complete_steps_first'))
+                    : '<span class="material-icons align-middle me-1">help_outline</span> ' + @json(translate('Confirm_previous_steps'));
+            }
+
+            stepsEl.innerHTML = '';
 
             if (stepsToShow.length === 0 && data.message) {
                 const li = document.createElement('li');
@@ -233,17 +242,24 @@
                 stepsEl.appendChild(li);
             }
 
+            const whatToDoLabel = @json(translate('What_to_do'));
+
             stepsToShow.forEach(function (p) {
                 const isHard = !!p.hard || hardKeys.has(p.key);
                 const li = document.createElement('li');
-                li.className = 'mb-2 small';
-                li.innerHTML = '<label class="d-flex gap-2 align-items-start' + (isHard ? '' : '') + '">' +
+                li.className = 'mb-3 small';
+                let body = '<strong>' + (p.label || p.key) + '</strong>';
+                if (p.detail) {
+                    body += '<br><span class="text-muted">' + p.detail + '</span>';
+                }
+                if (p.how_to) {
+                    body += '<br><span class="text-primary-emphasis d-inline-block mt-1"><strong>' + whatToDoLabel + ':</strong> ' + p.how_to + '</span>';
+                }
+                li.innerHTML = '<label class="d-flex gap-2 align-items-start">' +
                     (isHard
                         ? '<span class="material-icons text-warning mt-1" style="font-size:18px;">error_outline</span>'
                         : '<input type="checkbox" class="workflow-confirm-check mt-1" value="' + p.key + '">') +
-                    ' <span><strong>' + (p.label || p.key) + '</strong>' +
-                    (p.detail ? '<br><span class="text-muted">' + p.detail + '</span>' : '') +
-                    '</span></label>';
+                    ' <span>' + body + '</span></label>';
                 stepsEl.appendChild(li);
             });
 
@@ -266,7 +282,7 @@
             syncWorkflowProceedButton();
 
             if (hasHard) {
-                hardNotice.textContent = data.message || @json(translate('Complete_required_workflow_steps_first'));
+                hardNotice.textContent = @json(translate('Close_this_dialog_complete_steps_then_retry'));
                 hardNotice.classList.remove('d-none');
                 proceedBtn.disabled = true;
             } else {

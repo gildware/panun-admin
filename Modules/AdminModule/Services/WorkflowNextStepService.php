@@ -374,8 +374,12 @@ class WorkflowNextStepService
             return true;
         }
 
-        // Lead has follow-up date + remarks — employee already touched the lead after create.
-        if ($lead->next_followup_at && strlen(trim((string) ($lead->remarks ?? ''))) >= 3) {
+        if (strlen(trim((string) ($lead->remarks ?? ''))) >= 3) {
+            return true;
+        }
+
+        // Lead has follow-up date scheduled — employee already touched the lead after create.
+        if ($lead->next_followup_at) {
             return true;
         }
 
@@ -430,12 +434,8 @@ class WorkflowNextStepService
         if (! $lead) {
             return false;
         }
-        $remarks = strtolower((string) ($lead->remarks ?? ''));
 
-        return str_contains($remarks, 'path a')
-            || str_contains($remarks, 'path b')
-            || str_contains($remarks, 'direct booking')
-            || str_contains($remarks, 'discussion');
+        return strlen(trim((string) ($lead->remarks ?? ''))) >= 3;
     }
 
     /**

@@ -28,6 +28,7 @@ class WorkflowStepDefinitions
             'lead.unknown.call' => [
                 'label' => 'Outbound call — ask what they need',
                 'detail' => 'Run the lead qualifier on the call. Do not leave as Unknown after a successful call.',
+                'how_to' => 'After the call: Quick Actions (right sidebar) → Add Follow-up → save as Taken. Or edit Initial Remarks on this page with your call notes.',
                 'manual' => true,
                 'auto' => 'lead_has_outbound_contact',
                 'gates' => [self::ACTION_LEAD_TYPE_CHANGE],
@@ -36,6 +37,7 @@ class WorkflowStepDefinitions
             'lead.unknown.panel_whatsapp' => [
                 'label' => 'WhatsApp customer — same minute as panel update',
                 'detail' => 'You updated type and remarks — now send the WhatsApp summary before moving to the next lead.',
+                'how_to' => 'Send the WhatsApp summary to the customer, then tick this step in Next Step (green button, bottom-right).',
                 'manual' => true,
                 'gates' => [self::ACTION_LEAD_PANEL_UPDATED],
                 'training' => ['guide' => 'lead-qualification', 'slide' => 'handling-unknowns'],
@@ -43,6 +45,7 @@ class WorkflowStepDefinitions
             'lead.unknown.log_followup' => [
                 'label' => 'Log follow-up in Activity tab + set next date',
                 'detail' => 'Add follow-up → Taken (or Reschedule). Set Followup On on the lead if another touch is needed.',
+                'how_to' => 'Follow-ups tab → Add Follow-up, or Quick Actions (right sidebar) → Add Follow-up.',
                 'manual' => false,
                 'auto' => 'lead_has_followup_logged',
                 'gates' => [self::ACTION_LEAD_PANEL_UPDATED],
@@ -61,6 +64,7 @@ class WorkflowStepDefinitions
             'lead.customer.call' => [
                 'label' => 'Call customer — service, problem, address, date/time',
                 'detail' => 'Collect full job details on the call. Notes on paper only during call.',
+                'how_to' => 'Mark as / Edit on this lead → fill zone, service category, and job description from your call. Or Follow-ups tab → Add Follow-up with those details.',
                 'manual' => false,
                 'auto' => 'lead_has_qualification_data',
                 'gates' => [self::ACTION_LEAD_CREATE_BOOKING, self::ACTION_LEAD_STATUS_BOOKED],
@@ -69,13 +73,15 @@ class WorkflowStepDefinitions
             'lead.customer.panel_whatsapp' => [
                 'label' => 'Update panel + WhatsApp summary to customer',
                 'detail' => 'Customer type, full remarks, Followup On if waiting on provider.',
+                'how_to' => 'Update Initial Remarks on this page, send WhatsApp summary to the customer, then tick this in Next Step.',
                 'manual' => true,
                 'gates' => [self::ACTION_LEAD_CREATE_BOOKING],
                 'training' => ['guide' => 'lead-qualification', 'slide' => 'handling-customers'],
             ],
             'lead.customer.path_decided' => [
-                'label' => 'Path A or Path B decided and noted in remarks',
-                'detail' => 'Path A = direct booking. Path B = customer wants provider discussion first.',
+                'label' => 'Initial remarks filled in',
+                'detail' => 'Any call summary in Initial Remarks is enough — no need to write Path A or Path B.',
+                'how_to' => 'Initial Remarks card → Edit → write your call summary → Update.',
                 'manual' => false,
                 'auto' => 'lead_path_decided',
                 'gates' => [self::ACTION_LEAD_CREATE_BOOKING],
@@ -84,6 +90,7 @@ class WorkflowStepDefinitions
             'lead.customer.provider_group' => [
                 'label' => 'Posted in provider WhatsApp group',
                 'detail' => 'Standard English format with Lead ID. 10-minute SLA for reply.',
+                'how_to' => 'Post in the provider WhatsApp group with Lead ID and job details, then tick this in Next Step.',
                 'manual' => true,
                 'gates' => [self::ACTION_LEAD_CREATE_BOOKING, self::ACTION_LEAD_STATUS_BOOKED],
                 'training' => ['guide' => 'lead-qualification', 'slide' => 'handling-customers'],
@@ -91,6 +98,7 @@ class WorkflowStepDefinitions
             'lead.customer.advance_100' => [
                 'label' => '₹100 collected from customer',
                 'detail' => 'Collect before Create Booking — no exceptions on Path A/B.',
+                'how_to' => 'Collect ₹100 advance from the customer, then tick this in Next Step.',
                 'manual' => true,
                 'gates' => [self::ACTION_LEAD_CREATE_BOOKING],
                 'training' => ['guide' => 'lead-qualification', 'slide' => 'handling-customers'],
@@ -98,6 +106,7 @@ class WorkflowStepDefinitions
             'lead.customer.path_b_discussion' => [
                 'label' => 'Provider discussion / conference call done',
                 'detail' => 'Path B only — customer spoke with provider before booking.',
+                'how_to' => 'Arrange the provider discussion or conference call, then tick this in Next Step.',
                 'manual' => true,
                 'scenarios' => ['lead.customer.path_b'],
                 'gates' => [self::ACTION_LEAD_CREATE_BOOKING],
@@ -106,6 +115,7 @@ class WorkflowStepDefinitions
             'lead.customer.create_booking' => [
                 'label' => 'Create Booking for this Lead',
                 'detail' => 'Preview → verify zone, provider, cart → Store.',
+                'how_to' => 'Actions menu → Create Booking for this Lead → complete preview and save.',
                 'manual' => false,
                 'auto' => 'lead_has_booking',
                 'gates' => [self::ACTION_LEAD_STATUS_BOOKED],
@@ -187,6 +197,7 @@ class WorkflowStepDefinitions
             'booking.close.provider_bill' => [
                 'label' => 'Full bill breakdown from provider',
                 'detail' => 'Service charge + each part name and charge — nothing vague.',
+                'how_to' => 'Get the full bill breakdown from the provider, then tick this in Next Step.',
                 'manual' => true,
                 'gates' => [self::ACTION_BOOKING_COMPLETED],
                 'training' => ['guide' => 'booking-followup', 'slide' => 'payment-checklist'],
@@ -194,6 +205,7 @@ class WorkflowStepDefinitions
             'booking.close.panel_bill' => [
                 'label' => 'Bill entered correctly in panel',
                 'detail' => 'Due balance must reflect real invoice before Completed.',
+                'how_to' => 'Enter the bill on this booking page so the due balance matches the real invoice.',
                 'manual' => true,
                 'gates' => [self::ACTION_BOOKING_COMPLETED],
                 'training' => ['guide' => 'booking-followup', 'slide' => 'payment-checklist'],
@@ -201,6 +213,7 @@ class WorkflowStepDefinitions
             'booking.close.customer_confirm' => [
                 'label' => 'Customer confirmed billing matches',
                 'detail' => 'Call customer — confirm total, service, and parts charges.',
+                'how_to' => 'Call the customer to confirm the total matches, then tick this in Next Step.',
                 'manual' => true,
                 'gates' => [self::ACTION_BOOKING_COMPLETED],
                 'training' => ['guide' => 'booking-followup', 'slide' => 'payment-checklist'],
@@ -208,6 +221,7 @@ class WorkflowStepDefinitions
             'booking.close.due_zero' => [
                 'label' => 'Due balance is zero',
                 'detail' => 'All payments recorded — company vs provider split correct.',
+                'how_to' => 'Record all payments on this booking until Due balance shows ₹0, then retry marking Completed.',
                 'manual' => false,
                 'auto' => 'booking_due_zero',
                 'gates' => [self::ACTION_BOOKING_COMPLETED],
@@ -290,7 +304,7 @@ class WorkflowStepDefinitions
                 'soft' => ['lead.unknown.panel_whatsapp', 'lead.unknown.log_followup'],
             ],
             self::ACTION_LEAD_CREATE_BOOKING => [
-                'hard' => ['lead.customer.call', 'lead.customer.path_decided'],
+                'hard' => ['lead.customer.call'],
                 'soft' => ['lead.customer.panel_whatsapp', 'lead.customer.provider_group', 'lead.customer.advance_100'],
             ],
             self::ACTION_LEAD_STATUS_BOOKED => [
@@ -502,6 +516,7 @@ class WorkflowStepDefinitions
                 'key' => $key,
                 'label' => $def['label'],
                 'detail' => $def['detail'] ?? '',
+                'how_to' => $def['how_to'] ?? '',
                 'hard' => in_array($key, $reqs['hard'], true),
             ];
         }

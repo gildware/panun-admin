@@ -51,6 +51,11 @@
                 </div>
             @endcan
         </div>
-        <div class="lead-comment-body">{!! $commentParser->format($comment->body) !!}</div>
+        <div class="lead-comment-body">
+            @if(trim((string) ($comment->body ?? '')) !== '')
+                {!! $commentParser->format($comment->body) !!}
+            @endif
+            @include('leadmanagement::admin.leads.partials._comment-attachments', ['comment' => $comment])
+        </div>
     </div>
 </div>

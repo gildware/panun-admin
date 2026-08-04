@@ -50,7 +50,7 @@ class WorkflowGate
 
         if ($hardPrompts !== []) {
             return $this->deny(
-                translate('Complete_required_workflow_steps_first').': '.implode('; ', array_column($hardPrompts, 'label')),
+                $this->hardBlockMessage($hardPrompts),
                 $prompts,
                 $hardPrompts,
             );
@@ -112,7 +112,7 @@ class WorkflowGate
 
         if ($hardPrompts !== []) {
             return $this->deny(
-                translate('Complete_required_workflow_steps_first').': '.implode('; ', array_column($hardPrompts, 'label')),
+                $this->hardBlockMessage($hardPrompts),
                 $prompts,
                 $hardPrompts,
             );
@@ -127,6 +127,24 @@ class WorkflowGate
         }
 
         return ['allowed' => true, 'message' => '', 'pending' => [], 'hard_pending' => []];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $hardPrompts
+     */
+    private function hardBlockMessage(array $hardPrompts): string
+    {
+        $first = $hardPrompts[0] ?? null;
+        if ($first === null) {
+            return translate('Complete_required_workflow_steps_first');
+        }
+
+        $howTo = trim((string) ($first['how_to'] ?? ''));
+        if ($howTo !== '') {
+            return translate('Complete_required_workflow_steps_first').': '.$howTo;
+        }
+
+        return translate('Complete_required_workflow_steps_first').': '.($first['label'] ?? '');
     }
 
     /**

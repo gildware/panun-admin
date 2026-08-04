@@ -1591,6 +1591,7 @@ class LeadController extends Controller
             'changeLogs.changedByUser',
             'comments.createdBy',
             'comments.pinnedByUser',
+            'comments.attachments',
             'createdBy',
             'customerLeadTags',
             'outboundEnquiries' => fn ($q) => $q->with(['handledBy', 'createdBy', 'statusConfig', 'relatedLead', 'booking']),
@@ -1723,6 +1724,7 @@ class LeadController extends Controller
 
         $followupService = app(LeadFollowupService::class);
         $hasPendingFollowup = $followupService->leadHasPendingFollowup($lead, (bool) $leadOpenStatus);
+        $hasScheduledFollowup = $followupService->leadHasScheduledFollowup($lead, (bool) $leadOpenStatus);
         $pendingFollowupIsOverdue = $hasPendingFollowup
             && $followupService->pendingFollowupIsOverdue($lead->next_followup_at);
         $followupNeedsAttention = $followupService->leadFollowupNeedsAttention(
@@ -1791,6 +1793,7 @@ class LeadController extends Controller
             'leadCtwaDisplay',
             'panelProviderMatch',
             'hasPendingFollowup',
+            'hasScheduledFollowup',
             'pendingFollowupIsOverdue',
             'followupNeedsAttention',
             'followupDelayMeta',
@@ -2340,8 +2343,13 @@ class LeadController extends Controller
             'created_by' => Auth::id(),
         ], $recordingData));
 
-        if ($requiresNext || ! empty($validated['next_followup_at'])) {
-            $lead->next_followup_at = $validated['next_followup_at'] ?? null;
+        $followupService = app(LeadFollowupService::class);
+        $nextAt = $validated['next_followup_at'] ?? null;
+        if ($nextAt !== null) {
+            $lead->next_followup_at = $nextAt;
+            $lead->save();
+        } elseif ($requiresNext) {
+            $lead->next_followup_at = $followupService->defaultNextFollowupAt();
             $lead->save();
         }
 
@@ -2377,8 +2385,13 @@ class LeadController extends Controller
             'created_by' => Auth::id(),
         ]);
 
-        if ($requiresNext || ! empty($validated['next_followup_at'])) {
-            $lead->next_followup_at = $validated['next_followup_at'] ?? null;
+        $followupService = app(LeadFollowupService::class);
+        $nextAt = $validated['next_followup_at'] ?? null;
+        if ($nextAt !== null) {
+            $lead->next_followup_at = $nextAt;
+            $lead->save();
+        } elseif ($requiresNext) {
+            $lead->next_followup_at = $followupService->defaultNextFollowupAt();
             $lead->save();
         }
 

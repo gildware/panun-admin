@@ -2524,6 +2524,7 @@ class BookingController extends Controller
                 'subCategory',
                 'comments.createdBy',
                 'comments.pinnedByUser',
+                'comments.attachments',
                 'change_logs.changedBy',
                 'detail.service' => function ($query) {
                     $query->withTrashed();
@@ -2847,6 +2848,7 @@ class BookingController extends Controller
             $booking = $this->booking->with([
                 'comments.createdBy',
                 'comments.pinnedByUser',
+                'comments.attachments',
                 'customer',
                 'provider',
                 'service_address',

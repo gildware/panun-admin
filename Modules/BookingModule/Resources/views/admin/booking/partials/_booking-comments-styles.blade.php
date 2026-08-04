@@ -1,3 +1,4 @@
+@include('leadmanagement::admin.leads.partials._comment-attachments-styles')
 <style>
     .lead-comments-list-wrap {
         background: #f8fafc;

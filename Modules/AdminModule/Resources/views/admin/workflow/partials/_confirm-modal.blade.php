@@ -30,6 +30,9 @@
                 <p class="small text-muted mb-3 d-none" id="workflow-confirm-intro-post">
                     {{ translate('You_updated_the_panel_confirm_you_also_completed') }}
                 </p>
+                <p class="small mb-3 d-none" id="workflow-confirm-intro-hard">
+                    {{ translate('Complete_the_steps_below_then_try_again_Use_Next_Step_button_for_checkboxes') }}
+                </p>
                 <ul class="list-unstyled mb-0" id="workflow-confirm-steps"></ul>
                 <div class="alert alert-warning small d-none mt-3 mb-0" id="workflow-confirm-hard-notice"></div>
             </div>
