@@ -4,6 +4,8 @@ namespace Modules\LeadManagement\Entities;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 use Modules\UserManagement\Entities\User;
 
 class LeadComment extends Model
@@ -37,5 +39,25 @@ class LeadComment extends Model
     public function pinnedByUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'pinned_by', 'id');
+    }
+
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(LeadCommentAttachment::class);
+    }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (LeadComment $comment) {
+            $comment->loadMissing('attachments');
+            foreach ($comment->attachments as $attachment) {
+                try {
+                    Storage::disk($attachment->disk ?: getDisk())->delete($attachment->storagePath());
+                } catch (\Throwable) {
+                    // Ignore storage cleanup failures.
+                }
+                $attachment->delete();
+            }
+        });
     }
 }

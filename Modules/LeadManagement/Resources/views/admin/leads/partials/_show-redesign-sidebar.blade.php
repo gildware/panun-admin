@@ -26,7 +26,17 @@
                     </li>
                 @endcan
             @endif
-            @if(empty($hasPendingFollowup))
+            @if(!empty($hasScheduledFollowup))
+                <li>
+                    <button type="button"
+                            class="quick-link-btn"
+                            data-bs-toggle="modal"
+                            data-bs-target="#addFollowupModal"
+                            data-followup-mode="take">
+                        <span class="material-icons">event_available</span> {{ translate('Take_Follow_up') }}
+                    </button>
+                </li>
+            @elseif(empty($hasPendingFollowup))
                 <li>
                     <button type="button"
                             class="quick-link-btn"
@@ -222,7 +232,7 @@
                     </span>
                 </div>
             </div>
-            @if(!empty($hasPendingFollowup))
+            @if(!empty($hasScheduledFollowup))
                 <button type="button"
                         class="ld-btn ld-btn-warning w-100 justify-content-center mt-2"
                         data-bs-toggle="modal"

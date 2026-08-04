@@ -55,6 +55,14 @@ class LeadFollowupService
     }
 
     /**
+     * Open lead with any upcoming follow-up date on the schedule (including future dates).
+     */
+    public function leadHasScheduledFollowup(Lead $lead, bool $isOpen): bool
+    {
+        return $isOpen && $lead->next_followup_at !== null;
+    }
+
+    /**
      * Scheduled follow-up datetime has passed (missed / overdue), including earlier today.
      */
     public function pendingFollowupIsOverdue(Carbon $nextFollowupAt): bool

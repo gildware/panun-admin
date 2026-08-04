@@ -808,7 +808,7 @@
                                     @endif
                                     @foreach($data[3]['bookings'] ?? [] as $booking)
                                         <li class="d-flex flex-wrap gap-2 align-items-center justify-content-between cursor-pointer recent-booking-redirect"
-                                            data-route="@if($booking->is_repeated) {{ route('admin.booking.repeat_details', [$booking->id]) }}?web_page=details @else {{ route('admin.booking.details', [$booking->id]) }}?web_page=details @endif">
+                                            data-route="{{ $booking->is_repeated ? route('admin.booking.repeat_details', [$booking->id]).'?web_page=details' : route('admin.booking.details', [$booking->id]).'?web_page=details' }}">
                                             <div class="media align-items-center gap-3">
                                                 <div class="avatar avatar-lg">
                                                     <img class="avatar-img rounded"
@@ -1086,7 +1086,10 @@
                     $card.attr('id', widgetId);
                 }
                 var bodyId = widgetId + '-body';
-                var isExpanded = widgetStates[widgetId] === true;
+                var defaultExpandedWidgets = ['dashboard-booking-followups', 'dashboard-leads-followups'];
+                var isExpanded = Object.prototype.hasOwnProperty.call(widgetStates, widgetId)
+                    ? widgetStates[widgetId] === true
+                    : defaultExpandedWidgets.includes(widgetId);
 
                 var $header = $card.children('.card-header').first();
                 var $body = $card.children('.card-body').first();
@@ -1352,21 +1355,30 @@
             }
         } catch (e) {}
 
-        $(".provider-redirect").on('click', function(){
-            location.href = $(this).data('route');
+        function navigateFromDashboardRow($row) {
+            var route = $.trim($row.attr('data-route') || '');
+            if (route && route !== '#') {
+                location.href = route;
+            }
+        }
+
+        $(document).on('click', '.provider-redirect', function () {
+            navigateFromDashboardRow($(this));
         });
 
-        $(".customer-redirect").on('click', function(){
-            location.href = $(this).data('route');
+        $(document).on('click', '.customer-redirect', function () {
+            navigateFromDashboardRow($(this));
         });
 
-        $(".recent-booking-redirect").on('click', function(){
-            location.href = $(this).data('route');
+        $(document).on('click', '.recent-booking-redirect', function () {
+            navigateFromDashboardRow($(this));
         });
 
-        $(".todays-followup-redirect").on('click', function(){
-            var route = $(this).data('route');
-            if (route && route !== '#') location.href = route;
+        $(document).on('click', '.todays-followup-redirect', function (event) {
+            if ($(event.target).closest('a[href]').length) {
+                return;
+            }
+            navigateFromDashboardRow($(this));
         });
 
         function refreshStaffPresenceWidget() {

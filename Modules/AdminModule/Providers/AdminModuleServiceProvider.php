@@ -37,6 +37,7 @@ class AdminModuleServiceProvider extends ServiceProvider
                 \Modules\AdminModule\Console\BackfillStaffActivityReplyAssignCommand::class,
                 \Modules\AdminModule\Console\SyncProcessGuideMiroBoardCommand::class,
                 \Modules\AdminModule\Console\LayoutProcessGuideBoardCommand::class,
+                \Modules\AdminModule\Console\WorkflowGateTestCommand::class,
             ]);
         }
     }

@@ -137,7 +137,7 @@
             $callLogs = $callLogs->sortByDesc(fn ($log) => $log['called_at']?->timestamp ?? 0)->values();
             $activityCallCount = $callLogs->count();
 
-            $activityTotalCount = $activityFollowupCount + $activityChangeCount + $activityCommentCount + $activityCallCount + (!empty($hasPendingFollowup) ? 1 : 0);
+            $activityTotalCount = $activityFollowupCount + $activityChangeCount + $activityCommentCount + $activityCallCount + (!empty($hasScheduledFollowup) ? 1 : 0);
 
             $handledByUser = null;
             if (!empty($lead->handled_by)) {
@@ -945,25 +945,30 @@
     @include('zonemanagement::admin.partials._zone-select2-assets')
     <link rel="stylesheet" href="{{ asset('assets/chatting-module/css/staff-chat-entity-badges.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/lead-detail-redesign.css') }}">
+    @include('leadmanagement::admin.leads.partials._comment-attachments-styles')
     <style>
         .btn-lead-type-invalid:hover:not(:disabled) {
-            background-color: #dc3545; /* Bootstrap danger */
-            color: #fff;
+            background-color: #dc3545 !important; /* Bootstrap danger */
+            border-color: #dc3545 !important;
+            color: #fff !important;
         }
 
         .btn-lead-type-customer:hover:not(:disabled) {
-            background-color: #198754; /* Bootstrap success */
-            color: #fff;
+            background-color: #198754 !important; /* Bootstrap success */
+            border-color: #198754 !important;
+            color: #fff !important;
         }
 
         .btn-lead-type-provider:hover:not(:disabled) {
-            background-color: #0d6efd; /* Bootstrap primary */
-            color: #fff;
+            background-color: #0d6efd !important; /* Bootstrap primary */
+            border-color: #0d6efd !important;
+            color: #fff !important;
         }
 
         .btn-lead-type-future:hover:not(:disabled) {
-            background-color: #0dcaf0; /* Bootstrap info (light blue) */
-            color: #fff;
+            background-color: #0dcaf0 !important; /* Bootstrap info (light blue) */
+            border-color: #0dcaf0 !important;
+            color: #fff !important;
         }
 
         .lead-detail-history-card .card-body {
@@ -1511,6 +1516,15 @@
                 }
             }
 
+            function defaultNextFollowupLocal() {
+                var d = new Date();
+                d.setDate(d.getDate() + 1);
+                d.setHours(10, 0, 0, 0);
+                d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+
+                return d.toISOString().slice(0, 16);
+            }
+
             function configureFollowupModal(mode) {
                 mode = mode || 'add';
                 $('#followup-mode-input').val(mode);
@@ -1518,6 +1532,7 @@
                 if (mode === 'take') {
                     $('#addFollowupModalLabel').text(followupModalLabels.take);
                     $('#followup-status-group').removeClass('d-none');
+                    $('#next-followup-input').val(defaultNextFollowupLocal());
                 } else {
                     $('#addFollowupModalLabel').text(followupModalLabels.add);
                     $('#followup-status-group').addClass('d-none');
@@ -3235,6 +3250,21 @@
                     return;
                 }
                 applyActivityFilter(root, getInitialActivityFilter(root));
+
+                var activityPanel = root.querySelector('#lead-activity');
+                if (!activityPanel) {
+                    return;
+                }
+
+                var params = new URLSearchParams(window.location.search);
+                var hash = window.location.hash;
+                if (
+                    params.get('activity') === 'comment' ||
+                    hash === '#lead-activity' ||
+                    hash === '#lead-comments'
+                ) {
+                    activityPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
             }
 
             document.addEventListener('click', function (event) {
@@ -3279,17 +3309,12 @@
     </script>
     <script src="{{ asset('assets/chatting-module/js/staff-chat-compose.js') }}"></script>
     <script>
+        window.commentAttachmentsEmptyMessage = @json(translate('Please_write_a_comment_or_attach_a_file'));
+        window.commentAttachmentsLoadingMessage = @json(translate('Adding'));
+    </script>
+    <script src="{{ asset('assets/common/js/comment-attachments.js') }}?v={{ @filemtime(public_path('assets/common/js/comment-attachments.js')) ?: time() }}"></script>
+    <script>
         (function () {
-            var commentForm = document.getElementById('leadCommentForm');
-            if (commentForm) {
-                commentForm.addEventListener('submit', function () {
-                    var body = document.getElementById('leadCommentBody');
-                    if (body && typeof window.resolveStaffChatTags === 'function') {
-                        body.value = window.resolveStaffChatTags(body.value);
-                    }
-                });
-            }
-
             function csrfToken() {
                 return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
             }
@@ -3347,6 +3372,53 @@
                 commentsWrap.scrollTop = commentsWrap.scrollHeight;
             }
 
+            function resubmitLeadTypeChangeForm(oldInput) {
+                var form = document.createElement('form');
+                form.method = 'POST';
+                form.action = @json(route('admin.lead.type.update', $lead->id));
+                form.style.display = 'none';
+
+                var tokenInput = document.createElement('input');
+                tokenInput.type = 'hidden';
+                tokenInput.name = '_token';
+                tokenInput.value = csrfToken();
+                form.appendChild(tokenInput);
+
+                var confirmedInput = document.createElement('input');
+                confirmedInput.type = 'hidden';
+                confirmedInput.name = 'workflow_confirmed';
+                confirmedInput.value = '1';
+                form.appendChild(confirmedInput);
+
+                Object.keys(oldInput || {}).forEach(function (key) {
+                    if (key === '_token' || key === '_method' || key === 'workflow_confirmed') {
+                        return;
+                    }
+                    var value = oldInput[key];
+                    if (Array.isArray(value)) {
+                        value.forEach(function (item) {
+                            var input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = key.endsWith('[]') ? key : key + '[]';
+                            input.value = item;
+                            form.appendChild(input);
+                        });
+                        return;
+                    }
+                    if (value === null || value === undefined || value === '') {
+                        return;
+                    }
+                    var field = document.createElement('input');
+                    field.type = 'hidden';
+                    field.name = key;
+                    field.value = value;
+                    form.appendChild(field);
+                });
+
+                document.body.appendChild(form);
+                form.submit();
+            }
+
             document.querySelectorAll('.workflow-gated-link').forEach(function (link) {
                 link.addEventListener('click', function (e) {
                     if (!window.WorkflowGate) return;
@@ -3365,6 +3437,26 @@
                 });
             });
 
+            @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_UNKNOWN)
+            document.querySelectorAll(
+                '#leadInvalidModal form, #leadFutureCustomerModal form, #leadCustomerModal form, #leadProviderModal form'
+            ).forEach(function (form) {
+                form.addEventListener('submit', function (e) {
+                    if (!window.WorkflowGate) {
+                        return;
+                    }
+                    if (form.querySelector('input[name="workflow_confirmed"]')?.value === '1') {
+                        return;
+                    }
+                    e.preventDefault();
+                    window.WorkflowGate.submitFormWithConfirmation(
+                        form,
+                        @json(\Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_LEAD_TYPE_CHANGE)
+                    );
+                });
+            });
+            @endif
+
             @if(session('workflow_gate'))
             $(function () {
                 var gateAction = @json(session('workflow_gate_action'));
@@ -3376,10 +3468,9 @@
                         window.location.href = '{{ route('admin.booking.create-from-lead', ['lead' => $lead->id, 'context' => !empty($inModal) ? 'lead_modal' : 'lead', 'workflow_confirmed' => 1]) }}';
                     });
                 } else if (gateAction === @json(\Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_LEAD_TYPE_CHANGE)) {
+                    var oldTypeChangeInput = @json(old() ?: []);
                     window.WorkflowGate.showConfirmModal(gateData, gateAction, function () {
-                        if (typeof toastr !== 'undefined') {
-                            toastr.warning(@json(session('error') ?: translate('Complete_required_workflow_steps_first')));
-                        }
+                        resubmitLeadTypeChangeForm(oldTypeChangeInput);
                     });
                 }
             });

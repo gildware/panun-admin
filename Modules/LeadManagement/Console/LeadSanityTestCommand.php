@@ -534,12 +534,16 @@ class LeadSanityTestCommand extends Command
             $lead->id
         );
 
+        $lead->refresh();
         $count = $lead->followups()->count();
         if ($count < 1) {
             throw new \RuntimeException('Follow-up was not stored.');
         }
+        if (! $lead->next_followup_at) {
+            throw new \RuntimeException('Lead next_followup_at was not updated after follow-up save.');
+        }
 
-        return "lead #{$lead->id}, followups={$count}";
+        return "lead #{$lead->id}, followups={$count}, next={$lead->next_followup_at->format('Y-m-d H:i')}";
     }
 
     private function testStoreCallLogCustomer(): string
@@ -839,6 +843,7 @@ class LeadSanityTestCommand extends Command
 
     private function callUpdateType(int $leadId, array $payload): void
     {
+        $payload['workflow_confirmed'] = $payload['workflow_confirmed'] ?? '1';
         app(LeadController::class)->updateType(Request::create('/', 'POST', $payload), $leadId);
     }
 

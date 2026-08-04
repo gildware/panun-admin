@@ -2,7 +2,7 @@
 
 @section('title', translate('Booking_Followups'))
 
-@push('css')
+@push('css_or_js')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-detail-redesign.css') }}">
     @include('bookingmodule::admin.booking.partials._booking-followup-styles')
     @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')

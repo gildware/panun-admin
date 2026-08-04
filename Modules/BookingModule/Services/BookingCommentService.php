@@ -2,10 +2,14 @@
 
 namespace Modules\BookingModule\Services;
 
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Modules\AdminModule\Entities\UserNotification;
 use Modules\AdminModule\Services\AdminInboxNotificationService;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingComment;
+use Modules\BookingModule\Entities\BookingCommentAttachment;
 use Modules\ChattingModule\Services\StaffChatMessageParser;
 use Modules\UserManagement\Entities\User;
 
@@ -16,7 +20,10 @@ class BookingCommentService
         private readonly StaffChatMessageParser $messageParser,
     ) {}
 
-    public function addComment(Booking $booking, string $body, User $author): BookingComment
+    /**
+     * @param  array<int, UploadedFile>  $files
+     */
+    public function addComment(Booking $booking, string $body, User $author, array $files = []): BookingComment
     {
         $mentionedUserIds = $this->messageParser->extractStaffMentionIds($body);
         $mentionedUserIds = $this->filterActiveAdminIds($mentionedUserIds);
@@ -28,9 +35,87 @@ class BookingCommentService
             'mentioned_user_ids' => $mentionedUserIds,
         ]);
 
+        $storedCount = $this->storeAttachments($comment, $files, $author);
+
+        if ($files !== [] && $storedCount === 0) {
+            $comment->delete();
+            throw ValidationException::withMessages([
+                'files' => [translate('Failed_to_upload_attachments')],
+            ]);
+        }
+
         $this->notifyRecipients($booking, $comment, $author);
 
-        return $comment;
+        return $comment->load(['createdBy', 'pinnedByUser', 'attachments']);
+    }
+
+    /**
+     * @param  array<int, UploadedFile>  $files
+     */
+    private function storeAttachments(BookingComment $comment, array $files, User $author): int
+    {
+        $storedCount = 0;
+
+        foreach ($files as $file) {
+            if (! $file instanceof UploadedFile || ! $file->isValid()) {
+                continue;
+            }
+
+            $stored = $this->storeCommentFile('booking-comments/', $file);
+            if (! $stored) {
+                continue;
+            }
+
+            BookingCommentAttachment::create([
+                'booking_comment_id' => $comment->id,
+                'uploaded_by' => $author->id,
+                'original_name' => $file->getClientOriginalName(),
+                'stored_name' => $stored,
+                'file_type' => $file->getMimeType(),
+                'disk' => getDisk(),
+            ]);
+            $storedCount++;
+        }
+
+        return $storedCount;
+    }
+
+    private function storeCommentFile(string $directory, UploadedFile $file): ?string
+    {
+        $extension = strtolower($file->getClientOriginalExtension() ?: 'bin');
+        $isImage = str_starts_with((string) $file->getMimeType(), 'image/');
+        $format = $isImage ? APPLICATION_IMAGE_FORMAT : $extension;
+        $stored = file_uploader($directory, $format, $file);
+
+        if ($stored && $stored !== 'def.png') {
+            return $stored;
+        }
+
+        return $this->storeRawCommentFile($directory, $file, $extension);
+    }
+
+    private function storeRawCommentFile(string $directory, UploadedFile $file, string $extension): ?string
+    {
+        $disk = getDisk();
+        $dir = \App\Support\StoragePathPrefix::apply(rtrim($directory, '/').'/');
+        $storedName = now()->toDateString().'-'.uniqid().'.'.($extension ?: 'bin');
+
+        try {
+            if (! Storage::disk($disk)->exists($dir)) {
+                Storage::disk($disk)->makeDirectory($dir);
+            }
+
+            $contents = file_get_contents($file->getRealPath() ?: (string) $file->getPathname());
+            if ($contents === false) {
+                return null;
+            }
+
+            Storage::disk($disk)->put($dir.$storedName, $contents);
+
+            return $storedName;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     public function togglePin(BookingComment $comment, User $actor): BookingComment
@@ -88,6 +173,9 @@ class BookingCommentService
         $authorName = $authorName !== '' ? $authorName : (string) ($author->email ?? translate('Staff'));
 
         $preview = $this->messageParser->plainPreview($comment->body, 140);
+        if ($preview === '') {
+            $preview = translate('Attachment');
+        }
         $actionUrl = route('admin.booking.details', [$booking->id, 'web_page' => 'comments']).'#booking-comments';
 
         foreach ($recipientIds as $userId) {

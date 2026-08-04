@@ -11,7 +11,7 @@
                 {{ translate('Comments') }} <span class="count">{{ $activityCommentCount }}</span>
             </button>
             <button type="button" class="filter-pill {{ $activityTab === 'followup' ? 'is-active' : '' }}" data-activity-filter="followup">
-                {{ translate('Follow_ups') }} <span class="count">{{ $lead->followups->count() + (!empty($hasPendingFollowup) ? 1 : 0) }}</span>
+                {{ translate('Follow_ups') }} <span class="count">{{ $lead->followups->count() + (!empty($hasScheduledFollowup) ? 1 : 0) }}</span>
             </button>
             <button type="button" class="filter-pill {{ $activityTab === 'change' ? 'is-active' : '' }}" data-activity-filter="change">
                 {{ translate('Change_History') }} <span class="count">{{ $activityChangeCount }}</span>
@@ -25,12 +25,12 @@
     {{-- Timeline view (legacy, kept for recording toggles) --}}
     <div class="timeline-view is-hidden" id="lead-activity-timeline">
         <div class="timeline">
-            @if(!empty($followupNeedsAttention))
+            @if(!empty($hasScheduledFollowup))
                 <div class="timeline-item" data-activity-type="followup">
                     <div class="timeline-icon timeline-icon--pending"><span class="material-icons">pending_actions</span></div>
                     <div class="timeline-content">
                         <div class="timeline-head">
-                            <span class="timeline-title">{{ !empty($pendingFollowupIsOverdue) ? translate('Missed_Follow_up') : translate('Follow_up_due') }}</span>
+                            <span class="timeline-title">{{ !empty($pendingFollowupIsOverdue) ? translate('Missed_Follow_up') : (!empty($followupNeedsAttention) ? translate('Follow_up_due') : translate('Scheduled')) }}</span>
                             <span class="timeline-time">{{ translate('due') }} {{ $lead->next_followup_at?->format('d M Y, h:i A') }}</span>
                         </div>
                         <div class="timeline-body">{{ translate('Please_take_action') }}</div>
@@ -150,26 +150,84 @@
     {{-- Table view --}}
     <div class="table-view {{ in_array($activityTab, ['followup', 'change', 'call'], true) ? 'is-visible' : '' }}" id="lead-activity-table">
         <div class="activity-table-section activity-table-section--followups" @if(in_array($activityTab, ['change', 'call'], true)) style="display:none;" @endif>
-        <p class="table-section-label mb-0">{{ translate('Follow_up_History') }}</p>
-        @if($lead->followups->isEmpty() && empty($hasPendingFollowup))
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 px-3 pt-3 pb-0">
+            <p class="table-section-label mb-0">{{ translate('Follow_up_History') }}</p>
+            @if(empty($hasPendingFollowup) && empty($hasScheduledFollowup))
+                <button type="button"
+                        class="ld-btn ld-btn-primary"
+                        data-bs-toggle="modal"
+                        data-bs-target="#addFollowupModal"
+                        data-followup-mode="add">
+                    <span class="material-icons" aria-hidden="true">event</span>
+                    {{ translate('Add_Follow_up') }}
+                </button>
+            @elseif(!empty($hasScheduledFollowup))
+                <button type="button"
+                        class="ld-btn ld-btn-warning"
+                        data-bs-toggle="modal"
+                        data-bs-target="#addFollowupModal"
+                        data-followup-mode="take">
+                    <span class="material-icons" aria-hidden="true">event_available</span>
+                    {{ translate('Take_Follow_up') }}
+                </button>
+            @endif
+        </div>
+        @if($lead->followups->isEmpty() && empty($hasScheduledFollowup))
             <p class="text-muted small px-3 py-2 mb-0">{{ translate('No_follow_ups_yet') }}</p>
         @else
-            <div class="table-responsive">
-                <table class="data-table lead-followup-history-table mb-0">
+            <div class="table-responsive lead-followup-history-wrap">
+                <table class="data-table lead-followup-history-table lead-followup-history-table--compact mb-0">
                     <thead>
                         <tr>
-                            <th>{{ translate('Scheduled_for') }}</th>
+                            <th>{{ translate('Scheduled') }}</th>
                             <th>{{ translate('Taken_on') }}</th>
                             <th>{{ translate('Delay') }}</th>
-                            <th>{{ translate('Next_Follow_up_Date') }}</th>
+                            <th>{{ translate('Next') }}</th>
                             <th>{{ translate('Urgency') }}</th>
                             <th>{{ translate('Taken_By') }}</th>
                             <th>{{ translate('Status') }}</th>
-                            <th>{{ translate('Follow_up_Taken_on') }}</th>
-                            <th>{{ translate('Recording') }}</th>
+                            <th>{{ translate('Via') }}</th>
+                            <th class="text-end">{{ translate('Action') }}</th>
                         </tr>
                     </thead>
                     <tbody>
+                    @if(!empty($hasScheduledFollowup))
+                        @php
+                            $scheduledAt = $lead->next_followup_at;
+                            $scheduledUrgency = $lead->followups->first()?->urgency ?: 'medium';
+                            $scheduledIsOverdue = $pendingFollowupIsOverdue ?? false;
+                            $scheduledIsDue = ! $scheduledIsOverdue && ($followupNeedsAttention ?? false);
+                        @endphp
+                        <tr class="lead-followup-row lead-followup-row--scheduled">
+                            <td class="text-nowrap">{{ $scheduledAt?->format('j M, g:i A') ?? '—' }}</td>
+                            <td class="text-nowrap">—</td>
+                            <td class="text-nowrap">—</td>
+                            <td class="text-nowrap">—</td>
+                            <td><span class="chip chip--{{ $scheduledUrgency === 'high' ? 'danger' : ($scheduledUrgency === 'low' ? 'primary' : 'warning') }}">{{ translate(ucfirst($scheduledUrgency)) }}</span></td>
+                            <td>—</td>
+                            <td>
+                                @if($scheduledIsOverdue)
+                                    <span class="chip chip--danger">{{ translate('Missed_Follow_up') }}</span>
+                                @elseif($scheduledIsDue)
+                                    <span class="chip chip--warning">{{ translate('Follow_up_due') }}</span>
+                                @else
+                                    <span class="chip chip--info">{{ translate('Scheduled') }}</span>
+                                @endif
+                            </td>
+                            <td class="text-nowrap">—</td>
+                            <td class="text-end text-nowrap">
+                                @can('lead_update')
+                                    <button type="button"
+                                            class="ld-btn ld-btn-warning btn-sm"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#addFollowupModal"
+                                            data-followup-mode="take">
+                                        {{ translate('Take') }}
+                                    </button>
+                                @endcan
+                            </td>
+                        </tr>
+                    @endif
                     @foreach($lead->followups as $followup)
                         @php
                             $delayMeta = $followupDelayMeta[$followup->id] ?? null;
@@ -177,50 +235,39 @@
                             $fuUrgency = $followup->urgency ?: 'medium';
                         @endphp
                         <tr class="lead-followup-row {{ $loop->even ? 'lead-followup-row--alt' : '' }}">
-                            <td class="text-nowrap">{{ $dueAt?->format('d M Y, h:i A') ?? '—' }}</td>
-                            <td class="text-nowrap">{{ $followup->followup_at?->format('d M Y, h:i A') ?? ($followup->isRescheduled() ? $followup->created_at?->format('d M Y, h:i A') : '—') }}</td>
+                            <td class="text-nowrap">{{ $dueAt?->format('j M, g:i A') ?? '—' }}</td>
+                            <td class="text-nowrap">{{ $followup->followup_at?->format('j M, g:i A') ?? ($followup->isRescheduled() ? $followup->created_at?->format('j M, g:i A') : '—') }}</td>
                             <td class="text-nowrap">
                                 @if($delayMeta && $dueAt && ! $followup->isRescheduled())
                                     @if($delayMeta['on_time'])
                                         <span class="chip chip--success">{{ translate('On_time') }}</span>
                                     @else
-                                        <span class="chip chip--danger">{{ translate('Delayed_by') }} {{ $delayMeta['delay_label'] }}</span>
+                                        <span class="chip chip--danger" title="{{ translate('Delayed_by') }} {{ $delayMeta['delay_label'] }}">{{ $delayMeta['delay_label'] }}</span>
                                     @endif
                                 @elseif($followup->isRescheduled())
                                     <span class="chip chip--info">{{ translate('Rescheduled') }}</span>
                                 @else — @endif
                             </td>
-                            <td class="text-nowrap">{{ $followup->next_followup_at?->format('d M Y, h:i A') ?? '—' }}</td>
+                            <td class="text-nowrap">{{ $followup->next_followup_at?->format('j M, g:i A') ?? '—' }}</td>
                             <td><span class="chip chip--{{ $fuUrgency === 'high' ? 'danger' : ($fuUrgency === 'low' ? 'primary' : 'warning') }}">{{ translate(ucfirst($fuUrgency)) }}</span></td>
-                            <td>
+                            <td class="lead-followup-by-cell">
                                 @if($followup->createdBy)
                                     @php $fuUser = $followup->createdBy; $fuName = trim(($fuUser->first_name ?? '') . ' ' . ($fuUser->last_name ?? '')); @endphp
-                                    {{ $fuName ?: $fuUser->email }}
+                                    <span title="{{ $fuName ?: $fuUser->email }}">{{ $fuName ?: $fuUser->email }}</span>
                                 @else — @endif
                             </td>
                             <td><span class="chip chip--{{ $followup->isRescheduled() ? 'info' : 'success' }}">{{ $followup->followupStatusLabel() }}</span></td>
                             <td class="text-nowrap">{{ $followup->contactChannelLabel() ?? '—' }}</td>
-                            <td class="text-nowrap">
-                                @if($followup->hasRecording() && $followup->recording_url)
-                                    <button type="button" class="ld-btn ld-btn-outline voice-call-details-toggle" aria-expanded="false">{{ translate('View') }}</button>
-                                @else — @endif
-                            </td>
+                            <td class="text-end text-nowrap">—</td>
                         </tr>
                         <tr class="lead-followup-remarks-row {{ $loop->even ? 'lead-followup-remarks-row--alt' : '' }}">
                             <td colspan="9" class="lead-followup-remarks-cell">
                                 <div class="lead-followup-remarks-block">
-                                    <span class="lead-followup-remarks-label">{{ translate('Remarks') }}</span>
-                                    <div class="lead-followup-remarks-text">{{ $followup->remarks ?: '—' }}</div>
+                                    <span class="lead-followup-remarks-label">{{ translate('Remarks') }}:</span>
+                                    <span class="lead-followup-remarks-text">{{ $followup->remarks ?: '—' }}</span>
                                 </div>
                             </td>
                         </tr>
-                        @if($followup->hasRecording() && $followup->recording_url)
-                            <tr class="voice-call-details-row d-none">
-                                <td colspan="9" class="p-0 border-0">
-                                    @include('leadmanagement::admin.leads.partials._followup_recording_details_panel', ['followup' => $followup, 'lead' => $lead])
-                                </td>
-                            </tr>
-                        @endif
                     @endforeach
                     </tbody>
                 </table>
@@ -412,7 +459,8 @@
             <form method="POST"
                   action="{{ route('admin.lead.comments.store', $lead->id) }}"
                   id="leadCommentForm"
-                  class="lead-comment-compose staff-chat-compose-wrap position-relative mt-2">
+                  class="lead-comment-compose staff-chat-compose-wrap position-relative mt-2"
+                  enctype="multipart/form-data">
                 @csrf
                 @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif
                 @include('leadmanagement::admin.leads.partials._comment-compose')
@@ -420,9 +468,9 @@
                           id="leadCommentBody"
                           class="form-control form-control-sm staff-chat-message-input lead-comment-compose__input w-100"
                           rows="2"
-                          required
                           maxlength="5000"
                           placeholder="{{ translate('Write_a_comment') }}"></textarea>
+                @include('leadmanagement::admin.leads.partials._comment-attachments-compose')
                 <div class="lead-comment-compose__footer d-flex flex-wrap align-items-center gap-2 pt-2">
                     <div class="lead-comment-compose__tags d-flex flex-wrap align-items-center gap-1">
                         <button type="button" class="btn btn-sm staff-tag-trigger staff-tag-btn staff-tag-btn-staff" data-tag-type="staff">
