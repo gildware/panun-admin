@@ -99,12 +99,9 @@ class WorkflowGate
      */
     public function checkBookingAction(Booking $booking, string $action, bool $confirmed = false): array
     {
-        $workflowCtx = $this->workflow->forBooking($booking);
         $reqs = WorkflowStepDefinitions::actionRequirements()[$action] ?? ['hard' => [], 'soft' => []];
-
-        $doneKeys = collect($workflowCtx['steps'] ?? [])->where('done', true)->pluck('key')->all();
-        $closeDone = collect($workflowCtx['close_steps'] ?? [])->where('done', true)->pluck('key')->all();
-        $doneKeys = array_unique(array_merge($doneKeys, $closeDone));
+        $requiredKeys = array_values(array_unique(array_merge($reqs['hard'], $reqs['soft'])));
+        $doneKeys = $this->workflow->doneStepKeysForBooking($booking, $requiredKeys);
 
         $pendingHard = $this->pendingKeys($reqs['hard'], $doneKeys);
         $pendingSoft = $confirmed ? [] : $this->pendingKeys($reqs['soft'], $doneKeys);

@@ -2,11 +2,13 @@
 
 namespace Modules\LeadManagement\Entities;
 
+use App\Support\StoragePathPrefix;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Storage;
 
 class Lead extends Model
 {
@@ -47,6 +49,13 @@ class Lead extends Model
         'ad_source_id',
         'handled_by',
         'remarks',
+        'initial_call_recording_path',
+        'initial_call_recording_disk',
+        'initial_call_recording_mime',
+        'initial_call_recording_original_name',
+        'initial_call_recording_transcript',
+        'initial_call_recording_summary',
+        'initial_call_recording_transcribed_at',
         'next_followup_at',
         'created_by',
     ];
@@ -54,7 +63,33 @@ class Lead extends Model
     protected $casts = [
         'date_time_of_lead_received' => 'datetime',
         'next_followup_at' => 'datetime',
+        'initial_call_recording_transcribed_at' => 'datetime',
     ];
+
+    public function hasInitialCallRecording(): bool
+    {
+        return ! empty($this->initial_call_recording_path);
+    }
+
+    public function hasInitialCallTranscript(): bool
+    {
+        return ! empty($this->initial_call_recording_transcript);
+    }
+
+    public function getInitialCallRecordingUrlAttribute(): ?string
+    {
+        if (! $this->hasInitialCallRecording()) {
+            return null;
+        }
+
+        $path = StoragePathPrefix::apply('lead-initial-calls/'.$this->initial_call_recording_path);
+
+        try {
+            return Storage::disk($this->initial_call_recording_disk ?: getDisk())->url($path);
+        } catch (\Throwable) {
+            return asset('storage/'.$path);
+        }
+    }
 
     public function source(): BelongsTo
     {

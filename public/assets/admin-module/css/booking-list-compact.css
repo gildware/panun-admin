@@ -30,6 +30,10 @@
     box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
 }
 
+.booking-compact-list .booking-compact-card.bc-card-navigable {
+    cursor: pointer;
+}
+
 /* Row 1 */
 .booking-compact-list .bc-r1 {
     display: flex;

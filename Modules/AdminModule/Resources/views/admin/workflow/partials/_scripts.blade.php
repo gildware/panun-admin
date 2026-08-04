@@ -1,9 +1,12 @@
 @php
     $wfEntityType = $workflowContext['entity_type'] ?? ($wfEntityType ?? 'lead');
-    $wfEntityId = (int) ($workflowContext['entity_id'] ?? ($wfEntityId ?? 0));
+    $wfEntityId = $workflowContext['entity_id'] ?? ($wfEntityId ?? null);
+    $wfEntityReady = $wfEntityType === 'booking'
+        ? filled($wfEntityId)
+        : ((int) $wfEntityId) > 0;
     $wfHasScenario = !empty($workflowContext['scenario']);
 @endphp
-@if($wfEntityId > 0)
+@if($wfEntityReady)
 <script>
 (function () {
     let workflowFabDocBound = false;
@@ -63,7 +66,52 @@
     const toggleUrl = @json(route('admin.workflow.steps.toggle'));
     const confirmBulkUrl = @json(route('admin.workflow.steps.confirm-bulk'));
     const checkGateUrl = @json(route('admin.workflow.check-gate'));
-    const token = @json(csrf_token());
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || @json(csrf_token());
+
+    function closeWorkflowConfirmModal(onDone) {
+        const modalEl = document.getElementById('workflowConfirmModal');
+        const runNext = function () {
+            if (modalEl) {
+                modalEl.classList.remove('show');
+                modalEl.style.display = 'none';
+                modalEl.setAttribute('aria-hidden', 'true');
+            }
+            document.querySelectorAll('.modal-backdrop').forEach(function (el) {
+                el.remove();
+            });
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
+            if (typeof onDone === 'function') {
+                onDone();
+            }
+        };
+
+        if (!modalEl || !window.bootstrap?.Modal) {
+            runNext();
+            return;
+        }
+
+        const inst = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+        let finished = false;
+        const finishOnce = function () {
+            if (finished) return;
+            finished = true;
+            runNext();
+        };
+
+        modalEl.addEventListener('hidden.bs.modal', finishOnce, { once: true });
+        inst.hide();
+        window.setTimeout(finishOnce, 200);
+    }
+
+    function runWorkflowProceedCallback(onAllowed) {
+        closeWorkflowConfirmModal(function () {
+            if (typeof onAllowed === 'function') {
+                onAllowed();
+            }
+        });
+    }
 
     function refreshWorkflowFab(html) {
         const parser = new DOMParser();
@@ -95,7 +143,7 @@
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'X-CSRF-TOKEN': token,
+                'X-CSRF-TOKEN': csrfToken,
                 'X-Requested-With': 'XMLHttpRequest',
             },
             body: JSON.stringify({
@@ -118,7 +166,7 @@
         entityId: entityId,
         checkGateUrl: checkGateUrl,
         confirmBulkUrl: confirmBulkUrl,
-        token: token,
+        token: csrfToken,
         pendingProceed: null,
 
         check: function (action, onAllowed, confirmed) {
@@ -128,7 +176,7 @@
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    'X-CSRF-TOKEN': token,
+                    'X-CSRF-TOKEN': csrfToken,
                 },
                 body: JSON.stringify({
                     entity_type: entityType,
@@ -137,11 +185,17 @@
                     confirmed: !!confirmed,
                 }),
             }).then(function (r) { return r.json(); }).then(function (data) {
-                if (data.allowed) {
+                if (data && data.allowed === true) {
                     onAllowed();
                     return;
                 }
+                if (!data || (!Array.isArray(data.pending) && !Array.isArray(data.hard_pending))) {
+                    window.toastr && toastr.error((data && data.message) ? data.message : @json(translate('Something went wrong. Please try again.')));
+                    return;
+                }
                 self.showConfirmModal(data, action, onAllowed);
+            }).catch(function () {
+                window.toastr && toastr.error(@json(translate('Something went wrong. Please try again.')));
             });
         },
 
@@ -166,26 +220,60 @@
             if (introPost) introPost.classList.toggle('d-none', !isPost);
 
             stepsEl.innerHTML = '';
-            const pending = data.pending || [];
-            const hasHard = (data.hard_pending || []).length > 0;
+            const pending = Array.isArray(data.pending) ? data.pending : [];
+            const hardPending = Array.isArray(data.hard_pending) ? data.hard_pending : [];
+            const hardKeys = new Set(hardPending.map(function (p) { return p.key; }));
+            const stepsToShow = pending.length ? pending : hardPending;
+            const hasHard = hardPending.length > 0;
 
-            pending.forEach(function (p) {
+            if (stepsToShow.length === 0 && data.message) {
+                const li = document.createElement('li');
+                li.className = 'mb-0 small text-muted';
+                li.textContent = data.message;
+                stepsEl.appendChild(li);
+            }
+
+            stepsToShow.forEach(function (p) {
+                const isHard = !!p.hard || hardKeys.has(p.key);
                 const li = document.createElement('li');
                 li.className = 'mb-2 small';
-                li.innerHTML = '<label class="d-flex gap-2 align-items-start"><input type="checkbox" class="workflow-confirm-check mt-1" value="' + p.key + '" ' + (p.hard ? 'data-hard="1"' : '') + '> <span><strong>' + p.label + '</strong><br><span class="text-muted">' + (p.detail || '') + '</span></span></label>';
+                li.innerHTML = '<label class="d-flex gap-2 align-items-start' + (isHard ? '' : '') + '">' +
+                    (isHard
+                        ? '<span class="material-icons text-warning mt-1" style="font-size:18px;">error_outline</span>'
+                        : '<input type="checkbox" class="workflow-confirm-check mt-1" value="' + p.key + '">') +
+                    ' <span><strong>' + (p.label || p.key) + '</strong>' +
+                    (p.detail ? '<br><span class="text-muted">' + p.detail + '</span>' : '') +
+                    '</span></label>';
                 stepsEl.appendChild(li);
             });
 
+            function syncWorkflowProceedButton() {
+                if (!proceedBtn || hasHard) {
+                    return;
+                }
+                const softSteps = stepsToShow.filter(function (p) { return !p.hard && !hardKeys.has(p.key); });
+                if (softSteps.length === 0) {
+                    proceedBtn.disabled = false;
+                    return;
+                }
+                const checked = stepsEl.querySelectorAll('.workflow-confirm-check:checked').length;
+                proceedBtn.disabled = checked < softSteps.length;
+            }
+
+            stepsEl.querySelectorAll('.workflow-confirm-check').forEach(function (box) {
+                box.addEventListener('change', syncWorkflowProceedButton);
+            });
+            syncWorkflowProceedButton();
+
             if (hasHard) {
-                hardNotice.textContent = data.message || '';
+                hardNotice.textContent = data.message || @json(translate('Complete_required_workflow_steps_first'));
                 hardNotice.classList.remove('d-none');
                 proceedBtn.disabled = true;
             } else {
                 hardNotice.classList.add('d-none');
-                proceedBtn.disabled = false;
             }
 
-            this.pendingProceed = { action: action, onAllowed: onAllowed, pending: pending, hasHard: hasHard, mode: mode || 'pre' };
+            this.pendingProceed = { action: action, onAllowed: onAllowed, pending: stepsToShow, hasHard: hasHard, mode: mode || 'pre' };
             const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
             modal.show();
         },
@@ -218,31 +306,57 @@
         },
     };
 
-    document.getElementById('workflow-confirm-proceed')?.addEventListener('click', function () {
-        const ctx = window.WorkflowGate.pendingProceed;
-        if (!ctx) return;
+    function handleWorkflowConfirmProceedClick(e) {
+        const proceedBtn = e.target.closest('#workflow-confirm-proceed');
+        if (!proceedBtn || proceedBtn.disabled) {
+            return;
+        }
+
+        const ctx = window.WorkflowGate?.pendingProceed;
+        if (!ctx || ctx.hasHard) {
+            return;
+        }
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        proceedBtn.disabled = true;
+
         const keys = Array.from(document.querySelectorAll('.workflow-confirm-check:checked')).map(function (c) { return c.value; });
-        const softKeys = (ctx.pending || []).filter(function (p) { return !p.hard; }).map(function (p) { return p.key; });
-        const toMark = keys.length ? keys : softKeys;
+        if (!keys.length) {
+            proceedBtn.disabled = false;
+            return;
+        }
+
+        const finish = function () {
+            runWorkflowProceedCallback(ctx.onAllowed);
+        };
 
         fetch(confirmBulkUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'X-CSRF-TOKEN': token,
+                'X-CSRF-TOKEN': csrfToken,
             },
             body: JSON.stringify({
                 entity_type: entityType,
                 entity_id: entityId,
-                step_keys: toMark,
+                step_keys: keys,
                 action: ctx.action,
             }),
-        }).finally(function () {
-            bootstrap.Modal.getInstance(document.getElementById('workflowConfirmModal'))?.hide();
-            ctx.onAllowed();
+        }).then(function (r) {
+            if (!r.ok) {
+                throw new Error('confirm failed');
+            }
+            return r.json();
+        }).then(finish).catch(function () {
+            proceedBtn.disabled = false;
+            window.toastr && toastr.error(@json(translate('Failed_to_update')));
         });
-    });
+    }
+
+    document.addEventListener('click', handleWorkflowConfirmProceedClick);
 })();
 </script>
 @endif

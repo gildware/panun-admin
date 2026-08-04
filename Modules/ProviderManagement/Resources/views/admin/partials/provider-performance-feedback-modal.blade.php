@@ -40,7 +40,9 @@
      data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
-            <form id="providerPerformanceFeedbackForm" method="POST" data-feedback-route="{{ route('admin.provider.provider-performance-feedback.store') }}">
+            <form id="providerPerformanceFeedbackForm" method="POST"
+                  action="{{ route('admin.provider.provider-performance-feedback.store') }}"
+                  data-feedback-route="{{ route('admin.provider.provider-performance-feedback.store') }}">
                 @csrf
                 <div class="modal-header border-0 pb-1 align-items-start">
                     <div class="d-flex flex-column gap-1 flex-grow-1 pe-2">
@@ -203,10 +205,82 @@
     });
 
     document.addEventListener('change', function (event) {
-        if (event.target?.name === 'incident_type') {
+        if (event.target?.form?.id === 'providerPerformanceFeedbackForm' && event.target?.name === 'incident_type') {
             providerFeedbackToggleTagsByType();
         }
     });
+
+    (function () {
+        function bindProviderPerformanceFeedbackForm() {
+            const form = document.getElementById('providerPerformanceFeedbackForm');
+            if (!form || form.dataset.pkAjaxBound === '1') {
+                return;
+            }
+            form.dataset.pkAjaxBound = '1';
+
+            const route = form.getAttribute('action') || form.dataset.feedbackRoute;
+            if (!route) {
+                return;
+            }
+
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                const submitBtn = document.getElementById('providerPerformanceFeedbackSubmit');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                }
+
+                fetch(route, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: new FormData(form),
+                }).then(function (response) {
+                    return response.json().then(function (body) {
+                        return { ok: response.ok, body: body };
+                    }).catch(function () {
+                        return { ok: response.ok, body: null };
+                    });
+                }).then(function (result) {
+                    if (!result.ok) {
+                        throw new Error((result.body && result.body.message) || @json(translate('Failed to store feedback')));
+                    }
+
+                    const modalEl = document.getElementById('providerPerformanceFeedbackModal');
+                    if (modalEl && window.bootstrap?.Modal) {
+                        window.bootstrap.Modal.getInstance(modalEl)?.hide();
+                    }
+
+                    const evt = new CustomEvent('pk:provider-feedback-stored', {
+                        cancelable: true,
+                        detail: { form: form, response: result.body },
+                    });
+                    document.dispatchEvent(evt);
+
+                    if (!evt.defaultPrevented) {
+                        window.location.reload();
+                    }
+                }).catch(function (err) {
+                    if (window.toastr) {
+                        toastr.error(err.message || @json(translate('Failed to store feedback')));
+                    }
+                }).finally(function () {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                    }
+                });
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', bindProviderPerformanceFeedbackForm);
+        } else {
+            bindProviderPerformanceFeedbackForm();
+        }
+    })();
 
 </script>
 

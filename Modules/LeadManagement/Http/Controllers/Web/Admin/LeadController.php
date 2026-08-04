@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Modules\LeadManagement\Entities\AdSource;
 use Modules\LeadManagement\Entities\LeadFollowup;
@@ -33,6 +34,7 @@ use Modules\AdminModule\Services\StaffActivityLogger;
 use Modules\LeadManagement\Entities\LeadOutboundEnquiryStatus;
 use Modules\LeadManagement\Services\LeadChangeLogService;
 use Modules\LeadManagement\Services\LeadFollowupRecordingTranscriptionService;
+use Modules\LeadManagement\Services\LeadInitialCallRecordingTranscriptionService;
 use Modules\LeadManagement\Services\LeadFollowupService;
 use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\LeadManagement\Services\ProviderLeadPanelMatchService;
@@ -1054,6 +1056,13 @@ class LeadController extends Controller
             'ad_source_id' => 'sometimes|nullable|exists:adsources,id',
             'handled_by' => 'sometimes|nullable|string|max:64',
             'remarks' => 'sometimes|nullable|string|max:1000',
+            'initial_call_recording' => [
+                'sometimes',
+                'nullable',
+                'file',
+                'max:10240',
+                'mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/webm,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/x-aac',
+            ],
             'next_followup_at' => [
                 Rule::requiredIf(fn () => $this->leadRequiresMandatoryFollowup($lead)),
                 'sometimes',
@@ -1065,7 +1074,30 @@ class LeadController extends Controller
 
         $validated = $request->validate($rules, [
             'next_followup_at.after' => translate('Reschedule_date_must_be_in_the_future'),
+            'initial_call_recording.mimetypes' => translate('Please_upload_a_valid_audio_recording'),
         ]);
+
+        if ($request->hasFile('initial_call_recording')) {
+            $recording = $request->file('initial_call_recording');
+            $extension = $recording->getClientOriginalExtension() ?: 'webm';
+            $storedName = file_uploader('lead-initial-calls/', $extension, $recording);
+
+            if ($storedName === 'def.png') {
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->withErrors(['initial_call_recording' => translate('Failed_to_upload_voice_recording')]);
+            }
+
+            $validated['initial_call_recording_path'] = $storedName;
+            $validated['initial_call_recording_disk'] = getDisk();
+            $validated['initial_call_recording_mime'] = $recording->getMimeType();
+            $validated['initial_call_recording_original_name'] = $recording->getClientOriginalName();
+            $validated['initial_call_recording_transcript'] = null;
+            $validated['initial_call_recording_summary'] = null;
+            $validated['initial_call_recording_transcribed_at'] = null;
+            unset($validated['initial_call_recording']);
+        }
 
         if (array_key_exists('name', $validated)) {
             $trimmedName = trim((string) ($validated['name'] ?? ''));
@@ -2365,6 +2397,291 @@ class LeadController extends Controller
         return redirect(route('admin.lead.show', $lead->id).'?'.http_build_query($query).'#lead-activity');
     }
 
+    public function storeCallLog(Request $request, int $leadId): RedirectResponse
+    {
+        $lead = Lead::findOrFail($leadId);
+
+        $validator = $this->makeCallLogValidator($request);
+
+        if ($validator->fails()) {
+            return $this->redirectAfterCallLog($request, $lead)
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        $validated = $validator->validated();
+        [$calledName, $calledNumber, $calledProviderId] = $this->resolveCallLogCalledParty(
+            $validated['called_party_type'],
+            $lead,
+            $validated['called_provider_id'] ?? null,
+            $validated['called_name'] ?? null,
+            $validated['called_number'] ?? null,
+        );
+
+        $recordingData = $this->resolveCallLogRecordingUpload($request) ?? [];
+        if ($recordingData === false) {
+            return $this->redirectAfterCallLog($request, $lead)
+                ->withInput()
+                ->withErrors(['recording' => translate('Failed_to_upload_voice_recording')]);
+        }
+
+        LeadFollowup::create(array_merge([
+            'lead_id' => $lead->id,
+            'followup_at' => $validated['called_at'],
+            'due_followup_at' => $lead->next_followup_at,
+            'remarks' => $validated['remarks'] ?? null,
+            'contact_channel' => LeadFollowup::CHANNEL_CALL,
+            'called_party_type' => $validated['called_party_type'],
+            'called_name' => $calledName,
+            'called_number' => $calledNumber,
+            'called_provider_id' => $calledProviderId,
+            'followup_status' => LeadFollowup::STATUS_TAKEN,
+            'urgency' => LeadFollowup::URGENCY_MEDIUM,
+            'created_by' => Auth::id(),
+        ], $recordingData));
+
+        toastr()->success(translate('Call_log_added_successfully'));
+
+        return $this->redirectAfterCallLog($request, $lead);
+    }
+
+    public function updateCallLog(Request $request, int $leadId, int $followupId): RedirectResponse
+    {
+        $lead = Lead::findOrFail($leadId);
+        $followup = $this->findCallLogFollowup($leadId, $followupId);
+
+        $validator = $this->makeCallLogValidator($request);
+        if ($validator->fails()) {
+            return $this->redirectAfterCallLog($request, $lead)
+                ->withErrors($validator)
+                ->withInput(array_merge($request->all(), [
+                    'call_log_form' => 1,
+                    'call_log_mode' => 'edit',
+                    'call_log_followup_id' => $followupId,
+                ]));
+        }
+
+        $validated = $validator->validated();
+        [$calledName, $calledNumber, $calledProviderId] = $this->resolveCallLogCalledParty(
+            $validated['called_party_type'],
+            $lead,
+            $validated['called_provider_id'] ?? null,
+            $validated['called_name'] ?? null,
+            $validated['called_number'] ?? null,
+        );
+
+        $recordingData = $this->resolveCallLogRecordingUpload($request, $followup);
+        if ($recordingData === false) {
+            return $this->redirectAfterCallLog($request, $lead)
+                ->withInput(array_merge($request->all(), [
+                    'call_log_form' => 1,
+                    'call_log_mode' => 'edit',
+                    'call_log_followup_id' => $followupId,
+                ]))
+                ->withErrors(['recording' => translate('Failed_to_upload_voice_recording')]);
+        }
+
+        $followup->update(array_merge([
+            'followup_at' => $validated['called_at'],
+            'remarks' => $validated['remarks'] ?? null,
+            'called_party_type' => $validated['called_party_type'],
+            'called_name' => $calledName,
+            'called_number' => $calledNumber,
+            'called_provider_id' => $calledProviderId,
+        ], $recordingData ?? []));
+
+        toastr()->success(translate('Call_log_updated_successfully'));
+
+        return $this->redirectAfterCallLog($request, $lead);
+    }
+
+    public function destroyCallLog(Request $request, int $leadId, int $followupId): RedirectResponse|\Illuminate\Http\JsonResponse
+    {
+        $lead = Lead::findOrFail($leadId);
+        $followup = $this->findCallLogFollowup($leadId, $followupId);
+        $followup->delete();
+
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true]);
+        }
+
+        toastr()->success(translate('Call_log_deleted_successfully'));
+
+        return $this->redirectAfterCallLog($request, $lead);
+    }
+
+    protected function findCallLogFollowup(int $leadId, int $followupId): LeadFollowup
+    {
+        return LeadFollowup::query()
+            ->where('lead_id', $leadId)
+            ->whereKey($followupId)
+            ->where('contact_channel', LeadFollowup::CHANNEL_CALL)
+            ->firstOrFail();
+    }
+
+    protected function makeCallLogValidator(Request $request): \Illuminate\Contracts\Validation\Validator
+    {
+        return Validator::make($request->all(), [
+            'called_party_type' => ['required', 'in:'.implode(',', LeadFollowup::CALLED_PARTY_TYPES)],
+            'called_provider_id' => [
+                Rule::requiredIf(fn () => $request->input('called_party_type') === LeadFollowup::CALLED_PARTY_PROVIDER),
+                'nullable',
+                'uuid',
+                'exists:providers,id',
+            ],
+            'called_name' => [
+                Rule::requiredIf(fn () => $request->input('called_party_type') === LeadFollowup::CALLED_PARTY_OTHER),
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'called_number' => [
+                Rule::requiredIf(fn () => $request->input('called_party_type') === LeadFollowup::CALLED_PARTY_OTHER),
+                'nullable',
+                'string',
+                'max:32',
+            ],
+            'called_at' => 'required|date',
+            'remarks' => 'nullable|string|max:1000',
+            'recording' => [
+                'nullable',
+                'file',
+                'max:10240',
+                'mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/webm,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/x-aac',
+            ],
+        ], [
+            'called_provider_id.required' => translate('Please_select_a_provider'),
+            'called_name.required' => translate('Called_name_is_required'),
+            'called_number.required' => translate('Called_number_is_required'),
+            'recording.mimetypes' => translate('Please_upload_a_valid_audio_recording'),
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>|false|null false when upload failed, null when no new file
+     */
+    protected function resolveCallLogRecordingUpload(Request $request, ?LeadFollowup $existingFollowup = null): array|false|null
+    {
+        if (! $request->hasFile('recording')) {
+            return null;
+        }
+
+        $recording = $request->file('recording');
+        $extension = $recording->getClientOriginalExtension() ?: 'webm';
+        $storedName = file_uploader('lead-followups/', $extension, $recording);
+
+        if ($storedName === 'def.png') {
+            return false;
+        }
+
+        return [
+            'recording_path' => $storedName,
+            'recording_disk' => getDisk(),
+            'recording_mime' => $recording->getMimeType(),
+            'recording_original_name' => $recording->getClientOriginalName(),
+        ];
+    }
+
+    protected function redirectAfterCallLog(Request $request, Lead $lead): RedirectResponse
+    {
+        $query = ['activity' => 'call'];
+        if ($request->boolean('in_modal')) {
+            $query['in_modal'] = 1;
+        }
+
+        return redirect(route('admin.lead.show', $lead->id).'?'.http_build_query($query).'#lead-activity');
+    }
+
+    /**
+     * @return array{0: ?string, 1: ?string, 2: ?string}
+     */
+    protected function resolveCallLogCalledParty(
+        string $partyType,
+        Lead $lead,
+        ?string $providerId,
+        ?string $otherName,
+        ?string $otherNumber,
+    ): array {
+        if ($partyType === LeadFollowup::CALLED_PARTY_CUSTOMER) {
+            return [
+                trim((string) ($lead->name ?? '')) ?: null,
+                trim((string) ($lead->phone_number ?? '')) ?: null,
+                null,
+            ];
+        }
+
+        if ($partyType === LeadFollowup::CALLED_PARTY_PROVIDER) {
+            $provider = Provider::query()->find($providerId);
+            if (! $provider) {
+                return [null, null, null];
+            }
+
+            $name = trim((string) ($provider->company_name ?? ''));
+            if ($name === '') {
+                $name = trim((string) ($provider->contact_person_name ?? ''));
+            }
+
+            $phone = trim((string) ($provider->contact_person_phone ?? $provider->company_phone ?? ''));
+
+            return [
+                $name !== '' ? $name : null,
+                $phone !== '' ? $phone : null,
+                (string) $provider->id,
+            ];
+        }
+
+        return [
+            trim((string) ($otherName ?? '')) ?: null,
+            trim((string) ($otherNumber ?? '')) ?: null,
+            null,
+        ];
+    }
+
+    public function transcribeInitialCallRecording(Request $request, int $leadId): JsonResponse
+    {
+        @set_time_limit(300);
+
+        $lead = Lead::findOrFail($leadId);
+
+        if (! $lead->hasInitialCallRecording()) {
+            return response()->json([
+                'success' => false,
+                'message' => translate('No_initial_call_recording_for_transcription'),
+            ], 422);
+        }
+
+        try {
+            $result = app(LeadInitialCallRecordingTranscriptionService::class)
+                ->transcribeAndSummarize($lead, $request->boolean('force'));
+
+            return response()->json([
+                'success' => true,
+                'message' => $result['from_cache']
+                    ? translate('Transcript_loaded_from_saved_copy')
+                    : translate('Recording_transcribed_successfully'),
+                'transcript' => $result['transcript'],
+                'summary' => $result['summary'],
+                'transcribed_at' => $result['transcribed_at'],
+                'from_cache' => $result['from_cache'],
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Lead initial call recording transcription failed', [
+                'lead_id' => $lead->id,
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage() ?: translate('Failed_to_transcribe_recording'),
+            ], 500);
+        }
+    }
+
     public function transcribeFollowupRecording(Request $request, int $leadId, int $followupId): JsonResponse
     {
         @set_time_limit(300);
@@ -2529,9 +2846,15 @@ class LeadController extends Controller
         if ($selected) {
             $provider = Provider::query()->find($selected);
             if ($provider) {
+                $name = trim((string) ($provider->company_name ?? ''));
+                $contact = trim((string) ($provider->contact_person_name ?? ''));
+                $phone = trim((string) ($provider->contact_person_phone ?? $provider->company_phone ?? ''));
+
                 return response()->json(['results' => [[
                     'id' => $provider->id,
                     'text' => $this->formatProviderSelectLabel($provider),
+                    'name' => $name !== '' ? $name : ($contact !== '' ? $contact : null),
+                    'phone' => $phone !== '' ? $phone : null,
                 ]]]);
             }
 
@@ -2553,10 +2876,18 @@ class LeadController extends Controller
             }
         }
 
-        $results = $query->orderBy('company_name')->limit(30)->get()->map(fn (Provider $provider) => [
-            'id' => $provider->id,
-            'text' => $this->formatProviderSelectLabel($provider),
-        ])->values();
+        $results = $query->orderBy('company_name')->limit(30)->get()->map(function (Provider $provider) {
+            $name = trim((string) ($provider->company_name ?? ''));
+            $contact = trim((string) ($provider->contact_person_name ?? ''));
+            $phone = trim((string) ($provider->contact_person_phone ?? $provider->company_phone ?? ''));
+
+            return [
+                'id' => $provider->id,
+                'text' => $this->formatProviderSelectLabel($provider),
+                'name' => $name !== '' ? $name : ($contact !== '' ? $contact : null),
+                'phone' => $phone !== '' ? $phone : null,
+            ];
+        })->values();
 
         return response()->json(['results' => $results]);
     }

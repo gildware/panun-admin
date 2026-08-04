@@ -3818,6 +3818,254 @@ class BookingController extends Controller
         return redirect()->route('admin.booking.details', [$booking->id, 'web_page' => $redirectWebPage]).$hash;
     }
 
+    public function storeCallLog(Request $request, $id): RedirectResponse
+    {
+        $this->authorize('booking_view');
+        $booking = $this->booking->findOrFail($id);
+
+        $validator = $this->makeBookingCallLogValidator($request);
+        if ($validator->fails()) {
+            return $this->redirectAfterBookingCallLog($request, $booking)
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        $validated = $validator->validated();
+        [$calledName, $calledNumber, $calledProviderId] = $this->resolveBookingCallLogCalledParty(
+            $validated['called_party_type'],
+            $booking,
+            $validated['called_provider_id'] ?? null,
+            $validated['called_name'] ?? null,
+            $validated['called_number'] ?? null,
+        );
+
+        $recordingData = $this->resolveBookingCallLogRecordingUpload($request) ?? [];
+        if ($recordingData === false) {
+            return $this->redirectAfterBookingCallLog($request, $booking)
+                ->withInput()
+                ->withErrors(['recording' => translate('Failed_to_upload_voice_recording')]);
+        }
+
+        $for = $validated['called_party_type'] === BookingFollowup::CALLED_PARTY_PROVIDER ? 'provider' : 'customer';
+
+        BookingFollowup::create(array_merge([
+            'booking_id' => $booking->id,
+            'for' => $for,
+            'date' => $validated['called_at'],
+            'followup_at' => $validated['called_at'],
+            'status' => 'completed',
+            'remarks' => $validated['remarks'] ?? null,
+            'contact_channel' => BookingFollowup::CHANNEL_CALL,
+            'called_party_type' => $validated['called_party_type'],
+            'called_name' => $calledName,
+            'called_number' => $calledNumber,
+            'called_provider_id' => $calledProviderId,
+            'urgency' => BookingFollowup::URGENCY_MEDIUM,
+            'created_by' => auth()->id(),
+        ], $recordingData));
+
+        Toastr::success(translate('Call_log_added_successfully'));
+
+        return $this->redirectAfterBookingCallLog($request, $booking);
+    }
+
+    public function updateCallLog(Request $request, $id, $followupId): RedirectResponse
+    {
+        $this->authorize('booking_view');
+        $booking = $this->booking->findOrFail($id);
+        $followup = $this->findBookingCallLogFollowup($booking->id, (int) $followupId);
+
+        $validator = $this->makeBookingCallLogValidator($request);
+        if ($validator->fails()) {
+            return $this->redirectAfterBookingCallLog($request, $booking)
+                ->withErrors($validator)
+                ->withInput(array_merge($request->all(), [
+                    'call_log_form' => 1,
+                    'call_log_mode' => 'edit',
+                    'call_log_followup_id' => $followupId,
+                ]));
+        }
+
+        $validated = $validator->validated();
+        [$calledName, $calledNumber, $calledProviderId] = $this->resolveBookingCallLogCalledParty(
+            $validated['called_party_type'],
+            $booking,
+            $validated['called_provider_id'] ?? null,
+            $validated['called_name'] ?? null,
+            $validated['called_number'] ?? null,
+        );
+
+        $recordingData = $this->resolveBookingCallLogRecordingUpload($request, $followup);
+        if ($recordingData === false) {
+            return $this->redirectAfterBookingCallLog($request, $booking)
+                ->withInput(array_merge($request->all(), [
+                    'call_log_form' => 1,
+                    'call_log_mode' => 'edit',
+                    'call_log_followup_id' => $followupId,
+                ]))
+                ->withErrors(['recording' => translate('Failed_to_upload_voice_recording')]);
+        }
+
+        $for = $validated['called_party_type'] === BookingFollowup::CALLED_PARTY_PROVIDER ? 'provider' : 'customer';
+
+        $followup->update(array_merge([
+            'for' => $for,
+            'date' => $validated['called_at'],
+            'followup_at' => $validated['called_at'],
+            'remarks' => $validated['remarks'] ?? null,
+            'called_party_type' => $validated['called_party_type'],
+            'called_name' => $calledName,
+            'called_number' => $calledNumber,
+            'called_provider_id' => $calledProviderId,
+        ], $recordingData ?? []));
+
+        Toastr::success(translate('Call_log_updated_successfully'));
+
+        return $this->redirectAfterBookingCallLog($request, $booking);
+    }
+
+    public function destroyCallLog(Request $request, $id, $followupId): RedirectResponse|JsonResponse
+    {
+        $this->authorize('booking_view');
+        $booking = $this->booking->findOrFail($id);
+        $followup = $this->findBookingCallLogFollowup($booking->id, (int) $followupId);
+        $followup->delete();
+
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true]);
+        }
+
+        Toastr::success(translate('Call_log_deleted_successfully'));
+
+        return $this->redirectAfterBookingCallLog($request, $booking);
+    }
+
+    protected function findBookingCallLogFollowup(string $bookingId, int $followupId): BookingFollowup
+    {
+        return BookingFollowup::query()
+            ->where('booking_id', $bookingId)
+            ->whereKey($followupId)
+            ->where('contact_channel', BookingFollowup::CHANNEL_CALL)
+            ->firstOrFail();
+    }
+
+    protected function makeBookingCallLogValidator(Request $request): \Illuminate\Contracts\Validation\Validator
+    {
+        return Validator::make($request->all(), [
+            'called_party_type' => ['required', 'in:'.implode(',', BookingFollowup::CALLED_PARTY_TYPES)],
+            'called_provider_id' => [
+                Rule::requiredIf(fn () => $request->input('called_party_type') === BookingFollowup::CALLED_PARTY_PROVIDER),
+                'nullable',
+                'uuid',
+                'exists:providers,id',
+            ],
+            'called_name' => [
+                Rule::requiredIf(fn () => $request->input('called_party_type') === BookingFollowup::CALLED_PARTY_OTHER),
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'called_number' => [
+                Rule::requiredIf(fn () => $request->input('called_party_type') === BookingFollowup::CALLED_PARTY_OTHER),
+                'nullable',
+                'string',
+                'max:32',
+            ],
+            'called_at' => 'required|date',
+            'remarks' => 'nullable|string|max:1000',
+            'recording' => [
+                'nullable',
+                'file',
+                'max:10240',
+                'mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/webm,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/x-aac',
+            ],
+        ], [
+            'called_provider_id.required' => translate('Please_select_a_provider'),
+            'called_name.required' => translate('Called_name_is_required'),
+            'called_number.required' => translate('Called_number_is_required'),
+            'recording.mimetypes' => translate('Please_upload_a_valid_audio_recording'),
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>|false|null false when upload failed, null when no new file
+     */
+    protected function resolveBookingCallLogRecordingUpload(Request $request, ?BookingFollowup $existingFollowup = null): array|false|null
+    {
+        if (! $request->hasFile('recording')) {
+            return null;
+        }
+
+        $recording = $request->file('recording');
+        $extension = $recording->getClientOriginalExtension() ?: 'webm';
+        $storedName = file_uploader('booking-followups/', $extension, $recording);
+
+        if ($storedName === 'def.png') {
+            return false;
+        }
+
+        return [
+            'recording_path' => $storedName,
+            'recording_disk' => getDisk(),
+            'recording_mime' => $recording->getMimeType(),
+            'recording_original_name' => $recording->getClientOriginalName(),
+        ];
+    }
+
+    protected function redirectAfterBookingCallLog(Request $request, Booking $booking): RedirectResponse
+    {
+        $url = route('admin.booking.details', [$booking->id, 'web_page' => 'details', 'activity' => 'call']);
+
+        return redirect()->to($url.'#booking-activity');
+    }
+
+    /**
+     * @return array{0: ?string, 1: ?string, 2: ?string}
+     */
+    protected function resolveBookingCallLogCalledParty(
+        string $partyType,
+        Booking $booking,
+        ?string $providerId,
+        ?string $otherName,
+        ?string $otherNumber,
+    ): array {
+        if ($partyType === BookingFollowup::CALLED_PARTY_CUSTOMER) {
+            $customerAddress = $booking->relationLoaded('service_address') ? $booking->service_address : null;
+
+            return [
+                trim((string) booking_display_customer_name($booking, $customerAddress)) ?: null,
+                trim((string) booking_display_customer_phone($booking, $customerAddress)) ?: null,
+                null,
+            ];
+        }
+
+        if ($partyType === BookingFollowup::CALLED_PARTY_PROVIDER) {
+            $provider = Provider::query()->find($providerId);
+            if (! $provider) {
+                return [null, null, null];
+            }
+
+            $name = trim((string) ($provider->company_name ?? ''));
+            if ($name === '') {
+                $name = trim((string) ($provider->contact_person_name ?? ''));
+            }
+
+            $phone = trim((string) ($provider->contact_person_phone ?? $provider->company_phone ?? ''));
+
+            return [
+                $name !== '' ? $name : null,
+                $phone !== '' ? $phone : null,
+                (string) $provider->id,
+            ];
+        }
+
+        return [
+            trim((string) ($otherName ?? '')) ?: null,
+            trim((string) ($otherNumber ?? '')) ?: null,
+            null,
+        ];
+    }
+
     public function transcribeFollowupRecording(Request $request, $id, $followupId): JsonResponse
     {
         $this->authorize('booking_view');

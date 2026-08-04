@@ -249,7 +249,7 @@
         </section>
     @endif
 
-    {{-- Remarks --}}
+    {{-- Initial Remarks --}}
     <section class="panel lead-card-remarks">
         <div class="panel__head">
             <h2 class="panel__title"><span class="material-icons">notes</span> {{ translate('Initial_Remarks') }}</h2>
@@ -265,6 +265,57 @@
                     @method('PUT')
                     @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif
                     <textarea name="remarks" class="form-control form-control-sm" rows="3" placeholder="{{ translate('Remarks') }}">{{ old('remarks', $lead->remarks) }}</textarea>
+                    <div class="d-flex justify-content-end gap-2 mt-2">
+                        <button type="button" class="btn btn--secondary btn-sm lead-card-cancel">{{ translate('Cancel') }}</button>
+                        <button type="submit" class="btn btn--primary btn-sm">{{ translate('Update') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    {{-- Initial Call Recording --}}
+    <section class="panel lead-card-initial-call-recording">
+        <div class="panel__head">
+            <h2 class="panel__title"><span class="material-icons">graphic_eq</span> {{ translate('Initial_Call_Recording') }}</h2>
+            <button type="button" class="panel__edit lead-card-edit-btn">{{ translate('Edit') }}</button>
+        </div>
+        <div class="panel__body">
+            <div class="lead-card-view initial-call-recording-section">
+                @if($lead->hasInitialCallRecording() && $lead->initial_call_recording_url)
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <p class="small text-muted mb-0">
+                            {{ $lead->initial_call_recording_original_name ?: translate('Voice_Recording') }}
+                        </p>
+                        <button type="button"
+                                class="btn btn-sm btn-outline-secondary voice-call-details-toggle initial-call-recording-toggle"
+                                aria-expanded="false">
+                            {{ translate('View') }}
+                        </button>
+                    </div>
+                    <div class="voice-call-details-inline d-none">
+                        @include('leadmanagement::admin.leads.partials._initial_call_recording_details_panel', ['lead' => $lead])
+                    </div>
+                @else
+                    <p class="text-muted mb-0 small">{{ translate('No_initial_call_recording_available') }}</p>
+                @endif
+            </div>
+            <div class="lead-card-edit d-none">
+                <form method="POST" action="{{ route('admin.lead.update', $lead->id) }}" class="lead-card-form" enctype="multipart/form-data">
+                    @csrf
+                    @method('PUT')
+                    @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif
+                    <input type="file"
+                           name="initial_call_recording"
+                           class="form-control form-control-sm"
+                           accept="audio/*,.mp3,.wav,.webm,.ogg,.m4a,.aac">
+                    <div class="form-text">{{ translate('Upload_call_recording_optional_max_10MB') }}</div>
+                    @if($lead->hasInitialCallRecording())
+                        <p class="small text-muted mb-0 mt-1">{{ translate('Upload_new_recording_to_replace_existing') }}</p>
+                    @endif
+                    @error('initial_call_recording')
+                        <div class="text-danger small mt-1">{{ $message }}</div>
+                    @enderror
                     <div class="d-flex justify-content-end gap-2 mt-2">
                         <button type="button" class="btn btn--secondary btn-sm lead-card-cancel">{{ translate('Cancel') }}</button>
                         <button type="submit" class="btn btn--primary btn-sm">{{ translate('Update') }}</button>

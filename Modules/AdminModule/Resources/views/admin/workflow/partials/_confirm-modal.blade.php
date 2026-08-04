@@ -1,4 +1,19 @@
-<div class="modal fade" id="workflowConfirmModal" tabindex="-1" aria-labelledby="workflowConfirmModalLabel" aria-hidden="true">
+@once
+    @push('css_or_js')
+        <style>
+            #workflowConfirmModal.show {
+                z-index: 20060;
+            }
+            body:has(#workflowConfirmModal.show) .modal-backdrop.show {
+                z-index: 20055;
+            }
+            .swal2-container {
+                z-index: 20100 !important;
+            }
+        </style>
+    @endpush
+@endonce
+<div class="modal fade" id="workflowConfirmModal" tabindex="-1" aria-labelledby="workflowConfirmModalLabel" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">

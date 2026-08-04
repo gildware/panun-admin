@@ -5,6 +5,7 @@ namespace Modules\LeadManagement\Console;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -12,6 +13,7 @@ use Illuminate\View\View;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\LeadManagement\Entities\CustomerLeadTag;
 use Modules\LeadManagement\Entities\Lead;
+use Modules\LeadManagement\Entities\LeadFollowup;
 use Modules\LeadManagement\Entities\LeadFutureCustomerReason;
 use Modules\LeadManagement\Entities\LeadInvalidReason;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
@@ -91,6 +93,12 @@ class LeadSanityTestCommand extends Command
                 'temporary_provider_assign_clear' => fn () => $this->testTemporaryProviderAssignClear(),
                 'search_providers_endpoint' => fn () => $this->testSearchProvidersEndpoint(),
                 'store_followup' => fn () => $this->testStoreFollowup(),
+                'store_call_log_customer' => fn () => $this->testStoreCallLogCustomer(),
+                'store_call_log_provider' => fn () => $this->testStoreCallLogProvider(),
+                'store_call_log_other' => fn () => $this->testStoreCallLogOther(),
+                'store_call_log_with_recording' => fn () => $this->testStoreCallLogWithRecording(),
+                'update_call_log' => fn () => $this->testUpdateCallLog(),
+                'delete_call_log' => fn () => $this->testDeleteCallLog(),
                 'show_pages_render' => fn () => $this->testShowPagesRender(),
                 'lead_index_renders' => fn () => $this->testLeadIndexRenders(),
                 'delete_leads' => fn () => $this->testDeleteLeads(),
@@ -532,6 +540,224 @@ class LeadSanityTestCommand extends Command
         }
 
         return "lead #{$lead->id}, followups={$count}";
+    }
+
+    private function testStoreCallLogCustomer(): string
+    {
+        $lead = $this->createLeadViaStore([
+            'name' => "{$this->tag} call-log-customer",
+            'phone_number' => $this->randomPhone(),
+            'lead_type' => Lead::TYPE_CUSTOMER,
+        ]);
+
+        $this->callStoreCallLog($lead->id, [
+            'called_party_type' => LeadFollowup::CALLED_PARTY_CUSTOMER,
+            'called_at' => now()->subMinutes(10)->format('Y-m-d H:i:s'),
+            'remarks' => 'Sanity customer call log',
+        ]);
+
+        $followup = $this->assertCallLogStored($lead, LeadFollowup::CALLED_PARTY_CUSTOMER);
+        if ($followup->called_name !== $lead->name || $followup->called_number !== $lead->phone_number) {
+            throw new \RuntimeException('Customer call log did not capture lead contact details.');
+        }
+
+        return "lead #{$lead->id}, followup={$followup->id}";
+    }
+
+    private function testStoreCallLogProvider(): string
+    {
+        if (! $this->providerId) {
+            return 'skipped (no providers)';
+        }
+
+        $lead = $this->createLeadViaStore([
+            'name' => "{$this->tag} call-log-provider",
+            'phone_number' => $this->randomPhone(),
+            'lead_type' => Lead::TYPE_CUSTOMER,
+        ]);
+
+        $this->callStoreCallLog($lead->id, [
+            'called_party_type' => LeadFollowup::CALLED_PARTY_PROVIDER,
+            'called_provider_id' => $this->providerId,
+            'called_at' => now()->subMinutes(20)->format('Y-m-d H:i:s'),
+            'remarks' => 'Sanity provider call log',
+        ]);
+
+        $followup = $this->assertCallLogStored($lead, LeadFollowup::CALLED_PARTY_PROVIDER);
+        if ($followup->called_provider_id !== $this->providerId) {
+            throw new \RuntimeException('Provider call log did not store provider id.');
+        }
+        if (empty($followup->called_name) || empty($followup->called_number)) {
+            throw new \RuntimeException('Provider call log missing resolved name or phone.');
+        }
+
+        return "lead #{$lead->id}, followup={$followup->id}, provider={$this->providerId}";
+    }
+
+    private function testStoreCallLogOther(): string
+    {
+        $lead = $this->createLeadViaStore([
+            'name' => "{$this->tag} call-log-other",
+            'phone_number' => $this->randomPhone(),
+            'lead_type' => Lead::TYPE_CUSTOMER,
+        ]);
+
+        $otherName = "{$this->tag} other contact";
+        $otherPhone = $this->randomPhone();
+
+        $this->callStoreCallLog($lead->id, [
+            'called_party_type' => LeadFollowup::CALLED_PARTY_OTHER,
+            'called_name' => $otherName,
+            'called_number' => $otherPhone,
+            'called_at' => now()->subMinutes(30)->format('Y-m-d H:i:s'),
+            'remarks' => 'Sanity other call log',
+        ]);
+
+        $followup = $this->assertCallLogStored($lead, LeadFollowup::CALLED_PARTY_OTHER);
+        if ($followup->called_name !== $otherName || $followup->called_number !== $otherPhone) {
+            throw new \RuntimeException('Other call log did not store custom contact details.');
+        }
+
+        return "lead #{$lead->id}, followup={$followup->id}";
+    }
+
+    private function testStoreCallLogWithRecording(): string
+    {
+        $lead = $this->createLeadViaStore([
+            'name' => "{$this->tag} call-log-recording",
+            'phone_number' => $this->randomPhone(),
+            'lead_type' => Lead::TYPE_CUSTOMER,
+        ]);
+
+        $recording = UploadedFile::fake()->create('sanity-call-log.wav', 64, 'audio/wav');
+
+        $this->callStoreCallLog($lead->id, [
+            'called_party_type' => LeadFollowup::CALLED_PARTY_CUSTOMER,
+            'called_at' => now()->subMinutes(5)->format('Y-m-d H:i:s'),
+            'remarks' => 'Sanity call log with recording',
+        ], [
+            'recording' => $recording,
+        ]);
+
+        $followup = $this->assertCallLogStored($lead, LeadFollowup::CALLED_PARTY_CUSTOMER);
+        if (! $followup->hasRecording() || empty($followup->recording_path)) {
+            throw new \RuntimeException('Call log recording was not stored.');
+        }
+
+        return "lead #{$lead->id}, followup={$followup->id}, recording={$followup->recording_path}";
+    }
+
+    private function testUpdateCallLog(): string
+    {
+        $lead = $this->createLeadViaStore([
+            'name' => "{$this->tag} call-log-update",
+            'phone_number' => $this->randomPhone(),
+            'lead_type' => Lead::TYPE_CUSTOMER,
+        ]);
+
+        $this->callStoreCallLog($lead->id, [
+            'called_party_type' => LeadFollowup::CALLED_PARTY_OTHER,
+            'called_name' => "{$this->tag} before edit",
+            'called_number' => $this->randomPhone(),
+            'called_at' => now()->subHour()->format('Y-m-d H:i:s'),
+            'remarks' => 'Before edit',
+        ]);
+
+        $followup = $this->assertCallLogStored($lead, LeadFollowup::CALLED_PARTY_OTHER);
+        $updatedName = "{$this->tag} after edit";
+        $updatedPhone = $this->randomPhone();
+
+        $response = app(LeadController::class)->updateCallLog(
+            Request::create('/', 'PUT', [
+                'called_party_type' => LeadFollowup::CALLED_PARTY_OTHER,
+                'called_name' => $updatedName,
+                'called_number' => $updatedPhone,
+                'called_at' => now()->subMinutes(15)->format('Y-m-d H:i:s'),
+                'remarks' => 'After edit',
+            ]),
+            $lead->id,
+            $followup->id
+        );
+
+        if ($response->getStatusCode() !== 302) {
+            throw new \RuntimeException('Update call log HTTP '.$response->getStatusCode());
+        }
+
+        $followup->refresh();
+        if ($followup->called_name !== $updatedName || $followup->called_number !== $updatedPhone || $followup->remarks !== 'After edit') {
+            throw new \RuntimeException('Call log update did not persist changes.');
+        }
+
+        return "lead #{$lead->id}, followup={$followup->id}";
+    }
+
+    private function testDeleteCallLog(): string
+    {
+        $lead = $this->createLeadViaStore([
+            'name' => "{$this->tag} call-log-delete",
+            'phone_number' => $this->randomPhone(),
+            'lead_type' => Lead::TYPE_CUSTOMER,
+        ]);
+
+        $this->callStoreCallLog($lead->id, [
+            'called_party_type' => LeadFollowup::CALLED_PARTY_CUSTOMER,
+            'called_at' => now()->subMinutes(10)->format('Y-m-d H:i:s'),
+            'remarks' => 'To delete',
+        ]);
+
+        $followup = $this->assertCallLogStored($lead, LeadFollowup::CALLED_PARTY_CUSTOMER);
+        $followupId = $followup->id;
+
+        $response = app(LeadController::class)->destroyCallLog(
+            Request::create('/', 'DELETE'),
+            $lead->id,
+            $followupId
+        );
+
+        if ($response->getStatusCode() !== 302) {
+            throw new \RuntimeException('Delete call log HTTP '.$response->getStatusCode());
+        }
+
+        if (LeadFollowup::query()->whereKey($followupId)->exists()) {
+            throw new \RuntimeException('Call log was not deleted.');
+        }
+
+        return "lead #{$lead->id}, deleted followup={$followupId}";
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, UploadedFile>  $files
+     */
+    private function callStoreCallLog(int $leadId, array $payload, array $files = []): void
+    {
+        $response = app(LeadController::class)->storeCallLog(
+            Request::create('/', 'POST', $payload, [], $files),
+            $leadId
+        );
+
+        if ($response->getStatusCode() !== 302) {
+            throw new \RuntimeException('Store call log HTTP '.$response->getStatusCode());
+        }
+    }
+
+    private function assertCallLogStored(Lead $lead, string $partyType): LeadFollowup
+    {
+        $followup = $lead->followups()
+            ->where('contact_channel', LeadFollowup::CHANNEL_CALL)
+            ->where('called_party_type', $partyType)
+            ->latest('id')
+            ->first();
+
+        if (! $followup) {
+            throw new \RuntimeException("Call log for {$partyType} was not stored.");
+        }
+
+        if ($followup->followup_status !== LeadFollowup::STATUS_TAKEN) {
+            throw new \RuntimeException('Call log followup status is not taken.');
+        }
+
+        return $followup;
     }
 
     private function testShowPagesRender(): string
