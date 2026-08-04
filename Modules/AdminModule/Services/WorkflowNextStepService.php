@@ -60,25 +60,25 @@ class WorkflowNextStepService
         $status = (string) ($booking->booking_status ?? '');
 
         if (in_array($status, ['completed', 'canceled', 'refunded'], true)) {
-            return $this->emptyContext('booking', (int) $booking->id);
+            return $this->emptyContext('booking', (string) $booking->id);
         }
 
         $scenario = in_array($status, ['accepted', 'ongoing', 'on_hold', 'pending'], true)
             ? 'booking.active'
             : 'booking.active';
 
-        $completions = $this->completionMap(WorkflowStepCompletion::ENTITY_BOOKING, (int) $booking->id);
+        $completions = $this->completionMap(WorkflowStepCompletion::ENTITY_BOOKING, (string) $booking->id);
         $detectCtx = ['booking' => $booking];
 
         $ctx = $this->buildContext(
             WorkflowStepCompletion::ENTITY_BOOKING,
-            (int) $booking->id,
+            (string) $booking->id,
             $scenario,
             $completions,
             $detectCtx,
         );
 
-        if (in_array($status, ['ongoing', 'on_hold', 'accepted'], true)) {
+        if (in_array($status, ['pending', 'accepted', 'ongoing', 'on_hold'], true)) {
             $closeSteps = $this->resolveSteps('booking.close', $completions, $detectCtx);
             $ctx['close_steps'] = $closeSteps;
             $ctx['close_next'] = $this->findNext($closeSteps);
@@ -180,7 +180,7 @@ class WorkflowNextStepService
      */
     private function buildContext(
         string $entityType,
-        int $entityId,
+        string|int $entityId,
         string $scenario,
         array $completions,
         array $detectCtx,
@@ -279,6 +279,30 @@ class WorkflowNextStepService
         $lead->loadMissing(['followups']);
         $completions = $this->completionMap(WorkflowStepCompletion::ENTITY_LEAD, (int) $lead->id);
         $detectCtx = ['lead' => $lead];
+
+        $done = [];
+        foreach ($stepKeys as $key) {
+            $def = WorkflowStepDefinitions::step($key);
+            if ($def === null) {
+                continue;
+            }
+            if ($this->isStepDone($key, $def, $completions, $detectCtx)) {
+                $done[] = $key;
+            }
+        }
+
+        return $done;
+    }
+
+    /**
+     * @param  array<int, string>  $stepKeys
+     * @return array<int, string>
+     */
+    public function doneStepKeysForBooking(Booking $booking, array $stepKeys): array
+    {
+        $booking->loadMissing(['followups', 'booking_partial_payments']);
+        $completions = $this->completionMap(WorkflowStepCompletion::ENTITY_BOOKING, (string) $booking->id);
+        $detectCtx = ['booking' => $booking];
 
         $done = [];
         foreach ($stepKeys as $key) {
@@ -466,6 +490,9 @@ class WorkflowNextStepService
         if (! $booking) {
             return false;
         }
+        if (function_exists('booking_can_be_completed') && booking_can_be_completed($booking)) {
+            return true;
+        }
         if (function_exists('booking_remaining_due')) {
             return (float) booking_remaining_due($booking) <= 0.01;
         }
@@ -565,11 +592,11 @@ class WorkflowNextStepService
     /**
      * @return array<string, bool>
      */
-    public function completionMap(string $entityType, int $entityId): array
+    public function completionMap(string $entityType, string|int $entityId): array
     {
         return WorkflowStepCompletion::query()
             ->where('entity_type', $entityType)
-            ->where('entity_id', $entityId)
+            ->where('entity_id', (string) $entityId)
             ->where('is_done', true)
             ->pluck('is_done', 'step_key')
             ->all();
@@ -578,7 +605,7 @@ class WorkflowNextStepService
     /**
      * @return array<string, mixed>
      */
-    private function emptyContext(string $entityType, int $entityId): array
+    private function emptyContext(string $entityType, string|int $entityId): array
     {
         return [
             'entity_type' => $entityType,

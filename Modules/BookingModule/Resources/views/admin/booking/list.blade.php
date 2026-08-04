@@ -645,6 +645,33 @@
 
     <script>
         (function () {
+            'use strict';
+
+            function isBookingCardInteractiveTarget(target) {
+                return !!target.closest('a, button, input, select, textarea, label, .dropdown-menu, [data-bs-toggle]');
+            }
+
+            function handleBookingCompactCardClick(event) {
+                var card = event.target.closest('.booking-compact-card.bc-card-navigable[data-href]');
+                if (!card || isBookingCardInteractiveTarget(event.target)) {
+                    return;
+                }
+
+                var href = card.getAttribute('data-href');
+                if (href) {
+                    window.location.href = href;
+                }
+            }
+
+            if (!window.__bookingCompactCardNavBound) {
+                window.__bookingCompactCardNavBound = true;
+                document.addEventListener('click', handleBookingCompactCardClick);
+            }
+        })();
+    </script>
+
+    <script>
+        (function () {
             var form = document.getElementById('booking-list-search-form');
             var input = document.getElementById('booking-list-search-input');
             if (!form || !input) {

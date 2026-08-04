@@ -108,7 +108,36 @@
             $activityFollowupCount = $lead->followups->count();
             $activityChangeCount = isset($changeLogs) ? $changeLogs->sum(fn ($log) => max(1, count($log->changes ?? []))) : 0;
             $activityCommentCount = $sortedComments->count();
-            $activityTotalCount = $activityFollowupCount + $activityChangeCount + $activityCommentCount + (!empty($hasPendingFollowup) ? 1 : 0);
+
+            $callFollowups = $lead->followups->filter(
+                fn ($followup) => $followup->contact_channel === \Modules\LeadManagement\Entities\LeadFollowup::CHANNEL_CALL
+            );
+            $callLogs = collect();
+            if ($lead->hasInitialCallRecording()) {
+                $callLogs->push([
+                    'type' => 'initial',
+                    'called_party_type' => \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_CUSTOMER,
+                    'called_number' => $lead->phone_number,
+                    'called_name' => $lead->name,
+                    'called_at' => $lead->created_at,
+                    'remarks' => translate('Initial_call_recording'),
+                ]);
+            }
+            foreach ($callFollowups as $callFollowup) {
+                $callLogs->push([
+                    'type' => 'followup',
+                    'called_party_type' => $callFollowup->called_party_type ?: \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_CUSTOMER,
+                    'called_number' => $callFollowup->called_number ?: $lead->phone_number,
+                    'called_name' => $callFollowup->called_name ?: $lead->name,
+                    'called_at' => $callFollowup->followup_at ?? $callFollowup->created_at,
+                    'remarks' => $callFollowup->remarks,
+                    'followup' => $callFollowup,
+                ]);
+            }
+            $callLogs = $callLogs->sortByDesc(fn ($log) => $log['called_at']?->timestamp ?? 0)->values();
+            $activityCallCount = $callLogs->count();
+
+            $activityTotalCount = $activityFollowupCount + $activityChangeCount + $activityCommentCount + $activityCallCount + (!empty($hasPendingFollowup) ? 1 : 0);
 
             $handledByUser = null;
             if (!empty($lead->handled_by)) {
@@ -470,6 +499,158 @@
                                         </button>
                                         <button type="submit" class="btn btn-primary">
                                             {{ $lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER ? translate('Update') : translate('Mark_as_Provider_Lead') }}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal fade" id="addCallLogModal" tabindex="-1" aria-labelledby="addCallLogModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header border-0">
+                                    <h5 class="modal-title" id="addCallLogModalLabel">{{ translate('Add_Call_Log') }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                                </div>
+                                <form method="POST"
+                                      action="{{ route('admin.lead.call-logs.store', $lead->id) }}"
+                                      enctype="multipart/form-data"
+                                      id="add-call-log-form"
+                                      data-store-url="{{ route('admin.lead.call-logs.store', $lead->id) }}"
+                                      data-update-url-template="{{ route('admin.lead.call-logs.update', [$lead->id, '__FOLLOWUP__']) }}">
+                                    @csrf
+                                    <input type="hidden" name="call_log_form" value="1">
+                                    <input type="hidden" name="call_log_mode" id="call-log-mode-input" value="{{ old('call_log_mode', 'add') }}">
+                                    <input type="hidden" name="call_log_followup_id" id="call-log-followup-id-input" value="{{ old('call_log_followup_id') }}">
+                                    <input type="hidden" name="_method" id="call-log-method-input" value="PUT" disabled>
+                                    @if(!empty($inModal))
+                                        <input type="hidden" name="in_modal" value="1">
+                                    @endif
+                                    <div class="modal-body pt-0">
+                                        @php
+                                            $defaultCalledPartyType = old(
+                                                'called_party_type',
+                                                \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_CUSTOMER
+                                            );
+                                        @endphp
+                                        <div class="mb-3">
+                                            <label class="form-label">{{ translate('Who_You_Called') }}</label>
+                                            <div class="d-flex flex-wrap gap-3 mb-2">
+                                                @foreach([
+                                                    \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_CUSTOMER => translate('Customer'),
+                                                    \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_PROVIDER => translate('Provider'),
+                                                    \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_OTHER => translate('Other'),
+                                                ] as $partyType => $partyLabel)
+                                                    <div class="form-check">
+                                                        <input class="form-check-input js-call-log-party-type"
+                                                               type="radio"
+                                                               name="called_party_type"
+                                                               id="call-log-party-{{ $partyType }}"
+                                                               value="{{ $partyType }}"
+                                                               {{ $defaultCalledPartyType === $partyType ? 'checked' : '' }}>
+                                                        <label class="form-check-label" for="call-log-party-{{ $partyType }}">{{ $partyLabel }}</label>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                            @error('called_party_type')
+                                            <div class="text-danger small mt-1">{{ $message }}</div>
+                                            @enderror
+
+                                            <div class="call-log-party-panel call-log-party-panel--customer {{ $defaultCalledPartyType === \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_CUSTOMER ? '' : 'd-none' }}">
+                                                <label class="form-label small text-muted mb-1">{{ translate('Customer') }}</label>
+                                                <input type="text"
+                                                       class="form-control mb-2"
+                                                       value="{{ $lead->name ?: '—' }}"
+                                                       readonly>
+                                                <input type="text"
+                                                       class="form-control"
+                                                       value="{{ $lead->phone_number ?: '—' }}"
+                                                       readonly>
+                                            </div>
+
+                                            <div class="call-log-party-panel call-log-party-panel--provider {{ $defaultCalledPartyType === \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_PROVIDER ? '' : 'd-none' }}">
+                                                <label class="form-label small text-muted mb-1" for="call-log-provider-select">{{ translate('Select_Provider') }}</label>
+                                                <select name="called_provider_id"
+                                                        id="call-log-provider-select"
+                                                        class="form-control"
+                                                        data-placeholder="{{ translate('Search_provider_by_name_or_phone') }}"
+                                                        data-selected="{{ old('called_provider_id') }}">
+                                                    <option value="">{{ translate('Select_Provider') }}</option>
+                                                </select>
+                                                @error('called_provider_id')
+                                                <div class="text-danger small mt-1">{{ $message }}</div>
+                                                @enderror
+                                                <div id="call-log-provider-preview" class="small text-muted mt-2 d-none"></div>
+                                            </div>
+
+                                            <div class="call-log-party-panel call-log-party-panel--other {{ $defaultCalledPartyType === \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_OTHER ? '' : 'd-none' }}">
+                                                <label class="form-label small text-muted mb-1" for="call-log-other-name">{{ translate('Name') }}</label>
+                                                <input type="text"
+                                                       name="called_name"
+                                                       id="call-log-other-name"
+                                                       class="form-control mb-2"
+                                                       value="{{ old('called_name') }}"
+                                                       maxlength="255">
+                                                @error('called_name')
+                                                <div class="text-danger small mt-1">{{ $message }}</div>
+                                                @enderror
+                                                <label class="form-label small text-muted mb-1" for="call-log-other-number">{{ translate('Phone') }}</label>
+                                                <input type="text"
+                                                       name="called_number"
+                                                       id="call-log-other-number"
+                                                       class="form-control"
+                                                       value="{{ old('called_number') }}"
+                                                       maxlength="32">
+                                                @error('called_number')
+                                                <div class="text-danger small mt-1">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">{{ translate('When_You_Called') }}</label>
+                                            <input type="datetime-local"
+                                                   name="called_at"
+                                                   id="call-log-called-at-input"
+                                                   class="form-control"
+                                                   value="{{ old('called_at', now()->format('Y-m-d\TH:i')) }}"
+                                                   required>
+                                            @error('called_at')
+                                            <div class="text-danger small mt-1">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">{{ translate('Remarks') }}</label>
+                                            <textarea name="remarks"
+                                                      class="form-control"
+                                                      rows="3"
+                                                      placeholder="{{ translate('Add_call_log_remarks') }}">{{ old('remarks') }}</textarea>
+                                            @error('remarks')
+                                            <div class="text-danger small mt-1">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+                                        <div class="mb-0">
+                                            <label class="form-label">{{ translate('Voice_Recording') }}</label>
+                                            <div id="call-log-current-recording" class="small text-muted mb-2 d-none"></div>
+                                            <input type="file"
+                                                   name="recording"
+                                                   id="call-log-recording-input"
+                                                   class="form-control"
+                                                   accept="audio/*,.mp3,.wav,.webm,.ogg,.m4a,.aac">
+                                            <div class="form-text">{{ translate('Upload_call_recording_optional_max_10MB') }}</div>
+                                            @error('recording')
+                                            <div class="text-danger small mt-1">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer border-0 d-flex justify-content-end gap-2 pb-4">
+                                        <button type="button"
+                                                class="btn btn--secondary"
+                                                data-bs-dismiss="modal">
+                                            {{ translate('Cancel') }}
+                                        </button>
+                                        <button type="submit" class="btn btn--primary" id="call-log-submit-btn">
+                                            {{ translate('Add_Call_Log') }}
                                         </button>
                                     </div>
                                 </form>
@@ -1301,6 +1482,8 @@
         (function ($) {
             "use strict";
 
+            var providerSearchUrl = @json(route('admin.lead.search-providers'));
+
             var followupModalLabels = {
                 take: @json(translate('Take_Follow_up')),
                 add: @json(translate('Add_Follow_up')),
@@ -1407,7 +1590,256 @@
                 configureFollowupModal(@json(old('followup_mode', 'add')));
                 leadShowModal($modal);
                 @endif
+
+                @if($errors->any() && old('call_log_form'))
+                configureCallLogModal(@json(old('call_log_mode', 'add')), @json(old('call_log_followup_id')));
+                leadShowModal($('#addCallLogModal'));
+                @endif
             });
+
+            (function () {
+                var $callLogModal = $('#addCallLogModal');
+                var $callLogForm = $('#add-call-log-form');
+                var $callLogProviderSelect = $('#call-log-provider-select');
+                var $callLogProviderPreview = $('#call-log-provider-preview');
+                var $callLogCurrentRecording = $('#call-log-current-recording');
+                var callLogProviderData = {};
+                var callLogLabels = {
+                    addTitle: @json(translate('Add_Call_Log')),
+                    editTitle: @json(translate('Edit_Call_Log')),
+                    addSubmit: @json(translate('Add_Call_Log')),
+                    editSubmit: @json(translate('Update')),
+                    currentRecording: @json(translate('Current_recording')),
+                    replaceRecording: @json(translate('Upload_new_recording_to_replace')),
+                };
+
+                function destroyCallLogProviderSelect2() {
+                    if ($callLogProviderSelect.length && $callLogProviderSelect.data('select2')) {
+                        $callLogProviderSelect.select2('destroy');
+                    }
+                }
+
+                function updateCallLogProviderPreview() {
+                    var selectedId = $callLogProviderSelect.val();
+                    var selected = selectedId ? callLogProviderData[String(selectedId)] : null;
+
+                    if (!selected || (!selected.name && !selected.phone)) {
+                        $callLogProviderPreview.addClass('d-none').text('');
+                        return;
+                    }
+
+                    var parts = [];
+                    if (selected.name) {
+                        parts.push(selected.name);
+                    }
+                    if (selected.phone) {
+                        parts.push(selected.phone);
+                    }
+
+                    $callLogProviderPreview.removeClass('d-none').text(parts.join(' · '));
+                }
+
+                function initCallLogProviderSelect2() {
+                    if (!$callLogProviderSelect.length) {
+                        return;
+                    }
+
+                    destroyCallLogProviderSelect2();
+
+                    var selected = $callLogProviderSelect.data('selected') || '';
+                    $callLogProviderSelect.select2({
+                        width: '100%',
+                        allowClear: true,
+                        placeholder: $callLogProviderSelect.data('placeholder') || '',
+                        ajax: {
+                            url: providerSearchUrl,
+                            dataType: 'json',
+                            delay: 250,
+                            data: function (params) {
+                                return {
+                                    q: params.term || '',
+                                };
+                            },
+                            processResults: function (data) {
+                                (data.results || []).forEach(function (item) {
+                                    callLogProviderData[String(item.id)] = {
+                                        name: item.name || '',
+                                        phone: item.phone || '',
+                                    };
+                                });
+
+                                return data;
+                            },
+                            cache: true,
+                        },
+                        minimumInputLength: 0,
+                        dropdownParent: $(document.body),
+                    });
+
+                    $callLogProviderSelect.off('change.callLogProvider').on('change.callLogProvider', updateCallLogProviderPreview);
+
+                    if (selected) {
+                        $.get(providerSearchUrl, { selected: selected }, function (data) {
+                            var match = (data.results || []).find(function (item) {
+                                return String(item.id) === String(selected);
+                            });
+
+                            if (match) {
+                                callLogProviderData[String(match.id)] = {
+                                    name: match.name || '',
+                                    phone: match.phone || '',
+                                };
+                                var option = new Option(match.text, match.id, true, true);
+                                $callLogProviderSelect.append(option).trigger('change');
+                            }
+                        });
+                    }
+                }
+
+                function toggleCallLogPartyPanels() {
+                    var partyType = $('input[name="called_party_type"]:checked').val() || 'customer';
+
+                    $('.call-log-party-panel').addClass('d-none');
+                    $('.call-log-party-panel--' + partyType).removeClass('d-none');
+
+                    if (partyType === 'provider') {
+                        window.setTimeout(initCallLogProviderSelect2, 0);
+                    } else {
+                        destroyCallLogProviderSelect2();
+                        $callLogProviderPreview.addClass('d-none').text('');
+                    }
+                }
+
+                function setCallLogCurrentRecording(hasRecording, recordingName) {
+                    if (!hasRecording) {
+                        $callLogCurrentRecording.addClass('d-none').text('');
+                        return;
+                    }
+
+                    var label = callLogLabels.currentRecording;
+                    if (recordingName) {
+                        label += ': ' + recordingName;
+                    }
+                    label += '. ' + callLogLabels.replaceRecording;
+                    $callLogCurrentRecording.removeClass('d-none').text(label);
+                }
+
+                window.configureCallLogModal = function (mode, followupId, payload) {
+                    mode = mode || 'add';
+                    payload = payload || {};
+
+                    var isEdit = mode === 'edit' && followupId;
+                    var storeUrl = $callLogForm.data('store-url');
+                    var updateTemplate = $callLogForm.data('update-url-template') || '';
+
+                    $('#call-log-mode-input').val(mode);
+                    $('#call-log-followup-id-input').val(isEdit ? followupId : '');
+                    $('#call-log-method-input').val('PUT').prop('disabled', !isEdit);
+                    $callLogForm.attr('action', isEdit ? updateTemplate.replace('__FOLLOWUP__', followupId) : storeUrl);
+                    $('#addCallLogModalLabel').text(isEdit ? callLogLabels.editTitle : callLogLabels.addTitle);
+                    $('#call-log-submit-btn').text(isEdit ? callLogLabels.editSubmit : callLogLabels.addSubmit);
+
+                    if (!isEdit) {
+                        if ($callLogForm[0]) {
+                            $callLogForm[0].reset();
+                        }
+                        $('#call-log-mode-input').val('add');
+                        $('#call-log-method-input').prop('disabled', true);
+                        $callLogForm.attr('action', storeUrl);
+                        $('input[name="called_party_type"][value="customer"]').prop('checked', true);
+                        $('#call-log-other-name').val('');
+                        $('#call-log-other-number').val('');
+                        $callLogProviderSelect.data('selected', '');
+                        destroyCallLogProviderSelect2();
+                        $callLogProviderSelect.val('').trigger('change');
+                        setCallLogCurrentRecording(false);
+                        return;
+                    }
+
+                    var partyType = payload.partyType || 'customer';
+                    $('input[name="called_party_type"][value="' + partyType + '"]').prop('checked', true);
+                    $('#call-log-called-at-input').val(payload.calledAt || '');
+                    $callLogForm.find('textarea[name="remarks"]').val(payload.remarks || '');
+
+                    if (partyType === 'other') {
+                        $('#call-log-other-name').val(payload.calledName || '');
+                        $('#call-log-other-number').val(payload.calledNumber || '');
+                    } else {
+                        $('#call-log-other-name').val('');
+                        $('#call-log-other-number').val('');
+                    }
+
+                    $callLogProviderSelect.data('selected', partyType === 'provider' ? (payload.providerId || '') : '');
+                    setCallLogCurrentRecording(payload.hasRecording === '1' || payload.hasRecording === true, payload.recordingName || '');
+                    toggleCallLogPartyPanels();
+                };
+
+                $(document).on('change', '.js-call-log-party-type', toggleCallLogPartyPanels);
+
+                $(document).on('click', '.js-add-call-log-btn', function () {
+                    configureCallLogModal('add');
+                });
+
+                $(document).on('click', '.js-edit-call-log-btn', function () {
+                    var $btn = $(this);
+                    configureCallLogModal('edit', $btn.data('followup-id'), {
+                        partyType: $btn.data('party-type'),
+                        providerId: $btn.data('provider-id'),
+                        calledName: $btn.data('called-name'),
+                        calledNumber: $btn.data('called-number'),
+                        calledAt: $btn.data('called-at'),
+                        remarks: $btn.data('remarks'),
+                        hasRecording: String($btn.data('has-recording') || '0'),
+                        recordingName: $btn.data('recording-name') || '',
+                    });
+                });
+
+                $(document).on('click', '.js-delete-call-log-btn', function () {
+                    var $btn = $(this);
+                    if (!confirm(@json(translate('Are_you_sure')))) {
+                        return;
+                    }
+
+                    var url = $btn.data('url');
+                    if (!url) {
+                        return;
+                    }
+
+                    $btn.prop('disabled', true);
+                    fetch(url, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || '',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                    })
+                        .then(function (response) {
+                            if (!response.ok) {
+                                throw new Error('delete failed');
+                            }
+                            window.location.reload();
+                        })
+                        .catch(function () {
+                            $btn.prop('disabled', false);
+                            if (typeof toastr !== 'undefined') {
+                                toastr.error(@json(translate('Failed_to_update')));
+                            }
+                        });
+                });
+
+                $callLogModal.on('shown.bs.modal', function () {
+                    toggleCallLogPartyPanels();
+                });
+
+                $callLogModal.on('hidden.bs.modal', function () {
+                    destroyCallLogProviderSelect2();
+                    $callLogProviderPreview.addClass('d-none').text('');
+                    configureCallLogModal('add');
+                });
+
+                toggleCallLogPartyPanels();
+            })();
         })(jQuery);
     </script>
     <script>
@@ -1507,12 +1939,12 @@
             }
 
             function bindFollowupDetailToggles() {
-                $(document).off('click.followupDetails', '.lead-followup-history-table .voice-call-details-toggle')
-                    .on('click.followupDetails', '.lead-followup-history-table .voice-call-details-toggle', function () {
+                $(document).off('click.followupDetails', '.lead-followup-history-table .voice-call-details-toggle, .lead-call-log-table .voice-call-details-toggle')
+                    .on('click.followupDetails', '.lead-followup-history-table .voice-call-details-toggle, .lead-call-log-table .voice-call-details-toggle', function () {
                         var $btn = $(this);
                         var $row = $btn.closest('tr');
-                        var $table = $btn.closest('.lead-followup-history-table');
-                        var $detailsRow = $row.next('tr.voice-call-details-row');
+                        var $table = $btn.closest('.lead-followup-history-table, .lead-call-log-table');
+                        var $detailsRow = $row.nextAll('tr.voice-call-details-row').first();
                         if (!$detailsRow.length) {
                             return;
                         }
@@ -1520,7 +1952,7 @@
                         var isHidden = $detailsRow.hasClass('d-none');
 
                         if (isHidden) {
-                            $table.find('tr.lead-followup-row.is-open').removeClass('is-open');
+                            $table.find('tr.lead-followup-row.is-open, tr.lead-call-log-row.is-open').removeClass('is-open');
                             $table.find('tr.voice-call-details-row').addClass('d-none');
                             $table.find('.voice-call-details-toggle[aria-expanded="true"]').each(function () {
                                 $(this).attr('aria-expanded', 'false').text(@json(translate('View')));
@@ -1615,6 +2047,124 @@
             bindFollowupDetailToggles();
             bindChangeHistoryRowHighlights();
             bindFollowupCopyButtons($('.lead-followup-history-table'));
+
+            function renderInitialCallTranscriptPanel($panel, data) {
+                var summaryText = data.summary || @json(translate('No_call_summary_available'));
+                $panel.find('.initial-call-recording-summary').text(summaryText);
+                $panel.find('.initial-call-transcription-card .voice-call-extracted-body > p.text-muted').first().text(summaryText);
+
+                var transcriptHtml = buildTranscriptHtml(data.transcript || '');
+                var $transcriptCard = $panel.find('.voice-call-detail-box').last();
+                $transcriptCard.find('.card-body')
+                    .removeClass('p-3')
+                    .addClass('p-0')
+                    .html('<div class="voice-call-transcript initial-call-recording-transcript-wrap">' + transcriptHtml + '</div>');
+
+                var $meta = $panel.find('.initial-call-transcript-meta');
+                $meta.removeClass('d-none').text(
+                    @json(translate('Transcribed_by')) + ' ' + @json(translate('Google_Gemini_AI'))
+                    + (data.transcribed_at ? ' · ' + formatTranscribedAt(data.transcribed_at) : '')
+                );
+
+                $panel.find('.js-transcribe-initial-call-recording[data-has-transcript="0"]').remove();
+
+                var transcribeUrl = String($panel.data('transcribe-url') || '');
+                if (!$panel.find('.js-transcribe-initial-call-recording[data-force="1"]').length && data.transcript && transcribeUrl !== '') {
+                    var $regenerateBtn = $('<button type="button" class="btn btn-sm btn-outline-secondary js-transcribe-initial-call-recording"></button>')
+                        .attr('data-lead-id', $panel.data('lead-id'))
+                        .attr('data-url', transcribeUrl)
+                        .attr('data-force', '1')
+                        .attr('data-has-transcript', '1')
+                        .text(@json(translate('Regenerate')));
+                    $panel.find('.initial-call-transcription-card .voice-call-detail-box__header').append($regenerateBtn);
+                }
+
+                var $transcriptHeaderActions = $transcriptCard.find('.voice-call-detail-box__header .d-flex.align-items-center.gap-1');
+                $transcriptHeaderActions.find('.js-transcribe-initial-call-recording[data-has-transcript="0"]').remove();
+
+                if (data.summary && !$panel.find('.voice-call-summary-card .voice-call-copy-btn').length) {
+                    var $copyBtn = $('<button type="button" class="voice-call-copy-btn"></button>')
+                        .attr('title', @json(translate('Copy')))
+                        .html('<span class="material-icons" aria-hidden="true">content_copy</span>');
+                    $copyBtn.attr('data-copy-b64', btoa(unescape(encodeURIComponent(data.summary))));
+                    $panel.find('.voice-call-summary-card .voice-call-detail-box__header').append($copyBtn);
+                }
+
+                if (data.transcript && !$transcriptHeaderActions.find('.voice-call-transcript-copy-btn').length) {
+                    var $transcriptCopy = $('<button type="button" class="voice-call-copy-btn voice-call-transcript-copy-btn"></button>')
+                        .attr('title', @json(translate('Copy')))
+                        .html('<span class="material-icons" aria-hidden="true">content_copy</span>');
+                    $transcriptCopy.attr('data-copy-b64', btoa(unescape(encodeURIComponent(data.transcript))));
+                    $transcriptHeaderActions.append($transcriptCopy);
+                }
+
+                bindFollowupCopyButtons($panel);
+            }
+
+            function bindInitialCallRecordingToggles() {
+                $(document).off('click.initialCallRecording', '.initial-call-recording-toggle')
+                    .on('click.initialCallRecording', '.initial-call-recording-toggle', function () {
+                        var $btn = $(this);
+                        var $inline = $btn.closest('.initial-call-recording-section').find('.voice-call-details-inline').first();
+                        if (!$inline.length) {
+                            return;
+                        }
+
+                        var isHidden = $inline.hasClass('d-none');
+                        $inline.toggleClass('d-none', !isHidden);
+                        $btn.attr('aria-expanded', isHidden ? 'true' : 'false');
+                        $btn.text(isHidden ? @json(translate('Hide')) : @json(translate('View')));
+
+                        if (isHidden) {
+                            bindFollowupCopyButtons($inline);
+                        } else {
+                            pauseFollowupRecordings($inline);
+                        }
+                    });
+            }
+
+            bindInitialCallRecordingToggles();
+            bindFollowupCopyButtons($('.initial-call-recording-section'));
+
+            $(document).on('click', '.js-transcribe-initial-call-recording', function () {
+                var $btn = $(this);
+                var leadId = $btn.data('lead-id');
+                var url = $btn.data('url');
+                var force = String($btn.data('force')) === '1';
+                var $panel = $('#initial-call-transcript-panel-' + leadId);
+                var csrfToken = $('meta[name="csrf-token"]').attr('content') || $('input[name="_token"]').val();
+
+                var originalHtml = $btn.html();
+                $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>' + @json(translate('Transcribing')));
+
+                $.ajax({
+                    url: url,
+                    method: 'POST',
+                    data: {
+                        _token: csrfToken,
+                        force: force ? '1' : '0'
+                    }
+                }).done(function (response) {
+                    if (!response || !response.success) {
+                        toastr.error((response && response.message) ? response.message : @json(translate('Failed_to_transcribe_recording')));
+                        return;
+                    }
+
+                    renderInitialCallTranscriptPanel($panel, response);
+
+                    if (force || !response.from_cache) {
+                        toastr.success(response.message || @json(translate('Recording_transcribed_successfully')));
+                    }
+                }).fail(function (xhr) {
+                    var message = @json(translate('Failed_to_transcribe_recording'));
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        message = xhr.responseJSON.message;
+                    }
+                    toastr.error(message);
+                }).always(function () {
+                    $btn.prop('disabled', false).html(originalHtml);
+                });
+            });
 
             $(document).on('click', '.js-transcribe-followup-recording', function () {
                 var $btn = $(this);
@@ -2615,15 +3165,19 @@
                     comments: root.querySelector('#lead-activity-comments'),
                     followupSection: root.querySelector('.activity-table-section--followups'),
                     changeSection: root.querySelector('.activity-table-section--changes'),
+                    callSection: root.querySelector('.activity-table-section--calls'),
                 };
             }
 
             function filterTableSections(els, filter) {
                 if (els.followupSection) {
-                    els.followupSection.style.display = (filter === 'change') ? 'none' : '';
+                    els.followupSection.style.display = (filter === 'change' || filter === 'call') ? 'none' : '';
                 }
                 if (els.changeSection) {
-                    els.changeSection.style.display = (filter === 'followup') ? 'none' : '';
+                    els.changeSection.style.display = (filter === 'followup' || filter === 'call') ? 'none' : '';
+                }
+                if (els.callSection) {
+                    els.callSection.style.display = (filter === 'followup' || filter === 'change') ? 'none' : '';
                 }
             }
 
@@ -2636,7 +3190,7 @@
             function getInitialActivityFilter(root) {
                 var params = new URLSearchParams(window.location.search);
                 var fromQuery = params.get('activity');
-                if (fromQuery === 'comment' || fromQuery === 'followup' || fromQuery === 'change') {
+                if (fromQuery === 'comment' || fromQuery === 'followup' || fromQuery === 'change' || fromQuery === 'call') {
                     return fromQuery;
                 }
                 if (window.location.hash === '#lead-comments') {

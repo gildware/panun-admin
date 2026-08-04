@@ -46,6 +46,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('todays-followups', [BookingController::class, 'todaysFollowups'])->name('todays_followups');
         Route::post('followup/{id}', [BookingController::class, 'storeFollowup'])->name('followup.store');
         Route::put('followup/{id}/{followupId}', [BookingController::class, 'updateFollowup'])->name('followup.update');
+        Route::post('{booking}/call-logs', [BookingController::class, 'storeCallLog'])->middleware(['can:booking_view'])->name('call-logs.store');
+        Route::put('{booking}/call-logs/{followup}', [BookingController::class, 'updateCallLog'])->middleware(['can:booking_view'])->name('call-logs.update');
+        Route::delete('{booking}/call-logs/{followup}', [BookingController::class, 'destroyCallLog'])->middleware(['can:booking_view'])->name('call-logs.destroy');
         Route::post('followup/{id}/{followupId}/transcribe', [BookingController::class, 'transcribeFollowupRecording'])->middleware(['can:booking_view'])->name('followup.transcribe');
         Route::get('repeat-details/{id}', [BookingController::class, 'repeatDetails'])->name('repeat_details');
         Route::get('repeat-single-details/{id}', [BookingController::class, 'repeatSingleDetails'])->name('repeat_single_details');

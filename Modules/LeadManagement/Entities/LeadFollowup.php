@@ -35,6 +35,16 @@ class LeadFollowup extends Model
         self::STATUS_RESCHEDULE,
     ];
 
+    public const CALLED_PARTY_CUSTOMER = 'customer';
+    public const CALLED_PARTY_PROVIDER = 'provider';
+    public const CALLED_PARTY_OTHER = 'other';
+
+    public const CALLED_PARTY_TYPES = [
+        self::CALLED_PARTY_CUSTOMER,
+        self::CALLED_PARTY_PROVIDER,
+        self::CALLED_PARTY_OTHER,
+    ];
+
     protected $attributes = [
         'urgency' => self::URGENCY_MEDIUM,
     ];
@@ -45,6 +55,10 @@ class LeadFollowup extends Model
         'due_followup_at',
         'remarks',
         'contact_channel',
+        'called_party_type',
+        'called_name',
+        'called_number',
+        'called_provider_id',
         'followup_status',
         'recording_path',
         'recording_disk',
@@ -73,6 +87,37 @@ class LeadFollowup extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(\Modules\UserManagement\Entities\User::class, 'created_by');
+    }
+
+    public function calledProvider(): BelongsTo
+    {
+        return $this->belongsTo(\Modules\ProviderManagement\Entities\Provider::class, 'called_provider_id');
+    }
+
+    public function calledPartyTypeLabel(): ?string
+    {
+        return match ($this->called_party_type) {
+            self::CALLED_PARTY_CUSTOMER => translate('Customer'),
+            self::CALLED_PARTY_PROVIDER => translate('Provider'),
+            self::CALLED_PARTY_OTHER => translate('Other'),
+            default => null,
+        };
+    }
+
+    public function calledPartyDisplay(): string
+    {
+        $name = trim((string) ($this->called_name ?? ''));
+        $number = trim((string) ($this->called_number ?? ''));
+
+        if ($name !== '' && $number !== '') {
+            return $name.' ('.$number.')';
+        }
+
+        if ($name !== '') {
+            return $name;
+        }
+
+        return $number !== '' ? $number : '—';
     }
 
     public function hasRecording(): bool

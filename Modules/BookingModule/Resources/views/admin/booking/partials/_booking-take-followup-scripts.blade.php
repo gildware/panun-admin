@@ -168,17 +168,17 @@
         }
 
         function bindBookingFollowupDetailToggles() {
-            $(document).off('click.bookingFollowupDetails', '.booking-followup-history-table .voice-call-details-toggle, .lead-followup-history-table .voice-call-details-toggle')
-                .on('click.bookingFollowupDetails', '.booking-followup-history-table .voice-call-details-toggle, .lead-followup-history-table .voice-call-details-toggle', function () {
+            $(document).off('click.bookingFollowupDetails', '.booking-followup-history-table .voice-call-details-toggle, .lead-followup-history-table .voice-call-details-toggle, .booking-call-log-table .voice-call-details-toggle')
+                .on('click.bookingFollowupDetails', '.booking-followup-history-table .voice-call-details-toggle, .lead-followup-history-table .voice-call-details-toggle, .booking-call-log-table .voice-call-details-toggle', function () {
                     var $btn = $(this);
                     var $row = $btn.closest('tr');
-                    var $table = $btn.closest('.booking-followup-history-table, .lead-followup-history-table');
+                    var $table = $btn.closest('.booking-followup-history-table, .lead-followup-history-table, .booking-call-log-table');
                     var $detailsRow = $row.next('tr.voice-call-details-row');
                     if (!$detailsRow.length) return;
 
                     var isHidden = $detailsRow.hasClass('d-none');
                     if (isHidden) {
-                        $table.find('tr.booking-followup-row.is-open, tr.lead-followup-row.is-open').removeClass('is-open');
+                        $table.find('tr.booking-followup-row.is-open, tr.lead-followup-row.is-open, tr.booking-call-log-row.is-open').removeClass('is-open');
                         $table.find('tr.voice-call-details-row').addClass('d-none');
                         $table.find('.voice-call-details-toggle[aria-expanded="true"]').each(function () {
                             $(this).attr('aria-expanded', 'false').text(@json(translate('View')));

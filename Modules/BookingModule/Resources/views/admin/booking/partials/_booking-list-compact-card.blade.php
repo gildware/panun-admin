@@ -100,7 +100,8 @@
         ? translate('This is a repeat booking.') . ' ' . translate('Customer has requested total ') . count($booking->repeat) . ' ' . translate('bookings under this Bookings.')
         : null;
 @endphp
-<article class="booking-compact-card booking-compact-card--{{ $compactStatusClass }}"
+<article class="booking-compact-card booking-compact-card--{{ $compactStatusClass }} bc-card-navigable"
+    data-href="{{ $detailUrl }}"
     @if($repeatTooltip) title="{{ $repeatTooltip }}" @endif>
     <div class="bc-r1">
         <span class="bc-sl">{{ $index }}</span>

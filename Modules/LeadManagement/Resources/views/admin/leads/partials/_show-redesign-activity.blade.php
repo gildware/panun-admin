@@ -1,12 +1,12 @@
 <section class="activity-panel" id="lead-activity">
     @php
         $activityTab = request('activity');
-        if (! in_array($activityTab, ['comment', 'followup', 'change'], true)) {
+        if (! in_array($activityTab, ['comment', 'followup', 'change', 'call'], true)) {
             $activityTab = 'comment';
         }
     @endphp
     <div class="activity-toolbar">
-        <div class="filter-pills" role="tablist">
+        <div class="filter-pills" role="tablist" aria-label="{{ translate('Activity') }}">
             <button type="button" class="filter-pill {{ $activityTab === 'comment' ? 'is-active' : '' }}" data-activity-filter="comment">
                 {{ translate('Comments') }} <span class="count">{{ $activityCommentCount }}</span>
             </button>
@@ -15,6 +15,9 @@
             </button>
             <button type="button" class="filter-pill {{ $activityTab === 'change' ? 'is-active' : '' }}" data-activity-filter="change">
                 {{ translate('Change_History') }} <span class="count">{{ $activityChangeCount }}</span>
+            </button>
+            <button type="button" class="filter-pill {{ $activityTab === 'call' ? 'is-active' : '' }}" data-activity-filter="call">
+                {{ translate('Call_Logs') }} <span class="count">{{ $activityCallCount }}</span>
             </button>
         </div>
     </div>
@@ -145,8 +148,8 @@
     </div>
 
     {{-- Table view --}}
-    <div class="table-view {{ in_array($activityTab, ['followup', 'change'], true) ? 'is-visible' : '' }}" id="lead-activity-table">
-        <div class="activity-table-section activity-table-section--followups" @if($activityTab === 'change') style="display:none;" @endif>
+    <div class="table-view {{ in_array($activityTab, ['followup', 'change', 'call'], true) ? 'is-visible' : '' }}" id="lead-activity-table">
+        <div class="activity-table-section activity-table-section--followups" @if(in_array($activityTab, ['change', 'call'], true)) style="display:none;" @endif>
         <p class="table-section-label mb-0">{{ translate('Follow_up_History') }}</p>
         @if($lead->followups->isEmpty() && empty($hasPendingFollowup))
             <p class="text-muted small px-3 py-2 mb-0">{{ translate('No_follow_ups_yet') }}</p>
@@ -203,6 +206,14 @@
                                 @else — @endif
                             </td>
                         </tr>
+                        <tr class="lead-followup-remarks-row {{ $loop->even ? 'lead-followup-remarks-row--alt' : '' }}">
+                            <td colspan="9" class="lead-followup-remarks-cell">
+                                <div class="lead-followup-remarks-block">
+                                    <span class="lead-followup-remarks-label">{{ translate('Remarks') }}</span>
+                                    <div class="lead-followup-remarks-text">{{ $followup->remarks ?: '—' }}</div>
+                                </div>
+                            </td>
+                        </tr>
                         @if($followup->hasRecording() && $followup->recording_url)
                             <tr class="voice-call-details-row d-none">
                                 <td colspan="9" class="p-0 border-0">
@@ -217,7 +228,7 @@
         @endif
         </div>
 
-        <div class="activity-table-section activity-table-section--changes" @if($activityTab === 'followup') style="display:none;" @endif>
+        <div class="activity-table-section activity-table-section--changes" @if(in_array($activityTab, ['followup', 'call'], true)) style="display:none;" @endif>
         <p class="table-section-label mb-0 border-top">{{ translate('Change_History') }}</p>
         @if(isset($changeLogs) && $changeLogs->isNotEmpty())
             <div class="table-responsive">
@@ -267,6 +278,119 @@
             </div>
         @else
             <p class="text-muted small px-3 py-2 mb-0">{{ translate('No_changes_recorded_yet') }}</p>
+        @endif
+        </div>
+
+        <div class="activity-table-section activity-table-section--calls" @if($activityTab !== 'call') style="display:none;" @endif>
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 px-3 pt-3 pb-0 border-top">
+            <p class="table-section-label mb-0">{{ translate('Call_Logs') }}</p>
+            <button type="button"
+                    class="ld-btn ld-btn-primary js-add-call-log-btn"
+                    data-bs-toggle="modal"
+                    data-bs-target="#addCallLogModal">
+                <span class="material-icons" aria-hidden="true">add_call</span>
+                {{ translate('Add_Call_Log') }}
+            </button>
+        </div>
+        @if(($callLogs ?? collect())->isEmpty())
+            <p class="text-muted small px-3 py-2 mb-0">{{ translate('No_call_logs_yet') }}</p>
+        @else
+            <div class="table-responsive">
+                <table class="data-table lead-call-log-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>{{ translate('Who_You_Called') }}</th>
+                            <th>{{ translate('When_You_Called') }}</th>
+                            <th>{{ translate('Remarks') }}</th>
+                            <th>{{ translate('Recording') }}</th>
+                            @can('lead_update')
+                                <th class="text-end">{{ translate('Actions') }}</th>
+                            @endcan
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach($callLogs as $callLog)
+                        @php
+                            $calledAt = $callLog['called_at'] ?? null;
+                            $callLogFollowup = ($callLog['type'] ?? '') === 'followup' ? ($callLog['followup'] ?? null) : null;
+                            $hasRecording = ($callLog['type'] ?? '') === 'initial'
+                                ? ($lead->hasInitialCallRecording() && $lead->initial_call_recording_url)
+                                : ($callLogFollowup?->hasRecording() && $callLogFollowup?->recording_url);
+                            $canManageCallLog = $callLogFollowup && auth()->user()?->can('lead_update');
+                        @endphp
+                        <tr class="lead-call-log-row {{ $loop->even ? 'lead-call-log-row--alt' : '' }}">
+                            <td>
+                                @php
+                                    $partyType = $callLog['called_party_type'] ?? \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_CUSTOMER;
+                                    $partyLabel = match ($partyType) {
+                                        \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_PROVIDER => translate('Provider'),
+                                        \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_OTHER => translate('Other'),
+                                        default => translate('Customer'),
+                                    };
+                                @endphp
+                                <div class="d-flex flex-column gap-1">
+                                    <span class="chip chip--primary align-self-start">{{ $partyLabel }}</span>
+                                    <span>{{ $callLog['called_name'] ?: '—' }}</span>
+                                    @if(!empty($callLog['called_number']))
+                                        <span class="text-muted small">{{ $callLog['called_number'] }}</span>
+                                    @endif
+                                </div>
+                            </td>
+                            <td class="text-nowrap">{{ $calledAt?->format('d M Y, h:i A') ?? '—' }}</td>
+                            <td>{{ $callLog['remarks'] ?: '—' }}</td>
+                            <td class="text-nowrap">
+                                @if($hasRecording)
+                                    <button type="button" class="ld-btn ld-btn-outline voice-call-details-toggle" aria-expanded="false">{{ translate('View') }}</button>
+                                @else — @endif
+                            </td>
+                            @can('lead_update')
+                                <td class="text-end text-nowrap">
+                                    @if($canManageCallLog)
+                                        <div class="d-inline-flex align-items-center gap-1">
+                                            <button type="button"
+                                                    class="btn btn-sm btn-link p-0 js-edit-call-log-btn"
+                                                    title="{{ translate('Edit') }}"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#addCallLogModal"
+                                                    data-followup-id="{{ $callLogFollowup->id }}"
+                                                    data-party-type="{{ $callLogFollowup->called_party_type ?: \Modules\LeadManagement\Entities\LeadFollowup::CALLED_PARTY_CUSTOMER }}"
+                                                    data-provider-id="{{ $callLogFollowup->called_provider_id }}"
+                                                    data-called-name="{{ $callLogFollowup->called_name }}"
+                                                    data-called-number="{{ $callLogFollowup->called_number }}"
+                                                    data-called-at="{{ ($callLogFollowup->followup_at ?? $callLogFollowup->created_at)?->format('Y-m-d\TH:i') }}"
+                                                    data-remarks="{{ $callLogFollowup->remarks }}"
+                                                    data-has-recording="{{ $callLogFollowup->hasRecording() ? '1' : '0' }}"
+                                                    data-recording-name="{{ $callLogFollowup->recording_original_name }}">
+                                                <span class="material-icons" aria-hidden="true">edit</span>
+                                            </button>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-link text-danger p-0 js-delete-call-log-btn"
+                                                    title="{{ translate('Delete') }}"
+                                                    data-url="{{ route('admin.lead.call-logs.destroy', [$lead->id, $callLogFollowup->id]) }}">
+                                                <span class="material-icons" aria-hidden="true">delete_outline</span>
+                                            </button>
+                                        </div>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+                            @endcan
+                        </tr>
+                        @if($hasRecording)
+                            <tr class="voice-call-details-row d-none">
+                                <td colspan="{{ auth()->user()?->can('lead_update') ? 5 : 4 }}" class="p-0 border-0">
+                                    @if(($callLog['type'] ?? '') === 'initial')
+                                        @include('leadmanagement::admin.leads.partials._initial_call_recording_details_panel', ['lead' => $lead])
+                                    @else
+                                        @include('leadmanagement::admin.leads.partials._followup_recording_details_panel', ['followup' => $callLog['followup'], 'lead' => $lead])
+                                    @endif
+                                </td>
+                            </tr>
+                        @endif
+                    @endforeach
+                    </tbody>
+                </table>
+            </div>
         @endif
         </div>
     </div>

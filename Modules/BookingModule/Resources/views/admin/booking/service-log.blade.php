@@ -845,53 +845,27 @@
             });
         }
 
-        $('#providerPerformanceFeedbackForm').on('submit', function (e) {
-            e.preventDefault();
-            const $form = $(this);
-            const route = $form.data('feedback-route');
-
-            // Some actions may open the modal without setting pendingPostFeedbackAction.
-            // Default to 'reassign' if a provider id is queued, otherwise just reload.
-            if (!pendingPostFeedbackAction) {
-                pendingPostFeedbackAction = pendingReassignProviderId ? 'reassign' : 'reload';
+        document.addEventListener('pk:provider-feedback-stored', function (e) {
+            if (pendingPostFeedbackAction !== 'reassign') {
+                pendingReassignProviderId = null;
+                pendingPostFeedbackAction = null;
+                return;
             }
 
-            $.ajax({
-                url: route,
-                type: 'POST',
-                dataType: 'json',
-                data: $form.serialize(),
-                beforeSend: function () {
-                    $('#providerPerformanceFeedbackSubmit').prop('disabled', true);
-                },
-                success: function () {
-                    $('#providerPerformanceFeedbackSubmit').prop('disabled', false);
-                    const modalEl = document.getElementById('providerPerformanceFeedbackModal');
-                    bootstrap.Modal.getInstance(modalEl)?.hide();
+            const providerId = pendingReassignProviderId;
+            pendingReassignProviderId = null;
+            pendingPostFeedbackAction = null;
 
-                    if (pendingPostFeedbackAction === 'reassign') {
-                        const providerId = pendingReassignProviderId;
-                        pendingReassignProviderId = null;
-                        pendingPostFeedbackAction = null;
-                        if (providerId) {
-                            if (typeof window.updateProvider === 'function') {
-                                window.updateProvider(providerId);
-                            } else {
-                                reassignProviderAfterFeedback(providerId);
-                            }
-                            return;
-                        }
-                    }
+            if (!providerId) {
+                return;
+            }
 
-                    pendingReassignProviderId = null;
-                    pendingPostFeedbackAction = null;
-                    location.reload();
-                },
-                error: function (xhr) {
-                    $('#providerPerformanceFeedbackSubmit').prop('disabled', false);
-                    toastr.error(xhr?.responseJSON?.message ?? '{{ translate('Failed to store feedback') }}');
-                }
-            });
+            e.preventDefault();
+            if (typeof window.updateProvider === 'function') {
+                window.updateProvider(providerId);
+            } else {
+                reassignProviderAfterFeedback(providerId);
+            }
         });
 
         $('.switcher_input').on('click', function() {

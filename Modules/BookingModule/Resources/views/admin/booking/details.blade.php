@@ -2311,6 +2311,8 @@
                 'followupDelayMeta' => $followupDelayMeta ?? [],
                 'followupScheduleMinAt' => $followupScheduleMinAt ?? now()->format('Y-m-d\TH:i'),
                 'requiresMandatoryNextFollowup' => $requiresMandatoryNextFollowup ?? $booking->requiresMandatoryNextFollowup(),
+                'customerName' => $customerName ?? null,
+                'customerPhone' => $customerPhone ?? null,
             ])
 
             <div class="row gy-3 align-items-start d-none">
@@ -2647,7 +2649,7 @@
 
     @include('adminmodule::admin.workflow.partials._next-step-fab', ['workflowContext' => $workflowContext ?? []])
     @include('adminmodule::admin.workflow.partials._confirm-modal')
-    @include('adminmodule::admin.workflow.partials._scripts', ['workflowContext' => $workflowContext ?? [], 'wfEntityType' => 'booking', 'wfEntityId' => (int) ($booking->id ?? 0)])
+    @include('adminmodule::admin.workflow.partials._scripts', ['workflowContext' => $workflowContext ?? [], 'wfEntityType' => 'booking', 'wfEntityId' => $booking->id ?? null])
 @endsection
 
 @push('script')
@@ -2994,53 +2996,27 @@
             });
         }
 
-        $('#providerPerformanceFeedbackForm').on('submit', function (e) {
-            e.preventDefault();
-            const $form = $(this);
-            const route = $form.data('feedback-route');
-
-            // Some actions may open the modal without setting pendingPostFeedbackAction.
-            // Default to 'reassign' if a provider id is queued, otherwise just reload.
-            if (!pendingPostFeedbackAction) {
-                pendingPostFeedbackAction = pendingReassignProviderId ? 'reassign' : 'reload';
+        document.addEventListener('pk:provider-feedback-stored', function (e) {
+            if (pendingPostFeedbackAction !== 'reassign') {
+                pendingReassignProviderId = null;
+                pendingPostFeedbackAction = null;
+                return;
             }
 
-            $.ajax({
-                url: route,
-                type: 'POST',
-                dataType: 'json',
-                data: $form.serialize(),
-                beforeSend: function () {
-                    $('#providerPerformanceFeedbackSubmit').prop('disabled', true);
-                },
-                success: function () {
-                    $('#providerPerformanceFeedbackSubmit').prop('disabled', false);
-                    const modalEl = document.getElementById('providerPerformanceFeedbackModal');
-                    bootstrap.Modal.getInstance(modalEl)?.hide();
+            const providerId = pendingReassignProviderId;
+            pendingReassignProviderId = null;
+            pendingPostFeedbackAction = null;
 
-                    if (pendingPostFeedbackAction === 'reassign') {
-                        const providerId = pendingReassignProviderId;
-                        pendingReassignProviderId = null;
-                        pendingPostFeedbackAction = null;
-                        if (providerId) {
-                            if (typeof window.updateProvider === 'function') {
-                                window.updateProvider(providerId);
-                            } else {
-                                reassignProviderAfterFeedback(providerId);
-                            }
-                            return;
-                        }
-                    }
+            if (!providerId) {
+                return;
+            }
 
-                    pendingReassignProviderId = null;
-                    pendingPostFeedbackAction = null;
-                    location.reload();
-                },
-                error: function (xhr) {
-                    $('#providerPerformanceFeedbackSubmit').prop('disabled', false);
-                    toastr.error(xhr?.responseJSON?.message ?? '{{ translate('Failed to store feedback') }}');
-                }
-            });
+            e.preventDefault();
+            if (typeof window.updateProvider === 'function') {
+                window.updateProvider(providerId);
+            } else {
+                reassignProviderAfterFeedback(providerId);
+            }
         });
 
         $(document).on('click', '.reassign-provider', function() {
@@ -3081,38 +3057,6 @@
             const st = @json($booking->booking_status);
             const at = st === 'canceled' ? 'canceled' : 'completed';
             openCustomerPerformanceFeedbackModal(bookingCustomerId, at);
-        });
-
-        $('#customerPerformanceFeedbackForm').on('submit', function (e) {
-            e.preventDefault();
-            const $form = $(this);
-            const type = $form.find('input[name="incident_type"]:checked').val();
-            if (!type) {
-                toastr.error('{{ translate('Please select a feedback type.') }}');
-                return;
-            }
-            const route = $form.data('feedback-route');
-            pendingPostFeedbackAction = 'reload';
-
-            $.ajax({
-                url: route,
-                type: 'POST',
-                dataType: 'json',
-                data: $form.serialize(),
-                beforeSend: function () {
-                    $('#customerPerformanceFeedbackSubmit').prop('disabled', true);
-                },
-                success: function () {
-                    $('#customerPerformanceFeedbackSubmit').prop('disabled', false);
-                    const modalEl = document.getElementById('customerPerformanceFeedbackModal');
-                    bootstrap.Modal.getInstance(modalEl)?.hide();
-                    location.reload();
-                },
-                error: function (xhr) {
-                    $('#customerPerformanceFeedbackSubmit').prop('disabled', false);
-                    toastr.error(xhr?.responseJSON?.message ?? '{{ translate('Failed to store feedback') }}');
-                }
-            });
         });
 
         $('.offline-payment').on('click', function() {
@@ -3789,8 +3733,23 @@
                             }
                         },
                         error: function(xhr) {
-                            var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : '{{ translate('Something went wrong. Please try again.') }}';
-                            if (xhr.status === 422 && xhr.responseJSON && xhr.responseJSON.errors) {
+                            var res = xhr.responseJSON || {};
+                            var msg = res.message ? res.message : '{{ translate('Something went wrong. Please try again.') }}';
+                            if (xhr.status === 422 && res.workflow_gate && window.WorkflowGate && componentId === 'booking_status' && updatedValue === 'completed') {
+                                window.WorkflowGate.showConfirmModal(res.workflow_gate, '{{ \Modules\AdminModule\Support\WorkflowStepDefinitions::ACTION_BOOKING_COMPLETED }}', function () {
+                                    var retryRoute = '{{ route('admin.booking.status_update', [$booking->id]) }}' + '?booking_status=completed&workflow_confirmed=1';
+                                    update_booking_details(retryRoute, bookingDetailsStatusUpdateMessage('completed'), 'booking_status', 'completed', revertValue);
+                                });
+                                if (componentId === 'booking_status' && revertValue !== undefined) {
+                                    $("#booking_status").val(revertValue);
+                                    $("#booking_status").data('current', revertValue);
+                                    if ($("#booking_status").next(".select2-container").length) {
+                                        $("#booking_status").next(".select2-container").find(".select2-selection__rendered").text($("#booking_status option:selected").text());
+                                    }
+                                }
+                                return;
+                            }
+                            if (xhr.status === 422 && res.errors) {
                                 var errs = xhr.responseJSON.errors;
                                 if (typeof errs === 'object' && !Array.isArray(errs)) {
                                     var first = Object.values(errs)[0];

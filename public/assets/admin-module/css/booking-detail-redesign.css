@@ -1526,3 +1526,29 @@
   padding-left: 0;
   padding-right: 0;
 }
+.booking-detail-v2 .booking-call-log-table thead th {
+  background: #f3f4f6;
+  padding: .75rem .875rem;
+}
+.booking-detail-v2 .booking-call-log-table tbody tr.booking-call-log-row td {
+  background: #fff;
+  padding: .75rem .875rem;
+  transition: background-color .15s ease;
+}
+.booking-detail-v2 .booking-call-log-table .js-edit-call-log-btn .material-icons,
+.booking-detail-v2 .booking-call-log-table .js-delete-call-log-btn .material-icons {
+  font-size: 18px;
+  line-height: 1;
+}
+.booking-detail-v2 .booking-call-log-table tbody tr.booking-call-log-row--alt td {
+  background: #f3f4f6;
+}
+.booking-detail-v2 .booking-call-log-table tbody tr.booking-call-log-row.is-open td {
+  background: #e8ecf6;
+}
+.booking-detail-v2 .booking-call-log-table tbody tr.voice-call-details-row > td {
+  background: #eef1f8 !important;
+  box-shadow: inset 0 3px 6px rgba(37, 39, 77, 0.05);
+  border-bottom: 1px solid var(--bk-border);
+  padding: .875rem 1rem;
+}
