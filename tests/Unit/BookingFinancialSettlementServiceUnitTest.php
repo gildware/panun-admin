@@ -48,6 +48,28 @@ class BookingFinancialSettlementServiceUnitTest extends TestCase
         $this->assertTrue($this->service->usesNonStandardSettlement($b));
     }
 
+    public function test_can_edit_existing_settlement_only_for_finalized_special_scenarios(): void
+    {
+        $b = new Booking(['is_repeated' => 0]);
+        $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT;
+        $b->booking_status = 'completed';
+        $this->assertTrue(BookingFinancialSettlementService::canEditExistingSettlement($b));
+
+        $b->booking_status = 'canceled';
+        $this->assertTrue(BookingFinancialSettlementService::canEditExistingSettlement($b));
+
+        $b->booking_status = 'ongoing';
+        $this->assertFalse(BookingFinancialSettlementService::canEditExistingSettlement($b));
+
+        $b->booking_status = 'completed';
+        $b->settlement_outcome = null;
+        $this->assertFalse(BookingFinancialSettlementService::canEditExistingSettlement($b));
+
+        $b->is_repeated = 1;
+        $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+        $this->assertFalse(BookingFinancialSettlementService::canEditExistingSettlement($b));
+    }
+
     public function test_provider_earning_basis_standard_uses_grand_total(): void
     {
         $b = new Booking;

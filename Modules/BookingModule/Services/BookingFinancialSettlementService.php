@@ -309,6 +309,29 @@ class BookingFinancialSettlementService
     }
 
     /**
+     * Completed or canceled single bookings with an existing special scenario may edit settlement fields
+     * (amounts, loss split, remarks) without changing booking status.
+     */
+    public static function canEditExistingSettlement(Booking $booking): bool
+    {
+        if ((int) ($booking->is_repeated ?? 0) === 1) {
+            return false;
+        }
+
+        $outcome = trim((string) ($booking->settlement_outcome ?? ''));
+        if ($outcome === '' || $outcome === self::OUTCOME_STANDARD) {
+            return false;
+        }
+
+        $status = strtolower((string) ($booking->booking_status ?? ''));
+        if ($status === 'cancelled') {
+            $status = 'canceled';
+        }
+
+        return in_array($status, ['completed', 'canceled'], true);
+    }
+
+    /**
      * @return array{adminCommission: float, adminCommissionWithoutCost: float}
      */
     public function calculateAdminCommissionDetails($booking, int|string|null $providerId = null): array

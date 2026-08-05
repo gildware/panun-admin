@@ -23,7 +23,9 @@
             : 0.0;
         $status = (string) ($booking->booking_status ?? '');
         $bookingNotEditable = in_array($status, ['completed', 'canceled', 'cancelled', 'refunded'], true);
-        $canConfigureSettlement = ($status === 'ongoing' || booking_on_hold_is_after_visit_from_ongoing($booking)) && ! $bookingNotEditable;
+        $canEditExistingSettlement = booking_can_edit_existing_financial_settlement($booking);
+        $canConfigureSettlement = booking_admin_can_configure_financial_settlement($booking);
+        $canOpenSettlementModal = booking_admin_can_open_financial_settlement_modal($booking);
         $settlementLockedMessage = $bookingNotEditable
             ? translate('Financial_settlement_cannot_be_changed_for_this_status')
             : translate('Bfs_financial_settlement_only_while_ongoing');
@@ -67,23 +69,23 @@
                     @if ($bfsScaledOutcome && $bfsScaledWriteoff > 0.009)
                         <span class="badge bg-danger text-nowrap">{{ translate('Settled') }}</span>
                     @endif
-                    @can('booking_can_manage_status')
+                    @if(auth()->user()?->can('booking_can_manage_status') || auth()->user()?->can('booking_edit'))
                         @if ($bfsScaledOutcome && $bfsScaledWriteoff > 0.009)
                             <button type="button" class="btn btn-outline-danger btn-sm text-nowrap"
                                 data-bs-toggle="modal" data-bs-target="#bfsWriteoffRevertConfirmModal-{{ $booking->id }}">
                                 {{ translate('Revert_write_off') }}
                             </button>
                         @endif
-                        @if ($canConfigureSettlement && $bfsIncludeSettlementModal)
+                        @if ($canOpenSettlementModal && $bfsIncludeSettlementModal)
                             <button type="button" class="btn btn--primary btn-sm text-nowrap" data-bs-toggle="modal"
-                                data-bs-target="#bookingFinancialSettlementModal">{{ translate('Configure_special_scenarios') }}</button>
-                        @elseif ($canConfigureSettlement)
+                                data-bs-target="#bookingFinancialSettlementModal">{{ $canEditExistingSettlement ? translate('Edit_special_scenario') : translate('Configure_special_scenarios') }}</button>
+                        @elseif ($canOpenSettlementModal)
                             <a href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'details']) }}#special-financial-settlement-banner"
-                                class="btn btn--primary btn-sm text-nowrap">{{ translate('Configure_special_scenarios') }}</a>
+                                class="btn btn--primary btn-sm text-nowrap">{{ $canEditExistingSettlement ? translate('Edit_special_scenario') : translate('Configure_special_scenarios') }}</a>
                         @else
                             <span class="small text-muted" style="max-width: 18rem;">{{ $settlementLockedMessage }}</span>
                         @endif
-                    @endcan
+                    @endif
                 </div>
             </div>
             <dl class="row small mb-0 gx-2">
@@ -194,12 +196,12 @@
                                 <dt class="col-sm-4 col-md-3">{{ translate('Settlement_amount') }}</dt>
                                 <dd class="col-sm-8 col-md-9 fw-semibold d-flex flex-wrap justify-content-between align-items-center gap-2">
                                     <span>{{ with_currency_symbol((float) $bfsScaledLive['scaled_loss_writeoff_amount']) }}</span>
-                                    @can('booking_can_manage_status')
+                                    @if(auth()->user()?->can('booking_can_manage_status') || auth()->user()?->can('booking_edit'))
                                         <form method="post" action="{{ route('admin.booking.loss_writeoff.revert', $booking->id) }}" class="d-inline">
                                             @csrf
                                             <button type="submit" class="btn btn-outline-danger btn-sm">{{ translate('Revert_write_off') }}</button>
                                         </form>
-                                    @endcan
+                                    @endif
                                 </dd>
                             </dl>
                         @endif

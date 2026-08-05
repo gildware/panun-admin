@@ -1,6 +1,5 @@
 {{-- Single booking only; expects: $booking, $financialSettlementOutcomes, $defaultVisitFeeCompanyPercent, $bookingCancellationReasons (optional) --}}
-@can('booking_can_manage_status')
-@if((int)($booking->is_repeated ?? 0) === 0)
+@if((int)($booking->is_repeated ?? 0) === 0 && booking_admin_can_open_financial_settlement_modal($booking))
 @php
     $bfsCurOutcome = trim((string) ($booking->settlement_outcome ?? ''));
     $bfsCfg = is_array($booking->settlement_config ?? null) ? $booking->settlement_config : [];
@@ -55,14 +54,18 @@
         ? round((float) $bfsCfg['scaled_loss_company_amount'], 2) : '';
     $bfsDefScaledLossPr = (array_key_exists('scaled_loss_provider_amount', $bfsCfg) && is_numeric($bfsCfg['scaled_loss_provider_amount']))
         ? round((float) $bfsCfg['scaled_loss_provider_amount'], 2) : '';
+    $bfsEditFinalizedMode = (bool) ($bfsEditFinalizedMode ?? false);
 @endphp
+@if($bfsEditFinalizedMode && $bfsCurOutcome !== '')
+    <input type="hidden" id="bfs-edit-finalized-outcome" value="{{ $bfsCurOutcome }}">
+@endif
 <div class="modal fade" id="bookingFinancialSettlementModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header border-0 pb-0">
                 <div>
                     <h5 class="modal-title mb-0">{{ translate('Special_financial_settlement') }}</h5>
-                    <p class="text-muted small mb-0 mt-1">{{ translate('Financial_settlement_help_intro') }}</p>
+                    <p class="text-muted small mb-0 mt-1">{{ $bfsEditFinalizedMode ? translate('Bfs_edit_finalized_settlement_hint') : translate('Financial_settlement_help_intro') }}</p>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
             </div>
@@ -84,6 +87,7 @@
                                 <div class="form-check flex-grow-1 mb-0 pt-1">
                                     <input class="form-check-input bfs-outcome-radio" type="radio" name="bfs_outcome_radio" id="bfs-outcome-{{ $value }}" value="{{ $value }}"
                                         @if($bfsCurOutcome !== '' && $bfsCurOutcome === (string) $value) checked @endif
+                                        @if($bfsEditFinalizedMode) disabled @endif
                                         @if($bfsOutcomeDisabled) disabled title="{{ translate('Bfs_scaled_disabled_when_due_zero') }}" @endif>
                                     <label class="form-check-label w-100" for="bfs-outcome-{{ $value }}">
                                         <span class="fw-medium d-block">{{ $label }}</span>
@@ -338,6 +342,7 @@
     const bfsHasSavedClosingShares = @json($bfsHasSavedClosingShares ?? false);
     const bfsHasSavedVisitAmounts = @json($bfsHasSavedVisitAmounts ?? false);
     const bfsAllowCollectPayment = @json(!empty($bfsAllowCollectPayment));
+    const bfsEditFinalizedMode = @json(!empty($bfsEditFinalizedMode));
     const bfsBookingGrandTotal = @json(round((float) get_booking_total_amount($booking), 2));
 
     const OUTCOMES = {
@@ -396,7 +401,16 @@
     let bfsModalSkipCloseGuard = false;
 
     function bfsSelectedOutcome() {
+        if (bfsEditFinalizedMode) {
+            var locked = String($('#bfs-edit-finalized-outcome').val() || '').trim();
+            if (locked) {
+                return locked;
+            }
+        }
         var $r = $('#bookingFinancialSettlementModal input[name="bfs_outcome_radio"]:checked');
+        if (!$r.length) {
+            $r = $('#bookingFinancialSettlementModal input[name="bfs_outcome_radio"][disabled]:checked');
+        }
         return String($r.val() || '').trim();
     }
 
@@ -453,9 +467,13 @@
         if (v === OUTCOMES.VISIT_SPLIT || v === OUTCOMES.VISIT_CANCEL) {
             $('#bfs-fields-decided-charges').removeClass('d-none');
             if (v === OUTCOMES.VISIT_CANCEL) {
-                $('#bfs-notes-wrap').addClass('d-none');
+                if (bfsEditFinalizedMode) {
+                    $('#bfs-notes-wrap').removeClass('d-none');
+                } else {
+                    $('#bfs-notes-wrap').addClass('d-none');
+                }
                 $('#bfs-decided-subtitle-cancel').removeClass('d-none');
-                $('#bfs-cancel-reason-wrap').removeClass('d-none');
+                $('#bfs-cancel-reason-wrap').addClass('d-none');
             } else {
                 $('#bfs-notes-wrap').removeClass('d-none');
                 $('#bfs-decided-subtitle-complete').removeClass('d-none');
@@ -471,6 +489,10 @@
         $('#bfs-save-btn').removeClass('d-none');
         $('#bfs-save-cancel-btn').addClass('d-none');
         $('#bfs-save-complete-btn').addClass('d-none');
+        if (bfsEditFinalizedMode) {
+            $('#bfs-save-btn').prop('disabled', false).removeAttr('title');
+            return;
+        }
         if (v === OUTCOMES.VISIT_CANCEL) {
             $('#bfs-save-btn').addClass('d-none');
             $('#bfs-save-cancel-btn').removeClass('d-none').prop('disabled', true).attr('title', '');
@@ -488,7 +510,7 @@
         const base = {
             _token: bfsCsrf,
             settlement_outcome: v,
-            settlement_remarks: v === OUTCOMES.VISIT_CANCEL ? null : ($('#bfs-remarks').val() || null),
+            settlement_remarks: (v === OUTCOMES.VISIT_CANCEL && !bfsEditFinalizedMode) ? null : ($('#bfs-remarks').val() || null),
         };
         if (v === OUTCOMES.VISIT_SPLIT || v === OUTCOMES.VISIT_CANCEL) {
             base.visit_charges_paid = $('#bfs-visit-charges-paid').val() || null;
@@ -1145,7 +1167,7 @@
         bfsSchedulePreview();
     });
 
-    $('#bookingFinancialSettlementModal').on('shown.bs.modal', function () {
+    $(document).on('shown.bs.modal.bfsModal', '#bookingFinancialSettlementModal', function () {
         window.bfsModalSessionPartialPaymentIds = [];
         bfsClosingSharesUserEdited = !!bfsHasSavedClosingShares;
         bfsVisitSharesUserEdited = !!bfsHasSavedVisitAmounts;
@@ -1171,7 +1193,7 @@
             }
         }
     });
-    $('#bookingFinancialSettlementModal').on('hide.bs.modal', function (e) {
+    $(document).on('hide.bs.modal.bfsModal', '#bookingFinancialSettlementModal', function (e) {
         if (bfsModalSkipCloseGuard) {
             return;
         }
@@ -1245,15 +1267,15 @@
         });
     }
 
-    $(document).on('click', '#bfs-unsaved-payment-confirm-proceed', function () {
+    $(document).on('click.bfsModal', '#bfs-unsaved-payment-confirm-proceed', function () {
         bfsRevertEmbeddedPaymentsThenCloseSettlementModal();
     });
 
-    $('#bfsUnsavedPaymentConfirmModal').on('hidden.bs.modal', function () {
+    $(document).on('hidden.bs.modal.bfsModal', '#bfsUnsavedPaymentConfirmModal', function () {
         $('#bfs-unsaved-payment-confirm-proceed').prop('disabled', false);
     });
 
-    $('#bookingFinancialSettlementModal').on('hidden.bs.modal', function () {
+    $(document).on('hidden.bs.modal.bfsModal', '#bookingFinancialSettlementModal', function () {
         bfsModalSkipCloseGuard = false;
         bfsDisposePopovers();
         clearTimeout(bfsPreviewTimer);
@@ -1292,7 +1314,7 @@
             });
     }
 
-    $('#bfs-save-btn').on('click', function () {
+    $(document).on('click.bfsModal', '#bfs-save-btn', function () {
         if (!bfsSelectedOutcome()) {
             if (typeof toastr !== 'undefined') {
                 toastr.error(@json(translate('Bfs_select_scenario_required')));
@@ -1302,7 +1324,7 @@
         bfsPostSave($(this), bfsSaveUrl, bfsPayload());
     });
 
-    $('#bfs-save-cancel-btn').on('click', function () {
+    $(document).on('click.bfsModal', '#bfs-save-cancel-btn', function () {
         if ($(this).prop('disabled')) {
             return;
         }
@@ -1315,7 +1337,7 @@
         bfsPostSave($(this), bfsSaveCancelUrl, bfsPayloadSaveAndCancel());
     });
 
-    $('#bfs-save-complete-btn').on('click', function () {
+    $(document).on('click.bfsModal', '#bfs-save-complete-btn', function () {
         if ($(this).prop('disabled')) {
             return;
         }
@@ -1330,4 +1352,3 @@
 </script>
 @endpush
 @endif
-@endcan
