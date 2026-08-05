@@ -368,7 +368,7 @@ if (!function_exists('voice_recording_file_rules')) {
         return [
             'nullable',
             'file',
-            'max:10240',
+            'max:51200',
             new \App\Rules\ValidVoiceRecording(),
         ];
     }
