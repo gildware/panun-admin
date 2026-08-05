@@ -557,7 +557,7 @@ class ServiceController extends Controller
         }
 
         $serviceIds = $this->recentView
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', auth('api')->id())
             ->select(
                 DB::raw('count(total_service_view) as total_service_view'),
                 DB::raw('service_id as service_id')
@@ -602,7 +602,7 @@ class ServiceController extends Controller
         }
 
         $searchedKeywords = $this->recentSearch
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', auth('api')->id())
             ->select('id', 'keyword')
             ->latest()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
@@ -631,7 +631,7 @@ class ServiceController extends Controller
         }
 
         $this->recentSearch
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', auth('api')->id())
             ->when($request->has('id'), function ($query) use ($request) {
                 $query->whereIn('id', $request->id);
             })
@@ -884,7 +884,7 @@ class ServiceController extends Controller
             'service_name' => $request['service_name'],
             'service_description' => $request['service_description'],
             'status' => 'pending',
-            'user_id' => $request->user()->id,
+            'user_id' => auth('api')->id(),
         ]);
 
         admin_inbox_notify_service_request_submitted($serviceRequest);
@@ -915,7 +915,7 @@ class ServiceController extends Controller
         }
 
         $requests = ServiceRequest::with(['category'])
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', auth('api')->id())
             ->latest()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
