@@ -3815,9 +3815,13 @@ class BookingController extends Controller
         if (! in_array($redirectWebPage, ['details', 'followups'], true)) {
             $redirectWebPage = 'details';
         }
-        $hash = $redirectWebPage === 'followups' ? '' : '#booking-activity';
 
-        return redirect()->route('admin.booking.details', [$booking->id, 'web_page' => $redirectWebPage]).$hash;
+        $url = route('admin.booking.details', [$booking->id, 'web_page' => $redirectWebPage]);
+        if ($redirectWebPage !== 'followups') {
+            $url .= '#booking-activity';
+        }
+
+        return redirect()->to($url);
     }
 
     public function storeCallLog(Request $request, $id): RedirectResponse
