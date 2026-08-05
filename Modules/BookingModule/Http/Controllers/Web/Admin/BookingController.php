@@ -2092,7 +2092,7 @@ class BookingController extends Controller
                 }
 
                 return redirect()
-                    ->route('admin.lead.show', $redirectParams)
+                    ->route('admin.lead.show', $redirectParams, 303)
                     ->with('created_booking', [
                         'id' => $booking->id,
                         'readable_id' => $booking->readable_id,
@@ -2100,7 +2100,7 @@ class BookingController extends Controller
             }
 
             // Otherwise go to success screen with options: add new, view details, dashboard
-            return redirect()->route('admin.booking.success', ['id' => $booking->id]);
+            return redirect()->route('admin.booking.success', ['id' => $booking->id], 303);
         } catch (\Throwable $exception) {
             DB::rollBack();
 
@@ -2508,6 +2508,14 @@ class BookingController extends Controller
     public function details($id, Request $request): Renderable|RedirectResponse
     {
         $this->authorize('booking_view');
+
+        if (! $request->isMethod('get')) {
+            return redirect()->route('admin.booking.details', array_merge(
+                ['id' => $id],
+                array_filter($request->only(['web_page', 'activity', 'take']), static fn ($value) => $value !== null && $value !== '')
+            ));
+        }
+
         if ($request->input('web_page') === 'status') {
             return redirect()->route('admin.booking.details', [$id, 'web_page' => 'history']);
         }

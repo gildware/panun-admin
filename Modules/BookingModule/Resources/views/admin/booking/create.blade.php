@@ -78,7 +78,7 @@
                         {{ translate('Reopen_follow_up_banner_hint') }}
                     </div>
                 @endif
-                <form action="{{ route('admin.booking.preview') }}" method="POST" id="booking-form"
+                <form action="{{ route('admin.booking.preview') }}" method="POST" id="booking-form" data-turbo="false"
                       data-currency="{{ currency_symbol() ?? '' }}" novalidate>
                     @csrf
                     <input type="hidden" name="booking_go_back_url"
