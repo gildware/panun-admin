@@ -7078,6 +7078,7 @@ _Message' => 'Customer notification for provider bid offer
   'Are_you_sure_you_want_to_change_the_status_of_this_item' => 'Are you sure you want to change the status of this item?',
   'Confirm' => 'Confirm',
   'Follow_up_updated_successfully' => 'Follow-up updated successfully',
+  'Follow_up_remarks_required' => 'Please enter remarks when taking a follow-up.',
   'Scheduled' => 'Scheduled',
   'Cancelled' => 'Cancelled',
   'Cancelled_by_provider' => 'Cancelled by provider',

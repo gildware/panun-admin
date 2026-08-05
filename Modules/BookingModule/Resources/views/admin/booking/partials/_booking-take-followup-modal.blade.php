@@ -77,8 +77,18 @@
                             <div class="form-text">{{ translate('Upload_call_recording_optional_max_10MB') }}</div>
                         </div>
                         <div class="mb-0" id="booking-followup-remarks-group">
-                            <label class="form-label">{{ translate('Remarks') }}</label>
-                            <textarea name="remarks" class="form-control" rows="3" placeholder="{{ translate('Add_remarks_from_follow_up') }}"></textarea>
+                            <label class="form-label" id="booking-followup-remarks-label">
+                                {{ translate('Remarks') }} <span class="text-danger">*</span>
+                            </label>
+                            <textarea name="remarks"
+                                      id="booking-followup-remarks-input"
+                                      class="form-control"
+                                      rows="3"
+                                      placeholder="{{ translate('Add_remarks_from_follow_up') }}"
+                                      required></textarea>
+                            @error('remarks')
+                            <div class="text-danger small mt-1">{{ $message }}</div>
+                            @enderror
                         </div>
                     </div>
 

@@ -2280,9 +2280,15 @@ class LeadController extends Controller
             return $this->storeRescheduledFollowup($request, $lead, $requiresNext);
         }
 
+        $request->merge(['remarks' => trim((string) $request->input('remarks', ''))]);
+
+        $remarksRules = $followupMode === 'take'
+            ? ['required', 'string', 'max:1000']
+            : ['nullable', 'string', 'max:1000'];
+
         $validated = $request->validate([
             'followup_at' => 'required|date',
-            'remarks' => 'nullable|string|max:1000',
+            'remarks' => $remarksRules,
             'contact_channel' => ['nullable', 'in:' . implode(',', LeadFollowup::CONTACT_CHANNELS)],
             'recording' => [
                 'nullable',
@@ -2301,6 +2307,7 @@ class LeadController extends Controller
             'next_followup_at.required' => translate('Next_follow_up_date_is_required'),
             'next_followup_at.after' => translate('Reschedule_date_must_be_in_the_future'),
             'recording.mimetypes' => translate('Please_upload_a_valid_audio_recording'),
+            'remarks.required' => translate('Follow_up_remarks_required'),
         ]);
 
         if (($validated['contact_channel'] ?? null) !== LeadFollowup::CHANNEL_CALL && $request->hasFile('recording')) {

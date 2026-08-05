@@ -3681,9 +3681,11 @@ class BookingController extends Controller
         BookingFollowup $followup,
         bool $requiresNext
     ): RedirectResponse {
+        $request->merge(['remarks' => trim((string) $request->input('remarks', ''))]);
+
         $validated = $request->validate([
             'followup_at' => ['required', 'date'],
-            'remarks' => ['nullable', 'string', 'max:1000'],
+            'remarks' => ['required', 'string', 'max:1000'],
             'contact_channel' => ['nullable', 'in:'.implode(',', BookingFollowup::CONTACT_CHANNELS)],
             'recording' => [
                 'nullable',
@@ -3703,6 +3705,7 @@ class BookingController extends Controller
             'next_followup_at.required' => translate('Next_follow_up_date_is_required'),
             'next_followup_at.after' => translate('Reschedule_date_must_be_in_the_future'),
             'recording.mimetypes' => translate('Please_upload_a_valid_audio_recording'),
+            'remarks.required' => translate('Follow_up_remarks_required'),
         ]);
 
         if (($validated['contact_channel'] ?? null) !== BookingFollowup::CHANNEL_CALL && $request->hasFile('recording')) {

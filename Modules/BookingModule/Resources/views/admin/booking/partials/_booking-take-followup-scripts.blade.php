@@ -88,6 +88,8 @@
                 $('#booking-followup-submit-btn').text(labels.reschedule);
                 $('#booking-followup-urgency-group').show();
                 $('#booking-next-followup-input').prop('required', true);
+                $('#booking-followup-remarks-input').prop('required', false);
+                $('#booking-followup-remarks-label .text-danger').addClass('d-none');
                 if (!$('#booking-next-followup-input').val()) {
                     $('#booking-next-followup-input').val($('#booking-next-followup-input').data('default') || '');
                 }
@@ -95,6 +97,8 @@
                 $('#booking-followup-current-section-title').text(labels.thisFollowup);
                 $('#booking-next-followup-label').html(labels.nextFollowup + (mandatoryNext ? ' <span class="text-danger">*</span>' : ''));
                 $('#booking-followup-submit-btn').text(labels.saveChanges);
+                $('#booking-followup-remarks-input').prop('required', true);
+                $('#booking-followup-remarks-label .text-danger').removeClass('d-none');
                 toggleBookingFollowupRecordingField();
                 toggleOptionalNextFields();
             }
