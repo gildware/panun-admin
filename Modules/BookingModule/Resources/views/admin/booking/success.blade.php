@@ -41,7 +41,7 @@
                             </a>
 
                             {{-- View Booking Details --}}
-                            <a href="{{ route('admin.booking.details', ['id' => $booking->id]) }}?web_page=details" class="btn btn-outline-primary">
+                            <a href="{{ route('admin.booking.details', ['id' => $booking->id, 'web_page' => 'details']) }}" class="btn btn-outline-primary" data-turbo="false">
                                 {{ translate('View_Details') }}
                             </a>
 

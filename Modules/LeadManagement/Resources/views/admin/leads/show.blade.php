@@ -17,7 +17,7 @@
             $createdBooking = session('created_booking');
             $createdBookingId = (is_array($createdBooking) && !empty($createdBooking['id'])) ? $createdBooking['id'] : null;
             $createdBookingReadableId = (is_array($createdBooking) && !empty($createdBooking['readable_id'])) ? $createdBooking['readable_id'] : null;
-            $createdBookingDetailsUrl = $createdBookingId ? route('admin.booking.details', $createdBookingId) : null;
+            $createdBookingDetailsUrl = $createdBookingId ? route('admin.booking.details', [$createdBookingId, 'web_page' => 'details']) : null;
 
             $currentProviderStatusId = ($typeHistory && is_array($typeHistory->data ?? null))
                 ? ($typeHistory->data['provider_lead_status_id'] ?? '')
@@ -161,7 +161,7 @@
                         ({{ translate('Booking_ID') }}: {{ $createdBookingReadableId }})
                     @endif
                 </div>
-                <a href="{{ $createdBookingDetailsUrl }}" class="btn btn-sm btn--primary" @if(!empty($inModal)) target="_top" @endif>
+                <a href="{{ $createdBookingDetailsUrl }}" class="btn btn-sm btn--primary" data-turbo="false" @if(!empty($inModal)) target="_top" @endif>
                     {{ translate('View_Booking_Details') }}
                 </a>
             </div>

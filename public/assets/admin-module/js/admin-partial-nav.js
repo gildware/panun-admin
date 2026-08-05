@@ -9,6 +9,13 @@
     var FULL_PAGE_PATHS = [
         '/admin/provider/create',
     ];
+    var FULL_PAGE_PATH_PREFIXES = [
+        '/admin/booking/details',
+        '/admin/booking/repeat-details',
+        '/admin/booking/repeat-single-details',
+        '/admin/booking/success',
+        '/admin/booking/preview',
+    ];
     var progressEl = null;
     var activeController = null;
     var progressShownAt = 0;
@@ -248,7 +255,13 @@
         try {
             var path = new URL(href, window.location.origin).pathname.replace(/\/+$/, '') || '/';
 
-            return FULL_PAGE_PATHS.indexOf(path) !== -1;
+            if (FULL_PAGE_PATHS.indexOf(path) !== -1) {
+                return true;
+            }
+
+            return FULL_PAGE_PATH_PREFIXES.some(function (prefix) {
+                return path === prefix || path.indexOf(prefix + '/') === 0;
+            });
         } catch (e) {
             return false;
         }

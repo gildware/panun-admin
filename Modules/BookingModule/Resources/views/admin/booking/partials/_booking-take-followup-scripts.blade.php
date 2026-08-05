@@ -259,11 +259,24 @@
             });
         });
 
+        $form.on('submit', function (event) {
+            var action = ($form.attr('action') || '').trim();
+            if (!action) {
+                event.preventDefault();
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(@json(translate('Failed_to_update')));
+                }
+            }
+        });
+
         var takeId = new URLSearchParams(window.location.search).get('take');
         if (takeId && followupRoutes[takeId]) {
-            $('[data-booking-take-followup][data-followup-id="' + takeId + '"]').first().trigger('click');
-            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-                bootstrap.Modal.getOrCreateInstance(document.getElementById('takeFollowupModal')).show();
+            var $takeFollowupBtn = $('[data-booking-take-followup][data-followup-id="' + takeId + '"]').first();
+            if ($takeFollowupBtn.length) {
+                $takeFollowupBtn.trigger('click');
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('takeFollowupModal')).show();
+                }
             }
         }
     })();

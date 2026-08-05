@@ -39,7 +39,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('list/verification/download', [BookingController::class, 'downloadBookingVerificationList'])->name('list.verification.download');
         Route::any('list/offline-payment', [BookingController::class, 'bookingOfflinePaymentList'])->name('offline.payment');
         Route::get('check', [BookingController::class, 'checkBooking'])->name('check');
-        Route::get('details/{id}', [BookingController::class, 'details'])->name('details');
+        Route::any('details/{id}', [BookingController::class, 'details'])->name('details');
         Route::post('{booking}/comments', [BookingCommentController::class, 'store'])->middleware(['can:booking_view'])->name('comments.store');
         Route::put('comments/{comment}/pin', [BookingCommentController::class, 'togglePin'])->middleware(['can:booking_view'])->name('comments.pin');
         Route::delete('comments/{comment}', [BookingCommentController::class, 'destroy'])->middleware(['can:booking_view'])->name('comments.destroy');

@@ -10,7 +10,7 @@
 
         <div class="card">
             <div class="card-body">
-                <form action="{{ route('admin.booking.store') }}" method="POST" id="confirm-booking-form">
+                <form action="{{ route('admin.booking.store') }}" method="POST" id="confirm-booking-form" data-turbo="false">
                     @csrf
 
                     {{-- Same round-trip as main preview: arrays (advance_method_fields, ac_line_amount) must use the shared partial. --}}

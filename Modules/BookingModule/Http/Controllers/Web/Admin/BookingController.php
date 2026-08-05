@@ -2092,7 +2092,7 @@ class BookingController extends Controller
                 }
 
                 return redirect()
-                    ->route('admin.lead.show', $redirectParams)
+                    ->route('admin.lead.show', $redirectParams, 303)
                     ->with('created_booking', [
                         'id' => $booking->id,
                         'readable_id' => $booking->readable_id,
@@ -2100,7 +2100,7 @@ class BookingController extends Controller
             }
 
             // Otherwise go to success screen with options: add new, view details, dashboard
-            return redirect()->route('admin.booking.success', ['id' => $booking->id]);
+            return redirect()->route('admin.booking.success', ['id' => $booking->id], 303);
         } catch (\Throwable $exception) {
             DB::rollBack();
 
@@ -2508,6 +2508,14 @@ class BookingController extends Controller
     public function details($id, Request $request): Renderable|RedirectResponse
     {
         $this->authorize('booking_view');
+
+        if (! $request->isMethod('get')) {
+            return redirect()->route('admin.booking.details', array_merge(
+                ['id' => $id],
+                array_filter($request->only(['web_page', 'activity', 'take']), static fn ($value) => $value !== null && $value !== '')
+            ));
+        }
+
         if ($request->input('web_page') === 'status') {
             return redirect()->route('admin.booking.details', [$id, 'web_page' => 'history']);
         }
@@ -2916,12 +2924,7 @@ class BookingController extends Controller
             'followup_at' => ['required', 'date'],
             'remarks' => ['nullable', 'string', 'max:1000'],
             'contact_channel' => ['nullable', 'in:'.implode(',', BookingFollowup::CONTACT_CHANNELS)],
-            'recording' => [
-                'nullable',
-                'file',
-                'max:10240',
-                'mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/webm,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/x-aac',
-            ],
+            'recording' => voice_recording_file_rules(),
             'urgency' => ['nullable', 'in:'.implode(',', BookingFollowup::URGENCIES)],
             'next_followup_at' => [
                 Rule::requiredIf(fn () => $requiresNext),
@@ -3687,12 +3690,7 @@ class BookingController extends Controller
             'followup_at' => ['required', 'date'],
             'remarks' => ['required', 'string', 'max:1000'],
             'contact_channel' => ['nullable', 'in:'.implode(',', BookingFollowup::CONTACT_CHANNELS)],
-            'recording' => [
-                'nullable',
-                'file',
-                'max:10240',
-                'mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/webm,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/x-aac',
-            ],
+            'recording' => voice_recording_file_rules(),
             'urgency' => ['nullable', 'in:'.implode(',', BookingFollowup::URGENCIES)],
             'next_followup_at' => [
                 Rule::requiredIf(fn () => $requiresNext),
@@ -3983,12 +3981,7 @@ class BookingController extends Controller
             ],
             'called_at' => 'required|date',
             'remarks' => 'nullable|string|max:1000',
-            'recording' => [
-                'nullable',
-                'file',
-                'max:10240',
-                'mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/webm,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/x-aac',
-            ],
+            'recording' => voice_recording_file_rules(),
         ], [
             'called_provider_id.required' => translate('Please_select_a_provider'),
             'called_name.required' => translate('Called_name_is_required'),

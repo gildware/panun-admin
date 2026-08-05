@@ -1056,13 +1056,7 @@ class LeadController extends Controller
             'ad_source_id' => 'sometimes|nullable|exists:adsources,id',
             'handled_by' => 'sometimes|nullable|string|max:64',
             'remarks' => 'sometimes|nullable|string|max:1000',
-            'initial_call_recording' => [
-                'sometimes',
-                'nullable',
-                'file',
-                'max:10240',
-                'mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/webm,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/x-aac',
-            ],
+            'initial_call_recording' => voice_recording_file_rules(),
             'next_followup_at' => [
                 Rule::requiredIf(fn () => $this->leadRequiresMandatoryFollowup($lead)),
                 'sometimes',
@@ -2290,12 +2284,7 @@ class LeadController extends Controller
             'followup_at' => 'required|date',
             'remarks' => $remarksRules,
             'contact_channel' => ['nullable', 'in:' . implode(',', LeadFollowup::CONTACT_CHANNELS)],
-            'recording' => [
-                'nullable',
-                'file',
-                'max:10240',
-                'mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/webm,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/x-aac',
-            ],
+            'recording' => voice_recording_file_rules(),
             'urgency' => ['nullable', 'in:' . implode(',', LeadFollowup::URGENCIES)],
             'next_followup_at' => [
                 Rule::requiredIf(fn () => $requiresNext),
@@ -2563,12 +2552,7 @@ class LeadController extends Controller
             ],
             'called_at' => 'required|date',
             'remarks' => 'nullable|string|max:1000',
-            'recording' => [
-                'nullable',
-                'file',
-                'max:10240',
-                'mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/webm,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/x-aac',
-            ],
+            'recording' => voice_recording_file_rules(),
         ], [
             'called_provider_id.required' => translate('Please_select_a_provider'),
             'called_name.required' => translate('Called_name_is_required'),

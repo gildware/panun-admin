@@ -234,7 +234,7 @@
                                 {{ translate('Edit_Details') }}
                             </button>
                         </form>
-                        <form action="{{ route('admin.booking.store') }}" method="POST" id="confirm-booking-form" class="d-inline">
+                        <form action="{{ route('admin.booking.store') }}" method="POST" id="confirm-booking-form" class="d-inline" data-turbo="false">
                             @csrf
                             @include('bookingmodule::admin.booking.partials._preview-booking-hidden-fields', ['data' => $data])
                             <button type="submit" class="btn btn-primary">
