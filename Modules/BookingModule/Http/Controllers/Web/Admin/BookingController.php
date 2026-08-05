@@ -3816,12 +3816,13 @@ class BookingController extends Controller
             $redirectWebPage = 'details';
         }
 
-        $url = route('admin.booking.details', [$booking->id, 'web_page' => $redirectWebPage]);
+        $redirect = redirect()->route('admin.booking.details', [$booking->id, 'web_page' => $redirectWebPage]);
+
         if ($redirectWebPage !== 'followups') {
-            $url .= '#booking-activity';
+            return $redirect->withFragment('booking-activity');
         }
 
-        return redirect()->to($url);
+        return $redirect;
     }
 
     public function storeCallLog(Request $request, $id): RedirectResponse
@@ -4020,9 +4021,9 @@ class BookingController extends Controller
 
     protected function redirectAfterBookingCallLog(Request $request, Booking $booking): RedirectResponse
     {
-        $url = route('admin.booking.details', [$booking->id, 'web_page' => 'details', 'activity' => 'call']);
-
-        return redirect()->to($url.'#booking-activity');
+        return redirect()
+            ->route('admin.booking.details', [$booking->id, 'web_page' => 'details', 'activity' => 'call'])
+            ->withFragment('booking-activity');
     }
 
     /**
