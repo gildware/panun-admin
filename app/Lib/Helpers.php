@@ -356,6 +356,24 @@ if (!function_exists('getDisk')) {
     }
 }
 
+
+if (!function_exists('voice_recording_file_rules')) {
+    /**
+     * Validation rules for optional voice recording uploads (follow-ups, call logs).
+     *
+     * @return list<mixed>
+     */
+    function voice_recording_file_rules(): array
+    {
+        return [
+            'nullable',
+            'file',
+            'max:10240',
+            new \App\Rules\ValidVoiceRecording(),
+        ];
+    }
+}
+
 if (!function_exists('file_uploader')) {
 //    function file_uploader(string $dir, string $format, array|object|null $image = null, ?string $old_image = null)
 //    {

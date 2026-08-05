@@ -2924,12 +2924,7 @@ class BookingController extends Controller
             'followup_at' => ['required', 'date'],
             'remarks' => ['nullable', 'string', 'max:1000'],
             'contact_channel' => ['nullable', 'in:'.implode(',', BookingFollowup::CONTACT_CHANNELS)],
-            'recording' => [
-                'nullable',
-                'file',
-                'max:10240',
-                'mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/webm,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/x-aac',
-            ],
+            'recording' => voice_recording_file_rules(),
             'urgency' => ['nullable', 'in:'.implode(',', BookingFollowup::URGENCIES)],
             'next_followup_at' => [
                 Rule::requiredIf(fn () => $requiresNext),
@@ -3695,12 +3690,7 @@ class BookingController extends Controller
             'followup_at' => ['required', 'date'],
             'remarks' => ['required', 'string', 'max:1000'],
             'contact_channel' => ['nullable', 'in:'.implode(',', BookingFollowup::CONTACT_CHANNELS)],
-            'recording' => [
-                'nullable',
-                'file',
-                'max:10240',
-                'mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/webm,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/x-aac',
-            ],
+            'recording' => voice_recording_file_rules(),
             'urgency' => ['nullable', 'in:'.implode(',', BookingFollowup::URGENCIES)],
             'next_followup_at' => [
                 Rule::requiredIf(fn () => $requiresNext),
@@ -3991,12 +3981,7 @@ class BookingController extends Controller
             ],
             'called_at' => 'required|date',
             'remarks' => 'nullable|string|max:1000',
-            'recording' => [
-                'nullable',
-                'file',
-                'max:10240',
-                'mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/webm,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/x-aac',
-            ],
+            'recording' => voice_recording_file_rules(),
         ], [
             'called_provider_id.required' => translate('Please_select_a_provider'),
             'called_name.required' => translate('Called_name_is_required'),
