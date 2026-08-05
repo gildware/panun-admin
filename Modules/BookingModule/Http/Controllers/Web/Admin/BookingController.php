@@ -2733,6 +2733,12 @@ class BookingController extends Controller
                 $financialSettlementOutcomes = array_key_exists($scaled, $financialSettlementOutcomes)
                     ? [$scaled => $financialSettlementOutcomes[$scaled]]
                     : [$scaled => translate('Customer did not pay full amount (Loss Making Booking)')];
+            } elseif (booking_can_edit_existing_financial_settlement($booking)) {
+                $currentOutcome = trim((string) ($booking->settlement_outcome ?? ''));
+                $allLabels = BookingFinancialSettlementService::outcomeOptions();
+                $financialSettlementOutcomes = ($currentOutcome !== '' && isset($allLabels[$currentOutcome]))
+                    ? [$currentOutcome => $allLabels[$currentOutcome]]
+                    : [];
             } elseif (BookingFinancialSettlementService::shouldHideDecidedVisitChargeOutcomesForConfigurableBooking($booking)) {
                 unset(
                     $financialSettlementOutcomes[BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL],
@@ -7743,6 +7749,34 @@ class BookingController extends Controller
         return null;
     }
 
+    /**
+     * Preview and save settlement fields: ongoing/on-hold-after-visit, or edit mode on finalized special scenarios.
+     */
+    private function financialSettlementJsonErrorUnlessPreviewOrSaveAllowed(Booking $booking): ?JsonResponse
+    {
+        if ($r = $this->financialSettlementJsonErrorUnlessOngoing($booking)) {
+            if (BookingFinancialSettlementService::canEditExistingSettlement($booking)) {
+                return null;
+            }
+
+            return $r;
+        }
+
+        return null;
+    }
+
+    private function authorizeFinancialSettlementPreviewOrSave(Booking $booking): void
+    {
+        if (auth()->user()?->can('booking_can_manage_status')) {
+            return;
+        }
+        if (BookingFinancialSettlementService::canEditExistingSettlement($booking) && auth()->user()?->can('booking_edit')) {
+            return;
+        }
+
+        $this->authorize('booking_can_manage_status');
+    }
+
     private function assertFinancialSettlementScaledLossSplitValid(Booking $booking, string $outcome, array $config): void
     {
         if ($outcome !== BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
@@ -7815,18 +7849,18 @@ class BookingController extends Controller
      */
     public function financialSettlementPreview(Request $request, string $id): JsonResponse
     {
-        $this->authorize('booking_can_manage_status');
         $booking = $this->booking->find($id);
         if (! $booking) {
             return response()->json(response_formatter(DEFAULT_204), 204);
         }
+        $this->authorizeFinancialSettlementPreviewOrSave($booking);
         if ((int) ($booking->is_repeated ?? 0) === 1) {
             return response()->json(response_formatter([
                 'response_code' => 'default_400',
                 'message' => translate('Financial_settlement_applies_to_single_bookings_only'),
             ]), 422);
         }
-        if ($r = $this->financialSettlementJsonErrorUnlessOngoing($booking)) {
+        if ($r = $this->financialSettlementJsonErrorUnlessPreviewOrSaveAllowed($booking)) {
             return $r;
         }
 
@@ -7862,18 +7896,18 @@ class BookingController extends Controller
      */
     public function financialSettlementSave(Request $request, string $id): JsonResponse
     {
-        $this->authorize('booking_can_manage_status');
         $booking = $this->booking->find($id);
         if (! $booking) {
             return response()->json(response_formatter(DEFAULT_204), 204);
         }
+        $this->authorizeFinancialSettlementPreviewOrSave($booking);
         if ((int) ($booking->is_repeated ?? 0) === 1) {
             return response()->json(response_formatter([
                 'response_code' => 'default_400',
                 'message' => translate('Financial_settlement_applies_to_single_bookings_only'),
             ]), 422);
         }
-        if ($r = $this->financialSettlementJsonErrorUnlessOngoing($booking)) {
+        if ($r = $this->financialSettlementJsonErrorUnlessPreviewOrSaveAllowed($booking)) {
             return $r;
         }
 
@@ -7882,13 +7916,24 @@ class BookingController extends Controller
         ]));
 
         $outcome = $validated['settlement_outcome'];
-        if ($outcome === BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL) {
+        $isEditFinalized = BookingFinancialSettlementService::canEditExistingSettlement($booking);
+        if ($isEditFinalized) {
+            $currentOutcome = trim((string) ($booking->settlement_outcome ?? ''));
+            if ($currentOutcome !== '' && $outcome !== $currentOutcome) {
+                return response()->json(response_formatter([
+                    'response_code' => 'default_400',
+                    'message' => translate('Bfs_cannot_change_scenario_type_on_finalized_booking'),
+                ]), 422);
+            }
+            if (BookingFinancialSettlementService::outcomeUsesDecidedVisitCharges($outcome)) {
+                $this->assertDecidedChargesRetainedStrictlyBelowBookingTotal($booking, $outcome, $validated);
+            }
+        } elseif ($outcome === BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL) {
             return response()->json(response_formatter([
                 'response_code' => 'default_400',
                 'message' => translate('Bfs_use_save_and_cancel_for_after_visit'),
             ]), 422);
-        }
-        if ($outcome === BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT) {
+        } elseif ($outcome === BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT) {
             return response()->json(response_formatter([
                 'response_code' => 'default_400',
                 'message' => translate('Bfs_use_save_and_complete_for_visit_only'),
@@ -7909,6 +7954,11 @@ class BookingController extends Controller
             $config,
             $validated['settlement_remarks'] ?? null
         );
+
+        if ($isEditFinalized && $outcome === BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL) {
+            $booking->after_visit_cancel = true;
+            $booking->save();
+        }
 
         $booking->refresh();
         if ($booking->isOpenReopenTicket()) {

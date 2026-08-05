@@ -1178,6 +1178,72 @@ if (!function_exists('booking_has_special_financial_settlement')) {
     }
 }
 
+if (!function_exists('booking_can_edit_existing_financial_settlement')) {
+    /**
+     * True when admin may reopen the special-scenario modal to edit a finalized booking's settlement.
+     */
+    function booking_can_edit_existing_financial_settlement($booking): bool
+    {
+        if ($booking instanceof BookingRepeat) {
+            $main = $booking->relationLoaded('booking') ? $booking->booking : $booking->booking()->first();
+            $booking = $main;
+        }
+        if (! $booking instanceof Booking) {
+            return false;
+        }
+
+        return \Modules\BookingModule\Services\BookingFinancialSettlementService::canEditExistingSettlement($booking);
+    }
+}
+
+if (!function_exists('booking_admin_can_configure_financial_settlement')) {
+    /**
+     * True when admin may open the full special-scenario modal while the booking is ongoing / on hold after visit.
+     */
+    function booking_admin_can_configure_financial_settlement($booking): bool
+    {
+        if (! auth()->user()?->can('booking_can_manage_status')) {
+            return false;
+        }
+        if ($booking instanceof BookingRepeat) {
+            $main = $booking->relationLoaded('booking') ? $booking->booking : $booking->booking()->first();
+            $booking = $main;
+        }
+        if (! $booking instanceof Booking) {
+            return false;
+        }
+        if ((int) ($booking->is_repeated ?? 0) === 1) {
+            return false;
+        }
+        $status = (string) ($booking->booking_status ?? '');
+        $terminal = in_array($status, ['completed', 'canceled', 'cancelled', 'refunded'], true);
+
+        return ! $terminal && ($status === 'ongoing' || booking_on_hold_is_after_visit_from_ongoing($booking));
+    }
+}
+
+if (!function_exists('booking_admin_can_edit_financial_settlement')) {
+    /**
+     * True when admin may edit settlement fields on a finalized special-scenario booking.
+     */
+    function booking_admin_can_edit_financial_settlement($booking): bool
+    {
+        if (! auth()->user()?->can('booking_edit')) {
+            return false;
+        }
+
+        return booking_can_edit_existing_financial_settlement($booking);
+    }
+}
+
+if (!function_exists('booking_admin_can_open_financial_settlement_modal')) {
+    function booking_admin_can_open_financial_settlement_modal($booking): bool
+    {
+        return booking_admin_can_configure_financial_settlement($booking)
+            || booking_admin_can_edit_financial_settlement($booking);
+    }
+}
+
 if (!function_exists('booking_should_show_admin_revenue_settlement_breakdown')) {
     /**
      * Admin booking details "Revenue & Settlement": show commission-style splits only when there is a real

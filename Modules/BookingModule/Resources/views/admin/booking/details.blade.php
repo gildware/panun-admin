@@ -1173,8 +1173,7 @@
             @include('bookingmodule::admin.booking.partials.details._special-financial-settlement-banner', [
                 'booking' => $booking,
                 'bfsIncludeSettlementModal' => (int) ($booking->is_repeated ?? 0) === 0
-                    && (($booking->booking_status ?? '') === 'ongoing' || booking_on_hold_is_after_visit_from_ongoing($booking))
-                    && ! $bookingNotEditable,
+                    && booking_admin_can_open_financial_settlement_modal($booking),
                 // Loss-making (scaled) bookings: show Record payment button when add-payment modal is available.
                 'bfsAddPaymentModalOnPage' => $bfsShowRecordPaymentButton,
             ])
@@ -2590,24 +2589,30 @@
     @include('bookingmodule::admin.booking.partials.details._service-modal')
 
     @include('bookingmodule::admin.booking.partials._booking-status-reason-modal')
-    @can('booking_can_manage_status')
-        @if((int)($booking->is_repeated ?? 0) === 0 && ! $bookingNotEditable
-            && (($booking->booking_status ?? '') === 'ongoing' || booking_on_hold_is_after_visit_from_ongoing($booking)))
+    @if(booking_admin_can_open_financial_settlement_modal($booking))
+        @php
+            $bfsCanConfigureSettlement = booking_admin_can_configure_financial_settlement($booking);
+            $bfsCanEditExistingSettlement = booking_admin_can_edit_financial_settlement($booking);
+        @endphp
+        @if((int)($booking->is_repeated ?? 0) === 0 && ($bfsCanConfigureSettlement || $bfsCanEditExistingSettlement))
             @include('bookingmodule::admin.booking.partials._financial-settlement-modal', [
                 'booking' => $booking,
                 'financialSettlementOutcomes' => $financialSettlementOutcomes ?? [],
                 'defaultVisitFeeCompanyPercent' => $defaultVisitFeeCompanyPercent ?? 20,
                 'bookingCancellationReasons' => $bookingCancellationReasons ?? collect(),
-                'bfsAllowCollectPayment' => (string) ($booking->booking_status ?? '') === 'ongoing'
+                'bfsAllowCollectPayment' => $bfsCanConfigureSettlement && (
+                    (string) ($booking->booking_status ?? '') === 'ongoing'
                     || (
                         strtolower((string) ($booking->booking_status ?? '')) === 'on_hold'
                         && booking_on_hold_is_after_visit_from_ongoing($booking)
-                    ),
+                    )
+                ),
+                'bfsEditFinalizedMode' => $bfsCanEditExistingSettlement && ! $bfsCanConfigureSettlement,
                 'advancePaymentMethodGroups' => $advancePaymentMethodGroups ?? [],
                 'bfsAddPayLossCaps' => $bfsAddPayLossCaps,
             ])
         @endif
-    @endcan
+    @endif
 
     <div class="modal fade" id="providerModal" tabindex="-1" aria-labelledby="providerModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
