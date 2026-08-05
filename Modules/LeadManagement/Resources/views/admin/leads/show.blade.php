@@ -741,8 +741,15 @@
                                                 @enderror
                                             </div>
                                             <div class="mb-3" id="followup-remarks-group">
-                                                <label class="form-label">{{ translate('Remarks') }}</label>
-                                                <textarea name="remarks" class="form-control" rows="3" placeholder="{{ translate('Add_remarks_from_follow_up') }}">{{ old('remarks') }}</textarea>
+                                                <label class="form-label" id="followup-remarks-label">{{ translate('Remarks') }}</label>
+                                                <textarea name="remarks"
+                                                          id="followup-remarks-input"
+                                                          class="form-control"
+                                                          rows="3"
+                                                          placeholder="{{ translate('Add_remarks_from_follow_up') }}">{{ old('remarks') }}</textarea>
+                                                @error('remarks')
+                                                <div class="text-danger small mt-1">{{ $message }}</div>
+                                                @enderror
                                             </div>
                                         </div>
 
@@ -1542,6 +1549,24 @@
                 toggleFollowupActionFields();
             }
 
+            function toggleFollowupRemarksRequired() {
+                var mode = $('#followup-mode-input').val() || 'add';
+                var action = $('input[name="followup_action"]:checked').val() || '{{ \Modules\LeadManagement\Entities\LeadFollowup::STATUS_TAKEN }}';
+                var isTakeTaken = mode === 'take'
+                    && action !== '{{ \Modules\LeadManagement\Entities\LeadFollowup::STATUS_RESCHEDULE }}';
+                var $label = $('#followup-remarks-label');
+                var $input = $('#followup-remarks-input');
+
+                $input.prop('required', isTakeTaken);
+                if (isTakeTaken) {
+                    if (!$label.find('.text-danger').length) {
+                        $label.append(' <span class="text-danger">*</span>');
+                    }
+                } else {
+                    $label.find('.text-danger').remove();
+                }
+            }
+
             function toggleFollowupActionFields() {
                 var mode = $('#followup-mode-input').val() || 'add';
                 var action = $('input[name="followup_action"]:checked').val() || '{{ \Modules\LeadManagement\Entities\LeadFollowup::STATUS_TAKEN }}';
@@ -1563,6 +1588,7 @@
                     toggleFollowupRecordingField();
                 }
 
+                toggleFollowupRemarksRequired();
                 applyFollowupFutureMin($('#addFollowupModal'));
             }
 
