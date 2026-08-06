@@ -442,7 +442,8 @@
     }
     .emp-dash .progress-card--activity .progress-tab.active,
     .emp-dash .progress-card--contribution .progress-tab.active,
-    .emp-dash .progress-card--rank .progress-tab.active {
+    .emp-dash .progress-card--rank .progress-tab.active,
+    .emp-dash .progress-card--quality .progress-tab.active {
         background: var(--pc-tone); border-color: var(--pc-tone); color: #fff;
     }
     .emp-dash .progress-card--contribution .contribution-row-label .material-symbols-outlined,
@@ -820,7 +821,8 @@
                         @include('adminmodule::partials._employee-progress', [
                             'todayDone' => $scope['today_done'] ?? [],
                             'monthly' => $scope['monthly'] ?? [],
-                            'qualityStats' => $scope['quality_stats'] ?? [],
+                            'qualityStatsDaily' => $scope['quality_stats_daily'] ?? [],
+                            'qualityStatsMonthly' => $scope['quality_stats_monthly'] ?? ($scope['quality_stats'] ?? []),
                             'contributionToday' => $scope['contribution_today'] ?? [],
                             'contributionMonthly' => $scope['contribution_monthly'] ?? [],
                             'progressTitle' => $scope['title'] ?? translate('Team_Progress'),
@@ -839,7 +841,8 @@
                 @include('adminmodule::partials._employee-progress', [
                     'todayDone' => $todayDone,
                     'monthly' => $monthly,
-                    'qualityStats' => $employeeData['quality_stats'] ?? ($monthly['quality_stats'] ?? []),
+                    'qualityStatsDaily' => $employeeData['quality_stats_daily'] ?? [],
+                    'qualityStatsMonthly' => $employeeData['quality_stats_monthly'] ?? ($monthly['quality_stats'] ?? []),
                     'contributionToday' => $contributionToday,
                     'contributionMonthly' => $contributionMonthly,
                     'progressSidePanel' => $employeeData['progress_side_panel'] ?? 'contribution',
