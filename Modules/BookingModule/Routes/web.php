@@ -22,6 +22,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::delete('web-bookings/{id}', [WebBookingController::class, 'destroy'])->middleware(['can:booking_delete'])->name('web-bookings.destroy');
         Route::get('web-provider-requests', [WebProviderRequestController::class, 'index'])->middleware(['can:booking_view'])->name('web-provider-requests.index');
         Route::get('web-provider-requests/{id}', [WebProviderRequestController::class, 'show'])->middleware(['can:booking_view'])->name('web-provider-requests.show');
+        Route::delete('web-provider-requests/{id}', [WebProviderRequestController::class, 'destroy'])->middleware(['can:booking_delete'])->name('web-provider-requests.destroy');
         Route::get('app-custom-requests', [AppCustomRequestController::class, 'index'])->middleware(['can:booking_view'])->name('app-custom-requests.index');
         Route::get('app-custom-requests/{id}', [AppCustomRequestController::class, 'show'])->middleware(['can:booking_view'])->name('app-custom-requests.show');
         Route::post('app-custom-requests/{id}/update', [AppCustomRequestController::class, 'update'])->middleware(['can:booking_view'])->name('app-custom-requests.update');
