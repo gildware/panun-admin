@@ -1,4 +1,4 @@
-<div class="top-nav-inner top-nav-inner--employee {{ is_admin_employee() ? '' : 'top-nav-inner--admin-compact' }}">
+<div class="top-nav-inner {{ is_admin_employee() ? 'top-nav-inner--employee' : 'top-nav-inner--admin-compact' }}">
     @if(is_admin_employee())
         <div class="top-nav-item">
             <a href="{{ route('admin.dashboard') }}" class="top-nav-trigger {{ request()->is('admin/dashboard') ? 'active-menu' : '' }}"
