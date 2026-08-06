@@ -144,13 +144,17 @@
                     </div>
                     <p class="small text-muted mt-2 mb-3">{{ translate('Bfs_closing_shares_tier_hint') }}</p>
                     <div id="bfs-cancel-reason-wrap" class="d-none">
-                        <label class="form-label" for="bfs-cancel-reason">{{ translate('Cancellation_Reason') }}</label>
+                        <label class="form-label" for="bfs-cancel-reason">{{ translate('Cancellation_Reason') }} <span class="text-danger">*</span></label>
                         <select class="form-select bfs-preview-trigger" id="bfs-cancel-reason">
                             <option value="">{{ translate('Select') }}</option>
                             @foreach(($bookingCancellationReasons ?? collect()) as $reason)
                                 <option value="{{ $reason->id }}">{{ $reason->name }}</option>
                             @endforeach
                         </select>
+                        <div class="mt-3">
+                            <label class="form-label" for="bfs-cancel-remarks">{{ translate('Status_change_remarks') }}</label>
+                            <textarea class="form-control" id="bfs-cancel-remarks" rows="2" maxlength="2000" placeholder="{{ translate('Optional') }}"></textarea>
+                        </div>
                     </div>
                 </div>
 
@@ -473,7 +477,7 @@
                     $('#bfs-notes-wrap').addClass('d-none');
                 }
                 $('#bfs-decided-subtitle-cancel').removeClass('d-none');
-                $('#bfs-cancel-reason-wrap').addClass('d-none');
+                $('#bfs-cancel-reason-wrap').removeClass('d-none');
             } else {
                 $('#bfs-notes-wrap').removeClass('d-none');
                 $('#bfs-decided-subtitle-complete').removeClass('d-none');
@@ -547,6 +551,8 @@
     function bfsPayloadSaveAndCancel() {
         const o = bfsPayload();
         o.booking_cancellation_reason_id = $('#bfs-cancel-reason').val() || '';
+        var cancelRemarks = ($('#bfs-cancel-remarks').val() || '').trim();
+        o.status_change_remarks = cancelRemarks !== '' ? cancelRemarks : null;
         return o;
     }
 
@@ -828,7 +834,7 @@
         if (sel === OUTCOMES.VISIT_CANCEL) {
             var hasReason = !!$('#bfs-cancel-reason').val();
             var $bc = $('#bfs-save-cancel-btn');
-            $bc.prop('disabled', blockedDue);
+            $bc.prop('disabled', blockedDue || !hasReason);
             if (blockedDue) {
                 $bc.attr('title', L.saveCancelBlockedDue);
             } else if (!hasReason) {
