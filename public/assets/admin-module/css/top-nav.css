@@ -737,7 +737,8 @@ body:not(.top-chrome-auto-hide) .top-chrome-mode-option--unpin {
     font-size: 1rem;
 }
 
-.top-nav-inner--employee .top-nav-item {
+.top-nav-inner--employee .top-nav-item,
+.top-nav-inner--admin-compact .top-nav-item {
     overflow: visible;
 }
 
@@ -749,27 +750,31 @@ body:not(.top-chrome-auto-hide) .top-chrome-mode-option--unpin {
     line-height: 1.2;
 }
 
-.top-nav-inner--employee .top-nav-label-wrap {
+.top-nav-inner--admin-compact .top-nav-trigger {
+    overflow: visible;
+}
+
+.top-nav-label-wrap {
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
     overflow: visible;
 }
 
-.top-nav-inner--employee .top-nav-label-wrap--badged {
+.top-nav-label-wrap--badged {
     gap: 0.35rem;
 }
 
-.top-nav-inner--employee .top-nav-label-wrap--badged .top-nav-label {
+.top-nav-label-wrap--badged .top-nav-label {
     padding-right: 0;
 }
 
-.top-nav-inner--employee .top-nav-label {
+.top-nav-label {
     flex-shrink: 0;
     line-height: 1.2;
 }
 
-.top-nav-inner--employee .top-nav-count-badge {
+.top-nav-count-badge {
     position: static;
     display: inline-flex;
     align-items: center;
@@ -816,9 +821,10 @@ body:not(.top-chrome-auto-hide) .top-chrome-mode-option--unpin {
     opacity: 0.72;
 }
 
-.top-nav-inner--employee .top-nav-trigger:hover .top-nav-count-badge,
-.top-nav-inner--employee .top-nav-trigger.active-menu .top-nav-count-badge,
-.top-nav-inner--employee .top-nav-trigger.is-active .top-nav-count-badge {
+.top-nav-trigger:hover .top-nav-count-badge,
+.top-nav-trigger.active-menu .top-nav-count-badge,
+.top-nav-trigger.is-active .top-nav-count-badge,
+.top-nav-item.is-open > .top-nav-trigger .top-nav-count-badge {
     background: #FEE2E2;
     color: #B91C1C;
 }
@@ -1129,19 +1135,25 @@ body.admin-pins-editing .top-group-subnav .top-nav-pin-btn.is-pinned:focus-visib
 }
 
 .badge-count {
-    background: var(--bs-primary-light-bg);
-    color: var(--bs-primary);
+    background: #FEE2E2;
+    color: #B91C1C;
     border-radius: 999px;
-    padding: 0.05rem 0.4rem;
+    padding: 0 0.3rem;
+    min-width: 1.125rem;
+    height: 1.125rem;
     font-size: 0.6875rem;
     font-weight: 700;
     flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
 }
 
 .top-nav-dropdown a:hover .badge-count,
 .top-nav-dropdown a.active-menu .badge-count {
     background: #fff;
-    color: var(--bs-primary);
+    color: #B91C1C;
 }
 
 .quick-action-row .material-symbols-outlined {

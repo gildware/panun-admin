@@ -3,7 +3,9 @@
     $todayTotal = (int) ($todayDone['total'] ?? 0);
     $monthStats = $monthly['stats'] ?? [];
     $monthLabel = $monthly['period_label'] ?? '';
-    $qualityStats = $qualityStats ?? ($monthly['quality_stats'] ?? []);
+    $qualityStatsDaily = $qualityStatsDaily ?? ($quality_stats_daily ?? []);
+    $qualityStatsMonthly = $qualityStatsMonthly ?? ($quality_stats_monthly ?? ($qualityStats ?? ($monthly['quality_stats'] ?? [])));
+    $todayLabel = translate('Today');
     $progressTitle = $progressTitle ?? translate('My_Progress');
     $progressSubtitle = $progressSubtitle ?? translate('Progress_dashboard_sub');
     $viewReportUrl = $viewReportUrl ?? route('admin.my-progress');
@@ -33,21 +35,41 @@
                     <div class="progress-card-header">
                         <div class="progress-card-header-main">
                             <span class="progress-card-title">{{ translate('Progress_quality_metrics') }}</span>
-                            @if($monthLabel !== '')
-                                <span class="progress-card-sub">{{ $monthLabel }}</span>
-                            @endif
+                        </div>
+                        <div class="progress-card-header-action">
+                            <div class="progress-tabs" data-tabs="quality">
+                                <button type="button" class="progress-tab active" data-tab="quality-daily">{{ translate('Daily') }}</button>
+                                <button type="button" class="progress-tab" data-tab="quality-monthly">{{ translate('Monthly') }}</button>
+                            </div>
                         </div>
                     </div>
                     <div class="progress-card-body">
-                        @if($qualityStats !== [])
-                            <div class="progress-stat-grid progress-stat-grid--compact">
-                                @foreach($qualityStats as $item)
-                                    @include('adminmodule::partials._employee-progress-stat-tile', ['item' => $item])
-                                @endforeach
+                        <div data-panel="quality-daily" class="activity-panel active">
+                            <div class="activity-panel-meta">
+                                <span>{{ $todayLabel }}</span>
                             </div>
-                        @else
-                            <div class="progress-empty">{{ translate('No_data_available') }}</div>
-                        @endif
+                            <div class="progress-stat-grid progress-stat-grid--compact">
+                                @forelse($qualityStatsDaily as $item)
+                                    @include('adminmodule::partials._employee-progress-stat-tile', ['item' => $item])
+                                @empty
+                                    <div class="progress-empty">{{ translate('No_data_available') }}</div>
+                                @endforelse
+                            </div>
+                        </div>
+                        <div data-panel="quality-monthly" class="activity-panel">
+                            @if($monthLabel !== '')
+                                <div class="activity-panel-meta">
+                                    <span>{{ $monthLabel }}</span>
+                                </div>
+                            @endif
+                            <div class="progress-stat-grid progress-stat-grid--compact">
+                                @forelse($qualityStatsMonthly as $item)
+                                    @include('adminmodule::partials._employee-progress-stat-tile', ['item' => $item])
+                                @empty
+                                    <div class="progress-empty">{{ translate('No_data_available') }}</div>
+                                @endforelse
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

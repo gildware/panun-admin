@@ -11,6 +11,7 @@ use Modules\AdminModule\Services\Report\DailyEmployeeReportService;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingFollowup;
 use Modules\LeadManagement\Entities\Lead;
+use Modules\LeadManagement\Entities\LeadFollowup;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\TaskBoardModule\Entities\TaskColumn;
@@ -81,6 +82,8 @@ class EmployeeDashboardService
             'monthly' => $monthlyPerformance,
             'contribution_vs_all' => $contributionVsAll,
             'quality_stats' => $monthlyPerformance['quality_stats'] ?? [],
+            'quality_stats_daily' => $this->buildQualityStatsForUser($userId, $today, $today, $todayTotals),
+            'quality_stats_monthly' => $monthlyPerformance['quality_stats'] ?? [],
             'leaderboard' => $leaderboard,
             'progress_side_panel' => 'contribution',
             'team_rank_rows' => [],
@@ -142,6 +145,8 @@ class EmployeeDashboardService
             ]),
             'today_done' => $this->formatTodayDone($todayTotals, $userId),
             'monthly' => $monthlyPerformance,
+            'quality_stats_daily' => $this->buildQualityStatsForUser($userId, $today, $today, $todayTotals),
+            'quality_stats_monthly' => $monthlyPerformance['quality_stats'] ?? [],
             'quality_stats' => $monthlyPerformance['quality_stats'] ?? [],
             'contribution_today' => $this->contributionVsAllForPeriod(
                 $userId,
@@ -179,7 +184,8 @@ class EmployeeDashboardService
         $todayTotals = $todayReport['totals'] ?? [];
 
         $monthlyPerformance = $this->monthlyPerformanceForTeam($monthStart, $monthEnd, $monthTotals, $employees);
-        $teamQuality = $this->teamProgressQualityMetrics($employees, $monthStart, $monthEnd, $monthTotals);
+        $qualityDaily = $this->buildTeamQualityStatsForPeriod($employees, $today, $today, $todayTotals);
+        $qualityMonthly = $this->buildTeamQualityStatsForPeriod($employees, $monthStart, $monthEnd, $monthTotals);
 
         return [
             'title' => translate('Team_Progress'),
@@ -187,7 +193,9 @@ class EmployeeDashboardService
             'view_report_url' => route('admin.my-progress', ['tab' => 'monthly']),
             'today_done' => $this->formatTodayDoneForTeam($todayTotals, $today, $today),
             'monthly' => $monthlyPerformance,
-            'quality_stats' => $teamQuality,
+            'quality_stats_daily' => $qualityDaily,
+            'quality_stats_monthly' => $qualityMonthly,
+            'quality_stats' => $qualityMonthly,
             'contribution_today' => $this->teamEmployeeShareRows(
                 $todayReport['employee_totals'] ?? [],
                 $todayTotals,
@@ -475,71 +483,94 @@ class EmployeeDashboardService
     }
 
     /**
-     * @param  Collection<int, User>  $employees
-     * @param  array<string, mixed>  $monthTotals
+     * @param  array<string, mixed>  $periodTotals
      * @return list<array<string, mixed>>
      */
-    private function teamProgressQualityMetrics(
+    private function buildQualityStatsForUser(
+        string $userId,
+        Carbon $periodStart,
+        Carbon $periodEnd,
+        array $periodTotals,
+    ): array {
+        $outcomes = $this->bookingOutcomesForPeriod($userId, $periodStart, $periodEnd);
+        $followupDiscipline = $this->followupDisciplineForPeriod($userId, $periodStart, $periodEnd);
+        $qualityMetrics = $this->progressQualityMetricsForPeriod(
+            $userId,
+            $periodStart,
+            $periodEnd,
+            $periodTotals,
+            $outcomes,
+            $followupDiscipline,
+        );
+
+        return $this->buildProgressQualityStatItems($qualityMetrics, $followupDiscipline);
+    }
+
+    /**
+     * @param  Collection<int, User>  $employees
+     * @param  array<string, mixed>  $periodTotals
+     * @return list<array<string, mixed>>
+     */
+    private function buildTeamQualityStatsForPeriod(
         Collection $employees,
-        Carbon $monthStart,
-        Carbon $monthEnd,
-        array $monthTotals,
+        Carbon $periodStart,
+        Carbon $periodEnd,
+        array $periodTotals,
     ): array {
         $leadsHandled = 0;
         $unknownCount = 0;
         $futureCustomerCount = 0;
         $missingDataCount = 0;
-        $missedFollowups = 0;
-        $missedLeadFollowups = 0;
-        $missedBookingFollowups = 0;
-        $dueTotal = 0;
-        $dueLead = 0;
-        $dueBooking = 0;
         $cancelledBookings = 0;
         $completedBookings = 0;
-        $outboundsDone = (int) ($monthTotals['outbound_enquiries'] ?? 0);
+        $leadOnTime = 0;
+        $leadMissed = 0;
+        $bookingOnTime = 0;
+        $bookingMissed = 0;
+        $outboundsDone = (int) ($periodTotals['outbound_enquiries'] ?? 0);
 
         foreach ($employees as $employee) {
             $userId = (string) $employee->id;
-            $followupAccuracy = $this->followupAccuracyStats($userId);
-            $outcomes = $this->bookingOutcomesForPeriod($userId, $monthStart, $monthEnd);
+            $outcomes = $this->bookingOutcomesForPeriod($userId, $periodStart, $periodEnd);
+            $discipline = $this->followupDisciplineForPeriod($userId, $periodStart, $periodEnd);
             $quality = $this->progressQualityMetricsForPeriod(
                 $userId,
-                $monthStart,
-                $monthEnd,
+                $periodStart,
+                $periodEnd,
                 [],
                 $outcomes,
-                $followupAccuracy,
+                $discipline,
             );
 
             $leadsHandled += (int) ($quality['leads_handled'] ?? 0);
             $unknownCount += (int) ($quality['unknown_count'] ?? 0);
             $futureCustomerCount += (int) ($quality['future_customer_count'] ?? 0);
             $missingDataCount += (int) ($quality['leads_missing_data'] ?? 0);
-            $missedFollowups += (int) ($quality['missed_followups'] ?? 0);
-            $missedLeadFollowups += (int) ($quality['missed_lead_followups'] ?? 0);
-            $missedBookingFollowups += (int) ($quality['missed_booking_followups'] ?? 0);
-            $dueTotal += (int) ($followupAccuracy['overall']['due'] ?? 0);
-            $dueLead += (int) ($followupAccuracy['leads']['due'] ?? 0);
-            $dueBooking += (int) ($followupAccuracy['bookings']['due'] ?? 0);
             $cancelledBookings += (int) ($quality['booking_cancelled_count'] ?? 0);
             $completedBookings += (int) ($quality['booking_completed_count'] ?? 0);
+            $leadOnTime += (int) ($discipline['leads']['on_time'] ?? 0);
+            $leadMissed += (int) ($discipline['leads']['missed'] ?? 0);
+            $bookingOnTime += (int) ($discipline['bookings']['on_time'] ?? 0);
+            $bookingMissed += (int) ($discipline['bookings']['missed'] ?? 0);
         }
 
-        $bookingOutcomesTotal = $cancelledBookings + $completedBookings;
-        $aggregatedFollowup = [
-            'overall' => $this->followupAccuracyBucket($dueTotal, $missedFollowups),
-            'leads' => $this->followupAccuracyBucket($dueLead, $missedLeadFollowups),
-            'bookings' => $this->followupAccuracyBucket($dueBooking, $missedBookingFollowups),
+        $followupDiscipline = [
+            'leads' => $this->followupDisciplineBucket($leadOnTime, $leadMissed),
+            'bookings' => $this->followupDisciplineBucket($bookingOnTime, $bookingMissed),
+            'overall' => $this->followupDisciplineBucket($leadOnTime + $bookingOnTime, $leadMissed + $bookingMissed),
         ];
 
+        $bookingOutcomesTotal = $cancelledBookings + $completedBookings;
         $qualityMetrics = [
-            'followup_accuracy' => $aggregatedFollowup['overall']['accuracy_pct'],
-            'lead_followup_accuracy' => $aggregatedFollowup['leads']['accuracy_pct'],
-            'booking_followup_accuracy' => $aggregatedFollowup['bookings']['accuracy_pct'],
-            'missed_followups' => $missedFollowups,
-            'missed_lead_followups' => $missedLeadFollowups,
-            'missed_booking_followups' => $missedBookingFollowups,
+            'followup_accuracy' => $followupDiscipline['overall']['accuracy_pct'],
+            'lead_followup_accuracy' => $followupDiscipline['leads']['accuracy_pct'],
+            'booking_followup_accuracy' => $followupDiscipline['bookings']['accuracy_pct'],
+            'missed_followups' => $followupDiscipline['overall']['missed'],
+            'missed_lead_followups' => $followupDiscipline['leads']['missed'],
+            'missed_booking_followups' => $followupDiscipline['bookings']['missed'],
+            'on_time_followups' => $followupDiscipline['overall']['on_time'],
+            'on_time_lead_followups' => $followupDiscipline['leads']['on_time'],
+            'on_time_booking_followups' => $followupDiscipline['bookings']['on_time'],
             'leads_handled' => $leadsHandled,
             'unknown_count' => $unknownCount,
             'unknown_pct' => $leadsHandled > 0 ? round(($unknownCount / $leadsHandled) * 100, 1) : 0.0,
@@ -554,7 +585,154 @@ class EmployeeDashboardService
             'outbounds_done' => $outboundsDone,
         ];
 
-        return $this->buildProgressQualityStatItems($qualityMetrics, $aggregatedFollowup);
+        return $this->buildProgressQualityStatItems($qualityMetrics, $followupDiscipline);
+    }
+
+    /**
+     * @return array{
+     *     overall: array{on_time: int, missed: int, due: int, accuracy_pct: float},
+     *     leads: array{on_time: int, missed: int, due: int, accuracy_pct: float},
+     *     bookings: array{on_time: int, missed: int, due: int, accuracy_pct: float}
+     * }
+     */
+    private function followupDisciplineForPeriod(string $userId, Carbon $periodStart, Carbon $periodEnd): array
+    {
+        $rangeStart = $periodStart->copy()->startOfDay();
+        $rangeEnd = $periodEnd->copy()->endOfDay();
+        $asOf = Carbon::now()->lt($rangeEnd) ? Carbon::now() : $rangeEnd;
+
+        $leadOnTime = 0;
+        $leadMissed = 0;
+        $leadCompleted = LeadFollowup::query()
+            ->where('created_by', $userId)
+            ->whereNotNull('followup_at')
+            ->whereBetween('followup_at', [$rangeStart, $rangeEnd])
+            ->get(['followup_at', 'due_followup_at']);
+
+        foreach ($leadCompleted as $followup) {
+            $due = $followup->due_followup_at;
+            if (! $due) {
+                continue;
+            }
+
+            if ($followup->followup_at->lte($due->copy()->endOfDay())) {
+                $leadOnTime++;
+            } else {
+                $leadMissed++;
+            }
+        }
+
+        $leadPendingMissedQuery = Lead::query()
+            ->where('handled_by', $userId)
+            ->whereNotNull('next_followup_at')
+            ->whereBetween('next_followup_at', [$rangeStart, $rangeEnd])
+            ->where('next_followup_at', '<', $asOf);
+        $this->leadOpenStatus->restrictQueryToOpenLeads($leadPendingMissedQuery);
+        $leadMissed += (int) $leadPendingMissedQuery->count();
+
+        $bookingOnTime = 0;
+        $bookingMissed = 0;
+        $bookingCompleted = BookingFollowup::query()
+            ->where('created_by', $userId)
+            ->whereNotNull('followup_at')
+            ->whereIn('status', ['completed', 'rescheduled'])
+            ->whereBetween('followup_at', [$rangeStart, $rangeEnd])
+            ->get(['followup_at', 'due_followup_at', 'date']);
+
+        foreach ($bookingCompleted as $followup) {
+            $due = $followup->due_followup_at ?? $followup->date;
+            if (! $due) {
+                continue;
+            }
+
+            $dueAt = $due instanceof Carbon ? $due : Carbon::parse($due);
+            if ($followup->followup_at->lte($dueAt->copy()->endOfDay())) {
+                $bookingOnTime++;
+            } else {
+                $bookingMissed++;
+            }
+        }
+
+        $bookingMissed += (int) BookingFollowup::query()
+            ->where('status', 'scheduled')
+            ->whereBetween('date', [$rangeStart, $rangeEnd])
+            ->where('date', '<', $asOf)
+            ->whereHas('booking', function ($q) use ($userId) {
+                $q->where('assignee_id', $userId)
+                    ->whereIn('booking_status', Booking::STATUSES_FOR_SCHEDULED_FOLLOWUP_LISTS);
+            })
+            ->count();
+
+        return [
+            'leads' => $this->followupDisciplineBucket($leadOnTime, $leadMissed),
+            'bookings' => $this->followupDisciplineBucket($bookingOnTime, $bookingMissed),
+            'overall' => $this->followupDisciplineBucket($leadOnTime + $bookingOnTime, $leadMissed + $bookingMissed),
+        ];
+    }
+
+    /**
+     * @return array{on_time: int, missed: int, due: int, accuracy_pct: float}
+     */
+    private function followupDisciplineBucket(int $onTime, int $missed): array
+    {
+        $due = $onTime + $missed;
+
+        return [
+            'on_time' => $onTime,
+            'missed' => $missed,
+            'due' => $due,
+            'accuracy_pct' => $due > 0 ? max(0, round(($onTime / $due) * 100, 1)) : 100.0,
+        ];
+    }
+
+    private function followupOnTimeMissedSub(array $bucket): string
+    {
+        $onTime = (int) ($bucket['on_time'] ?? 0);
+        $missed = (int) ($bucket['missed'] ?? 0);
+        $due = (int) ($bucket['due'] ?? ($onTime + $missed));
+
+        if ($due === 0) {
+            return translate('Progress_no_followups_due');
+        }
+
+        return str_replace(
+            [':on_time', ':missed'],
+            [(string) $onTime, (string) $missed],
+            translate('Progress_on_time_vs_missed_sub'),
+        );
+    }
+
+    /**
+     * @param  array{on_time: int, missed: int, due: int, accuracy_pct: float}  $overall
+     * @param  array{on_time: int, missed: int, due: int, accuracy_pct: float}  $leads
+     * @param  array{on_time: int, missed: int, due: int, accuracy_pct: float}  $bookings
+     */
+    private function followupDisciplineBreakdownSub(array $overall, array $leads, array $bookings): ?string
+    {
+        if (($overall['due'] ?? 0) === 0) {
+            return null;
+        }
+
+        return str_replace(
+            [':lead_on_time', ':lead_missed', ':booking_on_time', ':booking_missed'],
+            [
+                (string) ($leads['on_time'] ?? 0),
+                (string) ($leads['missed'] ?? 0),
+                (string) ($bookings['on_time'] ?? 0),
+                (string) ($bookings['missed'] ?? 0),
+            ],
+            translate('Progress_followup_lead_booking_sub'),
+        );
+    }
+
+    private function followupDisciplineValue(array $bucket): string
+    {
+        $due = (int) ($bucket['due'] ?? 0);
+        if ($due === 0) {
+            return '—';
+        }
+
+        return ($bucket['accuracy_pct'] ?? 0).'%';
     }
 
     private function completedBookingsCount(string $userId, Carbon $start, Carbon $end): int
@@ -1096,15 +1274,15 @@ class EmployeeDashboardService
         $userId = (string) $user->id;
         $today = Carbon::today();
         $outcomes = $this->bookingOutcomesForPeriod($userId, $periodStart, $periodEnd);
-        $followupAccuracy = $this->followupAccuracyStats($userId);
-        $disciplinePct = $followupAccuracy['overall']['accuracy_pct'];
+        $followupDiscipline = $this->followupDisciplineForPeriod($userId, $periodStart, $periodEnd);
+        $disciplinePct = $followupDiscipline['overall']['accuracy_pct'];
         $qualityMetrics = $this->progressQualityMetricsForPeriod(
             $userId,
             $periodStart,
             $periodEnd,
             $periodTotals,
             $outcomes,
-            $followupAccuracy,
+            $followupDiscipline,
         );
         $contribution = $this->contributionVsAllForPeriod(
             $userId,
@@ -1135,7 +1313,7 @@ class EmployeeDashboardService
             $periodTotals,
             $outcomes,
             $disciplinePct,
-            $followupAccuracy['overall'],
+            $followupDiscipline['overall'],
             $contribution,
             $leaderboard,
             $qualityMetrics,
@@ -1159,10 +1337,10 @@ class EmployeeDashboardService
             'pending_followups' => $pendingFollowups,
             'pipeline' => $pipeline,
             'discipline_pct' => $disciplinePct,
-            'missed_stats' => $followupAccuracy['overall'],
-            'followup_accuracy' => $followupAccuracy,
+            'missed_stats' => $followupDiscipline['overall'],
+            'followup_accuracy' => $followupDiscipline,
             'quality_metrics' => $qualityMetrics,
-            'quality_stats' => $this->buildProgressQualityStatItems($qualityMetrics, $followupAccuracy),
+            'quality_stats' => $this->buildProgressQualityStatItems($qualityMetrics, $followupDiscipline),
             'outcomes' => $outcomes,
         ];
     }
@@ -1174,18 +1352,18 @@ class EmployeeDashboardService
     private function monthlyPerformance(string $userId, Carbon $monthStart, Carbon $monthEnd, array $monthTotals): array
     {
         $outcomes = $this->bookingOutcomesForPeriod($userId, $monthStart, $monthEnd);
-        $followupAccuracy = $this->followupAccuracyStats($userId);
-        $disciplinePct = $followupAccuracy['overall']['accuracy_pct'];
+        $followupDiscipline = $this->followupDisciplineForPeriod($userId, $monthStart, $monthEnd);
+        $disciplinePct = $followupDiscipline['overall']['accuracy_pct'];
         $qualityMetrics = $this->progressQualityMetricsForPeriod(
             $userId,
             $monthStart,
             $monthEnd,
             $monthTotals,
             $outcomes,
-            $followupAccuracy,
+            $followupDiscipline,
         );
         $stats = $this->buildProgressStatItems($monthTotals, $userId, $monthStart, $monthEnd);
-        $qualityStats = $this->buildProgressQualityStatItems($qualityMetrics, $followupAccuracy);
+        $qualityStats = $this->buildProgressQualityStatItems($qualityMetrics, $followupDiscipline);
 
         return [
             'period_label' => Carbon::now()->format('F Y'),
@@ -1196,11 +1374,11 @@ class EmployeeDashboardService
             'booking_followups' => (int) ($monthTotals['booking_followups'] ?? 0),
             'outbounds_done' => (int) ($monthTotals['outbound_enquiries'] ?? 0),
             'followup_discipline_pct' => $disciplinePct,
-            'missed_followups' => $followupAccuracy['overall']['missed'],
+            'missed_followups' => $followupDiscipline['overall']['missed'],
             'stats' => $stats,
             'quality_stats' => $qualityStats,
             'quality_metrics' => $qualityMetrics,
-            'followup_accuracy' => $followupAccuracy,
+            'followup_accuracy' => $followupDiscipline,
             'discipline_stat' => [
                 'key' => 'followup_accuracy',
                 'icon' => 'verified',
@@ -1208,9 +1386,7 @@ class EmployeeDashboardService
                 'value' => $disciplinePct . '%',
                 'is_zero' => false,
                 'tone' => $disciplinePct >= 90 ? 'good' : ($disciplinePct >= 70 ? 'brand' : 'warn'),
-                'sub' => $followupAccuracy['overall']['missed'] > 0
-                    ? str_replace(':count', (string) $followupAccuracy['overall']['missed'], translate('Progress_missed_followups_sub'))
-                    : null,
+                'sub' => $this->followupOnTimeMissedSub($followupDiscipline['overall']),
             ],
         ];
     }
@@ -1361,6 +1537,9 @@ class EmployeeDashboardService
             'missed_followups' => $followupAccuracy['overall']['missed'],
             'missed_lead_followups' => $followupAccuracy['leads']['missed'],
             'missed_booking_followups' => $followupAccuracy['bookings']['missed'],
+            'on_time_followups' => $followupAccuracy['overall']['on_time'] ?? 0,
+            'on_time_lead_followups' => $followupAccuracy['leads']['on_time'] ?? 0,
+            'on_time_booking_followups' => $followupAccuracy['bookings']['on_time'] ?? 0,
             'leads_handled' => $leadsHandled,
             'unknown_count' => $unknownCount,
             'unknown_pct' => $leadsHandled > 0 ? round(($unknownCount / $leadsHandled) * 100, 1) : 0.0,
@@ -1379,9 +1558,9 @@ class EmployeeDashboardService
     /**
      * @param  array<string, mixed>  $qualityMetrics
      * @param  array{
-     *     overall: array{due: int, missed: int, accuracy_pct: float},
-     *     leads: array{due: int, missed: int, accuracy_pct: float},
-     *     bookings: array{due: int, missed: int, accuracy_pct: float}
+     *     overall: array{on_time: int, missed: int, due: int, accuracy_pct: float},
+     *     leads: array{on_time: int, missed: int, due: int, accuracy_pct: float},
+     *     bookings: array{on_time: int, missed: int, due: int, accuracy_pct: float}
      * }  $followupAccuracy
      * @return list<array<string, mixed>>
      */
@@ -1392,40 +1571,31 @@ class EmployeeDashboardService
 
         $items = [
             [
-                'key' => 'followup_accuracy',
-                'icon' => 'verified',
-                'label' => translate('Follow_up_accuracy'),
-                'value' => $qualityMetrics['followup_accuracy'].'%',
-                'raw' => $qualityMetrics['followup_accuracy'],
-                'is_zero' => false,
-                'tone' => $pctTone((float) $qualityMetrics['followup_accuracy']),
-                'sub' => ($followupAccuracy['overall']['missed'] ?? 0) > 0
-                    ? str_replace(':count', (string) $followupAccuracy['overall']['missed'], translate('Progress_missed_followups_sub'))
-                    : null,
+                'key' => 'followup_on_time',
+                'icon' => 'check_circle',
+                'label' => translate('Progress_followups_on_time'),
+                'value' => (string) ($followupAccuracy['overall']['on_time'] ?? 0),
+                'raw' => (int) ($followupAccuracy['overall']['on_time'] ?? 0),
+                'is_zero' => ($followupAccuracy['overall']['on_time'] ?? 0) === 0
+                    && ($followupAccuracy['overall']['due'] ?? 0) > 0,
+                'tone' => ($followupAccuracy['overall']['on_time'] ?? 0) > 0 ? 'good' : 'neutral',
+                'sub' => $this->followupDisciplineBreakdownSub(
+                    $followupAccuracy['overall'],
+                    $followupAccuracy['leads'],
+                    $followupAccuracy['bookings'],
+                ),
             ],
             [
-                'key' => 'lead_followup_accuracy',
-                'icon' => 'call',
-                'label' => translate('Lead_followup_accuracy'),
-                'value' => $qualityMetrics['lead_followup_accuracy'].'%',
-                'raw' => $qualityMetrics['lead_followup_accuracy'],
-                'is_zero' => false,
-                'tone' => $pctTone((float) $qualityMetrics['lead_followup_accuracy']),
-                'sub' => ($followupAccuracy['leads']['missed'] ?? 0) > 0
-                    ? str_replace(':count', (string) $followupAccuracy['leads']['missed'], translate('Progress_missed_lead_followups_sub'))
-                    : null,
-            ],
-            [
-                'key' => 'booking_followup_accuracy',
-                'icon' => 'event',
-                'label' => translate('Booking_followup_accuracy'),
-                'value' => $qualityMetrics['booking_followup_accuracy'].'%',
-                'raw' => $qualityMetrics['booking_followup_accuracy'],
-                'is_zero' => false,
-                'tone' => $pctTone((float) $qualityMetrics['booking_followup_accuracy']),
-                'sub' => ($followupAccuracy['bookings']['missed'] ?? 0) > 0
-                    ? str_replace(':count', (string) $followupAccuracy['bookings']['missed'], translate('Progress_missed_booking_followups_sub'))
-                    : null,
+                'key' => 'followup_missed',
+                'icon' => 'event_busy',
+                'label' => translate('Progress_followups_missed'),
+                'value' => (string) ($followupAccuracy['overall']['missed'] ?? 0),
+                'raw' => (int) ($followupAccuracy['overall']['missed'] ?? 0),
+                'is_zero' => ($followupAccuracy['overall']['missed'] ?? 0) === 0,
+                'tone' => ($followupAccuracy['overall']['missed'] ?? 0) > 0 ? 'warn' : 'good',
+                'sub' => ($followupAccuracy['overall']['due'] ?? 0) > 0
+                    ? $this->followupDisciplineValue($followupAccuracy['overall']).' '.translate('Progress_followup_accuracy_short')
+                    : translate('Progress_no_followups_due'),
             ],
             [
                 'key' => 'future_customer_pct',
@@ -1468,15 +1638,6 @@ class EmployeeDashboardService
                     [(string) ($qualityMetrics['booking_cancelled_count'] ?? 0), (string) ($qualityMetrics['booking_completed_count'] ?? 0)],
                     translate('Progress_cancelled_vs_completed_sub'),
                 ),
-            ],
-            [
-                'key' => 'missed_followups',
-                'icon' => 'event_busy',
-                'label' => translate('Missed_followups'),
-                'value' => (string) ($qualityMetrics['missed_followups'] ?? 0),
-                'raw' => $qualityMetrics['missed_followups'] ?? 0,
-                'is_zero' => ($qualityMetrics['missed_followups'] ?? 0) === 0,
-                'tone' => $countTone((int) ($qualityMetrics['missed_followups'] ?? 0)),
             ],
             [
                 'key' => 'leads_missing_data',
