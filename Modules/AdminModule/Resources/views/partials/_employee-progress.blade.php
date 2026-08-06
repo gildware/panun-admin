@@ -3,15 +3,21 @@
     $todayTotal = (int) ($todayDone['total'] ?? 0);
     $monthStats = $monthly['stats'] ?? [];
     $monthLabel = $monthly['period_label'] ?? '';
+    $progressTitle = $progressTitle ?? translate('My_Progress');
+    $progressSubtitle = $progressSubtitle ?? translate('Progress_dashboard_sub');
+    $monthTitle = $monthTitle ?? translate('My_Month_Report');
+    $contributionTitle = $contributionTitle ?? translate('My_Contribution_vs_All');
+    $contributionSubtitle = $contributionSubtitle ?? translate('Progress_team_share_sub');
+    $viewReportUrl = $viewReportUrl ?? route('admin.my-progress');
 @endphp
 
-<div class="progress-shell" id="section-progress">
+<div class="progress-shell js-progress-shell">
     <div class="progress-shell-header">
         <div>
-            <h5 class="progress-shell-title">{{ translate('My_Progress') }}</h5>
-            <span class="progress-shell-sub">{{ translate('Progress_dashboard_sub') }}</span>
+            <h5 class="progress-shell-title">{{ $progressTitle }}</h5>
+            <span class="progress-shell-sub">{{ $progressSubtitle }}</span>
         </div>
-        <a href="{{ route('admin.my-progress') }}" class="progress-view-report-btn">
+        <a href="{{ $viewReportUrl }}" class="progress-view-report-btn">
             <span class="material-symbols-outlined">analytics</span>
             {{ translate('View_full_progress_report') }}
         </a>
@@ -51,7 +57,7 @@
                 <div class="progress-card progress-card--compact progress-card--month h-100">
                     <div class="progress-card-header">
                         <div class="progress-card-header-main">
-                            <span class="progress-card-title">{{ translate('My_Month_Report') }}</span>
+                            <span class="progress-card-title">{{ $monthTitle }}</span>
                             @if($monthLabel !== '')
                                 <span class="progress-card-sub">{{ $monthLabel }}</span>
                             @endif
@@ -76,8 +82,8 @@
                 <div class="progress-card progress-card--compact progress-card--contribution h-100">
                     <div class="progress-card-header">
                         <div class="progress-card-header-main">
-                            <span class="progress-card-title">{{ translate('My_Contribution_vs_All') }}</span>
-                            <span class="progress-card-sub">{{ translate('Progress_team_share_sub') }}</span>
+                            <span class="progress-card-title">{{ $contributionTitle }}</span>
+                            <span class="progress-card-sub">{{ $contributionSubtitle }}</span>
                         </div>
                         <div class="progress-card-header-action">
                             <div class="progress-tabs" data-tabs="contribution">

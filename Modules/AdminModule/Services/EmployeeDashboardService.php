@@ -66,7 +66,7 @@ class EmployeeDashboardService
             ),
         ];
 
-        return [
+        $payload = [
             'user' => $user,
             'greeting' => $this->greetingForUser($user),
             'focus_line' => $focus['line'],
@@ -79,6 +79,340 @@ class EmployeeDashboardService
             'monthly' => $monthlyPerformance,
             'contribution_vs_all' => $contributionVsAll,
         ];
+
+        if (! $employeeScope) {
+            $payload['progress_scopes'] = $this->buildAdminProgressScopes($this->dashboardEmployees());
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @param  Collection<int, User>  $employees
+     * @return array<string, array<string, mixed>>
+     */
+    private function buildAdminProgressScopes(Collection $employees): array
+    {
+        $scopes = [
+            '__all__' => $this->buildTeamProgressScope($employees),
+        ];
+
+        foreach ($employees as $employee) {
+            $scopes[(string) $employee->id] = $this->buildEmployeeProgressScope($employee);
+        }
+
+        return $scopes;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildEmployeeProgressScope(User $employee): array
+    {
+        $userId = (string) $employee->id;
+        $today = Carbon::today();
+        $monthStart = Carbon::now()->startOfMonth();
+        $monthEnd = Carbon::now()->endOfMonth();
+
+        $monthReport = $this->dailyEmployeeReport->buildReport(collect([$employee]), $monthStart, $monthEnd);
+        $todayReport = $this->dailyEmployeeReport->buildReport(collect([$employee]), $today, $today);
+        $monthTotals = $monthReport['employee_totals'][0] ?? [];
+        $todayTotals = $todayReport['employee_totals'][0] ?? [];
+        $monthlyPerformance = $this->monthlyPerformance($userId, $monthStart, $monthEnd, $monthTotals);
+
+        $name = trim((string) $employee->first_name.' '.(string) $employee->last_name);
+        if ($name === '') {
+            $name = (string) $employee->email;
+        }
+
+        return [
+            'title' => $name,
+            'subtitle' => translate('Employee_progress_sub'),
+            'month_title' => translate('Employee_Month_Report'),
+            'contribution_title' => translate('Employee_Contribution_vs_All'),
+            'contribution_subtitle' => translate('Progress_team_share_sub'),
+            'view_report_url' => route('admin.report.daily-employee.detail', [
+                'date' => $today->toDateString(),
+                'employee_id' => $userId,
+            ]),
+            'today_done' => $this->formatTodayDone($todayTotals, $userId),
+            'monthly' => $monthlyPerformance,
+            'contribution_today' => $this->contributionVsAllForPeriod(
+                $userId,
+                $today,
+                $today,
+                $todayTotals,
+                $this->completedBookingsCount($userId, $today, $today),
+            ),
+            'contribution_monthly' => $this->contributionVsAllForPeriod(
+                $userId,
+                $monthStart,
+                $monthEnd,
+                $monthTotals,
+                (int) ($monthlyPerformance['completed_bookings'] ?? 0),
+            ),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, User>  $employees
+     * @return array<string, mixed>
+     */
+    private function buildTeamProgressScope(Collection $employees): array
+    {
+        $today = Carbon::today();
+        $monthStart = Carbon::now()->startOfMonth();
+        $monthEnd = Carbon::now()->endOfMonth();
+
+        $monthReport = $this->dailyEmployeeReport->buildReport($employees, $monthStart, $monthEnd);
+        $todayReport = $this->dailyEmployeeReport->buildReport($employees, $today, $today);
+        $monthTotals = $monthReport['totals'] ?? [];
+        $todayTotals = $todayReport['totals'] ?? [];
+
+        return [
+            'title' => translate('Team_Progress'),
+            'subtitle' => translate('Team_progress_sub'),
+            'month_title' => translate('Team_Month_Report'),
+            'contribution_title' => translate('Team_activity_by_employee'),
+            'contribution_subtitle' => translate('Team_activity_by_employee_sub'),
+            'view_report_url' => route('admin.report.daily-employee'),
+            'today_done' => $this->formatTodayDoneForTeam($todayTotals, $today, $today),
+            'monthly' => $this->monthlyPerformanceForTeam($monthStart, $monthEnd, $monthTotals, $employees),
+            'contribution_today' => $this->teamEmployeeShareRows(
+                $todayReport['employee_totals'] ?? [],
+                $todayTotals,
+                $today,
+                $today,
+            ),
+            'contribution_monthly' => $this->teamEmployeeShareRows(
+                $monthReport['employee_totals'] ?? [],
+                $monthTotals,
+                $monthStart,
+                $monthEnd,
+            ),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $todayTotals
+     * @return array{total: int, items: list<array<string, mixed>>}
+     */
+    private function formatTodayDoneForTeam(array $todayTotals, Carbon $periodStart, Carbon $periodEnd): array
+    {
+        $items = $this->buildTeamProgressStatItems($todayTotals, $periodStart, $periodEnd);
+
+        return [
+            'total' => $this->progressStatActivityTotal($items),
+            'items' => $items,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $monthTotals
+     * @param  Collection<int, User>  $employees
+     * @return array<string, mixed>
+     */
+    private function monthlyPerformanceForTeam(
+        Carbon $monthStart,
+        Carbon $monthEnd,
+        array $monthTotals,
+        Collection $employees,
+    ): array {
+        $outcomes = $this->teamBookingOutcomesForPeriod($monthStart, $monthEnd);
+        $missedStats = $this->teamMissedFollowupStats($employees);
+        $disciplinePct = max(0, 100 - ($missedStats['pct'] ?? 0));
+        $stats = $this->buildTeamProgressStatItems($monthTotals, $monthStart, $monthEnd);
+
+        return [
+            'period_label' => Carbon::now()->format('F Y'),
+            'completed_bookings' => $outcomes['completed_bookings'],
+            'completed_amount' => $outcomes['completed_amount'],
+            'cancelled_bookings' => $outcomes['cancelled_bookings'],
+            'lead_followups' => (int) ($monthTotals['lead_followups'] ?? 0),
+            'booking_followups' => (int) ($monthTotals['booking_followups'] ?? 0),
+            'outbounds_done' => (int) ($monthTotals['outbound_enquiries'] ?? 0),
+            'followup_discipline_pct' => $disciplinePct,
+            'missed_followups' => $missedStats['missed'],
+            'stats' => $stats,
+            'discipline_stat' => [
+                'key' => 'followup_discipline_pct',
+                'icon' => 'verified',
+                'label' => translate('Follow_up_discipline'),
+                'value' => $disciplinePct.'%',
+                'is_zero' => false,
+                'tone' => $disciplinePct >= 90 ? 'good' : ($disciplinePct >= 70 ? 'brand' : 'warn'),
+                'sub' => $missedStats['missed'] > 0
+                    ? str_replace(':count', (string) $missedStats['missed'], translate('Progress_missed_followups_sub'))
+                    : null,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $periodTotals
+     * @return list<array<string, mixed>>
+     */
+    private function buildTeamProgressStatItems(array $periodTotals, Carbon $periodStart, Carbon $periodEnd): array
+    {
+        $outcomes = $this->teamBookingOutcomesForPeriod($periodStart, $periodEnd);
+        $urls = $this->teamProgressStatUrls();
+        $items = [];
+
+        foreach ($this->progressStatMetricDefinitions() as $definition) {
+            $key = $definition['key'];
+            $source = $definition['source'];
+            $raw = $source === 'report'
+                ? (int) ($periodTotals[$key] ?? 0)
+                : ($source === 'completed_amount'
+                    ? (float) ($outcomes[$source] ?? 0)
+                    : (int) ($outcomes[$source] ?? 0));
+
+            $value = $source === 'completed_amount'
+                ? with_currency_symbol($raw)
+                : (string) (int) $raw;
+
+            $isZero = $source === 'completed_amount' ? $raw <= 0 : $raw <= 0;
+            $tone = $key === 'cancelled_bookings'
+                ? ($raw > 0 ? 'warn' : 'neutral')
+                : $definition['tone'];
+
+            $items[] = [
+                'key' => $key,
+                'icon' => $definition['icon'],
+                'label' => $definition['label'],
+                'value' => $value,
+                'raw' => $raw,
+                'count' => (int) $raw,
+                'is_zero' => $isZero,
+                'tone' => $tone,
+                'url' => $urls[$key] ?? null,
+                'include_in_total' => $definition['include_in_total'],
+            ];
+        }
+
+        return $items;
+    }
+
+    /**
+     * @return array<string, string|null>
+     */
+    private function teamProgressStatUrls(): array
+    {
+        return [
+            'lead_followups' => route('admin.lead.todays_followups'),
+            'booking_followups' => route('admin.booking.todays_followups'),
+            'leads_added' => route('admin.lead.index'),
+            'bookings_created' => route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']),
+            'outbound_enquiries' => route('admin.lead.outbound-enquiry.index'),
+            'whatsapp_chats_replied' => route('admin.whatsapp.conversations.index', ['channel' => 'whatsapp', 'tab' => 'chats']),
+            'whatsapp_chats_closed' => route('admin.whatsapp.conversations.index', ['channel' => 'whatsapp', 'tab' => 'chats']),
+            'booking_status_updates' => route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']),
+            'completed_bookings' => route('admin.booking.list', ['booking_status' => 'completed', 'service_type' => 'all']),
+            'completed_amount' => route('admin.booking.list', ['booking_status' => 'completed', 'service_type' => 'all']),
+            'cancelled_bookings' => route('admin.booking.list', ['booking_status' => 'canceled', 'service_type' => 'all']),
+        ];
+    }
+
+    /**
+     * @return array{completed_bookings: int, completed_amount: float, cancelled_bookings: int}
+     */
+    private function teamBookingOutcomesForPeriod(Carbon $periodStart, Carbon $periodEnd): array
+    {
+        $rangeStart = $periodStart->copy()->startOfDay();
+        $rangeEnd = $periodEnd->copy()->endOfDay();
+
+        $completed = Booking::query()
+            ->where('booking_status', 'completed')
+            ->whereNotNull('assignee_id')
+            ->whereBetween('updated_at', [$rangeStart, $rangeEnd]);
+
+        $cancelled = Booking::query()
+            ->where('booking_status', 'canceled')
+            ->whereNotNull('assignee_id')
+            ->whereBetween('updated_at', [$rangeStart, $rangeEnd]);
+
+        return [
+            'completed_bookings' => (int) (clone $completed)->count(),
+            'completed_amount' => round((float) (clone $completed)->sum('total_booking_amount'), 2),
+            'cancelled_bookings' => (int) $cancelled->count(),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, User>  $employees
+     * @return array{missed: int, due: int, pct: float}
+     */
+    private function teamMissedFollowupStats(Collection $employees): array
+    {
+        $missed = 0;
+        $due = 0;
+
+        foreach ($employees as $employee) {
+            $stats = $this->missedFollowupStats((string) $employee->id);
+            $missed += (int) ($stats['missed'] ?? 0);
+            $due += (int) ($stats['due'] ?? 0);
+        }
+
+        $pct = $due > 0 ? round(($missed / $due) * 100, 1) : 0.0;
+
+        return [
+            'missed' => $missed,
+            'due' => $due,
+            'pct' => $pct,
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $employeeTotals
+     * @param  array<string, mixed>  $teamTotals
+     * @return list<array{key: string, icon: string, label: string, mine: int, all: int, pct: float}>
+     */
+    private function teamEmployeeShareRows(
+        array $employeeTotals,
+        array $teamTotals,
+        Carbon $periodStart,
+        Carbon $periodEnd,
+    ): array {
+        $metricKeys = ['lead_followups', 'booking_followups', 'leads_added', 'bookings_created', 'outbound_enquiries'];
+        $teamActivity = 0;
+
+        foreach ($metricKeys as $key) {
+            $teamActivity += (int) ($teamTotals[$key] ?? 0);
+        }
+
+        $teamActivity += (int) Booking::query()
+            ->where('booking_status', 'completed')
+            ->whereNotNull('assignee_id')
+            ->whereBetween('updated_at', [$periodStart->copy()->startOfDay(), $periodEnd->copy()->endOfDay()])
+            ->count();
+
+        $rows = [];
+
+        foreach ($employeeTotals as $employeeRow) {
+            $employeeId = (string) ($employeeRow['employee_id'] ?? '');
+            if ($employeeId === '') {
+                continue;
+            }
+
+            $employeeActivity = 0;
+            foreach ($metricKeys as $key) {
+                $employeeActivity += (int) ($employeeRow[$key] ?? 0);
+            }
+            $employeeActivity += $this->completedBookingsCount($employeeId, $periodStart, $periodEnd);
+
+            $rows[] = [
+                'key' => $employeeId,
+                'icon' => 'person',
+                'label' => (string) ($employeeRow['employee_name'] ?? $employeeId),
+                'mine' => $employeeActivity,
+                'all' => $teamActivity,
+                'pct' => $teamActivity > 0 ? round(($employeeActivity / $teamActivity) * 100, 1) : 0.0,
+            ];
+        }
+
+        usort($rows, fn (array $a, array $b) => $b['mine'] <=> $a['mine']);
+
+        return $rows;
     }
 
     private function completedBookingsCount(string $userId, Carbon $start, Carbon $end): int

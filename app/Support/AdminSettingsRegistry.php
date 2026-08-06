@@ -233,6 +233,25 @@ final class AdminSettingsRegistry
         return Gate::check($permission);
     }
 
+    public static function itemIsActive(array $item, ?Request $request = null): bool
+    {
+        $request = $request ?? request();
+
+        foreach ($item['routes'] ?? [] as $routeName) {
+            if ($request->routeIs($routeName)) {
+                return true;
+            }
+        }
+
+        foreach ($item['paths'] as $pattern) {
+            if ($request->is($pattern)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static function section(string $key, string $label, string $icon, array $items): array
     {
         return [

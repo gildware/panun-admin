@@ -91,7 +91,7 @@ class AdminController extends Controller
     public function dashboard(Request $request): View|Factory|Application|RedirectResponse
     {
         $employeeData = app(EmployeeDashboardService::class)->build(auth()->user());
-        $showEmployeeProgress = is_admin_employee();
+        $showEmployeeProgress = is_admin_employee() || ! empty($employeeData['progress_scopes']);
 
         return view('adminmodule::dashboard-employee', compact('employeeData', 'showEmployeeProgress'));
     }

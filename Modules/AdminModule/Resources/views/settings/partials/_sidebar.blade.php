@@ -16,12 +16,24 @@
 
     <nav class="settings-module-nav">
         @foreach($settingsSections as $section)
-            <a href="{{ route('admin.settings.index', ['section' => $section['key']]) }}"
-               class="settings-module-nav-link {{ $activeSettingsSectionKey === $section['key'] ? 'is-active' : '' }}"
-               @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
-                <span class="material-symbols-outlined">{{ $section['icon'] }}</span>
-                {{ $section['label'] }}
-            </a>
+            <div class="settings-module-nav-group {{ $activeSettingsSectionKey === $section['key'] ? 'is-open' : '' }}">
+                <a href="{{ route('admin.settings.index', ['section' => $section['key']]) }}"
+                   class="settings-module-nav-link {{ $activeSettingsSectionKey === $section['key'] ? 'is-active' : '' }}"
+                   @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
+                    <span class="material-symbols-outlined">{{ $section['icon'] }}</span>
+                    {{ $section['label'] }}
+                </a>
+
+                <div class="settings-module-nav-sub">
+                    @foreach($section['items'] as $item)
+                        <a href="{{ $item['url'] }}"
+                           class="settings-module-nav-sublink {{ \App\Support\AdminSettingsRegistry::itemIsActive($item) ? 'is-active' : '' }}"
+                           @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
+                            {{ $item['label'] }}
+                        </a>
+                    @endforeach
+                </div>
+            </div>
         @endforeach
     </nav>
 
