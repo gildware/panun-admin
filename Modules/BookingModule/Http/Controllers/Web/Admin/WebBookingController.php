@@ -3,7 +3,9 @@
 namespace Modules\BookingModule\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
+use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Modules\BookingModule\Entities\WebBooking;
@@ -51,6 +53,18 @@ class WebBookingController extends Controller
             : [];
 
         return view('bookingmodule::admin.web-booking.show', compact('booking', 'leadDisplayData'));
+    }
+
+    public function destroy(int $id): RedirectResponse
+    {
+        $this->authorize('booking_delete');
+
+        $booking = WebBooking::query()->findOrFail($id);
+        $booking->delete();
+
+        Toastr::success(translate(DEFAULT_DELETE_200['message']));
+
+        return redirect()->route('admin.booking.web-bookings.index');
     }
 
     /**

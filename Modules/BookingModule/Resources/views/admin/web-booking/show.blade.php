@@ -18,6 +18,16 @@
                                     {{ translate('View_Lead') }}
                                 </a>
                             @endif
+                            @can('booking_delete')
+                                <button type="button"
+                                        class="btn btn-danger"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#wbDeleteModal"
+                                        data-wb-delete-url="{{ route('admin.booking.web-bookings.destroy', $booking->id) }}"
+                                        data-wb-delete-label="{{ $booking->reference_id }} — {{ $booking->name }}">
+                                    {{ translate('Delete') }}
+                                </button>
+                            @endcan
                             <a href="{{ route('admin.booking.web-bookings.index') }}" class="btn btn--secondary">
                                 {{ translate('Back') }}
                             </a>
@@ -104,4 +114,6 @@
             </div>
         </div>
     </div>
+
+    @include('bookingmodule::admin.web-booking.partials._delete-modal')
 @endsection
