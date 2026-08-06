@@ -65,18 +65,18 @@
         font-size: 18px; font-weight: 700; color: var(--wq-brand); line-height: 1.2;
     }
     .emp-progress-report .month-stat-tile .lbl {
-        font-size: 10px; color: var(--wq-muted); margin-top: 4px; line-height: 1.3;
+        font-size: 12px; color: var(--wq-muted); margin-top: 4px; line-height: 1.35;
     }
     .emp-progress-report .report-table-scroll {
         overflow: auto; max-height: 65vh; border: 1px solid var(--wq-border); border-radius: 8px;
     }
     .emp-progress-report .report-daily-table {
-        width: 100%; min-width: 960px; border-collapse: collapse; font-size: 12px;
+        width: 100%; min-width: 960px; border-collapse: collapse; font-size: 13px;
     }
     .emp-progress-report .report-daily-table thead th {
         position: sticky; top: 0; z-index: 1; background: var(--wq-surface);
         padding: 8px 6px; border-bottom: 1px solid var(--wq-border);
-        font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--wq-muted);
+        font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--wq-muted);
         white-space: nowrap;
     }
     .emp-progress-report .report-daily-table tbody td {
@@ -114,11 +114,11 @@
     .emp-progress-report .full-report-sections { margin-top: 0; }
     .emp-progress-report .report-section { margin-bottom: 22px; }
     .emp-progress-report .report-section-title {
-        font-size: 13px; font-weight: 700; color: var(--wq-text);
+        font-size: 14px; font-weight: 700; color: var(--wq-text);
         margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
     }
     .emp-progress-report .report-badge {
-        font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+        font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
         background: var(--wq-brand-soft); color: var(--wq-brand);
     }
     .emp-progress-report .report-badge--danger { background: #fef2f2; color: #dc2626; }
@@ -159,7 +159,7 @@
     }
     .emp-progress-report .contribution-row-label .material-symbols-outlined { font-size: 16px; color: var(--wq-brand); flex-shrink: 0; }
     .emp-progress-report .contribution-row-pct { font-weight: 700; color: var(--wq-brand); }
-    .emp-progress-report .contribution-row-meta { font-size: 10px; color: var(--wq-muted); margin: 2px 0 4px; }
+    .emp-progress-report .contribution-row-meta { font-size: 11px; color: var(--wq-muted); margin: 2px 0 4px; }
     .emp-progress-report .contribution-bar {
         height: 6px; background: #eef0f3; border-radius: 999px; overflow: hidden;
     }
@@ -204,12 +204,12 @@
     }
     .emp-progress-report .report-table-scroll--compact { max-height: 280px; border: none; border-radius: 0; }
     .emp-progress-report .report-detail-table {
-        width: 100%; border-collapse: collapse; font-size: 11px;
+        width: 100%; border-collapse: collapse; font-size: 12px;
     }
     .emp-progress-report .report-detail-table thead th {
         position: sticky; top: 0; background: var(--wq-surface);
         padding: 6px 8px; border-bottom: 1px solid var(--wq-border);
-        font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--wq-muted);
+        font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--wq-muted);
         white-space: nowrap;
     }
     .emp-progress-report .report-detail-table tbody td {
@@ -222,13 +222,13 @@
     }
     .emp-progress-report .report-row-link:hover { text-decoration: underline; }
     .emp-progress-report .cell-primary { display: block; font-weight: 600; color: var(--wq-text); }
-    .emp-progress-report .cell-secondary { display: block; font-size: 10px; color: var(--wq-muted); }
+    .emp-progress-report .cell-secondary { display: block; font-size: 11px; color: var(--wq-muted); }
     .emp-progress-report .type-pill {
-        display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 4px;
+        display: inline-block; font-size: 11px; padding: 2px 6px; border-radius: 4px;
         background: #f1f5f9; color: var(--wq-muted);
     }
     .emp-progress-report .urgency-pill {
-        display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px;
+        display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px;
     }
     .emp-progress-report .urgency-pill.urgency-high { background: #fef2f2; color: #dc2626; }
     .emp-progress-report .urgency-pill.urgency-medium { background: #fffbeb; color: #d97706; }
@@ -263,13 +263,13 @@
         display: flex; flex-direction: column; gap: 0; min-width: 0; flex: 1 1 auto;
     }
     .emp-progress-report .progress-stat-tile--compact .progress-stat-val {
-        font-size: 15px; font-weight: 700; line-height: 1.15; color: var(--wq-brand);
+        font-size: 17px; font-weight: 700; line-height: 1.2; color: var(--wq-brand);
     }
     .emp-progress-report .progress-stat-tile--compact .progress-stat-label {
-        font-size: 10px; font-weight: 600; line-height: 1.2; color: var(--wq-muted);
+        font-size: 12px; font-weight: 600; line-height: 1.25; color: var(--wq-muted);
     }
     .emp-progress-report .progress-stat-tile--compact .progress-stat-sub {
-        font-size: 9px; color: #dc2626; margin-top: 2px; line-height: 1.2;
+        font-size: 10px; color: #dc2626; margin-top: 2px; line-height: 1.25;
     }
     .emp-progress-report .progress-stat-tile--compact.is-zero { opacity: .78; }
     .emp-progress-report .progress-stat-tile--compact.is-zero .progress-stat-icon,
@@ -300,23 +300,47 @@
     <div class="container-fluid">
         <div class="report-topbar">
             <div>
-                <h1 class="report-topbar-title">{{ translate('My_Progress_Report') }}</h1>
+                <h1 class="report-topbar-title">
+                    {{ ! empty($viewingAsAdmin) ? translate('Progress_Report') : translate('My_Progress_Report') }}
+                </h1>
                 <div class="report-topbar-sub">{{ trim(($user->first_name ?? '').' '.($user->last_name ?? '')) ?: ($user->email ?? '') }}</div>
             </div>
+            @if(! empty($viewingAsAdmin) && ! empty($employeeOptions))
+                <form method="get" action="{{ route('admin.my-progress') }}" class="report-filter">
+                    <input type="hidden" name="tab" value="{{ $tab }}">
+                    @if($tab === 'daily')
+                        <input type="hidden" name="date" value="{{ $date }}">
+                    @else
+                        <input type="hidden" name="date_from" value="{{ $dateFrom }}">
+                        <input type="hidden" name="date_to" value="{{ $dateTo }}">
+                    @endif
+                    <label for="progress-employee">{{ translate('Employee') }}</label>
+                    <select id="progress-employee" name="employee_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                        @foreach($employeeOptions as $option)
+                            <option value="{{ $option['id'] }}" {{ (string) $user->id === (string) $option['id'] ? 'selected' : '' }}>
+                                {{ $option['name'] }}
+                            </option>
+                        @endforeach
+                    </select>
+                </form>
+            @endif
         </div>
 
         <div class="report-shell">
             <div class="report-shell-header">
                 <div class="report-tabs">
-                    <a href="{{ route('admin.my-progress', ['tab' => 'daily', 'date' => $tab === 'daily' ? ($date ?? today()->toDateString()) : today()->toDateString()]) }}"
+                    <a href="{{ route('admin.my-progress', array_merge($employeeQuery ?? [], ['tab' => 'daily', 'date' => $tab === 'daily' ? ($date ?? today()->toDateString()) : today()->toDateString()])) }}"
                        class="report-tab {{ $tab === 'daily' ? 'active' : '' }}">{{ translate('Daily_Report') }}</a>
-                    <a href="{{ route('admin.my-progress', ['tab' => 'monthly']) }}"
+                    <a href="{{ route('admin.my-progress', array_merge($employeeQuery ?? [], ['tab' => 'monthly'])) }}"
                        class="report-tab {{ $tab === 'monthly' ? 'active' : '' }}">{{ translate('Monthly_Report') }}</a>
                 </div>
 
                 @if($tab === 'daily')
                     <form method="get" action="{{ route('admin.my-progress') }}" class="report-filter">
                         <input type="hidden" name="tab" value="daily">
+                        @foreach($employeeQuery ?? [] as $key => $value)
+                            <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                        @endforeach
                         <label for="progress-date">{{ translate('Date') }}</label>
                         <input type="date" id="progress-date" name="date" value="{{ $date }}">
                         <button type="submit" class="btn btn-brand">{{ translate('Apply') }}</button>
@@ -324,6 +348,9 @@
                 @else
                     <form method="get" action="{{ route('admin.my-progress') }}" class="report-filter">
                         <input type="hidden" name="tab" value="monthly">
+                        @foreach($employeeQuery ?? [] as $key => $value)
+                            <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                        @endforeach
                         <label for="progress-from">{{ translate('From') }}</label>
                         <input type="date" id="progress-from" name="date_from" value="{{ $dateFrom }}">
                         <label for="progress-to">{{ translate('To') }}</label>
@@ -362,6 +389,7 @@
                     <p class="text-muted mb-3" style="font-size:12px">{{ translate('Monthly_report_for') }} <strong>{{ $periodLabel }}</strong></p>
 
                     @if(! empty($monthly['stats']))
+                        <h6 class="mb-2" style="font-size:12px;font-weight:700;color:#374151">{{ translate('Progress_activity_metrics') }}</h6>
                         <div class="progress-stat-grid mb-3">
                             @foreach($monthly['stats'] as $stat)
                                 @include('adminmodule::partials._employee-progress-stat-tile', ['item' => $stat])
@@ -388,7 +416,7 @@
                                 @forelse($dailyRows as $row)
                                     <tr>
                                         <td>
-                                            <a class="day-link" href="{{ route('admin.my-progress', ['tab' => 'daily', 'date' => $row['date']]) }}">
+                                            <a class="day-link" href="{{ route('admin.my-progress', array_merge($employeeQuery ?? [], ['tab' => 'daily', 'date' => $row['date']])) }}">
                                                 {{ $row['date_label'] }}
                                             </a>
                                         </td>

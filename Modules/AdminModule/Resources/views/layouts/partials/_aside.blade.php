@@ -303,7 +303,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         || request()->routeIs('admin.lead.reports.outbound')
                         || request()->routeIs('admin.lead.reports.index')
                         || request()->routeIs('admin.lead.reports.user')
-                        || request()->routeIs('admin.report.daily-employee');
+                        || request()->routeIs('admin.my-progress');
                 @endphp
                 <li class="has-sub-item {{ $reportsMenuOpen ? 'sub-menu-opened' : '' }}">
                     <a href="#" class="{{ $reportsMenuOpen ? 'active-menu' : '' }}">
@@ -351,9 +351,9 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                                 </a>
                             </li>
                             <li>
-                                <a href="{{ route('admin.report.daily-employee') }}"
-                                   class="{{ request()->routeIs('admin.report.daily-employee') ? 'active-menu' : '' }}">
-                                    {{ translate('Daily_Employee_Report') }}
+                                <a href="{{ route('admin.my-progress', ['tab' => 'monthly']) }}"
+                                   class="{{ request()->routeIs('admin.my-progress') ? 'active-menu' : '' }}">
+                                    {{ translate('Progress_Report') }}
                                 </a>
                             </li>
                         @endcan

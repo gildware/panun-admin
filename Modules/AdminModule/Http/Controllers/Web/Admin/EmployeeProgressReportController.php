@@ -26,12 +26,7 @@ class EmployeeProgressReportController extends Controller
      */
     public function index(Request $request): Renderable
     {
-        if (! is_admin_employee()) {
-            abort(403);
-        }
-
-        /** @var User $user */
-        $user = auth()->user();
+        $user = $this->resolveProgressReportUser($request);
         $userId = (string) $user->id;
         $employees = collect([$user]);
         $tab = in_array($request->input('tab'), ['daily', 'monthly'], true)
@@ -40,6 +35,9 @@ class EmployeeProgressReportController extends Controller
 
         $metricColumns = $this->metricColumns();
         $sectionDefs = $this->detailSectionDefs();
+        $employeeOptions = $this->employeeOptionsForViewer();
+        $viewingAsAdmin = ! is_admin_employee();
+        $employeeQuery = $viewingAsAdmin ? ['employee_id' => $userId] : [];
 
         if ($tab === 'monthly') {
             [$dateFrom, $dateTo] = $this->resolveMonthRange($request);
@@ -70,6 +68,9 @@ class EmployeeProgressReportController extends Controller
                 'fullReport' => $fullReport,
                 'detail' => null,
                 'date' => null,
+                'employeeOptions' => $employeeOptions,
+                'viewingAsAdmin' => $viewingAsAdmin,
+                'employeeQuery' => $employeeQuery,
             ]);
         }
 
@@ -97,7 +98,74 @@ class EmployeeProgressReportController extends Controller
             'dateFrom' => null,
             'dateTo' => null,
             'periodLabel' => null,
+            'employeeOptions' => $employeeOptions,
+            'viewingAsAdmin' => $viewingAsAdmin,
+            'employeeQuery' => $employeeQuery,
         ]);
+    }
+
+    /**
+     * @throws AuthorizationException
+     */
+    private function resolveProgressReportUser(Request $request): User
+    {
+        if (is_admin_employee()) {
+            /** @var User $user */
+            $user = auth()->user();
+
+            return $user;
+        }
+
+        $this->authorize('report_view');
+
+        $employeeId = $request->input('employee_id');
+        if (! $employeeId) {
+            /** @var User|null $firstEmployee */
+            $firstEmployee = User::query()
+                ->where('user_type', 'admin-employee')
+                ->orderBy('first_name')
+                ->orderBy('last_name')
+                ->first();
+
+            if (! $firstEmployee) {
+                abort(404);
+            }
+
+            return $firstEmployee;
+        }
+
+        /** @var User $employee */
+        $employee = User::query()
+            ->where('user_type', 'admin-employee')
+            ->findOrFail($employeeId);
+
+        return $employee;
+    }
+
+    /**
+     * @return list<array{id: string, name: string}>
+     */
+    private function employeeOptionsForViewer(): array
+    {
+        if (is_admin_employee()) {
+            return [];
+        }
+
+        return User::query()
+            ->where('user_type', 'admin-employee')
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get(['id', 'first_name', 'last_name', 'email'])
+            ->map(function (User $employee): array {
+                $name = trim((string) $employee->first_name.' '.(string) $employee->last_name);
+
+                return [
+                    'id' => (string) $employee->id,
+                    'name' => $name !== '' ? $name : (string) $employee->email,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     /**
@@ -106,12 +174,7 @@ class EmployeeProgressReportController extends Controller
     private function metricColumns(): array
     {
         return [
-            ['key' => 'leads_added', 'label' => translate('Leads_Added'), 'short' => translate('Leads_Added_short'), 'group' => 'leads'],
-            ['key' => 'leads_assigned', 'label' => translate('Leads_Assigned'), 'short' => translate('Leads_Assigned_short'), 'group' => 'leads'],
-            ['key' => 'lead_followups', 'label' => translate('Lead_Followups_Taken'), 'short' => translate('Lead_Followups_short'), 'group' => 'leads'],
             ['key' => 'bookings_created', 'label' => translate('Bookings_Created'), 'short' => translate('Bookings_Created_short'), 'group' => 'bookings'],
-            ['key' => 'booking_followups', 'label' => translate('Booking_Followups_Taken'), 'short' => translate('Booking_Followups_short'), 'group' => 'bookings'],
-            ['key' => 'booking_status_updates', 'label' => translate('Booking_Status_Updates'), 'short' => translate('Booking_Status_short'), 'group' => 'bookings'],
             ['key' => 'outbound_enquiries', 'label' => translate('Outbound_Enquiries'), 'short' => translate('Outbound_short'), 'group' => 'other'],
         ];
     }
@@ -123,39 +186,6 @@ class EmployeeProgressReportController extends Controller
     {
         return [
             [
-                'key' => 'leads_added',
-                'title' => translate('Leads_Added'),
-                'columns' => [
-                    ['key' => 'name', 'label' => translate('Name')],
-                    ['key' => 'phone', 'label' => translate('Phone')],
-                    ['key' => 'lead_type', 'label' => translate('Type')],
-                    ['key' => 'source', 'label' => translate('Lead_Source')],
-                    ['key' => 'at', 'label' => translate('Time')],
-                ],
-            ],
-            [
-                'key' => 'leads_assigned',
-                'title' => translate('Leads_Assigned'),
-                'columns' => [
-                    ['key' => 'name', 'label' => translate('Name')],
-                    ['key' => 'phone', 'label' => translate('Phone')],
-                    ['key' => 'from', 'label' => translate('Assigned_From')],
-                    ['key' => 'employee', 'label' => translate('Employee')],
-                    ['key' => 'at', 'label' => translate('Time')],
-                ],
-            ],
-            [
-                'key' => 'lead_followups',
-                'title' => translate('Lead_Followups_Taken'),
-                'columns' => [
-                    ['key' => 'name', 'label' => translate('Lead')],
-                    ['key' => 'phone', 'label' => translate('Phone')],
-                    ['key' => 'remarks', 'label' => translate('Remarks')],
-                    ['key' => 'urgency', 'label' => translate('Urgency')],
-                    ['key' => 'at', 'label' => translate('Time')],
-                ],
-            ],
-            [
                 'key' => 'bookings_created',
                 'title' => translate('Bookings_Created'),
                 'columns' => [
@@ -164,26 +194,6 @@ class EmployeeProgressReportController extends Controller
                     ['key' => 'phone', 'label' => translate('Phone')],
                     ['key' => 'status', 'label' => translate('Status')],
                     ['key' => 'from_lead', 'label' => translate('From_Lead')],
-                    ['key' => 'at', 'label' => translate('Time')],
-                ],
-            ],
-            [
-                'key' => 'booking_followups',
-                'title' => translate('Booking_Followups_Taken'),
-                'columns' => [
-                    ['key' => 'readable_id', 'label' => translate('Booking_ID')],
-                    ['key' => 'reason', 'label' => translate('Reason')],
-                    ['key' => 'for', 'label' => translate('For')],
-                    ['key' => 'status', 'label' => translate('Status')],
-                    ['key' => 'at', 'label' => translate('Time')],
-                ],
-            ],
-            [
-                'key' => 'booking_status_updates',
-                'title' => translate('Booking_Status_Updates'),
-                'columns' => [
-                    ['key' => 'readable_id', 'label' => translate('Booking_ID')],
-                    ['key' => 'status', 'label' => translate('Status')],
                     ['key' => 'at', 'label' => translate('Time')],
                 ],
             ],

@@ -4,15 +4,20 @@ namespace Database\Seeders;
 
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
+use Modules\AdminModule\Entities\StaffActivityEvent;
+use Modules\AdminModule\Entities\StaffPresencePeriod;
 use Modules\BookingModule\Entities\Booking;
+use Modules\BookingModule\Entities\BookingChangeLog;
 use Modules\BookingModule\Entities\BookingFollowup;
 use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadFollowup;
+use Modules\LeadManagement\Entities\LeadFutureCustomerReason;
+use Modules\LeadManagement\Entities\LeadOutboundEnquiry;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Entities\Source;
 use Modules\ProviderManagement\Entities\Provider;
@@ -26,19 +31,17 @@ use Modules\WhatsAppModule\Entities\WhatsAppUser;
 use Modules\ZoneManagement\Entities\Zone;
 
 /**
- * Seeds demo data for the Employee dashboard and related admin lists.
+ * Seeds demo data for employee dashboard and progress report across all admin employees.
  *
  * Run: php artisan db:seed --class=EmployeeDashboardDemoSeeder
  */
 class EmployeeDashboardDemoSeeder extends Seeder
 {
-    private const DEMO_EMAIL = 'employee.demo@panunkaergar.com';
+    private const LEAD_REMARKS = 'Progress report demo lead.';
 
-    private const PHONE_PREFIX = '+19970000';
+    private const BOOKING_MARKER = '[PROGRESS-DEMO]';
 
-    private const BOOKING_MARKER = '[EMP-DEMO]';
-
-    private const TASK_MARKER = '[EMP-DEMO]';
+    private const TASK_MARKER = '[PROGRESS-DEMO]';
 
     public function run(): void
     {
@@ -48,110 +51,146 @@ class EmployeeDashboardDemoSeeder extends Seeder
             return;
         }
 
-        $demoEmployee = User::query()->where('email', self::DEMO_EMAIL)->first();
-        if (! $demoEmployee) {
-            $this->command?->error('Demo employee not found. Run the Employee role migration first.');
+        $employees = User::query()
+            ->where('user_type', 'admin-employee')
+            ->where('is_active', 1)
+            ->orderBy('email')
+            ->get();
+
+        if ($employees->isEmpty()) {
+            $this->command?->error('No active admin-employee users found.');
 
             return;
         }
-
-        $otherEmployees = User::query()
-            ->where('user_type', 'admin-employee')
-            ->where('is_active', 1)
-            ->where('id', '!=', $demoEmployee->id)
-            ->orderBy('email')
-            ->limit(2)
-            ->get();
 
         $this->purgeDemoData();
 
         $sourceId = Source::query()->where('is_active', true)->orderBy('id')->value('id');
         $pendingStatusId = CustomerLeadStatus::defaultPendingStatusId();
+        $futureReasonId = LeadFutureCustomerReason::query()->where('is_active', true)->orderBy('id')->value('id');
         $zoneId = Zone::query()->ofStatus(1)->orderBy('name')->value('id');
         $provider = Provider::query()->first();
         $customer = User::query()->inCustomerDirectory()->first();
         $now = Carbon::now();
         $today = Carbon::today();
+        $monthStart = $today->copy()->startOfMonth();
 
         DB::transaction(function () use (
-            $demoEmployee,
-            $otherEmployees,
+            $employees,
             $sourceId,
             $pendingStatusId,
+            $futureReasonId,
             $zoneId,
             $provider,
             $customer,
             $now,
             $today,
+            $monthStart,
         ) {
-            $this->seedLeads($demoEmployee, $sourceId, $pendingStatusId, $zoneId, $today, $now);
-            $this->seedBookings($demoEmployee, $otherEmployees, $provider, $customer, $zoneId, $today, $now);
-            $this->seedTasks($demoEmployee, $today, $now);
-            $this->seedWhatsApp($demoEmployee, $now);
-            $this->seedTodayActivity($demoEmployee, $today, $now);
+            foreach ($employees as $index => $employee) {
+                $phonePrefix = '+1998'.str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT);
+
+                $this->seedLeadsForEmployee(
+                    $employee,
+                    $phonePrefix,
+                    $sourceId,
+                    $pendingStatusId,
+                    $futureReasonId,
+                    $zoneId,
+                    $today,
+                    $now,
+                    $monthStart,
+                    $index,
+                );
+
+                $this->seedBookingsForEmployee(
+                    $employee,
+                    $provider,
+                    $customer,
+                    $zoneId,
+                    $today,
+                    $now,
+                    $monthStart,
+                    $index,
+                );
+
+                $this->seedOutboundForEmployee($employee, $phonePrefix, $today, $now, $monthStart, $index);
+                $this->seedMonthActivityForEmployee($employee, $phonePrefix, $today, $monthStart, $index);
+                $this->seedPresenceForEmployee($employee, $today, $monthStart, $index);
+                $this->seedTasksForEmployee($employee, $today, $now, $index);
+                $this->seedWhatsAppForEmployee($employee, $phonePrefix, $now, $index);
+            }
         });
 
-        $service = app(\Modules\AdminModule\Services\EmployeeDashboardService::class);
-        $dashboard = $service->build($demoEmployee);
-
         $this->command?->info(sprintf(
-            'Employee dashboard demo ready for %s — overdue: %d, due today: %d, upcoming: %d, open assigned: %d',
-            self::DEMO_EMAIL,
-            $dashboard['pulse']['overdue'],
-            $dashboard['pulse']['due_today'],
-            $dashboard['pulse']['upcoming'],
-            $dashboard['pulse']['open_assigned'],
+            'Progress report demo seeded for %d employee(s): %s',
+            $employees->count(),
+            $employees->pluck('email')->implode(', '),
         ));
-        $this->command?->info('Login: /admin/auth/login — Email: '.self::DEMO_EMAIL.' / Password: Employee@2026');
+        $this->command?->info('View at /admin/my-progress (employee) or /admin/my-progress?employee_id=... (admin).');
     }
 
-    private function seedLeads(
+    private function seedLeadsForEmployee(
         User $employee,
+        string $phonePrefix,
         ?int $sourceId,
         ?int $pendingStatusId,
+        ?int $futureReasonId,
         ?string $zoneId,
         Carbon $today,
         Carbon $now,
+        Carbon $monthStart,
+        int $employeeIndex,
     ): void {
         $employeeId = (string) $employee->id;
+        $namePrefix = 'Progress Demo E'.($employeeIndex + 1);
+
         $plans = [
-            ['suffix' => '001', 'name' => 'Emp Demo — Missed AC Repair', 'followup' => $today->copy()->subDays(2)->setTime(10, 0)],
-            ['suffix' => '002', 'name' => 'Emp Demo — Missed Plumbing', 'followup' => $today->copy()->subDay()->setTime(15, 30)],
-            ['suffix' => '003', 'name' => 'Emp Demo — Today Geyser', 'followup' => $today->copy()->setTime(11, 0)],
-            ['suffix' => '004', 'name' => 'Emp Demo — Today Cleaning', 'followup' => $today->copy()->setTime(16, 0)],
-            ['suffix' => '005', 'name' => 'Emp Demo — Upcoming Painting', 'followup' => $today->copy()->addDays(2)->setTime(12, 0)],
-            ['suffix' => '006', 'name' => 'Emp Demo — Upcoming CCTV', 'followup' => $today->copy()->addDays(5)->setTime(9, 30)],
-            ['suffix' => '007', 'name' => 'Emp Demo — Pending No Followup', 'followup' => null],
-            ['suffix' => '008', 'name' => 'Emp Demo — Pending Callback', 'followup' => null],
-            ['suffix' => '009', 'name' => '', 'followup' => $today->copy()->addDay()->setTime(14, 0), 'missing' => 'name'],
-            ['suffix' => '010', 'name' => 'Emp Demo — Missing Phone', 'followup' => null, 'missing' => 'phone', 'phone' => ''],
-            ['suffix' => '013', 'name' => 'Emp Demo — Missing Source', 'followup' => null, 'missing' => 'source'],
-            ['suffix' => '011', 'name' => 'Emp Demo — Unassigned Pool A', 'followup' => $today->copy()->addDay(), 'unassigned' => true],
-            ['suffix' => '012', 'name' => 'Emp Demo — Unassigned Pool B', 'followup' => null, 'unassigned' => true],
+            ['suffix' => '0001', 'name' => $namePrefix.' — Missed AC', 'type' => Lead::TYPE_CUSTOMER, 'followup' => $today->copy()->subDays(2)->setTime(10, 0), 'received_days_ago' => 8],
+            ['suffix' => '0002', 'name' => $namePrefix.' — Missed Plumbing', 'type' => Lead::TYPE_CUSTOMER, 'followup' => $today->copy()->subDay()->setTime(15, 30), 'received_days_ago' => 7],
+            ['suffix' => '0003', 'name' => $namePrefix.' — Due Today Geyser', 'type' => Lead::TYPE_CUSTOMER, 'followup' => $today->copy()->setTime(11, 0), 'received_days_ago' => 5],
+            ['suffix' => '0004', 'name' => $namePrefix.' — Upcoming Painting', 'type' => Lead::TYPE_CUSTOMER, 'followup' => $today->copy()->addDays(2)->setTime(12, 0), 'received_days_ago' => 4],
+            ['suffix' => '0005', 'name' => $namePrefix.' — Unknown Lead A', 'type' => Lead::TYPE_UNKNOWN, 'followup' => $today->copy()->addDay()->setTime(14, 0), 'received_days_ago' => 6],
+            ['suffix' => '0006', 'name' => $namePrefix.' — Unknown Lead B', 'type' => Lead::TYPE_UNKNOWN, 'followup' => null, 'received_days_ago' => 10],
+            ['suffix' => '0007', 'name' => $namePrefix.' — Future Customer', 'type' => Lead::TYPE_FUTURE_CUSTOMER, 'followup' => null, 'received_days_ago' => 9, 'future' => true],
+            ['suffix' => '0008', 'name' => '', 'type' => Lead::TYPE_CUSTOMER, 'followup' => null, 'received_days_ago' => 3, 'missing' => 'name'],
+            ['suffix' => '0009', 'name' => $namePrefix.' — Missing Status', 'type' => Lead::TYPE_CUSTOMER, 'followup' => null, 'received_days_ago' => 2, 'missing' => 'status'],
+            ['suffix' => '0010', 'name' => $namePrefix.' — Added This Month', 'type' => Lead::TYPE_CUSTOMER, 'followup' => $today->copy()->addDays(3), 'received_days_ago' => 1, 'created_by_self' => true],
         ];
 
-        foreach ($plans as $index => $plan) {
-            $phone = array_key_exists('phone', $plan)
-                ? $plan['phone']
-                : self::PHONE_PREFIX.str_pad($plan['suffix'], 4, '0', STR_PAD_LEFT);
-            $receivedAt = $now->copy()->subDays(3 + ($index % 5))->setTime(9 + ($index % 6), 0);
-            $handledBy = ! empty($plan['unassigned']) ? null : $employeeId;
+        foreach ($plans as $plan) {
+            $phone = $phonePrefix.str_pad($plan['suffix'], 4, '0', STR_PAD_LEFT);
+            $daysAgo = (int) ($plan['received_days_ago'] ?? 3);
+            $receivedAt = $today->copy()->subDays($daysAgo)->max($monthStart)->setTime(9 + ($employeeIndex % 4), 15);
 
             $leadId = DB::table('leads')->insertGetId([
                 'name' => ($plan['missing'] ?? '') === 'name' ? null : $plan['name'],
-                'phone_number' => ($plan['missing'] ?? '') === 'phone' ? '' : $phone,
-                'source_id' => ($plan['missing'] ?? '') === 'source' ? null : $sourceId,
-                'lead_type' => Lead::TYPE_CUSTOMER,
+                'phone_number' => $phone,
+                'source_id' => $sourceId,
+                'lead_type' => $plan['type'],
                 'date_time_of_lead_received' => $receivedAt,
-                'handled_by' => $handledBy,
-                'remarks' => 'Employee dashboard demo lead.',
+                'handled_by' => $employeeId,
+                'remarks' => self::LEAD_REMARKS,
                 'next_followup_at' => $plan['followup'] ?? null,
-                'created_by' => $employeeId,
+                'created_by' => ! empty($plan['created_by_self']) ? $employeeId : null,
                 'created_at' => $receivedAt,
                 'updated_at' => $now,
             ]);
 
-            if ($pendingStatusId && Schema::hasTable('lead_type_histories')) {
+            if (! empty($plan['future']) && $futureReasonId && Schema::hasTable('lead_type_histories')) {
+                LeadTypeHistory::create([
+                    'lead_id' => $leadId,
+                    'type' => Lead::TYPE_FUTURE_CUSTOMER,
+                    'data' => [
+                        'future_customer_reason_id' => $futureReasonId,
+                        'future_customer_remarks' => 'Demo future customer for progress report.',
+                    ],
+                    'created_by' => $employeeId,
+                ]);
+            } elseif ($plan['type'] === Lead::TYPE_CUSTOMER
+                && ($plan['missing'] ?? '') !== 'status'
+                && $pendingStatusId
+                && Schema::hasTable('lead_type_histories')) {
                 LeadTypeHistory::create([
                     'lead_id' => $leadId,
                     'type' => Lead::TYPE_CUSTOMER,
@@ -159,70 +198,110 @@ class EmployeeDashboardDemoSeeder extends Seeder
                         'customer_lead_status_id' => $pendingStatusId,
                         'booking_status' => 'pending',
                         'zone_id' => $zoneId,
-                        'service_description' => 'Demo open customer lead for employee dashboard.',
+                        'service_description' => 'Demo customer lead for progress report.',
                     ],
                     'created_by' => $employeeId,
+                ]);
+            }
+
+            if (Schema::hasTable('staff_activity_events') && ($plan['received_days_ago'] ?? 0) <= 14) {
+                StaffActivityEvent::query()->create([
+                    'employee_id' => $employeeId,
+                    'actor_id' => $employeeId,
+                    'event_type' => StaffActivityEvent::TYPE_LEAD_ASSIGNED,
+                    'subject_type' => 'lead',
+                    'subject_id' => (string) $leadId,
+                    'meta' => ['demo' => true],
+                    'created_at' => $receivedAt,
+                    'updated_at' => $receivedAt,
                 ]);
             }
         }
     }
 
-    private function seedBookings(
-        User $demoEmployee,
-        $otherEmployees,
+    private function seedBookingsForEmployee(
+        User $employee,
         ?Provider $provider,
         ?User $customer,
         ?string $zoneId,
         Carbon $today,
         Carbon $now,
+        Carbon $monthStart,
+        int $employeeIndex,
     ): void {
         if (! $provider || ! $customer || ! $zoneId) {
-            $this->command?->warn('Skipping booking demo rows (missing provider, customer, or zone).');
-
             return;
         }
 
-        $demoId = (string) $demoEmployee->id;
+        $employeeId = (string) $employee->id;
         $bookingPlans = [
-            ['tag' => 'missed-followup', 'status' => 'ongoing', 'assignee' => $demoId, 'followup' => $today->copy()->subDays(2)],
-            ['tag' => 'today-followup', 'status' => 'accepted', 'assignee' => $demoId, 'followup' => $today->copy()],
-            ['tag' => 'upcoming-followup', 'status' => 'pending', 'assignee' => $demoId, 'followup' => $today->copy()->addDays(3)],
-            ['tag' => 'active-no-followup', 'status' => 'on_hold', 'assignee' => $demoId, 'followup' => null],
-            ['tag' => 'unassigned-pool', 'status' => 'pending', 'assignee' => null, 'followup' => $today->copy()->addDay()],
-            ['tag' => 'completed-mtd', 'status' => 'completed', 'assignee' => $demoId, 'followup' => null],
-            ['tag' => 'cancelled-mtd', 'status' => 'canceled', 'assignee' => $demoId, 'followup' => null],
+            ['tag' => 'missed-followup', 'status' => 'ongoing', 'followup' => $today->copy()->subDays(2), 'created_days_ago' => 12],
+            ['tag' => 'today-followup', 'status' => 'accepted', 'followup' => $today->copy(), 'created_days_ago' => 8],
+            ['tag' => 'upcoming-followup', 'status' => 'pending', 'followup' => $today->copy()->addDays(3), 'created_days_ago' => 6],
+            ['tag' => 'completed-mtd', 'status' => 'completed', 'followup' => null, 'created_days_ago' => 10],
+            ['tag' => 'cancelled-mtd', 'status' => 'canceled', 'followup' => null, 'created_days_ago' => 7],
         ];
 
         foreach ($bookingPlans as $index => $plan) {
+            $daysAgo = (int) $plan['created_days_ago'];
+            $createdAt = $today->copy()->subDays($daysAgo)->max($monthStart)->setTime(11, 0);
+            $updatedAt = in_array($plan['status'], ['completed', 'canceled'], true)
+                ? $today->copy()->subDays(max(1, $daysAgo - 1))->max($monthStart)->setTime(16, 0)
+                : $now;
+
             $booking = Booking::query()->create([
                 'customer_id' => $customer->id,
                 'provider_id' => $provider->id,
                 'zone_id' => $zoneId,
-                'assignee_id' => $plan['assignee'],
+                'assignee_id' => $employeeId,
                 'booking_status' => $plan['status'],
                 'payment_method' => 'cash_after_service',
                 'is_paid' => $plan['status'] === 'completed' ? 1 : 0,
-                'total_booking_amount' => 1500 + ($index * 250),
+                'total_booking_amount' => 1800 + ($employeeIndex * 200) + ($index * 150),
                 'total_tax_amount' => 0,
                 'total_discount_amount' => 0,
                 'service_location' => 'customer',
-                'service_schedule' => $now->copy()->addDays($index)->setTime(10, 0),
-                'service_description' => self::BOOKING_MARKER.' '.$plan['tag'],
+                'service_schedule' => $now->copy()->addDays($index + 1)->setTime(10, 0),
+                'service_description' => self::BOOKING_MARKER.' '.$plan['tag'].' e'.($employeeIndex + 1),
                 'booking_source' => 'admin_seed',
                 'is_verified' => 1,
                 'is_checked' => 1,
-                'created_at' => $now->copy()->subDays(5 - min(4, $index)),
-                'updated_at' => in_array($plan['status'], ['completed', 'canceled'], true)
-                    ? $now->copy()->subDays(1)
-                    : $now,
+                'created_at' => $createdAt,
+                'updated_at' => $updatedAt,
             ]);
 
             BookingStatusHistory::query()->create([
                 'booking_id' => $booking->id,
-                'changed_by' => $demoId,
+                'changed_by' => $employeeId,
                 'booking_status' => $plan['status'],
-                'status_change_remarks' => 'Employee dashboard demo booking.',
+                'status_change_remarks' => 'Progress report demo booking.',
+                'created_at' => $updatedAt,
+                'updated_at' => $updatedAt,
             ]);
+
+            if (Schema::hasTable('booking_change_logs')) {
+                BookingChangeLog::query()->create([
+                    'booking_id' => $booking->id,
+                    'changed_by' => $employeeId,
+                    'property_key' => 'booking.created',
+                    'property_label' => 'Booking created',
+                    'new_value' => (string) $booking->readable_id,
+                    'context' => 'progress_demo_seed',
+                    'created_at' => $createdAt,
+                    'updated_at' => $createdAt,
+                ]);
+            }
+
+            if ($plan['status'] === 'ongoing' && Schema::hasTable('booking_status_histories')) {
+                BookingStatusHistory::query()->create([
+                    'booking_id' => $booking->id,
+                    'changed_by' => $employeeId,
+                    'booking_status' => 'accepted',
+                    'status_change_remarks' => 'Progress demo status update.',
+                    'created_at' => $createdAt->copy()->addHours(2),
+                    'updated_at' => $createdAt->copy()->addHours(2),
+                ]);
+            }
 
             if ($plan['followup']) {
                 BookingFollowup::query()->create([
@@ -233,38 +312,144 @@ class EmployeeDashboardDemoSeeder extends Seeder
                     'reason' => 'Demo scheduled follow-up',
                     'for' => 'customer',
                     'urgency' => BookingFollowup::URGENCY_MEDIUM,
-                    'created_by' => $plan['assignee'] ?? $demoId,
-                    'created_at' => $now->copy()->subDay(),
+                    'created_by' => $employeeId,
+                    'created_at' => $createdAt->copy()->addDay(),
                     'updated_at' => $now,
                 ]);
             }
         }
+    }
 
-        foreach ($otherEmployees as $peer) {
-            Booking::query()->create([
-                'customer_id' => $customer->id,
-                'provider_id' => $provider->id,
-                'zone_id' => $zoneId,
-                'assignee_id' => (string) $peer->id,
-                'booking_status' => 'completed',
-                'payment_method' => 'digital_payment',
-                'is_paid' => 1,
-                'total_booking_amount' => 900,
-                'total_tax_amount' => 0,
-                'total_discount_amount' => 0,
-                'service_location' => 'customer',
-                'service_schedule' => $now->copy()->subDays(2),
-                'service_description' => self::BOOKING_MARKER.' peer-completed',
-                'booking_source' => 'admin_seed',
-                'is_verified' => 1,
-                'is_checked' => 1,
-                'created_at' => $now->copy()->subDays(4),
-                'updated_at' => $now->copy()->subDay(),
+    private function seedOutboundForEmployee(
+        User $employee,
+        string $phonePrefix,
+        Carbon $today,
+        Carbon $now,
+        Carbon $monthStart,
+        int $employeeIndex,
+    ): void {
+        if (! Schema::hasTable('lead_outbound_enquiries')) {
+            return;
+        }
+
+        $employeeId = (string) $employee->id;
+        $lead = Lead::query()
+            ->where('handled_by', $employeeId)
+            ->where('remarks', self::LEAD_REMARKS)
+            ->first();
+
+        for ($i = 0; $i < 2 + ($employeeIndex % 3); $i++) {
+            $contactedAt = $today->copy()->subDays(3 + $i + $employeeIndex)->max($monthStart)->setTime(10 + $i, 30);
+
+            LeadOutboundEnquiry::query()->create([
+                'lead_id' => $lead?->id,
+                'customer_name' => 'Progress Demo Outbound '.($i + 1),
+                'phone_number' => $phonePrefix.'9'.str_pad((string) (9000 + $i), 4, '0', STR_PAD_LEFT),
+                'contacted_through' => $i % 2 === 0 ? 'call' : 'message',
+                'remarks' => self::BOOKING_MARKER.' outbound',
+                'contacted_at' => $contactedAt,
+                'created_by' => $employeeId,
+                'handled_by' => $employeeId,
+                'created_at' => $contactedAt,
+                'updated_at' => $contactedAt,
             ]);
         }
     }
 
-    private function seedTasks(User $employee, Carbon $today, Carbon $now): void
+    private function seedMonthActivityForEmployee(
+        User $employee,
+        string $phonePrefix,
+        Carbon $today,
+        Carbon $monthStart,
+        int $employeeIndex,
+    ): void {
+        if (! Schema::hasTable('lead_followups')) {
+            return;
+        }
+
+        $employeeId = (string) $employee->id;
+        $leadIds = Lead::query()
+            ->where('handled_by', $employeeId)
+            ->where('phone_number', 'like', $phonePrefix.'%')
+            ->orderBy('id')
+            ->limit(5)
+            ->pluck('id');
+
+        $activityDays = [
+            $today->copy(),
+            $today->copy()->subDays(2),
+            $today->copy()->subDays(5),
+            $today->copy()->subDays(8),
+            $today->copy()->subDays(12)->max($monthStart),
+        ];
+
+        foreach ($activityDays as $dayIndex => $day) {
+            $leadId = $leadIds->get($dayIndex % max(1, $leadIds->count()));
+            if (! $leadId) {
+                continue;
+            }
+
+            $followupAt = $day->copy()->setTime(10 + $dayIndex, 30);
+
+            LeadFollowup::query()->create([
+                'lead_id' => $leadId,
+                'followup_at' => $followupAt,
+                'remarks' => 'Progress demo follow-up logged.',
+                'followup_status' => LeadFollowup::STATUS_TAKEN,
+                'contact_channel' => LeadFollowup::CHANNEL_CALL,
+                'created_by' => $employeeId,
+                'created_at' => $followupAt->copy()->addMinutes(5),
+                'updated_at' => $followupAt->copy()->addMinutes(5),
+            ]);
+        }
+
+        $booking = Booking::query()
+            ->where('assignee_id', $employeeId)
+            ->where('service_description', 'like', self::BOOKING_MARKER.'%')
+            ->first();
+
+        if ($booking) {
+            BookingFollowup::query()->create([
+                'booking_id' => $booking->id,
+                'date' => $today->toDateString(),
+                'followup_at' => $today->copy()->setTime(14, 0),
+                'status' => BookingFollowup::ACTION_TAKEN,
+                'reason' => 'Progress demo booking follow-up taken.',
+                'for' => 'customer',
+                'contact_channel' => BookingFollowup::CHANNEL_CALL,
+                'created_by' => $employeeId,
+                'created_at' => $today->copy()->setTime(14, 5),
+                'updated_at' => $today->copy()->setTime(14, 5),
+            ]);
+        }
+    }
+
+    private function seedPresenceForEmployee(
+        User $employee,
+        Carbon $today,
+        Carbon $monthStart,
+        int $employeeIndex,
+    ): void {
+        if (! Schema::hasTable('staff_presence_periods')) {
+            return;
+        }
+
+        $days = [$today->copy(), $today->copy()->subDays(1), $today->copy()->subDays(4)->max($monthStart)];
+
+        foreach ($days as $day) {
+            $start = $day->copy()->setTime(9, 0);
+            $end = $day->copy()->setTime(17, 30 - ($employeeIndex * 15));
+
+            StaffPresencePeriod::query()->create([
+                'user_id' => $employee->id,
+                'status' => 'online',
+                'started_at' => $start,
+                'ended_at' => $end,
+            ]);
+        }
+    }
+
+    private function seedTasksForEmployee(User $employee, Carbon $today, Carbon $now, int $employeeIndex): void
     {
         if (! Schema::hasTable('task_tickets')) {
             return;
@@ -283,16 +468,15 @@ class EmployeeDashboardDemoSeeder extends Seeder
 
         $employeeId = (string) $employee->id;
         $taskPlans = [
-            ['title' => 'Call missed AC lead', 'end' => $today->copy()->subDays(2)],
-            ['title' => 'Confirm geyser visit slot', 'end' => $today->copy()],
-            ['title' => 'Update provider onboarding docs', 'end' => $today->copy()->addDays(4)],
+            ['title' => 'Clear missed follow-ups', 'end' => $today->copy()->subDays(1)],
+            ['title' => 'Confirm today visits', 'end' => $today->copy()],
         ];
 
         foreach ($taskPlans as $index => $plan) {
             $ticket = TaskTicket::query()->create([
                 'column_id' => $todoColumn->id,
-                'title' => self::TASK_MARKER.' '.$plan['title'],
-                'description' => 'Demo task for employee dashboard.',
+                'title' => self::TASK_MARKER.' E'.($employeeIndex + 1).' — '.$plan['title'],
+                'description' => 'Demo task for progress report.',
                 'start_date' => $today->copy()->subDay(),
                 'end_date' => $plan['end']->toDateString(),
                 'position' => $index,
@@ -308,7 +492,7 @@ class EmployeeDashboardDemoSeeder extends Seeder
         }
     }
 
-    private function seedWhatsApp(User $employee, Carbon $now): void
+    private function seedWhatsAppForEmployee(User $employee, string $phonePrefix, Carbon $now, int $employeeIndex): void
     {
         if (! Schema::hasTable('whatsapp_users') || ! Schema::hasTable('whatsapp_messages')) {
             return;
@@ -316,105 +500,56 @@ class EmployeeDashboardDemoSeeder extends Seeder
 
         $employeeId = (string) $employee->id;
         $openStatusId = WhatsAppChatStatus::query()->where('bucket', '!=', 'closed')->orderBy('id')->value('id');
+        $phone = $phonePrefix.'8888';
+        $digits = ltrim($phone, '+');
 
-        $threads = [
-            ['suffix' => '101', 'name' => 'Emp Demo — Pending Reply'],
-            ['suffix' => '102', 'name' => 'Emp Demo — Quote Follow-up'],
-            ['suffix' => '103', 'name' => 'Emp Demo — Reschedule Request'],
-        ];
+        WhatsAppUser::query()->updateOrCreate(
+            ['phone' => $phone],
+            [
+                'name' => 'Progress Demo WA E'.($employeeIndex + 1),
+                'handled_by' => $employeeId,
+                'updated_at' => $now,
+            ]
+        );
 
-        foreach ($threads as $thread) {
-            $phone = self::PHONE_PREFIX.str_pad($thread['suffix'], 4, '0', STR_PAD_LEFT);
-            $digits = ltrim($phone, '+');
+        if (! WhatsAppMessage::query()->where('phone', $digits)->where('wa_message_id', 'progress-demo-'.$employeeIndex)->exists()) {
+            WhatsAppMessage::query()->create([
+                'channel' => 'whatsapp',
+                'phone' => $digits,
+                'message_text' => 'Hi, checking on my service request.',
+                'direction' => 'IN',
+                'message_type' => 'text',
+                'wa_message_id' => 'progress-demo-'.$employeeIndex,
+                'created_at' => $now->copy()->subHours(2),
+            ]);
 
-            WhatsAppUser::query()->updateOrCreate(
+            WhatsAppMessage::query()->create([
+                'channel' => 'whatsapp',
+                'phone' => $digits,
+                'message_text' => 'Thanks, we will call you shortly.',
+                'direction' => 'OUT',
+                'message_type' => 'text',
+                'wa_message_id' => 'progress-demo-reply-'.$employeeIndex,
+                'sent_by_id' => $employeeId,
+                'created_at' => $now->copy()->subHour(),
+            ]);
+        }
+
+        if ($openStatusId && Schema::hasTable('whatsapp_chat_thread_meta')) {
+            WhatsAppChatThreadMeta::query()->updateOrCreate(
                 ['phone' => $phone],
                 [
-                    'name' => $thread['name'],
-                    'handled_by' => $employeeId,
+                    'whatsapp_chat_status_id' => $openStatusId,
                     'updated_at' => $now,
                 ]
             );
-
-            if (! WhatsAppMessage::query()->where('phone', $digits)->exists()) {
-                WhatsAppMessage::query()->create([
-                    'channel' => 'whatsapp',
-                    'phone' => $digits,
-                    'message_text' => 'Hi, I need help with a service booking.',
-                    'direction' => 'IN',
-                    'message_type' => 'text',
-                    'wa_message_id' => 'emp-demo-in-'.$thread['suffix'],
-                    'created_at' => $now->copy()->subHours(3),
-                ]);
-            }
-
-            if ($openStatusId && Schema::hasTable('whatsapp_chat_thread_meta')) {
-                WhatsAppChatThreadMeta::query()->updateOrCreate(
-                    ['phone' => $phone],
-                    [
-                        'whatsapp_chat_status_id' => $openStatusId,
-                        'updated_at' => $now,
-                    ]
-                );
-            }
-        }
-    }
-
-    private function seedTodayActivity(User $employee, Carbon $today, Carbon $now): void
-    {
-        if (! Schema::hasTable('lead_followups')) {
-            return;
-        }
-
-        $employeeId = (string) $employee->id;
-        $leadIds = Lead::query()
-            ->where('handled_by', $employeeId)
-            ->where('phone_number', 'like', self::PHONE_PREFIX.'%')
-            ->orderBy('id')
-            ->limit(3)
-            ->pluck('id');
-
-        foreach ($leadIds as $leadId) {
-            LeadFollowup::query()->create([
-                'lead_id' => $leadId,
-                'followup_at' => $today->copy()->setTime(10, 30),
-                'remarks' => 'Demo follow-up logged today.',
-                'followup_status' => LeadFollowup::STATUS_TAKEN,
-                'contact_channel' => LeadFollowup::CHANNEL_CALL,
-                'created_by' => $employeeId,
-                'created_at' => $today->copy()->setTime(10, 35),
-                'updated_at' => $today->copy()->setTime(10, 35),
-            ]);
-        }
-
-        $booking = Booking::query()
-            ->where('assignee_id', $employeeId)
-            ->where('service_description', 'like', self::BOOKING_MARKER.'%')
-            ->first();
-
-        if ($booking) {
-            BookingFollowup::query()->create([
-                'booking_id' => $booking->id,
-                'date' => $today->toDateString(),
-                'followup_at' => $today->copy()->setTime(14, 0),
-                'status' => BookingFollowup::ACTION_TAKEN,
-                'reason' => 'Called customer — confirmed visit time.',
-                'for' => 'customer',
-                'contact_channel' => BookingFollowup::CHANNEL_CALL,
-                'created_by' => $employeeId,
-                'created_at' => $today->copy()->setTime(14, 5),
-                'updated_at' => $today->copy()->setTime(14, 5),
-            ]);
         }
     }
 
     private function purgeDemoData(): void
     {
         $leadIds = DB::table('leads')
-            ->where(function ($query) {
-                $query->where('phone_number', 'like', self::PHONE_PREFIX.'%')
-                    ->orWhere('remarks', 'Employee dashboard demo lead.');
-            })
+            ->where('remarks', self::LEAD_REMARKS)
             ->pluck('id')
             ->all();
 
@@ -425,7 +560,16 @@ class EmployeeDashboardDemoSeeder extends Seeder
             if (Schema::hasTable('lead_type_histories')) {
                 DB::table('lead_type_histories')->whereIn('lead_id', $leadIds)->delete();
             }
+            if (Schema::hasTable('lead_outbound_enquiries')) {
+                DB::table('lead_outbound_enquiries')->whereIn('lead_id', $leadIds)->delete();
+            }
             DB::table('leads')->whereIn('id', $leadIds)->delete();
+        }
+
+        if (Schema::hasTable('lead_outbound_enquiries')) {
+            DB::table('lead_outbound_enquiries')
+                ->where('remarks', 'like', self::BOOKING_MARKER.'%')
+                ->delete();
         }
 
         $bookingIds = Booking::query()
@@ -437,10 +581,34 @@ class EmployeeDashboardDemoSeeder extends Seeder
             if (Schema::hasTable('booking_followups')) {
                 DB::table('booking_followups')->whereIn('booking_id', $bookingIds)->delete();
             }
+            if (Schema::hasTable('booking_change_logs')) {
+                DB::table('booking_change_logs')->whereIn('booking_id', $bookingIds)->delete();
+            }
             if (Schema::hasTable('booking_status_histories')) {
                 DB::table('booking_status_histories')->whereIn('booking_id', $bookingIds)->delete();
             }
             Booking::query()->whereIn('id', $bookingIds)->delete();
+        }
+
+        if (Schema::hasTable('staff_activity_events')) {
+            DB::table('staff_activity_events')
+                ->where('meta->demo', true)
+                ->delete();
+        }
+
+        if (Schema::hasTable('staff_presence_periods')) {
+            $demoUserIds = User::query()
+                ->where('user_type', 'admin-employee')
+                ->pluck('id')
+                ->all();
+
+            if ($demoUserIds !== []) {
+                DB::table('staff_presence_periods')
+                    ->whereIn('user_id', $demoUserIds)
+                    ->where('started_at', '>=', Carbon::now()->startOfMonth()->subDay())
+                    ->whereTime('started_at', '09:00:00')
+                    ->delete();
+            }
         }
 
         if (Schema::hasTable('task_tickets')) {
@@ -451,13 +619,13 @@ class EmployeeDashboardDemoSeeder extends Seeder
 
             if ($ticketIds !== []) {
                 DB::table('task_ticket_assignees')->whereIn('ticket_id', $ticketIds)->delete();
-                DB::table('task_tickets')->whereIn('ticket_id', $ticketIds)->delete();
+                DB::table('task_tickets')->whereIn('id', $ticketIds)->delete();
             }
         }
 
         if (Schema::hasTable('whatsapp_users')) {
             $phones = DB::table('whatsapp_users')
-                ->where('phone', 'like', self::PHONE_PREFIX.'%')
+                ->where('phone', 'like', '+1998%')
                 ->pluck('phone')
                 ->all();
 
