@@ -9,7 +9,7 @@ use Illuminate\Http\UploadedFile;
 class ValidVoiceRecording implements ValidationRule
 {
     /** @var list<string> */
-    private const ALLOWED_EXTENSIONS = ['mp3', 'wav', 'webm', 'ogg', 'm4a', 'aac'];
+    private const ALLOWED_EXTENSIONS = ['mp3', 'wav', 'webm', 'ogg', 'm4a', 'aac', 'mp4'];
 
     /** @var list<string> */
     private const ALLOWED_MIMES = [
@@ -54,7 +54,9 @@ class ValidVoiceRecording implements ValidationRule
         }
 
         if (in_array($extension, self::ALLOWED_EXTENSIONS, true)) {
-            if (in_array($mime, self::UNRELIABLE_MIMES, true) || str_starts_with($mime, 'audio/')) {
+            if (in_array($mime, self::UNRELIABLE_MIMES, true)
+                || str_starts_with($mime, 'audio/')
+                || (in_array($extension, ['mp4', 'm4a'], true) && str_starts_with($mime, 'video/'))) {
                 return;
             }
         }
