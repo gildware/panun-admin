@@ -3,6 +3,7 @@
 namespace Modules\BookingModule\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Support\AdminMenuCounts;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -94,6 +95,8 @@ class AppCustomRequestController extends Controller
 
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));
 
+        AdminMenuCounts::forget();
+
         return back();
     }
 
@@ -105,6 +108,8 @@ class AppCustomRequestController extends Controller
         $customRequest->delete();
 
         Toastr::success(translate(DEFAULT_DELETE_200['message']));
+
+        AdminMenuCounts::forget();
 
         return redirect()->route('admin.booking.app-custom-requests.index');
     }

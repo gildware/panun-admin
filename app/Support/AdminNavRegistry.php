@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use Illuminate\Http\Request;
+use Modules\BookingModule\Entities\AppCustomRequest;
 
 class AdminNavRegistry
 {
@@ -377,6 +378,7 @@ class AdminNavRegistry
     private static function leadsItems(): array
     {
         $group = translate('Leads');
+        $appCustomRequestsUrl = route('admin.booking.app-custom-requests.index', ['status' => AppCustomRequest::STATUS_PENDING]);
 
         if (is_admin_employee()) {
             return [
@@ -389,7 +391,7 @@ class AdminNavRegistry
                 self::entry('leads', $group, null, translate('Web_Provider_Requests'), route('admin.booking.web-provider-requests.index'), [
                     'admin/booking/web-provider-requests*',
                 ], ['admin.booking.web-provider-requests.index', 'admin.booking.web-provider-requests.show']),
-                self::entry('leads', $group, null, translate('App_Custom_Requests'), route('admin.booking.app-custom-requests.index'), [
+                self::entry('leads', $group, null, translate('App_Custom_Requests'), $appCustomRequestsUrl, [
                     'admin/booking/app-custom-requests*',
                 ], ['admin.booking.app-custom-requests.index', 'admin.booking.app-custom-requests.show']),
                 self::entry('leads', $group, null, translate('Outbound_Enquiry'), route('admin.lead.outbound-enquiry.index'), [
@@ -408,7 +410,7 @@ class AdminNavRegistry
             self::entry('leads', $group, null, translate('Web_Provider_Requests'), route('admin.booking.web-provider-requests.index'), [
                 'admin/booking/web-provider-requests*',
             ], ['admin.booking.web-provider-requests.index', 'admin.booking.web-provider-requests.show']),
-            self::entry('leads', $group, null, translate('App_Custom_Requests'), route('admin.booking.app-custom-requests.index'), [
+            self::entry('leads', $group, null, translate('App_Custom_Requests'), $appCustomRequestsUrl, [
                 'admin/booking/app-custom-requests*',
             ], ['admin.booking.app-custom-requests.index', 'admin.booking.app-custom-requests.show']),
             self::entry('leads', $group, null, translate('Outbound_Enquiry'), route('admin.lead.outbound-enquiry.index'), [

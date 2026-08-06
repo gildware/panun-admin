@@ -20,6 +20,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('web-bookings', [WebBookingController::class, 'index'])->middleware(['can:booking_view'])->name('web-bookings.index');
         Route::get('web-bookings/{id}', [WebBookingController::class, 'show'])->middleware(['can:booking_view'])->name('web-bookings.show');
         Route::delete('web-bookings/{id}', [WebBookingController::class, 'destroy'])->middleware(['can:booking_delete'])->name('web-bookings.destroy');
+        Route::post('web-bookings/{id}/delete', [WebBookingController::class, 'destroy'])->middleware(['can:booking_delete'])->name('web-bookings.delete');
         Route::get('web-provider-requests', [WebProviderRequestController::class, 'index'])->middleware(['can:booking_view'])->name('web-provider-requests.index');
         Route::get('web-provider-requests/{id}', [WebProviderRequestController::class, 'show'])->middleware(['can:booking_view'])->name('web-provider-requests.show');
         Route::delete('web-provider-requests/{id}', [WebProviderRequestController::class, 'destroy'])->middleware(['can:booking_delete'])->name('web-provider-requests.destroy');

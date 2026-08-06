@@ -2,6 +2,7 @@
 
 namespace Modules\BookingModule\Services;
 
+use App\Support\AdminMenuCounts;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\BookingModule\Entities\AppCustomRequest;
@@ -61,6 +62,8 @@ class AppCustomRequestSubmissionService
         } catch (\Throwable $e) {
             report($e);
         }
+
+        AdminMenuCounts::forget();
 
         return $request;
     }
