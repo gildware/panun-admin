@@ -8015,6 +8015,7 @@ class BookingController extends Controller
                 'required',
                 Rule::exists('booking_cancellation_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1)),
             ],
+            'status_change_remarks' => 'nullable|string|max:2000',
         ]));
 
         if ($r = $this->financialSettlementDecidedChargesBlockedIfApplicable($booking, $validated['settlement_outcome'])) {
@@ -8054,7 +8055,8 @@ class BookingController extends Controller
                 $booking->id,
                 (int) $validated['booking_cancellation_reason_id'],
                 null,
-                null
+                null,
+                $validated['status_change_remarks'] ?? null
             );
         });
 
