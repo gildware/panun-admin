@@ -65,4 +65,20 @@ class AppCustomRequest extends Model
             self::STATUS_REJECTED => translate('Rejected'),
         ];
     }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function pendingStatuses(): array
+    {
+        return [
+            self::STATUS_PENDING,
+            'PENDING_REVIEW',
+        ];
+    }
+
+    public function scopePending($query)
+    {
+        return $query->whereIn('status', self::pendingStatuses());
+    }
 }

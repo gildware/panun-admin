@@ -18,7 +18,6 @@
 
                     <form method="POST" id="wbDeleteForm" action="#">
                         @csrf
-                        @method('DELETE')
 
                         <div class="d-flex justify-content-center gap-3 mt-3">
                             <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">
@@ -38,24 +37,27 @@
         <script>
             (function () {
                 var deleteModal = document.getElementById('wbDeleteModal');
-                if (!deleteModal) return;
+                var form = document.getElementById('wbDeleteForm');
+                var labelEl = document.getElementById('wbDeleteModalItem');
+                if (!deleteModal || !form) return;
 
-                deleteModal.addEventListener('show.bs.modal', function (event) {
-                    var button = event.relatedTarget;
+                function applyDeleteTarget(button) {
                     if (!button) return;
 
-                    var url = button.getAttribute('data-wb-delete-url') || '#';
-                    var label = button.getAttribute('data-wb-delete-label') || '';
-
-                    var form = document.getElementById('wbDeleteForm');
-                    var labelEl = document.getElementById('wbDeleteModalItem');
-
-                    if (form) {
-                        form.action = url;
-                    }
+                    form.action = button.getAttribute('data-wb-delete-url') || '#';
                     if (labelEl) {
-                        labelEl.textContent = label;
+                        labelEl.textContent = button.getAttribute('data-wb-delete-label') || '';
                     }
+                }
+
+                document.querySelectorAll('[data-wb-delete-url]').forEach(function (button) {
+                    button.addEventListener('click', function () {
+                        applyDeleteTarget(button);
+                    });
+                });
+
+                deleteModal.addEventListener('show.bs.modal', function (event) {
+                    applyDeleteTarget(event.relatedTarget);
                 });
             })();
         </script>

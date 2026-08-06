@@ -10,7 +10,6 @@ use Modules\BookingModule\Entities\WebBooking;
 use Modules\BookingModule\Entities\WebProviderRequest;
 use Modules\CartModule\Entities\Cart;
 use Modules\LeadManagement\Entities\Lead;
-use Modules\LeadManagement\Entities\LeadOutboundEnquiry;
 use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderChangeRequest;
@@ -48,7 +47,6 @@ final class AdminMenuCounts
                 'pending_verify_bookings' => self::safeCountPendingVerifyBookings(),
                 'unassigned_leads' => self::safeCountUnassignedOpenLeads(),
                 'pending_bookings' => self::safeCountPendingBookings(),
-                'outbound_enquiries' => self::safeCountOutboundEnquiries(),
                 'customer_cart_not_contacted' => self::safeCountCustomerCartNotContacted(),
                 'new_service_requests' => self::safeCountNewServiceRequests(),
             ];
@@ -77,10 +75,6 @@ final class AdminMenuCounts
 
         if (str_starts_with($path, 'admin/booking/app-custom-requests')) {
             return (int) ($counts['app_custom_requests_pending'] ?? 0);
-        }
-
-        if (str_starts_with($path, 'admin/lead/outbound-enquiry')) {
-            return (int) ($counts['outbound_enquiries'] ?? 0);
         }
 
         if (str_starts_with($path, 'admin/provider/onboarding')) {
@@ -165,9 +159,36 @@ final class AdminMenuCounts
                 return 0;
             }
 
-            return WebBooking::query()
+            $withoutLead = WebBooking::query()
+                ->whereNull('lead_id')
                 ->where('status', WebBooking::STATUS_PENDING_REVIEW)
                 ->count();
+
+            $leadIds = WebBooking::query()
+                ->whereNotNull('lead_id')
+                ->distinct()
+                ->pluck('lead_id')
+                ->filter()
+                ->unique()
+                ->values();
+
+            if ($leadIds->isEmpty()) {
+                return $withoutLead;
+            }
+
+            $openLeadQuery = Lead::query()->whereIn('id', $leadIds);
+            app(LeadOpenStatusService::class)->restrictQueryToOpenLeads($openLeadQuery);
+            $openLeadIds = $openLeadQuery->pluck('id');
+
+            if ($openLeadIds->isEmpty()) {
+                return $withoutLead;
+            }
+
+            $withOpenLead = WebBooking::query()
+                ->whereIn('lead_id', $openLeadIds)
+                ->count();
+
+            return $withoutLead + $withOpenLead;
         } catch (\Throwable) {
             return 0;
         }
@@ -196,7 +217,7 @@ final class AdminMenuCounts
             }
 
             return AppCustomRequest::query()
-                ->where('status', AppCustomRequest::STATUS_PENDING)
+                ->pending()
                 ->count();
         } catch (\Throwable) {
             return 0;
@@ -245,19 +266,6 @@ final class AdminMenuCounts
             $maxBookingAmount = (float) ((business_config('max_booking_amount', 'booking_setup'))->live_values ?? 0);
 
             return Booking::query()->adminPendingBookings($maxBookingAmount)->count();
-        } catch (\Throwable) {
-            return 0;
-        }
-    }
-
-    private static function safeCountOutboundEnquiries(): int
-    {
-        try {
-            if (! Schema::hasTable('lead_outbound_enquiries')) {
-                return 0;
-            }
-
-            return LeadOutboundEnquiry::query()->count();
         } catch (\Throwable) {
             return 0;
         }

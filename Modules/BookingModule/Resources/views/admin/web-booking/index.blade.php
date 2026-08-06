@@ -145,7 +145,7 @@
                                                                 class="btn btn-danger"
                                                                 data-bs-toggle="modal"
                                                                 data-bs-target="#wbDeleteModal"
-                                                                data-wb-delete-url="{{ route('admin.booking.web-bookings.destroy', $booking->id) }}"
+                                                                data-wb-delete-url="{{ route('admin.booking.web-bookings.delete', $booking->id) }}"
                                                                 data-wb-delete-label="{{ $booking->reference_id }} — {{ $booking->name }}">
                                                             {{ translate('Delete') }}
                                                         </button>

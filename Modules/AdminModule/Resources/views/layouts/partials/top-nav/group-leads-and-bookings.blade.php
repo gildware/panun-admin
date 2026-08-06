@@ -32,7 +32,7 @@
                 'count' => $web_provider_requests_pending_count ?? 0,
             ])
             @include('adminmodule::layouts.partials.top-nav._link', [
-                'href' => route('admin.booking.app-custom-requests.index'),
+                'href' => route('admin.booking.app-custom-requests.index', ['status' => \Modules\BookingModule\Entities\AppCustomRequest::STATUS_PENDING]),
                 'label' => translate('App_Custom_Requests'),
                 'active' => request()->is('admin/booking/app-custom-requests*'),
                 'count' => $app_custom_requests_pending_count ?? 0,
