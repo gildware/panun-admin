@@ -858,8 +858,10 @@
     var initialFrame = document.getElementById(FRAME_ID);
     if (initialFrame) {
         hoistInitialFrameStyles(initialFrame).finally(function () {
-            markPartialNavLinks(initialFrame);
-            initPageWidgets(initialFrame);
+            activateScripts(initialFrame).finally(function () {
+                markPartialNavLinks(initialFrame);
+                initPageWidgets(initialFrame);
+            });
         });
     } else {
         initPageWidgets(initialFrame);

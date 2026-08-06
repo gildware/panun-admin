@@ -146,7 +146,8 @@
                                                                 data-bs-toggle="modal"
                                                                 data-bs-target="#wbDeleteModal"
                                                                 data-wb-delete-url="{{ route('admin.booking.web-bookings.delete', $booking->id) }}"
-                                                                data-wb-delete-label="{{ $booking->reference_id }} — {{ $booking->name }}">
+                                                                data-wb-delete-label="{{ $booking->reference_id }} — {{ $booking->name }}"
+                                                                onclick="(function(btn){var f=document.getElementById('wbDeleteForm');var l=document.getElementById('wbDeleteModalItem');if(f){f.action=btn.getAttribute('data-wb-delete-url')||'#';}if(l){l.textContent=btn.getAttribute('data-wb-delete-label')||'';}})(this)">
                                                             {{ translate('Delete') }}
                                                         </button>
                                                     @endcan
