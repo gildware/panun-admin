@@ -366,15 +366,15 @@
         padding: 8px 12px; background: var(--wq-surface); border-bottom: 1px solid #eef0f3;
     }
     .emp-dash .progress-shell-title {
-        font-size: 13px; font-weight: 700; color: var(--wq-text); margin: 0;
+        font-size: 14px; font-weight: 700; color: var(--wq-text); margin: 0;
         text-transform: uppercase; letter-spacing: .03em;
     }
     .emp-dash .progress-shell-sub {
-        display: block; font-size: 9px; color: var(--wq-muted); margin-top: 1px; line-height: 1.2;
+        display: block; font-size: 11px; color: var(--wq-muted); margin-top: 2px; line-height: 1.3;
     }
     .emp-dash .progress-view-report-btn {
         display: inline-flex; align-items: center; gap: 4px;
-        font-size: 10px; font-weight: 600; text-decoration: none;
+        font-size: 12px; font-weight: 600; text-decoration: none;
         padding: 4px 10px; border-radius: 6px;
         color: var(--wq-brand); border: 1px solid #c7cbe0; background: var(--wq-brand-soft);
         transition: background .12s, color .12s, border-color .12s;
@@ -394,34 +394,55 @@
     .emp-dash .progress-card--month {
         --pc-tone: #7c3aed; --pc-tone-soft: #f5f3ff; --pc-tone-border: #ddd6fe; --pc-tone-text: #5b21b6;
     }
+    .emp-dash .progress-card--quality {
+        --pc-tone: #43466e; --pc-tone-soft: #eef0f6; --pc-tone-border: #c7cbe0; --pc-tone-text: #43466e;
+    }
+    .emp-dash .progress-card--activity {
+        --pc-tone: #2563eb; --pc-tone-soft: #eff6ff; --pc-tone-border: #bfdbfe; --pc-tone-text: #1e40af;
+    }
+    .emp-dash .progress-card--rank {
+        --pc-tone: #d97706; --pc-tone-soft: #fffbeb; --pc-tone-border: #fde68a; --pc-tone-text: #b45309;
+    }
     .emp-dash .progress-card--contribution {
         --pc-tone: #0891b2; --pc-tone-soft: #ecfeff; --pc-tone-border: #a5f3fc; --pc-tone-text: #0e7490;
     }
     .emp-dash .progress-card--today,
     .emp-dash .progress-card--month,
+    .emp-dash .progress-card--quality,
+    .emp-dash .progress-card--activity,
+    .emp-dash .progress-card--rank,
     .emp-dash .progress-card--contribution {
         border-top: 2px solid var(--pc-tone);
     }
     .emp-dash .progress-card--today .progress-card-header,
     .emp-dash .progress-card--month .progress-card-header,
+    .emp-dash .progress-card--quality .progress-card-header,
+    .emp-dash .progress-card--activity .progress-card-header,
+    .emp-dash .progress-card--rank .progress-card-header,
     .emp-dash .progress-card--contribution .progress-card-header {
         background: var(--pc-tone-soft);
         border-bottom-color: var(--pc-tone-border);
-        height: 36px;
-        min-height: 36px;
-        max-height: 36px;
-        padding: 0 8px;
+        height: 40px;
+        min-height: 40px;
+        max-height: 40px;
+        padding: 0 10px;
     }
     .emp-dash .progress-card--today .progress-card-title,
     .emp-dash .progress-card--month .progress-card-title,
+    .emp-dash .progress-card--quality .progress-card-title,
+    .emp-dash .progress-card--activity .progress-card-title,
+    .emp-dash .progress-card--rank .progress-card-title,
     .emp-dash .progress-card--contribution .progress-card-title {
         color: var(--pc-tone-text);
     }
-    .emp-dash .progress-card--today .progress-summary-badge.is-active {
+    .emp-dash .progress-card--today .progress-summary-badge.is-active,
+    .emp-dash .progress-card--activity .progress-summary-badge.is-active {
         background: #fff; color: var(--pc-tone);
         border: 1px solid var(--pc-tone-border);
     }
-    .emp-dash .progress-card--contribution .progress-tab.active {
+    .emp-dash .progress-card--activity .progress-tab.active,
+    .emp-dash .progress-card--contribution .progress-tab.active,
+    .emp-dash .progress-card--rank .progress-tab.active {
         background: var(--pc-tone); border-color: var(--pc-tone); color: #fff;
     }
     .emp-dash .progress-card--contribution .contribution-row-label .material-symbols-outlined,
@@ -431,6 +452,53 @@
     .emp-dash .progress-card--contribution .contribution-bar > span {
         background: var(--pc-tone);
     }
+    .emp-dash .progress-card--activity .progress-tab.active {
+        background: var(--pc-tone); border-color: var(--pc-tone); color: #fff;
+    }
+    .emp-dash .activity-panel { display: none; }
+    .emp-dash .activity-panel.active { display: block; }
+    .emp-dash .activity-panel-meta {
+        display: flex; align-items: center; justify-content: space-between;
+        font-size: 12px; font-weight: 600; color: var(--wq-muted);
+        margin-bottom: 6px;
+    }
+    .emp-dash .activity-panel-meta .progress-summary-badge {
+        font-size: 13px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+        background: #f1f5f9; color: var(--wq-muted);
+    }
+    .emp-dash .activity-panel-meta .progress-summary-badge.is-active {
+        background: var(--pc-tone-soft); color: var(--pc-tone-text); border: 1px solid var(--pc-tone-border);
+    }
+    .emp-dash .rank-summary--compact {
+        display: flex; align-items: center; gap: 10px;
+        padding: 8px; margin-bottom: 8px;
+        border: 1px solid var(--wq-border); border-radius: 8px; background: var(--wq-surface);
+    }
+    .emp-dash .rank-summary--compact .rank-summary-badge {
+        font-size: 20px; font-weight: 800; color: var(--pc-tone); min-width: 40px; text-align: center;
+    }
+    .emp-dash .rank-summary--compact .rank-summary-label { font-size: 13px; font-weight: 700; color: var(--wq-text); }
+    .emp-dash .rank-summary--compact .rank-summary-sub { font-size: 12px; color: var(--wq-muted); }
+    .emp-dash .team-rank-list { display: flex; flex-direction: column; gap: 4px; }
+    .emp-dash .team-rank-row {
+        display: grid; grid-template-columns: 32px 1fr auto; gap: 6px; align-items: center;
+        padding: 6px 8px; border-radius: 6px; font-size: 13px;
+        border: 1px solid transparent;
+    }
+    .emp-dash .team-rank-row.is-highlighted {
+        background: var(--pc-tone-soft); border-color: var(--pc-tone-border);
+        font-weight: 600;
+    }
+    .emp-dash .team-rank-num { font-weight: 700; color: var(--pc-tone); }
+    .emp-dash .team-rank-name { color: var(--wq-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .emp-dash .team-rank-score { font-weight: 700; color: var(--wq-muted); }
+    .emp-dash .team-rank-metrics { display: flex; flex-direction: column; gap: 4px; }
+    .emp-dash .team-rank-metric-row {
+        display: flex; justify-content: space-between; align-items: center;
+        font-size: 13px; padding: 4px 0; border-bottom: 1px solid #f1f5f9;
+    }
+    .emp-dash .team-rank-metric-row:last-child { border-bottom: none; }
+    .emp-dash .team-rank-metric-rank { font-weight: 700; color: var(--pc-tone); }
     .emp-dash .progress-stat-tile--compact.tone-lead { --pt-soft: #eff6ff; --pt-border: #bfdbfe; --pt-text: #1e40af; }
     .emp-dash .progress-stat-tile--compact.tone-booking { --pt-soft: #ecfeff; --pt-border: #a5f3fc; --pt-text: #0e7490; }
     .emp-dash .progress-stat-tile--compact.tone-task { --pt-soft: #f5f3ff; --pt-border: #ddd6fe; --pt-text: #5b21b6; }
@@ -466,7 +534,7 @@
         background: transparent;
     }
     .emp-dash .progress-stat-tile--compact .progress-stat-sub {
-        font-size: 8px;
+        font-size: 10px;
         color: var(--wq-hot);
         margin: 0;
         line-height: 1.15;
@@ -477,7 +545,7 @@
     }
     .emp-dash .progress-section-head { margin-bottom: 10px; }
     .emp-dash .progress-section-title {
-        font-size: 13px; font-weight: 700; color: var(--wq-text); margin: 0;
+        font-size: 14px; font-weight: 700; color: var(--wq-text); margin: 0;
         text-transform: uppercase; letter-spacing: .03em;
     }
     .emp-dash .progress-card {
@@ -512,18 +580,18 @@
         visibility: hidden;
     }
     .emp-dash .progress-card-title {
-        display: block; font-size: 10px; font-weight: 700; color: var(--wq-text); line-height: 1.2;
+        display: block; font-size: 12px; font-weight: 700; color: var(--wq-text); line-height: 1.25;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .emp-dash .progress-card-sub {
         display: none;
     }
-    .emp-dash .progress-card--compact .progress-card-title { font-size: 10px; }
+    .emp-dash .progress-card--compact .progress-card-title { font-size: 12px; }
     .emp-dash .progress-summary-badge {
-        flex-shrink: 0; min-width: 24px; height: 24px; border-radius: 999px;
+        flex-shrink: 0; min-width: 28px; height: 28px; border-radius: 999px;
         background: #eef0f3; color: var(--wq-muted);
         display: inline-flex; align-items: center; justify-content: center;
-        font-size: 11px; font-weight: 700;
+        font-size: 13px; font-weight: 700;
     }
     .emp-dash .progress-summary-badge.is-active {
         background: var(--wq-brand-soft); color: var(--wq-brand);
@@ -540,13 +608,21 @@
         min-height: 240px;
     }
     .emp-dash .progress-card--today .progress-stat-grid--compact,
-    .emp-dash .progress-card--month .progress-stat-grid--compact {
+    .emp-dash .progress-card--month .progress-stat-grid--compact,
+    .emp-dash .progress-card--quality .progress-stat-grid--compact,
+    .emp-dash .progress-card--activity .progress-stat-grid--compact {
         flex: 1 1 auto;
         height: 100%;
         min-height: 0;
-        grid-auto-rows: 1fr;
+        grid-auto-rows: min-content;
         gap: 5px;
-        align-content: stretch;
+        align-content: start;
+    }
+    .emp-dash .progress-card--quality .progress-card-body,
+    .emp-dash .progress-card--activity .progress-card-body,
+    .emp-dash .progress-card--rank .progress-card-body,
+    .emp-dash .progress-card--contribution .progress-card-body {
+        overflow-y: auto;
     }
     .emp-dash .progress-stat-grid,
     .emp-dash .progress-stat-grid--compact {
@@ -564,9 +640,9 @@
         display: flex;
         flex-direction: row;
         align-items: center;
-        gap: 5px;
-        padding: 6px 8px;
-        min-height: 48px;
+        gap: 6px;
+        padding: 8px 10px;
+        min-height: 54px;
         height: 100%;
         border: 1px solid var(--wq-border);
         border-radius: 6px;
@@ -576,7 +652,7 @@
     }
     .emp-dash .progress-stat-tile--compact .progress-stat-icon {
         flex-shrink: 0;
-        font-size: 13px;
+        font-size: 16px;
         line-height: 1;
         margin: 0;
     }
@@ -588,15 +664,15 @@
         flex: 1 1 auto;
     }
     .emp-dash .progress-stat-tile--compact .progress-stat-val {
-        font-size: 13px;
+        font-size: 16px;
         font-weight: 700;
-        line-height: 1.15;
+        line-height: 1.2;
         word-break: break-word;
     }
     .emp-dash .progress-stat-tile--compact .progress-stat-label {
-        font-size: 9px;
+        font-size: 11px;
         font-weight: 600;
-        line-height: 1.2;
+        line-height: 1.25;
         color: var(--wq-muted);
     }
     @media (max-width: 576px) {
@@ -619,22 +695,22 @@
     }
     .emp-dash .progress-stat-tile.is-zero .progress-stat-icon { color: #94a3b8; }
     .emp-dash .progress-stat-val {
-        font-size: 16px; font-weight: 700; color: var(--wq-brand); line-height: 1.2;
+        font-size: 18px; font-weight: 700; color: var(--wq-brand); line-height: 1.2;
     }
     .emp-dash .progress-stat-label {
-        font-size: 9px; font-weight: 600; color: var(--wq-muted); line-height: 1.3;
+        font-size: 11px; font-weight: 600; color: var(--wq-muted); line-height: 1.3;
     }
     .emp-dash .progress-stat-sub {
-        font-size: 9px; color: var(--wq-hot); margin-top: 2px; line-height: 1.2;
+        font-size: 11px; color: var(--wq-hot); margin-top: 2px; line-height: 1.25;
     }
     .emp-dash .progress-tabs {
-        display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0;
-        min-height: 24px;
+        display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
+        min-height: 28px;
     }
     .emp-dash .progress-tab {
         border: 1px solid var(--wq-border); background: #fff; color: var(--wq-muted);
-        padding: 2px 7px; border-radius: 999px; font-size: 9px; font-weight: 600; cursor: pointer;
-        line-height: 1.2;
+        padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; cursor: pointer;
+        line-height: 1.25;
     }
     .emp-dash .progress-tab.active {
         background: var(--wq-brand); color: #fff; border-color: var(--wq-brand);
@@ -645,17 +721,17 @@
         display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 1px;
     }
     .emp-dash .contribution-row-label {
-        display: inline-flex; align-items: center; gap: 4px;
-        font-size: 9px; font-weight: 600; color: var(--wq-text); min-width: 0; line-height: 1.2;
+        display: inline-flex; align-items: center; gap: 5px;
+        font-size: 11px; font-weight: 600; color: var(--wq-text); min-width: 0; line-height: 1.25;
     }
     .emp-dash .contribution-row-label .material-symbols-outlined {
-        font-size: 13px; color: var(--wq-brand); flex-shrink: 0;
+        font-size: 15px; color: var(--wq-brand); flex-shrink: 0;
     }
     .emp-dash .contribution-row-pct {
-        font-size: 10px; font-weight: 700; color: var(--wq-brand); flex-shrink: 0;
+        font-size: 12px; font-weight: 700; color: var(--wq-brand); flex-shrink: 0;
     }
     .emp-dash .contribution-row-meta {
-        font-size: 8px; color: var(--wq-muted); margin-bottom: 3px; line-height: 1.2;
+        font-size: 10px; color: var(--wq-muted); margin-bottom: 3px; line-height: 1.25;
     }
     .emp-dash .contribution-bar {
         height: 4px; background: #eef0f3; border-radius: 999px; overflow: hidden;
@@ -664,7 +740,7 @@
         display: block; height: 100%; background: var(--wq-brand); border-radius: 999px;
     }
     .emp-dash .progress-empty {
-        text-align: center; color: var(--wq-muted); font-size: 10px; padding: 8px 6px;
+        text-align: center; color: var(--wq-muted); font-size: 12px; padding: 8px 6px;
     }
     .emp-dash .card > .card-header { background: #43466e; color: #fff; border: 0; }
     .emp-dash .card > .card-header.light { background: #f8fafc; color: #1f2937; border-bottom: 1px solid #e5e7eb; }
@@ -744,14 +820,16 @@
                         @include('adminmodule::partials._employee-progress', [
                             'todayDone' => $scope['today_done'] ?? [],
                             'monthly' => $scope['monthly'] ?? [],
+                            'qualityStats' => $scope['quality_stats'] ?? [],
                             'contributionToday' => $scope['contribution_today'] ?? [],
                             'contributionMonthly' => $scope['contribution_monthly'] ?? [],
                             'progressTitle' => $scope['title'] ?? translate('Team_Progress'),
                             'progressSubtitle' => $scope['subtitle'] ?? translate('Team_progress_sub'),
-                            'monthTitle' => $scope['month_title'] ?? translate('Team_Month_Report'),
-                            'contributionTitle' => $scope['contribution_title'] ?? translate('Team_activity_by_employee'),
-                            'contributionSubtitle' => $scope['contribution_subtitle'] ?? translate('Team_activity_by_employee_sub'),
-                            'viewReportUrl' => $scope['view_report_url'] ?? route('admin.report.daily-employee'),
+                            'viewReportUrl' => $scope['view_report_url'] ?? route('admin.my-progress', ['tab' => 'monthly']),
+                            'progressSidePanel' => $scope['progress_side_panel'] ?? 'team_rank',
+                            'leaderboard' => $scope['leaderboard'] ?? [],
+                            'teamRankRows' => $scope['team_rank_rows'] ?? [],
+                            'highlightEmployeeId' => $scopeId !== '__all__' ? $scopeId : null,
                         ])
                     </div>
                 @endforeach
@@ -761,8 +839,12 @@
                 @include('adminmodule::partials._employee-progress', [
                     'todayDone' => $todayDone,
                     'monthly' => $monthly,
+                    'qualityStats' => $employeeData['quality_stats'] ?? ($monthly['quality_stats'] ?? []),
                     'contributionToday' => $contributionToday,
                     'contributionMonthly' => $contributionMonthly,
+                    'progressSidePanel' => $employeeData['progress_side_panel'] ?? 'contribution',
+                    'leaderboard' => $employeeData['leaderboard'] ?? [],
+                    'teamRankRows' => $employeeData['team_rank_rows'] ?? [],
                 ])
             </div>
         @endif

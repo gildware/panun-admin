@@ -2,13 +2,15 @@
     $scorecard = $fullReport['scorecard'] ?? ['good' => [], 'bad' => [], 'neutral' => []];
     $contribution = $fullReport['contribution'] ?? [];
     $leaderboard = $fullReport['leaderboard'] ?? [];
-    $missedFollowups = $fullReport['missed_followups'] ?? ['leads' => ['total' => 0, 'items' => []], 'bookings' => ['total' => 0, 'items' => []], 'total' => 0];
-    $pendingFollowups = $fullReport['pending_followups'] ?? ['leads' => ['total' => 0, 'items' => []], 'bookings' => ['total' => 0, 'items' => []], 'total' => 0];
-    $pipeline = $fullReport['pipeline'] ?? ['leads' => ['total' => 0, 'items' => []], 'bookings' => ['total' => 0, 'items' => []]];
+    $qualityStats = $fullReport['quality_stats'] ?? [];
     $improvements = $fullReport['improvements'] ?? [];
 @endphp
 
 <div class="full-report-sections">
+    @include('adminmodule::partials._employee-progress-quality-metrics', [
+        'qualityItems' => $qualityStats,
+    ])
+
     {{-- Scorecard: Good / Bad / Neutral --}}
     <div class="report-section">
         <h6 class="report-section-title">
@@ -172,94 +174,4 @@
             </div>
         </div>
     @endif
-
-    {{-- Missing follow-ups --}}
-    <div class="report-section">
-        <h6 class="report-section-title">
-            @include('adminmodule::partials._material-icon', ['name' => 'event_busy'])
-            {{ translate('Progress_missed_followups_title') }}
-            @if(($missedFollowups['total'] ?? 0) > 0)
-                <span class="report-badge report-badge--danger">{{ $missedFollowups['total'] }}</span>
-            @endif
-        </h6>
-        <div class="row g-3">
-            <div class="col-lg-6">
-                @include('adminmodule::partials._employee-progress-report-table', [
-                    'title' => translate('Progress_missed_lead_followups'),
-                    'count' => $missedFollowups['leads']['total'] ?? 0,
-                    'items' => $missedFollowups['leads']['items'] ?? [],
-                    'emptyLabel' => translate('Progress_no_missed_leads'),
-                    'viewAllUrl' => route('admin.lead.todays_followups', ['handled_by' => $user->id]),
-                ])
-            </div>
-            <div class="col-lg-6">
-                @include('adminmodule::partials._employee-progress-report-table', [
-                    'title' => translate('Progress_missed_booking_followups'),
-                    'count' => $missedFollowups['bookings']['total'] ?? 0,
-                    'items' => $missedFollowups['bookings']['items'] ?? [],
-                    'emptyLabel' => translate('Progress_no_missed_bookings'),
-                    'viewAllUrl' => route('admin.booking.todays_followups', ['assignee_id' => $user->id]),
-                ])
-            </div>
-        </div>
-    </div>
-
-    {{-- Due today follow-ups --}}
-    <div class="report-section">
-        <h6 class="report-section-title">
-            @include('adminmodule::partials._material-icon', ['name' => 'today'])
-            {{ translate('Progress_due_today_followups') }}
-            @if(($pendingFollowups['total'] ?? 0) > 0)
-                <span class="report-badge report-badge--warn">{{ $pendingFollowups['total'] }}</span>
-            @endif
-        </h6>
-        <div class="row g-3">
-            <div class="col-lg-6">
-                @include('adminmodule::partials._employee-progress-report-table', [
-                    'title' => translate('Progress_lead_followups_due_today'),
-                    'count' => $pendingFollowups['leads']['total'] ?? 0,
-                    'items' => $pendingFollowups['leads']['items'] ?? [],
-                    'emptyLabel' => translate('Progress_no_leads_due_today'),
-                    'viewAllUrl' => route('admin.lead.todays_followups', ['handled_by' => $user->id]),
-                ])
-            </div>
-            <div class="col-lg-6">
-                @include('adminmodule::partials._employee-progress-report-table', [
-                    'title' => translate('Progress_booking_followups_due_today'),
-                    'count' => $pendingFollowups['bookings']['total'] ?? 0,
-                    'items' => $pendingFollowups['bookings']['items'] ?? [],
-                    'emptyLabel' => translate('Progress_no_bookings_due_today'),
-                    'viewAllUrl' => route('admin.booking.todays_followups', ['assignee_id' => $user->id]),
-                ])
-            </div>
-        </div>
-    </div>
-
-    {{-- Current pipeline: Leads & Bookings --}}
-    <div class="report-section">
-        <h6 class="report-section-title">
-            @include('adminmodule::partials._material-icon', ['name' => 'account_tree'])
-            {{ translate('Progress_current_pipeline') }}
-        </h6>
-        <div class="row g-3">
-            <div class="col-lg-6">
-                @include('adminmodule::partials._employee-progress-report-table', [
-                    'title' => translate('Progress_open_leads'),
-                    'count' => $pipeline['leads']['total'] ?? 0,
-                    'items' => $pipeline['leads']['items'] ?? [],
-                    'emptyLabel' => translate('Progress_no_open_leads'),
-                    'viewAllUrl' => route('admin.lead.index', ['handled_by' => [$user->id]]),
-                ])
-            </div>
-            <div class="col-lg-6">
-                @include('adminmodule::partials._employee-progress-report-table', [
-                    'title' => translate('Progress_active_bookings'),
-                    'count' => $pipeline['bookings']['total'] ?? 0,
-                    'items' => $pipeline['bookings']['items'] ?? [],
-                    'emptyLabel' => translate('Progress_no_active_bookings'),
-                    'viewAllUrl' => route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all', 'assignee_ids' => [$user->id]]),
-                ])
-            </div>
-        </div>
-    </div>
 </div>
