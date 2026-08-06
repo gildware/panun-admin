@@ -1,5 +1,5 @@
 @can('booking_can_manage_status')
-    @if(!$bookingNotEditable)
+    @if($bookingStatusChangeable ?? !$bookingNotEditable)
         <div class="booking-header__status-actions" id="booking-status-overview-actions">
             @forelse ($__adminNextStatuses as $__nextSt)
                 @php
@@ -31,7 +31,9 @@
                     };
                     $__pillLabel = match ($__nextSt) {
                         'accepted' => translate('Accept_Booking'),
-                        'pending' => translate('Mark_as_Pending'),
+                        'pending' => in_array($__overviewSt, ['canceled', 'cancelled'], true)
+                            ? translate('Restore_to_pending')
+                            : translate('Mark_as_Pending'),
                         'ongoing' => translate('Mark_as_Ongoing'),
                         'on_hold' => $__overviewSt === 'ongoing' ? translate('Hold_after_visit') : translate('Put_on_hold'),
                         'completed' => translate('Complete_Booking'),

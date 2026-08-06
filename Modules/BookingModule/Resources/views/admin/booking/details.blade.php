@@ -468,6 +468,8 @@
                     $__overviewBadge = 'warning';
                 }
                 $__adminNextStatuses = booking_admin_allowed_next_statuses_for_booking($booking, $__overviewSt);
+                $bookingStatusChangeable = ! $bookingNotEditable || count($__adminNextStatuses) > 0;
+                $__bookingIsCanceledForRestore = in_array($booking->booking_status ?? '', ['canceled', 'cancelled'], true);
                 $__headerRefundRemaining = isset($maxRefundAmount) ? round((float) $maxRefundAmount, 2) : 0.0;
                 $__headerStatusNorm = strtolower((string) ($booking->booking_status ?? ''));
                 $__headerMainBadgeClass = match ($__headerStatusNorm) {
@@ -791,7 +793,7 @@
                         @endcan
                     @endif
                     <span class="booking-header__actions-spacer"></span>
-                    @include('bookingmodule::admin.booking.partials._booking-header-status-pills', ['booking' => $booking])
+                    @include('bookingmodule::admin.booking.partials._booking-header-status-pills', ['booking' => $booking, 'bookingStatusChangeable' => $bookingStatusChangeable ?? false])
                 </div>
             </header>
 
@@ -2317,7 +2319,7 @@
             <div class="row gy-3 align-items-start d-none">
                 <div class="col-lg-8 col-xl-7 d-flex flex-column gap-3 align-items-stretch">
                     @can('booking_can_manage_status')
-                        @if(!$bookingNotEditable)
+                        @if($bookingStatusChangeable ?? !$bookingNotEditable)
                             <div class="d-none" aria-hidden="true">
                                 @php
                                     $__statusSelectNext = booking_admin_allowed_next_statuses_for_booking($booking);
@@ -2339,7 +2341,9 @@
                                             }
                                             $__optLabel = match ($__selSt) {
                                                 'accepted' => translate('Accept_Booking'),
-                                                'pending' => translate('Mark_as_Pending'),
+                                                'pending' => in_array($booking->booking_status ?? '', ['canceled', 'cancelled'], true)
+                                                    ? translate('Restore_to_pending')
+                                                    : translate('Mark_as_Pending'),
                                                 'ongoing' => translate('Mark_as_Ongoing'),
                                                 'on_hold' => ($booking->booking_status ?? '') === 'ongoing' ? translate('Hold_after_visit') : translate('Put_on_hold'),
                                                 'completed' => translate('Complete_Booking'),
@@ -3076,9 +3080,13 @@
         @endif
 
         function bookingDetailsStatusUpdateMessage(status) {
-            return status === 'canceled'
-                ? '{{ translate('Please contact the customer before proceeding with the cancellation process.') }}'
-                : '{{ translate('want_to_update_status') }}';
+            if (status === 'canceled') {
+                return '{{ translate('Please contact the customer before proceeding with the cancellation process.') }}';
+            }
+            if (status === 'pending' && @json($__bookingIsCanceledForRestore ?? false)) {
+                return '{{ translate('Restore_canceled_booking_to_pending_confirm') }}';
+            }
+            return '{{ translate('want_to_update_status') }}';
         }
 
         function bookingDetailsRevertStatusSelect($select, previousStatus) {

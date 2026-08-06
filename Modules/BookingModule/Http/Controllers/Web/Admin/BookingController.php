@@ -4473,6 +4473,14 @@ class BookingController extends Controller
                         'message' => translate('Invalid_booking_status_transition'),
                     ]), 422);
                 }
+                if (in_array($current, ['canceled', 'cancelled'], true)
+                    && $to === 'pending'
+                    && ! booking_admin_can_restore_canceled_to_pending($booking)) {
+                    return response()->json(response_formatter([
+                        'response_code' => 'default_400',
+                        'message' => translate('Canceled_booking_cannot_restore_to_pending'),
+                    ]), 422);
+                }
                 if ($to === 'completed' && ! booking_can_be_completed($booking)) {
                     return response()->json(response_formatter([
                         'response_code' => 'default_400',
@@ -4534,6 +4542,14 @@ class BookingController extends Controller
                     return response()->json(response_formatter([
                         'response_code' => 'default_400',
                         'message' => translate('Invalid_booking_status_transition'),
+                    ]), 422);
+                }
+                if (in_array($current, ['canceled', 'cancelled'], true)
+                    && $to === 'pending'
+                    && ! booking_admin_can_restore_canceled_to_pending($repeatBooking)) {
+                    return response()->json(response_formatter([
+                        'response_code' => 'default_400',
+                        'message' => translate('Canceled_booking_cannot_restore_to_pending'),
                     ]), 422);
                 }
                 if ($to === 'completed' && ! booking_can_be_completed($repeatBooking)) {

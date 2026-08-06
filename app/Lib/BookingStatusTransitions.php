@@ -60,9 +60,44 @@ if (! function_exists('booking_admin_allowed_next_statuses')) {
             // Ongoing: hold is "after visit" (same on_hold status); no direct cancel — use complete / hold / special settlement first.
             'ongoing' => ['on_hold', 'completed'],
             'on_hold' => ['accepted', 'ongoing', 'canceled'],
-            'completed', 'canceled', 'refunded' => [],
+            'canceled', 'cancelled' => ['pending'],
+            'completed', 'refunded' => [],
             default => [],
         };
+    }
+}
+
+if (! function_exists('booking_admin_can_restore_canceled_to_pending')) {
+    /**
+     * Whether a canceled booking may be restored to pending (no refunds issued, no financial settlement).
+     *
+     * @param  \Modules\BookingModule\Entities\Booking|\Modules\BookingModule\Entities\BookingRepeat|object|null  $booking
+     */
+    function booking_admin_can_restore_canceled_to_pending($booking): bool
+    {
+        if (! ($booking instanceof \Modules\BookingModule\Entities\Booking
+            || $booking instanceof \Modules\BookingModule\Entities\BookingRepeat)) {
+            return false;
+        }
+
+        $status = strtolower(trim((string) ($booking->booking_status ?? '')));
+        if (! in_array($status, ['canceled', 'cancelled'], true)) {
+            return false;
+        }
+
+        if (trim((string) ($booking->settlement_outcome ?? '')) !== '') {
+            return false;
+        }
+
+        $bookingId = (string) ($booking->id ?? '');
+        if ($bookingId !== '' && function_exists('get_booking_refund_display_totals')) {
+            $refundTotals = get_booking_refund_display_totals($booking);
+            if (round((float) ($refundTotals['refunded_total'] ?? 0), 2) > 0.009) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
 
@@ -95,6 +130,11 @@ if (! function_exists('booking_admin_allowed_next_statuses_for_booking')) {
         // Cancellation must be done via the reopen flow (Dispute and close → refund split + cancel).
         if ($booking instanceof \Modules\BookingModule\Entities\Booking && $booking->adminMustConfigureReopenBeforeComplete()) {
             return array_values(array_filter($next, fn ($s) => !in_array($s, ['completed', 'canceled', 'cancelled'], true)));
+        }
+
+        if (in_array($current, ['canceled', 'cancelled'], true)
+            && ! booking_admin_can_restore_canceled_to_pending($booking)) {
+            return [];
         }
 
         return $next;

@@ -3,7 +3,7 @@
         @include('bookingmodule::admin.booking.partials._booking-list-status-badge', ['booking' => $booking])
     </span>
     @can('booking_can_manage_status')
-        @if(!$bookingNotEditable)
+        @if($bookingStatusChangeable ?? !$bookingNotEditable)
             <div class="d-flex flex-column gap-2 w-100" id="booking-status-overview-actions">
                 @forelse ($__adminNextStatuses as $__nextSt)
                     @php
@@ -32,7 +32,9 @@
                         };
                         $__pillLabel = match ($__nextSt) {
                             'accepted' => translate('Accept_Booking'),
-                            'pending' => translate('Mark_as_Pending'),
+                            'pending' => in_array($__overviewSt, ['canceled', 'cancelled'], true)
+                                ? translate('Restore_to_pending')
+                                : translate('Mark_as_Pending'),
                             'ongoing' => translate('Mark_as_Ongoing'),
                             'on_hold' => $__overviewSt === 'ongoing' ? translate('Hold_after_visit') : translate('Put_on_hold'),
                             'completed' => translate('Complete_Booking'),
@@ -114,7 +116,7 @@
     </div>
     <div class="party-card__body party-card__body--status">
         @can('booking_can_manage_status')
-            @if(!$bookingNotEditable)
+            @if($bookingStatusChangeable ?? !$bookingNotEditable)
                 <div class="d-flex flex-wrap gap-2 w-100" id="booking-status-overview-actions">
                     @forelse ($__adminNextStatuses as $__nextSt)
                         @php
@@ -146,7 +148,9 @@
                             };
                             $__pillLabel = match ($__nextSt) {
                                 'accepted' => translate('Accept_Booking'),
-                                'pending' => translate('Mark_as_Pending'),
+                                'pending' => in_array($__overviewSt, ['canceled', 'cancelled'], true)
+                                    ? translate('Restore_to_pending')
+                                    : translate('Mark_as_Pending'),
                                 'ongoing' => translate('Mark_as_Ongoing'),
                                 'on_hold' => $__overviewSt === 'ongoing' ? translate('Hold_after_visit') : translate('Put_on_hold'),
                                 'completed' => translate('Complete_Booking'),
