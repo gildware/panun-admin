@@ -19,11 +19,13 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('create/from-whatsapp-booking/{booking_id}', [BookingController::class, 'createFromWhatsAppBooking'])->name('create-from-whatsapp-booking');
         Route::get('web-bookings', [WebBookingController::class, 'index'])->middleware(['can:booking_view'])->name('web-bookings.index');
         Route::get('web-bookings/{id}', [WebBookingController::class, 'show'])->middleware(['can:booking_view'])->name('web-bookings.show');
+        Route::delete('web-bookings/{id}', [WebBookingController::class, 'destroy'])->middleware(['can:booking_delete'])->name('web-bookings.destroy');
         Route::get('web-provider-requests', [WebProviderRequestController::class, 'index'])->middleware(['can:booking_view'])->name('web-provider-requests.index');
         Route::get('web-provider-requests/{id}', [WebProviderRequestController::class, 'show'])->middleware(['can:booking_view'])->name('web-provider-requests.show');
         Route::get('app-custom-requests', [AppCustomRequestController::class, 'index'])->middleware(['can:booking_view'])->name('app-custom-requests.index');
         Route::get('app-custom-requests/{id}', [AppCustomRequestController::class, 'show'])->middleware(['can:booking_view'])->name('app-custom-requests.show');
         Route::post('app-custom-requests/{id}/update', [AppCustomRequestController::class, 'update'])->middleware(['can:booking_view'])->name('app-custom-requests.update');
+        Route::delete('app-custom-requests/{id}', [AppCustomRequestController::class, 'destroy'])->middleware(['can:booking_delete'])->name('app-custom-requests.destroy');
         Route::post('preview', [BookingController::class, 'preview'])->name('preview');
         Route::post('store', [BookingController::class, 'store'])->name('store');
         Route::post('whatsapp-automation-prompt/send', [BookingWhatsAppAdminPromptController::class, 'send'])->name('whatsapp_automation_prompt.send');

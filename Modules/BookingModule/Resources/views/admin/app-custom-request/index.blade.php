@@ -102,11 +102,16 @@
                                                     <a href="{{ route('admin.booking.app-custom-requests.show', $customRequest->id) }}" class="btn btn-sm btn--secondary">
                                                         {{ translate('View') }}
                                                     </a>
-                                                    @if($customRequest->lead)
-                                                        <a href="{{ route('admin.booking.create-from-lead', $customRequest->lead->id) }}" class="btn btn-sm btn--primary">
-                                                            {{ translate('Create_Booking') }}
-                                                        </a>
-                                                    @endif
+                                                    @can('booking_delete')
+                                                        <button type="button"
+                                                                class="btn btn-sm btn-danger"
+                                                                data-bs-toggle="modal"
+                                                                data-bs-target="#acrDeleteModal"
+                                                                data-acr-delete-url="{{ route('admin.booking.app-custom-requests.destroy', $customRequest->id) }}"
+                                                                data-acr-delete-label="{{ $customRequest->reference_id }} — {{ $customRequest->name }}">
+                                                            {{ translate('Delete') }}
+                                                        </button>
+                                                    @endcan
                                                 </div>
                                             </td>
                                         </tr>
@@ -128,4 +133,6 @@
             </div>
         </div>
     </div>
+
+    @include('bookingmodule::admin.app-custom-request.partials._delete-modal')
 @endsection

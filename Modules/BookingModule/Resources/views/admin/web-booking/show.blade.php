@@ -3,15 +3,35 @@
 @section('title', translate('Web_Booking_Details'))
 
 @section('content')
+    @php
+        $leadMeta = $booking->lead ? ($leadDisplayData[$booking->lead->id] ?? null) : null;
+    @endphp
     <div class="main-content">
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
                     <div class="page-title-wrap d-flex justify-content-between flex-wrap align-items-center gap-3 mb-3">
-                        <h2 class="page-title">{{ translate('Web_Booking_Details') }}</h2>
-                        <a href="{{ route('admin.booking.web-bookings.index') }}" class="btn btn--secondary">
-                            {{ translate('Back') }}
-                        </a>
+                        <h2 class="page-title mb-0">{{ translate('Web_Booking_Details') }}</h2>
+                        <div class="d-flex flex-wrap gap-2">
+                            @if($booking->lead)
+                                <a href="{{ route('admin.lead.show', $booking->lead->id) }}" class="btn btn--primary">
+                                    {{ translate('View_Lead') }}
+                                </a>
+                            @endif
+                            @can('booking_delete')
+                                <button type="button"
+                                        class="btn btn-danger"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#wbDeleteModal"
+                                        data-wb-delete-url="{{ route('admin.booking.web-bookings.destroy', $booking->id) }}"
+                                        data-wb-delete-label="{{ $booking->reference_id }} — {{ $booking->name }}">
+                                    {{ translate('Delete') }}
+                                </button>
+                            @endcan
+                            <a href="{{ route('admin.booking.web-bookings.index') }}" class="btn btn--secondary">
+                                {{ translate('Back') }}
+                            </a>
+                        </div>
                     </div>
 
                     <div class="card">
@@ -22,8 +42,29 @@
                                     <div class="fw-semibold">{{ $booking->reference_id }}</div>
                                 </div>
                                 <div class="col-md-6">
-                                    <div class="text-muted small">{{ translate('Status') }}</div>
-                                    <div class="fw-semibold text-capitalize">{{ str_replace('_', ' ', strtolower($booking->status)) }}</div>
+                                    <div class="text-muted small">{{ translate('Lead_ID') }}</div>
+                                    @if($booking->lead)
+                                        <a href="{{ route('admin.lead.show', $booking->lead->id) }}" class="link-primary fw-semibold">
+                                            #{{ $booking->lead->id }}
+                                        </a>
+                                    @else
+                                        <div class="fw-semibold">—</div>
+                                    @endif
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="text-muted small">{{ translate('Lead_Status') }}</div>
+                                    @if($booking->lead && $leadMeta)
+                                        <div class="d-flex flex-wrap align-items-center gap-2">
+                                            <span class="badge" style="background-color: {{ $leadMeta['status_color'] }}; color: #fff;">
+                                                {{ $leadMeta['status_name'] }}
+                                            </span>
+                                            <span class="badge rounded-pill {{ $leadMeta['open_badge_class'] }}">
+                                                {{ $leadMeta['open_label'] }}
+                                            </span>
+                                        </div>
+                                    @else
+                                        <div class="fw-semibold">—</div>
+                                    @endif
                                 </div>
                                 <div class="col-md-6">
                                     <div class="text-muted small">{{ translate('Customer_Name') }}</div>
@@ -53,9 +94,9 @@
                                     <div class="text-muted small">{{ translate('Details') }}</div>
                                     <div class="fw-semibold" style="white-space: pre-wrap;">{{ $booking->details ?: '—' }}</div>
                                 </div>
-                                <div class="col-12">
-                                    <div class="text-muted small">{{ translate('Lead') }}</div>
-                                    @if($booking->lead)
+                                @if($booking->lead)
+                                    <div class="col-12">
+                                        <div class="text-muted small">{{ translate('Lead') }}</div>
                                         <div class="d-flex flex-wrap align-items-center gap-2">
                                             <a href="{{ route('admin.lead.show', $booking->lead->id) }}" class="link-primary fw-semibold">
                                                 #{{ $booking->lead->id }} — {{ $booking->lead->name ?: '—' }}
@@ -63,14 +104,9 @@
                                             @if($booking->lead->source)
                                                 <span class="badge bg-light text-dark">{{ $booking->lead->source->name }}</span>
                                             @endif
-                                            <a href="{{ route('admin.booking.create-from-lead', $booking->lead->id) }}" class="btn btn-sm btn--primary">
-                                                {{ translate('Create_Booking') }}
-                                            </a>
                                         </div>
-                                    @else
-                                        <div>—</div>
-                                    @endif
-                                </div>
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -78,4 +114,6 @@
             </div>
         </div>
     </div>
+
+    @include('bookingmodule::admin.web-booking.partials._delete-modal')
 @endsection

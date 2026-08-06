@@ -10643,4 +10643,5 @@ _Message' => 'Customer notification for provider bid offer
   'Platform' => 'Platform',
   'Uh oh! there is not advertisement created by provider!' => 'Uh oh! there is not advertisement created by provider!',
   'Good_afternoon' => 'Good afternoon',
+  'Preferred_date_time' => 'Preferred date time',
 );

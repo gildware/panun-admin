@@ -32,9 +32,21 @@
         <div class="container-fluid">
             <div class="page-title-wrap d-flex justify-content-between flex-wrap align-items-center gap-3 mb-3">
                 <h2 class="page-title mb-0">{{ translate('App_Custom_Request_Details') }}</h2>
-                <a href="{{ route('admin.booking.app-custom-requests.index') }}" class="btn btn--secondary">
-                    {{ translate('Back') }}
-                </a>
+                <div class="d-flex flex-wrap gap-2">
+                    @can('booking_delete')
+                        <button type="button"
+                                class="btn btn-danger"
+                                data-bs-toggle="modal"
+                                data-bs-target="#acrDeleteModal"
+                                data-acr-delete-url="{{ route('admin.booking.app-custom-requests.destroy', $customRequest->id) }}"
+                                data-acr-delete-label="{{ $customRequest->reference_id }} — {{ $customRequest->name }}">
+                            {{ translate('Delete') }}
+                        </button>
+                    @endcan
+                    <a href="{{ route('admin.booking.app-custom-requests.index') }}" class="btn btn--secondary">
+                        {{ translate('Back') }}
+                    </a>
+                </div>
             </div>
 
             <div class="row g-3 acr-detail-layout">
@@ -105,9 +117,6 @@
                                     @if($customRequest->lead->source)
                                         <span class="badge bg-light text-dark">{{ $customRequest->lead->source->name }}</span>
                                     @endif
-                                    <a href="{{ route('admin.booking.create-from-lead', $customRequest->lead->id) }}" class="btn btn-sm btn--primary">
-                                        {{ translate('Create_Booking') }}
-                                    </a>
                                 </div>
                             @else
                                 <div>—</div>
@@ -164,6 +173,8 @@
             </div>
         </div>
     </div>
+
+    @include('bookingmodule::admin.app-custom-request.partials._delete-modal')
 @endsection
 
 @push('script')
