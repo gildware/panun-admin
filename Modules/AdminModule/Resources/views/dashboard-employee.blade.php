@@ -732,13 +732,39 @@
             </div>
         </div>
 
-        @if($showEmployeeProgress ?? is_admin_employee())
-            @include('adminmodule::partials._employee-progress', [
-                'todayDone' => $todayDone,
-                'monthly' => $monthly,
-                'contributionToday' => $contributionToday,
-                'contributionMonthly' => $contributionMonthly,
-            ])
+        @php
+            $progressScopes = $employeeData['progress_scopes'] ?? [];
+        @endphp
+
+        @if($progressScopes !== [])
+            <div id="section-progress" class="js-progress-scope-wrapper">
+                @foreach($progressScopes as $scopeId => $scope)
+                    <div class="js-progress-scope-panel {{ $scopeId !== '__all__' ? 'd-none' : '' }}"
+                         data-scope-id="{{ $scopeId }}">
+                        @include('adminmodule::partials._employee-progress', [
+                            'todayDone' => $scope['today_done'] ?? [],
+                            'monthly' => $scope['monthly'] ?? [],
+                            'contributionToday' => $scope['contribution_today'] ?? [],
+                            'contributionMonthly' => $scope['contribution_monthly'] ?? [],
+                            'progressTitle' => $scope['title'] ?? translate('Team_Progress'),
+                            'progressSubtitle' => $scope['subtitle'] ?? translate('Team_progress_sub'),
+                            'monthTitle' => $scope['month_title'] ?? translate('Team_Month_Report'),
+                            'contributionTitle' => $scope['contribution_title'] ?? translate('Team_activity_by_employee'),
+                            'contributionSubtitle' => $scope['contribution_subtitle'] ?? translate('Team_activity_by_employee_sub'),
+                            'viewReportUrl' => $scope['view_report_url'] ?? route('admin.report.daily-employee'),
+                        ])
+                    </div>
+                @endforeach
+            </div>
+        @elseif($showEmployeeProgress ?? is_admin_employee())
+            <div id="section-progress">
+                @include('adminmodule::partials._employee-progress', [
+                    'todayDone' => $todayDone,
+                    'monthly' => $monthly,
+                    'contributionToday' => $contributionToday,
+                    'contributionMonthly' => $contributionMonthly,
+                ])
+            </div>
         @endif
 
     </div>
@@ -874,6 +900,12 @@
                     footerEmployeeLink.setAttribute('href', viewAllUrl);
                 }
             }
+        });
+
+        document.querySelectorAll('.js-progress-scope-panel').forEach(function (panel) {
+            var panelScope = panel.getAttribute('data-scope-id') || '';
+            var showPanel = isAll ? panelScope === '__all__' : panelScope === scopeValue;
+            panel.classList.toggle('d-none', ! showPanel);
         });
 
         try {
