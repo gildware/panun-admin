@@ -33,17 +33,18 @@ class AdminNavRegistry
         $items = array_merge(
             self::dashboardItems(),
             self::operationsItems(),
-            self::leadsAndBookingsItems(),
-            self::insightsItems(),
+            self::leadsItems(),
+            self::bookingsItems(),
+            self::taskBoardItems(),
+            self::processGuidesItems(),
+            self::reportsItems(),
             self::financeItems(),
             self::marketingItems(),
             self::providerItems(),
             self::catalogItems(),
             self::customerItems(),
-            self::mobileAppItems(),
-            self::teamItems(),
+            self::utilityNavItems(),
             self::settingsItems(),
-            self::addonItems(),
         );
 
         return $items;
@@ -69,6 +70,10 @@ class AdminNavRegistry
             }
 
             $score = self::itemScore($item, $request);
+            if ($score < 0) {
+                continue;
+            }
+
             if ($score > $bestScore) {
                 $best = $item;
                 $bestScore = $score;
@@ -91,7 +96,14 @@ class AdminNavRegistry
 
         $request = $request ?? request();
 
-        if ($request->is('admin/dashboard')) {
+        if ($request->is('admin/dashboard/finance')) {
+            return self::$cachedBreadcrumbs = [
+                ['label' => translate('dashboard'), 'url' => route('admin.dashboard')],
+                ['label' => translate('Finance'), 'url' => null],
+            ];
+        }
+
+        if ($request->is('admin/dashboard') && ! $request->is('admin/dashboard/*')) {
             return self::$cachedBreadcrumbs = [
                 ['label' => translate('dashboard'), 'url' => route('admin.dashboard')],
             ];
@@ -172,7 +184,7 @@ class AdminNavRegistry
     /**
      * Sub-menu links for the currently active section only (hidden on dashboard).
      *
-     * @return array{title: string, group_key: string, items: array<int, array{label: string, url: string, active: bool}>}|null
+     * @return array{title: string, group_key: string, items: array<int, array{label: string, url: string, active: bool, count: int}>}|null
      */
     public static function groupSubmenu(?Request $request = null): ?array
     {
@@ -184,7 +196,23 @@ class AdminNavRegistry
         $match = self::match($request);
         $groupKey = $match['group_key'] ?? null;
 
-        if (! $groupKey || $groupKey === 'dashboard') {
+        if (! $groupKey || $groupKey === 'dashboard' || $groupKey === 'settings' || $groupKey === 'communications') {
+            return self::$cachedGroupSubmenu = null;
+        }
+
+        if (admin_in_settings_module()) {
+            return self::$cachedGroupSubmenu = null;
+        }
+
+        if (admin_in_marketing_module()) {
+            return self::$cachedGroupSubmenu = AdminMarketingRegistry::groupSubmenu($request);
+        }
+
+        if (admin_in_reports_module()) {
+            return self::$cachedGroupSubmenu = AdminReportsRegistry::groupSubmenu($request);
+        }
+
+        if (is_admin_employee() && $groupKey === 'team') {
             return self::$cachedGroupSubmenu = null;
         }
 
@@ -205,6 +233,7 @@ class AdminNavRegistry
                 'label' => $item['label'],
                 'url' => $item['url'],
                 'active' => self::isSameNavItem($match, $item),
+                'count' => AdminMenuCounts::badgeCountForUrl($item['url']),
             ];
         }
 
@@ -249,7 +278,7 @@ class AdminNavRegistry
 
     private static function itemScore(array $item, Request $request): int
     {
-        $score = 0;
+        $score = -1;
 
         foreach ($item['paths'] as $pattern) {
             if ($request->is($pattern)) {
@@ -319,127 +348,228 @@ class AdminNavRegistry
 
     private static function dashboardItems(): array
     {
+        if (is_admin_employee()) {
+            return [
+                self::entry('dashboard', translate('dashboard'), null, translate('dashboard'), route('admin.dashboard'), ['admin/dashboard'], ['admin.dashboard']),
+            ];
+        }
+
         return [
-            self::entry('dashboard', translate('dashboard'), null, translate('dashboard'), route('admin.dashboard'), ['admin/dashboard']),
+            self::entry('dashboard', translate('dashboard'), translate('Work'), translate('Work'), route('admin.dashboard'), ['admin/dashboard'], ['admin.dashboard']),
+            self::entry('dashboard', translate('dashboard'), translate('Operations'), translate('Operations'), route('admin.dashboard.operations'), ['admin/dashboard/operations'], ['admin.dashboard.operations']),
+            self::entry('dashboard', translate('dashboard'), translate('Finance'), translate('Finance'), route('admin.dashboard.finance'), ['admin/dashboard/finance'], ['admin.dashboard.finance']),
         ];
     }
 
     private static function operationsItems(): array
     {
-        $group = translate('Operations');
+        if (! is_admin_employee()) {
+            return [];
+        }
+
+        $group = translate('WhatsApp_and_social_media');
 
         return [
-            self::entry('operations', $group, translate('Lead_Management'), translate('Outbound_Enquiry'), route('admin.lead.outbound-enquiry.index'), ['admin/lead/outbound-enquiry*']),
-            self::entry('operations', $group, translate('Lead_Management'), translate('Lead_Configuration'), route('admin.lead.configuration.index'), ['admin/lead/configuration*']),
-            self::entry('operations', $group, translate('Voice'), translate('Voice_Calls'), route('admin.voice-call.index'), ['admin/voice-call*']),
-            self::entry('operations', $group, translate('WhatsApp_and_social_media'), translate('WhatsApp'), route('admin.whatsapp.conversations.index', ['channel' => 'whatsapp', 'tab' => 'chats']), ['admin/social-inbox/whatsapp/conversations*'], [], 'social.whatsapp'),
-            self::entry('operations', $group, translate('WhatsApp_and_social_media'), translate('Message_templates'), route('admin.whatsapp.booking-templates.edit', ['channel' => 'whatsapp']), ['admin/social-inbox/*/booking-message-templates*']),
-            self::entry('operations', $group, translate('WhatsApp_and_social_media'), __('whatsapp_ai.page_title'), route('admin.whatsapp.ai-settings.edit', ['channel' => 'whatsapp']), ['admin/social-inbox/*/ai-support*']),
-            self::entry('operations', $group, translate('WhatsApp_and_social_media'), translate('Meta_CAPI_Events'), route('admin.whatsapp.meta-capi-events.index', ['channel' => 'whatsapp']), ['admin/social-inbox/*/meta-capi-events*']),
-            self::entry('operations', $group, translate('WhatsApp_Marketing'), translate('Send_Bulk_Message'), route('admin.whatsapp.marketing.bulk.create', ['channel' => 'whatsapp']), ['admin/social-inbox/*/marketing/send']),
-            self::entry('operations', $group, translate('WhatsApp_Marketing'), translate('campaigns'), route('admin.whatsapp.marketing.campaigns.index', ['channel' => 'whatsapp']), ['admin/social-inbox/*/marketing/campaigns*']),
-            self::entry('operations', $group, translate('WhatsApp_Marketing'), translate('Templates'), route('admin.whatsapp.marketing.templates.index', ['channel' => 'whatsapp']), ['admin/social-inbox/*/marketing/templates*']),
-            self::entry('operations', $group, translate('WhatsApp_Marketing'), translate('Reports'), route('admin.whatsapp.marketing.reports.index', ['channel' => 'whatsapp']), ['admin/social-inbox/*/marketing/reports*']),
-            self::entry('operations', $group, translate('booking_management'), translate('Booking_Configuration'), route('admin.booking.configuration.index'), ['admin/booking/configuration*']),
-            self::entry('operations', $group, translate('booking_management'), translate('Add_New_Booking'), route('admin.booking.create'), ['admin/booking/create']),
-            self::entry('operations', $group, translate('booking_management'), translate('Add_New_Bidding'), route('admin.booking.post.create'), ['admin/booking/post/create']),
-            self::entry('operations', $group, translate('booking_management'), translate('Customized_Requests'), route('admin.booking.post.list', ['type' => 'all']), ['admin/booking/post', 'admin/booking/post/details*']),
-            self::entry('operations', $group, translate('booking_management'), translate('verify_requests'), route('admin.booking.list.verification', ['booking_status' => 'pending', 'type' => 'pending']), ['admin/booking/list/verification*'], [], 'booking.verify'),
-            self::entry('operations', $group, translate('booking_management'), translate('Cancelled_by_provider'), route('admin.booking.list.cancelled_by_provider', ['service_type' => 'all']), ['admin/booking/list/cancelled-by-provider*'], [], 'booking.cancelled_by_provider'),
-            self::entry('operations', $group, translate('booking_management'), translate('Special_scenario_bookings'), route('admin.booking.list.special_scenarios', ['scenario' => 'all']), ['admin/booking/list/special-scenarios*']),
-            self::entry('operations', $group, translate('booking_management'), translate('Booking_Review'), route('admin.booking.reviews.list'), ['admin/booking/reviews/list*']),
-            self::entry('operations', $group, null, translate('Talk_With_AI'), route('admin.business-ai.index'), ['admin/business-ai*']),
-            self::entry('operations', $group, translate('Messages'), translate('Staff_Conversation'), route('admin.chat.staff'), ['admin/chat/staff*'], ['admin.chat.staff'], 'chat.staff'),
-            self::entry('operations', $group, translate('Messages'), translate('Support_Messages'), route('admin.chat.support'), ['admin/chat/support*'], ['admin.chat.support'], 'chat.support'),
-            self::entry('operations', $group, null, translate('In_App_Call_Monitor'), route('admin.in-app-calls.index'), ['admin/in-app-calls*'], ['admin.in-app-calls.index']),
+            self::entry('operations', $group, null, translate('WhatsApp'), route('admin.whatsapp.conversations.index', ['channel' => 'whatsapp', 'tab' => 'chats']), ['admin/social-inbox/whatsapp/conversations*'], ['admin.whatsapp.conversations.index', 'admin.whatsapp.conversations.chat'], 'social.whatsapp'),
         ];
     }
 
-    private static function leadsAndBookingsItems(): array
+    private static function leadsItems(): array
     {
-        $group = translate('Leads_and_bookings');
+        $group = translate('Leads');
+
+        if (is_admin_employee()) {
+            return [
+                self::entry('leads', $group, null, translate('All_Leads'), route('admin.lead.index', ['handled_by' => ['__unassigned__']]), [
+                    'admin/lead', 'admin/lead/show*', 'admin/lead/edit*', 'admin/lead/create*',
+                ], ['admin.lead.index', 'admin.lead.show'], 'lead.index'),
+                self::entry('leads', $group, null, translate('Web_Bookings'), route('admin.booking.web-bookings.index'), [
+                    'admin/booking/web-bookings*',
+                ], ['admin.booking.web-bookings.index', 'admin.booking.web-bookings.show']),
+                self::entry('leads', $group, null, translate('Web_Provider_Requests'), route('admin.booking.web-provider-requests.index'), [
+                    'admin/booking/web-provider-requests*',
+                ], ['admin.booking.web-provider-requests.index', 'admin.booking.web-provider-requests.show']),
+                self::entry('leads', $group, null, translate('App_Custom_Requests'), route('admin.booking.app-custom-requests.index'), [
+                    'admin/booking/app-custom-requests*',
+                ], ['admin.booking.app-custom-requests.index', 'admin.booking.app-custom-requests.show']),
+                self::entry('leads', $group, null, translate('Outbound_Enquiry'), route('admin.lead.outbound-enquiry.index'), [
+                    'admin/lead/outbound-enquiry*',
+                ], ['admin.lead.outbound-enquiry.index']),
+            ];
+        }
 
         return [
-            self::entry('leads_and_bookings', $group, null, translate('Leads'), route('admin.lead.index'), [
-                'admin/lead', 'admin/lead/show*', 'admin/lead/edit*',
+            self::entry('leads', $group, null, translate('All_Leads'), route('admin.lead.index'), [
+                'admin/lead', 'admin/lead/show*', 'admin/lead/edit*', 'admin/lead/create*',
             ], ['admin.lead.index', 'admin.lead.show'], 'lead.index'),
-            self::entry('leads_and_bookings', $group, null, translate('Booking_Requests'), route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']), [
-                'admin/booking/list', 'admin/booking/details*', 'admin/booking/repeat*', 'admin/booking/rebooking*',
-                'admin/booking/todays-followups*', 'admin/booking/success*',
-            ], [], 'booking.requests'),
-            self::entry('leads_and_bookings', $group, null, translate('Web_Bookings'), route('admin.booking.web-bookings.index'), ['admin/booking/web-bookings*']),
-            self::entry('leads_and_bookings', $group, null, translate('Web_Provider_Requests'), route('admin.booking.web-provider-requests.index'), ['admin/booking/web-provider-requests*']),
-            self::entry('leads_and_bookings', $group, null, translate('App_Custom_Requests'), route('admin.booking.app-custom-requests.index'), ['admin/booking/app-custom-requests*']),
+            self::entry('leads', $group, null, translate('Web_Bookings'), route('admin.booking.web-bookings.index'), [
+                'admin/booking/web-bookings*',
+            ], ['admin.booking.web-bookings.index', 'admin.booking.web-bookings.show']),
+            self::entry('leads', $group, null, translate('Web_Provider_Requests'), route('admin.booking.web-provider-requests.index'), [
+                'admin/booking/web-provider-requests*',
+            ], ['admin.booking.web-provider-requests.index', 'admin.booking.web-provider-requests.show']),
+            self::entry('leads', $group, null, translate('App_Custom_Requests'), route('admin.booking.app-custom-requests.index'), [
+                'admin/booking/app-custom-requests*',
+            ], ['admin.booking.app-custom-requests.index', 'admin.booking.app-custom-requests.show']),
+            self::entry('leads', $group, null, translate('Outbound_Enquiry'), route('admin.lead.outbound-enquiry.index'), [
+                'admin/lead/outbound-enquiry*',
+            ], ['admin.lead.outbound-enquiry.index']),
         ];
     }
 
-    private static function insightsItems(): array
+    private static function bookingsItems(): array
     {
-        $group = translate('Insights');
+        if (is_admin_employee()) {
+            return [];
+        }
+
+        $group = translate('Bookings');
 
         return [
-            self::entry('insights', $group, translate('Reports'), translate('Business Reports'), route('admin.report.business.overview'), ['admin/report/business*']),
-            self::entry('insights', $group, translate('Reports'), translate('Booking Reports'), route('admin.report.booking'), ['admin/report/booking']),
-            self::entry('insights', $group, translate('Reports'), translate('Provider Reports'), route('admin.report.provider'), ['admin/report/provider']),
-            self::entry('insights', $group, translate('Reports'), translate('Inbound_Lead_Reports'), route('admin.lead.reports.inbound'), ['admin/lead/reports/inbound*', 'admin/lead/reports'], ['admin.lead.reports.inbound', 'admin.lead.reports.index']),
-            self::entry('insights', $group, translate('Reports'), translate('Outbound_Lead_Reports'), route('admin.lead.reports.outbound'), ['admin/lead/reports/outbound*'], ['admin.lead.reports.outbound']),
-            self::entry('insights', $group, translate('Reports'), translate('User_Report'), route('admin.lead.reports.user', ['user_id' => auth()->id()]), ['admin/lead/reports/user*'], ['admin.lead.reports.user']),
-            self::entry('insights', $group, translate('Reports'), translate('Daily_Employee_Report'), route('admin.report.daily-employee'), ['admin/report/daily-employee*'], ['admin.report.daily-employee']),
-            self::entry('insights', $group, translate('Analytics'), translate('Keyword_Search'), route('admin.analytics.search.keyword'), ['admin/analytics/search/keyword']),
-            self::entry('insights', $group, translate('Analytics'), translate('Customer_Search'), route('admin.analytics.search.customer'), ['admin/analytics/search/customer']),
+            self::entry('bookings', $group, null, translate('Booking_Requests'), route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']), [
+                'admin/booking/list', 'admin/booking/details*', 'admin/booking/repeat*', 'admin/booking/rebooking*',
+                'admin/booking/success*',
+            ], [], 'booking.requests'),
+            self::entry('bookings', $group, null, translate('Add_New_Booking'), route('admin.booking.create'), ['admin/booking/create']),
+            self::entry('bookings', $group, null, translate('verify_requests'), route('admin.booking.list.verification', ['booking_status' => 'pending', 'type' => 'pending']), ['admin/booking/list/verification*'], [], 'booking.verify'),
+            self::entry('bookings', $group, null, translate('Booking_Review'), route('admin.booking.reviews.list'), ['admin/booking/reviews/list*']),
         ];
+    }
+
+    private static function taskBoardItems(): array
+    {
+        if (is_admin_employee()) {
+            return [];
+        }
+
+        $group = translate('Task_Board');
+
+        return [
+            self::entry('task_board', $group, null, translate('Task_Board'), route('admin.task-board.index'), ['admin/task-board*']),
+        ];
+    }
+
+    private static function processGuidesItems(): array
+    {
+        if (is_admin_employee()) {
+            return [];
+        }
+
+        $group = translate('Process_Guides');
+
+        return [
+            self::entry('process_guides', $group, null, translate('Process_Guides'), route('admin.process-guides.index'), ['admin/process-guides*']),
+        ];
+    }
+
+    private static function reportsItems(): array
+    {
+        if (is_admin_employee()) {
+            return [];
+        }
+
+        $group = translate('Reports');
+        $items = [
+            self::entry('reports', $group, null, translate('Reports'), route('admin.reports.index'), ['admin/reports*'], ['admin.reports.index']),
+        ];
+
+        foreach (AdminReportsRegistry::sections() as $section) {
+            foreach ($section['items'] as $item) {
+                if (! AdminReportsRegistry::itemAllowed($item)) {
+                    continue;
+                }
+
+                $items[] = self::entry(
+                    'reports',
+                    $group,
+                    $section['label'],
+                    $item['label'],
+                    $item['url'],
+                    $item['paths'],
+                    $item['routes'] ?? []
+                );
+            }
+        }
+
+        return $items;
     }
 
     private static function financeItems(): array
     {
         $group = translate('Finance');
 
+        if (is_admin_employee()) {
+            return [
+                self::entry('finance', $group, null, translate('Ledger'), route('admin.ledger.index'), ['admin/ledger*']),
+                self::entry('finance', $group, null, translate('Transactions'), route('admin.transaction.list', ['trx_type' => 'all']), ['admin/transaction/list*']),
+                self::entry('finance', $group, null, translate('Pending_provider_balances'), route('admin.transaction.pending_provider_balances.index'), ['admin/transaction/pending-provider-balances*']),
+                self::entry('finance', $group, null, translate('Withdraw Requests'), route('admin.withdraw.request.list', ['status' => 'all']), ['admin/withdraw/request*']),
+            ];
+        }
+
         return [
             self::entry('finance', $group, null, translate('All Transactions'), route('admin.transaction.list', ['trx_type' => 'all']), ['admin/transaction/list*']),
-            self::entry('finance', $group, null, translate('Razorpay_webhook_logs'), route('admin.transaction.razorpay_webhooks.index'), ['admin/transaction/razorpay-webhooks*']),
             self::entry('finance', $group, null, translate('Ledger'), route('admin.ledger.index'), ['admin/ledger*']),
+            self::entry('finance', $group, null, translate('Wallet Transactions'), route('admin.customer.wallet.report'), ['admin/customer/wallet/report']),
+            self::entry('finance', $group, null, translate('Loyalty Points Transactions'), route('admin.customer.loyalty-point.report'), ['admin/customer/loyalty-point/report']),
             self::entry('finance', $group, null, translate('Pending_provider_balances'), route('admin.transaction.pending_provider_balances.index'), ['admin/transaction/pending-provider-balances*']),
-            self::entry('finance', $group, null, translate('Transaction Reports'), route('admin.report.transaction', ['transaction_type' => 'all']), ['admin/report/transaction*']),
+            self::entry('finance', $group, null, translate('Withdraw Requests'), route('admin.withdraw.request.list', ['status' => 'all']), ['admin/withdraw/request*']),
         ];
     }
 
     private static function marketingItems(): array
     {
-        $group = translate('Marketing');
+        if (is_admin_employee()) {
+            return [];
+        }
 
-        return [
-            self::entry('marketing', $group, translate('discounts'), translate('discount_list'), route('admin.discount.list'), ['admin/discount/list']),
-            self::entry('marketing', $group, translate('discounts'), translate('add_new_discount'), route('admin.discount.create'), ['admin/discount/create']),
-            self::entry('marketing', $group, translate('coupons'), translate('coupon_list'), route('admin.coupon.list'), ['admin/coupon/list']),
-            self::entry('marketing', $group, translate('coupons'), translate('add_new_coupon'), route('admin.coupon.create'), ['admin/coupon/create']),
-            self::entry('marketing', $group, translate('Wallet Bonus'), translate('bonus_list'), route('admin.bonus.list'), ['admin/bonus/list']),
-            self::entry('marketing', $group, translate('Wallet Bonus'), translate('add_new_bonus'), route('admin.bonus.create'), ['admin/bonus/create']),
-            self::entry('marketing', $group, translate('campaigns'), translate('campaign_list'), route('admin.campaign.list'), ['admin/campaign/list']),
-            self::entry('marketing', $group, translate('campaigns'), translate('add_new_campaign'), route('admin.campaign.create'), ['admin/campaign/create']),
-            self::entry('marketing', $group, translate('advertisements'), translate('Ads List'), route('admin.advertisements.ads-list', ['status' => 'all']), ['admin/advertisements/ads-list*']),
-            self::entry('marketing', $group, translate('advertisements'), translate('New Ads Request'), route('admin.advertisements.new-ads-request', ['status' => 'new']), ['admin/advertisements/new-ads-request*']),
-            self::entry('marketing', $group, null, translate('promotional_banners'), route('admin.banner.create'), ['admin/banner/*']),
-            self::entry('marketing', $group, translate('notification_management'), translate('Send Notifications'), route('admin.push-notification.create'), ['admin/push-notification/*']),
-            self::entry('marketing', $group, translate('notification_management'), translate('Push Notification'), route('admin.configuration.get-notification-setting', ['type' => 'customers']), ['admin/configuration/get-notification-setting*']),
-            self::entry('marketing', $group, translate('notification_management'), translate('Notification Channel'), route('admin.business-settings.notification-channel', ['notification_type' => 'user']), ['admin/business-settings/notification-channel*']),
+        $group = translate('Marketing');
+        $items = [
+            self::entry('marketing', $group, null, translate('Marketing'), route('admin.marketing.index'), ['admin/marketing*'], ['admin.marketing.index']),
         ];
+
+        foreach (AdminMarketingRegistry::sections() as $section) {
+            foreach ($section['items'] as $item) {
+                if (! AdminMarketingRegistry::itemAllowed($item)) {
+                    continue;
+                }
+
+                $items[] = self::entry(
+                    'marketing',
+                    $group,
+                    $section['label'],
+                    $item['label'],
+                    $item['url'],
+                    $item['paths'],
+                    $item['routes'] ?? []
+                );
+            }
+        }
+
+        return $items;
     }
 
     private static function providerItems(): array
     {
         $group = translate('Providers');
 
+        if (is_admin_employee()) {
+            return [
+                self::entry('providers', $group, null, translate('Provider_List'), route('admin.provider.list', ['status' => 'all']), [
+                    'admin/provider/list', 'admin/provider/details*', 'admin/provider/edit*', 'admin/provider/collect-cash*',
+                ]),
+                self::entry('providers', $group, null, translate('Onboarding_Request'), route('admin.provider.onboarding_request', ['status' => 'onboarding']), ['admin/provider/onboarding*']),
+            ];
+        }
+
         return [
-            self::entry('providers', $group, translate('provider_management'), translate('Onboarding_Request'), route('admin.provider.onboarding_request', ['status' => 'onboarding']), ['admin/provider/onboarding*']),
-            self::entry('providers', $group, translate('provider_management'), translate('Work_Showcase_Approvals'), route('admin.provider.showcase_approval', ['status' => 'pending']), ['admin/provider/showcase-approval*']),
-            self::entry('providers', $group, translate('provider_management'), translate('Profile_Update_Requests'), route('admin.provider.profile_change_request', ['status' => 'pending']), ['admin/provider/profile-change*']),
-            self::entry('providers', $group, translate('providers'), translate('Provider_List'), route('admin.provider.list', ['status' => 'all']), [
+            self::entry('providers', $group, null, translate('Onboarding_Request'), route('admin.provider.onboarding_request', ['status' => 'onboarding']), ['admin/provider/onboarding*']),
+            self::entry('providers', $group, null, translate('Add_New_Provider'), route('admin.provider.create'), ['admin/provider/create']),
+            self::entry('providers', $group, null, translate('Provider_List'), route('admin.provider.list', ['status' => 'all']), [
                 'admin/provider/list', 'admin/provider/details*', 'admin/provider/edit*', 'admin/provider/collect-cash*',
             ]),
-            self::entry('providers', $group, translate('providers'), translate('Add_New_Provider'), route('admin.provider.create'), ['admin/provider/create']),
-            self::entry('providers', $group, null, translate('Feedback_Configuration'), route('admin.provider.feedback-tags.index'), ['admin/provider/feedback-tags*']),
-            self::entry('providers', $group, translate('Withdraws'), translate('Withdraw Requests'), route('admin.withdraw.request.list', ['status' => 'all']), ['admin/withdraw/request*']),
-            self::entry('providers', $group, translate('Withdraws'), translate('Withdraw method setup'), route('admin.withdraw.method.list'), ['admin/withdraw/method*']),
+            self::entry('providers', $group, null, translate('Work_Showcase_Approvals'), route('admin.provider.showcase_approval', ['status' => 'pending']), ['admin/provider/showcase-approval*']),
+            self::entry('providers', $group, null, translate('Profile_Update_Requests'), route('admin.provider.profile_change_request', ['status' => 'pending']), ['admin/provider/profile-change*']),
         ];
     }
 
@@ -447,15 +577,24 @@ class AdminNavRegistry
     {
         $group = translate('Catalog');
 
+        if (is_admin_employee()) {
+            return [
+                self::entry('catalog', $group, null, translate('View_Catalog'), route('admin.catalog.view'), ['admin/catalog/view*']),
+                self::entry('catalog', $group, null, translate('Categories'), route('admin.category.create'), ['admin/category/*']),
+                self::entry('catalog', $group, null, translate('Sub_Categories'), route('admin.sub-category.create'), ['admin/sub-category/*']),
+                self::entry('catalog', $group, null, translate('services'), route('admin.service.index'), ['admin/service/list*', 'admin/service/edit*', 'admin/service/detail*', 'admin/service/create']),
+                self::entry('catalog', $group, null, translate('New_Service_Requests'), route('admin.service.request.list'), ['admin/service/request/list*']),
+            ];
+        }
+
         return [
             self::entry('catalog', $group, null, translate('Service Zones Setup'), route('admin.zone.create'), ['admin/zone/*']),
-            self::entry('catalog', $group, translate('Categories'), translate('View_Catalog'), route('admin.catalog.view'), ['admin/catalog/view*']),
-            self::entry('catalog', $group, translate('Categories'), translate('Category Setup'), route('admin.category.create'), ['admin/category/*']),
-            self::entry('catalog', $group, translate('Categories'), translate('Sub Category Setup'), route('admin.sub-category.create'), ['admin/sub-category/*']),
-            self::entry('catalog', $group, translate('services'), translate('service_list'), route('admin.service.index'), ['admin/service/list*', 'admin/service/edit*', 'admin/service/detail*']),
-            self::entry('catalog', $group, translate('services'), translate('add_new_service'), route('admin.service.create'), ['admin/service/create']),
-            self::entry('catalog', $group, translate('services'), translate('New Service Requests'), route('admin.service.request.list'), ['admin/service/request/list*']),
-            self::entry('catalog', $group, translate('services'), translate('service_overview_defaults'), route('admin.service-overview.defaults'), ['admin/service-overview/*']),
+            self::entry('catalog', $group, null, translate('View_Catalog'), route('admin.catalog.view'), ['admin/catalog/view*']),
+            self::entry('catalog', $group, null, translate('Categories'), route('admin.category.create'), ['admin/category/*']),
+            self::entry('catalog', $group, null, translate('Sub_Categories'), route('admin.sub-category.create'), ['admin/sub-category/*']),
+            self::entry('catalog', $group, null, translate('services'), route('admin.service.index'), ['admin/service/list*', 'admin/service/edit*', 'admin/service/detail*']),
+            self::entry('catalog', $group, null, translate('New_Service_Requests'), route('admin.service.request.list'), ['admin/service/request/list*']),
+            self::entry('catalog', $group, null, translate('add_new_service'), route('admin.service.create'), ['admin/service/create']),
         ];
     }
 
@@ -463,90 +602,57 @@ class AdminNavRegistry
     {
         $group = translate('Customers');
 
+        if (is_admin_employee()) {
+            return [
+                self::entry('customers', $group, null, translate('customer_list'), route('admin.customer.index'), ['admin/customer/list', 'admin/customer/detail*', 'admin/customer/edit/*']),
+                self::entry('customers', $group, null, translate('Customer_Cart'), route('admin.customer-cart.index'), ['admin/customer-cart*']),
+                self::entry('customers', $group, null, translate('add_new_customer'), route('admin.customer.create'), ['admin/customer/create']),
+            ];
+        }
+
         return [
-            self::entry('customers', $group, translate('customer_management'), translate('customer_list'), route('admin.customer.index'), ['admin/customer/list', 'admin/customer/detail*', 'admin/customer/edit/*']),
-            self::entry('customers', $group, translate('customer_management'), translate('add_new_customer'), route('admin.customer.create'), ['admin/customer/create']),
+            self::entry('customers', $group, null, translate('customer_list'), route('admin.customer.index'), ['admin/customer/list', 'admin/customer/detail*', 'admin/customer/edit/*']),
             self::entry('customers', $group, null, translate('Customer_Cart'), route('admin.customer-cart.index'), ['admin/customer-cart*']),
-            self::entry('customers', $group, translate('customer_wallet'), translate('Add Fund to Wallet'), route('admin.customer.wallet.add-fund'), ['admin/customer/wallet/add-fund']),
-            self::entry('customers', $group, translate('customer_wallet'), translate('Wallet Transactions'), route('admin.customer.wallet.report'), ['admin/customer/wallet/report']),
-            self::entry('customers', $group, translate('loyalty_point'), translate('Loyalty Points Transactions'), route('admin.customer.loyalty-point.report'), ['admin/customer/loyalty-point/report']),
-            self::entry('customers', $group, null, translate('Subscribed Newsletter'), route('admin.customer.newsletter.index'), ['admin/customer/newsletter/*']),
+            self::entry('customers', $group, null, translate('add_new_customer'), route('admin.customer.create'), ['admin/customer/create']),
         ];
     }
 
-    private static function mobileAppItems(): array
+    private static function utilityNavItems(): array
     {
-        $group = translate('Mobile App');
+        if (is_admin_employee()) {
+            return [];
+        }
+
+        $group = translate('Messages');
 
         return [
-            self::entry('mobile_app', $group, null, translate('AI'), route('admin.mobile-app-management.ai'), ['admin/mobile-app-management/ai*']),
-            self::entry('mobile_app', $group, null, translate('App_Features'), route('admin.mobile-app-management.settings'), ['admin/mobile-app-management/settings*']),
-            self::entry('mobile_app', $group, null, translate('Home_Page'), route('admin.mobile-app-management.home-page'), ['admin/mobile-app-management/home-page*']),
-            self::entry('mobile_app', $group, null, translate('Icons_and_images'), route('admin.mobile-app-management.icons'), ['admin/mobile-app-management/icons*']),
-        ];
-    }
-
-    private static function teamItems(): array
-    {
-        $group = translate('Team');
-
-        return [
-            self::entry('team', $group, null, translate('Process_Guides'), route('admin.process-guides.index'), ['admin/process-guides*']),
-            self::entry('team', $group, null, translate('Task_Board'), route('admin.task-board.index'), ['admin/task-board*']),
-            self::entry('team', $group, null, translate('Employee Role Setup'), route('admin.role.index'), ['admin/role/*']),
-            self::entry('team', $group, null, translate('employee_list'), route('admin.employee.index'), ['admin/employee/list', 'admin/employee/edit/*']),
-            self::entry('team', $group, null, translate('add_new_employee'), route('admin.employee.create'), ['admin/employee/create']),
+            self::entry('communications', $group, null, translate('WhatsApp'), route('admin.whatsapp.conversations.index', ['channel' => 'whatsapp', 'tab' => 'chats']), ['admin/social-inbox/whatsapp/conversations*'], ['admin.whatsapp.conversations.index', 'admin.whatsapp.conversations.chat'], 'social.whatsapp'),
+            self::entry('communications', $group, null, translate('Staff_Conversation'), route('admin.chat.staff'), ['admin/chat/staff*'], ['admin.chat.staff'], 'chat.staff'),
+            self::entry('communications', $group, null, translate('Support_Messages'), route('admin.chat.support'), ['admin/chat/support*'], ['admin.chat.support'], 'chat.support'),
         ];
     }
 
     private static function settingsItems(): array
     {
-        $group = translate('Settings');
+        if (is_admin_employee()) {
+            return [];
+        }
 
-        return [
-            self::entry('settings', $group, translate('business_setup'), translate('business_Settings'), route('admin.business-settings.get-business-information'), ['admin/business-settings/get-business-information']),
-            self::entry('settings', $group, translate('business_setup'), translate('Subscription Package'), route('admin.subscription.package.list'), ['admin/subscription/package/*']),
-            self::entry('settings', $group, translate('business_setup'), translate('Subscriber List'), route('admin.subscription.subscriber.list'), ['admin/subscription/subscriber/*']),
-            self::entry('settings', $group, translate('business_setup'), translate('Settings'), route('admin.subscription.settings'), ['admin/subscription/settings']),
-            self::entry('settings', $group, translate('business_setup'), translate('Business Pages'), route('admin.business-page-setup.list'), ['admin/business-page-setup*']),
-            self::entry('settings', $group, translate('business_setup'), translate('Social Media'), route('admin.social-media.index'), ['admin/social-media/*']),
-            self::entry('settings', $group, translate('business_setup'), translate('landing_page_settings'), route('admin.business-settings.get-landing-information', ['web_page' => 'text_setup']), ['admin/business-settings/get-landing-information*']),
-            self::entry('settings', $group, translate('business_setup'), translate('404 Logs'), route('admin.business-settings.seo.setting', ['page_type' => 'error_logs']), ['admin/business-settings/seo-setting*']),
-            self::entry('settings', $group, translate('business_setup'), translate('Cron Job'), route('admin.business-settings.cron-job.list'), ['admin/business-settings/cron-job*']),
-            self::entry('settings', $group, translate('system_setup'), translate('Login Setup'), route('admin.business-settings.login.setup'), ['admin/business-settings/login/setup*']),
-            self::entry('settings', $group, translate('system_setup'), translate('Language Setup'), route('admin.configuration.language_setup'), ['admin/configuration/language-setup', 'admin/language/translate/*']),
-            self::entry('settings', $group, translate('system_setup'), translate('Gallery'), route('admin.business-settings.get-gallery-setup'), ['admin/business-settings/get-gallery-setup*']),
-            self::entry('settings', $group, translate('system_setup'), translate('Backup_Database'), route('admin.business-settings.get-database-backup'), ['admin/business-settings/get-database-backup']),
-            self::entry('settings', $group, translate('system_setup'), translate('Reset_Operational_Data'), route('admin.system-maintenance.data-reset.index'), ['admin/system-maintenance/data-reset*']),
-            self::entry('settings', $group, translate('system_setup'), translate('System_Logs'), route('admin.system-logs.index'), ['admin/system-logs*']),
-            self::entry('settings', $group, translate('system_setup'), translate('Data_Transfer'), route('admin.data-transfer.index'), ['admin/data-transfer*']),
-            self::entry('settings', $group, translate('3rd Party Setup'), translate('Firebase'), route('admin.configuration.third-party', 'firebase-configuration'), ['admin/configuration/third-party/firebase-*']),
-            self::entry('settings', $group, translate('3rd Party Setup'), translate('Payment Methods'), route('admin.configuration.third-party', ['webPage' => 'payment_config', 'type' => 'digital_payment']), ['admin/configuration/third-party/payment_config*', 'admin/configuration/offline*']),
-            self::entry('settings', $group, translate('3rd Party Setup'), translate('AI_Configuration'), route('admin.configuration.ai-configuration'), ['admin/configuration/ai-configuration']),
-            self::entry('settings', $group, translate('3rd Party Setup'), translate('Other Configuration'), route('admin.configuration.third-party', 'map-api'), [
-                'admin/configuration/third-party/*',
-                'admin/configuration/ai-settings/*',
-            ]),
-            self::entry('settings', $group, translate('system_addon'), translate('system_addons'), route('admin.addon.index'), ['admin/addon*']),
-            self::entry('settings', $group, translate('system_addon'), translate('Add-on Activation'), route('admin.add-on-activation.index'), ['admin/add-on-activation/index']),
-            self::entry('settings', $group, null, translate('profile'), route('admin.profile_update'), ['admin/profile-update*']),
+        $group = translate('Settings');
+        $items = [
+            self::entry('settings', $group, null, translate('Settings'), route('admin.settings.index'), ['admin/settings*'], ['admin.settings.index']),
         ];
-    }
 
-    private static function addonItems(): array
-    {
-        $items = [];
-        $group = translate('Settings');
-
-        foreach (config('addon_admin_routes', []) as $routes) {
-            foreach ($routes as $route) {
+        foreach (AdminSettingsRegistry::sections() as $section) {
+            foreach ($section['items'] as $item) {
                 $items[] = self::entry(
                     'settings',
                     $group,
-                    translate('system_addon'),
-                    translate($route['name']),
-                    $route['url'],
-                    [$route['path']]
+                    $section['label'],
+                    $item['label'],
+                    $item['url'],
+                    $item['paths'],
+                    $item['routes'] ?? []
                 );
             }
         }

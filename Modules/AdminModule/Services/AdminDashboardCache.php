@@ -21,6 +21,8 @@ class AdminDashboardCache
             'revenue_totals:v1',
             'top_providers:v1',
             'top_customers:v1',
+            'operations_dashboard:v1',
+            'operations_dashboard:v2',
         ];
 
         foreach ($keys as $key) {

@@ -244,7 +244,6 @@
 
 @section('content')
     @php
-        // Use block @php/@endphp — inline @php() is swallowed by the next @endphp in this view.
         $waInboxCh = $waInboxCh ?? request()->route('channel') ?? 'whatsapp';
         $socialInboxChannel = $socialInboxChannel ?? $waInboxCh;
     @endphp
@@ -312,7 +311,7 @@
                                         <span class="text-muted small">—</span>
                                     @endforelse
                                 </div>
-                                @can('whatsapp_chat_reply')
+                                @can('whatsapp_chat_manage_tags')
                                     @if(!empty($waMeta['chat_tags_all']))
                                         <div class="flex-shrink-0 wa-manage-tags-wrap position-relative">
                                             <button type="button"

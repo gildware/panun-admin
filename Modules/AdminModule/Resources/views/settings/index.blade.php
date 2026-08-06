@@ -1,0 +1,30 @@
+@extends('adminmodule::layouts.new-master')
+
+@section('title', translate('Settings'))
+
+@section('content')
+    <div class="settings-module">
+        @include('adminmodule::settings.partials._sidebar', [
+            'settingsSections' => $settingsSections,
+            'activeSettingsSectionKey' => $activeSettingsSection['key'],
+        ])
+
+        <div class="settings-module-main">
+            <div class="settings-module-header">
+                <h1 class="settings-module-title">{{ $activeSettingsSection['label'] }}</h1>
+                <p class="settings-module-desc">{{ translate('Settings') }}</p>
+            </div>
+
+            <div class="settings-module-grid">
+                @foreach($activeSettingsSection['items'] as $item)
+                    <a href="{{ $item['url'] }}"
+                       class="settings-module-card"
+                       @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
+                        <strong>{{ $item['label'] }}</strong>
+                        <span>{{ translate('Settings') }}</span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+    </div>
+@endsection

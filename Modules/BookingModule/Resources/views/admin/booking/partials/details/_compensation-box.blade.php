@@ -3,12 +3,12 @@
     $compRows = $booking->compensations ?? collect();
 @endphp
 
-<div class="card">
+<div class="card booking-compensation-card mb-0 h-100">
     <div class="card-body">
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border-bottom pb-2 mb-2">
             <h4 class="mb-0">{{ translate('Compensation') }}</h4>
             @can('booking_view')
-                <button type="button" class="btn btn--primary btn-sm" data-bs-toggle="modal" data-bs-target="#compensationModal-{{ $booking->id }}">
+                <button type="button" class="btn btn--primary booking-refund-action-btn" data-bs-toggle="modal" data-bs-target="#compensationModal-{{ $booking->id }}">
                     {{ translate('Add_Compensation') }}
                 </button>
             @endcan

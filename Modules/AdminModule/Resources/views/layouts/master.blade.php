@@ -10,7 +10,6 @@
         (int) @filemtime(public_path('assets/admin-module/css/top-nav.css')),
         (int) @filemtime(public_path('assets/admin-module/js/top-nav.js')),
         (int) @filemtime(public_path('assets/admin-module/js/admin-partial-nav.js')),
-        (int) @filemtime(public_path('assets/admin-module/js/admin-pinned-nav.js')),
         (int) @filemtime(public_path('assets/admin-module/js/admin-image-fallback.js')),
         (int) @filemtime(public_path('assets/admin-module/js/admin-global-search.js')),
         (int) @filemtime(public_path('assets/admin-module/js/bootstrap-jquery-modal-bridge.js')),
@@ -127,7 +126,30 @@
         <turbo-frame id="admin-main" class="admin-main-frame admin-main-frame--loading" data-turbo-cache="false" aria-busy="true">
     @endif
 
-    @yield('content')
+    @if(admin_in_settings_module() && ! request()->routeIs('admin.settings.index', 'admin.settings.home-cache'))
+        <div class="settings-module settings-module--embedded">
+            @include('adminmodule::settings.partials._sidebar')
+            <div class="settings-module-main settings-module-main--embedded">
+                @yield('content')
+            </div>
+        </div>
+    @elseif(admin_in_marketing_module() && ! request()->routeIs('admin.marketing.index'))
+        <div class="settings-module settings-module--embedded">
+            @include('adminmodule::marketing.partials._sidebar')
+            <div class="settings-module-main settings-module-main--embedded">
+                @yield('content')
+            </div>
+        </div>
+    @elseif(admin_in_reports_module() && ! request()->routeIs('admin.reports.index'))
+        <div class="settings-module settings-module--embedded">
+            @include('adminmodule::reports.partials._sidebar')
+            <div class="settings-module-main settings-module-main--embedded">
+                @yield('content')
+            </div>
+        </div>
+    @else
+        @yield('content')
+    @endif
 
     @include('adminmodule::layouts.partials._footer')
 
@@ -169,7 +191,6 @@
 <script src="{{asset('assets/admin-module')}}/js/admin-image-fallback.js?v={{$adminAssetVersion}}"></script>
 @if($adminUsesTopNav)
     <script src="{{asset('assets/admin-module')}}/js/top-nav.js?v={{$adminAssetVersion}}"></script>
-    <script src="{{asset('assets/admin-module')}}/js/admin-pinned-nav.js?v={{$adminAssetVersion}}"></script>
 @endif
 @if($adminUsesPartialNav)
     <script src="{{asset('assets/admin-module')}}/js/admin-partial-nav.js?v={{$adminAssetVersion}}"></script>

@@ -1,4 +1,4 @@
-@canany(['wallet_add', 'wallet_view', 'customer_view', 'customer_add', 'point_view', 'newsletter_view'])
+@canany(['wallet_add', 'wallet_view', 'customer_view', 'customer_add', 'point_view', 'newsletter_view', 'welcome_bonus_view', 'referral_earning_view'])
 @php($groupActive = \App\Support\AdminNavRegistry::groupIsActive('customers'))
 <div class="top-nav-item">
     <button type="button" class="top-nav-trigger {{ $groupActive ? 'is-active' : '' }}">
@@ -28,6 +28,7 @@
                 'href' => route('admin.customer-cart.index'),
                 'label' => translate('Customer_Cart'),
                 'active' => request()->is('admin/customer-cart*'),
+                'count' => $customer_cart_not_contacted_count ?? 0,
             ])
         @endcan
 
@@ -49,7 +50,7 @@
             @endcan
         @endcanany
 
-        @can('customer_view')
+        @can('welcome_bonus_view')
             @include('adminmodule::layouts.partials.top-nav._section', ['label' => translate('Welcome_Bonus')])
             @include('adminmodule::layouts.partials.top-nav._link', [
                 'href' => route('admin.customer.welcome-bonus.report'),
@@ -72,7 +73,7 @@
             ])
         @endcan
 
-        @can('customer_view')
+        @can('referral_earning_view')
             @include('adminmodule::layouts.partials.top-nav._section', ['label' => translate('refer_and_earn')])
             @include('adminmodule::layouts.partials.top-nav._link', [
                 'href' => route('admin.customer.referral-earning.report'),

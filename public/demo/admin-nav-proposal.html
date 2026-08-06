@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Nav Proposal — Demo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        :root {
+            --accent: #4F46E5;
+            --accent-soft: #EEF2FF;
+            --muted: #6B7280;
+            --border: #E5E7EB;
+            --bg: #F3F4F6;
+            --nav-dark: #1A1C38;
+            --chrome-h: 7.5rem;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            font-family: Inter, system-ui, sans-serif;
+            background: var(--bg);
+            color: #111827;
+        }
+
+        /* ── Fixed chrome ── */
+        .chrome {
+            position: fixed;
+            inset: 0 0 auto 0;
+            z-index: 100;
+            background: #fff;
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 4px 16px rgba(0,0,0,.06);
+        }
+
+        .utility {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .75rem;
+            min-height: 2.5rem;
+            padding: .35rem 1rem;
+            background: var(--nav-dark);
+            color: #fff;
+            font-size: .8125rem;
+            font-weight: 600;
+        }
+
+        .utility-actions {
+            display: flex;
+            align-items: center;
+            gap: .35rem;
+        }
+
+        .utility-btn {
+            border: 0;
+            border-radius: .375rem;
+            height: 2rem;
+            padding: 0 .65rem;
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            background: rgba(255,255,255,.12);
+            color: #fff;
+            font: inherit;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .utility-btn .badge {
+            position: absolute;
+            top: -.15rem;
+            right: -.15rem;
+            min-width: 1rem;
+            height: 1rem;
+            padding: 0 .25rem;
+            border-radius: 999px;
+            background: #FF6B6B;
+            color: #fff;
+            font-size: .625rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-row {
+            display: flex;
+            align-items: center;
+            gap: .35rem;
+            min-height: 3.25rem;
+            padding: 0 1rem;
+            overflow-x: auto;
+            overflow-y: visible;
+            scrollbar-width: thin;
+        }
+
+        .nav-row::-webkit-scrollbar { height: 4px; }
+
+        .nav-menu {
+            display: none;
+            align-items: center;
+            gap: .35rem;
+            flex-wrap: nowrap;
+        }
+
+        .nav-menu.is-visible { display: flex; }
+
+        .nav-item { position: relative; flex-shrink: 0; }
+
+        .nav-btn {
+            border: 0;
+            background: transparent;
+            display: inline-flex;
+            align-items: center;
+            gap: .3rem;
+            padding: .45rem .65rem;
+            border-radius: .375rem;
+            font: 600 .8125rem Inter, sans-serif;
+            color: #374151;
+            cursor: pointer;
+            white-space: nowrap;
+            text-decoration: none;
+        }
+
+        .nav-btn:hover,
+        .nav-item.open > .nav-btn,
+        .nav-btn.active {
+            background: var(--accent-soft);
+            color: var(--accent);
+        }
+
+        .nav-btn .ico {
+            font-size: 1.05rem;
+            line-height: 1;
+        }
+
+        .nav-btn .count {
+            min-width: 1.1rem;
+            height: 1.1rem;
+            padding: 0 .3rem;
+            border-radius: 999px;
+            background: #FEE2E2;
+            color: #B91C1C;
+            font-size: .625rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-btn .chev { font-size: 1rem; opacity: .55; }
+
+        .nav-btn--settings {
+            background: #F9FAFB;
+            border: 1px dashed #CBD5E1;
+        }
+
+        .nav-divider {
+            width: 1px;
+            height: 1.5rem;
+            background: #D1D5DB;
+            margin: 0 .25rem;
+            flex-shrink: 0;
+        }
+
+        .nav-divider-label {
+            font-size: .625rem;
+            font-weight: 700;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            color: #9CA3AF;
+            padding: 0 .25rem;
+            flex-shrink: 0;
+        }
+
+        .dropdown {
+            display: none;
+            position: absolute;
+            top: calc(100% + .3rem);
+            left: 0;
+            min-width: 12.5rem;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: .5rem;
+            box-shadow: 0 10px 24px rgba(0,0,0,.12);
+            padding: .35rem;
+            z-index: 200;
+        }
+
+        .nav-item.open > .dropdown { display: block; }
+
+        .dropdown a {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .5rem;
+            padding: .5rem .6rem;
+            border-radius: .35rem;
+            color: #111827;
+            text-decoration: none;
+            font-size: .8125rem;
+            font-weight: 500;
+        }
+
+        .dropdown a:hover { background: #F3F4F6; }
+        .dropdown a.on { background: var(--accent-soft); color: var(--accent); }
+
+        .dropdown .badge {
+            min-width: 1.15rem;
+            height: 1.15rem;
+            padding: 0 .3rem;
+            border-radius: 999px;
+            background: #FEE2E2;
+            color: #B91C1C;
+            font-size: .625rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ── Main content ── */
+        .page {
+            padding: calc(var(--chrome-h) + 1rem) 1rem 5rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .toggle-row {
+            display: flex;
+            gap: .5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .toggle-row button {
+            border: 1px solid var(--border);
+            background: #fff;
+            border-radius: 999px;
+            padding: .45rem .9rem;
+            font: 600 .8125rem Inter, sans-serif;
+            cursor: pointer;
+        }
+
+        .toggle-row button.on {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+
+        .card {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: .75rem;
+            padding: 1.25rem;
+            min-height: 16rem;
+        }
+
+        .card .kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: .3rem;
+            font-size: .6875rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            color: var(--accent);
+            margin-bottom: .5rem;
+        }
+
+        .card h1 { margin: 0 0 .35rem; font-size: 1.35rem; }
+        .card p { margin: 0; color: var(--muted); line-height: 1.5; }
+
+        /* ── Settings module ── */
+        .settings-layout {
+            display: none;
+            grid-template-columns: 14rem 1fr;
+            gap: 1rem;
+        }
+
+        .settings-layout.show { display: grid; }
+
+        .work-layout.hidden { display: none; }
+
+        .settings-side {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: .75rem;
+            padding: .65rem;
+            height: fit-content;
+        }
+
+        .settings-side h2 {
+            margin: 0 0 .5rem;
+            padding: 0 .5rem;
+            font-size: .75rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: var(--muted);
+        }
+
+        .settings-side button {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            width: 100%;
+            border: 0;
+            background: transparent;
+            border-radius: .45rem;
+            padding: .5rem .55rem;
+            font: 500 .8125rem Inter, sans-serif;
+            color: #374151;
+            cursor: pointer;
+            text-align: left;
+        }
+
+        .settings-side button:hover { background: #F9FAFB; }
+        .settings-side button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+        .settings-side button.back { margin-top: .5rem; color: var(--muted); }
+
+        .settings-main {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: .75rem;
+            padding: 1.25rem;
+        }
+
+        .settings-main h1 { margin: 0 0 .35rem; font-size: 1.2rem; }
+        .settings-main p { margin: 0 0 1rem; color: var(--muted); }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+            gap: .6rem;
+        }
+
+        .settings-grid div {
+            border: 1px solid var(--border);
+            border-radius: .5rem;
+            padding: .65rem;
+            background: #FAFAFA;
+            font-size: .8125rem;
+        }
+
+        .settings-grid strong { display: block; margin-bottom: .15rem; }
+        .settings-grid span { color: var(--muted); font-size: .75rem; }
+
+        .demo-note {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            z-index: 300;
+            max-width: 20rem;
+            background: #111827;
+            color: #fff;
+            padding: .75rem .9rem;
+            border-radius: .65rem;
+            font-size: .75rem;
+            line-height: 1.45;
+            box-shadow: 0 8px 24px rgba(0,0,0,.2);
+        }
+
+        .demo-note strong { color: #A5B4FC; }
+
+        @media (max-width: 768px) {
+            .settings-layout.show { grid-template-columns: 1fr; }
+            .nav-divider-label { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<header class="chrome">
+    <div class="utility">
+        <span>Panun Kaergar Admin</span>
+        <div class="utility-actions">
+            <button type="button" class="utility-btn"><span class="material-symbols-outlined ico">search</span> Search</button>
+            <button type="button" class="utility-btn"><span class="material-symbols-outlined ico">forum</span><span class="badge">3</span></button>
+            <button type="button" class="utility-btn"><span class="material-symbols-outlined ico">chat</span><span class="badge">2</span></button>
+            <button type="button" class="utility-btn">Admin Demo</button>
+        </div>
+    </div>
+
+    <div class="nav-row">
+        <!-- EMPLOYEE NAV -->
+        <nav class="nav-menu" id="menu-employee" aria-label="Employee nav">
+            <a class="nav-btn active" href="#" data-page="Dashboard"><span class="material-symbols-outlined ico">dashboard</span> Dashboard</a>
+
+            <div class="nav-item">
+                <button type="button" class="nav-btn"><span class="material-symbols-outlined ico">leaderboard</span> Leads <span class="count">12</span> <span class="material-icons chev">expand_more</span></button>
+                <div class="dropdown">
+                    <a href="#">All Leads <span class="badge">5</span></a>
+                    <a href="#">Web Bookings <span class="badge">3</span></a>
+                    <a href="#">Web Provider Requests</a>
+                    <a href="#">App Custom Requests</a>
+                    <a href="#">Outbound Enquiry</a>
+                </div>
+            </div>
+
+            <a class="nav-btn" href="#" data-page="Bookings"><span class="material-symbols-outlined ico">calendar_month</span> Bookings <span class="count">8</span></a>
+            <a class="nav-btn" href="#" data-page="Task Board"><span class="material-symbols-outlined ico">view_kanban</span> Task Board <span class="count">4</span></a>
+
+            <div class="nav-item">
+                <button type="button" class="nav-btn"><span class="material-symbols-outlined ico">groups</span> Customers <span class="material-icons chev">expand_more</span></button>
+                <div class="dropdown">
+                    <a href="#">Customer List</a>
+                    <a href="#">Customer Cart <span class="badge">2</span></a>
+                    <a href="#">Add Customer</a>
+                </div>
+            </div>
+
+            <div class="nav-item">
+                <button type="button" class="nav-btn"><span class="material-symbols-outlined ico">engineering</span> Providers <span class="count">6</span> <span class="material-icons chev">expand_more</span></button>
+                <div class="dropdown">
+                    <a href="#">Provider List</a>
+                    <a href="#">Onboarding <span class="badge">6</span></a>
+                </div>
+            </div>
+
+            <div class="nav-item">
+                <button type="button" class="nav-btn"><span class="material-symbols-outlined ico">category</span> Catalog <span class="count">1</span> <span class="material-icons chev">expand_more</span></button>
+                <div class="dropdown">
+                    <a href="#">View Catalog</a>
+                    <a href="#">Categories</a>
+                    <a href="#">Services</a>
+                    <a href="#">New Service Requests <span class="badge">1</span></a>
+                </div>
+            </div>
+
+            <a class="nav-btn" href="#" data-page="Progress Report"><span class="material-symbols-outlined ico">assessment</span> Progress Report</a>
+
+            <div class="nav-item">
+                <button type="button" class="nav-btn"><span class="material-symbols-outlined ico">payments</span> Finance <span class="material-icons chev">expand_more</span></button>
+                <div class="dropdown">
+                    <a href="#">Ledger</a>
+                    <a href="#">Transactions</a>
+                    <a href="#">Pending Balances</a>
+                </div>
+            </div>
+
+            <a class="nav-btn" href="#" data-page="Process Guides"><span class="material-symbols-outlined ico">menu_book</span> Process Guides</a>
+        </nav>
+
+        <!-- PROPOSED ADMIN NAV -->
+        <nav class="nav-menu is-visible" id="menu-admin" aria-label="Admin nav">
+            <a class="nav-btn active nav-work" href="#" data-page="Dashboard"><span class="material-symbols-outlined ico">dashboard</span> Dashboard</a>
+
+            <div class="nav-item">
+                <button type="button" class="nav-btn nav-work"><span class="material-symbols-outlined ico">leaderboard</span> Leads <span class="count">12</span> <span class="material-icons chev">expand_more</span></button>
+                <div class="dropdown">
+                    <a class="on" href="#">All Leads <span class="badge">5</span></a>
+                    <a href="#">Web Bookings <span class="badge">3</span></a>
+                    <a href="#">Web Provider Requests</a>
+                    <a href="#">App Custom Requests</a>
+                    <a href="#">Outbound Enquiry</a>
+                </div>
+            </div>
+
+            <div class="nav-item">
+                <button type="button" class="nav-btn nav-work"><span class="material-symbols-outlined ico">calendar_month</span> Bookings <span class="count">8</span> <span class="material-icons chev">expand_more</span></button>
+                <div class="dropdown">
+                    <a href="#">All Bookings</a>
+                    <a href="#">Verify Requests <span class="badge">2</span></a>
+                    <a href="#">Reviews</a>
+                    <a href="#">Cancelled</a>
+                </div>
+            </div>
+
+            <a class="nav-btn nav-work" href="#" data-page="Task Board"><span class="material-symbols-outlined ico">view_kanban</span> Task Board <span class="count">4</span></a>
+
+            <div class="nav-item">
+                <button type="button" class="nav-btn nav-work"><span class="material-symbols-outlined ico">groups</span> Customers <span class="material-icons chev">expand_more</span></button>
+                <div class="dropdown">
+                    <a href="#">Customer List</a>
+                    <a href="#">Customer Cart <span class="badge">2</span></a>
+                    <a href="#">Add Customer</a>
+                    <a href="#">Wallet</a>
+                </div>
+            </div>
+
+            <div class="nav-item">
+                <button type="button" class="nav-btn nav-work"><span class="material-symbols-outlined ico">engineering</span> Providers <span class="count">6</span> <span class="material-icons chev">expand_more</span></button>
+                <div class="dropdown">
+                    <a href="#">Provider List</a>
+                    <a href="#">Onboarding <span class="badge">6</span></a>
+                    <a href="#">Showcase Approvals</a>
+                    <a href="#">Withdraw Requests</a>
+                </div>
+            </div>
+
+            <div class="nav-item">
+                <button type="button" class="nav-btn nav-work"><span class="material-symbols-outlined ico">category</span> Catalog <span class="count">1</span> <span class="material-icons chev">expand_more</span></button>
+                <div class="dropdown">
+                    <a href="#">View Catalog</a>
+                    <a href="#">Categories</a>
+                    <a href="#">Services</a>
+                    <a href="#">Service Zones</a>
+                    <a href="#">New Service Requests <span class="badge">1</span></a>
+                </div>
+            </div>
+
+            <a class="nav-btn nav-work" href="#" data-page="Process Guides"><span class="material-symbols-outlined ico">menu_book</span> Process Guides</a>
+
+            <span class="nav-divider" aria-hidden="true"></span>
+            <span class="nav-divider-label">Admin</span>
+            <span class="nav-divider" aria-hidden="true"></span>
+
+            <div class="nav-item">
+                <button type="button" class="nav-btn nav-work"><span class="material-symbols-outlined ico">payments</span> Finances <span class="material-icons chev">expand_more</span></button>
+                <div class="dropdown">
+                    <a href="#">Transactions</a>
+                    <a href="#">Ledger</a>
+                    <a href="#">Pending Balances</a>
+                    <a href="#">Transaction Report</a>
+                </div>
+            </div>
+
+            <div class="nav-item">
+                <button type="button" class="nav-btn nav-work"><span class="material-symbols-outlined ico">insights</span> Insights <span class="material-icons chev">expand_more</span></button>
+                <div class="dropdown">
+                    <a href="#">Business Report</a>
+                    <a href="#">Booking Report</a>
+                    <a href="#">Lead Reports</a>
+                    <a href="#">Provider Report</a>
+                </div>
+            </div>
+
+            <div class="nav-item">
+                <button type="button" class="nav-btn nav-work"><span class="material-symbols-outlined ico">campaign</span> Marketing <span class="material-icons chev">expand_more</span></button>
+                <div class="dropdown">
+                    <a href="#">Discounts & Coupons</a>
+                    <a href="#">Campaigns</a>
+                    <a href="#">Ads & Banners</a>
+                    <a href="#">Push Notifications</a>
+                </div>
+            </div>
+
+            <button type="button" class="nav-btn nav-btn--settings" id="btn-settings">
+                <span class="material-symbols-outlined ico">settings</span> Settings
+            </button>
+        </nav>
+    </div>
+</header>
+
+<main class="page">
+    <div class="toggle-row">
+        <button type="button" class="on" data-nav="admin">Proposed admin nav</button>
+        <button type="button" data-nav="employee">Employee nav (current)</button>
+    </div>
+
+    <div class="work-layout" id="work-layout">
+        <div class="card">
+            <div class="kicker"><span class="material-symbols-outlined" style="font-size:1rem">touch_app</span> Interactive demo</div>
+            <h1 id="title">Dashboard</h1>
+            <p id="desc">Work pages — same style as employee nav. Open dropdowns, click Settings for the config module.</p>
+        </div>
+    </div>
+
+    <div class="settings-layout" id="settings-layout">
+        <aside class="settings-side">
+            <h2>Settings module</h2>
+            <button type="button" class="on" data-s="business"><span class="material-symbols-outlined ico">storefront</span> Business</button>
+            <button type="button" data-s="leads"><span class="material-symbols-outlined ico">tune</span> Leads</button>
+            <button type="button" data-s="bookings"><span class="material-symbols-outlined ico">event_available</span> Bookings</button>
+            <button type="button" data-s="whatsapp"><span class="material-symbols-outlined ico">forum</span> WhatsApp</button>
+            <button type="button" data-s="team"><span class="material-symbols-outlined ico">badge</span> Team</button>
+            <button type="button" data-s="mobile"><span class="material-symbols-outlined ico">phone_iphone</span> Mobile App</button>
+            <button type="button" data-s="integrations"><span class="material-symbols-outlined ico">hub</span> Integrations</button>
+            <button type="button" data-s="system"><span class="material-symbols-outlined ico">dns</span> System</button>
+            <button type="button" class="back" id="btn-back"><span class="material-symbols-outlined ico">arrow_back</span> Back to work</button>
+        </aside>
+        <section class="settings-main">
+            <h1 id="s-title">Business</h1>
+            <p id="s-desc">All configuration — not in work menus.</p>
+            <div class="settings-grid" id="s-grid"></div>
+        </section>
+    </div>
+</main>
+
+<div class="demo-note"><strong>Nav demo</strong> — toggle employee vs admin. Click Settings for config module.</div>
+
+<script>
+    const pages = {
+        business: ['Business settings', 'Business pages', 'Landing page', 'Cron job'],
+        leads: ['Lead configuration'],
+        bookings: ['Booking configuration'],
+        whatsapp: ['Message templates', 'WhatsApp AI', 'Meta CAPI'],
+        team: ['Employee roles', 'Employee list'],
+        mobile: ['App features', 'Home page', 'Icons'],
+        integrations: ['Firebase', 'Payment methods', 'AI config'],
+        system: ['Language', 'Backup', 'Logs', 'Addons']
+    };
+
+    const title = document.getElementById('title');
+    const desc = document.getElementById('desc');
+    const work = document.getElementById('work-layout');
+    const settings = document.getElementById('settings-layout');
+    const menuEmployee = document.getElementById('menu-employee');
+    const menuAdmin = document.getElementById('menu-admin');
+    const btnSettings = document.getElementById('btn-settings');
+
+    function closeAll(except) {
+        document.querySelectorAll('.nav-item.open').forEach(el => {
+            if (el !== except) el.classList.remove('open');
+        });
+    }
+
+    document.querySelectorAll('.nav-item > .nav-btn').forEach(btn => {
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const item = btn.parentElement;
+            const open = item.classList.contains('open');
+            closeAll();
+            if (!open) item.classList.add('open');
+        });
+    });
+
+    document.addEventListener('click', () => closeAll());
+
+    document.querySelectorAll('[data-page]').forEach(a => {
+        a.addEventListener('click', e => {
+            e.preventDefault();
+            showWork(a.dataset.page);
+        });
+    });
+
+    document.querySelectorAll('.nav-work').forEach(el => {
+        el.addEventListener('click', () => showWork());
+    });
+
+    function showWork(name) {
+        work.classList.remove('hidden');
+        settings.classList.remove('show');
+        btnSettings.classList.remove('active');
+        if (name) {
+            title.textContent = name;
+            desc.textContent = 'Work page preview.';
+        }
+    }
+
+    function showSettings(key) {
+        work.classList.add('hidden');
+        settings.classList.add('show');
+        btnSettings.classList.add('active');
+        renderSettings(key || 'business');
+    }
+
+    function renderSettings(key) {
+        document.getElementById('s-title').textContent = key.charAt(0).toUpperCase() + key.slice(1);
+        document.getElementById('s-desc').textContent = 'Config pages for ' + key + '.';
+        document.getElementById('s-grid').innerHTML = (pages[key] || []).map(t =>
+            '<div><strong>' + t + '</strong><span>Placeholder</span></div>'
+        ).join('');
+        document.querySelectorAll('.settings-side button[data-s]').forEach(b =>
+            b.classList.toggle('on', b.dataset.s === key)
+        );
+    }
+
+    btnSettings.addEventListener('click', e => { e.stopPropagation(); closeAll(); showSettings('business'); });
+    document.getElementById('btn-back').addEventListener('click', () => showWork('Dashboard'));
+    document.querySelectorAll('.settings-side button[data-s]').forEach(b =>
+        b.addEventListener('click', () => renderSettings(b.dataset.s))
+    );
+
+    document.querySelectorAll('.toggle-row button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.toggle-row button').forEach(b => b.classList.remove('on'));
+            btn.classList.add('on');
+            const emp = btn.dataset.nav === 'employee';
+            menuEmployee.classList.toggle('is-visible', emp);
+            menuAdmin.classList.toggle('is-visible', !emp);
+            showWork(emp ? 'Employee view' : 'Dashboard');
+            desc.textContent = emp ? 'Current employee nav.' : 'Proposed admin nav.';
+        });
+    });
+</script>
+</body>
+</html>

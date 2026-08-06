@@ -179,6 +179,9 @@
                         }
                         if ($tab === 'customer') {
                             $filtersAppliedCount += count($filterCustomerStatusIds) + count($filterCustomerZoneIds) + count($filterCustomerCategoryIds) + count($filterCustomerSubCategoryIds) + (!empty($estimatedDateFrom) && !empty($estimatedDateTo) ? 1 : 0);
+                            if (($customerHasBooking ?? 'all') !== 'all') {
+                                $filtersAppliedCount += 1;
+                            }
                         }
                         if ($tab === 'future_customer' && $outboundEnquiryFilter !== 'all') {
                             $filtersAppliedCount += 1;
@@ -362,6 +365,14 @@
                                         <div>
                                             <label class="form-label">{{ translate('Estimated_Date_Time_of_Service') }} ({{ translate('To_Date') }})</label>
                                             <input type="date" name="estimated_date_to" class="form-control" value="{{ $estimatedDateTo }}">
+                                        </div>
+                                        <div>
+                                            <label class="form-label">{{ translate('Booking_ID') }}</label>
+                                            <select name="customer_has_booking" class="form-select">
+                                                <option value="all" {{ ($customerHasBooking ?? 'all') === 'all' ? 'selected' : '' }}>{{ translate('All') }}</option>
+                                                <option value="yes" {{ ($customerHasBooking ?? 'all') === 'yes' ? 'selected' : '' }}>{{ translate('Customer_lead_has_booking') }}</option>
+                                                <option value="no" {{ ($customerHasBooking ?? 'all') === 'no' ? 'selected' : '' }}>{{ translate('Customer_lead_without_booking') }}</option>
+                                            </select>
                                         </div>
                                     </div>
                                 </div>

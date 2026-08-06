@@ -6,10 +6,11 @@
     <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/select2/select2.min.css')}}"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/dataTables/jquery.dataTables.min.css')}}"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/dataTables/select.dataTables.min.css')}}"/>
+    @include('categorymanagement::admin.partials._category-card-styles')
     <style>
         #ListTableContainer a.category-list-name-link:hover,
         #ListTableContainer a.category-list-name-link:focus {
-            color: var(--bs-dark) !important;
+            color: var(--bs-primary) !important;
         }
     </style>
 @endpush
@@ -19,10 +20,6 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
-                    <div class="page-title-wrap mb-3">
-                        <h2 class="page-title">{{translate('category_setup')}}</h2>
-                    </div>
-
                     @can('category_add')
                         <div id="category-add-form-panel"
                              class="category-add-form-panel mb-30 {{ $errors->any() ? '' : 'd-none' }}">
@@ -150,85 +147,77 @@
                         </div>
                     @endcan
 
-                    <div class="d-flex flex-wrap justify-content-between align-items-center border-bottom mx-lg-4 mb-10 gap-3">
-                        <ul class="nav nav--tabs">
-                            <li class="nav-item">
-                                <a class="nav-link {{$status=='all'?'active':''}}"
-                                   href="{{url()->current()}}?status=all">
-                                    {{translate('all')}}
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{$status=='active'?'active':''}}"
-                                   href="{{url()->current()}}?status=active">
-                                    {{translate('active')}}
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{$status=='inactive'?'active':''}}"
-                                   href="{{url()->current()}}?status=inactive">
-                                    {{translate('inactive')}}
-                                </a>
-                            </li>
-                        </ul>
+                    <div class="category-page-toolbar">
+                        <div class="category-page-toolbar__start">
+                            <h2 class="category-page-toolbar__title">{{ translate('category_setup') }}</h2>
+                            <span class="category-page-toolbar__count" id="totalListCount">{{ $categories->total() }}</span>
+                        </div>
 
-                        <div class="d-flex flex-wrap align-items-center gap-3">
-                            <div class="d-flex gap-2 fw-medium">
-                                <span class="opacity-75">{{translate('Total_Categories')}}:</span>
-                                <span class="title-color" id="totalListCount">{{$categories->total()}}</span>
+                        <div class="category-page-toolbar__tabs">
+                            <ul class="nav nav--tabs">
+                                <li class="nav-item">
+                                    <a class="nav-link category-status-tab {{ $status == 'all' ? 'active' : '' }}"
+                                       href="#"
+                                       data-status="all">
+                                        {{ translate('all') }}
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link category-status-tab {{ $status == 'active' ? 'active' : '' }}"
+                                       href="#"
+                                       data-status="active">
+                                        {{ translate('active') }}
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link category-status-tab {{ $status == 'inactive' ? 'active' : '' }}"
+                                       href="#"
+                                       data-status="inactive">
+                                        {{ translate('inactive') }}
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="category-page-toolbar__end">
+                            <div class="category-page-toolbar__controls">
+                                @include('categorymanagement::admin.partials._catalog-toolbar-search', ['search' => $search])
                             </div>
-                            @can('category_add')
-                                <button type="button"
-                                        class="btn btn--primary btn-sm text-capitalize {{ $errors->any() ? 'd-none' : '' }}"
-                                        id="btn-show-category-add-form">{{translate('add_new')}} {{translate('category')}}</button>
-                            @endcan
+
+                            <div class="category-page-toolbar__actions">
+                                @can('category_add')
+                                    <button type="button"
+                                            class="btn btn--primary btn-sm text-capitalize {{ $errors->any() ? 'd-none' : '' }}"
+                                            id="btn-show-category-add-form">
+                                        <span class="material-icons">add</span>
+                                        {{ translate('add_new') }}
+                                    </button>
+                                @endcan
+
+                                @can('category_export')
+                                    <div class="dropdown">
+                                        <button type="button"
+                                                class="btn btn--secondary btn-sm text-capitalize dropdown-toggle"
+                                                data-bs-toggle="dropdown"
+                                                title="{{ translate('download') }}">
+                                            <span class="material-icons">file_download</span>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item"
+                                                   href="{{ route('admin.category.download') }}?search={{ $search }}">{{ translate('excel') }}</a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                @endcan
+                            </div>
                         </div>
                     </div>
 
-                    <div class="tab-content">
-                        <div class="tab-pane fade show active" id="all-tab-pane">
-                            <div class="card">
-                                <div class="card-body">
-                                    <div class="data-table-top d-flex flex-wrap gap-10 justify-content-between">
-                                        <form action="{{url()->current()}}?status={{$status}}"
-                                              class="search-form search-form_style-two"
-                                              method="POST">
-                                            @csrf
-                                            <div class="input-group search-form__input_group">
-                                            <span class="search-form__icon">
-                                                <span class="material-icons">search</span>
-                                            </span>
-                                                <input type="search" class="theme-input-style search-form__input"
-                                                       value="{{$search}}" name="search"
-                                                       placeholder="{{translate('search_here')}}">
-                                            </div>
-                                            <button type="submit"
-                                                    class="btn btn--primary">{{translate('search')}}</button>
-                                        </form>
-
-                                        @can('category_export')
-                                            <div class="d-flex flex-wrap align-items-center gap-3">
-                                                <div class="dropdown">
-                                                    <button type="button"
-                                                            class="btn btn--secondary text-capitalize dropdown-toggle"
-                                                            data-bs-toggle="dropdown">
-                                                        <span class="material-icons">file_download</span> download
-                                                    </button>
-                                                    <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
-                                                        <li><a class="dropdown-item"
-                                                               href="{{route('admin.category.download')}}?search={{$search}}">{{translate('excel')}}</a>
-                                                        </li>
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                        @endcan
-                                    </div>
-
-                                    <div id="ListTableContainer">
-                                        @include('categorymanagement::admin.partials._table')
-                                    </div>
-
-                                </div>
+                    <div class="card category-page-panel mb-0">
+                        <div class="card-body">
+                            <div id="ListTableContainer">
+                                @include('categorymanagement::admin.partials._table')
                             </div>
                         </div>
                     </div>
@@ -288,6 +277,7 @@
     </script>
 
     <script>
+        (function ($) {
         "use strict"
 
         $('#zone_selector__select').on('change', function () {
@@ -298,15 +288,15 @@
             }
         });
 
-        $('.feature-update').on('change', function (event) {
+        $(document).on('change', '.feature-update', function (event) {
             event.preventDefault();
             let $this = $(this);
-            let initialState = $this.prop('checked'); // Save initial state
+            let initialState = $this.prop('checked');
             let itemId = $(this).data('featured');
             let route = '{{route('admin.category.featured-update',['id' => ':itemId'])}}';
             route = route.replace(':itemId', itemId);
             route_alert(route, @json(translate('want_to_update_feature_status')), $this, initialState);
-        })
+        });
 
         $('button[type="reset"]').on('click', function () {
             $('#zone_selector__select option').prop('selected', false).trigger('change');
@@ -315,18 +305,93 @@
         let selectedItem;
         let selectedRoute;
         let initialState;
-        let currentStatus = "{{ request('status', 'all') }}"; // Keep the current tab status
+        let currentStatus = "{{ request('status', 'all') }}";
+        let categorySearchTimer = null;
 
-        $('.nav-link').on('click', function () {
-            var href = $(this).attr('href') || '';
-            var query = href.split('?')[1];
-            if (!query) {
-                return;
+        function bindCategoryMetaPanels(root) {
+            (root || document).querySelectorAll('.category-card__meta-view').forEach(function (btn) {
+                if (btn.dataset.boundMetaView === '1') {
+                    return;
+                }
+                btn.dataset.boundMetaView = '1';
+                btn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var wrap = btn.closest('.category-card__meta-view-wrap');
+                    var panel = wrap ? wrap.querySelector('.category-card__meta-panel') : null;
+                    if (!panel) {
+                        return;
+                    }
+                    var isOpen = panel.classList.contains('is-open');
+                    document.querySelectorAll('.category-card__meta-panel.is-open').forEach(function (openPanel) {
+                        openPanel.classList.remove('is-open');
+                    });
+                    document.querySelectorAll('.category-card__meta-view.is-open').forEach(function (openBtn) {
+                        openBtn.classList.remove('is-open');
+                    });
+                    if (!isOpen) {
+                        panel.classList.add('is-open');
+                        btn.classList.add('is-open');
+                    }
+                });
+                var panel = btn.closest('.category-card__meta-view-wrap')?.querySelector('.category-card__meta-panel');
+                if (panel && panel.dataset.boundMetaPanel !== '1') {
+                    panel.dataset.boundMetaPanel = '1';
+                    panel.addEventListener('click', function (e) {
+                        e.stopPropagation();
+                    });
+                }
+            });
+        }
+
+        document.addEventListener('click', function () {
+            document.querySelectorAll('.category-card__meta-panel.is-open').forEach(function (panel) {
+                panel.classList.remove('is-open');
+            });
+            document.querySelectorAll('.category-card__meta-view.is-open').forEach(function (btn) {
+                btn.classList.remove('is-open');
+            });
+        });
+
+        function initCategoryListUi(root) {
+            bindCategoryMetaPanels(root);
+            if (typeof bootstrap !== 'undefined') {
+                (root || document).querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+                    bootstrap.Tooltip.getOrCreateInstance(el);
+                });
             }
-            try {
-                currentStatus = new URLSearchParams(query).get('status') || 'all';
-            } catch (e) {
-                /* ignore invalid href */
+        }
+
+        initCategoryListUi(document.getElementById('ListTableContainer'));
+
+        updateBrowserUrl(
+            currentStatus,
+            $('#catalog-toolbar-search-input').val() || '',
+            {{ (int) request('page', 1) }}
+        );
+
+        $(document).off('click.catalogList', '.category-page-toolbar__tabs .category-status-tab');
+        $(document).on('click.catalogList', '.category-page-toolbar__tabs .category-status-tab', function (e) {
+            e.preventDefault();
+            currentStatus = $(this).data('status') || 'all';
+            $('.category-page-toolbar__tabs .category-status-tab').removeClass('active');
+            $(this).addClass('active');
+            reloadTable(currentStatus, 1);
+        });
+
+        $('#catalog-toolbar-search-input').off('input.catalogList keyup.catalogList keydown.catalogList');
+        $('#catalog-toolbar-search-input').on('input.catalogList keyup.catalogList', function () {
+            clearTimeout(categorySearchTimer);
+            categorySearchTimer = setTimeout(function () {
+                reloadTable(currentStatus, 1);
+            }, 350);
+        });
+
+        $('#catalog-toolbar-search-input').on('keydown.catalogList', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(categorySearchTimer);
+                reloadTable(currentStatus, 1);
             }
         });
 
@@ -419,7 +484,7 @@
 
         // Reload the table after status update
         function reloadTable(status, page) {
-            let search = $('input[name="search"]').val();
+            let search = $('#catalog-toolbar-search-input').val() || '';
 
             $.ajax({
                 url: "{{ route('admin.category.table') }}",
@@ -440,6 +505,7 @@
 
                     $('#totalListCount').html(response.totalCategory)
                     $('#ListTableContainer').empty().html(response.view);
+                    initCategoryListUi(document.getElementById('ListTableContainer'));
                 },
                 error: function () {
                     toastr.error('Failed to update table. Please reload the page.', {
@@ -584,6 +650,9 @@
             }
         })();
 
+        })(jQuery);
     </script>
+
+    @include('categorymanagement::admin.partials._catalog-list-scripts')
 
 @endpush

@@ -2,6 +2,7 @@
 
 namespace Modules\CartModule\Http\Controllers\Web\Admin;
 
+use App\Support\AdminMenuCounts;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Foundation\Application;
@@ -125,6 +126,8 @@ class CartController extends Controller
             ]
         );
 
+        AdminMenuCounts::forget();
+
         Toastr::success(translate('Marked_as_contacted'));
         return back();
     }
@@ -146,6 +149,8 @@ class CartController extends Controller
         }
 
         CustomerCartContact::where('customer_id', $id)->delete();
+
+        AdminMenuCounts::forget();
 
         Toastr::success(translate('Marked_as_not_contacted'));
         return back();

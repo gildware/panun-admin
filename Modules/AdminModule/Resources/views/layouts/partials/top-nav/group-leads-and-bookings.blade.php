@@ -1,5 +1,5 @@
 @canany(['lead_view', 'booking_view'])
-@php($groupActive = \App\Support\AdminNavRegistry::groupIsActive('leads_and_bookings'))
+@php($groupActive = \App\Support\AdminNavRegistry::groupIsActive('leads') || \App\Support\AdminNavRegistry::groupIsActive('bookings'))
 <div class="top-nav-item">
     <button type="button" class="top-nav-trigger {{ $groupActive ? 'is-active' : '' }}">
         {{ translate('Leads_and_bookings') }} <span class="material-icons">expand_more</span>

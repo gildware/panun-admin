@@ -35,5 +35,6 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('status-update/{id}', [SubCategoryController::class, 'statusUpdate'])->name('status-update');
         Route::delete('delete/{id}', [SubCategoryController::class, 'destroy'])->name('delete');
         Route::get('download', [SubCategoryController::class, 'download'])->name('download');
+        Route::get('table', [SubCategoryController::class, 'getTable'])->name('table');
     });
 });

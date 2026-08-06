@@ -69,39 +69,99 @@
                 min-height: 0;
             }
             /*
-             * .main-area is flex column + 100vh; first child must shrink/scroll so <footer> stays visible.
+             * dev.css sets main-area block-size:auto — cap viewport on chat split pages so
+             * list + thread fill remaining space and only inner panes scroll.
              */
+            body:has(.wa-whatsapp-chats-split-page) .main-area {
+                block-size: 100dvh !important;
+                max-block-size: 100dvh !important;
+                overflow: hidden;
+            }
+            /* Chat workspace: hide sticky site footer so compose bar is never covered */
+            body:has(.wa-whatsapp-chats-split-page) .main-area > footer.footer,
+            body:has(.wa-whatsapp-chats-split-page) .main-area > turbo-frame.admin-main-frame > footer.footer {
+                display: none !important;
+            }
+            body:has(.wa-whatsapp-chats-split-page) .main-area > turbo-frame.admin-main-frame {
+                flex: 1 1 0%;
+                min-height: 0;
+                max-height: 100%;
+                overflow: hidden;
+                display: flex !important;
+                flex-direction: column !important;
+            }
             .wa-whatsapp-chats-split-page.main-content {
                 flex: 1 1 auto;
                 min-height: 0;
-                max-height: 100%;
-                overflow-x: hidden;
-                overflow-y: auto;
-                -webkit-overflow-scrolling: touch;
-                padding-bottom: 20px;
+                max-height: none;
+                overflow: hidden;
+                padding-bottom: 0;
+                display: flex;
+                flex-direction: column;
             }
-            .main-area > footer.footer {
-                flex-shrink: 0;
+            .main-area > turbo-frame.admin-main-frame > .main-content.wa-whatsapp-chats-split-page {
+                flex: 1 1 auto;
+                min-height: 0;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
             }
-            /* Space below the split row (chats + conversation) inside the scrollable page. */
+            .main-area > turbo-frame.admin-main-frame > .main-content.wa-whatsapp-chats-split-page > .container-fluid {
+                flex: 1 1 auto;
+                min-height: 0;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                padding-bottom: 0.75rem;
+            }
+            .wa-whatsapp-chats-split-page > .container-fluid {
+                flex: 1 1 auto;
+                min-height: 0;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                padding-bottom: 0.75rem;
+            }
+            .wa-whatsapp-chats-split-page .wa-chat-main-panel.card,
+            .wa-whatsapp-chats-split-page .wa-chat-main-panel #whatsapp-chat-panel:not(.d-none) {
+                min-height: 0;
+            }
+            .wa-whatsapp-chats-split-page .wa-chat-main-panel .wa-chat-reply-footer {
+                flex: 0 0 auto !important;
+                flex-shrink: 0 !important;
+                position: relative;
+                z-index: 6;
+                background: var(--bs-body-bg, #fff);
+            }
+            .wa-whatsapp-chats-split-page .wa-chat-main-panel #whatsapp-chat-messages {
+                flex: 1 1 0% !important;
+                height: 0 !important;
+                min-height: 0 !important;
+                overflow-x: hidden !important;
+                overflow-y: auto !important;
+            }
             .wa-whatsapp-chats-split-page .wa-chats-split-layout {
-                --wa-chats-pane-bottom-gap: 20px;
+                --wa-chats-pane-bottom-gap: 0.75rem;
+                flex: 1 1 auto;
+                min-height: 0;
                 margin-bottom: var(--wa-chats-pane-bottom-gap);
+                overflow: hidden;
+            }
+            .wa-whatsapp-chats-split-page .wa-chats-split-layout > .wa-chats-split-col > .card {
+                margin-bottom: 0;
             }
             @media (min-width: 768px) {
                 /*
-                 * Fixed 900px row: clip overflow; columns/cards must not grow with content.
-                 * Scroll lives only inside .wa-active-chat-list-scroll and #whatsapp-chat-messages.
+                 * Flex row fills viewport remainder; scroll only inside list + messages.
                  */
                 .wa-whatsapp-chats-split-page .wa-chats-split-layout {
-                    --wa-chats-pane-h: 900px;
                     display: flex;
                     flex-direction: row;
                     flex-wrap: nowrap;
                     align-items: stretch;
-                    height: var(--wa-chats-pane-h);
-                    min-height: var(--wa-chats-pane-h);
-                    max-height: var(--wa-chats-pane-h);
+                    height: auto;
+                    min-height: 0;
+                    max-height: none;
                     overflow: hidden;
                 }
                 .wa-whatsapp-chats-split-page .wa-chats-split-layout > .wa-chats-split-col {
@@ -165,14 +225,98 @@
             }
             .whatsapp-active-list-container .card-header {
                 min-width: 0;
+                padding-top: 0.4rem !important;
+                padding-bottom: 0.4rem !important;
+            }
+            .wa-whatsapp-chats-split-page .wa-chat-main-panel > .card-header,
+            .wa-whatsapp-chats-split-page .wa-conversation-header.wa-conversation-header--responsive {
+                padding: 0.35rem 0.5rem !important;
+                overflow: visible;
+                flex-shrink: 0;
+            }
+            .wa-whatsapp-chats-split-page .wa-conversation-header .wa-header-title {
+                font-size: 0.875rem;
+            }
+            .wa-whatsapp-chats-split-page .wa-conversation-header-row2 {
+                border-top: 1px solid rgba(0, 0, 0, 0.06);
+                padding-top: 0.3rem;
+                margin-top: 0.15rem;
+                overflow: visible;
+            }
+            .wa-whatsapp-chats-split-page .wa-conversation-header-row2 .wa-chat-tag-pill {
+                font-size: 0.68rem;
+                padding: 0.2rem 0.4rem;
+            }
+            .wa-whatsapp-chats-split-page .wa-conv-header-slot-row {
+                border-top: 0;
+                padding-top: 0;
+                margin-top: 0;
+            }
+            @media (max-width: 767.98px) {
+                .wa-whatsapp-chats-split-page #wa-conv-header-extended .wa-conv-header-slot-row {
+                    border-top: 1px solid rgba(0, 0, 0, 0.06);
+                    padding-top: 0.3rem;
+                    margin-top: 0.15rem;
+                }
+            }
+            .wa-conv-header-actions-slot {
+                flex-shrink: 0;
+            }
+            .wa-conv-header-top-row .wa-conv-header-actions-slot .wa-conv-header-slot-row {
+                flex-wrap: nowrap;
+            }
+            .wa-whatsapp-chats-split-page .wa-conv-header-slot-row .btn {
+                padding: 0.2rem 0.45rem;
+                font-size: 0.75rem;
+                line-height: 1.3;
+            }
+            .wa-whatsapp-chats-split-page #wa-manage-tags-btn {
+                padding: 0.2rem 0.45rem;
+                font-size: 0.75rem;
+                line-height: 1.3;
+                white-space: nowrap;
+            }
+            .wa-whatsapp-chats-split-page .wa-conv-tags-label {
+                font-size: 0.72rem;
+            }
+            .wa-whatsapp-chats-split-page .whatsapp-chat-item {
+                padding: 0.55rem 0.65rem !important;
+            }
+            .wa-whatsapp-chats-split-page .whatsapp-chat-item .mt-2 {
+                margin-top: 0.35rem !important;
+            }
+            .wa-whatsapp-chats-split-page .whatsapp-chat-item .wa-chat-item-meta {
+                margin-top: 0.35rem !important;
+            }
+            .wa-whatsapp-chats-split-page .wa-chat-reply-footer {
+                padding: 0.45rem 0.65rem !important;
+            }
+            .wa-whatsapp-chats-split-page .wa-chat-reply-footer .form-control {
+                min-height: 34px !important;
+                padding-top: 6px !important;
+                padding-bottom: 6px !important;
+            }
+            .wa-whatsapp-chats-split-page .wa-chat-reply-footer .btn[style*="width: 40px"] {
+                width: 34px !important;
+                height: 34px !important;
+            }
+            .wa-whatsapp-chats-split-page .wa-active-chat-count-filters .wa-chat-read-filter-btn {
+                font-size: 0.68rem;
+                padding: 0.15rem 0.45rem;
             }
             .whatsapp-active-list-container .wa-chat-list-filter-btn {
                 white-space: nowrap;
             }
             .wa-active-chat-count-filters {
                 display: flex;
-                flex-wrap: wrap;
+                flex-wrap: nowrap;
                 gap: 0.35rem;
+            }
+            .whatsapp-active-list-container .card-header.wa-active-chat-list-toolbar {
+                width: 100%;
+            }
+            .whatsapp-active-list-container .wa-active-chat-list-toolbar-end {
+                margin-left: auto;
             }
             .wa-active-chat-count-filters .wa-chat-read-filter-btn {
                 font-size: 0.72rem;
@@ -311,15 +455,42 @@
             }
             .wa-conversation-header {
                 border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+                overflow: visible;
             }
             .wa-conversation-header .wa-header-title {
                 max-width: 100%;
+            }
+            .wa-conv-header-primary {
+                display: flex;
+                flex-wrap: nowrap;
+                align-items: center;
+                gap: 0.4rem;
+                min-width: 0;
+                overflow-x: auto;
+                scrollbar-width: none;
+            }
+            .wa-conv-header-primary::-webkit-scrollbar {
+                display: none;
             }
             .wa-conv-header-identity {
                 min-width: 0;
             }
             .wa-conv-header-sys-pills {
                 line-height: 1.2;
+                flex-shrink: 0;
+            }
+            .wa-conv-header-primary #whatsapp-chat-handled-pill,
+            .wa-conv-header-primary #whatsapp-chat-status-slot {
+                flex-shrink: 0;
+            }
+            .wa-conv-header-primary .wa-header-title {
+                flex-shrink: 0;
+                white-space: nowrap;
+            }
+            .wa-conv-header-primary .wa-chat-status-ctl .btn {
+                padding: 0.2rem 0.5rem;
+                font-size: 0.72rem;
+                line-height: 1.3;
             }
             .wa-conv-header-tags-mobile .wa-chat-tag-pill {
                 font-size: 0.7rem;
@@ -329,37 +500,13 @@
                     max-width: min(100%, 560px);
                 }
             }
-            /* Thread header: mobile collapsible “thread options”; desktop always shows tools. */
             @media (min-width: 768px) {
-                .wa-conversation-header--responsive #wa-conv-header-extended.collapse {
-                    display: flex !important;
-                    flex-direction: column;
-                    align-items: flex-end;
-                    flex: 1 1 280px;
-                    min-width: 0;
-                    border: 0 !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
-                    overflow: visible;
-                }
-                .wa-conversation-header--responsive #wa-conv-header-extended .wa-conv-header-extended-inner {
-                    width: 100%;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: flex-end;
-                    border: 0 !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
-                }
-                .wa-conversation-header--responsive #wa-conv-header-extended .wa-conv-header-slot-row {
-                    border-top: 0 !important;
-                    margin-top: 0 !important;
-                    padding-top: 0 !important;
-                }
                 .wa-conversation-header--responsive .wa-conversation-header-row2 {
                     align-self: stretch;
                     width: 100%;
-                    max-width: min(100%, 900px);
+                }
+                .wa-conversation-header--responsive #wa-conv-header-extended {
+                    display: none !important;
                 }
             }
             /*
@@ -367,12 +514,17 @@
              * footer blocks scroll internally if needed.
              */
             /* flex-basis must be 0% (not auto) or the panel's min size follows message content and kills inner scroll. */
-            .wa-chat-main-panel #whatsapp-chat-panel {
+            .wa-chat-main-panel.card {
+                overflow: hidden;
+            }
+            .wa-chat-main-panel #whatsapp-chat-panel:not(.d-none) {
+                display: flex !important;
+                flex-direction: column;
                 flex: 1 1 0%;
+                height: 0;
                 min-height: 0;
-                /* Default: avoid clipping footer (composer + templates); md+ split row restores clip on messages only */
                 overflow-x: hidden;
-                overflow-y: visible;
+                overflow-y: hidden;
             }
             @media (min-width: 768px) {
                 .wa-whatsapp-chats-split-page .wa-chats-split-layout .wa-chat-main-panel #whatsapp-chat-panel {
@@ -385,6 +537,7 @@
              */
             .wa-chat-main-panel #whatsapp-chat-messages {
                 flex: 1 1 0%;
+                height: 0;
                 min-height: 0;
                 overflow-x: hidden;
                 overflow-y: auto;
@@ -396,8 +549,14 @@
             }
             /* Stacked layout: row height is not capped like the md+ split row; bound the thread so it scrolls inside. */
             @media (max-width: 767.98px) {
+                .wa-whatsapp-chats-split-page .wa-chats-split-layout {
+                    flex: 1 1 auto;
+                    min-height: 0;
+                    display: flex;
+                    flex-direction: column;
+                }
                 .wa-whatsapp-chats-split-page .wa-chat-main-panel #whatsapp-chat-messages {
-                    max-height: min(70vh, 560px);
+                    max-height: none;
                 }
                 /*
                  * WhatsApp-like mobile: chat list fills the screen; opening a thread hides the list
@@ -417,7 +576,10 @@
                     min-height: 0;
                 }
                 .wa-whatsapp-chats-split-page .wa-chats-split-layout.wa-mobile-thread-open > .wa-chat-column > .card {
-                    min-height: min(82dvh, 900px);
+                    flex: 1 1 auto;
+                    min-height: 0;
+                    height: 100%;
+                    max-height: none;
                 }
                 .wa-whatsapp-chats-split-page .wa-chats-split-layout.wa-mobile-thread-open #whatsapp-chat-panel {
                     flex: 1 1 auto !important;
@@ -444,9 +606,16 @@
                 #whatsapp-chat-override-slot-mobile .btn {
                     width: 100%;
                 }
-                /* Applied tags: always visible under system pills; hide duplicate list in options drawer. */
+                /* Mobile: tag pills under primary line; manage tags stays in row2 below actions. */
                 .wa-conversation-header-row2 #whatsapp-chat-tags-row {
                     display: none !important;
+                }
+                .wa-conversation-header-row2 .wa-conv-tags-label {
+                    display: none !important;
+                }
+                .wa-whatsapp-chats-split-page .wa-conversation-header-row2 {
+                    justify-content: flex-end;
+                    padding-top: 0.25rem;
                 }
                 .wa-whatsapp-chats-split-page .wa-chats-split-layout:not(.wa-mobile-thread-open) > .whatsapp-active-list-container {
                     display: flex;
@@ -455,8 +624,9 @@
                 }
                 .wa-whatsapp-chats-split-page .wa-chats-split-layout:not(.wa-mobile-thread-open) > .whatsapp-active-list-container > .card {
                     flex: 1 1 auto;
-                    min-height: min(52dvh, 480px);
-                    max-height: min(72dvh, calc(100dvh - 13rem), 640px);
+                    min-height: 0;
+                    max-height: none;
+                    height: 100%;
                     overflow: hidden;
                 }
                 /*
@@ -502,6 +672,11 @@
                 content: '';
                 flex: 1 1 0;
                 min-height: 0;
+            }
+            .wa-chat-main-panel #whatsapp-chat-panel > .card-header,
+            .wa-chat-main-panel #whatsapp-chat-panel > .card-footer,
+            .wa-chat-main-panel #wa-chat-handoff-mobile-bar {
+                flex-shrink: 0;
             }
             .wa-chat-main-panel #whatsapp-chat-panel > .card-footer {
                 flex: 0 0 auto;
@@ -738,7 +913,10 @@
             }
             @media (min-width: 768px) {
                 .wa-social-inbox-fs-page.wa-whatsapp-chats-split-page .wa-chats-split-layout {
-                    --wa-chats-pane-h: calc(100vh - 12rem);
+                    flex: 1 1 auto;
+                    min-height: 0;
+                    height: auto;
+                    max-height: none;
                 }
             }
             body.wa-social-inbox-fullscreen-body .wa-social-inbox-fs-page > .container-fluid {
@@ -751,22 +929,9 @@
                 flex: 1 1 auto;
                 min-height: 0;
             }
-            /* Fullscreen: tab strip + exit live in <details>; mobile uses sticky chrome + always-open panel (see waSyncFsToolbarDetailsOpen). */
-            body.wa-social-inbox-fullscreen-body .wa-fs-toolbar-details {
+            /* Fullscreen: compact toolbar stays sticky on mobile. */
+            body.wa-social-inbox-fullscreen-body .wa-fs-chrome-wrap .wa-inbox-toolbar-card {
                 border-color: rgba(0, 0, 0, 0.08) !important;
-            }
-            body.wa-social-inbox-fullscreen-body .wa-fs-toolbar-details__summary {
-                cursor: pointer;
-                list-style: none;
-            }
-            body.wa-social-inbox-fullscreen-body .wa-fs-toolbar-details__summary::-webkit-details-marker {
-                display: none;
-            }
-            body.wa-social-inbox-fullscreen-body .wa-fs-toolbar-details__chevron {
-                transition: transform 0.2s ease;
-            }
-            body.wa-social-inbox-fullscreen-body .wa-fs-toolbar-details[open] .wa-fs-toolbar-details__chevron {
-                transform: rotate(180deg);
             }
             @media (max-width: 767.98px) {
                 body.wa-social-inbox-fullscreen-body .wa-fs-chrome-wrap {
@@ -778,10 +943,6 @@
                     background: var(--bs-body-bg, #fff);
                     box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
                 }
-                body.wa-social-inbox-fullscreen-body .wa-fs-toolbar-details {
-                    flex-shrink: 0;
-                    overflow: visible !important;
-                }
                 body.wa-social-inbox-fullscreen-body .wa-social-inbox-fs-page.wa-whatsapp-chats-split-page .wa-fs-chrome-wrap #wa-global-search-default-slot {
                     display: none !important;
                     margin: 0 !important;
@@ -790,20 +951,6 @@
             @media (min-width: 768px) {
                 body.wa-social-inbox-fullscreen-body .wa-fs-chrome-wrap {
                     display: contents;
-                }
-                body.wa-social-inbox-fullscreen-body .wa-fs-toolbar-details__summary {
-                    display: none !important;
-                }
-                body.wa-social-inbox-fullscreen-body .wa-fs-toolbar-details > .wa-fs-toolbar-details__panel {
-                    border-top: 0 !important;
-                    padding-top: 0 !important;
-                }
-                body.wa-social-inbox-fullscreen-body .wa-fs-toolbar-details {
-                    border: 0 !important;
-                    border-radius: 0 !important;
-                    box-shadow: none !important;
-                    background: transparent !important;
-                    overflow: visible !important;
                 }
             }
             @media (max-width: 767.98px) {
@@ -847,111 +994,9 @@
     @endphp
     <div class="main-content social-inbox-page social-inbox-page--{{ $socialInboxChannel }} {{ $waFs ? 'wa-social-inbox-fs-page' : '' }} {{ in_array(($tab ?? ''), ['chats', 'human_support'], true) ? 'wa-whatsapp-chats-split-page' : '' }}">
         <div class="container-fluid {{ $waFs ? 'py-2' : '' }}">
-            @if($waFs)
-                <div class="wa-fs-chrome-wrap">
-            @endif
-            @unless($waFs)
-                <div class="page-title-wrap mb-3">
-                    <h2 class="page-title d-flex gap-3 align-items-center flex-wrap">
-                        <span class="material-icons">chat</span>
-                        {{ translate('social_inbox_page_title') }}
-                        @if(in_array(($tab ?? ''), ['chats', 'human_support'], true))
-                            <a href="{{ request()->fullUrlWithQuery(['fullscreen' => '1']) }}"
-                               target="_blank"
-                               rel="noopener noreferrer"
-                               class="btn btn-sm btn-outline-secondary ms-md-auto d-inline-flex align-items-center gap-1">
-                                <span class="material-icons" style="font-size:18px;">open_in_new</span>
-                                {{ translate('whatsapp_fullscreen_chat') }}
-                            </a>
-                        @endif
-                    </h2>
-                </div>
-
-                <div class="card card-body mb-3">
-                    <ul class="nav nav--tabs">
-                        <li class="nav-item">
-                            <a class="nav-link {{ ($tab ?? '') === 'chats' ? 'active' : '' }}"
-                               href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'chats'], $waFsQuery)) }}">
-                                {{ translate('Active Chats') }}
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {{ ($tab ?? '') === 'human_support' ? 'active' : '' }}"
-                               href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'human_support'], $waFsQuery)) }}">
-                                {{ translate('Human support') }}
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {{ ($tab ?? '') === 'leads' ? 'active' : '' }}"
-                               href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'leads'], $waFsQuery)) }}">
-                                {{ translate('Provider Leads') }}
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {{ ($tab ?? '') === 'bookings' ? 'active' : '' }}"
-                               href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'bookings'], $waFsQuery)) }}">
-                                {{ translate('Bookings') }}
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {{ ($tab ?? '') === 'users' ? 'active' : '' }}"
-                               href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'users'], $waFsQuery)) }}">
-                                {{ translate('WhatsApp Users') }}
-                            </a>
-                        </li>
-                        @can('whatsapp_message_template_update')
-                            <li class="nav-item">
-                                <a class="nav-link {{ ($tab ?? '') === 'quick_replies' ? 'active' : '' }}"
-                                   href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'quick_replies'], $waFsQuery)) }}">
-                                    {{ translate('WhatsApp_quick_replies_tab') }}
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{ ($tab ?? '') === 'chat_config' ? 'active' : '' }}"
-                                   href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'chat_config'], $waFsQuery)) }}">
-                                    {{ translate('whatsapp_chat_configuration') }}
-                                </a>
-                            </li>
-                        @endcan
-                    </ul>
-                </div>
-            @else
-                <details id="wa-fs-toolbar-details" class="wa-fs-toolbar-details mb-2 border rounded overflow-hidden bg-white shadow-sm">
-                    <summary class="wa-fs-toolbar-details__summary d-flex align-items-center justify-content-between gap-2 px-3 py-2 text-body-secondary small fw-semibold user-select-none"
-                             aria-label="{{ translate('whatsapp_fs_toolbar_accordion_label') }}">
-                        <span class="d-inline-flex align-items-center gap-2 text-body">
-                            <span class="material-icons" style="font-size: 20px;">menu_open</span>
-                            {{ translate('whatsapp_fs_toolbar_accordion_label') }}
-                        </span>
-                        <span class="material-icons wa-fs-toolbar-details__chevron" style="font-size: 22px;" aria-hidden="true">expand_more</span>
-                    </summary>
-                    <div class="wa-fs-toolbar-details__panel border-top px-2 py-2 bg-light">
-                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 wa-si-fs-toolbar">
-                            <ul class="nav nav-pills wa-si-fs-pills mb-0">
-                                <li class="nav-item">
-                                    <a class="nav-link py-1 px-3 {{ ($tab ?? '') === 'chats' ? 'active' : '' }}"
-                                       href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'chats'], $waFsQuery)) }}">
-                                        {{ translate('Active Chats') }}
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link py-1 px-3 {{ ($tab ?? '') === 'human_support' ? 'active' : '' }}"
-                                       href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'human_support'], $waFsQuery)) }}">
-                                        {{ translate('Human support') }}
-                                    </a>
-                                </li>
-                            </ul>
-                            <a href="{{ $waExitFullscreenUrl }}" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1">
-                                <span class="material-icons" style="font-size:18px;">fullscreen_exit</span>
-                                {{ translate('whatsapp_exit_fullscreen') }}
-                            </a>
-                        </div>
-                    </div>
-                </details>
-            @endunless
-
             @php
                 $waSearchableTabs = ['chats', 'human_support', 'leads', 'bookings', 'users', 'quick_replies', 'chat_config'];
+                $waShowSearch = in_array($tab ?? '', $waSearchableTabs, true);
                 $waFacetCount = 0;
                 if (in_array($tab ?? '', ['chats', 'human_support'], true)) {
                     $_hf = $handlerFilters ?? [];
@@ -967,18 +1012,85 @@
                         + (int) (request()->filled('chat_started_from') || request()->filled('chat_started_to'));
                 }
             @endphp
-            @if(in_array($tab ?? '', $waSearchableTabs, true))
-                <div id="wa-global-search-default-slot" class="mb-3 wa-global-search-default-slot">
-                    <div class="card card-body mb-0 py-3 wa-global-search-card">
-                        <label for="wa-global-search" class="form-label mb-2">{{ translate('Search here') }}</label>
-                        <div class="d-flex flex-nowrap align-items-start justify-content-between w-100 wa-global-search-toolbar"
-                             style="gap: clamp(0.5rem, 2vw, 1rem);">
-                            <div class="position-relative min-w-0 flex-grow-1" style="max-width: 100%;">
+            @if($waFs)
+                <div class="wa-fs-chrome-wrap">
+            @endif
+            <div class="card card-body wa-inbox-toolbar-card">
+                <div class="d-flex flex-wrap align-items-center wa-inbox-toolbar-row">
+                    @unless($waFs)
+                        <ul class="nav nav--tabs wa-inbox-tabs-compact mb-0 flex-shrink-0">
+                            <li class="nav-item">
+                                <a class="nav-link {{ ($tab ?? '') === 'chats' ? 'active' : '' }}"
+                                   href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'chats'], $waFsQuery)) }}">
+                                    {{ translate('Active Chats') }}
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ ($tab ?? '') === 'human_support' ? 'active' : '' }}"
+                                   href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'human_support'], $waFsQuery)) }}">
+                                    {{ translate('Human support') }}
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ ($tab ?? '') === 'leads' ? 'active' : '' }}"
+                                   href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'leads'], $waFsQuery)) }}">
+                                    {{ translate('Provider Leads') }}
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ ($tab ?? '') === 'bookings' ? 'active' : '' }}"
+                                   href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'bookings'], $waFsQuery)) }}">
+                                    {{ translate('Bookings') }}
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ ($tab ?? '') === 'users' ? 'active' : '' }}"
+                                   href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'users'], $waFsQuery)) }}">
+                                    {{ translate('WhatsApp Users') }}
+                                </a>
+                            </li>
+                            @can('whatsapp_message_template_update')
+                                <li class="nav-item">
+                                    <a class="nav-link {{ ($tab ?? '') === 'quick_replies' ? 'active' : '' }}"
+                                       href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'quick_replies'], $waFsQuery)) }}">
+                                        {{ translate('WhatsApp_quick_replies_tab') }}
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {{ ($tab ?? '') === 'chat_config' ? 'active' : '' }}"
+                                       href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'chat_config'], $waFsQuery)) }}">
+                                        {{ translate('whatsapp_chat_configuration') }}
+                                    </a>
+                                </li>
+                            @endcan
+                        </ul>
+                    @else
+                        <ul class="nav nav-pills wa-si-fs-pills wa-inbox-tabs-compact mb-0 flex-shrink-0">
+                            <li class="nav-item">
+                                <a class="nav-link {{ ($tab ?? '') === 'chats' ? 'active' : '' }}"
+                                   href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'chats'], $waFsQuery)) }}">
+                                    {{ translate('Active Chats') }}
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ ($tab ?? '') === 'human_support' ? 'active' : '' }}"
+                                   href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'human_support'], $waFsQuery)) }}">
+                                    {{ translate('Human support') }}
+                                </a>
+                            </li>
+                        </ul>
+                    @endunless
+
+                    <div class="wa-inbox-toolbar-end d-flex align-items-center flex-shrink-0 ms-auto">
+                    @if($waShowSearch)
+                        <div id="wa-global-search-default-slot" class="wa-inbox-toolbar-search min-w-0">
+                            <div class="wa-global-search-card position-relative">
                                 <input type="search"
                                        id="wa-global-search"
                                        class="form-control"
-                                       placeholder="{{ translate('Search name, number, or message') }}…"
+                                       placeholder="{{ translate('Search here') }}…"
                                        autocomplete="off"
+                                       aria-label="{{ translate('Search here') }}"
                                        aria-autocomplete="list"
                                        aria-controls="wa-global-search-dropdown">
                                 <div id="wa-global-search-dropdown"
@@ -987,11 +1099,36 @@
                                      role="listbox"></div>
                             </div>
                         </div>
+                    @endif
+
+                    <div class="wa-inbox-toolbar-actions d-flex align-items-center flex-shrink-0">
+                        @unless($waFs)
+                            @if(in_array(($tab ?? ''), ['chats', 'human_support'], true))
+                                <a href="{{ request()->fullUrlWithQuery(['fullscreen' => '1']) }}"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
+                                   title="{{ translate('whatsapp_fullscreen_chat') }}">
+                                    <span class="material-icons">open_in_new</span>
+                                    <span class="d-none d-lg-inline">{{ translate('whatsapp_fullscreen_chat') }}</span>
+                                </a>
+                            @endif
+                        @else
+                            <a href="{{ $waExitFullscreenUrl }}"
+                               class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
+                               title="{{ translate('whatsapp_exit_fullscreen') }}">
+                                <span class="material-icons">fullscreen_exit</span>
+                                <span class="d-none d-lg-inline">{{ translate('whatsapp_exit_fullscreen') }}</span>
+                            </a>
+                        @endunless
+                    </div>
                     </div>
                 </div>
-                @if($waFs)
-                    </div>{{-- .wa-fs-chrome-wrap: toolbar + search stay visible on mobile fullscreen --}}
-                @endif
+            </div>
+            @if($waFs)
+                </div>{{-- .wa-fs-chrome-wrap: compact toolbar stays visible on mobile fullscreen --}}
+            @endif
+            @if($waShowSearch)
                 @if(in_array($tab ?? '', ['chats', 'human_support'], true))
                     <div class="offcanvas offcanvas-top wa-mobile-search-offcanvas border-bottom shadow-sm"
                          tabindex="-1"
@@ -1184,15 +1321,11 @@
                         </div>
                     </div>
                 @endif
-            @else
-                @if($waFs)
-                    </div>{{-- .wa-fs-chrome-wrap when tab has no search slot --}}
-                @endif
             @endif
 
             {{-- Tab: Active Chats / Human support — left: scrollable list, right: open chat --}}
             <?php if (($tab ?? '') === 'chats' || ($tab ?? '') === 'human_support'): ?>
-                <div class="row g-3 align-items-stretch wa-chats-split-layout">
+                <div class="row g-2 align-items-stretch wa-chats-split-layout">
                     <?php
                         $waListFilteredTotal = (int) ($chatCounts['filtered_total'] ?? $chatCounts['total'] ?? 0);
                         $waActiveUnreadFilter = '';
@@ -1210,44 +1343,44 @@
                          data-page="1"
                          data-has-more="{{ $waListFilteredTotal > ((int) ($chats ?? collect())->count()) ? '1' : '0' }}">
                         <div class="card h-100 d-flex flex-column wa-min-h-0">
-                            <div class="card-header py-2 d-flex flex-column gap-1 min-w-0">
-                                <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                                    <strong class="flex-shrink-0 me-1">{{ !empty($humanSupportTab ?? false) ? translate('Human support requests') : translate('Chats') }}</strong>
-                                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                            <div class="card-header py-1 wa-active-chat-list-toolbar d-flex align-items-center justify-content-between gap-2 flex-nowrap min-w-0 w-100">
+                                <div class="d-flex align-items-center gap-2 min-w-0">
+                                    <strong class="flex-shrink-0 d-none d-sm-inline">{{ !empty($humanSupportTab ?? false) ? translate('Human support requests') : translate('Chats') }}</strong>
+                                    <div id="wa-active-chat-counts" class="wa-active-chat-count-filters flex-shrink-0" role="group" aria-label="{{ translate('whatsapp_chat_filters_read_state') }}">
                                         <button type="button"
-                                                id="wa-mobile-list-search-open"
-                                                class="btn btn-light border d-md-none d-inline-flex align-items-center justify-content-center rounded-circle p-2"
-                                                data-bs-toggle="offcanvas"
-                                                data-bs-target="#wa-mobile-search-offcanvas"
-                                                aria-controls="wa-mobile-search-offcanvas"
-                                                title="{{ translate('Search here') }}"
-                                                aria-label="{{ translate('Search here') }}">
-                                            <span class="material-icons" style="font-size: 20px; line-height: 1;">search</span>
+                                                class="btn btn-sm btn-outline-secondary wa-chat-read-filter-btn{{ $waActiveUnreadFilter === '' ? ' active' : '' }}"
+                                                id="wa-active-chat-filter-all"
+                                                data-unread-state="">
+                                            {{ $waFilterAllLabel }}
                                         </button>
                                         <button type="button"
-                                                class="btn btn-outline-primary btn-sm wa-chat-list-filter-btn d-inline-flex align-items-center gap-1 flex-shrink-0"
-                                                data-bs-toggle="offcanvas"
-                                                data-bs-target="#wa-chats-filters-offcanvas"
-                                                aria-controls="wa-chats-filters-offcanvas">
-                                            {{ translate('Filters') }}
-                                            @if(($waFacetCount ?? 0) > 0)
-                                                <span class="badge bg-primary rounded-pill">{{ $waFacetCount }}</span>
-                                            @endif
+                                                class="btn btn-sm btn-outline-danger wa-chat-read-filter-btn{{ $waActiveUnreadFilter === 'unread' ? ' active' : '' }}"
+                                                id="wa-active-chat-filter-unread"
+                                                data-unread-state="unread">
+                                            {{ $waFilterUnreadLabel }}
                                         </button>
                                     </div>
                                 </div>
-                                <div id="wa-active-chat-counts" class="wa-active-chat-count-filters" role="group" aria-label="{{ translate('whatsapp_chat_filters_read_state') }}">
+                                <div class="d-flex align-items-center gap-2 flex-shrink-0 wa-active-chat-list-toolbar-end">
                                     <button type="button"
-                                            class="btn btn-sm btn-outline-secondary wa-chat-read-filter-btn{{ $waActiveUnreadFilter === '' ? ' active' : '' }}"
-                                            id="wa-active-chat-filter-all"
-                                            data-unread-state="">
-                                        {{ $waFilterAllLabel }}
+                                            id="wa-mobile-list-search-open"
+                                            class="btn btn-light border d-md-none d-inline-flex align-items-center justify-content-center rounded-circle p-2"
+                                            data-bs-toggle="offcanvas"
+                                            data-bs-target="#wa-mobile-search-offcanvas"
+                                            aria-controls="wa-mobile-search-offcanvas"
+                                            title="{{ translate('Search here') }}"
+                                            aria-label="{{ translate('Search here') }}">
+                                        <span class="material-icons" style="font-size: 20px; line-height: 1;">search</span>
                                     </button>
                                     <button type="button"
-                                            class="btn btn-sm btn-outline-danger wa-chat-read-filter-btn{{ $waActiveUnreadFilter === 'unread' ? ' active' : '' }}"
-                                            id="wa-active-chat-filter-unread"
-                                            data-unread-state="unread">
-                                        {{ $waFilterUnreadLabel }}
+                                            class="btn btn-outline-primary btn-sm wa-chat-list-filter-btn d-inline-flex align-items-center gap-1 flex-shrink-0"
+                                            data-bs-toggle="offcanvas"
+                                            data-bs-target="#wa-chats-filters-offcanvas"
+                                            aria-controls="wa-chats-filters-offcanvas">
+                                        {{ translate('Filters') }}
+                                        @if(($waFacetCount ?? 0) > 0)
+                                            <span class="badge bg-primary rounded-pill">{{ $waFacetCount }}</span>
+                                        @endif
                                     </button>
                                 </div>
                             </div>
@@ -1284,8 +1417,8 @@
                                 <span>{{ translate('Select a chat') }}</span>
                             </div>
                             <div id="whatsapp-chat-panel" class="d-none flex-column flex-grow-1 w-100 wa-min-h-0">
-                                <div class="card-header wa-conversation-header wa-conversation-header--responsive py-2 py-md-3 d-flex flex-column flex-md-row flex-md-wrap align-items-stretch align-items-md-start gap-2">
-                                    <div class="d-flex flex-nowrap align-items-start gap-2 w-100 wa-conv-header-top-row min-w-0">
+                                <div class="card-header wa-conversation-header wa-conversation-header--responsive py-1 d-flex flex-column flex-md-row flex-md-wrap align-items-stretch align-items-md-center gap-1">
+                                    <div class="d-flex flex-nowrap align-items-center gap-2 w-100 wa-conv-header-top-row min-w-0">
                                         <button type="button"
                                                 id="wa-mobile-back-to-chats"
                                                 class="btn btn-light border wa-mobile-back-chats-btn d-md-none flex-shrink-0 rounded-circle p-2"
@@ -1293,11 +1426,19 @@
                                                 title="{{ translate('back') }}">
                                             <span class="material-icons" style="font-size: 22px; line-height: 1;">arrow_back</span>
                                         </button>
-                                        <div class="wa-conv-header-identity flex-grow-1 min-w-0 d-flex flex-column">
-                                            <strong id="whatsapp-chat-phone-line" class="mb-0 text-truncate wa-header-title"></strong>
-                                            <div id="whatsapp-chat-ad-attribution" class="d-none fz-12 text-muted mt-1 min-w-0"></div>
-                                            <span id="whatsapp-chat-system-pills" class="wa-conv-header-sys-pills d-flex flex-wrap align-items-center gap-1 min-w-0 mt-1"></span>
-                                            <div id="whatsapp-chat-tags-row-mobile" class="wa-conv-header-tags-mobile d-md-none flex-wrap align-items-center gap-1 min-w-0 mt-1 d-none"></div>
+                                        <div class="wa-conv-header-primary flex-grow-1 min-w-0">
+                                            <strong id="whatsapp-chat-phone-line" class="mb-0 wa-header-title"></strong>
+                                            <span id="whatsapp-chat-system-pills" class="wa-conv-header-sys-pills d-inline-flex align-items-center gap-1"></span>
+                                            <span id="whatsapp-chat-handled-pill" class="d-inline-flex align-items-center"></span>
+                                            <span id="whatsapp-chat-status-slot" class="d-inline-flex align-items-center"></span>
+                                        </div>
+                                        <div id="wa-conv-header-actions-desktop-slot" class="wa-conv-header-actions-slot d-none d-md-flex align-items-center flex-shrink-0 ms-auto">
+                                            <div id="wa-conv-header-actions-wrap" class="d-flex flex-wrap align-items-center justify-content-end gap-1 wa-conv-header-slot-row">
+                                                <span id="whatsapp-chat-view-leads-slot" class="flex-shrink-0"></span>
+                                                <span id="whatsapp-chat-override-slot"></span>
+                                                <span id="whatsapp-chat-delete-slot"></span>
+                                                <div id="whatsapp-chat-actions" class="d-flex flex-wrap align-items-center gap-1"></div>
+                                            </div>
                                         </div>
                                         <button type="button"
                                                 id="wa-mobile-chat-search-open"
@@ -1321,31 +1462,22 @@
                                             <span class="material-icons" style="font-size: 20px; line-height: 1;">tune</span>
                                         </button>
                                     </div>
-                                    <div id="wa-conv-header-extended" class="collapse wa-conv-header-extended w-100">
-                                        <div class="wa-conv-header-extended-inner">
-                                            <div class="d-flex flex-wrap align-items-center justify-content-md-end gap-2 border-top mt-2 pt-2 wa-conv-header-slot-row">
-                                                <span id="whatsapp-chat-handled-pill" class="flex-shrink-0"></span>
-                                                <span id="whatsapp-chat-view-leads-slot" class="flex-shrink-0"></span>
-                                                <span id="whatsapp-chat-override-slot"></span>
-                                                <span id="whatsapp-chat-status-slot" class="flex-shrink-0"></span>
-                                                <span id="whatsapp-chat-delete-slot"></span>
-                                                <div id="whatsapp-chat-actions" class="d-flex flex-wrap align-items-center gap-1"></div>
-                                            </div>
-                                        </div>
-                                        <div class="wa-conversation-header-row2 d-none border-top mt-2 pt-2">
-                                            <div class="d-flex flex-wrap align-items-center gap-2 w-100">
-                                                <span class="small text-muted flex-shrink-0">{{ translate('whatsapp_chat_tags_label') }}</span>
-                                                <div id="whatsapp-chat-tags-row" class="d-flex flex-wrap align-items-center gap-1 flex-grow-1 min-w-0"></div>
-                                                <div class="flex-shrink-0 position-relative wa-manage-tags-wrap">
-                                                    <button type="button" id="wa-manage-tags-btn" class="btn btn-sm btn-outline-secondary d-none">{{ translate('whatsapp_manage_tags') }}</button>
-                                                    <div id="wa-manage-tags-panel" class="d-none border rounded bg-white shadow-sm p-2 position-absolute end-0 mt-1" style="z-index: 40; min-width: 260px; max-height: 320px;">
-                                                        <div class="form-label small mb-1" id="wa-manage-tags-field-label">{{ translate('whatsapp_manage_tags') }}</div>
-                                                        <div id="wa-manage-tags-checkboxes" class="d-flex flex-column gap-1 border rounded p-2 bg-light" style="max-height: 220px; overflow-y: auto;" role="group" aria-labelledby="wa-manage-tags-field-label"></div>
-                                                        <div class="d-flex justify-content-end gap-1 mt-2">
-                                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="wa-manage-tags-cancel">{{ translate('Cancel') }}</button>
-                                                            <button type="button" class="btn btn-sm btn--primary" id="wa-manage-tags-save">{{ translate('save') }}</button>
-                                                        </div>
-                                                    </div>
+                                    <div id="whatsapp-chat-ad-attribution" class="d-none fz-12 text-muted w-100 px-1"></div>
+                                    <div id="whatsapp-chat-tags-row-mobile" class="wa-conv-header-tags-mobile d-md-none flex-wrap align-items-center gap-1 min-w-0 w-100 px-1 d-none"></div>
+                                    <div id="wa-conv-header-extended" class="collapse wa-conv-header-extended d-md-none w-100">
+                                        <div id="wa-conv-header-actions-mobile-slot" class="wa-conv-header-extended-inner"></div>
+                                    </div>
+                                    <div class="wa-conversation-header-row2 d-none align-items-center gap-1 w-100">
+                                        <span class="small text-muted flex-shrink-0 wa-conv-tags-label">{{ translate('whatsapp_chat_tags_label') }}</span>
+                                        <div id="whatsapp-chat-tags-row" class="d-flex flex-wrap align-items-center gap-1 flex-grow-1 min-w-0"></div>
+                                        <div class="flex-shrink-0 position-relative wa-manage-tags-wrap ms-auto">
+                                            <button type="button" id="wa-manage-tags-btn" class="btn btn-sm btn-outline-secondary{{ auth()->check() && auth()->user()->can('whatsapp_chat_manage_tags') ? '' : ' d-none' }}">{{ translate('whatsapp_manage_tags') }}</button>
+                                            <div id="wa-manage-tags-panel" class="d-none border rounded bg-white shadow-sm p-2 position-absolute end-0 mt-1" style="z-index: 1055; min-width: 260px; max-height: 320px;">
+                                                <div class="form-label small mb-1" id="wa-manage-tags-field-label">{{ translate('whatsapp_manage_tags') }}</div>
+                                                <div id="wa-manage-tags-checkboxes" class="d-flex flex-column gap-1 border rounded p-2 bg-light" style="max-height: 220px; overflow-y: auto;" role="group" aria-labelledby="wa-manage-tags-field-label"></div>
+                                                <div class="d-flex justify-content-end gap-1 mt-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="wa-manage-tags-cancel">{{ translate('Cancel') }}</button>
+                                                    <button type="button" class="btn btn-sm btn--primary" id="wa-manage-tags-save">{{ translate('save') }}</button>
                                                 </div>
                                             </div>
                                         </div>
@@ -1357,7 +1489,7 @@
                                 <div id="wa-chat-handoff-mobile-bar" class="wa-chat-handoff-mobile-bar d-md-none border-top px-3 py-2 bg-body">
                                     <span id="whatsapp-chat-override-slot-mobile" class="d-grid"></span>
                                 </div>
-                                <?php if(auth()->check() && auth()->user()->can('whatsapp_chat_reply')): ?>
+                                <?php if(auth()->check() && auth()->user()->can('whatsapp_chat_send_message')): ?>
                                     <div class="card-footer border-top wa-chat-reply-footer">
                                         <div id="wa-waba-template-panel" class="border rounded p-2 mb-2 bg-body-secondary d-none">
                                             <div class="row g-2 align-items-end">
@@ -1593,7 +1725,7 @@
     var strWaActiveChatsFilterUnread = {!! json_encode(translate('whatsapp_active_chats_filter_unread')) !!};
     var strWaActiveChatsRemaining = {!! json_encode(translate('whatsapp_active_chats_remaining')) !!};
     var wabaTemplatesUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_view') ? route('admin.whatsapp.conversations.chat.waba-templates', ['channel' => $waInboxCh]) : '');
-    var sendTemplateUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.chat.send-template', ['channel' => $waInboxCh]) : '');
+    var sendTemplateUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_send_message') ? route('admin.whatsapp.conversations.chat.send-template', ['channel' => $waInboxCh]) : '');
     var strSessionTextareaPh = {!! json_encode(translate('whatsapp_session_window_textarea_placeholder')) !!};
     var strTplLoadFailed = {!! json_encode(translate('whatsapp_waba_templates_load_failed')) !!};
     var strTplSentOk = {!! json_encode(translate('whatsapp_template_sent_ok')) !!};
@@ -1608,7 +1740,7 @@
     var waWabaTemplatesList = null;
     var waWabaTemplatesLoading = false;
     var threadStatusUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.thread-status', ['channel' => $waInboxCh]) : '');
-    var threadTagsUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.thread-tags', ['channel' => $waInboxCh]) : '');
+    var threadTagsUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_manage_tags') ? route('admin.whatsapp.conversations.thread-tags', ['channel' => $waInboxCh]) : '');
     var strChatStatus = {!! json_encode(translate('whatsapp_chat_status')) !!};
     var strManageTags = {!! json_encode(translate('whatsapp_manage_tags')) !!};
     var strSave = {!! json_encode(translate('save')) !!};
@@ -1662,7 +1794,20 @@
         return 'Document';
     }
     var canWaThreadActions = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply'));
+    var canWaManageThreadTags = @json(auth()->check() && auth()->user()->can('whatsapp_chat_manage_tags'));
+    var canWaSendMessage = @json(auth()->check() && auth()->user()->can('whatsapp_chat_send_message'));
     var canWaHandoff = @json(auth()->check() && auth()->user()->can('whatsapp_chat_assign'));
+
+    function waCanSendOnThread(handler) {
+        handler = handler || currentHandler || { type: 'AI' };
+        if ((handler.type || '') !== 'USER') {
+            return false;
+        }
+        if (canWaThreadActions) {
+            return true;
+        }
+        return canWaHandoff && String(handler.id) === String(currentAdminId);
+    }
 
     function waClearReplyTarget() {
         var hid = document.getElementById('wa-reply-to-wa-id');
@@ -1911,26 +2056,17 @@
         var panel = document.getElementById('wa-manage-tags-panel');
         var tagCheckboxHost = document.getElementById('wa-manage-tags-checkboxes');
         var stSlot = document.getElementById('whatsapp-chat-status-slot');
-        if (!res.chat_statuses_all || !res.chat_statuses_all.length) {
-            if (row2) row2.classList.add('d-none');
-            if (stSlot) stSlot.innerHTML = '';
-            if (tagsRow) tagsRow.innerHTML = '';
-            var tagsRowMobileClear = document.getElementById('whatsapp-chat-tags-row-mobile');
-            if (tagsRowMobileClear) {
-                tagsRowMobileClear.innerHTML = '';
-                tagsRowMobileClear.classList.add('d-none');
-                tagsRowMobileClear.classList.remove('d-flex');
-            }
-            if (manageBtn) manageBtn.classList.add('d-none');
-            return;
-        }
-        if (row2) row2.classList.remove('d-none');
+        var hasStatuses = !!(res.chat_statuses_all && res.chat_statuses_all.length);
+        var hasTagsCatalog = !!(res.chat_tags_all && res.chat_tags_all.length);
         var cur = res.chat_status || {};
         var applied = res.chat_status_applied_id != null ? String(res.chat_status_applied_id) : (cur.id != null ? String(cur.id) : '');
         var bucket = (cur.bucket || 'open') === 'closed' ? 'closed' : 'open';
         var badgeCls = bucket === 'closed' ? 'btn-secondary' : 'btn-success';
+
         if (stSlot) {
-            if (canWaThreadActions) {
+            if (!hasStatuses) {
+                stSlot.innerHTML = '';
+            } else if (canWaThreadActions) {
                 var sb = '<span class="wa-chat-status-ctl d-inline-flex align-items-center gap-1">';
                 sb += '<button type="button" class="btn btn-sm ' + badgeCls + ' text-white wa-chat-status-badge" id="wa-chat-status-badge">' + escapeHtml(cur.name || '') + '</button>';
                 sb += '<select id="wa-chat-status-select" class="form-select form-select-sm d-none" style="max-width:12rem;" aria-label="' + escapeHtml(strChatStatus) + '">';
@@ -2014,7 +2150,7 @@
             }
         }
         if (manageBtn) {
-            if (canWaThreadActions && res.chat_tags_all && res.chat_tags_all.length) {
+            if (canWaManageThreadTags && hasTagsCatalog) {
                 manageBtn.classList.remove('d-none');
                 manageBtn.textContent = strManageTags;
                 manageBtn.onclick = function () {
@@ -2046,6 +2182,16 @@
                 };
             } else {
                 manageBtn.classList.add('d-none');
+            }
+        }
+        var showTagsRow = hasTagsCatalog || tagHtml || (manageBtn && !manageBtn.classList.contains('d-none'));
+        if (row2) {
+            if (showTagsRow) {
+                row2.classList.remove('d-none');
+                row2.classList.add('d-flex');
+            } else {
+                row2.classList.add('d-none');
+                row2.classList.remove('d-flex');
             }
         }
         var saveBtn = document.getElementById('wa-manage-tags-save');
@@ -2425,6 +2571,20 @@
         }
     }
 
+    function waSyncConvHeaderActionsPlacement() {
+        var wrap = document.getElementById('wa-conv-header-actions-wrap');
+        var desktopSlot = document.getElementById('wa-conv-header-actions-desktop-slot');
+        var mobileSlot = document.getElementById('wa-conv-header-actions-mobile-slot');
+        if (!wrap || !desktopSlot || !mobileSlot) {
+            return;
+        }
+        if (waIsWaMobileLayout()) {
+            mobileSlot.appendChild(wrap);
+        } else {
+            desktopSlot.appendChild(wrap);
+        }
+    }
+
     function waHideMobileSearchOffcanvas() {
         var el = document.getElementById('wa-mobile-search-offcanvas');
         if (!el || typeof bootstrap === 'undefined' || !bootstrap.Offcanvas) {
@@ -2457,6 +2617,7 @@
             waHideMobileSearchOffcanvas();
         }
         waSyncGlobalSearchPlacement();
+        waSyncConvHeaderActionsPlacement();
     }
 
     function openChat(phone, options) {
@@ -2813,7 +2974,7 @@
         var attLabel = document.querySelector('label[for="wa-attachment-input"]');
         var emojiBtn = document.getElementById('wa-emoji-toggle');
         var handler = res.handler || currentHandler || { type: 'AI' };
-        var showComposer = handler.type === 'USER';
+        var showComposer = waCanSendOnThread(handler);
 
         if (!showComposer) {
             if (panel) panel.classList.add('d-none');
@@ -3418,7 +3579,7 @@
                         : '';
                     var waMid = (m.wa_message_id && String(m.wa_message_id).trim()) || '';
                     var safeWaMidAttr = waMid.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                    var canReply = canWaThreadActions && waMid !== '';
+                    var canReply = waCanSendOnThread(currentHandler) && waMid !== '';
                     var canReact = canReply && !isOut && waSessionWindowOpen;
                     var plainForCopy = rawMsg;
                     var copyB64 = waB64EncodeUtf8(plainForCopy);
@@ -3692,9 +3853,9 @@
                 currentHandler = handler;
                 var replyOpenBlock = document.getElementById('wa-reply-session-open-block');
                 var replyFooter = document.querySelector('.wa-chat-reply-footer');
-                var canSend = handler.type === 'USER';
+                var canSend = waCanSendOnThread(handler);
                 if (replyFooter) {
-                    replyFooter.style.display = '';
+                    replyFooter.style.display = canSend ? '' : 'none';
                 }
                 if (replyOpenBlock) {
                     replyOpenBlock.style.display = canSend ? '' : 'none';
@@ -3978,10 +4139,12 @@
         'resize',
         function () {
             waSyncGlobalSearchPlacement();
+            waSyncConvHeaderActionsPlacement();
         },
         { passive: true }
     );
     waSyncGlobalSearchPlacement();
+    waSyncConvHeaderActionsPlacement();
 
     (function () {
         var waMobileSearchOc = document.getElementById('wa-mobile-search-offcanvas');
@@ -4091,21 +4254,6 @@
     } else {
         requestAnimationFrame(waOpenChatFromQuery);
     }
-
-    (function () {
-        var fsDetails = document.getElementById('wa-fs-toolbar-details');
-        if (!fsDetails) {
-            return;
-        }
-        function waSyncFsToolbarDetailsOpen() {
-            try {
-                /* Keep open on small screens so tab links + exit are visible (flex layout used to clip the bar). */
-                fsDetails.open = true;
-            } catch (e) {}
-        }
-        waSyncFsToolbarDetailsOpen();
-        window.addEventListener('resize', waSyncFsToolbarDetailsOpen);
-    })();
 
     var replyFormEl = document.getElementById('whatsapp-reply-form');
     var replyBodyEl = document.getElementById('wa-reply-body');

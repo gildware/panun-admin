@@ -54,6 +54,39 @@ class SubCategoryController extends Controller
         }
     }
 
+    private function subCategoriesListQuery(Request $request)
+    {
+        $search = $request->input('search', '');
+        $status = $request->input('status', 'all');
+        $parentId = $request->input('parent_id', '');
+
+        return $this->category->with('storage')
+            ->with([
+                'parent:id,name',
+                'services' => fn ($query) => $query->ordered()->select('id', 'name', 'sub_category_id'),
+            ])
+            ->withCount('services')
+            ->when($search, function ($query) use ($search) {
+                $keys = array_filter(explode(' ', trim((string) $search)));
+                if ($keys === []) {
+                    return;
+                }
+                $query->where(function ($nameQuery) use ($keys) {
+                    foreach ($keys as $key) {
+                        $nameQuery->orWhere('name', 'LIKE', '%' . $key . '%');
+                    }
+                });
+            })
+            ->when($status != 'all', function ($query) use ($status) {
+                $query->ofStatus($status == 'active' ? 1 : 0);
+            })
+            ->when(filled($parentId), function ($query) use ($parentId) {
+                $query->where('parent_id', $parentId);
+            })
+            ->ofType('sub')
+            ->ordered();
+    }
+
     /**
      * Show the form for creating a new resource.
      * @param Request $request
@@ -63,27 +96,60 @@ class SubCategoryController extends Controller
     public function create(Request $request): Renderable
     {
         $this->authorize('category_view');
-        $search = $request->has('search') ? $request['search'] : '';
-        $status = $request->has('status') ? $request['status'] : 'all';
+        $search = $request->input('search', '');
+        $status = $request->input('status', 'all');
+        $parentId = $request->input('parent_id', '');
         $queryParams = ['search' => $search, 'status' => $status];
+        if (filled($parentId)) {
+            $queryParams['parent_id'] = $parentId;
+        }
 
-        $subCategories = $this->category->with('storage')->withCount('services')->with(['parent'])
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                return $query->where(function ($query) use ($keys) {
-                    foreach ($keys as $key) {
-                        $query->orWhere('name', 'LIKE', '%' . $key . '%');
-                    }
-                });
-            })
-            ->when($status != 'all', function ($query) use ($request) {
-                return $query->ofStatus(($request['status'] == 'active') ? 1 : 0);
-            })
-            ->ofType('sub')->ordered()->paginate(pagination_limit())->appends($queryParams);
+        $subCategories = $this->subCategoriesListQuery($request)
+            ->paginate(pagination_limit())
+            ->appends($queryParams);
 
         $mainCategories = $this->category->ofType('main')->ordered()->get(['id', 'name']);
+        $parentCategory = filled($parentId)
+            ? $this->category->ofType('main')->find($parentId)
+            : null;
 
-        return view('categorymanagement::admin.sub-category.create', compact('subCategories', 'mainCategories', 'status', 'search'));
+        return view('categorymanagement::admin.sub-category.create', compact('subCategories', 'mainCategories', 'status', 'search', 'parentId', 'parentCategory'));
+    }
+
+    public function getTable(Request $request): JsonResponse
+    {
+        $status = $request->input('status', 'all');
+        $search = $request->input('search', '');
+        $parentId = $request->input('parent_id', '');
+        $page = $request->input('page', 1);
+        $queryParams = ['search' => $search, 'status' => $status];
+        if (filled($parentId)) {
+            $queryParams['parent_id'] = $parentId;
+        }
+
+        $subCategories = $this->subCategoriesListQuery($request)
+            ->paginate(pagination_limit())
+            ->appends($queryParams);
+
+        $totalSubCategory = $subCategories->total();
+        $subCategories->withPath(route('admin.sub-category.create'));
+
+        if ($subCategories->isEmpty() && $page > 1) {
+            $page = $page - 1;
+            $request->merge(['page' => $page]);
+
+            $subCategories = $this->subCategoriesListQuery($request)
+                ->latest()
+                ->paginate(pagination_limit())
+                ->appends($queryParams);
+        }
+
+        return response()->json([
+            'view' => view('categorymanagement::admin.partials._sub_table', compact('subCategories', 'search', 'status', 'parentId'))->render(),
+            'totalSubCategory' => $totalSubCategory,
+            'offset' => ($subCategories->currentPage() - 1) * $subCategories->perPage(),
+            'page' => $subCategories->currentPage(),
+        ]);
     }
 
     /**

@@ -148,6 +148,71 @@ class SeedBookingTestMatrix extends Command
             ]);
             $created['partial_balance_due'] = $bPartialOpen;
 
+            $canceledDigitalRefund = $this->makeBooking($base, [
+                'booking_status' => 'canceled',
+                'is_paid' => 0,
+                'payment_method' => 'digital_payment',
+                'total_booking_amount' => 800,
+                'service_description' => self::DESC_PREFIX . ' canceled — pending refund (digital ₹500)',
+            ], $service, $variation);
+            BookingPartialPayment::query()->create([
+                'booking_id' => $canceledDigitalRefund->id,
+                'paid_with' => 'digital',
+                'paid_amount' => 500,
+                'due_amount' => 300,
+                'received_by' => 'company',
+                'transaction_id' => 'TEST-DIGITAL-REFUND-001',
+            ]);
+            $created['canceled_pending_refund_digital'] = $canceledDigitalRefund;
+
+            $canceledWalletRefund = $this->makeBooking($base, [
+                'booking_status' => 'canceled',
+                'is_paid' => 0,
+                'payment_method' => 'wallet_payment',
+                'total_booking_amount' => 600,
+                'service_description' => self::DESC_PREFIX . ' canceled — pending refund (wallet ₹350)',
+            ], $service, $variation);
+            BookingPartialPayment::query()->create([
+                'booking_id' => $canceledWalletRefund->id,
+                'paid_with' => 'wallet',
+                'paid_amount' => 350,
+                'due_amount' => 250,
+                'received_by' => 'company',
+            ]);
+            $created['canceled_pending_refund_wallet'] = $canceledWalletRefund;
+
+            $canceledMixedRefund = $this->makeBooking($base, [
+                'booking_status' => 'canceled',
+                'is_paid' => 0,
+                'payment_method' => 'digital_payment',
+                'total_booking_amount' => 1200,
+                'service_description' => self::DESC_PREFIX . ' canceled — pending refund (wallet+digital ₹750)',
+            ], $service, $variation);
+            BookingPartialPayment::query()->create([
+                'booking_id' => $canceledMixedRefund->id,
+                'paid_with' => 'wallet',
+                'paid_amount' => 250,
+                'due_amount' => 950,
+                'received_by' => 'company',
+            ]);
+            BookingPartialPayment::query()->create([
+                'booking_id' => $canceledMixedRefund->id,
+                'paid_with' => 'digital',
+                'paid_amount' => 500,
+                'due_amount' => 450,
+                'received_by' => 'company',
+                'transaction_id' => 'TEST-MIXED-REFUND-001',
+            ]);
+            $created['canceled_pending_refund_mixed'] = $canceledMixedRefund;
+
+            $completedForComp = $this->makeBooking($base, [
+                'booking_status' => 'completed',
+                'is_paid' => 1,
+                'total_booking_amount' => 2000,
+                'service_description' => self::DESC_PREFIX . ' completed — add compensation test',
+            ], $service, $variation);
+            $created['completed_compensation_test'] = $completedForComp;
+
             $completedForReopen = $this->makeBooking($base, [
                 'booking_status' => 'completed',
                 'is_paid' => 1,

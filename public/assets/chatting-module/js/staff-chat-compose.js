@@ -7,16 +7,59 @@
     var searchTimer = null;
 
     var TAG_TYPES = ["Staff", "Customer", "Provider", "Booking", "Service", "Lead"];
-    var TAG_TYPE_PATTERN = TAG_TYPES.join("|");
     var TOKEN_PATTERN = new RegExp(
         "@\\[([^\\]]*)\\]\\((staff|customer|provider|booking|service|lead):[^)]+\\)",
         "i"
     );
-    var DISPLAY_TAG_PATTERN = new RegExp(
-        "@(" + TAG_TYPE_PATTERN + "):([\\s\\S]*?)(?=\\s@(" + TAG_TYPE_PATTERN + "):|$)",
-        "i"
-    );
-    var NEXT_TAG_PATTERN = new RegExp("@(?:\\[|(" + TAG_TYPE_PATTERN + "):)", "i");
+
+    function refreshTypeLabels() {
+        typeLabels = window.staffChatTypeLabels || typeLabels;
+    }
+
+    function escapeRegex(text) {
+        return String(text || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
+    function getDisplayTagTypePattern() {
+        refreshTypeLabels();
+        var labels = TAG_TYPES.slice();
+        Object.keys(typeLabels).forEach(function (key) {
+            if (typeLabels[key]) {
+                labels.push(String(typeLabels[key]));
+            }
+        });
+        var unique = [];
+        labels.forEach(function (label) {
+            var normalized = String(label || "").trim();
+            if (normalized && unique.indexOf(normalized) === -1) {
+                unique.push(normalized);
+            }
+        });
+        return unique.map(escapeRegex).join("|");
+    }
+
+    function getDisplayTagPattern() {
+        var types = getDisplayTagTypePattern();
+        return new RegExp("@(" + types + "):([^\\n@]+?)(?=\\s@(" + types + "):|$)", "i");
+    }
+
+    function getNextTagPattern() {
+        var types = getDisplayTagTypePattern();
+        return new RegExp("@(?:\\[|(" + types + "):)", "i");
+    }
+
+    function entityTypeFromLabel(label) {
+        refreshTypeLabels();
+        var normalized = String(label || "").trim().toLowerCase();
+        var keys = Object.keys(typeLabels);
+        for (var i = 0; i < keys.length; i++) {
+            var key = keys[i];
+            if (String(typeLabels[key]).toLowerCase() === normalized || key.toLowerCase() === normalized) {
+                return key;
+            }
+        }
+        return normalized;
+    }
 
     function getSearchUrl() {
         return window.staffChatEntitySearchUrl || "";
@@ -107,7 +150,9 @@
         if (!match) {
             return escapeHtml(displayTag);
         }
-        return renderComposePill(match[1].toLowerCase(), match[1], match[2]);
+        var entityType = entityTypeFromLabel(match[1]);
+        var typeLabel = typeLabels[entityType] || match[1];
+        return renderComposePill(entityType, typeLabel, match[2]);
     }
 
     function pillFromToken(label, type) {
@@ -155,18 +200,16 @@
                 continue;
             }
 
-            var displayMatch = sub.match(DISPLAY_TAG_PATTERN);
+            var displayMatch = sub.match(getDisplayTagPattern());
             if (displayMatch && displayMatch.index === 0) {
-                html += renderComposePill(
-                    displayMatch[1].toLowerCase(),
-                    displayMatch[1],
-                    displayMatch[2]
-                );
+                var entityType = entityTypeFromLabel(displayMatch[1]);
+                var entityLabel = typeLabels[entityType] || displayMatch[1];
+                html += renderComposePill(entityType, entityLabel, displayMatch[2]);
                 i += displayMatch[0].length;
                 continue;
             }
 
-            var nextSpecial = sub.search(NEXT_TAG_PATTERN);
+            var nextSpecial = sub.search(getNextTagPattern());
             if (nextSpecial === -1) {
                 html += escapeHtml(sub);
                 break;
@@ -277,6 +320,22 @@
 
     window.syncStaffChatComposeHighlight = syncComposeHighlight;
     window.initStaffChatComposeHighlights = initComposeHighlights;
+    window.formatStaffChatMessageHtml = buildHighlightHtml;
+    window.openStaffChatEntityPicker = function (textarea, type) {
+        if (!textarea) {
+            return;
+        }
+        wrapComposeTextarea(textarea);
+        mentionStart = null;
+        showPicker(textarea, type || "staff");
+    };
+    window.ensureStaffChatComposeTextarea = function (textarea) {
+        if (!textarea) {
+            return;
+        }
+        wrapComposeTextarea(textarea);
+        syncComposeHighlight(textarea);
+    };
 
     function insertAtCursor(textarea, text) {
         if (!textarea) {
@@ -325,14 +384,35 @@
         lead: "Search lead by name, phone, or ID",
     };
 
+    function positionPickerNearTextarea(textarea) {
+        var els = getPickerElements();
+        if (!els.picker || !textarea) {
+            return;
+        }
+
+        var ticketModal = textarea.closest("#ticketModal");
+        if (ticketModal && !ticketModal.contains(els.picker)) {
+            ticketModal.appendChild(els.picker);
+        }
+
+        var rect = textarea.getBoundingClientRect();
+        els.picker.style.position = "fixed";
+        els.picker.style.top = Math.min(window.innerHeight - 280, rect.bottom + 8) + "px";
+        els.picker.style.left = Math.max(12, rect.left) + "px";
+        els.picker.style.zIndex = "2005";
+        els.picker.style.width = "min(360px, 90vw)";
+    }
+
     function showPicker(textarea, type) {
         var els = getPickerElements();
         if (!els.picker || !els.pickerInput || !els.pickerResults) {
             return;
         }
+        wrapComposeTextarea(textarea);
         activeTextarea = textarea;
         activeTagType = type;
         els.picker.classList.remove("d-none");
+        positionPickerNearTextarea(textarea);
         els.pickerInput.value = "";
         els.pickerResults.innerHTML = "";
         var hintEl = document.getElementById("staffChatEntityPickerHint");
@@ -438,6 +518,7 @@
                 return;
             }
             els.picker.classList.remove("d-none");
+            positionPickerNearTextarea(textarea);
             els.pickerInput.value = atMatch[1] || "";
             loadResults(els.pickerInput.value);
             return;
@@ -449,6 +530,14 @@
     }
 
     function findComposeTextarea(fromEl) {
+        var parentWrap = fromEl.closest(".staff-chat-compose-wrap");
+        if (parentWrap) {
+            var inWrap = parentWrap.querySelector(".staff-chat-message-input");
+            if (inWrap) {
+                return inWrap;
+            }
+        }
+
         var scope = fromEl.closest(".input_msg_write, form, .lead-comment-compose, .comment-compose");
         if (scope) {
             var scoped = scope.querySelector(".staff-chat-message-input");
@@ -457,18 +546,13 @@
             }
         }
 
-        var parentWrap = fromEl.closest(".staff-chat-compose-wrap");
-        if (parentWrap && parentWrap.parentElement) {
-            var sibling = parentWrap.parentElement.querySelector(".staff-chat-message-input");
-            if (sibling) {
-                return sibling;
-            }
-        }
-
         return document.querySelector(".staff-chat-message-input");
     }
 
     $(document).on("click", ".staff-tag-trigger", function (e) {
+        if ($(this).closest("#ticketModal").length) {
+            return;
+        }
         e.preventDefault();
         e.stopPropagation();
         var textarea = findComposeTextarea(this);
@@ -517,5 +601,9 @@
 
     $(document).ready(function () {
         initComposeHighlights();
+    });
+
+    document.addEventListener("admin:page-loaded", function (event) {
+        initComposeHighlights((event.detail && event.detail.root) || document);
     });
 })();

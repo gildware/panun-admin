@@ -25,13 +25,14 @@
 <div class="{{ $isTopChrome ? 'dropdown top-utility-item' : $wrapperClass }}">
     @if($isTopChrome)
         <button type="button"
-                class="top-utility-icon-btn {{ $toggleClass }}"
+                class="top-utility-action-btn top-utility-action-btn--inline-count position-relative {{ $toggleClass }}"
                 data-bs-toggle="dropdown"
                 data-bs-offset="0,6"
                 data-bs-popper-config='{"strategy":"fixed"}'
                 title="{{ $title }}"
                 aria-label="{{ $title }}">
             <span class="material-symbols-outlined">{{ $icon }}</span>
+            <span class="d-none d-lg-inline">{{ $title }}</span>
             <span class="count" id="{{ $countId }}" style="display:{{ $unreadCount > 0 ? 'flex' : 'none' }};">{{ $unreadCount > 0 ? ($unreadCount > 99 ? '99+' : $unreadCount) : '' }}</span>
         </button>
     @else

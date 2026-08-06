@@ -314,6 +314,25 @@
   height: 100%;
 }
 
+.booking-detail-v2 .booking-refund-compensation-row {
+  margin-top: .625rem;
+  margin-bottom: .625rem;
+  width: 100%;
+}
+.booking-detail-v2 .booking-refund-compensation-row__cell {
+  min-width: 0;
+}
+.booking-detail-v2 .booking-refund-actions-card,
+.booking-detail-v2 .booking-compensation-card {
+  border-color: var(--bk-border);
+  height: 100%;
+}
+.booking-detail-v2 .booking-refund-actions-card__body {
+  border: 1px solid var(--bk-border);
+  border-radius: var(--bk-radius-sm);
+  background: #fff;
+}
+
 /* Detail panels row */
 .booking-detail-v2 .party-card--detail-panel {
   border-color: var(--bk-border);
@@ -928,6 +947,15 @@
 .booking-detail-v2 .btn.btn-sm {
   font-size: .75rem;
   padding: .3rem .6rem;
+}
+.booking-detail-v2 .booking-refund-action-btn {
+  min-height: 42px;
+  padding: .55rem .75rem;
+  font-size: .8125rem;
+  line-height: 1.2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .booking-detail-v2 .btn .material-icons,
 .booking-detail-v2 .btn .material-symbols-outlined {

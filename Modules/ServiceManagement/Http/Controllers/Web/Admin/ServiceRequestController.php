@@ -2,6 +2,7 @@
 
 namespace Modules\ServiceManagement\Http\Controllers\Web\Admin;
 
+use App\Support\AdminMenuCounts;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\Renderable;
@@ -57,6 +58,8 @@ class ServiceRequestController extends Controller
         $serviceRequest->status = $request['review_status'] == 1 ? 'approved' : 'denied';
         $serviceRequest->admin_feedback = $request['admin_feedback'];
         $serviceRequest->save();
+
+        AdminMenuCounts::forget();
 
         if ($serviceRequest->user) {
             $messageKey = $serviceRequest->status === 'approved'

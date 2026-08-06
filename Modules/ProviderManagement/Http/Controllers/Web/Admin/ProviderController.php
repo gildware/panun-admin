@@ -15,6 +15,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -164,6 +165,11 @@ class ProviderController extends Controller
             'category_id' => 'nullable|string',
             'zone_id' => 'nullable|uuid',
             'sort' => 'nullable|in:latest,oldest,name_asc,name_desc,rating_desc,bookings_desc',
+            'from' => 'nullable|date',
+            'to' => 'nullable|date',
+            'limit' => 'nullable|integer|min:1',
+            'rating_filter' => 'nullable|in:all,4_plus,3_plus,2_plus,1_plus,unrated',
+            'app_filter' => 'nullable|in:all,active,registered,not_in_app',
         ]);
 
         $search = $request->input('search', '');
@@ -172,6 +178,12 @@ class ProviderController extends Controller
         $categoryId = $request->input('category_id', '') ?: '';
         $zoneId = $request->input('zone_id', '') ?: '';
         $sort = $request->input('sort', 'latest') ?: 'latest';
+        $from = $request->get('from', '');
+        $to = $request->get('to', '');
+        $limit = $request->get('limit');
+        $ratingFilter = $request->get('rating_filter', 'all');
+        $appFilter = $request->get('app_filter', 'all');
+
         $queryParam = [
             'search' => $search,
             'status' => $status,
@@ -179,94 +191,55 @@ class ProviderController extends Controller
             'category_id' => $categoryId,
             'zone_id' => $zoneId,
             'sort' => $sort,
+            'from' => $from,
+            'to' => $to,
+            'limit' => $limit,
+            'rating_filter' => $ratingFilter,
+            'app_filter' => $appFilter,
         ];
 
-        // Full list features restored. Speed fix is list avatars skipping Storage::exists()
-        // (see Provider::getListAvatarFullPathAttribute) plus bookings.provider_id indexes.
-        $applyListFilters = function ($query) use ($search, $categoryId, $zoneId, $performanceFilter) {
-            return $query
-                ->when($search !== '' && $search !== null, function ($query) use ($search) {
-                    $keys = explode(' ', $search);
-                    return $query->where(function ($query) use ($keys) {
-                        foreach ($keys as $key) {
-                            $query->orWhere('company_phone', 'LIKE', '%' . $key . '%')
-                                ->orWhere('company_email', 'LIKE', '%' . $key . '%')
-                                ->orWhere('company_name', 'LIKE', '%' . $key . '%');
-                        }
-                    });
-                })
-                ->when($categoryId !== '' && $categoryId !== null, function ($query) use ($categoryId) {
-                    if ($categoryId === 'none') {
-                        $query->whereDoesntHave('subscribed_services');
-                    } elseif (Str::isUuid($categoryId)) {
-                        $query->whereHas('subscribed_services', function ($q) use ($categoryId) {
-                            $q->where('category_id', $categoryId)->where('is_subscribed', 1);
-                        });
-                    }
-                })
-                ->when($zoneId !== '' && $zoneId !== null, function ($query) use ($zoneId) {
-                    $query->where(function ($q) use ($zoneId) {
-                        $q->whereHas('zones', function ($zq) use ($zoneId) {
-                            $zq->where('zones.id', $zoneId);
-                        })->orWhere('zone_id', $zoneId);
-                    });
-                })
-                ->when($performanceFilter !== 'all', function ($query) use ($performanceFilter) {
-                    if ($performanceFilter === 'warning') {
-                        $query->where('performance_status', 'warning');
-                    } elseif ($performanceFilter === 'blacklisted') {
-                        $query->where('performance_status', 'blacklisted');
-                    }
-                });
-        };
-
-        $providers = $this->provider
+        $query = $this->provider
             ->with([
-                'owner',
+                'owner' => function ($ownerQuery) {
+                    $ownerQuery->withCount([
+                        'fcmDevices as fcm_devices_count',
+                        'tokens as app_login_sessions_count',
+                        'tokens as active_app_sessions_count' => function ($tokenQuery) {
+                            $tokenQuery->where('revoked', false)
+                                ->where(function ($inner) {
+                                    $inner->whereNull('expires_at')
+                                        ->orWhere('expires_at', '>', now());
+                                });
+                        },
+                    ]);
+                },
                 'storage',
                 'subscribed_services.category',
             ])
             ->withCount('bookings')
             ->where(['is_approved' => 1])
-            ->ofApproval(1)
-            ->tap($applyListFilters)
-            ->when($status != 'all', function ($query) use ($status) {
-                return $query->ofStatus(($status == 'active') ? 1 : 0);
-            })
-            ->when($sort === 'oldest', fn ($q) => $q->oldest())
-            ->when($sort === 'name_asc', fn ($q) => $q->orderBy('company_name'))
-            ->when($sort === 'name_desc', fn ($q) => $q->orderByDesc('company_name'))
-            ->when($sort === 'rating_desc', fn ($q) => $q->orderByDesc('avg_rating'))
-            ->when($sort === 'bookings_desc', fn ($q) => $q->orderByDesc('bookings_count'))
-            ->when($sort === 'latest' || ! in_array($sort, ['oldest', 'name_asc', 'name_desc', 'rating_desc', 'bookings_desc'], true), fn ($q) => $q->latest())
-            ->paginate(pagination_limit())->appends($queryParam);
+            ->ofApproval(1);
 
-        // Widget counts follow the same filters as the list.
-        $topCards = [
-            'total_providers' => $this->provider->newQuery()
-                ->tap($applyListFilters)
-                ->where('is_approved', 1)
-                ->when($status != 'all', fn ($q) => $q->ofStatus(($status == 'active') ? 1 : 0))
-                ->count(),
-            'total_onboarding_requests' => $this->provider->newQuery()
-                ->tap($applyListFilters)
-                ->where('is_approved', 2)
-                ->count(),
-            'total_active_providers' => $status === 'inactive'
-                ? 0
-                : $this->provider->newQuery()
-                    ->tap($applyListFilters)
-                    ->where('is_approved', 1)
-                    ->where('is_active', 1)
-                    ->count(),
-            'total_inactive_providers' => $status === 'active'
-                ? 0
-                : $this->provider->newQuery()
-                    ->tap($applyListFilters)
-                    ->where('is_approved', 1)
-                    ->where('is_active', 0)
-                    ->count(),
-        ];
+        $query = $this->applyProviderDirectoryListFilters($query, $request);
+
+        if (isset($limit) && $limit > 0) {
+            $providers = $query->take($limit)->get();
+            $perPage = pagination_limit();
+            $page = $request?->page ?? 1;
+            $offset = ($page - 1) * $perPage;
+            $itemsForCurrentPage = $providers->slice($offset, $perPage);
+            $providers = new \Illuminate\Pagination\LengthAwarePaginator(
+                $itemsForCurrentPage,
+                $providers->count(),
+                $perPage,
+                $page,
+                ['path' => Paginator::resolveCurrentPath(), 'query' => request()->query()]
+            );
+        } else {
+            $providers = $query
+                ->paginate(pagination_limit())
+                ->appends($queryParam);
+        }
 
         $categories = $this->category->ofType('main')->ofStatus(1)->ordered()->get(['id', 'name']);
         $zones = $this->zone->ofStatus(1)->orderBy('name')->get(['id', 'name']);
@@ -289,7 +262,6 @@ class ProviderController extends Controller
 
         return view('providermanagement::admin.provider.index', compact(
             'providers',
-            'topCards',
             'search',
             'status',
             'performanceFilter',
@@ -297,7 +269,8 @@ class ProviderController extends Controller
             'zoneId',
             'sort',
             'categories',
-            'zones'
+            'zones',
+            'queryParam'
         ));
     }
 
@@ -3450,22 +3423,13 @@ class ProviderController extends Controller
     {
         $this->authorize('provider_delete');
 
-        $items = $this->provider->with(['owner', 'zone'])->where(['is_approved' => 1])->withCount(['subscribed_services', 'bookings'])
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                return $query->where(function ($query) use ($keys) {
-                    foreach ($keys as $key) {
-                        $query->orWhere('company_phone', 'LIKE', '%' . $key . '%')
-                            ->orWhere('company_email', 'LIKE', '%' . $key . '%')
-                            ->orWhere('company_name', 'LIKE', '%' . $key . '%');
-                    }
-                });
-            })
-            ->ofApproval(1)
-            ->when($request->has('status') && $request['status'] != 'all', function ($query) use ($request) {
-                return $query->ofStatus(($request['status'] == 'active') ? 1 : 0);
-            })->latest()
-            ->latest()->get();
+        $query = $this->provider
+            ->with(['owner', 'zone'])
+            ->where(['is_approved' => 1])
+            ->withCount(['subscribed_services', 'bookings'])
+            ->ofApproval(1);
+
+        $items = $this->applyProviderDirectoryListFilters($query, $request)->get();
 
         return (new FastExcel($items))->download(time() . '-file.xlsx');
     }
@@ -3785,6 +3749,126 @@ class ProviderController extends Controller
     private function bookingHasSpecialFinancialSettlement(?string $settlementOutcome): bool
     {
         return trim((string) $settlementOutcome) !== '';
+    }
+
+    private function applyProviderDirectoryListFilters($query, Request $request)
+    {
+        $search = $request->input('search', '');
+        $status = $request->input('status', 'all') ?: 'all';
+        $performanceFilter = $request->input('performance_filter', 'all') ?: 'all';
+        $categoryId = $request->input('category_id', '') ?: '';
+        $zoneId = $request->input('zone_id', '') ?: '';
+        $sort = $request->input('sort', 'latest') ?: 'latest';
+        $from = $request->get('from', '');
+        $to = $request->get('to', '');
+        $ratingFilter = $request->get('rating_filter', 'all');
+        $appFilter = $request->get('app_filter', 'all');
+
+        return $query
+            ->when($search !== '' && $search !== null, function ($query) use ($search) {
+                $keys = explode(' ', $search);
+                return $query->where(function ($query) use ($keys) {
+                    foreach ($keys as $key) {
+                        $query->orWhere('company_phone', 'LIKE', '%' . $key . '%')
+                            ->orWhere('company_email', 'LIKE', '%' . $key . '%')
+                            ->orWhere('company_name', 'LIKE', '%' . $key . '%')
+                            ->orWhere('contact_person_phone', 'LIKE', '%' . $key . '%')
+                            ->orWhere('contact_person_name', 'LIKE', '%' . $key . '%');
+                    }
+                });
+            })
+            ->when($status != 'all', function ($query) use ($status) {
+                return $query->ofStatus($status == 'active' ? 1 : 0);
+            })
+            ->when($categoryId !== '' && $categoryId !== null, function ($query) use ($categoryId) {
+                if ($categoryId === 'none') {
+                    $query->whereDoesntHave('subscribed_services');
+                } elseif (Str::isUuid($categoryId)) {
+                    $query->whereHas('subscribed_services', function ($q) use ($categoryId) {
+                        $q->where('category_id', $categoryId)->where('is_subscribed', 1);
+                    });
+                }
+            })
+            ->when($zoneId !== '' && $zoneId !== null, function ($query) use ($zoneId) {
+                $query->where(function ($q) use ($zoneId) {
+                    $q->whereHas('zones', function ($zq) use ($zoneId) {
+                        $zq->where('zones.id', $zoneId);
+                    })->orWhere('zone_id', $zoneId);
+                });
+            })
+            ->when($performanceFilter !== 'all', function ($query) use ($performanceFilter) {
+                if ($performanceFilter === 'warning') {
+                    $query->where('performance_status', 'warning');
+                } elseif ($performanceFilter === 'blacklisted') {
+                    $query->where('performance_status', 'blacklisted');
+                }
+            })
+            ->when($from, function ($query) use ($from) {
+                return $query->whereDate('created_at', '>=', $from);
+            })
+            ->when($to, function ($query) use ($to) {
+                return $query->whereDate('created_at', '<=', $to);
+            })
+            ->when($ratingFilter === '4_plus', function ($query) {
+                return $query->where('avg_rating', '>=', 4);
+            })
+            ->when($ratingFilter === '3_plus', function ($query) {
+                return $query->where('avg_rating', '>=', 3);
+            })
+            ->when($ratingFilter === '2_plus', function ($query) {
+                return $query->where('avg_rating', '>=', 2);
+            })
+            ->when($ratingFilter === '1_plus', function ($query) {
+                return $query->where('avg_rating', '>=', 1);
+            })
+            ->when($ratingFilter === 'unrated', function ($query) {
+                return $query->where('rating_count', 0);
+            })
+            ->when($appFilter === 'active', function ($query) {
+                return $query->whereHas('owner.tokens', function ($tokenQuery) {
+                    $tokenQuery->where('revoked', false)
+                        ->where(function ($inner) {
+                            $inner->whereNull('expires_at')
+                                ->orWhere('expires_at', '>', now());
+                        });
+                });
+            })
+            ->when($appFilter === 'registered', function ($query) {
+                return $query->whereHas('owner', function ($ownerQuery) {
+                    $ownerQuery->where(function ($outer) {
+                        $outer->whereHas('fcmDevices')
+                            ->orWhere(function ($legacy) {
+                                $legacy->whereNotNull('fcm_token')
+                                    ->where('fcm_token', '!=', '')
+                                    ->where('fcm_token', '!=', '@');
+                            })
+                            ->orWhereHas('tokens');
+                    })->whereDoesntHave('tokens', function ($tokenQuery) {
+                        $tokenQuery->where('revoked', false)
+                            ->where(function ($inner) {
+                                $inner->whereNull('expires_at')
+                                    ->orWhere('expires_at', '>', now());
+                            });
+                    });
+                });
+            })
+            ->when($appFilter === 'not_in_app', function ($query) {
+                return $query->whereHas('owner', function ($ownerQuery) {
+                    $ownerQuery->whereDoesntHave('fcmDevices')
+                        ->where(function ($legacy) {
+                            $legacy->whereNull('fcm_token')
+                                ->orWhere('fcm_token', '')
+                                ->orWhere('fcm_token', '@');
+                        })
+                        ->whereDoesntHave('tokens');
+                });
+            })
+            ->when($sort === 'oldest', fn ($q) => $q->oldest())
+            ->when($sort === 'name_asc', fn ($q) => $q->orderBy('company_name'))
+            ->when($sort === 'name_desc', fn ($q) => $q->orderByDesc('company_name'))
+            ->when($sort === 'rating_desc', fn ($q) => $q->orderByDesc('avg_rating'))
+            ->when($sort === 'bookings_desc', fn ($q) => $q->orderByDesc('bookings_count'))
+            ->when($sort === 'latest' || ! in_array($sort, ['oldest', 'name_asc', 'name_desc', 'rating_desc', 'bookings_desc'], true), fn ($q) => $q->latest());
     }
 
 }

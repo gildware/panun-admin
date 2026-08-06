@@ -3,6 +3,7 @@
 namespace Modules\ProviderManagement\Http\Controllers\Web\Admin;
 
 use Illuminate\Contracts\Support\Renderable;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -11,8 +12,11 @@ use Modules\ProviderManagement\Entities\FeedbackTagConfig;
 
 class FeedbackTagConfigController extends Controller
 {
+    use AuthorizesRequests;
+
     public function index(): Renderable
     {
+        $this->authorize('provider_feedback_config_view');
         $configs = FeedbackTagConfig::query()
             ->orderBy('entity_type')
             ->orderBy('feedback_type')
@@ -25,6 +29,7 @@ class FeedbackTagConfigController extends Controller
 
     public function update(Request $request): RedirectResponse
     {
+        $this->authorize('provider_feedback_config_update');
         $validated = $request->validate([
             'rows' => ['nullable', 'array'],
             'rows.*.id' => ['nullable', 'integer', Rule::exists('feedback_tag_configs', 'id')],

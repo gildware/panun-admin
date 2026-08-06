@@ -666,7 +666,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                     </ul>
                 </li>
             @endcan
-            @can('provider_view')
+            @can('provider_feedback_config_view')
                 <li>
                     <a href="{{ route('admin.provider.feedback-tags.index') }}"
                        class="{{ request()->is('admin/provider/feedback-tags*') ? 'active-menu' : '' }}">
@@ -902,7 +902,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcanany
 
-            @can('customer_view')
+            @can('welcome_bonus_view')
                 <li class="has-sub-item {{request()->is('admin/customer/welcome-bonus*') || (request()->is('admin/customer/settings') && request('web_page')=='welcome_bonus')?'sub-menu-opened':''}}">
                     <a href="#" class="{{request()->is('admin/customer/welcome-bonus*') || (request()->is('admin/customer/settings') && request('web_page')=='welcome_bonus')?'active-menu':''}}">
                         <span class="material-icons" title="Customers">redeem</span>
@@ -942,7 +942,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcan
 
-            @can('customer_view')
+            @can('referral_earning_view')
                 <li class="has-sub-item {{request()->is('admin/customer/referral-earning*')?'sub-menu-opened':''}}">
                     <a href="#" class="{{request()->is('admin/customer/referral-earning*')?'active-menu':''}}">
                         <span class="material-icons" title="Customers">share</span>

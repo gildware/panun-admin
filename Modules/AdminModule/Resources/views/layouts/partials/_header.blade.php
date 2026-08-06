@@ -89,6 +89,7 @@
                         $currentHeaderPresence = $headerPresenceService->resolveDisplayStatus(auth()->user());
                     @endphp
                     <ul class="nav justify-content-end align-items-center gap-3 gap-md-4">
+                        @if(!is_admin_employee())
                         <li class="nav-item max-sm-m-0">
                             <a href="{{ route('admin.process-guides.index') }}"
                                class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none"
@@ -100,13 +101,20 @@
                         </li>
                         <li class="nav-item max-sm-m-0">
                             <a href="{{ route('admin.task-board.index') }}"
-                               class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none"
+                               class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none position-relative"
                                @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif
                                title="{{ translate('Task_Board') }}">
                                 <span class="material-symbols-outlined" aria-hidden="true">view_kanban</span>
                                 <span class="d-none d-md-block">{{ translate('Task_Board') }}</span>
+                                @php
+                                    $taskBoardAssignedTotal = (int) (($taskBoardAssignedCounts['total'] ?? 0));
+                                @endphp
+                                @if($taskBoardAssignedTotal > 0)
+                                    <span class="count d-flex">{{ $taskBoardAssignedTotal > 99 ? '99+' : $taskBoardAssignedTotal }}</span>
+                                @endif
                             </a>
                         </li>
+                        @endif
                         <li class="nav-item max-sm-m-0">
                             <div class="dropdown">
                                 <button type="button"
@@ -145,15 +153,14 @@
                                 </ul>
                             </div>
                         </li>
+                        @if(is_super_admin())
                         <li class="nav-item max-sm-m-0">
-                            @include('adminmodule::layouts.partials._home-cache-reset-btn', [
-                                'wrapperClass' => 'home-cache-reset-wrap home-cache-reset-wrap--legacy',
-                                'formClass' => 'd-inline',
-                                'buttonClass' => 'title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1',
-                                'labelClass' => 'd-none d-sm-inline',
-                                'reminderClass' => 'home-cache-reset-reminder home-cache-reset-reminder--legacy d-none d-xl-inline',
-                            ])
+                            <a href="{{ route('admin.settings.home-cache') }}" class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none">
+                                <span class="material-symbols-outlined" aria-hidden="true">cached</span>
+                                <span class="d-none d-sm-inline">{{ translate('Reset_home_cache') }}</span>
+                            </a>
                         </li>
+                        @endif
                         <li class="nav-item max-sm-m-0">
                             <a href="{{ route('admin.business-ai.index') }}" class="btn btn--success border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none">
                                 <span class="material-symbols-outlined" aria-hidden="true">psychology</span>

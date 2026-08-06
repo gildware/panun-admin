@@ -84,42 +84,34 @@ class CustomerController extends Controller
         $to = $request->get('to', '');
         $sort_by = $request->get('sort_by', 'latest');
         $limit = $request->get('limit');
+        $ratingFilter = $request->get('rating_filter', 'all');
+        $appFilter = $request->get('app_filter', 'all');
 
-        $queryParam = ['search' => $search, 'status' => $status, 'from' => $from, 'to' => $to, 'sort_by' => $sort_by, 'limit' => $limit];
+        $queryParam = [
+            'search' => $search,
+            'status' => $status,
+            'from' => $from,
+            'to' => $to,
+            'sort_by' => $sort_by,
+            'limit' => $limit,
+            'rating_filter' => $ratingFilter,
+            'app_filter' => $appFilter,
+        ];
 
-        $query = $this->user->withCount(['bookings'])->inCustomerDirectory()
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                return $query->where(function ($query) use ($keys) {
-                    foreach ($keys as $key) {
-                        $query->orWhere('first_name', 'LIKE', '%' . $key . '%')
-                            ->orWhere('last_name', 'LIKE', '%' . $key . '%')
-                            ->orWhere('phone', 'LIKE', '%' . $key . '%')
-                            ->orWhere('email', 'LIKE', '%' . $key . '%');
-                    }
-                });
-            })
-            ->when($status != 'all', function ($query) use ($request) {
-                return $query->ofStatus(($request['status'] == 'active') ? 1 : 0);
-            })
-            ->when($from, function ($query) use ($from) {
-                return $query->whereDate('created_at', '>=', $from);
-            })
-            ->when($to, function ($query) use ($to) {
-                return $query->whereDate('created_at', '<=', $to);
-            })
-            ->when($sort_by === 'latest', function ($query) {
-                return $query->latest();
-            })
-            ->when($sort_by === 'oldest', function ($query) {
-                return $query->oldest();
-            })
-            ->when($sort_by === 'ascending', function ($query) {
-                return $query->orderBy('first_name', 'asc');
-            })
-            ->when($sort_by === 'descending', function ($query) {
-                return $query->orderBy('first_name', 'desc');
-            });
+        $query = $this->user->withCount([
+            'bookings',
+            'fcmDevices as fcm_devices_count',
+            'tokens as app_login_sessions_count',
+            'tokens as active_app_sessions_count' => function ($query) {
+                $query->where('revoked', false)
+                    ->where(function ($inner) {
+                        $inner->whereNull('expires_at')
+                            ->orWhere('expires_at', '>', now());
+                    });
+            },
+        ])->inCustomerDirectory();
+
+        $query = $this->applyCustomerDirectoryListFilters($query, $request);
 
         if (isset($limit) && $limit > 0) {
             $customers = $query->take($limit)->get(); // limit results
@@ -802,46 +794,10 @@ class CustomerController extends Controller
     {
         $this->authorize('customer_export');
 
-        $search = $request->has('search') ? $request['search'] : '';
-        $status = $request->has('status') ? $request['status'] : 'all';
-        $from = $request->get('from', '');
-        $to = $request->get('to', '');
-        $sort_by = $request->get('sort_by', 'latest');
         $limit = $request->get('limit');
 
-        $query = $this->user->withCount(['bookings'])->inCustomerDirectory()
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                return $query->where(function ($query) use ($keys) {
-                    foreach ($keys as $key) {
-                        $query->orWhere('first_name', 'LIKE', '%' . $key . '%')
-                            ->orWhere('last_name', 'LIKE', '%' . $key . '%')
-                            ->orWhere('phone', 'LIKE', '%' . $key . '%')
-                            ->orWhere('email', 'LIKE', '%' . $key . '%');
-                    }
-                });
-            })
-            ->when($status != 'all', function ($query) use ($request) {
-                return $query->ofStatus(($request['status'] == 'active') ? 1 : 0);
-            })
-            ->when($from, function ($query) use ($from) {
-                return $query->whereDate('created_at', '>=', $from);
-            })
-            ->when($to, function ($query) use ($to) {
-                return $query->whereDate('created_at', '<=', $to);
-            })
-            ->when($sort_by === 'latest', function ($query) {
-                return $query->latest();
-            })
-            ->when($sort_by === 'oldest', function ($query) {
-                return $query->oldest();
-            })
-            ->when($sort_by === 'ascending', function ($query) {
-                return $query->orderBy('first_name', 'asc');
-            })
-            ->when($sort_by === 'descending', function ($query) {
-                return $query->orderBy('first_name', 'desc');
-            });
+        $query = $this->user->withCount(['bookings'])->inCustomerDirectory();
+        $query = $this->applyCustomerDirectoryListFilters($query, $request);
 
         if (isset($limit) && $limit > 0) {
             $customers = $query->take($limit)->get();
@@ -1260,6 +1216,100 @@ class CustomerController extends Controller
         $parts = array_filter([$address->address, $address->landmark]);
 
         return implode(', ', $parts);
+    }
+
+    private function applyCustomerDirectoryListFilters($query, Request $request)
+    {
+        $status = $request->get('status', 'all');
+        $from = $request->get('from', '');
+        $to = $request->get('to', '');
+        $sortBy = $request->get('sort_by', 'latest');
+        $ratingFilter = $request->get('rating_filter', 'all');
+        $appFilter = $request->get('app_filter', 'all');
+
+        return $query
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $keys = explode(' ', (string) $request['search']);
+                return $query->where(function ($query) use ($keys) {
+                    foreach ($keys as $key) {
+                        $query->orWhere('first_name', 'LIKE', '%' . $key . '%')
+                            ->orWhere('last_name', 'LIKE', '%' . $key . '%')
+                            ->orWhere('phone', 'LIKE', '%' . $key . '%')
+                            ->orWhere('email', 'LIKE', '%' . $key . '%');
+                    }
+                });
+            })
+            ->when($status != 'all', function ($query) use ($request) {
+                return $query->ofStatus($request['status'] == 'active' ? 1 : 0);
+            })
+            ->when($from, function ($query) use ($from) {
+                return $query->whereDate('created_at', '>=', $from);
+            })
+            ->when($to, function ($query) use ($to) {
+                return $query->whereDate('created_at', '<=', $to);
+            })
+            ->when($ratingFilter === '4_plus', function ($query) {
+                return $query->where('received_avg_rating', '>=', 4);
+            })
+            ->when($ratingFilter === '3_plus', function ($query) {
+                return $query->where('received_avg_rating', '>=', 3);
+            })
+            ->when($ratingFilter === '2_plus', function ($query) {
+                return $query->where('received_avg_rating', '>=', 2);
+            })
+            ->when($ratingFilter === '1_plus', function ($query) {
+                return $query->where('received_avg_rating', '>=', 1);
+            })
+            ->when($ratingFilter === 'unrated', function ($query) {
+                return $query->where('received_rating_count', 0);
+            })
+            ->when($appFilter === 'active', function ($query) {
+                return $query->whereHas('tokens', function ($tokenQuery) {
+                    $tokenQuery->where('revoked', false)
+                        ->where(function ($inner) {
+                            $inner->whereNull('expires_at')
+                                ->orWhere('expires_at', '>', now());
+                        });
+                });
+            })
+            ->when($appFilter === 'registered', function ($query) {
+                return $query->where(function ($outer) {
+                    $outer->whereHas('fcmDevices')
+                        ->orWhere(function ($legacy) {
+                            $legacy->whereNotNull('fcm_token')
+                                ->where('fcm_token', '!=', '')
+                                ->where('fcm_token', '!=', '@');
+                        })
+                        ->orWhereHas('tokens');
+                })->whereDoesntHave('tokens', function ($tokenQuery) {
+                    $tokenQuery->where('revoked', false)
+                        ->where(function ($inner) {
+                            $inner->whereNull('expires_at')
+                                ->orWhere('expires_at', '>', now());
+                        });
+                });
+            })
+            ->when($appFilter === 'not_in_app', function ($query) {
+                return $query->whereDoesntHave('fcmDevices')
+                    ->where(function ($legacy) {
+                        $legacy->whereNull('fcm_token')
+                            ->orWhere('fcm_token', '')
+                            ->orWhere('fcm_token', '@');
+                    })
+                    ->whereDoesntHave('tokens');
+            })
+            ->when($sortBy === 'latest', function ($query) {
+                return $query->latest();
+            })
+            ->when($sortBy === 'oldest', function ($query) {
+                return $query->oldest();
+            })
+            ->when($sortBy === 'ascending', function ($query) {
+                return $query->orderBy('first_name', 'asc');
+            })
+            ->when($sortBy === 'descending', function ($query) {
+                return $query->orderBy('first_name', 'desc');
+            });
     }
 
 }

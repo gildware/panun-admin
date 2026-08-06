@@ -303,6 +303,19 @@
         return false;
     }
 
+    function externalScriptShouldExecute(src, oldScript) {
+        if (oldScript && oldScript.getAttribute('data-always-activate') === '1') {
+            return true;
+        }
+
+        var absoluteSrc = resolveStylesheetHref(src);
+        if (absoluteSrc && absoluteSrc.indexOf('Sortable.min.js') !== -1) {
+            return typeof window.Sortable === 'undefined';
+        }
+
+        return !scriptSrcIsLoaded(src);
+    }
+
     function activateOneScript(oldScript) {
         return new Promise(function (resolve) {
             var script = document.createElement('script');
@@ -312,7 +325,7 @@
 
             var src = oldScript.getAttribute('src');
             if (src) {
-                if (scriptSrcIsLoaded(src)) {
+                if (!externalScriptShouldExecute(src, oldScript)) {
                     oldScript.remove();
                     resolve();
                     return;

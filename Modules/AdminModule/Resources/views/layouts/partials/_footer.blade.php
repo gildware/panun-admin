@@ -10,6 +10,7 @@
                 @endphp
                 {{ $footerText }}
             </div>
+            @if(!is_admin_employee())
             <div class="col-md-6 d-flex justify-content-center justify-content-md-end">
                 <ul class="list-inline list-separator">
                     <li>
@@ -31,6 +32,7 @@
                     </li>
                 </ul>
             </div>
+            @endif
         </div>
     </div>
 </footer>

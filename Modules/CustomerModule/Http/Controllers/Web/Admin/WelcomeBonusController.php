@@ -28,7 +28,7 @@ class WelcomeBonusController extends Controller
 
     public function report(Request $request): View|Factory|Application
     {
-        $this->authorize('customer_view');
+        $this->authorize('welcome_bonus_view');
 
         $this->validateReportRequest($request);
 
@@ -66,7 +66,7 @@ class WelcomeBonusController extends Controller
 
     public function reportDownload(Request $request): StreamedResponse|string
     {
-        $this->authorize('customer_export');
+        $this->authorize('welcome_bonus_export');
 
         $this->validateReportRequest($request);
 

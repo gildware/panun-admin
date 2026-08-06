@@ -423,6 +423,10 @@ class LoginController extends Controller
     public function logout(Request $request): RedirectResponse
     {
         if (auth()->user()) {
+            if (is_impersonating()) {
+                app(\Modules\AdminModule\Services\ImpersonationService::class)->leave();
+            }
+
             $redirect_route = in_array(auth()->user()->user_type, ADMIN_USER_TYPES) ? 'admin.auth.login' : 'provider.auth.login';
 
             if (in_array(auth()->user()->user_type, ADMIN_USER_TYPES)) {
