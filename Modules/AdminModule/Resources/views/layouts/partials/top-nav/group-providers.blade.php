@@ -46,7 +46,7 @@
             @endcan
         @endcanany
 
-        @can('provider_view')
+        @can('provider_feedback_config_view')
             @include('adminmodule::layouts.partials.top-nav._link', [
                 'href' => route('admin.provider.feedback-tags.index'),
                 'label' => translate('Feedback_Configuration'),

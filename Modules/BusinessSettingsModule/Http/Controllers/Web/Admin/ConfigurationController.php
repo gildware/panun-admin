@@ -943,6 +943,7 @@ class ConfigurationController extends Controller
     public function getCustomerSettings(Request $request): View|Factory|Application
     {
         $web_page = $request->has('web_page') ? $request['web_page'] : 'wallet';
+        $this->authorizeCustomerSettingsPage($web_page, 'view');
         $data_values = $this->businessSetting->where('settings_type', 'customer_config')->get();
 
         $loyaltyCompletionOutcomeOptions = BookingFinancialSettlementService::loyaltyPointCompletionTypeOptions();
@@ -985,6 +986,9 @@ class ConfigurationController extends Controller
      */
     public function setCustomerSettings(Request $request): RedirectResponse
     {
+        $webPage = $request->input('web_page', 'wallet');
+        $this->authorizeCustomerSettingsPage($webPage, 'update');
+
         if ($request['web_page'] == 'wallet') {
             $validator = Validator::make($request->all(), [
                 'customer_wallet' => 'in:0,1',
@@ -1626,5 +1630,20 @@ class ConfigurationController extends Controller
         return $this->notificationDevicesUsersQuery($userSearch, $requireDevices)
             ->whereIn('user_type', $userTypes)
             ->paginate(pagination_limit(), ['*'], $pageName);
+    }
+
+    private function authorizeCustomerSettingsPage(string $webPage, string $action): void
+    {
+        $gate = match ($webPage) {
+            'wallet' => $action === 'update' ? 'wallet_update' : 'wallet_view',
+            'loyalty_point' => $action === 'update' ? 'point_update' : 'point_view',
+            'welcome_bonus' => $action === 'update' ? 'welcome_bonus_update' : 'welcome_bonus_view',
+            'referral_earning' => $action === 'update' ? 'referral_earning_update' : 'referral_earning_view',
+            default => null,
+        };
+
+        if ($gate) {
+            $this->authorize($gate);
+        }
     }
 }

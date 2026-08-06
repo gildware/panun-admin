@@ -308,7 +308,7 @@
                     <input type="file"
                            name="initial_call_recording"
                            class="form-control form-control-sm"
-                           accept="audio/*,.mp3,.wav,.webm,.ogg,.m4a,.aac">
+                           accept="audio/*,video/mp4,.mp3,.wav,.webm,.ogg,.m4a,.aac,.mp4">
                     <div class="form-text">{{ translate('Upload_call_recording_optional_max_10MB') }}</div>
                     @if($lead->hasInitialCallRecording())
                         <p class="small text-muted mb-0 mt-1">{{ translate('Upload_new_recording_to_replace_existing') }}</p>

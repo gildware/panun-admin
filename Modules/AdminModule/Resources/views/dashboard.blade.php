@@ -3,6 +3,7 @@
 @section('title',translate('dashboard'))
 
 @push('css_or_js')
+    @include('adminmodule::partials._dashboard-work-widget-styles')
     <style>
         .main-content .container-fluid .row .card {
             position: relative;
@@ -12,1005 +13,444 @@
             display: flex;
             flex-wrap: wrap;
         }
-        .dashboard-top-cards .business-summary {
-            height: 6rem;
-            min-height: 6rem;
+        .finance-kpi-sections {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+            margin-bottom: 10px;
+            align-items: start;
         }
-        /* Reduce top card typography to fit larger numbers. */
-        .dashboard-top-cards .business-summary h2 {
-            font-size: clamp(0.95rem, 1.7vw, 1.25rem);
-            line-height: 1.15;
-            margin: 0;
-            padding: 0;
-            white-space: nowrap;
+        @media (max-width: 1199px) {
+            .finance-kpi-sections {
+                grid-template-columns: 1fr;
+            }
         }
-        .dashboard-top-cards .business-summary h3 {
-            font-size: clamp(0.65rem, 1.0vw, 0.82rem);
-            line-height: 1.1;
-            margin: 0.15rem 0 0;
+        .finance-kpi-section {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            min-height: 0;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 8px 8px 6px;
+            border-top: 3px solid var(--fks-accent, #43466e);
         }
-        /* Distinct KPI card colors (scoped to admin dashboard top cards). */
-        .dashboard-top-cards .business-summary.dashboard-kpi--total-revenue {
-            background: linear-gradient(145deg, #0369a1 0%, #0c4a6e 100%);
+        .finance-kpi-section--revenue { --fks-accent: #16a34a; }
+        .finance-kpi-section--balances { --fks-accent: #2563eb; }
+        .finance-kpi-section--losses { --fks-accent: #dc2626; }
+        .finance-kpi-section__title {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin: 0 0 6px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            color: #374151;
         }
-        .dashboard-top-cards .business-summary.dashboard-kpi--service-charges {
-            background: linear-gradient(145deg, #7c3aed 0%, #5b21b6 100%);
+        .finance-kpi-section__title .material-symbols-outlined {
+            font-size: 15px;
+            color: var(--fks-accent);
         }
-        .dashboard-top-cards .business-summary.dashboard-kpi--parts-charges {
-            background: linear-gradient(145deg, #c2410c 0%, #9a3412 100%);
+        .finance-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 5px;
+            flex: 1 1 auto;
+            align-items: stretch;
         }
-        .dashboard-top-cards .business-summary.dashboard-kpi--total-received {
-            background: linear-gradient(145deg, #0d9488 0%, #115e59 100%);
+        @media (max-width: 1199px) {
+            .finance-kpi-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
         }
-        .dashboard-top-cards .business-summary.dashboard-kpi--our-earning {
-            background: linear-gradient(145deg, #15803d 0%, #14532d 100%);
+        @media (max-width: 768px) {
+            .finance-kpi-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
         }
-        .dashboard-top-cards .business-summary.dashboard-kpi--payable-providers {
-            background: linear-gradient(145deg, #2563eb 0%, #1e40af 100%);
+        @media (max-width: 576px) {
+            .finance-kpi-grid {
+                grid-template-columns: 1fr;
+            }
         }
-        .dashboard-top-cards .business-summary.dashboard-kpi--unsettled-withdraws {
-            background: linear-gradient(145deg, #0891b2 0%, #0e7490 100%);
+        .finance-kpi-card {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            min-height: 0;
+            height: 100%;
+            padding: 5px 7px;
+            border: 1px solid var(--fkc-border, #e5e7eb);
+            border-radius: 7px;
+            background: var(--fkc-soft, #f8fafc);
         }
-        .dashboard-top-cards .business-summary.dashboard-kpi--unsettled-withdraws h2 {
-            font-size: clamp(0.85rem, 1.5vw, 1.1rem);
+        .finance-kpi-card__icon {
+            display: inline-flex;
+            flex-shrink: 0;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            border: 1px solid var(--fkc-border, #e5e7eb);
+            border-radius: 6px;
+            background: #fff;
+            color: var(--fkc-tone, #64748b);
+            font-size: 14px;
+            line-height: 1;
         }
-        .dashboard-top-cards .business-summary.dashboard-kpi--unsettled-withdraws h3 {
-            font-size: clamp(0.6rem, 0.9vw, 0.74rem);
-            margin: 0.08rem 0 0;
+        .finance-kpi-card__body {
+            flex: 1 1 auto;
+            min-width: 0;
         }
-        .dashboard-top-cards .business-summary .dashboard-kpi-breakdown {
-            font-size: clamp(0.55rem, 0.78vw, 0.66rem);
-            line-height: 1.1;
-            margin-top: 0.1rem;
+        .finance-kpi-card__value {
+            font-size: clamp(0.72rem, 1.05vw, 0.82rem);
+            font-weight: 700;
+            line-height: 1.2;
+            color: #111827;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            opacity: 0.92;
         }
-        .dashboard-top-cards .business-summary .dashboard-kpi-breakdown span {
-            display: inline;
-        }
-        .dashboard-top-cards .business-summary .dashboard-kpi-breakdown span + span::before {
-            content: ' · ';
-        }
-        .dashboard-top-cards .business-summary.dashboard-kpi--balance-providers {
-            background: linear-gradient(145deg, #ca8a04 0%, #a16207 100%);
-        }
-        .dashboard-top-cards .business-summary.dashboard-kpi--payable-customer {
-            background: linear-gradient(145deg, #db2777 0%, #9d174d 100%);
-        }
-        .dashboard-top-cards .business-summary.dashboard-kpi--total-loss {
-            background: linear-gradient(145deg, #b91c1c 0%, #7f1d1d 100%);
-        }
-        .dashboard-top-cards .business-summary.dashboard-kpi--bad-debt {
-            background: linear-gradient(145deg, #4c1d95 0%, #312e81 100%);
-        }
-        .dashboard-top-cards .business-summary .dashboard-kpi-deco-icon {
-            font-size: clamp(2.5rem, 5vw, 3.25rem);
-            line-height: 1;
-            opacity: 0.22;
-            pointer-events: none;
-            user-select: none;
-        }
-        .card-header h5.dashboard-widget-title,
-        h4.dashboard-widget-title {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .card-header h5.dashboard-widget-title .dashboard-widget-title__icon,
-        h4.dashboard-widget-title .dashboard-widget-title__icon {
-            flex-shrink: 0;
-            font-size: 1.375rem;
-            opacity: 0.85;
-        }
-        /* Dashboard widget headers: medium dark (not too dark), white text */
-        .main-content .container-fluid .card > .card-header {
-            background-color: #43466e;
-            color: #fff;
-            border-color: transparent;
-        }
-        .main-content .container-fluid .card > .card-header .dashboard-widget-title,
-        .main-content .container-fluid .card > .card-header h4,
-        .main-content .container-fluid .card > .card-header h5 {
-            color: #fff;
-        }
-        .main-content .container-fluid .card > .card-header .text-muted {
-            color: rgba(255, 255, 255, 0.75) !important;
-        }
-        .main-content .container-fluid .card > .card-header .dashboard-widget-title__icon,
-        .main-content .container-fluid .card > .card-header .text-primary {
-            color: #fff !important;
-            opacity: 0.95;
-        }
-        .main-content .container-fluid .card > .card-header .btn-link {
-            color: rgba(255, 255, 255, 0.92);
-        }
-        .main-content .container-fluid .card > .card-header .btn-link:hover,
-        .main-content .container-fluid .card > .card-header .btn-link:focus {
-            color: #fff;
-        }
-        .main-content .container-fluid .card > .card-header .btn-outline-primary {
-            color: #fff;
-            border-color: rgba(255, 255, 255, 0.55);
-        }
-        .main-content .container-fluid .card > .card-header .btn-outline-primary:hover,
-        .main-content .container-fluid .card > .card-header .btn-outline-primary:focus {
-            background-color: rgba(255, 255, 255, 0.12);
-            color: #fff;
-            border-color: #fff;
-        }
-        /* Keep widget list/table body light — clearly different from the dark header */
-        .main-content .container-fluid .card > .card-body {
-            background-color: #fff;
-        }
-        .main-content .container-fluid .card .card-body .table thead,
-        .main-content .container-fluid .card .card-body .table thead th {
-            background-color: #f3f4f8;
-            color: #5e6472;
-        }
-        .main-content .container-fluid .card .card-body .common-list li h5 {
-            color: var(--bs-dark);
-        }
-        .missed-followup-row,
-        .missed-followup-row > td {
-            background-color: #fff !important;
-            color: #dc3545 !important;
-        }
-        .table-hover > tbody > tr.missed-followup-row:hover > * {
-            background-color: #fff !important;
-            color: #dc3545 !important;
-        }
-        /* Keep follow-up tables visually aligned (same min/max height). */
-        .dashboard-widget-todays-followups .card-body {
-            min-height: 420px;
-            max-height: 420px;
-            overflow: auto;
-        }
-        .dashboard-widget-todays-followups .card-body > .table-responsive {
-            height: 100%;
-            max-height: 100%;
-        }
-        .dashboard-widget-todays-followups .card-body > .d-flex {
-            height: 100%;
-        }
-        .missed-followup-row a,
-        .missed-followup-row a.text-primary,
-        .missed-followup-row .text-primary,
-        .missed-followup-row .small,
-        .missed-followup-row .small a {
-            color: #dc3545 !important;
-        }
-
-        /* Keep "half" widgets visually aligned (same min/max height). */
-        .dashboard-widgets-grid .dashboard-collapsible-widget .card-body,
-        .dashboard-widget-followups-row .dashboard-collapsible-widget .card-body {
-            min-height: 420px;
-            max-height: 420px;
-            overflow: auto;
-        }
-        .dashboard-widget-staff-presence .card-body {
-            min-height: 320px;
-            max-height: 420px;
-            overflow: auto;
-        }
-        .dashboard-widget-staff-presence .card-body > .table-responsive {
-            max-height: 100%;
-            overflow-x: auto;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-        .dashboard-widget-staff-presence .card-body > .table-responsive > .table {
-            margin-bottom: 0;
-        }
-        .dashboard-widget-staff-presence .staff-presence-employee-col {
-            min-width: 240px;
-            width: 240px;
-        }
-        .dashboard-widget-staff-presence .staff-presence-avatar-wrap {
-            width: 36px;
-            height: 36px;
-            flex-shrink: 0;
-        }
-        .dashboard-widget-staff-presence .staff-presence-avatar {
-            width: 36px !important;
-            height: 36px !important;
-            min-width: 36px;
-            min-height: 36px;
-            flex-shrink: 0;
-            object-fit: cover;
-        }
-        #staffPresenceHistoryModal .staff-presence-employee-col {
-            min-width: 240px;
-            width: 240px;
-        }
-        #staffPresenceHistoryModal .staff-presence-avatar-wrap {
-            width: 36px;
-            height: 36px;
-            flex-shrink: 0;
-        }
-        #staffPresenceHistoryModal .staff-presence-avatar {
-            width: 36px !important;
-            height: 36px !important;
-            min-width: 36px;
-            min-height: 36px;
-            flex-shrink: 0;
-            object-fit: cover;
-        }
-
-        .dashboard-widgets-grid .dashboard-ranking-widget-table {
-            table-layout: fixed;
-            width: 100%;
-            margin-bottom: 0;
-        }
-        .dashboard-widgets-grid .dashboard-ranking-widget-table thead th {
-            font-size: 0.75rem;
+        .finance-kpi-card__label {
+            margin-top: 2px;
+            font-size: clamp(0.58rem, 0.85vw, 0.65rem);
             font-weight: 600;
-            color: var(--bs-secondary);
-            white-space: nowrap;
-            padding-top: 0;
-            padding-bottom: 0.625rem;
-            border-bottom: 1px solid var(--border-color);
+            line-height: 1.2;
+            color: #64748b;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            overflow: hidden;
         }
-        .dashboard-widgets-grid .dashboard-ranking-widget-table tbody td {
-            padding-top: 0.625rem;
-            padding-bottom: 0.625rem;
-            vertical-align: middle;
-            border-bottom: 1px solid var(--border-color);
+        .finance-kpi-card__meta {
+            margin-top: 2px;
+            font-size: 0.52rem;
+            line-height: 1.25;
+            color: #94a3b8;
+            white-space: normal;
         }
-        .dashboard-widgets-grid .dashboard-ranking-widget-table tbody tr:last-child td {
-            border-bottom: none;
+        .finance-kpi-card__meta span {
+            display: block;
         }
-        .dashboard-widgets-grid .dashboard-ranking-widget-table .col-score {
-            width: 4.5rem;
+        .finance-kpi-card__meta span + span::before {
+            content: none;
         }
-        .dashboard-widgets-grid .dashboard-ranking-widget-table .col-bookings {
-            width: 5rem;
-        }
-        .dashboard-widgets-grid .dashboard-ranking-widget-table tbody tr {
-            cursor: pointer;
-        }
-
-        /* Collapsible dashboard widgets (accordion) */
-        .dashboard-collapsible-widget .dashboard-widget-collapse-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 1.75rem;
-            height: 1.75rem;
-            padding: 0;
-            margin: 0;
-            border: 0;
-            border-radius: 0.25rem;
-            background: transparent;
-            color: #fff;
-            flex-shrink: 0;
-            line-height: 1;
-        }
-        .dashboard-collapsible-widget .dashboard-widget-collapse-btn:hover,
-        .dashboard-collapsible-widget .dashboard-widget-collapse-btn:focus {
-            background: rgba(255, 255, 255, 0.12);
-            color: #fff;
-            outline: none;
-        }
-        .dashboard-collapsible-widget .dashboard-widget-collapse-icon {
-            font-size: 1.375rem;
-            transition: transform 0.2s ease;
-        }
-        .dashboard-collapsible-widget .dashboard-widget-collapse-btn[aria-expanded="false"] .dashboard-widget-collapse-icon {
-            transform: rotate(-90deg);
-        }
-        .dashboard-collapsible-widget > .dashboard-widget-collapse-header {
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-        }
-        .dashboard-collapsible-widget .dashboard-widget-header-main {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            min-width: 0;
-            flex: 1 1 auto;
-            justify-content: flex-start;
-        }
-        .dashboard-collapsible-widget .dashboard-widget-header-main .dashboard-widget-title {
-            justify-content: flex-start;
-            text-align: left;
-        }
-        .dashboard-collapsible-widget .dashboard-widget-header-actions {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            flex-shrink: 0;
-            margin-left: auto;
-            flex-wrap: wrap;
-        }
-        .dashboard-collapsible-widget > .dashboard-widget-collapse-header a,
-        .dashboard-collapsible-widget > .dashboard-widget-collapse-header button:not(.dashboard-widget-collapse-btn) {
-            cursor: pointer;
-        }
-        .dashboard-collapsible-widget > .dashboard-widget-collapse-header select,
-        .dashboard-collapsible-widget > .dashboard-widget-collapse-header label,
-        .dashboard-collapsible-widget > .dashboard-widget-collapse-header .select2-container {
-            cursor: default;
-        }
-        .earning-statistics .dashboard-earning-filter-wrap {
-            display: flex;
-            align-items: center;
-            gap: 0.35rem;
-            flex-wrap: wrap;
-        }
-        .earning-statistics .dashboard-earning-filter-wrap .select-wrap {
-            flex: 0 0 auto;
-        }
-        .earning-statistics .dashboard-earning-filter-wrap .select2-container {
-            min-width: 4.75rem !important;
-            max-width: 5.5rem;
-        }
-        .earning-statistics .dashboard-earning-filter-wrap .select2-container .select2-selection--single {
-            min-height: 1.75rem;
-            height: 1.75rem;
-        }
-        .earning-statistics .dashboard-earning-filter-wrap .select2-container .select2-selection__rendered {
-            font-size: 0.75rem;
-            line-height: 1.65rem;
-            padding-left: 0.45rem;
-            padding-right: 1.25rem;
-        }
-        .earning-statistics .dashboard-earning-filter-wrap .select2-container .select2-selection__arrow {
-            height: 1.65rem;
-            right: 0.2rem;
-        }
-        .earning-statistics .dashboard-earning-filter-wrap .update-chart-month + .select2-container {
-            min-width: 5.25rem !important;
-            max-width: 6rem;
-        }
-
+        .finance-kpi-card--green { --fkc-soft: #f0fdf4; --fkc-border: #bbf7d0; --fkc-tone: #15803d; }
+        .finance-kpi-card--teal { --fkc-soft: #f0fdfa; --fkc-border: #99f6e4; --fkc-tone: #0f766e; }
+        .finance-kpi-card--blue { --fkc-soft: #eff6ff; --fkc-border: #bfdbfe; --fkc-tone: #1d4ed8; }
+        .finance-kpi-card--violet { --fkc-soft: #f5f3ff; --fkc-border: #ddd6fe; --fkc-tone: #6d28d9; }
+        .finance-kpi-card--orange { --fkc-soft: #fff7ed; --fkc-border: #fed7aa; --fkc-tone: #c2410c; }
+        .finance-kpi-card--cyan { --fkc-soft: #ecfeff; --fkc-border: #a5f3fc; --fkc-tone: #0e7490; }
+        .finance-kpi-card--indigo { --fkc-soft: #eef2ff; --fkc-border: #c7d2fe; --fkc-tone: #4338ca; }
+        .finance-kpi-card--amber { --fkc-soft: #fffbeb; --fkc-border: #fde68a; --fkc-tone: #b45309; }
+        .finance-kpi-card--rose { --fkc-soft: #fff1f2; --fkc-border: #fecdd3; --fkc-tone: #be123c; }
+        .finance-kpi-card--red { --fkc-soft: #fef2f2; --fkc-border: #fecaca; --fkc-tone: #b91c1c; }
+        .finance-kpi-card--slate { --fkc-soft: #f8fafc; --fkc-border: #e2e8f0; --fkc-tone: #475569; }
+        .finance-kpi-card--pink { --fkc-soft: #fdf2f8; --fkc-border: #fbcfe8; --fkc-tone: #be185d; }
     </style>
 @endpush
 
 @section('content')
     @can('dashboard')
-    <div class="main-content">
+    <div class="main-content emp-dash">
         <div class="container-fluid">
+            <div class="emp-dash-topbar">
+                @include('adminmodule::partials._admin-dashboard-switcher', ['active' => 'finance'])
+            </div>
+
             @if(access_checker('dashboard'))
-                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5 mb-4 g-4 dashboard-top-cards">
-                    <div class="col">
-                        <div class="business-summary dashboard-kpi--total-revenue">
-                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.total_revenue', 0))}}</h2>
-                            <h3>{{translate('Total_Revenue')}}</h3>
-                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">account_balance_wallet</span>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="business-summary dashboard-kpi--service-charges">
-                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.service_charges_total', 0))}}</h2>
-                            <h3>{{translate('Service_Charges')}}</h3>
-                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">home_repair_service</span>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="business-summary dashboard-kpi--parts-charges">
-                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.spare_parts_total', 0))}}</h2>
-                            <h3>{{translate('Parts_Charges')}}</h3>
-                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">inventory_2</span>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="business-summary dashboard-kpi--total-received">
-                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.total_amount_received_by_company', 0))}}</h2>
-                            <h3>{{translate('Total_amount_received')}}</h3>
-                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">move_to_inbox</span>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="business-summary dashboard-kpi--our-earning">
-                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.our_earning', 0))}}</h2>
-                            <h3>{{translate('Our_Earning')}}</h3>
-                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">trending_up</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-6 mb-4 g-4 dashboard-top-cards">
-                    <div class="col">
-                        <div class="business-summary dashboard-kpi--payable-providers">
-                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.payable_to_providers', 0))}}</h2>
-                            <h3>{{translate('Payable_to_providers')}}</h3>
-                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">engineering</span>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="business-summary dashboard-kpi--unsettled-withdraws">
-                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.unsettled_withdraws_total', 0))}}</h2>
-                            <h3>{{translate('UnSettled_Withdraws_Amount')}}</h3>
-                            <p class="dashboard-kpi-breakdown mb-0">
-                                <span>{{translate('Pending_Withdraw')}}: {{with_currency_symbol(data_get($data[0], 'top_cards.unsettled_withdraws_pending', 0))}}</span>
-                                <span>{{translate('Approved')}}: {{with_currency_symbol(data_get($data[0], 'top_cards.unsettled_withdraws_approved', 0))}}</span>
-                            </p>
-                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">payments</span>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="business-summary dashboard-kpi--balance-providers">
-                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.balance_with_providers', 0))}}</h2>
-                            <h3>{{translate('Balance_With_Providers')}}</h3>
-                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">compare_arrows</span>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="business-summary dashboard-kpi--payable-customer">
-                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.payable_to_customers', 0))}}</h2>
-                            <h3>{{translate('Payable_to_customer')}}</h3>
-                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">person</span>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="business-summary dashboard-kpi--total-loss">
-                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.total_loss_in_all_bookings', 0))}}</h2>
-                            <h3>{{translate('Total_loss_in_all_bookings')}}</h3>
-                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">trending_down</span>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="business-summary dashboard-kpi--bad-debt">
-                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.total_bad_debt_with_customers', 0))}}</h2>
-                            <h3>{{translate('Dashboard_company_loss_from_customers')}}</h3>
-                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">gavel</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5 mb-4 g-4 dashboard-top-cards">
-                    <div class="col">
-                        <div class="business-summary" style="background: linear-gradient(145deg, #dc2626 0%, #991b1b 100%);">
-                            <h2>{{ with_currency_symbol(data_get($data[0], 'top_cards.total_write_off_company', 0)) }}</h2>
-                            <h3>{{ translate('Dashboard_write_off_company_total') }}</h3>
-                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">percent</span>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="business-summary" style="background: linear-gradient(145deg, #b45309 0%, #7c2d12 100%);">
-                            <h2>{{ with_currency_symbol(data_get($data[0], 'top_cards.total_write_off_provider', 0)) }}</h2>
-                            <h3>{{ translate('Dashboard_write_off_provider_total') }}</h3>
-                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">percent</span>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="business-summary" style="background: linear-gradient(145deg, #dc2626 0%, #7f1d1d 100%);">
-                            <h2>{{ with_currency_symbol(data_get($data[2], 'compensation_totals.company_to_customers', 0)) }}</h2>
-                            <h3>{{ translate('Company_compensation_to_customers') }}</h3>
-                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">volunteer_activism</span>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="business-summary" style="background: linear-gradient(145deg, #ea580c 0%, #9a3412 100%);">
-                            <h2>{{ with_currency_symbol(data_get($data[2], 'compensation_totals.company_to_providers', 0)) }}</h2>
-                            <h3>{{ translate('Company_compensation_to_providers') }}</h3>
-                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">handshake</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="row g-4 mb-4 dashboard-widget-followups-row">
-                    <div class="col-lg-6 col-12">
-                        <div class="card dashboard-widget-todays-followups dashboard-collapsible-widget" id="dashboard-booking-followups">
-                            <div class="card-header d-flex justify-content-between gap-10">
-                                <h5 class="dashboard-widget-title mb-0">
-                                    <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">event_repeat</span>
-                                    Booking Followups Pending Till Today
-                                    <span class="text-muted">
-                                        ({{ $data[6]['todays_pending_followups_total'] ?? 0 }})
-                                    </span>
-                                </h5>
-                                <a href="{{route('admin.booking.todays_followups')}}"
-                                   class="btn-link">{{translate('view_all')}}</a>
-                            </div>
-                            <div class="card-body p-0">
-                                @if(isset($data[6]['todays_pending_followups']) && $data[6]['todays_pending_followups']->isNotEmpty())
-                                    <div class="table-responsive px-3 overflow-auto">
-                                        <table class="table table-hover align-middle mb-0 fs-13 text-nowrap">
-                                            <thead class="text-secondary border-bottom">
-                                                <tr>
-                                                    <th>{{translate('Followup_On')}}</th>
-                                                    <th>{{translate('Booking_ID')}}</th>
-                                                    <th>{{translate('Follow_up_for')}}</th>
-                                                    <th>{{translate('Urgency')}}</th>
-                                                    <th>{{translate('Customer_Info')}}</th>
-                                                    <th>{{translate('Provider_Info')}}</th>
-                                                    <th>{{translate('Assignee')}}</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @foreach($data[6]['todays_pending_followups'] as $followup)
-                                                    <tr class="cursor-pointer todays-followup-redirect {{ $followup->date && !$followup->date->isToday() ? 'missed-followup-row' : '' }}"
-                                                        data-route="{{ $followup->booking ? (route('admin.booking.details', [$followup->booking_id, 'web_page' => 'followups'])) : '#' }}">
-                                                        <td>
-                                                            @php($due = $followup->date)
-                                                            @if(!$due)
-                                                                —
-                                                            @else
-                                                                @php($totalMinutes = (int) round(abs($due->diffInMinutes(\Carbon\Carbon::now()))))
-                                                                @php($dueDays = intdiv($totalMinutes, 1440))
-                                                                @php($dueHours = intdiv($totalMinutes % 1440, 60))
-                                                                @php($timeLabel = $due->isPast() ? translate('before') : translate('within'))
-                                                                @if($dueDays > 0 && $dueHours > 0)
-                                                                    {{ $timeLabel }} {{ $dueDays }} {{ translate('days') }} {{ $dueHours }} {{ translate('hours') }}
-                                                                @elseif($dueDays > 0)
-                                                                    {{ $timeLabel }} {{ $dueDays }} {{ translate('days') }}
-                                                                @elseif($dueHours > 0)
-                                                                    {{ $timeLabel }} {{ $dueHours }} {{ translate('hours') }}
-                                                                @else
-                                                                    {{ $timeLabel }} {{ translate('less_than_an_hour') }}
-                                                                @endif
-                                                                <br><span class="small text-muted">{{ $due->format('d M Y, h:i A') }}</span>
-                                                            @endif
-                                                        </td>
-                                                        <td>
-                                                            @if($followup->booking)
-                                                                <a href="{{ route('admin.booking.details', [$followup->booking_id, 'web_page' => 'followups']) }}"
-                                                                   class="text-decoration-none {{ $followup->date && !$followup->date->isToday() ? '' : 'text-primary' }}"
-                                                                   onclick="event.stopPropagation();">{{ $followup->booking->readable_id }}</a>
-                                                            @else
-                                                                —
-                                                            @endif
-                                                        </td>
-                                                        <td>
-                                                            {{ translate(ucfirst($followup->for)) }}
-                                                        </td>
-                                                        <td>
-                                                            @php($fuUrgency = $followup->urgency ?: 'medium')
-                                                            <span class="badge badge-{{ $fuUrgency === 'high' ? 'danger' : ($fuUrgency === 'low' ? 'secondary' : 'warning') }}">{{ translate(ucfirst($fuUrgency)) }}</span>
-                                                        </td>
-                                                        <td>
-                                                            @if($followup->booking && $followup->booking->customer)
-                                                                <span>{{ Str::limit(trim(($followup->booking->customer->first_name ?? '') . ' ' . ($followup->booking->customer->last_name ?? '')), 15) ?: '—' }}</span>
-                                                                <br><span class="small">{{ $followup->booking->customer->phone ?? '—' }}</span>
-                                                            @else
-                                                                —
-                                                            @endif
-                                                        </td>
-                                                        <td>
-                                                            @if($followup->booking && $followup->booking->provider)
-                                                                <span>{{ Str::limit($followup->booking->provider->company_name ?? '', 15) ?: '—' }}</span>
-                                                                <br><span class="small">{{ $followup->booking->provider->contact_person_phone ?? $followup->booking->provider->company_phone ?? '—' }}</span>
-                                                            @else
-                                                                —
-                                                            @endif
-                                                        </td>
-                                                        <td>{{ $followup->booking && $followup->booking->assignee ? $followup->booking->assignee->first_name . ' ' . $followup->booking->assignee->last_name : translate('Unassigned') }}</td>
-                                                    </tr>
-                                                @endforeach
-                                            </tbody>
-                                        </table>
+                @include('adminmodule::partials._finance-kpi-sections')
+                @php
+                    $recentLedgerTransactions = $data[1]['recent_ledger_transactions'] ?? [];
+                    $thisMonthLedgerCount = (int) ($data[1]['this_month_ledger_trx_count'] ?? 0);
+                    $recentTransactions = $data[3]['recent_transactions'] ?? [];
+                    $thisMonthTransactionsCount = (int) ($data[3]['this_month_trx_count'] ?? 0);
+                    $recentWalletTransactions = $data[3]['recent_wallet_transactions'] ?? [];
+                    $thisMonthWalletTransactionsCount = (int) ($data[3]['this_month_wallet_trx_count'] ?? 0);
+                    $recentCompletedBookings = $data[3]['recent_completed_bookings'] ?? [];
+                    $earningGraphYear = session('dashboard_earning_graph_year', date('Y'));
+                    $earningGraphMonth = session('dashboard_earning_graph_month');
+                @endphp
+                <div class="mb-3">
+                    <div class="lane-boxes-row">
+                            <div class="work-queue-box tone-task" id="dashboard-recent-ledger">
+                                <div class="work-queue-box-header">
+                                    <div class="work-queue-box-title">
+                                        <span class="material-symbols-outlined">receipt_long</span>
+                                        <span>{{ translate('recent_ledger_transactions') }}</span>
                                     </div>
-                                @else
-                                    <div class="d-flex align-items-center justify-content-center p-4">
-                                        <span class="opacity-50">{{translate('No_follow_ups_yet')}}</span>
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-6 col-12">
-                        <div class="card dashboard-widget-todays-followups dashboard-collapsible-widget" id="dashboard-leads-followups">
-                            <div class="card-header d-flex justify-content-between gap-10">
-                                <h5 class="dashboard-widget-title mb-0">
-                                    <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">contact_phone</span>
-                                    Leads Followups Pending Till Today
-                                    <span class="text-muted">
-                                        ({{ $data[7]['todays_pending_lead_followups_total'] ?? 0 }})
-                                    </span>
-                                </h5>
-                                <a href="{{ route('admin.lead.todays_followups') }}"
-                                   class="btn-link">{{translate('view_all')}}</a>
-                            </div>
-                            <div class="card-body p-0">
-                                @if(isset($data[7]['todays_pending_lead_followups']) && $data[7]['todays_pending_lead_followups']->isNotEmpty())
-                                    <div class="table-responsive px-3 overflow-auto">
-                                        <table class="table table-hover align-middle mb-0 fs-13 text-nowrap">
-                                            <thead class="text-secondary border-bottom">
-                                                <tr>
-                                                    <th>{{translate('Followup_On')}}</th>
-                                                    <th>{{translate('Lead_ID')}}</th>
-                                                    <th>{{translate('Lead_Type')}}</th>
-                                                    <th>{{translate('Urgency')}}</th>
-                                                    <th>{{translate('Name')}}</th>
-                                                    <th>{{translate('Phone')}}</th>
-                                                    <th>{{translate('Handled_By')}}</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @foreach($data[7]['todays_pending_lead_followups'] as $lead)
-                                                    <tr class="cursor-pointer todays-followup-redirect {{ $lead->next_followup_at && !$lead->next_followup_at->isToday() ? 'missed-followup-row' : '' }}"
-                                                        data-route="{{ route('admin.lead.show', $lead->id) }}">
-                                                        <td>
-                                                            @php($due = $lead->next_followup_at)
-                                                            @if(!$due)
-                                                                —
-                                                            @else
-                                                                @php($totalMinutes = (int) round(abs($due->diffInMinutes(\Carbon\Carbon::now()))))
-                                                                @php($dueDays = intdiv($totalMinutes, 1440))
-                                                                @php($dueHours = intdiv($totalMinutes % 1440, 60))
-                                                                @php($timeLabel = $due->isPast() ? translate('before') : translate('within'))
-                                                                @if($dueDays > 0 && $dueHours > 0)
-                                                                    {{ $timeLabel }} {{ $dueDays }} {{ translate('days') }} {{ $dueHours }} {{ translate('hours') }}
-                                                                @elseif($dueDays > 0)
-                                                                    {{ $timeLabel }} {{ $dueDays }} {{ translate('days') }}
-                                                                @elseif($dueHours > 0)
-                                                                    {{ $timeLabel }} {{ $dueHours }} {{ translate('hours') }}
-                                                                @else
-                                                                    {{ $timeLabel }} {{ translate('less_than_an_hour') }}
-                                                                @endif
-                                                                <br><span class="small text-muted">{{ $due->format('d M Y, h:i A') }}</span>
-                                                            @endif
-                                                        </td>
-                                                        <td>
-                                                            <a href="{{ route('admin.lead.show', $lead->id) }}"
-                                                               class="text-decoration-none {{ $lead->next_followup_at && !$lead->next_followup_at->isToday() ? '' : 'text-primary' }}"
-                                                               onclick="event.stopPropagation();">
-                                                                {{ $lead->id }}
-                                                            </a>
-                                                        </td>
-                                                        <td>
-                                                            <span class="badge rounded-pill bg-primary text-capitalize">
-                                                                {{ \Modules\LeadManagement\Entities\Lead::leadTypes()[$lead->lead_type] ?? $lead->lead_type }}
-                                                            </span>
-                                                        </td>
-                                                        <td>
-                                                            @php($leadUrgency = $lead->latestFollowup?->urgency ?: 'medium')
-                                                            <span class="badge badge-{{ $leadUrgency === 'high' ? 'danger' : ($leadUrgency === 'low' ? 'secondary' : 'warning') }}">{{ translate(ucfirst($leadUrgency)) }}</span>
-                                                        </td>
-                                                        <td>{{ $lead->name ?? '—' }}</td>
-                                                        <td>
-                                                            @if(!empty($lead->phone_number))
-                                                                <a href="tel:{{ $lead->phone_number }}" class="text-decoration-none text-primary">
-                                                                    {{ $lead->phone_number }}
-                                                                </a>
-                                                            @else
-                                                                —
-                                                            @endif
-                                                        </td>
-                                                        <td>{{ $lead->handled_by_name ?? '—' }}</td>
-                                                    </tr>
-                                                @endforeach
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                @else
-                                    <div class="d-flex align-items-center justify-content-center p-4">
-                                        <span class="opacity-50">{{translate('No_follow_ups_yet')}}</span>
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row g-4 mb-4 dashboard-widgets-grid">
-                    <div class="col-lg-4 col-md-6 col-12">
-                        <div class="card earning-statistics dashboard-collapsible-widget h-100" id="dashboard-earning-statistics">
-                            <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-3">
-                                <h4 class="dashboard-widget-title mb-0">
-                                    <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">show_chart</span>
-                                    {{translate('earning_statistics')}}
-                                </h4>
-                                <div class="dashboard-earning-filter-wrap">
-                                    @php($earningGraphYear = session('dashboard_earning_graph_year', date('Y')))
-                                    @php($earningGraphMonth = session('dashboard_earning_graph_month'))
-                                    <div class="select-wrap">
-                                        <select class="js-select update-chart update-chart-year">
-                                            @php($from_year=date('Y'))
-                                            @php($to_year=$from_year-10)
-                                            @while($from_year!=$to_year)
-                                                <option
-                                                    value="{{$from_year}}" {{(string) $earningGraphYear === (string) $from_year ? 'selected' : ''}}>
-                                                    {{$from_year}}
-                                                </option>
-                                                @php($from_year--)
-                                            @endwhile
-                                        </select>
-                                    </div>
-                                    <div class="select-wrap">
-                                        <select class="js-select update-chart update-chart-month"
-                                                data-placeholder="{{translate('month')}}"
-                                                data-allow-clear="true">
-                                            <option value=""></option>
-                                            @foreach(range(1, 12) as $monthNumber)
-                                                <option value="{{ $monthNumber }}"
-                                                    {{ (string) $earningGraphMonth === (string) $monthNumber ? 'selected' : '' }}>
-                                                    {{ date('M', mktime(0, 0, 0, $monthNumber, 1)) }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="card-body ps-0 pt-0">
-                                <div id="apex_line-chart"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-4 col-md-6 col-12">
-                        <div class="card recent-transactions h-100 w-100 dashboard-collapsible-widget" id="dashboard-recent-transactions">
-                            <div class="card-header d-flex justify-content-between align-items-center gap-10">
-                                <h4 class="mb-0 dashboard-widget-title">
-                                    <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">receipt_long</span>
-                                    {{translate('recent_ledger_transactions')}}
-                                </h4>
-                                <a href="{{route('admin.ledger.index')}}"
-                                   class="btn-link">{{translate('view_all')}}</a>
-                            </div>
-                            <div class="card-body">
-                                @if(isset($data[1]['recent_ledger_transactions']) && count($data[1]['recent_ledger_transactions']) > 0)
-                                    <div class="d-flex align-items-center gap-3 mb-4">
-                                        <img src="{{asset('assets/admin-module')}}/img/icons/arrow-up.png"
-                                             alt="">
-                                        <p class="opacity-75">{{$data[1]['this_month_ledger_trx_count']}} {{translate('ledger_transactions_this_month')}}</p>
-                                    </div>
-                                @endif
-                                <div class="events w-100">
-                                    @foreach($data[1]['recent_ledger_transactions'] ?? [] as $entry)
-                                        <div class="event">
-                                            <div class="knob"></div>
-                                            <div class="d-flex align-items-center gap-1 justify-content-between">
-                                                <div class="title">
-                                                    @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
-                                                        <h5 class="text-success">+ {{with_currency_symbol($entry->amount)}} {{translate('credited')}}</h5>
-                                                    @else
-                                                        <h5 class="text-danger">- {{with_currency_symbol($entry->amount)}} {{translate('debited')}}</h5>
-                                                    @endif
-
-                                                    <p class="m-0 fs-13 d-flex align-items-center gap-1">
-                                                       <span class="material-symbols-outlined fs-5 cursor-pointer"
-                                                             data-bs-toggle="tooltip" data-bs-placement="top" title="Ledger">
-                                                         account_balance_wallet
-                                                       </span>
-                                                        {{ $entry->booking?->readable_id ?? $entry->booking_id ?? '—' }}
-                                                    </p>
-                                                </div>
-                                                <div class="description">
-                                                    <p class="fs-12">{{date('d M H:i a',strtotime($entry->created_at))}}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                    <div class="line"></div>
-                                </div>
-
-                                @if(count($data[1]['recent_ledger_transactions'] ?? []) < 1)
-                                    <div class="d-flex flex-column justify-content-center align-items-center h-100 w-100">
-                                        <div class="recent-transaction-no-data text-center">
-                                            <img src="{{ asset('assets/admin-module/img/icons/no-transaction.svg') }}" alt=""> <br>
-                                            <p class="fs-16 text-dark-icon">{{ translate('No Recent Ledger Transactions') }}</p>
-                                        </div>
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-4 col-md-6 col-12">
-                        <div class="card recent-activities dashboard-collapsible-widget h-100" id="dashboard-recent-bookings">
-                            <div class="card-header d-flex justify-content-between gap-10">
-                                <h5 class="dashboard-widget-title mb-0">
-                                    <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">calendar_month</span>
-                                    {{translate('recent_bookings')}}
-                                </h5>
-                                <a href="{{route('admin.booking.list', ['booking_status'=>'all', 'service_type' => 'all'])}}"
-                                   class="btn-link">{{translate('view_all')}}</a>
-                            </div>
-                            <div class="card-body">
-                                <ul class="common-list">
-                                    @if(count($data[3]['bookings'] ?? []) < 1)
-                                        <div class="d-flex align-items-center justify-content-center h-100 w-100">
-                                            <span class="opacity-50">{{translate('No Bookings Found')}}</span>
-                                        </div>
+                                    @if($thisMonthLedgerCount > 0)
+                                        <span class="work-queue-count-badge {{ $thisMonthLedgerCount > 0 ? 'is-hot' : '' }}">{{ $thisMonthLedgerCount }}</span>
                                     @endif
-                                    @foreach($data[3]['bookings'] ?? [] as $booking)
-                                        <li class="d-flex flex-wrap gap-2 align-items-center justify-content-between cursor-pointer recent-booking-redirect"
-                                            data-route="{{ $booking->is_repeated ? route('admin.booking.repeat_details', [$booking->id]).'?web_page=details' : route('admin.booking.details', [$booking->id]).'?web_page=details' }}">
-                                            <div class="media align-items-center gap-3">
-                                                <div class="avatar avatar-lg">
-                                                    <img class="avatar-img rounded"
-                                                         src="{{ $booking->detail->isNotEmpty() ? ($booking->detail[0]->service?->thumbnail_full_path ?? asset('assets/admin-module/img/icons/service-placeholder.png')) : asset('assets/admin-module/img/icons/service-placeholder.png') }}"
-                                                         alt="{{ translate('provider-logo') }}">
-                                                </div>
-                                                <div class="media-body ">
-                                                    <h5 class="d-flex align-items-center">{{translate('Booking')}}# {{$booking->readable_id}}
-                                                        @if($booking->is_repeated)
-                                                            <img src="{{ asset('assets/admin-module/img/icons/repeat.svg') }}"
-                                                                 class="rounded-circle repeat-icon m-1" alt="{{ translate('repeat') }}">
-                                                        @endif
-                                                    </h5>
-                                                    <p>{{date('d-m-Y, H:i a',strtotime($booking->created_at))}}</p>
-                                                </div>
+                                </div>
+                                <div class="work-queue-box-content">
+                                    <div class="work-queue-box-body active">
+                                        @if($thisMonthLedgerCount > 0)
+                                            <div class="finance-ledger-summary">
+                                                {{ $thisMonthLedgerCount }} {{ translate('ledger_transactions_this_month') }}
                                             </div>
-                                            <span
-                                                class="badge rounded-pill py-2 px-3 badge-primary text-capitalize">{{$booking->booking_status}}</span>
-                                        </li>
-                                    @endforeach
-                                </ul>
+                                        @endif
+                                        @if(count($recentLedgerTransactions) > 0)
+                                            <div class="work-queue-table-wrap">
+                                                <table class="work-queue-table">
+                                                    <thead>
+                                                    <tr>
+                                                        <th class="col-amount">{{ translate('Amount') }}</th>
+                                                        <th class="col-booking-ref">{{ translate('Booking') }}</th>
+                                                        <th class="col-datetime">{{ translate('Date') }}</th>
+                                                    </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                    @foreach($recentLedgerTransactions as $entry)
+                                                        <tr>
+                                                            <td>
+                                                                @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
+                                                                    <span class="finance-amount is-credit">+ {{ with_currency_symbol($entry->amount) }}</span>
+                                                                @else
+                                                                    <span class="finance-amount is-debit">- {{ with_currency_symbol($entry->amount) }}</span>
+                                                                @endif
+                                                            </td>
+                                                            <td>
+                                                                <span class="cell-primary">{{ $entry->booking?->readable_id ?? $entry->booking_id ?? '—' }}</span>
+                                                            </td>
+                                                            <td class="datetime-main">{{ date('d M, H:i a', strtotime($entry->created_at)) }}</td>
+                                                        </tr>
+                                                    @endforeach
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        @else
+                                            <div class="work-queue-empty">
+                                                <span class="material-symbols-outlined">receipt_long</span>
+                                                <span>{{ translate('No Recent Ledger Transactions') }}</span>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                                <div class="work-queue-box-footer">
+                                    <a href="{{ route('admin.ledger.index') }}" class="work-queue-footer-link is-single">{{ translate('view_all') }}</a>
+                                </div>
                             </div>
-                        </div>
-                    </div>
 
-                    <div class="col-lg-4 col-md-6 col-12">
-                        <div class="card recent-leads dashboard-collapsible-widget h-100" id="dashboard-recent-leads">
-                            <div class="card-header d-flex justify-content-between gap-10">
-                                <h5 class="dashboard-widget-title mb-0">
-                                    <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">person_add</span>
-                                    Recent Leads
-                                </h5>
-                                <a href="{{ route('admin.lead.index') }}"
-                                   class="btn-link">{{translate('view_all')}}</a>
-                            </div>
-                            <div class="card-body">
-                                <ul class="common-list">
-                                    @if(count($data[7]['todays_pending_lead_followups'] ?? []) < 1)
-                                        <div class="d-flex align-items-center justify-content-center h-100 w-100">
-                                            <span class="opacity-50">{{translate('No_follow_ups_yet')}}</span>
-                                        </div>
+                            <div class="work-queue-box tone-booking" id="dashboard-recent-transactions">
+                                <div class="work-queue-box-header">
+                                    <div class="work-queue-box-title">
+                                        <span class="material-symbols-outlined">sync_alt</span>
+                                        <span>{{ translate('recent_transactions') }}</span>
+                                    </div>
+                                    @if($thisMonthTransactionsCount > 0)
+                                        <span class="work-queue-count-badge {{ $thisMonthTransactionsCount > 0 ? 'is-hot' : '' }}">{{ $thisMonthTransactionsCount }}</span>
                                     @endif
-                                    @foreach($data[7]['todays_pending_lead_followups'] ?? [] as $lead)
-                                        @php($leadInitial = $lead->name ? strtoupper(substr($lead->name, 0, 1)) : 'L')
-                                        <li class="d-flex flex-wrap gap-2 align-items-center justify-content-between cursor-pointer todays-followup-redirect"
-                                            data-route="{{ route('admin.lead.show', $lead->id) }}">
-                                            <div class="media align-items-center gap-3">
-                                                <div class="avatar avatar-lg bg-light d-flex align-items-center justify-content-center rounded-circle">
-                                                    <span class="fw-bold text-dark">{{ $leadInitial }}</span>
-                                                </div>
-                                                <div class="media-body">
-                                                    <h5 class="mb-1">Lead# {{$lead->id}}</h5>
-                                                    <p class="m-0 fs-12 opacity-75">{{ $lead->name ?? '—' }}</p>
-                                                    <p class="m-0 fs-12 opacity-75">{{ $lead->handled_by_name ?? '—' }}</p>
-                                                </div>
+                                </div>
+                                <div class="work-queue-box-content">
+                                    <div class="work-queue-box-body active">
+                                        @if($thisMonthTransactionsCount > 0)
+                                            <div class="finance-ledger-summary">
+                                                {{ $thisMonthTransactionsCount }} {{ translate('transactions_this_month') }}
                                             </div>
-                                            <div class="d-flex flex-column align-items-end gap-2">
-                                                <span class="badge rounded-pill py-2 px-3 badge-primary text-capitalize">
-                                                    {{ \Modules\LeadManagement\Entities\Lead::leadTypes()[$lead->lead_type] ?? $lead->lead_type }}
-                                                </span>
-                                                <p class="m-0 fs-12 opacity-75">
-                                                    {{ $lead->next_followup_at ? $lead->next_followup_at->format('d-m-Y, H:i a') : '—' }}
-                                                </p>
+                                        @endif
+                                        @if(count($recentTransactions) > 0)
+                                            <div class="work-queue-table-wrap">
+                                                <table class="work-queue-table">
+                                                    <thead>
+                                                    <tr>
+                                                        <th class="col-amount">{{ translate('Amount') }}</th>
+                                                        <th class="col-booking-ref">{{ translate('Booking') }}</th>
+                                                        <th class="col-datetime">{{ translate('Date') }}</th>
+                                                    </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                    @foreach($recentTransactions as $entry)
+                                                        <tr>
+                                                            <td>
+                                                                @if($entry->credit > 0)
+                                                                    <span class="finance-amount is-credit">+ {{ with_currency_symbol($entry->credit) }}</span>
+                                                                @else
+                                                                    <span class="finance-amount is-debit">- {{ with_currency_symbol($entry->debit) }}</span>
+                                                                @endif
+                                                            </td>
+                                                            <td>
+                                                                <span class="cell-primary">{{ $entry->booking?->readable_id ?? $entry->booking_id ?? '—' }}</span>
+                                                            </td>
+                                                            <td class="datetime-main">{{ date('d M, H:i a', strtotime($entry->created_at)) }}</td>
+                                                        </tr>
+                                                    @endforeach
+                                                    </tbody>
+                                                </table>
                                             </div>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-lg-4 col-md-6 col-12">
-                        <div class="card top-providers dashboard-collapsible-widget h-100" id="dashboard-top-providers">
-                            <div class="card-header d-flex justify-content-between gap-10">
-                                <h5 class="dashboard-widget-title mb-0">
-                                    <span class="material-icons dashboard-widget-title__icon text-primary" aria-hidden="true">emoji_events</span>
-                                    {{ translate('top_providers') }}
-                                </h5>
-                                <a href="{{route('admin.provider.top-providers')}}"
-                                   class="btn-link">{{translate('view_all')}}</a>
-                            </div>
-                            <div class="card-body p-0">
-                                @php($topProviders = $data[4]['top_providers'] ?? [])
-                                <div class="table-responsive px-3">
-                                    <table class="table table-hover align-middle dashboard-ranking-widget-table">
-                                        <colgroup>
-                                            <col>
-                                            <col class="col-score">
-                                            <col class="col-bookings">
-                                        </colgroup>
-                                        <thead>
-                                        <tr>
-                                            <th>{{ translate('Provider') }}</th>
-                                            <th class="text-end col-score">{{ translate('Score') }}</th>
-                                            <th class="text-end col-bookings">{{ translate('Bookings') }}</th>
-                                        </tr>
-                                        </thead>
-                                        <tbody>
-                                        @forelse($topProviders as $provider)
-                                            <tr class="provider-redirect"
-                                                data-route="{{route('admin.provider.details',[$provider->id])}}?web_page=overview">
-                                                <td>
-                                                    <div class="media align-items-center gap-2 min-w-0">
-                                                        <div class="avatar flex-shrink-0">
-                                                            <img class="avatar-img rounded-circle"
-                                                                 src="{{ $provider->logo_full_path }}"
-                                                                 alt="{{ translate('logo') }}">
-                                                        </div>
-                                                        <div class="media-body min-w-0">
-                                                            <h5 class="mb-0 fs-12 text-truncate">{{ $provider->company_name ?? '—' }}</h5>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td class="text-end text-nowrap col-score">
-                                                    <span class="fs-12 fw-medium">{{ (int) ($provider->performance_score ?? 0) }}</span>
-                                                </td>
-                                                <td class="text-end text-nowrap col-bookings">
-                                                    <span class="fs-12 fw-medium">{{ $provider->completed_bookings_count ?? 0 }}</span>
-                                                </td>
-                                            </tr>
-                                        @empty
-                                            <tr>
-                                                <td colspan="3" class="text-center opacity-50 py-4">
-                                                    {{ translate('No Bookings Found') }}
-                                                </td>
-                                            </tr>
-                                        @endforelse
-                                        </tbody>
-                                    </table>
+                                        @else
+                                            <div class="work-queue-empty">
+                                                <span class="material-symbols-outlined">sync_alt</span>
+                                                <span>{{ translate('No Recent Transactions') }}</span>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                                <div class="work-queue-box-footer">
+                                    <a href="{{ route('admin.transaction.list', ['trx_type' => 'all']) }}" class="work-queue-footer-link is-single">{{ translate('view_all') }}</a>
                                 </div>
                             </div>
-                        </div>
-                    </div>
 
-                    <div class="col-lg-4 col-md-6 col-12">
-                        <div class="card top-providers dashboard-collapsible-widget h-100" id="dashboard-top-customers">
-                            <div class="card-header d-flex justify-content-between gap-10">
-                                <h5 class="dashboard-widget-title mb-0">
-                                    <span class="material-icons dashboard-widget-title__icon text-primary" aria-hidden="true">groups</span>
-                                    {{ translate('top_customers') }}
-                                </h5>
-                                <a href="{{route('admin.customer.top-customers')}}"
-                                   class="btn-link">{{translate('view_all')}}</a>
-                            </div>
-                            <div class="card-body p-0">
-                                @php($topCustomers = $data[5]['top_customers'] ?? [])
-                                <div class="table-responsive px-3">
-                                    <table class="table table-hover align-middle dashboard-ranking-widget-table">
-                                        <colgroup>
-                                            <col>
-                                            <col class="col-score">
-                                            <col class="col-bookings">
-                                        </colgroup>
-                                        <thead>
-                                        <tr>
-                                            <th>{{ translate('Customer') }}</th>
-                                            <th class="text-end col-score">{{ translate('Score') }}</th>
-                                            <th class="text-end col-bookings">{{ translate('Bookings') }}</th>
-                                        </tr>
-                                        </thead>
-                                        <tbody>
-                                        @forelse($topCustomers as $customer)
-                                            <tr class="customer-redirect"
-                                                data-route="{{route('admin.customer.detail',[$customer->id,'web_page'=>'overview'])}}">
-                                                <td>
-                                                    <div class="media align-items-center gap-2 min-w-0">
-                                                        <div class="avatar flex-shrink-0">
-                                                            <img class="avatar-img rounded-circle"
-                                                                 src="{{ $customer->profile_image_full_path }}"
-                                                                 alt="{{ $customer->first_name ?? 'Customer' }}">
-                                                        </div>
-                                                        <div class="media-body min-w-0">
-                                                            <h5 class="mb-0 fs-12 text-truncate">
-                                                                {{ trim(($customer->first_name ?? '').' '.($customer->last_name ?? '')) ?: '—' }}
-                                                            </h5>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td class="text-end text-nowrap col-score">
-                                                    <span class="fs-12 fw-medium">{{ (int) ($customer->performance_score ?? 0) }}</span>
-                                                </td>
-                                                <td class="text-end text-nowrap col-bookings">
-                                                    <span class="fs-12 fw-medium">{{ $customer->completed_bookings_count ?? 0 }}</span>
-                                                </td>
-                                            </tr>
-                                        @empty
-                                            <tr>
-                                                <td colspan="3" class="text-center opacity-50 py-4">
-                                                    {{ translate('No Bookings Found') }}
-                                                </td>
-                                            </tr>
-                                        @endforelse
-                                        </tbody>
-                                    </table>
+                            <div class="work-queue-box tone-wallet" id="dashboard-recent-wallet-transactions">
+                                <div class="work-queue-box-header">
+                                    <div class="work-queue-box-title">
+                                        <span class="material-symbols-outlined">account_balance_wallet</span>
+                                        <span>{{ translate('recent_wallet_transactions') }}</span>
+                                    </div>
+                                    @if($thisMonthWalletTransactionsCount > 0)
+                                        <span class="work-queue-count-badge {{ $thisMonthWalletTransactionsCount > 0 ? 'is-hot' : '' }}">{{ $thisMonthWalletTransactionsCount }}</span>
+                                    @endif
+                                </div>
+                                <div class="work-queue-box-content">
+                                    <div class="work-queue-box-body active">
+                                        @if($thisMonthWalletTransactionsCount > 0)
+                                            <div class="finance-ledger-summary">
+                                                {{ $thisMonthWalletTransactionsCount }} {{ translate('wallet_transactions_this_month') }}
+                                            </div>
+                                        @endif
+                                        @if(count($recentWalletTransactions) > 0)
+                                            <div class="work-queue-table-wrap">
+                                                <table class="work-queue-table">
+                                                    <thead>
+                                                    <tr>
+                                                        <th class="col-amount">{{ translate('Amount') }}</th>
+                                                        <th class="col-name">{{ translate('Customer') }}</th>
+                                                        <th class="col-datetime">{{ translate('Date') }}</th>
+                                                    </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                    @foreach($recentWalletTransactions as $entry)
+                                                        <tr>
+                                                            <td>
+                                                                @if($entry->credit > 0)
+                                                                    <span class="finance-amount is-credit">+ {{ with_currency_symbol($entry->credit) }}</span>
+                                                                @else
+                                                                    <span class="finance-amount is-debit">- {{ with_currency_symbol($entry->debit) }}</span>
+                                                                @endif
+                                                            </td>
+                                                            <td>
+                                                                <span class="cell-primary">{{ trim(($entry->to_user?->first_name ?? '').' '.($entry->to_user?->last_name ?? '')) ?: '—' }}</span>
+                                                            </td>
+                                                            <td class="datetime-main">{{ date('d M, H:i a', strtotime($entry->created_at)) }}</td>
+                                                        </tr>
+                                                    @endforeach
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        @else
+                                            <div class="work-queue-empty">
+                                                <span class="material-symbols-outlined">account_balance_wallet</span>
+                                                <span>{{ translate('No_recent_wallet_transactions') }}</span>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                                <div class="work-queue-box-footer">
+                                    <a href="{{ route('admin.customer.wallet.report') }}" class="work-queue-footer-link is-single">{{ translate('view_all') }}</a>
                                 </div>
                             </div>
-                        </div>
                     </div>
                 </div>
-                <div class="row g-4 mb-4">
-                    <div class="col-12">
-                        @include('adminmodule::admin.partials._staff-presence-widget')
+                <div class="mb-3">
+                    <div class="lane-boxes-row">
+                            <div class="work-queue-box tone-earning" id="dashboard-earning-statistics">
+                                <div class="work-queue-box-header">
+                                    <div class="work-queue-box-title">
+                                        <span class="material-symbols-outlined">show_chart</span>
+                                        <span>{{ translate('earning_statistics') }}</span>
+                                    </div>
+                                    <div class="dashboard-earning-filter-wrap">
+                                        <div class="select-wrap">
+                                            <select class="js-select update-chart update-chart-year">
+                                                @php($from_year = date('Y'))
+                                                @php($to_year = $from_year - 10)
+                                                @while($from_year != $to_year)
+                                                    <option value="{{ $from_year }}" {{ (string) $earningGraphYear === (string) $from_year ? 'selected' : '' }}>
+                                                        {{ $from_year }}
+                                                    </option>
+                                                    @php($from_year--)
+                                                @endwhile
+                                            </select>
+                                        </div>
+                                        <div class="select-wrap">
+                                            <select class="js-select update-chart update-chart-month"
+                                                    data-placeholder="{{ translate('month') }}"
+                                                    data-allow-clear="true">
+                                                <option value=""></option>
+                                                @foreach(range(1, 12) as $monthNumber)
+                                                    <option value="{{ $monthNumber }}"
+                                                        {{ (string) $earningGraphMonth === (string) $monthNumber ? 'selected' : '' }}>
+                                                        {{ date('M', mktime(0, 0, 0, $monthNumber, 1)) }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="work-queue-box-content">
+                                    <div class="work-queue-box-body active">
+                                        <div class="finance-chart-wrap">
+                                            <div id="apex_line-chart"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="work-queue-box tone-lead" id="dashboard-recent-completed-bookings">
+                                <div class="work-queue-box-header">
+                                    <div class="work-queue-box-title">
+                                        <span class="material-symbols-outlined">task_alt</span>
+                                        <span>{{ translate('recent_completed_bookings_with_earning') }}</span>
+                                    </div>
+                                    <span class="work-queue-count-badge">{{ count($recentCompletedBookings) }}</span>
+                                </div>
+                                <div class="work-queue-box-content">
+                                    <div class="work-queue-box-body active">
+                                        @if(count($recentCompletedBookings) > 0)
+                                            <div class="work-queue-table-wrap">
+                                                <table class="work-queue-table">
+                                                    <thead>
+                                                    <tr>
+                                                        <th class="col-booking-ref">{{ translate('Booking') }}</th>
+                                                        <th class="col-name">{{ translate('Provider') }}</th>
+                                                        <th class="col-amount">{{ translate('Our_Earning') }}</th>
+                                                        <th class="col-datetime">{{ translate('Date') }}</th>
+                                                    </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                    @foreach($recentCompletedBookings as $booking)
+                                                        <tr class="is-clickable booking-redirect"
+                                                            data-route="{{ route('admin.booking.details', [$booking->id]) }}">
+                                                            <td>
+                                                                <span class="cell-primary">{{ $booking->readable_id ?? '—' }}</span>
+                                                            </td>
+                                                            <td>
+                                                                <span class="cell-primary">{{ $booking->provider?->company_name ?? '—' }}</span>
+                                                            </td>
+                                                            <td>
+                                                                <span class="finance-amount is-credit">{{ with_currency_symbol($booking->our_earning ?? 0) }}</span>
+                                                            </td>
+                                                            <td class="datetime-main">{{ date('d M, H:i a', strtotime($booking->updated_at)) }}</td>
+                                                        </tr>
+                                                    @endforeach
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        @else
+                                            <div class="work-queue-empty">
+                                                <span class="material-symbols-outlined">task_alt</span>
+                                                <span>{{ translate('No_completed_bookings') }}</span>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                                <div class="work-queue-box-footer">
+                                    <a href="{{ route('admin.booking.list', ['booking_status' => 'completed', 'service_type' => 'all']) }}" class="work-queue-footer-link is-single">{{ translate('view_all') }}</a>
+                                </div>
+                            </div>
                     </div>
                 </div>
             @else
@@ -1053,126 +493,6 @@
 
     <script>
         'use strict';
-
-        function initDashboardCollapsibleWidgets() {
-            var storageKey = 'adminDashboardWidgetStates';
-
-            function getWidgetStates() {
-                try {
-                    return JSON.parse(localStorage.getItem(storageKey) || '{}');
-                } catch (e) {
-                    return {};
-                }
-            }
-
-            function saveWidgetState(widgetId, expanded) {
-                var states = getWidgetStates();
-                states[widgetId] = expanded;
-                localStorage.setItem(storageKey, JSON.stringify(states));
-            }
-
-            var widgetStates = getWidgetStates();
-
-            $('.main-content .dashboard-collapsible-widget').each(function (index) {
-                var $card = $(this);
-                if ($card.data('collapse-initialized')) {
-                    return;
-                }
-                $card.data('collapse-initialized', true);
-
-                var widgetId = $card.attr('id');
-                if (!widgetId) {
-                    widgetId = 'dashboard-widget-' + index;
-                    $card.attr('id', widgetId);
-                }
-                var bodyId = widgetId + '-body';
-                var defaultExpandedWidgets = ['dashboard-booking-followups', 'dashboard-leads-followups'];
-                var isExpanded = Object.prototype.hasOwnProperty.call(widgetStates, widgetId)
-                    ? widgetStates[widgetId] === true
-                    : defaultExpandedWidgets.includes(widgetId);
-
-                var $header = $card.children('.card-header').first();
-                var $body = $card.children('.card-body').first();
-                if (!$header.length || !$body.length) {
-                    return;
-                }
-
-                var $collapse = $('<div class="collapse dashboard-widget-collapse-panel"></div>');
-                if (isExpanded) {
-                    $collapse.addClass('show');
-                }
-                $collapse.attr('id', bodyId);
-                $body.detach().appendTo($collapse);
-                $card.append($collapse);
-
-                var $toggle = $(
-                    '<button type="button" class="dashboard-widget-collapse-btn" data-bs-toggle="collapse" data-bs-target="#' + bodyId + '" aria-expanded="' + (isExpanded ? 'true' : 'false') + '" aria-controls="' + bodyId + '" aria-label="Toggle widget">' +
-                    '<span class="material-symbols-outlined dashboard-widget-collapse-icon" aria-hidden="true">expand_more</span>' +
-                    '</button>'
-                );
-
-                var $title = $header.find('.dashboard-widget-title').first();
-                var $main = $('<div class="dashboard-widget-header-main"></div>');
-                if ($title.length) {
-                    $title.detach();
-                    $main.append($toggle);
-                    $main.append($title);
-                    $header.prepend($main);
-                } else {
-                    $header.prepend($toggle);
-                }
-
-                var $otherChildren = $header.children().not('.dashboard-widget-header-main');
-                if ($otherChildren.length) {
-                    var $actions = $('<div class="dashboard-widget-header-actions"></div>');
-                    $otherChildren.appendTo($actions);
-                    $header.append($actions);
-                }
-
-                $header.addClass('dashboard-widget-collapse-header');
-
-                $header.on('click', function (e) {
-                    if ($(e.target).closest('a, button:not(.dashboard-widget-collapse-btn), select, input, label, .select2-container, .badge').length) {
-                        return;
-                    }
-                    var collapseEl = document.getElementById(bodyId);
-                    if (!collapseEl || typeof bootstrap === 'undefined') {
-                        return;
-                    }
-                    bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false }).toggle();
-                });
-
-                $collapse.on('shown.bs.collapse hidden.bs.collapse', function () {
-                    var expanded = $collapse.hasClass('show');
-                    $toggle.attr('aria-expanded', expanded ? 'true' : 'false');
-                    saveWidgetState(widgetId, expanded);
-                    if (expanded && typeof chart !== 'undefined' && chart && $card.hasClass('earning-statistics')) {
-                        setTimeout(function () {
-                            chart.resize();
-                        }, 50);
-                    }
-                });
-
-                if (isExpanded && $card.hasClass('earning-statistics') && typeof chart !== 'undefined' && chart) {
-                    setTimeout(function () {
-                        chart.resize();
-                    }, 100);
-                }
-
-                if ($card.hasClass('earning-statistics')) {
-                    $card.find('select.js-select.update-chart').each(function () {
-                        var $select = $(this);
-                        if ($select.data('select2')) {
-                            $select.select2('destroy');
-                        }
-                    });
-                    $card.find('.dashboard-widget-header-actions .select2-container').remove();
-                }
-            });
-        }
-
-        // Restructure widget headers before Select2 runs (avoids duplicate year dropdowns).
-        initDashboardCollapsibleWidgets();
 
         var earningChartMonthCategories = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -1269,7 +589,7 @@
                 }
             ],
             chart: {
-                height: 386,
+                height: 220,
                 type: 'line',
                 dropShadow: {
                     enabled: true,
@@ -1325,18 +645,13 @@
                 position: 'bottom',
                 horizontalAlign: 'center',
                 floating: false,
-                offsetY: -10,
+                offsetY: 0,
                 offsetX: 0,
+                fontSize: '10px',
                 itemMargin: {
-                    horizontal: 10,
-                    vertical: 10
+                    horizontal: 8,
+                    vertical: 4
                 },
-            },
-            padding: {
-                top: 0,
-                right: 0,
-                bottom: 200,
-                left: 10
             },
         };
 
@@ -1346,14 +661,6 @@
 
         var chart = new ApexCharts(document.querySelector("#apex_line-chart"), options);
         chart.render();
-        try {
-            var dashboardWidgetStates = JSON.parse(localStorage.getItem('adminDashboardWidgetStates') || '{}');
-            if (dashboardWidgetStates['dashboard-earning-statistics']) {
-                setTimeout(function () {
-                    chart.resize();
-                }, 150);
-            }
-        } catch (e) {}
 
         function navigateFromDashboardRow($row) {
             var route = $.trim($row.attr('data-route') || '');
@@ -1362,181 +669,8 @@
             }
         }
 
-        $(document).on('click', '.provider-redirect', function () {
+        $(document).on('click', '.booking-redirect', function () {
             navigateFromDashboardRow($(this));
-        });
-
-        $(document).on('click', '.customer-redirect', function () {
-            navigateFromDashboardRow($(this));
-        });
-
-        $(document).on('click', '.recent-booking-redirect', function () {
-            navigateFromDashboardRow($(this));
-        });
-
-        $(document).on('click', '.todays-followup-redirect', function (event) {
-            if ($(event.target).closest('a[href]').length) {
-                return;
-            }
-            navigateFromDashboardRow($(this));
-        });
-
-        function refreshStaffPresenceWidget() {
-            $.getJSON('{{ route('admin.staff-presence.list') }}', function (response) {
-                if (!response.data || !response.data.staff) return;
-                var summary = response.data.summary || {};
-                ['online', 'away', 'on_break', 'offline'].forEach(function (key) {
-                    var el = document.querySelector('[data-summary="' + key + '"]');
-                    if (el) el.textContent = summary[key] || 0;
-                });
-                response.data.staff.forEach(function (member) {
-                    var row = document.querySelector('#staff-presence-tbody tr[data-staff-id="' + member.id + '"]');
-                    if (!row) return;
-                    var badge = row.querySelector('.staff-presence-badge');
-                    if (badge) {
-                        badge.textContent = member.presence_label;
-                        badge.className = 'badge rounded-pill staff-presence-badge ' + ({
-                            online: 'bg-success',
-                            away: 'bg-warning text-dark',
-                            on_break: 'bg-info text-dark',
-                            offline: 'bg-secondary'
-                        }[member.presence_status] || 'bg-secondary');
-                    }
-                    var dot = row.querySelector('.staff-presence-dot');
-                    if (dot) {
-                        dot.className = 'position-absolute bottom-0 end-0 rounded-circle border border-white staff-presence-dot ' + ({
-                            online: 'bg-success',
-                            away: 'bg-warning',
-                            on_break: 'bg-info',
-                            offline: 'bg-secondary'
-                        }[member.presence_status] || 'bg-secondary');
-                    }
-                    var pageCell = row.querySelector('.staff-last-visited-page');
-                    if (pageCell) {
-                        pageCell.textContent = member.last_visited_page_label || '—';
-                        pageCell.setAttribute('title', member.last_visited_page || '');
-                    }
-                    var lastOfflineCell = row.querySelector('.staff-last-offline-today');
-                    if (lastOfflineCell) {
-                        lastOfflineCell.textContent = member.last_offline_period_today || '—';
-                    }
-                    var totalOfflineCell = row.querySelector('.staff-total-offline-today');
-                    if (totalOfflineCell) {
-                        totalOfflineCell.textContent = member.total_offline_today || '—';
-                    }
-                    var lastAwayCell = row.querySelector('.staff-last-away-today');
-                    if (lastAwayCell) {
-                        lastAwayCell.textContent = member.last_away_period_today || '—';
-                    }
-                    var totalAwayCell = row.querySelector('.staff-total-away-today');
-                    if (totalAwayCell) {
-                        totalAwayCell.textContent = member.total_away_today || '—';
-                    }
-                    var lastBreakCell = row.querySelector('.staff-last-break-today');
-                    if (lastBreakCell) {
-                        lastBreakCell.textContent = member.last_break_period_today || '—';
-                    }
-                    var totalBreakCell = row.querySelector('.staff-total-break-today');
-                    if (totalBreakCell) {
-                        totalBreakCell.textContent = member.total_break_today || '—';
-                    }
-                    var totalOnlineCell = row.querySelector('.staff-total-online-today');
-                    if (totalOnlineCell) {
-                        totalOnlineCell.textContent = member.total_online_today || '—';
-                    }
-                });
-            });
-        }
-        refreshStaffPresenceWidget();
-        setInterval(refreshStaffPresenceWidget, 30000);
-
-        var staffPresenceHistoryDatesLoaded = false;
-
-        function setStaffPresenceHistoryState(state) {
-            document.getElementById('staff-presence-history-empty').classList.toggle('d-none', state !== 'empty');
-            document.getElementById('staff-presence-history-loading').classList.toggle('d-none', state !== 'loading');
-            document.getElementById('staff-presence-history-table-wrap').classList.toggle('d-none', state !== 'table');
-        }
-
-        function renderStaffPresenceHistoryRows(staff) {
-            var tbody = document.getElementById('staff-presence-history-tbody');
-            if (!tbody) return;
-            tbody.innerHTML = '';
-            (staff || []).forEach(function (member) {
-                var tr = document.createElement('tr');
-                tr.innerHTML =
-                    '<td class="staff-presence-employee-col"><div class="d-flex align-items-center gap-2">' +
-                        '<div class="position-relative flex-shrink-0 staff-presence-avatar-wrap">' +
-                        '<img src="' + (member.profile_image || '') + '" alt="" class="avatar rounded-circle staff-presence-avatar" width="36" height="36">' +
-                        '</div>' +
-                        '<div><div class="fw-medium">' + (member.name || '') + '</div>' +
-                        '<div class="small text-muted">' + (member.email || '') + '</div></div></div></td>' +
-                    '<td class="text-muted">' + (member.last_offline_period || '—') + '</td>' +
-                    '<td class="text-muted">' + (member.total_offline || '—') + '</td>' +
-                    '<td class="text-muted">' + (member.last_away_period || '—') + '</td>' +
-                    '<td class="text-muted">' + (member.total_away || '—') + '</td>' +
-                    '<td class="text-muted">' + (member.last_break_period || '—') + '</td>' +
-                    '<td class="text-muted">' + (member.total_break || '—') + '</td>' +
-                    '<td class="text-muted">' + (member.total_online || '—') + '</td>';
-                tbody.appendChild(tr);
-            });
-        }
-
-        function loadStaffPresenceHistory(date) {
-            if (!date) return;
-            setStaffPresenceHistoryState('loading');
-            $.getJSON('{{ route('admin.staff-presence.history') }}', { date: date }, function (response) {
-                if (!response.data || !response.data.staff) {
-                    setStaffPresenceHistoryState('empty');
-                    return;
-                }
-                renderStaffPresenceHistoryRows(response.data.staff);
-                setStaffPresenceHistoryState('table');
-                var title = document.getElementById('staffPresenceHistoryModalLabel');
-                if (title && response.data.date_label) {
-                    title.textContent = @json(translate('Employee_Status_History')) + ' — ' + response.data.date_label;
-                }
-            }).fail(function () {
-                setStaffPresenceHistoryState('empty');
-            });
-        }
-
-        function loadStaffPresenceHistoryDates() {
-            var select = document.getElementById('staff-presence-history-date');
-            if (!select) return;
-            select.disabled = true;
-            select.innerHTML = '<option value="">' + @json(translate('Loading')) + '...</option>';
-            setStaffPresenceHistoryState('loading');
-
-            $.getJSON('{{ route('admin.staff-presence.history-dates') }}', function (response) {
-                var dates = (response.data && response.data.dates) ? response.data.dates : [];
-                if (!dates.length) {
-                    select.innerHTML = '<option value="">' + @json(translate('No_presence_history_available')) + '</option>';
-                    select.disabled = true;
-                    setStaffPresenceHistoryState('empty');
-                    return;
-                }
-
-                select.innerHTML = dates.map(function (item) {
-                    return '<option value="' + item.value + '">' + item.label + (item.is_today ? ' (' + @json(translate('Today')) + ')' : '') + '</option>';
-                }).join('');
-                select.disabled = false;
-                staffPresenceHistoryDatesLoaded = true;
-                loadStaffPresenceHistory(dates[0].value);
-            }).fail(function () {
-                select.innerHTML = '<option value="">' + @json(translate('No_presence_history_available')) + '</option>';
-                setStaffPresenceHistoryState('empty');
-            });
-        }
-
-        $('#staffPresenceHistoryModal').on('show.bs.modal', function () {
-            if (!staffPresenceHistoryDatesLoaded) {
-                loadStaffPresenceHistoryDates();
-            }
-        });
-
-        $('#staff-presence-history-date').on('change', function () {
-            loadStaffPresenceHistory(this.value);
         });
     </script>
 @endpush

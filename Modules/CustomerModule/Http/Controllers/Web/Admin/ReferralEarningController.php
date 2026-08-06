@@ -27,7 +27,7 @@ class ReferralEarningController extends Controller
 
     public function report(Request $request): View|Factory|Application
     {
-        $this->authorize('customer_view');
+        $this->authorize('referral_earning_view');
 
         $this->validateReportRequest($request);
 
@@ -66,7 +66,7 @@ class ReferralEarningController extends Controller
 
     public function reportDownload(Request $request): StreamedResponse|string
     {
-        $this->authorize('customer_export');
+        $this->authorize('referral_earning_export');
 
         $this->validateReportRequest($request);
 

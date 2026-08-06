@@ -83,6 +83,37 @@ class CategoryController extends Controller
         return $build('');
     }
 
+    private function categoriesListQuery(Request $request)
+    {
+        $search = $request->input('search', '');
+        $status = $request->input('status', 'all');
+
+        return $this->category->with('storage')
+            ->with([
+                'children' => fn ($query) => $query->ofType('sub')->ordered()->select('id', 'name', 'parent_id', 'is_active'),
+                'zones' => fn ($query) => $query->withoutGlobalScope('translate')->orderBy('zones.name')->select('zones.id', 'zones.name'),
+            ])
+            ->withCount(['children', 'zones' => function ($query) {
+                $query->withoutGlobalScope('translate');
+            }])
+            ->when($search, function ($query) use ($search) {
+                $keys = array_filter(explode(' ', trim((string) $search)));
+                if ($keys === []) {
+                    return;
+                }
+                $query->where(function ($nameQuery) use ($keys) {
+                    foreach ($keys as $key) {
+                        $nameQuery->orWhere('name', 'LIKE', '%' . $key . '%');
+                    }
+                });
+            })
+            ->when($status != 'all', function ($query) use ($status) {
+                $query->ofStatus($status == 'active' ? 1 : 0);
+            })
+            ->ofType('main')
+            ->ordered();
+    }
+
     /**
      * Display a listing of the resource.
      * @param Request $request
@@ -92,24 +123,12 @@ class CategoryController extends Controller
     public function create(Request $request): View|Factory|Application
     {
         $this->authorize('category_view');
-        $search = $request->has('search') ? $request['search'] : '';
-        $status = $request->has('status') ? $request['status'] : 'all';
+        $search = $request->input('search', '');
+        $status = $request->input('status', 'all');
         $queryParams = ['search' => $search, 'status' => $status];
 
-        $categories = $this->category->with('storage')->withCount(['children', 'zones' => function ($query) {
-            $query->withoutGlobalScope('translate');
-        }])
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                foreach ($keys as $key) {
-                    $query->orWhere('name', 'LIKE', '%' . $key . '%');
-                }
-            })
-            ->when($status != 'all', function ($query) use ($status) {
-                $query->ofStatus($status == 'active' ? 1 : 0);
-            })
-            ->ofType('main')
-            ->ordered()->paginate(pagination_limit())->appends($queryParams);
+        $categories = $this->categoriesListQuery($request)
+            ->paginate(pagination_limit())->appends($queryParams);
 
         $zones = $this->zone->where('is_active', 1)->withoutGlobalScope('translate')->get();
         $zoneTree = $this->zoneTreeForCategoryForm();
@@ -130,20 +149,7 @@ class CategoryController extends Controller
         $page = $request->input('page', 1);
         $queryParams = ['search' => $search, 'status' => $status];
 
-        $categories = Category::with('storage')->withCount(['children', 'zones' => function ($query) {
-            $query->withoutGlobalScope('translate');
-        }])
-            ->when($search, function ($query) use ($search) {
-                $keys = explode(' ', $search);
-                foreach ($keys as $key) {
-                    $query->orWhere('name', 'LIKE', "%$key%");
-                }
-            })
-            ->when($status != 'all', function ($query) use ($status) {
-                $query->ofStatus($status == 'active' ? 1 : 0);
-            })
-            ->ofType('main')
-            ->ordered()
+        $categories = $this->categoriesListQuery($request)
             ->paginate(pagination_limit())
             ->appends($queryParams);
 
@@ -155,19 +161,7 @@ class CategoryController extends Controller
             $page = $page - 1;
             $request->merge(['page' => $page]);
 
-            $categories = Category::with('storage')->withCount(['children', 'zones' => function ($query) {
-                $query->withoutGlobalScope('translate');
-            }])
-                ->when($search, function ($query) use ($search) {
-                    $keys = explode(' ', $search);
-                    foreach ($keys as $key) {
-                        $query->orWhere('name', 'LIKE', "%$key%");
-                    }
-                })
-                ->when($status != 'all', function ($query) use ($status) {
-                    $query->ofStatus($status == 'active' ? 1 : 0);
-                })
-                ->ofType('main')
+            $categories = $this->categoriesListQuery($request)
                 ->latest()
                 ->paginate(pagination_limit())
                 ->appends($queryParams);

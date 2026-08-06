@@ -332,6 +332,13 @@
                                                                                        href="{{route('admin.employee.edit', [$employee->id])}}"
                                                                                        class="btn btn-primary">{{translate('edit')}}</a>
                                                                                 @endcan
+                                                                                @if(can_impersonate_employees() && $employee->is_active)
+                                                                                    <a href="{{ route('admin.employee.impersonate', $employee->id) }}"
+                                                                                       class="btn btn--secondary"
+                                                                                       data-turbo="false">
+                                                                                        {{ translate('View_dashboard_as') }}
+                                                                                    </a>
+                                                                                @endif
                                                                             </div>
                                                                         </div>
                                                                     </div>
@@ -426,6 +433,11 @@
                                                                    data-bs-toggle="modal" class="dropdown-item"
                                                                    href="#">{{translate('View Profile')}}</a>
                                                             @endcan
+                                                            @if(can_impersonate_employees() && $employee->is_active)
+                                                                <a class="dropdown-item"
+                                                                   href="{{ route('admin.employee.impersonate', $employee->id) }}"
+                                                                   data-turbo="false">{{ translate('View_dashboard_as') }}</a>
+                                                            @endif
                                                             @can('employee_update')
                                                                 <a class="dropdown-item"
                                                                    href="{{route('admin.employee.edit',[$employee->id])}}">{{translate('Edit Employee')}}</a>

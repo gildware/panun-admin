@@ -7,13 +7,42 @@
     <style>
         .staff-chat-entity-link { display: inline-flex; align-items: center; gap: .15rem; }
         .staff-chat-entity-type { font-size: .7rem; text-transform: uppercase; letter-spacing: .02em; }
-        .task-board-page { --tb-col-min: 360px; }
+        .task-board-page {
+            --tb-col-min: 360px;
+            --tb-footer-space: 2.75rem;
+            --tb-board-height: calc(100dvh - var(--top-chrome-main-padding, 7.75rem) - var(--tb-footer-space));
+            display: flex;
+            flex-direction: column;
+            height: var(--tb-board-height);
+            min-height: 28rem;
+            max-height: var(--tb-board-height);
+            overflow: hidden;
+        }
+        body.nav-top.top-chrome-auto-hide .task-board-page {
+            --tb-board-height: calc(100dvh - var(--top-chrome-main-padding-collapsed, 2rem) - var(--tb-footer-space));
+        }
+        body:not(.nav-top) .task-board-page {
+            --tb-board-height: calc(100dvh - 5rem - var(--tb-footer-space));
+        }
+        .task-board-page > .container-fluid {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: hidden;
+            padding-bottom: 0;
+        }
         .task-board-toolbar {
-            background: transparent;
+            background: var(--bs-body-bg, #fff);
             border: 0;
             border-radius: 0;
-            padding: 0;
+            padding: 0 0 .75rem;
             margin-bottom: 0;
+            flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            z-index: 25;
+            border-bottom: 1px solid #e2e8f0;
         }
         .task-board-header-filters {
             display: flex;
@@ -176,6 +205,45 @@
             pointer-events: none;
             box-shadow: 0 0 0 2px #fff;
         }
+        .task-board-my-counts {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: .45rem;
+        }
+        .task-board-my-count-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            padding: .2rem .55rem;
+            border-radius: 999px;
+            font-size: .72rem;
+            font-weight: 700;
+            line-height: 1.2;
+            text-decoration: none;
+            border: 1px solid transparent;
+        }
+        .task-board-my-count-badge span:last-child {
+            min-width: 1.1rem;
+            height: 1.1rem;
+            padding: 0 .3rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .82);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .68rem;
+        }
+        .task-board-my-count-badge--todo {
+            background: #f1f5f9;
+            color: #334155;
+            border-color: #cbd5e1;
+        }
+        .task-board-my-count-badge--in-progress {
+            background: #dbeafe;
+            color: #1d4ed8;
+            border-color: #93c5fd;
+        }
         .task-board-sort-menu,
         .task-board-filter-menu {
             min-width: 260px;
@@ -198,9 +266,11 @@
             display: flex;
             gap: 1rem;
             overflow-x: auto;
-            padding-bottom: 1rem;
-            min-height: 70vh;
-            align-items: flex-start;
+            overflow-y: hidden;
+            padding-bottom: .75rem;
+            flex: 1 1 auto;
+            min-height: 0;
+            align-items: stretch;
         }
         .task-column {
             --column-color: #64748b;
@@ -211,7 +281,10 @@
             border-radius: 12px;
             display: flex;
             flex-direction: column;
-            max-height: calc(100vh - 220px);
+            max-height: none;
+            height: 100%;
+            min-height: 0;
+            align-self: stretch;
         }
         .task-column-header {
             padding: .85rem 1rem;
@@ -242,8 +315,8 @@
         .task-column-body {
             padding: .75rem;
             overflow-y: auto;
-            flex: 1;
-            min-height: 120px;
+            flex: 1 1 auto;
+            min-height: 0;
         }
         .task-card {
             background: #fff;
@@ -260,6 +333,9 @@
         }
         .task-card:hover { box-shadow: 0 6px 16px rgba(15, 23, 42, .08); }
         .task-card.sortable-ghost { opacity: .45; }
+        .task-board-page.task-board-drag-disabled .task-card {
+            cursor: pointer;
+        }
         .task-card-top {
             display: flex;
             align-items: flex-start;
@@ -803,6 +879,10 @@
             color: #1e293b;
             line-height: 1.45;
         }
+        .ticket-comment-body .staff-chat-entity-badge {
+            vertical-align: baseline;
+            margin: 0 1px;
+        }
         .ticket-comment-compose {
             border: 1px solid #e2e8f0;
             border-radius: 10px;
@@ -840,7 +920,111 @@
             padding-left: 0;
             margin-bottom: 0;
         }
-        .staff-chat-entity-picker { z-index: 1080; position: absolute; left: 0; right: 0; top: 100%; }
+        #ticketModal #staffChatEntityPicker {
+            z-index: 2005;
+        }
+        #ticketModal .staff-chat-compose-editor {
+            position: relative;
+            width: 100%;
+        }
+        #ticketModal .staff-chat-compose-highlight {
+            position: absolute;
+            inset: 0;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            color: #1e293b;
+            pointer-events: none;
+            z-index: 0;
+        }
+        #ticketModal textarea.staff-chat-compose-input,
+        #ticketModal textarea.staff-chat-compose-input.form-control {
+            position: relative;
+            z-index: 1;
+            color: transparent !important;
+            -webkit-text-fill-color: transparent !important;
+            caret-color: #1e293b !important;
+            background: transparent !important;
+            background-color: transparent !important;
+        }
+        #ticketModal textarea.staff-chat-compose-input::placeholder {
+            -webkit-text-fill-color: #94a3b8 !important;
+            color: #94a3b8 !important;
+        }
+        #ticketModal .staff-chat-compose-highlight .staff-chat-entity-badge {
+            vertical-align: baseline;
+            margin: 0 1px;
+        }
+        #ticketModal,
+        #columnModal {
+            z-index: 1065;
+        }
+        #ticketModal .select2-container {
+            width: 100% !important;
+        }
+        #ticketModal .select2-container--default .select2-selection--multiple {
+            min-height: 38px;
+            border-color: #e2e8f0;
+            border-radius: 8px;
+            padding: 2px 6px;
+        }
+        #ticketModal .select2-container--default .select2-selection--multiple .select2-selection__choice {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+            border-radius: 999px;
+            display: inline-flex !important;
+            align-items: center;
+            max-width: 100%;
+            padding: 0.2rem 0.5rem 0.2rem 1.375rem !important;
+            margin-top: 4px;
+            margin-right: 4px;
+            font-size: .78rem;
+            line-height: 1.3;
+            position: relative;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            float: none !important;
+        }
+        #ticketModal .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+            position: absolute !important;
+            left: 0.375rem !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+            float: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            font-size: 0.875rem !important;
+            line-height: 1 !important;
+            color: #1e40af !important;
+            width: 0.875rem;
+            height: 0.875rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #ticketModal .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+            color: #dc2626 !important;
+            background: transparent !important;
+        }
+        #ticketModal .select2-container--default .select2-selection--single {
+            min-height: 31px;
+            border-color: #e2e8f0;
+            border-radius: 8px;
+        }
+        #ticketModal .select2-dropdown {
+            z-index: 2001;
+        }
+        .task-date-pill {
+            display: inline-flex;
+        }
+        #ticketModal.ticket-modal-loading .ticket-modal-body {
+            opacity: .55;
+            pointer-events: none;
+        }
     </style>
 @endpush
 
@@ -884,7 +1068,23 @@
 
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                     <div>
-                        <h2 class="mb-1">{{ translate('Task_Board') }}</h2>
+                        @php
+                            $myAssignedCounts = $myAssignedCounts ?? ['todo' => 0, 'in_progress' => 0, 'total' => 0];
+                            $myTicketsUrl = route('admin.task-board.index', array_merge(request()->except('page'), ['my_tickets' => 1]));
+                        @endphp
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                            <h2 class="mb-0">{{ translate('Task_Board') }}</h2>
+                            @if(($myAssignedCounts['todo'] ?? 0) > 0)
+                                <a href="{{ $myTicketsUrl }}" class="task-board-my-count-badge task-board-my-count-badge--todo" title="{{ translate('My_tickets') }}">
+                                    To Do <span>{{ $myAssignedCounts['todo'] }}</span>
+                                </a>
+                            @endif
+                            @if(($myAssignedCounts['in_progress'] ?? 0) > 0)
+                                <a href="{{ $myTicketsUrl }}" class="task-board-my-count-badge task-board-my-count-badge--in-progress" title="{{ translate('My_tickets') }}">
+                                    {{ translate('in_Progress') }} <span>{{ $myAssignedCounts['in_progress'] }}</span>
+                                </a>
+                            @endif
+                        </div>
                         <p class="text-muted mb-0">{{ translate('Manage_team_tickets_on_a_single_board') }}</p>
                     </div>
                     <div class="task-board-header-filters">
@@ -1095,6 +1295,22 @@
         window.taskBoardColumns = @json($taskBoardColumnsJson);
         window.taskBoardCurrentUser = @json($taskBoardCurrentUserJson);
     </script>
-    <script src="{{ asset('assets/chatting-module/js/staff-chat-compose.js') }}"></script>
-    <script src="{{ asset('assets/task-board-module/js/task-board.js') }}"></script>
+    <script src="{{ asset('assets/chatting-module/js/staff-chat-compose.js') }}?v={{ @filemtime(public_path('assets/chatting-module/js/staff-chat-compose.js')) ?: time() }}"></script>
+    <script src="{{ asset('assets/task-board-module/js/task-board.js') }}?v={{ @filemtime(public_path('assets/task-board-module/js/task-board.js')) ?: time() }}" data-always-activate="1"></script>
+    <script>
+        (function () {
+            function bootTaskBoardFromEvent(event) {
+                if (typeof window.bootTaskBoardPage !== 'function') {
+                    return;
+                }
+                var root = (event && event.detail && event.detail.root)
+                    ? event.detail.root
+                    : (document.getElementById('admin-main') || document);
+                window.bootTaskBoardPage(root);
+            }
+
+            document.addEventListener('admin:page-loaded', bootTaskBoardFromEvent);
+            bootTaskBoardFromEvent();
+        })();
+    </script>
 @endpush

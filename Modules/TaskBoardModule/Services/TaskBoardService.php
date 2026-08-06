@@ -2,6 +2,7 @@
 
 namespace Modules\TaskBoardModule\Services;
 
+use App\Support\AdminHeaderTaskBoardCounts;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -71,6 +72,7 @@ class TaskBoardService
             'employees' => $this->employeeOptions(),
             'filters' => $filters,
             'canRestore' => $this->canRestore(),
+            'myAssignedCounts' => \App\Support\AdminHeaderTaskBoardCounts::assignedCounts(auth()->user()),
         ];
     }
 
@@ -263,6 +265,8 @@ class TaskBoardService
                 ],
             );
 
+            $this->forgetAssignedCountCache($fresh->assignees->pluck('id')->all());
+
             return $fresh;
         });
     }
@@ -270,6 +274,7 @@ class TaskBoardService
     public function deleteTicket(TaskTicket $ticket): void
     {
         $snapshot = $this->ticketSnapshot($ticket->load(['assignees', 'links']));
+        $assigneeIds = $ticket->assignees->pluck('id')->all();
         $ticket->delete();
 
         $this->activityLogger->log(
@@ -277,6 +282,8 @@ class TaskBoardService
             ticket: $ticket,
             oldValues: $snapshot,
         );
+
+        $this->forgetAssignedCountCache($assigneeIds);
     }
 
     public function restoreTicket(TaskTicket $ticket): TaskTicket
@@ -287,13 +294,17 @@ class TaskBoardService
 
         $ticket->restore();
 
+        $fresh = $ticket->fresh(['assignees', 'links', 'attachments', 'column']);
+
         $this->activityLogger->log(
             action: 'restored',
             ticket: $ticket,
-            newValues: $this->ticketSnapshot($ticket->fresh(['assignees', 'links'])),
+            newValues: $this->ticketSnapshot($fresh),
         );
 
-        return $ticket->fresh(['assignees', 'links', 'attachments', 'column']);
+        $this->forgetAssignedCountCache($fresh->assignees->pluck('id')->all());
+
+        return $fresh;
     }
 
     public function addComment(TaskTicket $ticket, string $body, array $files = []): TaskTicketComment
@@ -648,6 +659,8 @@ class TaskBoardService
 
         $ticket->assignees()->sync($validIds);
 
+        $this->forgetAssignedCountCache(array_merge($previousAssigneeIds, array_map('strval', $validIds)));
+
         $newAssigneeIds = array_values(array_diff(
             array_map('strval', $validIds),
             $previousAssigneeIds,
@@ -731,5 +744,15 @@ class TaskBoardService
                 ])->values()->all()
                 : [],
         ];
+    }
+
+    /**
+     * @param  array<int, string|int>  $userIds
+     */
+    private function forgetAssignedCountCache(array $userIds): void
+    {
+        foreach (array_unique(array_filter(array_map('strval', $userIds))) as $userId) {
+            AdminHeaderTaskBoardCounts::forgetForUser($userId);
+        }
     }
 }

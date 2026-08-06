@@ -6,6 +6,8 @@ class StaffChatMessageParser
 {
   private const TOKEN_PATTERN = '/@\[([^\]]*)\]\((staff|customer|provider|booking|service|lead):([A-Za-z0-9\-]{1,36})\)/i';
 
+  private const DISPLAY_PATTERN = '/@(Staff|Customer|Provider|Booking|Service|Lead|staff|customer|provider|booking|service|lead):([^\n@]+?)(?=\s@(?:Staff|Customer|Provider|Booking|Service|Lead|staff|customer|provider|booking|service|lead):|$)/s';
+
   public function format(?string $message): string
   {
     if ($message === null || $message === '') {
@@ -13,20 +15,49 @@ class StaffChatMessageParser
     }
 
     $offset = 0;
+    $length = strlen($message);
     $result = '';
 
-    while (preg_match(self::TOKEN_PATTERN, $message, $matches, PREG_OFFSET_CAPTURE, $offset)) {
-      $start = $matches[0][1];
-      $result .= e(substr($message, $offset, $start - $offset));
-      $result .= $this->renderToken(
-        (string) $matches[1][0],
-        (string) $matches[2][0],
-        (string) $matches[3][0]
-      );
-      $offset = $start + strlen($matches[0][0]);
-    }
+    while ($offset < $length) {
+      $remaining = substr($message, $offset);
 
-    $result .= e(substr($message, $offset));
+      if (preg_match(self::TOKEN_PATTERN, $remaining, $matches, PREG_OFFSET_CAPTURE, 0) && ($matches[0][1] ?? -1) === 0) {
+        $result .= $this->renderToken(
+          (string) $matches[1][0],
+          (string) $matches[2][0],
+          (string) $matches[3][0]
+        );
+        $offset += strlen($matches[0][0]);
+
+        continue;
+      }
+
+      if (preg_match(self::DISPLAY_PATTERN, $remaining, $matches, PREG_OFFSET_CAPTURE, 0) && ($matches[0][1] ?? -1) === 0) {
+        $result .= $this->renderDisplayTag(
+          (string) $matches[1][0],
+          (string) $matches[2][0]
+        );
+        $offset += strlen($matches[0][0]);
+
+        continue;
+      }
+
+      $nextAt = strpos($remaining, '@');
+      if ($nextAt === false) {
+        $result .= e($remaining);
+        break;
+      }
+
+      if ($nextAt === 0) {
+        $result .= e('@');
+        $offset += 1;
+
+        continue;
+      }
+
+      $result .= e(substr($remaining, 0, $nextAt));
+      $offset += $nextAt;
+    }
 
     return nl2br($result, false);
   }
@@ -75,7 +106,7 @@ class StaffChatMessageParser
     $url = $this->urlFor($type, $id);
     $safeLabel = e($label);
     $safeType = e($this->typeLabel($type));
-    $class = 'staff-chat-entity-link staff-chat-entity-'.e($type);
+    $class = 'staff-chat-entity-link staff-chat-entity-'.e($this->normalizeType($type));
     $attrs = $type === 'staff'
       ? ' data-entity-type="staff" data-entity-id="'.e($id).'" href="'.e($url).'"'
       : ' href="'.e($url).'" target="_blank" rel="noopener"';
@@ -85,6 +116,25 @@ class StaffChatMessageParser
       .'<span class="staff-chat-entity-sep"> · </span>'
       .'<span class="staff-chat-entity-name">'.$safeLabel.'</span>'
       .'</a>';
+  }
+
+  private function renderDisplayTag(string $typeLabel, string $label): string
+  {
+    $type = $this->normalizeType($typeLabel);
+    $safeLabel = e(trim($label));
+    $safeType = e($this->typeLabel($type));
+    $class = 'staff-chat-entity-badge staff-chat-entity-'.e($type);
+
+    return '<span class="'.$class.'">'
+      .'<span class="staff-chat-entity-type">'.$safeType.'</span>'
+      .'<span class="staff-chat-entity-sep"> · </span>'
+      .'<span class="staff-chat-entity-name">'.$safeLabel.'</span>'
+      .'</span>';
+  }
+
+  private function normalizeType(string $type): string
+  {
+    return strtolower(trim($type));
   }
 
   private function typeLabel(string $type): string

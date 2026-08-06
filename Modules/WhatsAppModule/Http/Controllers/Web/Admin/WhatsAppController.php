@@ -617,7 +617,7 @@ class WhatsAppController extends Controller
      */
     public function sendReply(Request $request): RedirectResponse|JsonResponse
     {
-        $this->authorize('whatsapp_chat_reply');
+        $this->authorize('whatsapp_chat_send_message');
 
         $request->validate([
             'phone' => 'required|string|max:50',
@@ -660,6 +660,7 @@ class WhatsAppController extends Controller
         // Keep message rows on the same `phone` string as existing DB thread (full value from list `data-phone`),
         // while Graph API `to` always uses normalized digits ($graphTo).
         $threadPhone = $this->resolveWhatsappThreadPhoneKey($rawPhone, $graphTo);
+        $this->authorizeWhatsappThreadSend($threadPhone);
         $messagesTable = config('whatsappmodule.tables.messages', 'whatsapp_messages');
         $replyToWa = trim((string) $request->input('reply_to_wa_message_id', ''));
         if ($replyToWa !== '' && !DB::table($messagesTable)->where('phone', $threadPhone)->where('channel', $inboxChannel)->where('wa_message_id', $replyToWa)->exists()) {
@@ -816,7 +817,7 @@ class WhatsAppController extends Controller
      */
     public function sendMessageReaction(Request $request): JsonResponse
     {
-        $this->authorize('whatsapp_chat_reply');
+        $this->authorize('whatsapp_chat_send_message');
 
         if (SocialInboxChannel::current() !== SocialInboxChannel::WHATSAPP) {
             return response()->json(['ok' => false, 'error' => 'reactions_whatsapp_only'], 501);
@@ -838,6 +839,7 @@ class WhatsAppController extends Controller
         }
 
         $threadPhone = $this->resolveWhatsappThreadPhoneKey($rawPhone, $graphTo);
+        $this->authorizeWhatsappThreadSend($threadPhone);
 
         $target = WhatsAppMessage::query()
             ->where('phone', $threadPhone)
@@ -1139,7 +1141,7 @@ class WhatsAppController extends Controller
      */
     public function sendChatTemplate(Request $request): JsonResponse
     {
-        $this->authorize('whatsapp_chat_reply');
+        $this->authorize('whatsapp_chat_send_message');
 
         if (SocialInboxChannel::current() !== SocialInboxChannel::WHATSAPP) {
             return response()->json([
@@ -1170,6 +1172,7 @@ class WhatsAppController extends Controller
         }
 
         $threadPhone = $this->resolveWhatsappThreadPhoneKey($rawPhone, $graphTo);
+        $this->authorizeWhatsappThreadSend($threadPhone);
 
         [$templateRow, $tplErr] = $this->findApprovedWhatsAppTemplateRow(
             trim((string) $data['template_name']),
@@ -1664,7 +1667,7 @@ class WhatsAppController extends Controller
      */
     public function updateThreadChatTags(Request $request): JsonResponse|RedirectResponse
     {
-        $this->authorize('whatsapp_chat_reply');
+        $this->authorize('whatsapp_chat_manage_tags');
 
         if (!Schema::hasTable('whatsapp_chat_thread_tags')) {
             if ($request->expectsJson()) {
@@ -3529,6 +3532,36 @@ class WhatsAppController extends Controller
             && Schema::hasTable('whatsapp_chat_tags')
             && Schema::hasTable('whatsapp_chat_thread_meta')
             && Schema::hasTable('whatsapp_chat_thread_tags');
+    }
+
+    /**
+     * Assign-only agents may send on threads they currently own; full reply permission sends on any human-handled thread.
+     */
+    private function authorizeWhatsappThreadSend(string $threadPhone): void
+    {
+        $user = auth()->user();
+        if (!$user) {
+            abort(403);
+        }
+        if ($user->can('whatsapp_chat_reply')) {
+            return;
+        }
+        if (!$user->can('whatsapp_chat_assign')) {
+            abort(403);
+        }
+
+        $waUser = WhatsAppUser::query()
+            ->where('phone', $threadPhone)
+            ->where('channel', SocialInboxChannel::current())
+            ->first();
+
+        if (
+            !$waUser
+            || !Lead::assigneeIsHuman($waUser->handled_by)
+            || (string) $waUser->handled_by !== (string) $user->id
+        ) {
+            abort(403);
+        }
     }
 
     private function forgetWhatsappChatCaches(?string $phone = null): void

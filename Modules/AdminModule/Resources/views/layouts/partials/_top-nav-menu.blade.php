@@ -1,21 +1,21 @@
-<div class="top-nav-inner">
-    <div class="top-nav-item">
-        <a href="{{ route('admin.dashboard') }}" class="top-nav-trigger {{ request()->is('admin/dashboard') ? 'active-menu' : '' }}"
-           @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
-            <span class="material-icons">dashboard</span>
-            {{ translate('dashboard') }}
-        </a>
-    </div>
+<div class="top-nav-inner top-nav-inner--employee {{ is_admin_employee() ? '' : 'top-nav-inner--admin-compact' }}">
+    @if(is_admin_employee())
+        <div class="top-nav-item">
+            <a href="{{ route('admin.dashboard') }}" class="top-nav-trigger {{ request()->is('admin/dashboard') ? 'active-menu' : '' }}"
+               @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
+                @include('adminmodule::layouts.partials.top-nav._employee-nav-icon', ['icon' => 'dashboard'])
+                @include('adminmodule::layouts.partials.top-nav._employee-nav-label', [
+                    'label' => translate('dashboard'),
+                ])
+            </a>
+        </div>
+    @else
+        @include('adminmodule::layouts.partials.top-nav.group-admin-dashboard')
+    @endif
 
-    @include('adminmodule::layouts.partials.top-nav.group-operations')
-    @include('adminmodule::layouts.partials.top-nav.group-leads-and-bookings')
-    @include('adminmodule::layouts.partials.top-nav.group-customers')
-    @include('adminmodule::layouts.partials.top-nav.group-providers')
-    @include('adminmodule::layouts.partials.top-nav.group-catalog')
-    @include('adminmodule::layouts.partials.top-nav.group-marketing')
-    @include('adminmodule::layouts.partials.top-nav.group-finance')
-    @include('adminmodule::layouts.partials.top-nav.group-insights')
-    @include('adminmodule::layouts.partials.top-nav.group-mobile-app')
-    @include('adminmodule::layouts.partials.top-nav.group-team')
-    @include('adminmodule::layouts.partials.top-nav.group-settings')
+    @if(is_admin_employee())
+        @include('adminmodule::layouts.partials._top-nav-menu-employee')
+    @else
+        @include('adminmodule::layouts.partials._top-nav-menu-admin')
+    @endif
 </div>

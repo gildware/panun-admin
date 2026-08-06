@@ -137,6 +137,14 @@ class AuthServiceProvider extends ServiceProvider
         Gate::define('provider_manage_status', fn () => $this->checkAccess('provider', 'can_manage_status'));
         Gate::define('provider_approve_or_deny', fn () => $this->checkAccess('provider', 'can_approve_or_deny'));
 
+        Gate::define('provider_feedback_config_view', fn () => $this->checkAccess('provider_feedback_config', 'can_view'));
+        Gate::define('provider_feedback_config_add', fn () => $this->checkAccess('provider_feedback_config', 'can_add'));
+        Gate::define('provider_feedback_config_update', fn () => $this->checkAccess('provider_feedback_config', 'can_update'));
+        Gate::define('provider_feedback_config_delete', fn () => $this->checkAccess('provider_feedback_config', 'can_delete'));
+        Gate::define('provider_feedback_config_export', fn () => $this->checkAccess('provider_feedback_config', 'can_export'));
+        Gate::define('provider_feedback_config_manage_status', fn () => $this->checkAccess('provider_feedback_config', 'can_manage_status'));
+        Gate::define('provider_feedback_config_approve_or_deny', fn () => $this->checkAccess('provider_feedback_config', 'can_approve_or_deny'));
+
         Gate::define('withdraw_view', fn () => $this->checkAccess('withdraw', 'can_view'));
         Gate::define('withdraw_add', fn () => $this->checkAccess('withdraw', 'can_add'));
         Gate::define('withdraw_update', fn () => $this->checkAccess('withdraw', 'can_update'));
@@ -176,6 +184,22 @@ class AuthServiceProvider extends ServiceProvider
         Gate::define('customer_export', fn () => $this->checkAccess('customer', 'can_export'));
         Gate::define('customer_manage_status', fn () => $this->checkAccess('customer', 'can_manage_status'));
         Gate::define('customer_approve_or_deny', fn () => $this->checkAccess('customer', 'can_approve_or_deny'));
+
+        Gate::define('welcome_bonus_view', fn () => $this->checkAccess('welcome_bonus', 'can_view'));
+        Gate::define('welcome_bonus_add', fn () => $this->checkAccess('welcome_bonus', 'can_add'));
+        Gate::define('welcome_bonus_update', fn () => $this->checkAccess('welcome_bonus', 'can_update'));
+        Gate::define('welcome_bonus_delete', fn () => $this->checkAccess('welcome_bonus', 'can_delete'));
+        Gate::define('welcome_bonus_export', fn () => $this->checkAccess('welcome_bonus', 'can_export'));
+        Gate::define('welcome_bonus_manage_status', fn () => $this->checkAccess('welcome_bonus', 'can_manage_status'));
+        Gate::define('welcome_bonus_approve_or_deny', fn () => $this->checkAccess('welcome_bonus', 'can_approve_or_deny'));
+
+        Gate::define('referral_earning_view', fn () => $this->checkAccess('referral_earning', 'can_view'));
+        Gate::define('referral_earning_add', fn () => $this->checkAccess('referral_earning', 'can_add'));
+        Gate::define('referral_earning_update', fn () => $this->checkAccess('referral_earning', 'can_update'));
+        Gate::define('referral_earning_delete', fn () => $this->checkAccess('referral_earning', 'can_delete'));
+        Gate::define('referral_earning_export', fn () => $this->checkAccess('referral_earning', 'can_export'));
+        Gate::define('referral_earning_manage_status', fn () => $this->checkAccess('referral_earning', 'can_manage_status'));
+        Gate::define('referral_earning_approve_or_deny', fn () => $this->checkAccess('referral_earning', 'can_approve_or_deny'));
 
         Gate::define('wallet_view', fn () => $this->checkAccess('wallet', 'can_view'));
         Gate::define('wallet_add', fn () => $this->checkAccess('wallet', 'can_add'));
@@ -436,6 +460,8 @@ class AuthServiceProvider extends ServiceProvider
         Gate::define('whatsapp_chat_view', fn () => $this->checkAccess('whatsapp_chat', 'can_view'));
         Gate::define('whatsapp_chat_reply', fn () => $this->checkAccess('whatsapp_chat', 'can_add'));
         Gate::define('whatsapp_chat_assign', fn () => $this->checkAccess('whatsapp_chat', 'can_update'));
+        Gate::define('whatsapp_chat_manage_tags', fn () => $this->checkAccess('whatsapp_chat', 'can_add') || $this->checkAccess('whatsapp_chat', 'can_update'));
+        Gate::define('whatsapp_chat_send_message', fn () => $this->checkAccess('whatsapp_chat', 'can_add') || $this->checkAccess('whatsapp_chat', 'can_update'));
         Gate::define('whatsapp_chat_delete', fn () => $this->checkAccess('whatsapp_chat', 'can_delete'));
         Gate::define('whatsapp_message_template_view', fn () => $this->checkAccess('whatsapp_message_template', 'can_view'));
         Gate::define('whatsapp_message_template_update', fn () => $this->checkAccess('whatsapp_message_template', 'can_update'));

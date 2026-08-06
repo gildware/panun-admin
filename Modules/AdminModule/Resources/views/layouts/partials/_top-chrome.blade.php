@@ -15,15 +15,41 @@
 @endphp
 
 <div class="top-chrome">
+    @if(is_impersonating())
+        @php
+            $impersonatorUser = impersonator();
+        @endphp
+        <div class="impersonation-banner bg-warning-subtle border-bottom border-warning px-3 py-2">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="material-symbols-outlined text-warning">visibility</span>
+                    <span>
+                        {{ translate('Viewing_dashboard_as') }}
+                        <strong>{{ trim((auth()->user()?->first_name ?? '') . ' ' . (auth()->user()?->last_name ?? '')) }}</strong>
+                        @if($impersonatorUser)
+                            <span class="text-muted">({{ translate('Logged_in_as') }} {{ trim($impersonatorUser->first_name.' '.$impersonatorUser->last_name) }})</span>
+                        @endif
+                    </span>
+                </div>
+                <form action="{{ route('admin.impersonate.leave') }}" method="POST" class="m-0" data-turbo="false">
+                    @csrf
+                    <button type="submit" class="btn btn-sm btn--primary">
+                        <span class="material-symbols-outlined align-middle" style="font-size:18px;">logout</span>
+                        {{ translate('Exit_view_as') }}
+                    </button>
+                </form>
+            </div>
+        </div>
+    @endif
     <div class="top-utility-bar">
-        <div class="top-utility-start">
+        <div class="top-utility-brand-wrap">
             <a href="{{ route('admin.dashboard') }}" class="top-utility-brand">
                 <img class="top-utility-brand-logo js-nav-img-fallback"
                      src="{{ $logo }}"
                      data-fallback="{{ $logoPlaceholder }}"
                      onerror="this.onerror=null;this.src=this.dataset.fallback||'{{ $logoPlaceholder }}'"
                      alt="{{ translate('image') }}">
-                <span class="d-none d-sm-inline">Panun Kaergar Admin</span>
+                <span class="top-utility-brand-text d-none d-sm-inline">Panun Kaergar Admin</span>
             </a>
             <button type="button"
                     id="top-chrome-mode-toggle"
@@ -39,25 +65,8 @@
                 <span class="top-chrome-mode-label d-none d-md-inline">{{ translate('Unpin') }}</span>
             </button>
         </div>
-        <div class="top-utility-end">
-            <a href="{{ route('admin.process-guides.index') }}"
-               class="top-utility-action-btn"
-               @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif
-               title="{{ translate('Process_Guides') }}"
-               aria-label="{{ translate('Process_Guides') }}">
-                <span class="material-symbols-outlined">menu_book</span>
-                <span class="d-none d-lg-inline">{{ translate('Process_Guides') }}</span>
-            </a>
-
-            <a href="{{ route('admin.task-board.index') }}"
-               class="top-utility-action-btn"
-               @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif
-               title="{{ translate('Task_Board') }}"
-               aria-label="{{ translate('Task_Board') }}">
-                <span class="material-symbols-outlined">view_kanban</span>
-                <span class="d-none d-lg-inline">{{ translate('Task_Board') }}</span>
-            </a>
-
+        <div class="top-utility-scroll">
+            @if(is_admin_employee())
             <div class="dropdown top-utility-item top-utility-presence">
                 <button type="button"
                         id="staff-header-status-pill"
@@ -95,8 +104,11 @@
                     </li>
                 </ul>
             </div>
+            @endif
 
-            @include('adminmodule::layouts.partials._home-cache-reset-btn')
+            @if(can_impersonate_employees())
+            @include('adminmodule::layouts.partials._view-as-employee-dropdown')
+            @endif
 
             <button type="button" id="modalOpener" class="top-utility-action-btn top-utility-search-btn" data-bs-toggle="modal" data-bs-target="#staticBackdrop" title="{{ translate('Search') }} (Ctrl+K)">
                 <span class="material-symbols-outlined">search</span>
@@ -105,33 +117,29 @@
             </button>
 
             <a href="{{ route('admin.chat.staff') }}"
-               class="top-utility-icon-btn"
+               class="top-utility-action-btn top-utility-action-btn--inline-count position-relative"
                @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif
-               data-bs-toggle="tooltip"
-               data-bs-placement="bottom"
                title="{{ translate('Staff_Conversation') }}"
                aria-label="{{ translate('Staff_Conversation') }}">
                 <span class="material-symbols-outlined">chat</span>
+                <span class="d-none d-lg-inline">{{ translate('Staff_Conversation') }}</span>
                 <span class="count" id="staff_message_count" style="display:{{ ($staffUnreadCount ?? 0) > 0 ? 'flex' : 'none' }};">{{ ($staffUnreadCount ?? 0) > 0 ? $staffUnreadCount : '' }}</span>
             </a>
 
             <a href="{{ route('admin.chat.support', ['filter' => 'all']) }}"
-               class="top-utility-icon-btn"
+               class="top-utility-action-btn top-utility-action-btn--inline-count position-relative"
                @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif
-               data-bs-toggle="tooltip"
-               data-bs-placement="bottom"
                title="{{ translate('Support_Messages') }}"
                aria-label="{{ translate('Support_Messages') }}">
                 <span class="material-symbols-outlined">support_agent</span>
+                <span class="d-none d-lg-inline">{{ translate('Support_Messages') }}</span>
                 @include('adminmodule::layouts.partials._header-unread-badge', ['id' => 'support_message_count', 'count' => $supportUnreadCount ?? 0])
             </a>
 
             @can('whatsapp_chat_view')
                 <a href="{{ route('admin.whatsapp.conversations.index', ['channel' => 'whatsapp', 'tab' => 'chats']) }}"
-                   class="top-utility-icon-btn"
+                   class="top-utility-action-btn top-utility-action-btn--inline-count position-relative"
                    @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif
-                   data-bs-toggle="tooltip"
-                   data-bs-placement="bottom"
                    title="{{ translate('WhatsApp') }}"
                    aria-label="{{ translate('WhatsApp') }}">
                     <span class="wa-header-whatsapp-icon d-inline-flex align-items-center justify-content-center" style="color: #25D366;" aria-hidden="true">
@@ -139,6 +147,7 @@
                             <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.881 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
                         </svg>
                     </span>
+                    <span class="d-none d-lg-inline">{{ translate('WhatsApp') }}</span>
                     @include('adminmodule::layouts.partials._header-unread-badge', ['id' => 'whatsapp_unread_count', 'count' => $whatsappUnreadCount ?? 0, 'alwaysShowNumber' => true])
                 </a>
             @endcan
@@ -199,11 +208,14 @@
 
     <nav class="top-nav-bar">
         <div class="top-nav-shell">
-            @include('adminmodule::layouts.partials._top-nav-menu')
+            <div class="top-nav-scroll">
+                @include('adminmodule::layouts.partials._top-nav-menu')
+            </div>
+            @if(! is_admin_employee())
+                @include('adminmodule::layouts.partials.top-nav.group-admin-module-links')
+            @endif
         </div>
     </nav>
-
-    @include('adminmodule::layouts.partials._top-pinned')
 
     @include('adminmodule::layouts.partials._top-group-subnav')
 </div>

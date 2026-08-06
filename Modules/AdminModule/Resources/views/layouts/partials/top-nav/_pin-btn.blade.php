@@ -1,4 +1,4 @@
-@if(!empty($pinKey))
+@if(!is_admin_employee() && !empty($pinKey))
     <button type="button"
             class="top-nav-pin-btn"
             data-pin-key="{{ $pinKey }}"

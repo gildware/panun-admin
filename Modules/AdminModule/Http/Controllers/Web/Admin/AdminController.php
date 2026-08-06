@@ -3,6 +3,7 @@
 namespace Modules\AdminModule\Http\Controllers\Web\Admin;
 
 use App\Support\AdminHeaderChatCounts;
+use App\Support\EmployeeSearchAccessFilter;
 use App\Traits\UploadSizeHelperTrait;
 use Carbon\Carbon;
 use Modules\AdminModule\Traits\AdminMenuWithRoutes;
@@ -23,16 +24,16 @@ use Modules\TransactionModule\Entities\LedgerTransaction;
 use Illuminate\Contracts\View\View;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Contracts\View\Factory;
 use Modules\UserManagement\Entities\User;
 use Modules\BookingModule\Entities\Booking;
-use Modules\BookingModule\Entities\BookingFollowup;
 use Illuminate\Contracts\Support\Renderable;
 use Modules\AdminModule\Services\AdminDashboardCache;
+use Modules\AdminModule\Services\EmployeeDashboardService;
+use Modules\AdminModule\Services\OperationsDashboardService;
 use Modules\AdminModule\Services\AdvanceSearch;
 use Modules\ServiceManagement\Entities\Service;
-use Modules\LeadManagement\Entities\Lead;
-use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\TransactionModule\Entities\Account;
 use Illuminate\Contracts\Foundation\Application;
 use Modules\ChattingModule\Entities\ChannelList;
@@ -87,7 +88,50 @@ class AdminController extends Controller
      * @return Application|Factory|View
      * @throws AuthorizationException
      */
-    public function dashboard(Request $request, Transaction $transaction): View|Factory|Application
+    public function dashboard(Request $request): View|Factory|Application|RedirectResponse
+    {
+        $employeeData = app(EmployeeDashboardService::class)->build(auth()->user());
+        $showEmployeeProgress = is_admin_employee();
+
+        return view('adminmodule::dashboard-employee', compact('employeeData', 'showEmployeeProgress'));
+    }
+
+    /**
+     * Admin finance overview (revenue, ledger snippets, earning charts).
+     *
+     * @throws AuthorizationException
+     */
+    public function financeDashboard(Request $request): View|Factory|Application
+    {
+        if (is_admin_employee()) {
+            abort(403);
+        }
+
+        ['data' => $data, 'chart_data' => $chart_data] = $this->buildFinanceDashboardPayload($request);
+
+        return view('adminmodule::dashboard', compact('data', 'chart_data'));
+    }
+
+    /**
+     * Admin operations overview (customers, providers, app activity).
+     *
+     * @throws AuthorizationException
+     */
+    public function operationsDashboard(Request $request): View|Factory|Application
+    {
+        if (is_admin_employee()) {
+            abort(403);
+        }
+
+        $data = app(OperationsDashboardService::class)->build();
+
+        return view('adminmodule::dashboard-operations', compact('data'));
+    }
+
+    /**
+     * @return array{data: array<int, array<string, mixed>>, chart_data: array<string, mixed>}
+     */
+    private function buildFinanceDashboardPayload(Request $request): array
     {
         $baseQuery = BookingDetailsAmount::whereHas('booking', function ($query) use ($request) {
             $query->forRevenueReporting();
@@ -170,67 +214,66 @@ class AdminController extends Controller
             ],
         ];
 
-        $bookings = $this->booking->with(['detail.service' => function ($query) {
-            $query->select('id', 'name', 'thumbnail');
-        }])
-            ->where('booking_status', 'pending')
+        $walletTrxTypes = array_values(WALLET_TRX_TYPE);
+
+        $recent_transactions = $this->transaction
+            ->with(['booking:id,readable_id'])
+            ->whereNotIn('trx_type', $walletTrxTypes)
             ->latest()
             ->take(5)
             ->get();
-        $data[] = ['bookings' => $bookings];
 
-        $data[] = ['top_providers' => AdminDashboardCache::rememberMetrics('top_providers:v1', fn () => $this->topProvidersByPerformanceScore(5))];
+        $this_month_transactions_count = $this->transaction
+            ->whereNotIn('trx_type', $walletTrxTypes)
+            ->whereYear('created_at', Carbon::now()->year)
+            ->whereMonth('created_at', Carbon::now()->month)
+            ->count();
 
-        $data[] = ['top_customers' => AdminDashboardCache::rememberMetrics('top_customers:v1', fn () => $this->topCustomersByPerformanceScore(5))];
+        $recent_wallet_transactions = $this->transaction
+            ->with([
+                'booking:id,readable_id',
+                'to_user:id,first_name,last_name',
+            ])
+            ->whereIn('trx_type', $walletTrxTypes)
+            ->where(function ($query) {
+                $query->where('trx_type', '!=', WALLET_TRX_TYPE['booking_compensation'])
+                    ->orWhere('credit', '>', 0);
+            })
+            ->latest()
+            ->take(5)
+            ->get();
 
-        $todaysPendingFollowupsBase = BookingFollowup::query()
-            ->where('status', 'scheduled')
-            // Include missed follow-ups from previous days up to and including today.
-            ->whereDate('date', '<=', Carbon::today())
-            ->whereHas('booking', function ($bookingQuery) {
-                $bookingQuery->whereIn('booking_status', Booking::STATUSES_FOR_SCHEDULED_FOLLOWUP_LISTS);
+        $this_month_wallet_transactions_count = $this->transaction
+            ->whereIn('trx_type', $walletTrxTypes)
+            ->where(function ($query) {
+                $query->where('trx_type', '!=', WALLET_TRX_TYPE['booking_compensation'])
+                    ->orWhere('credit', '>', 0);
+            })
+            ->whereYear('created_at', Carbon::now()->year)
+            ->whereMonth('created_at', Carbon::now()->month)
+            ->count();
+
+        $recent_completed_bookings = $this->booking
+            ->forRevenueReporting()
+            ->with([
+                'provider:id,company_name,logo',
+                'details_amounts',
+            ])
+            ->latest('updated_at')
+            ->take(5)
+            ->get()
+            ->map(function (Booking $booking) {
+                $booking->our_earning = $this->computeBookingOurEarning($booking);
+
+                return $booking;
             });
-        $todaysPendingFollowupsTotal = (clone $todaysPendingFollowupsBase)->count();
-
-        $todays_pending_followups = (clone $todaysPendingFollowupsBase)
-            ->with(['booking.assignee', 'booking.customer', 'booking.provider'])
-            // Sort from previous to current.
-            ->orderBy('date')
-            ->take(5)
-            ->get();
-        $data[] = [
-            'todays_pending_followups' => $todays_pending_followups,
-            'todays_pending_followups_total' => $todaysPendingFollowupsTotal,
-        ];
-
-        $todaysPendingLeadFollowupsBase = Lead::query()
-            ->whereNotNull('next_followup_at')
-            // Include missed follow-ups from previous days up to and including today.
-            ->whereDate('next_followup_at', '<=', Carbon::today());
-        app(LeadOpenStatusService::class)->restrictQueryToOpenLeads($todaysPendingLeadFollowupsBase);
-        $todaysPendingLeadFollowupsTotal = (clone $todaysPendingLeadFollowupsBase)->count();
-
-        $todays_pending_lead_followups = (clone $todaysPendingLeadFollowupsBase)
-            ->with('latestFollowup')
-            // Sort from previous to current.
-            ->orderBy('next_followup_at')
-            ->take(5)
-            ->get();
-
-        $handledByIds = $todays_pending_lead_followups->pluck('handled_by')->filter()->unique()->values()->all();
-        $handledByUsers = $handledByIds !== []
-            ? $this->user->whereIn('id', $handledByIds)->get(['id', 'first_name', 'last_name', 'email'])->keyBy(fn ($u) => (string) $u->id)
-            : collect();
-
-        foreach ($todays_pending_lead_followups as $lead) {
-            $user = $lead->handled_by ? $handledByUsers->get((string) $lead->handled_by) : null;
-            $fullName = $user ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) : '';
-            $lead->handled_by_name = $fullName ?: ($user->email ?? null);
-        }
 
         $data[] = [
-            'todays_pending_lead_followups' => $todays_pending_lead_followups,
-            'todays_pending_lead_followups_total' => $todaysPendingLeadFollowupsTotal,
+            'recent_transactions' => $recent_transactions,
+            'this_month_trx_count' => $this_month_transactions_count,
+            'recent_wallet_transactions' => $recent_wallet_transactions,
+            'this_month_wallet_trx_count' => $this_month_wallet_transactions_count,
+            'recent_completed_bookings' => $recent_completed_bookings,
         ];
 
         $year = (int) (session('dashboard_earning_graph_year') ?: date('Y'));
@@ -241,7 +284,10 @@ class AdminController extends Controller
 
         $chart_data = $this->buildDashboardEarningChartData($year, $month, $repeatLineTotalByParentId);
 
-        return view('adminmodule::dashboard', compact('data', 'chart_data'));
+        return [
+            'data' => $data,
+            'chart_data' => $chart_data,
+        ];
     }
 
 
@@ -519,6 +565,8 @@ class AdminController extends Controller
         }
         $modelSearchResults = $this->advanceSearchService->searchModelList($searchKeyword,"admin");
         $allRoutes = $this->advanceSearchService->sortByPriority($formattedRoutes, $modelSearchResults, $menuSearchResults, $searchKeyword);
+        $allRoutes = app(EmployeeSearchAccessFilter::class)->filterGroupedResults($allRoutes);
+
         return response()->json([
             'keyword' => $searchKeyword,
             'result' => $allRoutes,
@@ -571,6 +619,13 @@ class AdminController extends Controller
      */
     public function storeClickedRoute(Request $request): RedirectResponse
     {
+        $searchAccessFilter = app(EmployeeSearchAccessFilter::class);
+        if ($searchAccessFilter->applies() && ! $searchAccessFilter->isAllowed((string) $request->input('uri', ''))) {
+            Toastr::error(translate(ACCESS_DENIED['message']));
+
+            return back();
+        }
+
         $userId = auth()->id();
         $userType = auth()->user()->user_type;
         $response = $request['response'];
@@ -632,6 +687,7 @@ class AdminController extends Controller
             ];
         });
         $result = $this->advanceSearchService->getSortRecentSearchByType($formattedResult);
+        $result = app(EmployeeSearchAccessFilter::class)->filterGroupedResults($result);
 
         return response()->json([
             'keyword' => '',
@@ -1071,5 +1127,21 @@ class AdminController extends Controller
 
                 return $customer;
             });
+    }
+
+    private function computeBookingOurEarning(Booking $booking): float
+    {
+        $amounts = $booking->details_amounts;
+        $adminCommission = (float) $amounts->sum('admin_commission');
+        $ourEarning = $adminCommission
+            - (float) $amounts->sum('discount_by_admin')
+            - (float) $amounts->sum('coupon_discount_by_admin')
+            - (float) $amounts->sum('campaign_discount_by_admin');
+
+        if ($booking->settlement_outcome === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+            $ourEarning += booking_scaled_admin_commission_delta_for_main($booking);
+        }
+
+        return round($ourEarning, 2);
     }
 }

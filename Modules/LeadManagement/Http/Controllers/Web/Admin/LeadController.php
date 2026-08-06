@@ -90,12 +90,17 @@ class LeadController extends Controller
         $filterCustomerSubCategoryIds = array_filter((array) $request->input('customer_sub_category_ids', []));
         $estimatedDateFrom = $request->get('estimated_date_from');
         $estimatedDateTo = $request->get('estimated_date_to');
+        $customerHasBooking = (string) $request->get('customer_has_booking', 'all');
+        if (!in_array($customerHasBooking, ['all', 'yes', 'no'], true)) {
+            $customerHasBooking = 'all';
+        }
         $hasCustomerFilters = $tab === 'customer' && (
             $filterCustomerStatusIds !== []
             || $filterCustomerZoneIds !== []
             || $filterCustomerCategoryIds !== []
             || $filterCustomerSubCategoryIds !== []
             || ($estimatedDateFrom && $estimatedDateTo)
+            || $customerHasBooking !== 'all'
         );
 
         $outboundEnquiryFilter = (string) $request->get('outbound_enquiry_filter', 'all');
@@ -132,6 +137,7 @@ class LeadController extends Controller
             $filterCustomerSubCategoryIds,
             $estimatedDateFrom,
             $estimatedDateTo,
+            $customerHasBooking,
             $outboundEnquiryFilter,
             $outboundEnquiryCount,
             $followupFrom,
@@ -160,6 +166,7 @@ class LeadController extends Controller
             $filterCustomerSubCategoryIds,
             $estimatedDateFrom,
             $estimatedDateTo,
+            $customerHasBooking,
             $outboundEnquiryFilter,
             $outboundEnquiryCount,
             $followupFrom,
@@ -218,6 +225,9 @@ class LeadController extends Controller
             }
             if ($estimatedDateTo) {
                 $queryParams['estimated_date_to'] = $estimatedDateTo;
+            }
+            if ($customerHasBooking !== 'all') {
+                $queryParams['customer_has_booking'] = $customerHasBooking;
             }
         }
         if ($tab === 'future_customer' && $outboundEnquiryFilter !== 'all') {
@@ -495,6 +505,9 @@ class LeadController extends Controller
             }
             if ($tab === 'customer') {
                 $filtersAppliedCount += count($filterCustomerStatusIds) + count($filterCustomerZoneIds) + count($filterCustomerCategoryIds) + count($filterCustomerSubCategoryIds) + (!empty($estimatedDateFrom) && !empty($estimatedDateTo) ? 1 : 0);
+                if ($customerHasBooking !== 'all') {
+                    $filtersAppliedCount += 1;
+                }
             }
             if ($tab === 'future_customer' && $outboundEnquiryFilter !== 'all') {
                 $filtersAppliedCount += 1;
@@ -545,6 +558,7 @@ class LeadController extends Controller
             'filterCustomerSubCategoryIds',
             'estimatedDateFrom',
             'estimatedDateTo',
+            'customerHasBooking',
             'dateFrom',
             'dateTo',
             'followupFrom',
@@ -582,6 +596,7 @@ class LeadController extends Controller
         array $filterCustomerSubCategoryIds,
         ?string $estimatedDateFrom,
         ?string $estimatedDateTo,
+        string $customerHasBooking = 'all',
         string $outboundEnquiryFilter = 'all',
         ?int $outboundEnquiryCount = null,
         ?string $followupFrom = null,
@@ -681,39 +696,70 @@ class LeadController extends Controller
                     ->orderByDesc('created_at')
                     ->get();
                 $latestByLead = $histories->groupBy('lead_id')->map(fn ($group) => $group->first());
-                $matchingLeadIds = $latestByLead->filter(function ($h) use ($filterCustomerStatusIds, $filterCustomerZoneIds, $filterCustomerCategoryIds, $filterCustomerSubCategoryIds, $estimatedDateFrom, $estimatedDateTo) {
-                    $d = is_array($h->data) ? $h->data : [];
-                    if ($filterCustomerStatusIds !== [] && !in_array($d['customer_lead_status_id'] ?? null, $filterCustomerStatusIds)) {
-                        return false;
-                    }
-                    if ($filterCustomerZoneIds !== [] && !in_array($d['zone_id'] ?? null, $filterCustomerZoneIds)) {
-                        return false;
-                    }
-                    if ($filterCustomerCategoryIds !== [] && !in_array($d['service_category'] ?? null, $filterCustomerCategoryIds)) {
-                        return false;
-                    }
-                    if ($filterCustomerSubCategoryIds !== [] && !in_array($d['service_subcategory'] ?? null, $filterCustomerSubCategoryIds)) {
-                        return false;
-                    }
-                    if ($estimatedDateFrom && $estimatedDateTo) {
-                        $estAt = $d['estimated_service_at'] ?? null;
-                        if (!$estAt) {
-                            return false;
+                $leadIdsWithBookingRow = Booking::whereIn('lead_id', $customerLeadIds)
+                    ->pluck('lead_id')
+                    ->unique()
+                    ->values()
+                    ->all();
+                $hasHistoryFilters = $filterCustomerStatusIds !== []
+                    || $filterCustomerZoneIds !== []
+                    || $filterCustomerCategoryIds !== []
+                    || $filterCustomerSubCategoryIds !== []
+                    || ($estimatedDateFrom && $estimatedDateTo);
+                $matchingLeadIds = [];
+
+                foreach ($customerLeadIds as $leadId) {
+                    $history = $latestByLead->get($leadId);
+                    $d = $history && is_array($history->data) ? $history->data : null;
+
+                    if ($hasHistoryFilters) {
+                        if ($d === null) {
+                            continue;
                         }
-                        try {
-                            $est = \Carbon\Carbon::parse($estAt);
-                            $from = \Carbon\Carbon::parse($estimatedDateFrom)->startOfDay();
-                            $to = \Carbon\Carbon::parse($estimatedDateTo)->endOfDay();
-                            if ($est->lt($from) || $est->gt($to)) {
-                                return false;
+                        if ($filterCustomerStatusIds !== [] && !in_array($d['customer_lead_status_id'] ?? null, $filterCustomerStatusIds)) {
+                            continue;
+                        }
+                        if ($filterCustomerZoneIds !== [] && !in_array($d['zone_id'] ?? null, $filterCustomerZoneIds)) {
+                            continue;
+                        }
+                        if ($filterCustomerCategoryIds !== [] && !in_array($d['service_category'] ?? null, $filterCustomerCategoryIds)) {
+                            continue;
+                        }
+                        if ($filterCustomerSubCategoryIds !== [] && !in_array($d['service_subcategory'] ?? null, $filterCustomerSubCategoryIds)) {
+                            continue;
+                        }
+                        if ($estimatedDateFrom && $estimatedDateTo) {
+                            $estAt = $d['estimated_service_at'] ?? null;
+                            if (!$estAt) {
+                                continue;
                             }
-                        } catch (\Throwable $e) {
-                            return false;
+                            try {
+                                $est = \Carbon\Carbon::parse($estAt);
+                                $from = \Carbon\Carbon::parse($estimatedDateFrom)->startOfDay();
+                                $to = \Carbon\Carbon::parse($estimatedDateTo)->endOfDay();
+                                if ($est->lt($from) || $est->gt($to)) {
+                                    continue;
+                                }
+                            } catch (\Throwable $e) {
+                                continue;
+                            }
                         }
                     }
 
-                    return true;
-                })->keys()->all();
+                    if ($customerHasBooking !== 'all') {
+                        $hasBooking = (is_array($d) && !empty($d['booking_id']))
+                            || in_array($leadId, $leadIdsWithBookingRow, true);
+                        if ($customerHasBooking === 'yes' && !$hasBooking) {
+                            continue;
+                        }
+                        if ($customerHasBooking === 'no' && $hasBooking) {
+                            continue;
+                        }
+                    }
+
+                    $matchingLeadIds[] = $leadId;
+                }
+
                 $query->whereIn('id', $matchingLeadIds);
             }
         }
@@ -781,6 +827,7 @@ class LeadController extends Controller
         array $filterCustomerSubCategoryIds,
         ?string $estimatedDateFrom,
         ?string $estimatedDateTo,
+        string $customerHasBooking = 'all',
         string $outboundEnquiryFilter = 'all',
         ?int $outboundEnquiryCount = null,
         ?string $followupFrom = null,
@@ -810,6 +857,7 @@ class LeadController extends Controller
                 $filterCustomerSubCategoryIds,
                 $estimatedDateFrom,
                 $estimatedDateTo,
+                $customerHasBooking,
                 $outboundEnquiryFilter,
                 $outboundEnquiryCount,
                 $followupFrom,

@@ -73,6 +73,90 @@ if (!function_exists('admin_uses_partial_nav')) {
     }
 }
 
+if (! function_exists('admin_in_settings_module')) {
+    function admin_in_settings_module(): bool
+    {
+        if (is_admin_employee() || ! admin_uses_top_nav()) {
+            return false;
+        }
+
+        if (request()->routeIs('admin.settings.*')) {
+            return true;
+        }
+
+        return (\App\Support\AdminNavRegistry::match()['group_key'] ?? null) === 'settings';
+    }
+}
+
+if (! function_exists('admin_in_marketing_module')) {
+    function admin_in_marketing_module(): bool
+    {
+        if (is_admin_employee() || ! admin_uses_top_nav()) {
+            return false;
+        }
+
+        if (request()->routeIs('admin.marketing.*')) {
+            return true;
+        }
+
+        return \App\Support\AdminMarketingRegistry::isMarketingPage();
+    }
+}
+
+if (! function_exists('admin_in_reports_module')) {
+    function admin_in_reports_module(): bool
+    {
+        if (is_admin_employee() || ! admin_uses_top_nav()) {
+            return false;
+        }
+
+        if (request()->routeIs('admin.reports.*')) {
+            return true;
+        }
+
+        return \App\Support\AdminReportsRegistry::isReportsPage();
+    }
+}
+
+if (!function_exists('is_super_admin')) {
+    function is_super_admin(): bool
+    {
+        return auth()->check() && auth()->user()->user_type === 'super-admin';
+    }
+}
+
+if (!function_exists('is_admin_employee')) {
+    function is_admin_employee(): bool
+    {
+        return auth()->check() && auth()->user()->user_type === 'admin-employee';
+    }
+}
+
+if (!function_exists('is_impersonating')) {
+    function is_impersonating(): bool
+    {
+        return app(\Modules\AdminModule\Services\ImpersonationService::class)->isActive();
+    }
+}
+
+if (!function_exists('impersonator')) {
+    function impersonator(): ?\Modules\UserManagement\Entities\User
+    {
+        return app(\Modules\AdminModule\Services\ImpersonationService::class)->impersonator();
+    }
+}
+
+if (!function_exists('can_impersonate_employees')) {
+    function can_impersonate_employees(): bool
+    {
+        $user = auth()->user();
+
+        return $user
+            ? app(\Modules\AdminModule\Services\ImpersonationService::class)->canStart($user)
+            : false;
+    }
+}
+
 if (!function_exists('admin_nav_placeholder')) {
     function admin_nav_placeholder(string $type = 'image'): string
     {
@@ -355,7 +439,6 @@ if (!function_exists('getDisk')) {
         return $resolved;
     }
 }
-
 
 if (!function_exists('voice_recording_file_rules')) {
     /**

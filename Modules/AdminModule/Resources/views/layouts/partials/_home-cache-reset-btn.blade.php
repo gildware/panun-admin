@@ -55,6 +55,23 @@
                 min-width: 0;
             }
 
+            .home-cache-reset-wrap--settings {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+                width: 100%;
+                max-width: 36rem;
+            }
+
+            .home-cache-reset-wrap--settings .home-cache-reset-reminder {
+                white-space: normal;
+            }
+
+            .home-cache-reset-wrap--settings .home-cache-progress {
+                width: min(360px, 100%);
+            }
+
             .home-cache-reset-control {
                 display: inline-flex;
                 align-items: center;

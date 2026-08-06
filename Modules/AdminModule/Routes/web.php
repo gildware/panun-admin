@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\AdminModule\Http\Controllers\Web\Admin\AdminController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\EmployeeProgressReportController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\RoleController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\EmployeeController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\Analytics\SearchController;
@@ -21,6 +22,10 @@ use Modules\AdminModule\Http\Controllers\Web\Admin\NotificationController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\StaffPresenceController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\ProcessGuideController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\WorkflowStepController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\ImpersonationController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\MarketingHubController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\ReportsHubController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\SettingsHubController;
 
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
@@ -30,7 +35,14 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
     Route::post('setup-guide/welcome-ack', [AdminController::class, 'acknowledgeSetupGuideWelcome'])->name('setup-guide.welcome-ack');
 
     Route::post('search-routing', [AdminController::class, 'searchRouting'])->name('search.routing');
+    Route::get('dashboard/finance', [AdminController::class, 'financeDashboard'])->name('dashboard.finance');
+    Route::get('dashboard/operations', [AdminController::class, 'operationsDashboard'])->name('dashboard.operations');
     Route::get('dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+    Route::get('settings/home-cache', [SettingsHubController::class, 'homeCache'])->name('settings.home-cache');
+    Route::get('settings/{section?}', [SettingsHubController::class, 'index'])->name('settings.index');
+    Route::get('marketing/{section?}', [MarketingHubController::class, 'index'])->name('marketing.index');
+    Route::get('reports/{section?}', [ReportsHubController::class, 'index'])->name('reports.index');
+    Route::get('my-progress', [EmployeeProgressReportController::class, 'index'])->name('my-progress');
 
     Route::get('workflow/stuck', [WorkflowStepController::class, 'stuckIndex'])->middleware(['can:lead_view'])->name('workflow.stuck');
     Route::post('workflow/steps/toggle', [WorkflowStepController::class, 'toggle'])->name('workflow.steps.toggle');
@@ -91,6 +103,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::delete('delete/{id}', [RoleController::class, 'destroy'])->name('delete');
         Route::any('download', [RoleController::class, 'download'])->name('download');
     });
+
+    Route::post('impersonate/leave', [ImpersonationController::class, 'leave'])->name('impersonate.leave');
+    Route::get('employee/{id}/impersonate', [ImpersonationController::class, 'start'])->name('employee.impersonate');
 
     Route::group(['prefix' => 'employee', 'as' => 'employee.'], function () {
         Route::any('list', [EmployeeController::class, 'index'])->name('index');

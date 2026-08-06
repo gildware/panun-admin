@@ -183,9 +183,15 @@ class ServiceController extends Controller
     {
         $search = $request->input('search') ?? '';
         $status = $request->input('status') ?: 'all';
-        // Empty query params become null via ConvertEmptyStringsToNull middleware
         $category_id = $request->input('category_id') ?: '';
         $sub_category_id = $request->input('sub_category_id') ?: '';
+
+        if ($sub_category_id && !$category_id) {
+            $subCategory = $this->category->ofType('sub')->find($sub_category_id);
+            if ($subCategory?->parent_id) {
+                $category_id = $subCategory->parent_id;
+            }
+        }
 
         if (!$category_id) {
             $sub_category_id = '';
@@ -221,14 +227,24 @@ class ServiceController extends Controller
 
     private function paginateServices(Request $request, array $queryParams)
     {
-        return $this->service->with(['category', 'subCategory', 'storage_thumbnail'])
+        return $this->service->with([
+                'category:id,name',
+                'subCategory:id,name',
+                'storage_thumbnail',
+                'variations' => fn ($query) => $query->select('id', 'variant', 'service_id')->orderBy('variant'),
+            ])
             ->withCount('variations')
             ->ordered()
             ->when($request->filled('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                foreach ($keys as $key) {
-                    $query->orWhere('name', 'LIKE', '%' . $key . '%');
+                $keys = array_filter(explode(' ', trim((string) $request['search'])));
+                if ($keys === []) {
+                    return;
                 }
+                $query->where(function ($nameQuery) use ($keys) {
+                    foreach ($keys as $key) {
+                        $nameQuery->orWhere('name', 'LIKE', '%' . $key . '%');
+                    }
+                });
             })
             ->when($request->filled('category_id'), function ($query) use ($request) {
                 return $query->where('category_id', $request->category_id);

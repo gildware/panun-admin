@@ -23,8 +23,39 @@
         };
     }
 
+    function showModal(selector) {
+        var el = document.querySelector(selector);
+        if (!el) {
+            return;
+        }
+        if (window.bootstrap && window.bootstrap.Modal) {
+            window.bootstrap.Modal.getOrCreateInstance(el).show();
+            return;
+        }
+        $(selector).modal("show");
+    }
+
+    function destroySelect2() {
+        ["#ticketAssignees", "#ticketBookings", "#ticketLeads"].forEach(function (selector) {
+            var $el = $(selector);
+            if (!$el.length) {
+                return;
+            }
+            if ($el.hasClass("select2-hidden-accessible")) {
+                try {
+                    $el.select2("destroy");
+                } catch (e) {}
+            }
+        });
+    }
+
     function initSelect2() {
-        if (!$.fn.select2) return;
+        if (!$.fn.select2 || !document.getElementById("ticketModal")) {
+            return;
+        }
+
+        destroySelect2();
+
         $("#ticketAssignees").select2({
             width: "100%",
             dropdownParent: $("#ticketModal"),
@@ -70,6 +101,67 @@
                 },
             },
         });
+    }
+
+    function hideTaskBoardModals() {
+        ["#ticketModal", "#columnModal"].forEach(function (selector) {
+            var el = document.querySelector(selector);
+            if (!el) {
+                return;
+            }
+            if (window.bootstrap && window.bootstrap.Modal) {
+                var instance = window.bootstrap.Modal.getInstance(el);
+                if (instance) {
+                    instance.hide();
+                }
+            } else {
+                $(selector).modal("hide");
+            }
+        });
+    }
+
+    function hoistTaskBoardModals(root) {
+        root = taskBoardRoot(root);
+        ["ticketModal", "columnModal"].forEach(function (id) {
+            var keeper = root.querySelector ? root.querySelector("#" + id) : null;
+            if (!keeper) {
+                keeper = document.getElementById(id);
+            }
+
+            document.querySelectorAll('[id="' + id + '"]').forEach(function (el) {
+                if (el !== keeper) {
+                    el.remove();
+                }
+            });
+
+            if (keeper && keeper.parentElement !== document.body) {
+                document.body.appendChild(keeper);
+            }
+        });
+
+        var picker = root.querySelector ? root.querySelector("#staffChatEntityPicker") : null;
+        if (!picker) {
+            picker = document.getElementById("staffChatEntityPicker");
+        }
+        document.querySelectorAll('[id="staffChatEntityPicker"]').forEach(function (el) {
+            if (el !== picker) {
+                el.remove();
+            }
+        });
+
+        var ticketModal = document.getElementById("ticketModal");
+        if (picker && ticketModal && !ticketModal.contains(picker)) {
+            ticketModal.appendChild(picker);
+        }
+    }
+
+    function prepareTaskBoardUi() {
+        $(document).off("click.taskboard", ".staff-tag-trigger");
+
+        var $columnForm = $("#columnForm");
+        if ($columnForm.length) {
+            $columnForm.data("store-action", $columnForm.attr("action"));
+        }
     }
 
     function syncAssigneeFilterUi(selected) {
@@ -323,10 +415,20 @@
         if (columnId) {
             $("#ticketColumnId").val(columnId);
         }
-        $("#ticketModal").modal("show");
+        showModal("#ticketModal");
         setTimeout(function () {
             $("#ticketTitle").trigger("focus");
         }, 200);
+    }
+
+    function formatCommentBody(comment) {
+        if (comment.body_html) {
+            return comment.body_html;
+        }
+        if (typeof window.formatStaffChatMessageHtml === "function") {
+            return window.formatStaffChatMessageHtml(comment.body || "");
+        }
+        return escapeHtml(comment.body || "");
     }
 
     function renderComments(comments) {
@@ -344,7 +446,7 @@
                 escapeHtml(c.created_at || "") +
                 "</div>" +
                 '<div class="ticket-comment-body">' +
-                (c.body_html || escapeHtml(c.body || "")) +
+                formatCommentBody(c) +
                 "</div>" +
                 renderCommentAttachments(c.attachments || []) +
                 "</div></div>";
@@ -382,6 +484,11 @@
     }
 
     function openTicket(ticketId) {
+        resetTicketForm();
+        $("#ticketModalKey").text("Loading...");
+        $("#ticketModal").addClass("ticket-modal-loading");
+        showModal("#ticketModal");
+
         $.ajax({
             url: routes.ticketsShow + "/" + ticketId,
             headers: ajaxHeaders(),
@@ -393,7 +500,9 @@
                 $("#ticketForm").attr("action", routes.ticketsUpdate + "/" + ticket.id);
                 $("#ticketModalKey").text(ticketCodeFromId(ticket.id));
                 $("#ticketTitle").val(ticket.title);
+                initComposeHighlights(document.getElementById("ticketModal") || document);
                 $("#ticketDescription").val(ticket.description || "");
+                scheduleComposeHighlight(document.getElementById("ticketDescription"));
                 $("#ticketColumnId").val(ticket.column_id);
                 $("#ticketStartDate").val(ticket.start_date || "");
                 $("#ticketEndDate").val(ticket.end_date || "");
@@ -428,29 +537,97 @@
                 renderComments(ticket.comments);
                 renderActivity(ticket.activity);
                 setActivityTab("comments");
-                $("#ticketModal").modal("show");
+                $("#ticketModal").removeClass("ticket-modal-loading");
             },
             error: function () {
+                $("#ticketModal").removeClass("ticket-modal-loading");
+                hideTaskBoardModals();
                 toastError("Failed to load ticket");
             },
         });
     }
 
-    function initSortables() {
-        if (typeof Sortable === "undefined") return;
+    var suppressTaskCardClick = false;
 
-        var board = document.getElementById("taskBoardColumns");
+    function taskBoardRoot(root) {
+        if (!root) {
+            return document;
+        }
+        if (root.nodeType === 1) {
+            return root;
+        }
+        if (root.detail && root.detail.root) {
+            return root.detail.root;
+        }
+        return document;
+    }
+
+    function isManualSortMode(root) {
+        root = taskBoardRoot(root);
+        var input = root.querySelector
+            ? root.querySelector("#taskBoardSortValue")
+            : document.getElementById("taskBoardSortValue");
+        return !input || String(input.value || "position") === "position";
+    }
+
+    function destroySortables(root) {
+        root = taskBoardRoot(root);
+        if (typeof Sortable === "undefined" || !root.querySelectorAll) {
+            return;
+        }
+
+        var board = root.querySelector("#taskBoardColumns");
+        if (board) {
+            var boardSortable = Sortable.get(board);
+            if (boardSortable) {
+                boardSortable.destroy();
+            }
+        }
+
+        root.querySelectorAll(".task-column-body").forEach(function (body) {
+            var ticketSortable = Sortable.get(body);
+            if (ticketSortable) {
+                ticketSortable.destroy();
+            }
+        });
+    }
+
+    function setTaskBoardDragEnabled(root, enabled) {
+        root = taskBoardRoot(root);
+        var page = root.querySelector ? root.querySelector(".task-board-page") : null;
+        if (page) {
+            page.classList.toggle("task-board-drag-disabled", !enabled);
+        }
+    }
+
+    function initSortables(root) {
+        root = taskBoardRoot(root);
+        if (typeof Sortable === "undefined") {
+            return;
+        }
+
+        destroySortables(root);
+
+        var manualSort = isManualSortMode(root);
+        setTaskBoardDragEnabled(root, manualSort);
+
+        var board = root.querySelector("#taskBoardColumns");
         if (board) {
             Sortable.create(board, {
                 animation: 150,
                 handle: ".column-handle",
                 draggable: ".task-column",
                 ghostClass: "task-board-ghost-col",
+                scroll: true,
+                bubbleScroll: true,
+                forceAutoScrollFallback: true,
                 onEnd: function () {
                     var order = [];
-                    $("#taskBoardColumns .task-column").each(function () {
-                        order.push($(this).data("column-id"));
-                    });
+                    $(board)
+                        .find(".task-column")
+                        .each(function () {
+                            order.push($(this).data("column-id"));
+                        });
                     $.ajax({
                         url: routes.columnsReorder,
                         method: "POST",
@@ -461,16 +638,85 @@
             });
         }
 
-        $(".task-column-body").each(function () {
-            Sortable.create(this, {
+        if (!manualSort) {
+            return;
+        }
+
+        root.querySelectorAll(".task-column-body").forEach(function (body) {
+            Sortable.create(body, {
                 group: "tickets",
                 animation: 150,
                 draggable: ".task-card",
                 ghostClass: "sortable-ghost",
+                delay: 150,
+                delayOnTouchOnly: true,
+                scroll: true,
+                bubbleScroll: true,
+                forceAutoScrollFallback: true,
+                onStart: function () {
+                    suppressTaskCardClick = false;
+                },
+                onEnd: function (evt) {
+                    if (evt.from !== evt.to || evt.oldIndex !== evt.newIndex) {
+                        suppressTaskCardClick = true;
+                        window.setTimeout(function () {
+                            suppressTaskCardClick = false;
+                        }, 0);
+                    }
+                },
                 onAdd: persistMove,
                 onUpdate: persistMove,
             });
         });
+    }
+
+    function initComposeHighlights(root) {
+        if (typeof window.initStaffChatComposeHighlights !== "function") {
+            return;
+        }
+        var scope = root && root.querySelector ? root : document;
+        window.initStaffChatComposeHighlights(scope);
+    }
+
+    function syncComposeHighlight(textarea) {
+        if (!textarea) {
+            return;
+        }
+        if (typeof window.ensureStaffChatComposeTextarea === "function") {
+            window.ensureStaffChatComposeTextarea(textarea);
+            return;
+        }
+        initComposeHighlights(textarea.closest("#ticketModal") || document);
+        if (typeof window.syncStaffChatComposeHighlight === "function") {
+            window.syncStaffChatComposeHighlight(textarea);
+        }
+    }
+
+    function scheduleComposeHighlight(textarea) {
+        if (!textarea) {
+            return;
+        }
+        syncComposeHighlight(textarea);
+        requestAnimationFrame(function () {
+            syncComposeHighlight(textarea);
+        });
+        window.setTimeout(function () {
+            syncComposeHighlight(textarea);
+        }, 60);
+    }
+
+    function bootTaskBoard(root) {
+        root = taskBoardRoot(root);
+        if (!root.querySelector || !root.querySelector(".task-board-page")) {
+            return;
+        }
+
+        hideTaskBoardModals();
+        prepareTaskBoardUi();
+        hoistTaskBoardModals(root);
+        initSelect2();
+        initComposeHighlights(root);
+        initSortables(root);
     }
 
     function persistMove(evt) {
@@ -502,85 +748,10 @@
         });
     }
 
-    // Mentions: target textarea in the same compose wrap
-    $(document).on("click", ".task-board-page .staff-tag-trigger, #ticketModal .staff-tag-trigger", function (e) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        var wrap = $(this).closest(".staff-chat-compose-wrap");
-        var textarea = wrap.find(".staff-chat-message-input")[0];
-        if (!textarea) return;
-        textarea.focus();
-        // Re-use chat picker by temporarily swapping querySelector target
-        var others = document.querySelectorAll(".staff-chat-message-input");
-        others.forEach(function (el) {
-            el.classList.remove("staff-chat-message-input");
-            el.classList.add("staff-chat-message-input-temp");
-        });
-        textarea.classList.remove("staff-chat-message-input-temp");
-        textarea.classList.add("staff-chat-message-input");
-        $(this).trigger("click.taskboard-fallback");
-        // Fire original handler path by dispatching a synthetic click after class swap isn't enough
-        // because we stopped propagation. Call show via @ insert path:
-        var type = $(this).data("tag-type");
-        var event = new KeyboardEvent("keyup", { bubbles: true });
-        // Open picker manually using chat's global search
-        var picker = document.getElementById("staffChatEntityPicker");
-        var pickerInput = document.getElementById("staffChatEntitySearchInput");
-        if (picker && pickerInput) {
-            picker.classList.remove("d-none");
-            var rect = textarea.getBoundingClientRect();
-            picker.style.top = Math.min(window.innerHeight - 280, rect.bottom + 8) + "px";
-            picker.style.left = Math.max(12, rect.left) + "px";
-            pickerInput.value = "";
-            pickerInput.focus();
-            pickerInput.dispatchEvent(new Event("input", { bubbles: true }));
-            // Store active type by simulating toolbar: chat uses activeTagType private.
-            // Force type via temporary data attribute read in overridden load - set window hook:
-            window.__taskBoardTagType = type;
-            // Trigger staff search with type by calling entity search ourselves if needed
-            $.get({
-                url: window.staffChatEntitySearchUrl,
-                dataType: "json",
-                data: { q: "", type: type },
-                success: function (response) {
-                    var results = document.getElementById("staffChatEntityResults");
-                    if (!results) return;
-                    results.innerHTML = "";
-                    (response.results || []).forEach(function (item) {
-                        var btn = document.createElement("button");
-                        btn.type = "button";
-                        btn.className = "list-group-item list-group-item-action py-2 px-2";
-                        btn.innerHTML =
-                            '<div class="fw-medium">' +
-                            escapeHtml(item.label) +
-                            '</div><div class="small text-muted">' +
-                            escapeHtml(item.subtitle || "") +
-                            "</div>";
-                        btn.addEventListener("click", function () {
-                            var labels = window.staffChatTypeLabels || {};
-                            var display =
-                                "@" + (labels[item.type] || item.type) + ":" + String(item.label || "").replace(/[\[\]]/g, "");
-                            var token = "@[" + String(item.label || "").replace(/[\[\]]/g, "") + "](" + item.type + ":" + item.id + ")";
-                            window.staffChatTagRegistry = window.staffChatTagRegistry || [];
-                            window.staffChatTagRegistry.push({ display: display, token: token });
-                            var start = textarea.selectionStart;
-                            var end = textarea.selectionEnd;
-                            var value = textarea.value;
-                            textarea.value = value.slice(0, start) + display + " " + value.slice(end);
-                            textarea.focus();
-                            picker.classList.add("d-none");
-                            // restore classes
-                            document.querySelectorAll(".staff-chat-message-input-temp").forEach(function (el) {
-                                el.classList.add("staff-chat-message-input");
-                                el.classList.remove("staff-chat-message-input-temp");
-                            });
-                        });
-                        results.appendChild(btn);
-                    });
-                },
-            });
-        }
-    });
+    window.bootTaskBoardPage = bootTaskBoard;
+
+    if (!window.__taskBoardHandlersInstalled) {
+        window.__taskBoardHandlersInstalled = true;
 
     $(document).on("click", "#btnNewTicket", function () {
         openCreateTicket();
@@ -591,6 +762,7 @@
     });
 
     $(document).on("click", ".task-card", function (e) {
+        if (suppressTaskCardClick) return;
         if ($(e.target).closest(".dropdown").length) return;
         openTicket($(this).data("ticket-id"));
     });
@@ -608,20 +780,19 @@
         } else {
             $("#columnForm input[name=_method]").val("PUT");
         }
-        $("#columnModal").modal("show");
+        showModal("#columnModal");
     });
 
-    $("#columnModal").on("show.bs.modal", function (e) {
+    $(document).on("show.bs.modal", "#columnModal", function (e) {
         if (!$(e.relatedTarget) || !$(e.relatedTarget).hasClass("btn-edit-column")) {
             if (!$("#columnId").val()) {
                 $("#columnModalTitle").text("Add Column");
-                $("#columnForm").attr("action", "{{-- set in blade --}}");
+                $("#columnForm").attr("action", $("#columnForm").data("store-action") || $("#columnForm").attr("action"));
             }
         }
     });
 
-    // Reset column modal when opened via Add Column button
-    $('[data-bs-target="#columnModal"]').on("click", function () {
+    $(document).on("click", '[data-bs-target="#columnModal"]', function () {
         $("#columnModalTitle").text("Add Column");
         $("#columnId").val("");
         $("#columnName").val("");
@@ -631,10 +802,9 @@
         $("#columnForm input[name=_method]").val("POST");
     });
 
-    $("#columnForm").on("submit", function (e) {
+    $(document).on("submit", "#columnForm", function () {
         var method = $("#columnMethod").val();
         if (method === "PUT") {
-            // ensure PUT
             if ($("#columnForm input[name=_method]").length) {
                 $("#columnForm input[name=_method]").val("PUT");
             }
@@ -659,7 +829,7 @@
         });
     });
 
-    $("#ticketForm").on("submit", function (e) {
+    $(document).on("submit", "#ticketForm", function (e) {
         e.preventDefault();
         var form = this;
         var fd = new FormData(form);
@@ -689,7 +859,7 @@
         });
     });
 
-    $("#btnDeleteTicket").on("click", function () {
+    $(document).on("click", "#btnDeleteTicket", function () {
         var id = $(this).data("id");
         if (!id || !confirm("Delete this ticket?")) return;
         $.ajax({
@@ -707,7 +877,7 @@
         });
     });
 
-    $("#btnAddComment").on("click", function () {
+    $(document).on("click", "#btnAddComment", function () {
         var ticketId = $("#ticketId").val();
         if (!ticketId) {
             toastError("Save the ticket first");
@@ -734,6 +904,7 @@
             contentType: false,
             success: function () {
                 $("#ticketCommentBody").val("");
+                syncComposeHighlight(document.getElementById("ticketCommentBody"));
                 clearCommentPendingFiles();
                 openTicket(ticketId);
                 toastSuccess("Comment added");
@@ -760,33 +931,51 @@
         }
     });
 
-    $(function () {
-        // Prefer board-scoped mention toolbar targeting over staff-chat default (first textarea only).
-        $(document).off("click", ".staff-tag-trigger");
-
-        // Store original store action
-        $("#columnForm").data("store-action", $("#columnForm").attr("action"));
-        initSelect2();
-        initSortables();
-
-        $(document).on("click", ".task-board-sort-option", function () {
-            var sort = $(this).data("sort");
-            $("#taskBoardSortValue").val(sort);
-            $("#taskBoardFilterForm").trigger("submit");
-        });
-
-        $(document).on("click", ".ticket-activity-tab", function () {
-            setActivityTab($(this).data("activity-tab"));
-        });
-
-        $(document).on("click", "#taskBoardAssigneeAvatars [data-employee-id]", function (e) {
-            var $btn = $(this);
-            if ($btn.hasClass("is-more")) {
-                return;
-            }
-            e.preventDefault();
-            e.stopPropagation();
-            toggleAssigneeFilter($btn.attr("data-employee-id"));
-        });
+    $(document).on("click", ".task-board-sort-option", function () {
+        var sort = $(this).data("sort");
+        $("#taskBoardSortValue").val(sort);
+        $("#taskBoardFilterForm").trigger("submit");
     });
+
+    $(document).on("click", ".ticket-activity-tab", function () {
+        setActivityTab($(this).data("activity-tab"));
+    });
+
+    $(document).on("shown.bs.modal", "#ticketModal", function () {
+        initComposeHighlights(document.getElementById("ticketModal") || document);
+        scheduleComposeHighlight(document.getElementById("ticketDescription"));
+        scheduleComposeHighlight(document.getElementById("ticketCommentBody"));
+    });
+
+    $(document).on("click", "#ticketModal .staff-tag-trigger", function (e) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        var wrap = $(this).closest(".staff-chat-compose-wrap");
+        var textarea = wrap.find(".staff-chat-message-input")[0];
+        if (!textarea || typeof window.openStaffChatEntityPicker !== "function") {
+            return;
+        }
+        textarea.focus();
+        window.openStaffChatEntityPicker(textarea, $(this).data("tag-type"));
+    });
+
+    $(document).on("click", "#taskBoardAssigneeAvatars [data-employee-id]", function (e) {
+        var $btn = $(this);
+        if ($btn.hasClass("is-more")) {
+            return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        toggleAssigneeFilter($btn.attr("data-employee-id"));
+    });
+
+    document.addEventListener("admin:page-loaded", function (event) {
+        var nextRoot = event.detail && event.detail.root;
+        if (!nextRoot || !nextRoot.querySelector || !nextRoot.querySelector(".task-board-page")) {
+            hideTaskBoardModals();
+        }
+    });
+    }
+
+    bootTaskBoard(document.getElementById("admin-main") || document);
 })(window.jQuery);

@@ -737,6 +737,7 @@ const SYSTEM_MODULES = [
         'submodules' => [
             ['key' => 'onboarding_request','value' => 'Onboarding Request'],
             ['key' => 'provider','value' => 'Providers'],
+            ['key' => 'provider_feedback_config','value' => 'Provider Feedback Configuration'],
             ['key' => 'withdraw','value' => 'Withdraws']
         ]
     ],
@@ -761,7 +762,9 @@ const SYSTEM_MODULES = [
         'submodules' => [
             ['key' => 'customer','value' => 'Customers'],
             ['key' => 'wallet','value' => 'Customer Wallet'],
+            ['key' => 'welcome_bonus','value' => 'Welcome Bonus'],
             ['key' => 'point','value' => 'Loyalty Point'],
+            ['key' => 'referral_earning','value' => 'Refer & Earn'],
             ['key' => 'newsletter', 'value' => 'Newsletter Subscribed Users'] //new
         ]
     ],

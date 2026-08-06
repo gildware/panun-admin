@@ -129,7 +129,7 @@
                                name="recording"
                                id="call-log-recording-input"
                                class="form-control"
-                               accept="audio/*,.mp3,.wav,.webm,.ogg,.m4a,.aac">
+                               accept="audio/*,video/mp4,.mp3,.wav,.webm,.ogg,.m4a,.aac,.mp4">
                         <div class="form-text">{{ translate('Upload_call_recording_optional_max_10MB') }}</div>
                         @error('recording')
                         <div class="text-danger small mt-1">{{ $message }}</div>

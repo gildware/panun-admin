@@ -1,4 +1,4 @@
-<div class="modal fade" id="ticketModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="ticketModal" tabindex="-1" aria-hidden="true" data-bs-focus="false">
     <div class="modal-dialog modal-xl ticket-modal-dialog">
         <form method="post" action="{{ route('admin.task-board.tickets.store') }}" id="ticketForm" class="modal-content ticket-modal-content" enctype="multipart/form-data">
             @csrf

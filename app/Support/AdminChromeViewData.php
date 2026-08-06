@@ -4,6 +4,7 @@ namespace App\Support;
 
 use Modules\AdminModule\Entities\UserNotification;
 use Modules\AdminModule\Services\AdminInboxNotificationService;
+use Modules\AdminModule\Services\ImpersonationService;
 use Modules\CustomerModule\Services\CustomerHomeCacheWarmState;
 
 /**
@@ -46,6 +47,7 @@ final class AdminChromeViewData
             'supportUnreadCount' => AdminHeaderChatCounts::supportUnreadMessages($user),
             'staffUnreadCount' => AdminHeaderChatCounts::staffUnreadMessages($user),
             'whatsappUnreadCount' => AdminHeaderChatCounts::whatsappUnreadChats($user),
+            'taskBoardAssignedCounts' => AdminHeaderTaskBoardCounts::assignedCounts($user),
             'notificationUnreadCount' => $notificationUnreadCount,
             'notificationExternalUnreadCount' => $notificationExternalUnreadCount,
             'notificationInternalUnreadCount' => $notificationInternalUnreadCount,
@@ -64,6 +66,11 @@ final class AdminChromeViewData
             'web_bookings_pending_count' => $menuCounts['web_bookings_pending'] ?? 0,
             'web_provider_requests_pending_count' => $menuCounts['web_provider_requests_pending'] ?? 0,
             'app_custom_requests_pending_count' => $menuCounts['app_custom_requests_pending'] ?? 0,
+            'unassigned_leads_menu_count' => $menuCounts['unassigned_leads'] ?? 0,
+            'pending_bookings_menu_count' => $menuCounts['pending_bookings'] ?? 0,
+            'outbound_enquiries_menu_count' => $menuCounts['outbound_enquiries'] ?? 0,
+            'customer_cart_not_contacted_count' => $menuCounts['customer_cart_not_contacted'] ?? 0,
+            'new_service_requests_count' => $menuCounts['new_service_requests'] ?? 0,
             'max_booking_amount' => $maxBookingAmount,
             'adminBreadcrumbs' => AdminBreadcrumb::resolve(),
             'adminNavMatch' => AdminNavRegistry::match(),
@@ -72,6 +79,7 @@ final class AdminChromeViewData
             'adminDefaultPinKeys' => AdminNavRegistry::defaultPinKeys(),
             'adminUserPinnedKeys' => AdminPinnedNav::pinnedKeysForUser($user),
             'homeCacheNeedsReset' => CustomerHomeCacheWarmState::needsAdminReminder(),
+            'impersonatableEmployees' => app(ImpersonationService::class)->impersonatableEmployees($user),
         ];
 
         return self::$payload;
