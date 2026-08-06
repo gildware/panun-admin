@@ -96,4 +96,16 @@ class AppCustomRequestController extends Controller
 
         return back();
     }
+
+    public function destroy(int $id): RedirectResponse
+    {
+        $this->authorize('booking_delete');
+
+        $customRequest = AppCustomRequest::query()->findOrFail($id);
+        $customRequest->delete();
+
+        Toastr::success(translate(DEFAULT_DELETE_200['message']));
+
+        return redirect()->route('admin.booking.app-custom-requests.index');
+    }
 }
