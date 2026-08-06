@@ -6,11 +6,13 @@ body.nav-top {
     --top-chrome-nav-height: 3.75rem;
     --top-chrome-pinned-height: 0rem;
     --top-chrome-group-height: 0rem;
+    --top-chrome-impersonation-height: 0rem;
     --top-chrome-height: calc(
         var(--top-chrome-utility-height)
         + var(--top-chrome-nav-height)
         + var(--top-chrome-pinned-height)
         + var(--top-chrome-group-height)
+        + var(--top-chrome-impersonation-height)
     );
     --top-chrome-main-padding: calc(var(--top-chrome-height) + 1.5rem);
     --top-chrome-main-padding-collapsed: calc(var(--top-chrome-peek) + 1.5rem);
@@ -25,6 +27,10 @@ body.nav-top:has(.top-sub-nav-bar) {
 
 body.nav-top:has(.top-group-subnav) {
     --top-chrome-group-height: 2.25rem;
+}
+
+body.nav-top:has(.impersonation-banner) {
+    --top-chrome-impersonation-height: 2.75rem;
 }
 
 body.nav-top .header,
@@ -130,6 +136,17 @@ body.nav-top.open-aside-folded .main-area {
     flex-shrink: 0;
     min-width: 0;
     max-width: 100%;
+}
+
+.top-chrome .count-btn:hover,
+.top-chrome .count-btn:focus-visible {
+    color: #fff;
+}
+
+.top-chrome .count-btn .count,
+.top-chrome .count-btn .header-unread-dot {
+    inset-inline-end: auto;
+    inset-block-start: auto;
 }
 
 .top-utility-scroll {
@@ -728,6 +745,8 @@ body:not(.top-chrome-auto-hide) .top-chrome-mode-option--unpin {
     gap: 0.25rem;
     align-items: center;
     overflow: visible;
+    min-height: 2rem;
+    line-height: 1.2;
 }
 
 .top-nav-inner--employee .top-nav-label-wrap {
@@ -832,11 +851,25 @@ body:not(.top-chrome-auto-hide) .top-chrome-mode-option--unpin {
 
 .top-nav-inner--admin-compact {
     gap: 0.2rem;
+    align-items: center;
 }
 
 .top-nav-inner--admin-compact .top-nav-trigger {
     padding: 0.35rem 0.5rem;
     font-size: 0.78125rem;
+    min-height: 2rem;
+    line-height: 1.2;
+}
+
+.top-nav-inner--admin-compact .top-nav-trigger .material-icons,
+.top-nav-inner--admin-compact .top-nav-trigger .material-symbols-outlined,
+.top-nav-inner--admin-compact .top-nav-trigger .expand-more-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.top-nav-shell > .top-nav-module-links {
+    align-self: center;
 }
 
 .top-nav-dropdown--wide {
