@@ -4,11 +4,9 @@ namespace Modules\AdminModule\Services;
 
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
-use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingFollowup;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadFollowup;
-use Modules\LeadManagement\Services\LeadOpenStatusService;
 
 /**
  * Employee ranking score: quantity of work (+) and quality penalties (−).
@@ -23,12 +21,6 @@ class EmployeeProgressScoreService
 
     public const PENALTY_LATE_FOLLOWUP = 1;
 
-    public const PENALTY_MISSED_FOLLOWUP = 1;
-
-    public function __construct(
-        private readonly LeadOpenStatusService $leadOpenStatus,
-    ) {}
-
     /**
      * @return list<array{key: string, label: string, points: int, sign: string}>
      */
@@ -39,7 +31,6 @@ class EmployeeProgressScoreService
             ['key' => 'leads_handled', 'label' => translate('Leads_Handled') ?? 'Leads handled', 'points' => self::POINTS_LEADS_HANDLED, 'sign' => '+'],
             ['key' => 'whatsapp_replies', 'label' => translate('WhatsApp_Replies') ?? 'Chat replies', 'points' => self::POINTS_CHAT_REPLIES, 'sign' => '+'],
             ['key' => 'late_followups', 'label' => translate('Progress_late_followups') ?? 'Late follow-ups', 'points' => self::PENALTY_LATE_FOLLOWUP, 'sign' => '−'],
-            ['key' => 'missed_followups', 'label' => translate('Progress_missed_followups'), 'points' => self::PENALTY_MISSED_FOLLOWUP, 'sign' => '−'],
         ];
     }
 
@@ -63,7 +54,6 @@ class EmployeeProgressScoreService
             $employeeIds = $employees->pluck('id')->map(fn ($id) => (string) $id)->filter()->values()->all();
         }
 
-        $missedByEmployee = $this->missedFollowupsByEmployee($employeeIds, $periodStart, $periodEnd);
         $lateByEmployee = $this->lateFollowupsByEmployee($employeeIds, $periodStart, $periodEnd);
         $leadsByEmployee = $this->leadsHandledByEmployee($employeeIds, $periodStart, $periodEnd);
         $ranked = [];
@@ -76,7 +66,6 @@ class EmployeeProgressScoreService
 
             $ranked[] = $this->scoreEmployeeRow(
                 $employeeRow,
-                (int) ($missedByEmployee[$employeeId] ?? 0),
                 (int) ($leadsByEmployee[$employeeId] ?? 0),
                 (int) ($lateByEmployee[$employeeId] ?? 0),
             );
@@ -105,7 +94,6 @@ class EmployeeProgressScoreService
      */
     public function scoreEmployeeRow(
         array $employeeRow,
-        int $missedFollowups,
         ?int $leadsHandledOverride = null,
         int $lateFollowups = 0,
     ): array {
@@ -143,17 +131,10 @@ class EmployeeProgressScoreService
                 self::PENALTY_LATE_FOLLOWUP,
                 false,
             ),
-            $this->markLine(
-                'missed_followups',
-                translate('Progress_missed_followups'),
-                $missedFollowups,
-                self::PENALTY_MISSED_FOLLOWUP,
-                false,
-            ),
         ];
 
         $quantityScore = (int) ($marks[0]['points'] + $marks[1]['points'] + $marks[2]['points']);
-        $penaltyScore = (int) ($marks[3]['points'] + $marks[4]['points']);
+        $penaltyScore = (int) ($marks[3]['points']);
         $score = $quantityScore + $penaltyScore;
 
         return [
@@ -164,7 +145,7 @@ class EmployeeProgressScoreService
             'chats' => $chatReplies,
             'followups' => (int) ($employeeRow['lead_followups'] ?? 0) + (int) ($employeeRow['booking_followups'] ?? 0),
             'late_followups' => $lateFollowups,
-            'missed_followups' => $missedFollowups,
+            'missed_followups' => 0,
             'cancelled' => (int) ($employeeRow['bookings_cancelled'] ?? 0),
             'quantity_score' => $quantityScore,
             'penalty_score' => $penaltyScore,
@@ -272,58 +253,6 @@ class EmployeeProgressScoreService
         }
 
         return $late;
-    }
-
-    /**
-     * @param  list<string>  $employeeIds
-     * @return array<string, int>
-     */
-    public function missedFollowupsByEmployee(array $employeeIds, Carbon $periodStart, Carbon $periodEnd): array
-    {
-        $missed = array_fill_keys($employeeIds, 0);
-
-        if ($employeeIds === []) {
-            return $missed;
-        }
-
-        $rangeStart = $periodStart->copy()->startOfDay();
-        $rangeEnd = $periodEnd->copy()->endOfDay();
-        $asOf = Carbon::now()->lt($rangeEnd) ? Carbon::now() : $rangeEnd;
-
-        $leadMissedQuery = Lead::query()
-            ->whereIn('handled_by', $employeeIds)
-            ->whereNotNull('next_followup_at')
-            ->whereBetween('next_followup_at', [$rangeStart, $rangeEnd])
-            ->where('next_followup_at', '<', $asOf)
-            ->selectRaw('handled_by, COUNT(*) as cnt')
-            ->groupBy('handled_by');
-        $this->leadOpenStatus->restrictQueryToOpenLeads($leadMissedQuery);
-
-        foreach ($leadMissedQuery->pluck('cnt', 'handled_by') as $id => $count) {
-            $key = (string) $id;
-            $missed[$key] = (int) ($missed[$key] ?? 0) + (int) $count;
-        }
-
-        $bookingMissed = BookingFollowup::query()
-            ->where('status', 'scheduled')
-            ->whereBetween('date', [$rangeStart, $rangeEnd])
-            ->where('date', '<', $asOf)
-            ->whereHas('booking', function ($q) use ($employeeIds) {
-                $q->whereIn('assignee_id', $employeeIds)
-                    ->whereIn('booking_status', Booking::STATUSES_FOR_SCHEDULED_FOLLOWUP_LISTS);
-            })
-            ->with('booking:id,assignee_id')
-            ->get(['id', 'booking_id']);
-
-        foreach ($bookingMissed as $row) {
-            $assigneeId = (string) ($row->booking?->assignee_id ?? '');
-            if ($assigneeId === '' || ! array_key_exists($assigneeId, $missed)) {
-                continue;
-            }
-            $missed[$assigneeId]++;
-        }
-
-        return $missed;
     }
 
     /**
