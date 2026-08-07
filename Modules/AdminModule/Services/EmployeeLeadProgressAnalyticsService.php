@@ -127,6 +127,7 @@ class EmployeeLeadProgressAnalyticsService
             'label' => translate('Progress_leads_handled') ?? translate('Leads_added'),
             'sublabel' => translate('Progress_leads_handled_sub') ?? translate('Total'),
             'count' => $totalHandled,
+            'total' => $totalHandled,
             'pct' => $totalHandled > 0 ? 100.0 : 0.0,
             'tone' => 'brand',
             'icon' => 'contact_page',
@@ -140,6 +141,7 @@ class EmployeeLeadProgressAnalyticsService
                 'label' => $meta['label'],
                 'sublabel' => translate('Progress_of_handled_leads') ?? translate('Share'),
                 'count' => $count,
+                'total' => $totalHandled,
                 'pct' => $pct($count),
                 'tone' => $meta['tone'],
                 'icon' => $meta['icon'],
@@ -258,6 +260,7 @@ class EmployeeLeadProgressAnalyticsService
             return [
                 'label' => $label,
                 'count' => $count,
+                'total' => $total,
                 'pct' => $total > 0 ? round(($count / $total) * 100, 1) : 0.0,
             ];
         })->values()->all();
@@ -315,6 +318,7 @@ class EmployeeLeadProgressAnalyticsService
             return [
                 'label' => $label,
                 'count' => $count,
+                'total' => $total,
                 'pct' => $total > 0 ? round(($count / $total) * 100, 1) : 0.0,
             ];
         })->values()->all();
@@ -344,8 +348,8 @@ class EmployeeLeadProgressAnalyticsService
                 'conversion_rate' => 0.0,
                 'by_status' => [],
                 'by_channel' => [
-                    ['label' => translate('Call'), 'count' => 0, 'pct' => 0.0],
-                    ['label' => translate('Message'), 'count' => 0, 'pct' => 0.0],
+                    ['label' => translate('Call'), 'count' => 0, 'total' => 0, 'pct' => 0.0],
+                    ['label' => translate('Message'), 'count' => 0, 'total' => 0, 'pct' => 0.0],
                 ],
                 'summary_rows' => $this->outcomeRows([
                     ['key' => 'total', 'label' => translate('Outbound_Enquiries'), 'count' => 0, 'tone' => 'brand', 'icon' => 'call_made'],
@@ -407,11 +411,12 @@ class EmployeeLeadProgressAnalyticsService
             'by_status' => collect($statusCounts)->map(fn ($count, $label) => [
                 'label' => $label,
                 'count' => $count,
+                'total' => $total,
                 'pct' => round(($count / $total) * 100, 1),
             ])->values()->all(),
             'by_channel' => [
-                ['label' => translate('Call'), 'count' => $channelCounts['call'], 'pct' => $total > 0 ? round(($channelCounts['call'] / $total) * 100, 1) : 0.0],
-                ['label' => translate('Message'), 'count' => $channelCounts['message'], 'pct' => $total > 0 ? round(($channelCounts['message'] / $total) * 100, 1) : 0.0],
+                ['label' => translate('Call'), 'count' => $channelCounts['call'], 'total' => $total, 'pct' => $total > 0 ? round(($channelCounts['call'] / $total) * 100, 1) : 0.0],
+                ['label' => translate('Message'), 'count' => $channelCounts['message'], 'total' => $total, 'pct' => $total > 0 ? round(($channelCounts['message'] / $total) * 100, 1) : 0.0],
             ],
             'summary_rows' => $summaryRows,
         ];
@@ -494,6 +499,7 @@ class EmployeeLeadProgressAnalyticsService
             return [
                 'label' => (string) ($row['label'] ?? translate('Not_Specified')),
                 'count' => $count,
+                'total' => $denominator,
                 'pct' => $denominator > 0 ? round(($count / $denominator) * 100, 1) : 0.0,
             ];
         })->values()->all();
@@ -507,10 +513,11 @@ class EmployeeLeadProgressAnalyticsService
     {
         $pct = fn (int $count): float => $denominator > 0 ? round(($count / $denominator) * 100, 1) : 0.0;
 
-        return collect($items)->map(function (array $item) use ($pct) {
+        return collect($items)->map(function (array $item) use ($pct, $denominator) {
             $count = (int) ($item['count'] ?? 0);
 
             return array_merge($item, [
+                'total' => $denominator,
                 'pct' => $pct($count),
             ]);
         })->all();

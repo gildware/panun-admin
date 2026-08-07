@@ -12,9 +12,6 @@
             $rowHelpKey = $row['help_key'] ?? ($helpKeyPrefix !== '' ? $helpKeyPrefix.($row['key'] ?? '') : null);
             $hasPct = array_key_exists('pct', $row) && $row['pct'] !== null;
             $pct = $hasPct ? min(100, (float) $row['pct']) : 0.0;
-            $displayValue = array_key_exists('value', $row)
-                ? (string) $row['value']
-                : number_format((int) ($row['count'] ?? 0));
             if ($hasPct && ! empty($row['sublabel'])) {
                 $footerText = ($row['pct'] ?? 0).'% · '.$row['sublabel'];
             } elseif ($hasPct) {
@@ -32,7 +29,14 @@
                         <span>{{ $row['label'] ?? '' }}</span>
                         @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => $rowHelpKey, 'size' => 'xs'])
                     </div>
-                    <div class="fmc-val">{{ $displayValue }}</div>
+                    <div class="fmc-val">
+                        @include('adminmodule::partials._employee-progress-metric-value', [
+                            'count' => $row['count'] ?? 0,
+                            'total' => array_key_exists('value', $row) ? null : ($row['total'] ?? null),
+                            'displayValue' => array_key_exists('value', $row) ? (string) $row['value'] : null,
+                            'ofClass' => 'fmc-of',
+                        ])
+                    </div>
                 </div>
                 <div class="fmc-icon">@include('adminmodule::partials._material-icon', ['name' => $row['icon'] ?? 'insights'])</div>
             </div>

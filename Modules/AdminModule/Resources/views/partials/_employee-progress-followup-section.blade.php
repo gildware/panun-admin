@@ -36,11 +36,12 @@
                             @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => $rowHelpKey, 'size' => 'xs'])
                         </div>
                         <div class="fmc-val">
-                            @if($isPercent)
-                                {{ rtrim(rtrim(number_format((float) ($row['count'] ?? 0), 1), '0'), '.') }}%
-                            @else
-                                {{ number_format((int) ($row['count'] ?? 0)) }}
-                            @endif
+                            @include('adminmodule::partials._employee-progress-metric-value', [
+                                'count' => $row['count'] ?? 0,
+                                'total' => $row['total'] ?? null,
+                                'isPercent' => $isPercent,
+                                'ofClass' => 'fmc-of',
+                            ])
                         </div>
                     </div>
                     <div class="fmc-icon">@include('adminmodule::partials._material-icon', ['name' => $row['icon'] ?? 'schedule'])</div>

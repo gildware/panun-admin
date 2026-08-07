@@ -45,8 +45,10 @@
         'followupAnalytics' => $followupAnalytics,
         'fullReport' => $fullReport,
         'activityTotals' => $activityTotals ?? [],
+        'activityTeamTotals' => $activityTeamTotals ?? [],
         'activityMetricColumns' => $activityMetricColumns ?? [],
         'viewingAllEmployees' => $viewingAllEmployees ?? false,
+        'showContributionTotals' => $showContributionTotals ?? ! ($viewingAllEmployees ?? false),
     ])
 </div>
 
@@ -100,6 +102,8 @@
         'tab' => $tab ?? 'monthly',
         'activityMetricColumns' => $activityMetricColumns ?? [],
         'activityTotals' => $activityTotals ?? [],
+        'activityTeamTotals' => $activityTeamTotals ?? [],
+        'showContributionTotals' => $showContributionTotals ?? ! ($viewingAllEmployees ?? false),
         'activityDailyRows' => $activityDailyRows ?? [],
         'dateLabel' => $dateLabel ?? null,
         'periodLabel' => $periodLabel ?? null,
@@ -109,8 +113,8 @@
 
 @push('script')
 <script src="{{ asset('assets/admin-module/plugins/apex/apexcharts.min.js') }}"></script>
-<script src="{{ asset('assets/admin-module/js/employee-progress-charts.js') }}?v=20260807ab"></script>
-<script src="{{ asset('assets/admin-module/js/employee-progress-info.js') }}?v=20260807ab"></script>
+<script src="{{ asset('assets/admin-module/js/employee-progress-charts.js') }}?v=20260807ae" data-always-activate="1"></script>
+<script src="{{ asset('assets/admin-module/js/employee-progress-info.js') }}?v=20260807ae" data-always-activate="1"></script>
 <script>
 window.PanunProgressHelp = @json($metricHelpRegistry ?? []);
 window.PanunProgressCharts = window.PanunProgressCharts || {};
@@ -138,53 +142,101 @@ window.PanunProgressCharts.config = {
         pending: @json(translate('Pending')),
     }
 };
-document.addEventListener('DOMContentLoaded', function () {
-    if (window.PanunProgressCharts.init) window.PanunProgressCharts.init();
+
+(function () {
+    var bound = false;
+
+    function normalizeSection(id) {
+        if (id === 'operations') return 'bookings';
+        if (id === 'followups') return 'lead-followups';
+        if (id === 'reports') return 'daily-basis';
+        return id;
+    }
 
     function activateProgressTab(id) {
-        if (id === 'operations') id = 'bookings';
-        if (id === 'followups') id = 'lead-followups';
-        if (id === 'reports') id = 'daily-basis';
-        var tab = document.querySelector('.shell-tab[data-tab="' + id + '"]');
-        document.querySelectorAll('.shell-tab[data-tab]').forEach(function (t) { t.classList.remove('on'); });
-        document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('on'); });
-        if (tab) tab.classList.add('on');
-        var panel = document.getElementById('tab-' + id);
-        if (panel) panel.classList.add('on');
-        setTimeout(function () {
-            if (window.PanunProgressCharts && window.PanunProgressCharts.init) {
-                window.PanunProgressCharts.init();
-            }
-        }, 150);
+        id = normalizeSection(id);
+        var root = document.querySelector('.emp-progress-report');
+        if (!root || !id) return;
+
+        root.querySelectorAll('.shell-tab[data-tab]').forEach(function (t) {
+            t.classList.toggle('on', t.getAttribute('data-tab') === id);
+        });
+        root.querySelectorAll('.tab-panel').forEach(function (p) {
+            p.classList.toggle('on', p.id === 'tab-' + id);
+        });
+
+        var sectionInputs = root.querySelectorAll('form input[name="section"]');
+        sectionInputs.forEach(function (input) {
+            input.value = id;
+        });
+
+        if (window.PanunProgressCharts && window.PanunProgressCharts.refreshVisible) {
+            window.PanunProgressCharts.refreshVisible();
+        } else if (window.PanunProgressCharts && window.PanunProgressCharts.init) {
+            window.PanunProgressCharts.init();
+        }
+
         if (history.replaceState) {
-            var url = new URL(window.location.href);
-            url.searchParams.set('section', id);
-            history.replaceState({}, '', url.toString());
+            try {
+                var url = new URL(window.location.href);
+                url.searchParams.set('section', id);
+                history.replaceState({}, '', url.toString());
+            } catch (e) {}
         }
     }
 
-    document.querySelectorAll('.shell-tab[data-tab]').forEach(function (tab) {
-        tab.addEventListener('click', function () {
-            activateProgressTab(tab.getAttribute('data-tab'));
-        });
-    });
+    function bindProgressUi() {
+        if (!document.querySelector('.emp-progress-report')) return;
 
-    document.querySelectorAll('[data-jump-tab]').forEach(function (el) {
-        el.addEventListener('click', function (e) {
-            if (e.target.closest && e.target.closest('.progress-metric-info-btn')) {
-                return;
-            }
-            var id = el.getAttribute('data-jump-tab');
-            if (id) activateProgressTab(id);
-        });
-        el.addEventListener('keydown', function (e) {
-            if (e.key !== 'Enter' && e.key !== ' ') return;
-            if (e.target.closest && e.target.closest('.progress-metric-info-btn')) return;
-            e.preventDefault();
-            var id = el.getAttribute('data-jump-tab');
-            if (id) activateProgressTab(id);
-        });
-    });
-});
+        if (!bound) {
+            bound = true;
+            document.addEventListener('click', function (e) {
+                var root = document.querySelector('.emp-progress-report');
+                if (!root || !root.contains(e.target)) return;
+
+                var tab = e.target.closest('.shell-tab[data-tab]');
+                if (tab && root.contains(tab)) {
+                    e.preventDefault();
+                    activateProgressTab(tab.getAttribute('data-tab'));
+                    return;
+                }
+
+                var jump = e.target.closest('[data-jump-tab]');
+                if (jump && root.contains(jump)) {
+                    if (e.target.closest('.progress-metric-info-btn')) return;
+                    var id = jump.getAttribute('data-jump-tab');
+                    if (id) activateProgressTab(id);
+                }
+            });
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                var jump = e.target.closest('[data-jump-tab]');
+                if (!jump) return;
+                if (e.target.closest('.progress-metric-info-btn')) return;
+                var root = document.querySelector('.emp-progress-report');
+                if (!root || !root.contains(jump)) return;
+                e.preventDefault();
+                var id = jump.getAttribute('data-jump-tab');
+                if (id) activateProgressTab(id);
+            });
+        }
+
+        if (window.PanunProgressCharts && window.PanunProgressCharts.scheduleInit) {
+            window.PanunProgressCharts.scheduleInit(60);
+        } else if (window.PanunProgressCharts && window.PanunProgressCharts.init) {
+            window.PanunProgressCharts.init();
+        }
+    }
+
+    window.PanunProgressActivateTab = activateProgressTab;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindProgressUi);
+    } else {
+        bindProgressUi();
+    }
+    document.addEventListener('admin:page-loaded', bindProgressUi);
+})();
 </script>
 @endpush

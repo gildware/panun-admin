@@ -3,7 +3,9 @@
 
     var brand = '#43466e';
     var charts = {};
+    var sparkCharts = [];
     var H = { trend: 280, bar: 280, line: 260, donut: 240, stacked: 300, funnel: 260 };
+    var initTimer = null;
 
     function cfg() {
         return (global.PanunProgressCharts && global.PanunProgressCharts.config) || { charts: {}, kpis: [], labels: {} };
@@ -14,6 +16,28 @@
         var panel = el.closest('.tab-panel');
         if (panel && !panel.classList.contains('on')) return false;
         return el.getClientRects().length > 0 && el.offsetWidth > 0;
+    }
+
+    function destroyAll() {
+        Object.keys(charts).forEach(function (id) {
+            try {
+                if (charts[id] && typeof charts[id].destroy === 'function') {
+                    charts[id].destroy();
+                }
+            } catch (e) {}
+            delete charts[id];
+        });
+        sparkCharts.forEach(function (chart) {
+            try {
+                if (chart && typeof chart.destroy === 'function') {
+                    chart.destroy();
+                }
+            } catch (e) {}
+        });
+        sparkCharts = [];
+        document.querySelectorAll('.progress-spark').forEach(function (el) {
+            el.innerHTML = '';
+        });
     }
 
     function legendTop() {
@@ -78,8 +102,12 @@
         var el = document.querySelector(id);
         if (!el || !isVisible(el)) return;
         if (charts[id]) {
-            charts[id].destroy();
+            try {
+                charts[id].destroy();
+            } catch (e) {}
+            delete charts[id];
         }
+        el.innerHTML = '';
         var base = {
             chart: {
                 fontFamily: 'Outfit, sans-serif',
@@ -93,20 +121,18 @@
         };
         var merged = Object.assign({}, base, opts || {});
         merged.chart = Object.assign({}, base.chart, (opts && opts.chart) || {});
-        charts[id] = new ApexCharts(el, merged);
-        charts[id].render();
+        try {
+            charts[id] = new ApexCharts(el, merged);
+            charts[id].render();
+        } catch (e) {
+            console.warn('Progress chart failed:', id, e);
+        }
     }
 
-    function init() {
-        if (typeof ApexCharts === 'undefined') return;
-
-        var config = cfg();
-        var c = config.charts || {};
-        var lc = config.leadCharts || {};
-        var fc = config.followupCharts || {};
-        var labels = config.labels || {};
-
+    function initSparks(config) {
         document.querySelectorAll('.progress-spark').forEach(function (el) {
+            if (!isVisible(el)) return;
+
             var spark = [];
             try {
                 spark = JSON.parse(el.getAttribute('data-spark') || '[]');
@@ -121,16 +147,39 @@
                 }
             }
             if (!spark.length) return;
-            new ApexCharts(el, {
-                series: [{ data: spark }],
-                chart: { type: 'area', height: 28, sparkline: { enabled: true }, fontFamily: 'Outfit,sans-serif' },
-                stroke: { width: 2, curve: 'smooth' },
-                fill: { type: 'gradient', gradient: { opacityFrom: 0.35, opacityTo: 0.02 } },
-                colors: [el.getAttribute('data-color') || brand]
-            }).render();
-        });
 
-        mk('#chart-bookings-trend', (function () {
+            el.innerHTML = '';
+            try {
+                var chart = new ApexCharts(el, {
+                    series: [{ data: spark }],
+                    chart: { type: 'area', height: 28, sparkline: { enabled: true }, fontFamily: 'Outfit,sans-serif' },
+                    stroke: { width: 2, curve: 'smooth' },
+                    fill: { type: 'gradient', gradient: { opacityFrom: 0.35, opacityTo: 0.02 } },
+                    colors: [el.getAttribute('data-color') || brand]
+                });
+                chart.render();
+                sparkCharts.push(chart);
+            } catch (e) {
+                console.warn('Progress spark failed', e);
+            }
+        });
+    }
+
+    function init() {
+        if (typeof ApexCharts === 'undefined') return;
+        if (!document.querySelector('.emp-progress-report')) return;
+
+        destroyAll();
+
+        var config = cfg();
+        var c = config.charts || {};
+        var lc = config.leadCharts || {};
+        var fc = config.followupCharts || {};
+        var labels = config.labels || {};
+
+        initSparks(config);
+
+        var bookingTrendOpts = (function () {
             var trend = c.booking_trend_series || [];
             var series = trend.length
                 ? trend.map(function (row) {
@@ -177,7 +226,9 @@
                     y: { formatter: function (v) { return Math.round(v || 0); } }
                 }
             };
-        })());
+        })();
+        mk('#chart-bookings-trend', bookingTrendOpts);
+        mk('#chart-overview-booking-trend', bookingTrendOpts);
 
         mk('#chart-leads-trend', {
             series: [{ name: labels.leads || 'Leads', data: c.leads_series || [] }],
@@ -186,20 +237,6 @@
             fill: { type: 'gradient', gradient: { opacityFrom: 0.45, opacityTo: 0.05 } },
             xaxis: axisCats(c.activity_categories || [])
         });
-
-        if (c.activity_categories) {
-            mk('#chart-revenue-main', {
-                series: [
-                    { name: labels.bookings || 'Bookings', type: 'column', data: c.bookings_series || [] },
-                    { name: labels.leads || 'Leads', type: 'line', data: c.leads_series || [] }
-                ],
-                chart: { height: H.trend, type: 'line', stacked: false },
-                stroke: { width: [0, 3], curve: 'smooth' },
-                plotOptions: { bar: { borderRadius: 6, columnWidth: '45%' } },
-                xaxis: axisCats(c.activity_categories),
-                legend: legendTop()
-            });
-        }
 
         mk('#chart-funnel', {
             series: [{ name: labels.total || 'Total', data: c.funnel_series || [] }],
@@ -300,7 +337,7 @@
             colors: [brand]
         });
 
-        if (fc.lead_categories?.length || fc.categories?.length) {
+        if ((fc.lead_categories && fc.lead_categories.length) || (fc.categories && fc.categories.length)) {
             mk('#chart-followup-lead-trend', {
                 series: [
                     { name: labels.done || 'Done', data: fc.lead_done_series || [] },
@@ -316,7 +353,7 @@
             });
         }
 
-        if (fc.booking_categories?.length || fc.categories?.length) {
+        if ((fc.booking_categories && fc.booking_categories.length) || (fc.categories && fc.categories.length)) {
             mk('#chart-followup-booking-trend', {
                 series: [
                     { name: labels.done || 'Done', data: fc.booking_done_series || [] },
@@ -351,7 +388,21 @@
         }
     }
 
+    function scheduleInit(delay) {
+        if (initTimer) {
+            clearTimeout(initTimer);
+        }
+        initTimer = setTimeout(function () {
+            initTimer = null;
+            init();
+        }, typeof delay === 'number' ? delay : 0);
+    }
+
     global.PanunProgressCharts = global.PanunProgressCharts || {};
     global.PanunProgressCharts.init = init;
-    global.PanunProgressCharts.refreshVisible = init;
+    global.PanunProgressCharts.destroy = destroyAll;
+    global.PanunProgressCharts.refreshVisible = function () {
+        scheduleInit(80);
+    };
+    global.PanunProgressCharts.scheduleInit = scheduleInit;
 })(window);

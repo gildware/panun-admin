@@ -11,6 +11,7 @@ class EmployeeProgressAnalyticsService
 {
     public function __construct(
         private readonly EmployeeBookingStatusAnalyticsService $bookingStatusAnalytics,
+        private readonly EmployeeProgressScoreService $progressScore,
     ) {}
 
     /**
@@ -107,8 +108,14 @@ class EmployeeProgressAnalyticsService
             $kpis[] = $this->kpi('cancelled_bookings', translate('Cancelled'), $cancelledBookings, 'cancel', 'danger', true, $this->sparkTail($bookingsSeries), translate('Cancelled'));
         }
 
-        $topPerformers = $this->buildTopPerformers($report['employee_totals'] ?? [], $viewingAll);
-        $teamScores = $this->buildTeamScores($report['employee_totals'] ?? [], $fullReport['team_rank_rows'] ?? [], $viewingAll);
+        $topPerformers = $this->buildTopPerformers(
+            $report['employee_totals'] ?? [],
+            $employees,
+            $periodStart,
+            $periodEnd,
+            $viewingAll,
+        );
+        $teamScores = $this->buildTeamScores($topPerformers, $fullReport['team_rank_rows'] ?? [], $viewingAll);
         $insights = $this->buildInsights($fullReport['improvements'] ?? []);
         $agingBuckets = $this->buildAgingBuckets($fullReport, $pendingTotal, $missedTotal);
         $recentBookings = $this->buildRecentBookings($detail, $employees, $periodStart, $periodEnd);
@@ -171,6 +178,7 @@ class EmployeeProgressAnalyticsService
                 ),
             ],
             'top_performers' => $topPerformers,
+            'score_weights' => EmployeeProgressScoreService::weightLegend(),
             'insights' => $insights,
             'aging_buckets' => $agingBuckets,
             'recent_bookings' => $recentBookings,
@@ -245,49 +253,54 @@ class EmployeeProgressAnalyticsService
      * @param  list<array<string, mixed>>  $employeeTotals
      * @return list<array<string, mixed>>
      */
-    private function buildTopPerformers(array $employeeTotals, bool $viewingAll): array
-    {
-        if (! $viewingAll) {
+    private function buildTopPerformers(
+        array $employeeTotals,
+        Collection $employees,
+        Carbon $periodStart,
+        Carbon $periodEnd,
+        bool $viewingAll,
+    ): array {
+        if ($employeeTotals === []) {
             return [];
         }
 
-        $topPerformers = [];
+        $ranked = $this->progressScore->rankEmployees(
+            $employeeTotals,
+            $employees,
+            $periodStart,
+            $periodEnd,
+        );
 
-        foreach ($employeeTotals as $employeeRow) {
-            $score = (int) ($employeeRow['bookings_created'] ?? 0)
-                + (int) ($employeeRow['outbound_enquiries'] ?? 0)
-                + (int) ($employeeRow['lead_followups'] ?? 0);
-            $topPerformers[] = [
-                'name' => (string) ($employeeRow['employee_name'] ?? ''),
-                'bookings' => (int) ($employeeRow['bookings_created'] ?? 0),
-                'followups' => (int) ($employeeRow['lead_followups'] ?? 0) + (int) ($employeeRow['booking_followups'] ?? 0),
-                'score' => $score,
-                'revenue' => with_currency_symbol((float) ($employeeRow['bookings_created'] ?? 0) * 1000),
-            ];
+        if (! $viewingAll) {
+            return array_slice($ranked, 0, 1);
         }
 
-        usort($topPerformers, fn (array $a, array $b) => $b['score'] <=> $a['score']);
-
-        return array_slice($topPerformers, 0, 5);
+        return array_slice($ranked, 0, 8);
     }
 
     /**
-     * @param  list<array<string, mixed>>  $employeeTotals
+     * @param  list<array<string, mixed>>  $topPerformers
      * @param  list<array<string, mixed>>  $teamRankRows
      * @return array{categories: list<string>, scores: list<int>}
      */
-    private function buildTeamScores(array $employeeTotals, array $teamRankRows, bool $viewingAll): array
+    private function buildTeamScores(array $topPerformers, array $teamRankRows, bool $viewingAll): array
     {
-        $rows = $teamRankRows !== [] ? $teamRankRows : [];
+        $rows = [];
 
-        if ($rows === [] && $employeeTotals !== []) {
-            foreach ($employeeTotals as $employeeRow) {
+        if ($topPerformers !== []) {
+            foreach ($topPerformers as $performer) {
                 $rows[] = [
-                    'label' => (string) ($employeeRow['employee_name'] ?? ''),
-                    'score' => (int) ($employeeRow['bookings_created'] ?? 0) + (int) ($employeeRow['lead_followups'] ?? 0),
+                    'label' => (string) ($performer['name'] ?? ''),
+                    'score' => (int) ($performer['score'] ?? 0),
                 ];
             }
-            usort($rows, fn (array $a, array $b) => ($b['score'] ?? 0) <=> ($a['score'] ?? 0));
+        } elseif ($teamRankRows !== []) {
+            foreach ($teamRankRows as $row) {
+                $rows[] = [
+                    'label' => (string) ($row['label'] ?? ''),
+                    'score' => (int) ($row['score'] ?? 0),
+                ];
+            }
         }
 
         if (! $viewingAll && count($rows) > 1) {

@@ -1,6 +1,8 @@
 @php
     $activityMetricColumns = $activityMetricColumns ?? [];
     $activityTotals = $activityTotals ?? [];
+    $showContributionTotals = ! empty($showContributionTotals);
+    $activityTeamTotals = $showContributionTotals ? ($activityTeamTotals ?? []) : [];
     $activityDailyRows = $activityDailyRows ?? [];
     $toneMap = ['good' => 'success', 'warning' => 'warning', 'warn' => 'warning', 'danger' => 'danger'];
     $groupMeta = [
@@ -25,6 +27,9 @@
         ? ($dateLabel ?? translate('Daily_Report'))
         : ($periodLabel ?? translate('Monthly_Report'));
     $totalActions = collect($activityMetricColumns)->sum(fn ($col) => (int) ($activityTotals[$col['key']] ?? 0));
+    $teamTotalActions = $showContributionTotals
+        ? collect($activityMetricColumns)->sum(fn ($col) => (int) ($activityTeamTotals[$col['key']] ?? 0))
+        : null;
 @endphp
 
 <div class="daily-basis">
@@ -38,7 +43,13 @@
         </div>
         <div class="daily-basis-total">
             <span class="daily-basis-total-lbl">{{ translate('Total_actions') ?? 'Total actions' }}</span>
-            <span class="daily-basis-total-val">{{ $totalActions }}</span>
+            <span class="daily-basis-total-val">
+                @include('adminmodule::partials._employee-progress-metric-value', [
+                    'count' => $totalActions,
+                    'total' => $teamTotalActions,
+                    'ofClass' => 'mc-of',
+                ])
+            </span>
         </div>
     </div>
 
@@ -57,6 +68,7 @@
                 @foreach($columns as $column)
                     @php
                         $value = (int) ($activityTotals[$column['key']] ?? 0);
+                        $teamValue = $showContributionTotals ? (int) ($activityTeamTotals[$column['key']] ?? 0) : null;
                         $cardTone = $toneMap[$column['tone'] ?? ''] ?? '';
                     @endphp
                     <div class="metric-card {{ $cardTone }} {{ $value === 0 ? 'is-zero' : '' }}">
@@ -66,7 +78,13 @@
                                     <span>{{ $column['label'] }}</span>
                                     @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => 'activity_'.$column['key'], 'size' => 'xs'])
                                 </div>
-                                <div class="mc-val">{{ $value }}</div>
+                                <div class="mc-val">
+                                    @include('adminmodule::partials._employee-progress-metric-value', [
+                                        'count' => $value,
+                                        'total' => $teamValue,
+                                        'ofClass' => 'mc-of',
+                                    ])
+                                </div>
                             </div>
                             <div class="mc-icon">@include('adminmodule::partials._material-icon', ['name' => $column['icon'] ?? 'insights'])</div>
                         </div>
@@ -112,7 +130,15 @@
                                         @php $val = (int) ($row[$column['key']] ?? 0); @endphp
                                         <td class="col-day {{ $val === 0 ? 'is-zero' : '' }}">{{ $val }}</td>
                                     @endforeach
-                                    <td class="col-total">{{ (int) ($activityTotals[$column['key']] ?? 0) }}</td>
+                                    <td class="col-total">
+                                        @include('adminmodule::partials._employee-progress-metric-value', [
+                                            'count' => (int) ($activityTotals[$column['key']] ?? 0),
+                                            'total' => $showContributionTotals
+                                                ? (int) ($activityTeamTotals[$column['key']] ?? 0)
+                                                : null,
+                                            'ofClass' => 'mc-of',
+                                        ])
+                                    </td>
                                 </tr>
                             @endforeach
                             <tr class="daily-basis-total-row">

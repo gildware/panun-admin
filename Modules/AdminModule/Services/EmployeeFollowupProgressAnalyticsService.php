@@ -1156,8 +1156,10 @@ class EmployeeFollowupProgressAnalyticsService
     {
         return collect($items)->map(function (array $item) use ($denominator) {
             $count = (int) ($item['count'] ?? 0);
+            $isPercent = ($item['display'] ?? '') === 'percent';
 
             return array_merge($item, [
+                'total' => $isPercent ? null : $denominator,
                 'pct' => $denominator > 0 ? round(($count / $denominator) * 100, 1) : 0.0,
             ]);
         })->all();
