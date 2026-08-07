@@ -28,6 +28,8 @@ class EmployeeDashboardService
     public function __construct(
         protected LeadOpenStatusService $leadOpenStatus,
         protected DailyEmployeeReportService $dailyEmployeeReport,
+        protected EmployeeBookingStatusAnalyticsService $bookingStatusAnalytics,
+        protected EmployeeProgressScoreService $progressScore,
     ) {}
 
     /**
@@ -281,24 +283,42 @@ class EmployeeDashboardService
     private function buildTeamProgressStatItems(array $periodTotals, Carbon $periodStart, Carbon $periodEnd): array
     {
         $outcomes = $this->teamBookingOutcomesForPeriod($periodStart, $periodEnd);
+        $employeeIds = $this->dashboardEmployees()->pluck('id')->map(fn ($id) => (string) $id)->filter()->values()->all();
+        $statusTotals = $this->bookingStatusTotalsForEmployees($employeeIds, $periodStart, $periodEnd, $periodTotals, $outcomes);
         $urls = $this->teamProgressStatUrls();
         $items = [];
 
         foreach ($this->progressStatMetricDefinitions() as $definition) {
             $key = $definition['key'];
             $source = $definition['source'];
-            $raw = $source === 'report'
-                ? (int) ($periodTotals[$key] ?? 0)
-                : ($source === 'completed_amount'
-                    ? (float) ($outcomes[$source] ?? 0)
-                    : (int) ($outcomes[$source] ?? 0));
+            $raw = match ($source) {
+                'report' => (int) ($periodTotals[$key] ?? 0),
+                'completed_amount' => (float) ($outcomes[$source] ?? 0),
+                'booking_status' => (int) ($statusTotals[$key] ?? 0),
+                default => (int) ($outcomes[$source] ?? 0),
+            };
+
+            if ($key === 'completed_bookings' && (int) ($statusTotals['completed'] ?? 0) > 0) {
+                $raw = (int) $statusTotals['completed'];
+            }
+            if ($key === 'cancelled_bookings') {
+                $raw = (int) ($statusTotals['canceled'] ?? 0) + (int) ($statusTotals['cancelled_after_visit'] ?? 0);
+                if ($raw <= 0) {
+                    $raw = (int) ($outcomes['cancelled_bookings'] ?? 0);
+                }
+            }
 
             $value = $source === 'completed_amount'
                 ? with_currency_symbol($raw)
                 : (string) (int) $raw;
 
             $isZero = $source === 'completed_amount' ? $raw <= 0 : $raw <= 0;
-            $tone = $key === 'cancelled_bookings'
+            // Always show core booking-status quantity tiles (even at 0).
+            if ($source === 'booking_status' && $isZero && ! in_array($key, ['pending', 'accepted', 'ongoing', 'on_hold', 'hold_after_visit'], true)) {
+                continue;
+            }
+
+            $tone = in_array($key, ['cancelled_bookings', 'cancelled_after_visit', 'disputed_cancelled', 'disputed_completed', 'loss_making'], true)
                 ? ($raw > 0 ? 'warn' : 'neutral')
                 : $definition['tone'];
 
@@ -336,6 +356,17 @@ class EmployeeDashboardService
             'completed_bookings' => route('admin.booking.list', ['booking_status' => 'completed', 'service_type' => 'all']),
             'completed_amount' => route('admin.booking.list', ['booking_status' => 'completed', 'service_type' => 'all']),
             'cancelled_bookings' => route('admin.booking.list', ['booking_status' => 'canceled', 'service_type' => 'all']),
+            'pending' => route('admin.booking.list', ['booking_status' => 'pending', 'service_type' => 'all']),
+            'accepted' => route('admin.booking.list', ['booking_status' => 'accepted', 'service_type' => 'all']),
+            'ongoing' => route('admin.booking.list', ['booking_status' => 'ongoing', 'service_type' => 'all']),
+            'on_hold' => route('admin.booking.list', ['booking_status' => 'on_hold', 'service_type' => 'all']),
+            'hold_after_visit' => route('admin.booking.list', ['booking_status' => 'hold_after_visit', 'service_type' => 'all']),
+            'cancelled_after_visit' => route('admin.booking.list', ['booking_status' => 'cancelled_after_visit', 'service_type' => 'all']),
+            'disputed_cancelled' => route('admin.booking.list', ['booking_status' => 'disputed_cancelled', 'service_type' => 'all']),
+            'disputed_completed' => route('admin.booking.list', ['booking_status' => 'disputed_completed', 'service_type' => 'all']),
+            'loss_making' => route('admin.booking.list', ['booking_status' => 'loss_making_pending', 'service_type' => 'all']),
+            'loss_recovered' => route('admin.booking.list', ['booking_status' => 'loss_recovered', 'service_type' => 'all']),
+            'loss_settled' => route('admin.booking.list', ['booking_status' => 'loss_settled', 'service_type' => 'all']),
         ];
     }
 
@@ -441,7 +472,7 @@ class EmployeeDashboardService
 
     /**
      * @param  Collection<int, User>  $employees
-     * @return list<array{rank: int, employee_id: string, label: string, score: int}>
+     * @return list<array{rank: int, employee_id: string, label: string, score: int, marks?: list<array<string, mixed>>}>
      */
     private function teamOverallRankRows(Collection $employees, Carbon $periodStart, Carbon $periodEnd): array
     {
@@ -450,36 +481,24 @@ class EmployeeDashboardService
         }
 
         $teamReport = $this->dailyEmployeeReport->buildReport($employees, $periodStart, $periodEnd);
-        $metricKeys = ['bookings_created', 'outbound_enquiries'];
-        $rows = [];
+        $ranked = $this->progressScore->rankEmployees(
+            $teamReport['employee_totals'] ?? [],
+            $employees,
+            $periodStart,
+            $periodEnd,
+        );
 
-        foreach ($teamReport['employee_totals'] as $employeeRow) {
-            $employeeId = (string) ($employeeRow['employee_id'] ?? '');
-            if ($employeeId === '') {
-                continue;
-            }
-
-            $score = 0;
-            foreach ($metricKeys as $key) {
-                $score += (int) ($employeeRow[$key] ?? 0);
-            }
-            $score += $this->completedBookingsCount($employeeId, $periodStart, $periodEnd);
-
-            $rows[] = [
-                'employee_id' => $employeeId,
-                'label' => (string) ($employeeRow['employee_name'] ?? $employeeId),
-                'score' => $score,
+        return array_map(static function (array $row) {
+            return [
+                'rank' => (int) ($row['rank'] ?? 0),
+                'employee_id' => (string) ($row['employee_id'] ?? ''),
+                'label' => (string) ($row['name'] ?? ''),
+                'score' => (int) ($row['score'] ?? 0),
+                'marks' => $row['marks'] ?? [],
+                'quantity_score' => (int) ($row['quantity_score'] ?? 0),
+                'penalty_score' => (int) ($row['penalty_score'] ?? 0),
             ];
-        }
-
-        usort($rows, fn (array $a, array $b) => $b['score'] <=> $a['score']);
-
-        foreach ($rows as $index => &$row) {
-            $row['rank'] = $index + 1;
-        }
-        unset($row);
-
-        return $rows;
+        }, $ranked);
     }
 
     /**
@@ -1132,13 +1151,21 @@ class EmployeeDashboardService
     private function progressStatMetricDefinitions(): array
     {
         return [
+            ['key' => 'leads_added', 'icon' => 'person_add', 'label' => translate('Leads_added') ?? translate('Leads'), 'tone' => 'lead', 'source' => 'report', 'include_in_total' => true],
+            ['key' => 'lead_followups', 'icon' => 'event_repeat', 'label' => translate('Lead_followups') ?? translate('Lead_Followups'), 'tone' => 'lead', 'source' => 'report', 'include_in_total' => true],
+            ['key' => 'booking_followups', 'icon' => 'event_available', 'label' => translate('Booking_followups') ?? translate('Booking_Followups'), 'tone' => 'booking', 'source' => 'report', 'include_in_total' => true],
             ['key' => 'bookings_created', 'icon' => 'add_shopping_cart', 'label' => translate('Bookings_created'), 'tone' => 'brand', 'source' => 'report', 'include_in_total' => true],
-            ['key' => 'outbound_enquiries', 'icon' => 'call_made', 'label' => translate('Outbound_enquiries'), 'tone' => 'outbound', 'source' => 'report', 'include_in_total' => true],
-            ['key' => 'whatsapp_chats_replied', 'icon' => 'forum', 'label' => translate('WhatsApp_replies'), 'tone' => 'whatsapp', 'source' => 'report', 'include_in_total' => true],
-            ['key' => 'whatsapp_chats_closed', 'icon' => 'check_circle', 'label' => translate('WhatsApp_chats_closed'), 'tone' => 'whatsapp-closed', 'source' => 'report', 'include_in_total' => true],
+            ['key' => 'pending', 'icon' => 'hourglass_top', 'label' => translate('Pending'), 'tone' => 'warn', 'source' => 'booking_status', 'include_in_total' => false],
+            ['key' => 'accepted', 'icon' => 'thumb_up', 'label' => translate('Accepted'), 'tone' => 'brand', 'source' => 'booking_status', 'include_in_total' => false],
+            ['key' => 'ongoing', 'icon' => 'play_circle', 'label' => translate('Ongoing'), 'tone' => 'brand', 'source' => 'booking_status', 'include_in_total' => false],
+            ['key' => 'on_hold', 'icon' => 'pause_circle', 'label' => translate('On_hold') ?? 'On hold', 'tone' => 'warn', 'source' => 'booking_status', 'include_in_total' => false],
+            ['key' => 'hold_after_visit', 'icon' => 'home_work', 'label' => translate('Hold_after_visit') ?? 'Hold after visit', 'tone' => 'warn', 'source' => 'booking_status', 'include_in_total' => false],
             ['key' => 'completed_bookings', 'icon' => 'check_circle', 'label' => translate('Bookings_completed'), 'tone' => 'good', 'source' => 'completed_bookings', 'include_in_total' => true],
             ['key' => 'completed_amount', 'icon' => 'payments', 'label' => translate('Completed_amount'), 'tone' => 'brand', 'source' => 'completed_amount', 'include_in_total' => false],
             ['key' => 'cancelled_bookings', 'icon' => 'cancel', 'label' => translate('Cancelled_bookings'), 'tone' => 'warn', 'source' => 'cancelled_bookings', 'include_in_total' => true],
+            ['key' => 'outbound_enquiries', 'icon' => 'call_made', 'label' => translate('Outbound_enquiries'), 'tone' => 'outbound', 'source' => 'report', 'include_in_total' => true],
+            ['key' => 'whatsapp_chats_replied', 'icon' => 'forum', 'label' => translate('WhatsApp_replies'), 'tone' => 'whatsapp', 'source' => 'report', 'include_in_total' => true],
+            ['key' => 'whatsapp_chats_closed', 'icon' => 'mark_chat_read', 'label' => translate('WhatsApp_chats_closed'), 'tone' => 'whatsapp-closed', 'source' => 'report', 'include_in_total' => true],
         ];
     }
 
@@ -1159,6 +1186,17 @@ class EmployeeDashboardService
             'completed_bookings' => route('admin.booking.list', ['booking_status' => 'completed', 'service_type' => 'all', 'assignee_ids' => [$userId]]),
             'completed_amount' => route('admin.booking.list', ['booking_status' => 'completed', 'service_type' => 'all', 'assignee_ids' => [$userId]]),
             'cancelled_bookings' => route('admin.booking.list', ['booking_status' => 'canceled', 'service_type' => 'all', 'assignee_ids' => [$userId]]),
+            'pending' => route('admin.booking.list', ['booking_status' => 'pending', 'service_type' => 'all', 'assignee_ids' => [$userId]]),
+            'accepted' => route('admin.booking.list', ['booking_status' => 'accepted', 'service_type' => 'all', 'assignee_ids' => [$userId]]),
+            'ongoing' => route('admin.booking.list', ['booking_status' => 'ongoing', 'service_type' => 'all', 'assignee_ids' => [$userId]]),
+            'on_hold' => route('admin.booking.list', ['booking_status' => 'on_hold', 'service_type' => 'all', 'assignee_ids' => [$userId]]),
+            'hold_after_visit' => route('admin.booking.list', ['booking_status' => 'hold_after_visit', 'service_type' => 'all', 'assignee_ids' => [$userId]]),
+            'cancelled_after_visit' => route('admin.booking.list', ['booking_status' => 'cancelled_after_visit', 'service_type' => 'all', 'assignee_ids' => [$userId]]),
+            'disputed_cancelled' => route('admin.booking.list', ['booking_status' => 'disputed_cancelled', 'service_type' => 'all', 'assignee_ids' => [$userId]]),
+            'disputed_completed' => route('admin.booking.list', ['booking_status' => 'disputed_completed', 'service_type' => 'all', 'assignee_ids' => [$userId]]),
+            'loss_making' => route('admin.booking.list', ['booking_status' => 'loss_making_pending', 'service_type' => 'all', 'assignee_ids' => [$userId]]),
+            'loss_recovered' => route('admin.booking.list', ['booking_status' => 'loss_recovered', 'service_type' => 'all', 'assignee_ids' => [$userId]]),
+            'loss_settled' => route('admin.booking.list', ['booking_status' => 'loss_settled', 'service_type' => 'all', 'assignee_ids' => [$userId]]),
         ];
     }
 
@@ -1194,24 +1232,42 @@ class EmployeeDashboardService
     private function buildProgressStatItems(array $periodTotals, string $userId, Carbon $periodStart, Carbon $periodEnd): array
     {
         $outcomes = $this->bookingOutcomesForPeriod($userId, $periodStart, $periodEnd);
+        $statusTotals = $this->bookingStatusTotalsForEmployees([$userId], $periodStart, $periodEnd, $periodTotals, $outcomes);
         $urls = $this->progressStatUrls($userId);
         $items = [];
 
         foreach ($this->progressStatMetricDefinitions() as $definition) {
             $key = $definition['key'];
             $source = $definition['source'];
-            $raw = $source === 'report'
-                ? (int) ($periodTotals[$key] ?? 0)
-                : ($source === 'completed_amount'
-                    ? (float) ($outcomes[$source] ?? 0)
-                    : (int) ($outcomes[$source] ?? 0));
+            $raw = match ($source) {
+                'report' => (int) ($periodTotals[$key] ?? 0),
+                'completed_amount' => (float) ($outcomes[$source] ?? 0),
+                'booking_status' => (int) ($statusTotals[$key] ?? 0),
+                default => (int) ($outcomes[$source] ?? 0),
+            };
+
+            // Prefer created-in-period completed/cancelled counts when status analytics has them.
+            if ($key === 'completed_bookings' && (int) ($statusTotals['completed'] ?? 0) > 0) {
+                $raw = (int) $statusTotals['completed'];
+            }
+            if ($key === 'cancelled_bookings') {
+                $raw = (int) ($statusTotals['canceled'] ?? 0) + (int) ($statusTotals['cancelled_after_visit'] ?? 0);
+                if ($raw <= 0) {
+                    $raw = (int) ($outcomes['cancelled_bookings'] ?? 0);
+                }
+            }
 
             $value = $source === 'completed_amount'
                 ? with_currency_symbol($raw)
                 : (string) (int) $raw;
 
             $isZero = $source === 'completed_amount' ? $raw <= 0 : $raw <= 0;
-            $tone = $key === 'cancelled_bookings'
+            // Always show core booking-status quantity tiles (even at 0).
+            if ($source === 'booking_status' && $isZero && ! in_array($key, ['pending', 'accepted', 'ongoing', 'on_hold', 'hold_after_visit'], true)) {
+                continue;
+            }
+
+            $tone = in_array($key, ['cancelled_bookings', 'cancelled_after_visit', 'disputed_cancelled', 'disputed_completed', 'loss_making'], true)
                 ? ($raw > 0 ? 'warn' : 'neutral')
                 : $definition['tone'];
 
@@ -1230,6 +1286,35 @@ class EmployeeDashboardService
         }
 
         return $items;
+    }
+
+    /**
+     * @param  list<string>  $employeeIds
+     * @param  array<string, mixed>  $periodTotals
+     * @param  array{completed_bookings: int, completed_amount: float, cancelled_bookings: int}  $outcomes
+     * @return array<string, int>
+     */
+    private function bookingStatusTotalsForEmployees(
+        array $employeeIds,
+        Carbon $periodStart,
+        Carbon $periodEnd,
+        array $periodTotals,
+        array $outcomes,
+    ): array {
+        $payload = $this->bookingStatusAnalytics->build(
+            $employeeIds,
+            $periodStart,
+            $periodEnd,
+            [],
+            (int) ($periodTotals['bookings_created'] ?? 0),
+            (int) ($outcomes['completed_bookings'] ?? 0),
+            (int) ($outcomes['cancelled_bookings'] ?? 0),
+            (float) ($outcomes['completed_amount'] ?? 0),
+            0.0,
+            0,
+        );
+
+        return $payload['totals'] ?? [];
     }
 
     /**
@@ -1569,7 +1654,34 @@ class EmployeeDashboardService
         $pctTone = fn (float $pct): string => $pct >= 90 ? 'good' : ($pct >= 70 ? 'brand' : 'warn');
         $countTone = fn (int $count, string $good = 'good', string $bad = 'warn'): string => $count > 0 ? $bad : $good;
 
-        $items = [
+        $overallAcc = (float) ($followupAccuracy['overall']['accuracy_pct'] ?? $qualityMetrics['followup_accuracy'] ?? 0);
+        $leadAcc = (float) ($followupAccuracy['leads']['accuracy_pct'] ?? $qualityMetrics['lead_followup_accuracy'] ?? 0);
+        $bookingAcc = (float) ($followupAccuracy['bookings']['accuracy_pct'] ?? $qualityMetrics['booking_followup_accuracy'] ?? 0);
+        $completed = (int) ($qualityMetrics['booking_completed_count'] ?? 0);
+        $cancelled = (int) ($qualityMetrics['booking_cancelled_count'] ?? 0);
+        $outcomesTotal = $completed + $cancelled;
+        $completionRate = $outcomesTotal > 0
+            ? round(($completed / $outcomesTotal) * 100, 1)
+            : 0.0;
+
+        return [
+            [
+                'key' => 'followup_accuracy',
+                'icon' => 'verified',
+                'label' => translate('Follow_up_accuracy'),
+                'value' => $overallAcc.'%',
+                'raw' => $overallAcc,
+                'pct' => $overallAcc,
+                'is_zero' => ($followupAccuracy['overall']['due'] ?? 0) === 0,
+                'tone' => $pctTone($overallAcc),
+                'sub' => ($followupAccuracy['overall']['due'] ?? 0) > 0
+                    ? str_replace(
+                        [':on_time', ':due'],
+                        [(string) ($followupAccuracy['overall']['on_time'] ?? 0), (string) ($followupAccuracy['overall']['due'] ?? 0)],
+                        translate('Progress_on_time_of_due_sub') ?? ':on_time of :due due',
+                    )
+                    : (translate('Progress_no_followups_due') ?? 'No follow-ups due'),
+            ],
             [
                 'key' => 'followup_on_time',
                 'icon' => 'check_circle',
@@ -1598,17 +1710,63 @@ class EmployeeDashboardService
                     : translate('Progress_no_followups_due'),
             ],
             [
-                'key' => 'future_customer_pct',
-                'icon' => 'schedule',
-                'label' => translate('Future_customer_percentage'),
-                'value' => $qualityMetrics['future_customer_pct'].'%',
-                'raw' => $qualityMetrics['future_customer_pct'],
-                'is_zero' => ($qualityMetrics['future_customer_count'] ?? 0) === 0,
-                'tone' => 'neutral',
+                'key' => 'lead_followup_accuracy',
+                'icon' => 'fact_check',
+                'label' => translate('Lead_followup_accuracy') ?? (translate('Lead').' '.translate('Follow_up_accuracy')),
+                'value' => $leadAcc.'%',
+                'raw' => $leadAcc,
+                'pct' => $leadAcc,
+                'is_zero' => ($followupAccuracy['leads']['due'] ?? 0) === 0,
+                'tone' => $pctTone($leadAcc),
                 'sub' => str_replace(
-                    [':count', ':total'],
-                    [(string) ($qualityMetrics['future_customer_count'] ?? 0), (string) ($qualityMetrics['leads_handled'] ?? 0)],
-                    translate('Progress_of_leads_handled_sub'),
+                    [':on_time', ':missed'],
+                    [(string) ($followupAccuracy['leads']['on_time'] ?? 0), (string) ($followupAccuracy['leads']['missed'] ?? 0)],
+                    translate('Progress_on_time_missed_sub') ?? ':on_time on time · :missed missed',
+                ),
+            ],
+            [
+                'key' => 'booking_followup_accuracy',
+                'icon' => 'event_available',
+                'label' => translate('Booking_followup_accuracy') ?? (translate('Booking').' '.translate('Follow_up_accuracy')),
+                'value' => $bookingAcc.'%',
+                'raw' => $bookingAcc,
+                'pct' => $bookingAcc,
+                'is_zero' => ($followupAccuracy['bookings']['due'] ?? 0) === 0,
+                'tone' => $pctTone($bookingAcc),
+                'sub' => str_replace(
+                    [':on_time', ':missed'],
+                    [(string) ($followupAccuracy['bookings']['on_time'] ?? 0), (string) ($followupAccuracy['bookings']['missed'] ?? 0)],
+                    translate('Progress_on_time_missed_sub') ?? ':on_time on time · :missed missed',
+                ),
+            ],
+            [
+                'key' => 'booking_completion_rate',
+                'icon' => 'trending_up',
+                'label' => translate('completion_rate'),
+                'value' => $completionRate.'%',
+                'raw' => $completionRate,
+                'pct' => $completionRate,
+                'is_zero' => $outcomesTotal === 0,
+                'tone' => $pctTone($completionRate),
+                'sub' => str_replace(
+                    [':completed', ':cancelled'],
+                    [(string) $completed, (string) $cancelled],
+                    translate('Progress_completed_vs_cancelled_sub') ?? ':completed completed · :cancelled cancelled',
+                ),
+            ],
+            [
+                'key' => 'booking_cancelled_pct',
+                'icon' => 'cancel',
+                'label' => translate('Booking_cancelled_percentage'),
+                'value' => $qualityMetrics['booking_cancelled_pct'].'%',
+                'raw' => $qualityMetrics['booking_cancelled_pct'],
+                'pct' => (float) $qualityMetrics['booking_cancelled_pct'],
+                'is_zero' => $cancelled === 0,
+                'tone' => ((float) $qualityMetrics['booking_cancelled_pct']) > 0 ? 'warn' : 'good',
+                'sub' => str_replace(
+                    [':cancelled', ':completed'],
+                    [(string) $cancelled, (string) $completed],
+                    translate('Progress_cancelled_vs_completed_sub'),
                 ),
             ],
             [
@@ -1617,6 +1775,7 @@ class EmployeeDashboardService
                 'label' => translate('Unknown_leads_percentage'),
                 'value' => $qualityMetrics['unknown_pct'].'%',
                 'raw' => $qualityMetrics['unknown_pct'],
+                'pct' => (float) $qualityMetrics['unknown_pct'],
                 'is_zero' => ($qualityMetrics['unknown_count'] ?? 0) === 0,
                 'tone' => ((float) $qualityMetrics['unknown_pct']) > 20 ? 'warn' : 'neutral',
                 'sub' => str_replace(
@@ -1626,17 +1785,18 @@ class EmployeeDashboardService
                 ),
             ],
             [
-                'key' => 'booking_cancelled_pct',
-                'icon' => 'cancel',
-                'label' => translate('Booking_cancelled_percentage'),
-                'value' => $qualityMetrics['booking_cancelled_pct'].'%',
-                'raw' => $qualityMetrics['booking_cancelled_pct'],
-                'is_zero' => ($qualityMetrics['booking_cancelled_count'] ?? 0) === 0,
-                'tone' => ((float) $qualityMetrics['booking_cancelled_pct']) > 0 ? 'warn' : 'good',
+                'key' => 'future_customer_pct',
+                'icon' => 'schedule',
+                'label' => translate('Future_customer_percentage'),
+                'value' => $qualityMetrics['future_customer_pct'].'%',
+                'raw' => $qualityMetrics['future_customer_pct'],
+                'pct' => (float) $qualityMetrics['future_customer_pct'],
+                'is_zero' => ($qualityMetrics['future_customer_count'] ?? 0) === 0,
+                'tone' => 'neutral',
                 'sub' => str_replace(
-                    [':cancelled', ':completed'],
-                    [(string) ($qualityMetrics['booking_cancelled_count'] ?? 0), (string) ($qualityMetrics['booking_completed_count'] ?? 0)],
-                    translate('Progress_cancelled_vs_completed_sub'),
+                    [':count', ':total'],
+                    [(string) ($qualityMetrics['future_customer_count'] ?? 0), (string) ($qualityMetrics['leads_handled'] ?? 0)],
+                    translate('Progress_of_leads_handled_sub'),
                 ),
             ],
             [
@@ -1647,19 +1807,9 @@ class EmployeeDashboardService
                 'raw' => $qualityMetrics['leads_missing_data'] ?? 0,
                 'is_zero' => ($qualityMetrics['leads_missing_data'] ?? 0) === 0,
                 'tone' => $countTone((int) ($qualityMetrics['leads_missing_data'] ?? 0)),
-            ],
-            [
-                'key' => 'outbounds_done',
-                'icon' => 'call_made',
-                'label' => translate('Outbounds_done'),
-                'value' => (string) ($qualityMetrics['outbounds_done'] ?? 0),
-                'raw' => $qualityMetrics['outbounds_done'] ?? 0,
-                'is_zero' => ($qualityMetrics['outbounds_done'] ?? 0) === 0,
-                'tone' => 'outbound',
+                'sub' => translate('Progress_leads_data_quality_sub') ?? 'Leads needing name, phone, or type details',
             ],
         ];
-
-        return $items;
     }
 
     private function countLeadsWithMissingDataForPeriod(string $userId, Carbon $rangeStart, Carbon $rangeEnd): int

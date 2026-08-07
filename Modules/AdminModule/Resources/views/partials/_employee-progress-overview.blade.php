@@ -10,20 +10,31 @@
     $fullReport = $fullReport ?? [];
     $leaderboard = $fullReport['leaderboard'] ?? [];
     $activityTotals = $activityTotals ?? [];
+    $showContributionTotals = ! empty($showContributionTotals);
+    $activityTeamTotals = $showContributionTotals ? ($activityTeamTotals ?? []) : [];
     $activityMetricColumns = $activityMetricColumns ?? [];
     $viewingAllEmployees = ! empty($viewingAllEmployees);
     $toneMap = ['good' => 'success', 'warning' => 'warning', 'warn' => 'warning', 'danger' => 'danger', 'brand' => ''];
 
     $kpiByKey = collect($kpis)->keyBy('key');
-    $pickKpi = function (string $key, ?string $fallbackLabel = null, $fallbackValue = 0, string $icon = 'insights', string $tone = 'brand') use ($kpiByKey) {
+    $pickKpi = function (string $key, ?string $fallbackLabel = null, $fallbackValue = 0, string $icon = 'insights', string $tone = 'brand', $total = null) use ($kpiByKey, $showContributionTotals) {
         if ($kpiByKey->has($key)) {
-            return $kpiByKey->get($key);
+            $kpi = $kpiByKey->get($key);
+            if ($showContributionTotals && $total !== null) {
+                $kpi['total'] = $total;
+            } elseif (! $showContributionTotals) {
+                $kpi['total'] = null;
+            }
+
+            return $kpi;
         }
 
         return [
             'key' => $key,
             'label' => $fallbackLabel ?? $key,
             'value' => is_numeric($fallbackValue) ? number_format((int) $fallbackValue) : $fallbackValue,
+            'raw' => $fallbackValue,
+            'total' => $showContributionTotals ? $total : null,
             'icon' => $icon,
             'tone' => $tone,
             'spark' => [],
@@ -38,33 +49,36 @@
     $provider = $leadAnalytics['provider'] ?? [];
 
     $overviewKpis = [
-        $pickKpi('leads_added', translate('Leads_added'), $activityTotals['leads_added'] ?? 0, 'contact_page'),
-        $pickKpi('bookings_created', translate('Bookings_created'), $activityTotals['bookings_created'] ?? 0, 'event'),
-        $pickKpi('completed_bookings', translate('Bookings_completed'), 0, 'check_circle', 'good'),
+        $pickKpi(
+            'leads_added',
+            translate('Leads_added'),
+            $activityTotals['leads_added'] ?? 0,
+            'contact_page',
+            'brand',
+            $showContributionTotals ? ($activityTeamTotals['leads_added'] ?? null) : null
+        ),
+        $pickKpi(
+            'bookings_created',
+            translate('Bookings_created'),
+            $activityTotals['bookings_created'] ?? 0,
+            'event',
+            'brand',
+            $showContributionTotals ? ($activityTeamTotals['bookings_created'] ?? null) : null
+        ),
         $pickKpi('completion_rate', translate('completion_rate'), ($analytics['summary']['completion_rate'] ?? 0).'%', 'percent', 'good'),
-        $pickKpi('lead_followups', translate('Lead_followups'), $activityTotals['lead_followups'] ?? ($leadSection['total_done'] ?? 0), 'schedule'),
-        $pickKpi('booking_followups', translate('Booking_Followups'), $activityTotals['booking_followups'] ?? ($bookingFuSection['total_done'] ?? 0), 'event_repeat'),
         $pickKpi('followup_accuracy', translate('Follow_up_accuracy'), ($overallFu['accuracy_pct'] ?? ($analytics['summary']['discipline_pct'] ?? 100)).'%', 'task_alt', 'good'),
-        $pickKpi('missed_followups', translate('Progress_missed_followups'), $overallFu['missed'] ?? 0, 'warning', ((int) ($overallFu['missed'] ?? 0)) > 0 ? 'danger' : 'good'),
     ];
 
-    if ((int) ($kpiByKey->get('cancelled_bookings')['value'] ?? ($activityTotals['bookings_cancelled'] ?? 0)) > 0
-        || (int) ($activityTotals['bookings_cancelled'] ?? 0) > 0
-    ) {
-        $overviewKpis[] = $pickKpi(
-            'cancelled_bookings',
-            translate('Cancelled'),
-            $activityTotals['bookings_cancelled'] ?? 0,
-            'cancel',
-            'danger'
-        );
-    }
-
     $breakdownByKey = collect($bookingStatusBreakdown)->keyBy('key');
-    $bookingPending = (int) ($breakdownByKey->get('pending')['count'] ?? 0);
-    $bookingCompleted = (int) ($breakdownByKey->get('completed')['count'] ?? 0);
-    $bookingCancelled = (int) ($breakdownByKey->get('cancelled')['count'] ?? ($activityTotals['bookings_cancelled'] ?? 0));
-    $bookingOnHold = (int) ($breakdownByKey->get('on_hold')['count'] ?? 0) + (int) ($breakdownByKey->get('hold_after_visit')['count'] ?? 0);
+    $statusCount = fn (string $key): int => (int) ($breakdownByKey->get($key)['count'] ?? 0);
+    $bookingPending = $statusCount('pending');
+    $bookingCompleted = $statusCount('completed');
+    $bookingCancelled = $statusCount('canceled') + $statusCount('cancelled_after_visit');
+    $bookingOnHold = $statusCount('on_hold');
+    $bookingHoldAfterVisit = $statusCount('hold_after_visit');
+    $bookingDisputed = $statusCount('disputed') + $statusCount('disputed_cancelled') + $statusCount('disputed_completed');
+    $bookingLoss = $statusCount('loss_making') + $statusCount('loss_recovered') + $statusCount('loss_settled');
+    $bookingCreated = (int) ($activityTotals['bookings_created'] ?? ($breakdownByKey->get('handled')['count'] ?? 0));
 
     $leadsHandled = (int) ($leadAnalytics['total_handled'] ?? ($activityTotals['leads_handled'] ?? 0));
     $leadsAdded = (int) ($activityTotals['leads_added'] ?? 0);
@@ -76,19 +90,50 @@
     $leadFuAccuracy = (float) ($leadSection['accuracy_pct'] ?? 100);
     $leadFuMissed = (int) ($leadSection['missed'] ?? 0);
     $leadFuLate = (int) ($leadSection['late'] ?? 0);
-    $leadFuResched = (int) ($leadSection['rescheduled'] ?? ($activityTotals['lead_followups_rescheduled'] ?? 0));
 
     $bkFuDone = (int) ($bookingFuSection['total_done'] ?? 0);
     $bkFuAccuracy = (float) ($bookingFuSection['accuracy_pct'] ?? 100);
     $bkFuMissed = (int) ($bookingFuSection['missed'] ?? 0);
     $bkFuLate = (int) ($bookingFuSection['late'] ?? 0);
-    $bkFuResched = (int) ($bookingFuSection['rescheduled'] ?? ($activityTotals['booking_followups_rescheduled'] ?? 0));
 
     $activityKeys = collect($activityMetricColumns)->pluck('key')->all();
     $totalActions = collect($activityKeys)->sum(fn ($key) => (int) ($activityTotals[$key] ?? 0));
     $waAssigned = (int) ($activityTotals['whatsapp_assigned'] ?? 0);
-    $waReplies = (int) ($activityTotals['whatsapp_replies'] ?? 0);
     $callLogs = (int) ($activityTotals['call_logs'] ?? 0);
+
+    $teamBookingCreated = $showContributionTotals
+        ? (int) ($breakdownByKey->get('handled')['total'] ?? ($activityTeamTotals['bookings_created'] ?? 0))
+        : null;
+    $teamBookingCompleted = $showContributionTotals
+        ? (int) ($breakdownByKey->get('completed')['total'] ?? 0)
+        : null;
+    $teamBookingPending = $showContributionTotals
+        ? (int) ($breakdownByKey->get('pending')['total'] ?? 0)
+        : null;
+    $teamLeadsHandled = $showContributionTotals
+        ? (int) ($leadAnalytics['team_total_handled'] ?? ($activityTeamTotals['leads_handled'] ?? 0))
+        : null;
+    $teamLeadsAdded = $showContributionTotals
+        ? (int) ($activityTeamTotals['leads_added'] ?? 0)
+        : null;
+    $teamCustomerBooked = $showContributionTotals
+        ? (int) ($customer['team_booked'] ?? 0)
+        : null;
+    $teamLeadFuDone = $showContributionTotals
+        ? (int) ($leadSection['team_total_done'] ?? 0)
+        : null;
+    $teamLeadFuMissed = $showContributionTotals
+        ? (int) ($leadSection['team_missed'] ?? 0)
+        : null;
+    $teamBkFuDone = $showContributionTotals
+        ? (int) ($bookingFuSection['team_total_done'] ?? 0)
+        : null;
+    $teamBkFuMissed = $showContributionTotals
+        ? (int) ($bookingFuSection['team_missed'] ?? 0)
+        : null;
+    $teamTotalActions = $showContributionTotals
+        ? collect($activityKeys)->sum(fn ($key) => (int) ($activityTeamTotals[$key] ?? 0))
+        : null;
 
     $snapshotCards = [
         [
@@ -96,20 +141,25 @@
             'title' => translate('Bookings'),
             'icon' => 'event_note',
             'helpKey' => 'overview_snap_bookings',
-            'tone' => $bookingCancelled > $bookingCompleted ? 'danger' : ($bookingPending > 0 ? 'warning' : 'good'),
-            'primary' => number_format((int) ($activityTotals['bookings_created'] ?? ($breakdownByKey->get('handled')['count'] ?? 0))),
+            'tone' => ($bookingDisputed + $bookingLoss + $bookingCancelled) > $bookingCompleted
+                ? 'danger'
+                : (($bookingPending + $bookingOnHold + $bookingHoldAfterVisit) > 0 ? 'warning' : 'good'),
+            'primary' => number_format($bookingCreated),
+            'primary_total' => $teamBookingCreated,
             'primary_label' => translate('Bookings_created'),
             'stats' => [
-                ['label' => translate('Bookings_completed'), 'value' => number_format($bookingCompleted)],
-                ['label' => translate('Cancelled'), 'value' => number_format($bookingCancelled)],
-                ['label' => translate('Pending'), 'value' => number_format($bookingPending)],
-                ['label' => translate('On_hold') ?? 'On hold', 'value' => number_format($bookingOnHold)],
+                ['label' => translate('Bookings_completed'), 'value' => $bookingCompleted, 'total' => $teamBookingCompleted],
+                ['label' => translate('Pending'), 'value' => $bookingPending, 'total' => $teamBookingPending],
             ],
-            'insight' => $bookingCancelled > 0 && $bookingCancelled >= max(1, $bookingCompleted)
-                ? (translate('Progress_overview_booking_cancel_insight') ?? 'Cancellations are high vs completions — review booking outcomes.')
-                : ($bookingPending > 0
-                    ? (translate('Progress_overview_booking_pending_insight') ?? 'Open bookings still need follow-through.')
-                    : (translate('Progress_overview_booking_good_insight') ?? 'Booking pipeline looks steady for this period.')),
+            'insight' => $bookingDisputed > 0
+                ? (translate('Progress_overview_booking_dispute_insight') ?? 'Disputed bookings need review.')
+                : ($bookingLoss > 0
+                    ? (translate('Progress_overview_booking_loss_insight') ?? 'Loss-making bookings need recovery follow-up.')
+                    : ($bookingCancelled > 0 && $bookingCancelled >= max(1, $bookingCompleted)
+                        ? (translate('Progress_overview_booking_cancel_insight') ?? 'Cancellations are high vs completions — review booking outcomes.')
+                        : ($bookingPending + $bookingOnHold + $bookingHoldAfterVisit > 0
+                            ? (translate('Progress_overview_booking_pending_insight') ?? 'Open bookings still need follow-through.')
+                            : (translate('Progress_overview_booking_good_insight') ?? 'Booking pipeline looks steady for this period.')))),
         ],
         [
             'tab' => 'leads',
@@ -118,14 +168,13 @@
             'helpKey' => 'overview_snap_leads',
             'tone' => $customerConversion >= 30 ? 'good' : ($customerCancelled > $customerBooked ? 'danger' : 'warning'),
             'primary' => number_format(max($leadsHandled, $leadsAdded)),
+            'primary_total' => $leadsHandled > 0 ? $teamLeadsHandled : $teamLeadsAdded,
             'primary_label' => $leadsHandled > 0
                 ? (translate('Progress_leads_handled') ?? translate('Leads_Handled'))
                 : translate('Leads_added'),
             'stats' => [
-                ['label' => translate('New_Leads_Added'), 'value' => number_format($leadsAdded)],
-                ['label' => translate('Progress_converted') ?? 'Converted', 'value' => number_format($customerBooked)],
-                ['label' => translate('Cancelled'), 'value' => number_format($customerCancelled)],
-                ['label' => translate('completion_rate'), 'value' => rtrim(rtrim(number_format($customerConversion, 1), '0'), '.').'%'],
+                ['label' => translate('Progress_converted') ?? 'Converted', 'value' => $customerBooked, 'total' => $teamCustomerBooked],
+                ['label' => translate('completion_rate'), 'value' => rtrim(rtrim(number_format($customerConversion, 1), '0'), '.').'%', 'is_percent' => true],
             ],
             'insight' => $customerConversion < 20 && ($customer['total'] ?? 0) > 0
                 ? (translate('Progress_overview_lead_conversion_insight') ?? 'Customer lead conversion is low — check pending and cancelled reasons.')
@@ -140,12 +189,11 @@
             'helpKey' => 'overview_snap_lead_fu',
             'tone' => $leadFuMissed > 0 ? 'danger' : ($leadFuLate > 0 || $leadFuAccuracy < 80 ? 'warning' : 'good'),
             'primary' => number_format($leadFuDone),
+            'primary_total' => $teamLeadFuDone,
             'primary_label' => translate('Progress_followups_done') ?? translate('Follow_ups'),
             'stats' => [
-                ['label' => translate('Follow_up_accuracy'), 'value' => rtrim(rtrim(number_format($leadFuAccuracy, 1), '0'), '.').'%'],
-                ['label' => translate('Progress_late_followups') ?? 'Late', 'value' => number_format($leadFuLate)],
-                ['label' => translate('Progress_missed_followups'), 'value' => number_format($leadFuMissed)],
-                ['label' => translate('Reschedule'), 'value' => number_format($leadFuResched)],
+                ['label' => translate('Follow_up_accuracy'), 'value' => rtrim(rtrim(number_format($leadFuAccuracy, 1), '0'), '.').'%', 'is_percent' => true],
+                ['label' => translate('Progress_missed_followups'), 'value' => $leadFuMissed, 'total' => $teamLeadFuMissed],
             ],
             'insight' => $leadFuMissed > 0
                 ? (translate('Progress_overview_lead_fu_missed_insight') ?? 'Missed lead follow-ups need catch-up today.')
@@ -160,12 +208,11 @@
             'helpKey' => 'overview_snap_booking_fu',
             'tone' => $bkFuMissed > 0 ? 'danger' : ($bkFuLate > 0 || $bkFuAccuracy < 80 ? 'warning' : 'good'),
             'primary' => number_format($bkFuDone),
+            'primary_total' => $teamBkFuDone,
             'primary_label' => translate('Progress_followups_done') ?? translate('Follow_ups'),
             'stats' => [
-                ['label' => translate('Follow_up_accuracy'), 'value' => rtrim(rtrim(number_format($bkFuAccuracy, 1), '0'), '.').'%'],
-                ['label' => translate('Progress_late_followups') ?? 'Late', 'value' => number_format($bkFuLate)],
-                ['label' => translate('Progress_missed_followups'), 'value' => number_format($bkFuMissed)],
-                ['label' => translate('Reschedule'), 'value' => number_format($bkFuResched)],
+                ['label' => translate('Follow_up_accuracy'), 'value' => rtrim(rtrim(number_format($bkFuAccuracy, 1), '0'), '.').'%', 'is_percent' => true],
+                ['label' => translate('Progress_missed_followups'), 'value' => $bkFuMissed, 'total' => $teamBkFuMissed],
             ],
             'insight' => $bkFuMissed > 0
                 ? (translate('Progress_overview_booking_fu_missed_insight') ?? 'Missed booking follow-ups need catch-up.')
@@ -180,12 +227,11 @@
             'helpKey' => 'overview_snap_daily',
             'tone' => $totalActions > 0 ? 'brand' : 'warning',
             'primary' => number_format($totalActions),
+            'primary_total' => $teamTotalActions,
             'primary_label' => translate('Total_actions') ?? 'Total actions',
             'stats' => [
-                ['label' => translate('WhatsApp_Chats_Assigned'), 'value' => number_format($waAssigned)],
-                ['label' => translate('WhatsApp_Replies'), 'value' => number_format($waReplies)],
-                ['label' => translate('Call_Logs_Added'), 'value' => number_format($callLogs)],
-                ['label' => translate('Online'), 'value' => $activityTotals['online_hours'] ?? '—'],
+                ['label' => translate('WhatsApp_Chats_Assigned'), 'value' => $waAssigned, 'total' => $showContributionTotals ? (int) ($activityTeamTotals['whatsapp_assigned'] ?? 0) : null],
+                ['label' => translate('Call_Logs_Added'), 'value' => $callLogs, 'total' => $showContributionTotals ? (int) ($activityTeamTotals['call_logs'] ?? 0) : null],
             ],
             'insight' => $totalActions === 0
                 ? (translate('Progress_overview_daily_empty_insight') ?? 'No recorded daily activity in this period yet.')
@@ -217,7 +263,7 @@
             'medium' => 1,
             default => 2,
         })
-        ->take(6)
+        ->take(3)
         ->values()
         ->all();
 @endphp
@@ -248,18 +294,33 @@
                     <span class="overview-snap-open">{{ translate('View') ?? 'View' }}</span>
                 </div>
                 <div class="overview-snap-primary">
-                    <div class="overview-snap-val">{{ $card['primary'] }}</div>
+                    <div class="overview-snap-val">
+                        @include('adminmodule::partials._employee-progress-metric-value', [
+                            'count' => (int) str_replace(',', '', (string) $card['primary']),
+                            'total' => $card['primary_total'] ?? null,
+                            'displayValue' => str_contains((string) $card['primary'], '%') ? (string) $card['primary'] : null,
+                            'ofClass' => 'mc-of',
+                        ])
+                    </div>
                     <div class="overview-snap-lbl">{{ $card['primary_label'] }}</div>
                 </div>
                 <div class="overview-snap-stats">
                     @foreach($card['stats'] as $stat)
                         <div class="overview-snap-stat">
                             <span>{{ $stat['label'] }}</span>
-                            <strong>{{ $stat['value'] }}</strong>
+                            <strong>
+                                @include('adminmodule::partials._employee-progress-metric-value', [
+                                    'count' => is_numeric($stat['value'] ?? null) ? (int) $stat['value'] : 0,
+                                    'total' => ! empty($stat['is_percent']) ? null : ($stat['total'] ?? null),
+                                    'displayValue' => ! empty($stat['is_percent']) || (isset($stat['value']) && ! is_numeric($stat['value']))
+                                        ? (string) $stat['value']
+                                        : null,
+                                    'ofClass' => 'mc-of',
+                                ])
+                            </strong>
                         </div>
                     @endforeach
                 </div>
-                <p class="overview-snap-insight">{{ $card['insight'] }}</p>
             </article>
         @endforeach
     </div>
@@ -269,11 +330,11 @@
     <div class="chart-card">
         @include('adminmodule::partials._employee-progress-chart-head', [
             'icon' => 'show_chart',
-            'title' => translate('Revenue_Overview') ?? translate('Daily_activity_breakdown'),
-            'subtitle' => translate('Bookings_created').' · '.translate('Leads_added'),
-            'helpKey' => 'chart_revenue_main',
+            'title' => translate('Progress_booking_trend') ?? 'Booking Trend',
+            'subtitle' => translate('Progress_booking_trend_sub') ?? (translate('Pending').' · '.(translate('On_hold') ?? 'On hold').' · '.(translate('Hold_after_visit') ?? 'Hold after visit').' · '.translate('Cancelled').' · '.(translate('Disputed') ?? 'Disputed').' · '.(translate('Loss_making') ?? 'Loss')),
+            'helpKey' => 'chart_booking_trend',
         ])
-        <div class="chart-card-body"><div id="chart-revenue-main" class="chart-trend"></div></div>
+        <div class="chart-card-body"><div id="chart-overview-booking-trend" class="chart-trend"></div></div>
     </div>
     <div class="side-stack">
         <div class="rank-card">
@@ -281,34 +342,53 @@
                 <span>{{ translate('Progress_team_ranking') }}</span>
                 @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => 'team_ranking', 'size' => 'xs'])
             </div>
-            @forelse(($viewingAllEmployees ? $topPerformers : []) as $index => $performer)
+            @php
+                $scoreWeights = $analytics['score_weights'] ?? \Modules\AdminModule\Services\EmployeeProgressScoreService::weightLegend();
+                $rankRows = collect($topPerformers)->take($viewingAllEmployees ? 5 : 1);
+                $maxScore = max(1, (int) ($rankRows->first()['score'] ?? 1), abs((int) ($rankRows->min('score') ?? 0)));
+            @endphp
+            @if($scoreWeights !== [])
+                <div class="rank-score-legend">
+                    @foreach($scoreWeights as $weight)
+                        <span class="{{ ($weight['sign'] ?? '+') === '+' ? 'is-plus' : 'is-minus' }}">
+                            {{ $weight['sign'] ?? '+' }}{{ $weight['points'] ?? 0 }} {{ $weight['label'] ?? '' }}
+                        </span>
+                    @endforeach
+                </div>
+            @endif
+            @forelse($rankRows as $index => $performer)
                 @php
-                    $initials = collect(explode(' ', $performer['name']))->filter()->map(fn ($p) => strtoupper(substr($p, 0, 1)))->take(2)->implode('');
+                    $initials = collect(explode(' ', $performer['name'] ?? ''))->filter()->map(fn ($p) => strtoupper(substr($p, 0, 1)))->take(2)->implode('');
                     $avatarClass = match ($index) { 1 => 'silver', 2 => 'bronze', default => '' };
-                    $maxScore = max(1, (int) ($topPerformers[0]['score'] ?? 1));
+                    $barPct = min(100, round((abs((int) ($performer['score'] ?? 0)) / $maxScore) * 100));
                 @endphp
-                <div class="rank-item">
-                    <div class="avatar {{ $avatarClass }}">{{ $initials ?: '—' }}</div>
-                    <div class="rank-meta">
-                        <div class="rank-name">{{ $performer['name'] }}</div>
-                        <div class="rank-sub">{{ $performer['bookings'] }} {{ translate('Bookings_created') }}</div>
-                        <div class="rank-bar"><i style="width: {{ round(((int) $performer['score'] / $maxScore) * 100) }}%"></i></div>
+                <div class="rank-item rank-item--scored">
+                    <div class="rank-item-main">
+                        <div class="avatar {{ $avatarClass }}">{{ $initials ?: '#'.($performer['rank'] ?? ($index + 1)) }}</div>
+                        <div class="rank-meta">
+                            <div class="rank-name">{{ $performer['name'] }}</div>
+                            <div class="rank-sub">
+                                {{ translate('Quantity') ?? 'Quantity' }} {{ (int) ($performer['quantity_score'] ?? 0) }}
+                                · {{ translate('Penalties') ?? 'Penalties' }} {{ (int) ($performer['penalty_score'] ?? 0) }}
+                            </div>
+                            <div class="rank-bar"><i style="width: {{ $barPct }}%"></i></div>
+                        </div>
+                        <div class="rank-val">{{ (int) ($performer['score'] ?? 0) }}</div>
                     </div>
-                    <div class="rank-val">{{ $performer['revenue'] ?? $performer['score'] }}</div>
+                    @if(! empty($performer['marks']))
+                        <div class="rank-marks">
+                            @foreach($performer['marks'] as $mark)
+                                <div class="rank-mark {{ ! empty($mark['positive']) ? 'is-plus' : 'is-minus' }}">
+                                    <span class="rank-mark-label">{{ $mark['label'] }}</span>
+                                    <span class="rank-mark-count">{{ (int) ($mark['count'] ?? 0) }} × {{ (int) ($mark['unit_points'] ?? 0) }}</span>
+                                    <strong class="rank-mark-pts">{{ ((int) ($mark['points'] ?? 0)) > 0 ? '+' : '' }}{{ (int) ($mark['points'] ?? 0) }}</strong>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
                 </div>
             @empty
-                @if(($leaderboard['overall_rank'] ?? 0) > 0)
-                    <div class="rank-item">
-                        <div class="avatar">#{{ $leaderboard['overall_rank'] }}</div>
-                        <div class="rank-meta">
-                            <div class="rank-name">{{ translate('Progress_overall_team_rank') }}</div>
-                            <div class="rank-sub">{{ translate('Progress_out_of') }} {{ $leaderboard['total_employees'] ?? 0 }}</div>
-                        </div>
-                        <div class="rank-val">#{{ $leaderboard['overall_rank'] }}</div>
-                    </div>
-                @else
-                    <div class="rank-item"><div class="rank-meta"><div class="rank-name">{{ translate('No_data_available') }}</div></div></div>
-                @endif
+                <div class="rank-item"><div class="rank-meta"><div class="rank-name">{{ translate('No_data_available') }}</div></div></div>
             @endforelse
         </div>
 

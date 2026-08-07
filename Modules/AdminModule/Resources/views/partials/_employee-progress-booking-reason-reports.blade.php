@@ -26,7 +26,13 @@
                         @forelse(($report['rows'] ?? []) as $row)
                             <tr>
                                 <td>{{ $row['label'] }}</td>
-                                <td>{{ $row['count'] }}</td>
+                                <td>
+                                    @include('adminmodule::partials._employee-progress-metric-value', [
+                                        'count' => $row['count'] ?? 0,
+                                        'total' => $row['total'] ?? null,
+                                        'ofClass' => 'mc-of',
+                                    ])
+                                </td>
                                 <td>
                                     <div class="cell-bar">
                                         <div class="cell-bar-track">

@@ -12,6 +12,7 @@ use Illuminate\Support\Collection;
 use Modules\AdminModule\Services\EmployeeFollowupProgressAnalyticsService;
 use Modules\AdminModule\Services\EmployeeLeadProgressAnalyticsService;
 use Modules\AdminModule\Services\EmployeeDashboardService;
+use Modules\AdminModule\Services\EmployeeProgressContributionService;
 use Modules\AdminModule\Services\EmployeeProgressMetricHelp;
 use Modules\AdminModule\Services\EmployeeProgressAnalyticsService;
 use Modules\AdminModule\Services\Report\DailyEmployeeReportService;
@@ -27,6 +28,7 @@ class EmployeeProgressReportController extends Controller
         private readonly EmployeeProgressAnalyticsService $progressAnalytics,
         private readonly EmployeeLeadProgressAnalyticsService $leadProgressAnalytics,
         private readonly EmployeeFollowupProgressAnalyticsService $followupProgressAnalytics,
+        private readonly EmployeeProgressContributionService $contributionTotals,
     ) {}
 
     /**
@@ -84,16 +86,29 @@ class EmployeeProgressReportController extends Controller
             $followupAnalytics = $this->followupProgressAnalytics->build($employees, $dateFrom, $dateTo, $fullReport);
             $followupAnalytics['period_label'] = $dateFrom->format('d M').' – '.$dateTo->format('d M Y');
 
+            [$activityTeamTotals, $analytics, $leadAnalytics, $followupAnalytics] = $this->withContributionTotals(
+                $employees,
+                $dateFrom,
+                $dateTo,
+                $viewingAll,
+                $report['totals'] ?? [],
+                $analytics,
+                $leadAnalytics,
+                $followupAnalytics,
+            );
+
             return view('adminmodule::employee-progress-report', [
                 'tab' => 'monthly',
                 'user' => $user,
                 'viewingAllEmployees' => $viewingAll,
+                'showContributionTotals' => ! $viewingAll,
                 'dateFrom' => $dateFrom->toDateString(),
                 'dateTo' => $dateTo->toDateString(),
                 'periodLabel' => $dateFrom->format('d M').' – '.$dateTo->format('d M Y'),
                 'metricColumns' => $metricColumns,
                 'activityMetricColumns' => $activityMetricColumns,
                 'activityTotals' => $activityTotals,
+                'activityTeamTotals' => $activityTeamTotals,
                 'activityDailyRows' => $activityDailyRows,
                 'dailyRows' => $dailyRows,
                 'monthly' => $monthly,
@@ -135,15 +150,28 @@ class EmployeeProgressReportController extends Controller
         $followupAnalytics = $this->followupProgressAnalytics->build($employees, $date, $date, $fullReport);
         $followupAnalytics['period_label'] = $detail['date_label'] ?? $date->format('d M Y');
 
+        [$activityTeamTotals, $analytics, $leadAnalytics, $followupAnalytics] = $this->withContributionTotals(
+            $employees,
+            $date,
+            $date,
+            $viewingAll,
+            $dayReport['totals'] ?? [],
+            $analytics,
+            $leadAnalytics,
+            $followupAnalytics,
+        );
+
         return view('adminmodule::employee-progress-report', [
             'tab' => 'daily',
             'user' => $user,
             'viewingAllEmployees' => $viewingAll,
+            'showContributionTotals' => ! $viewingAll,
             'date' => $date->toDateString(),
             'dateLabel' => $detail['date_label'],
             'metricColumns' => $metricColumns,
             'activityMetricColumns' => $activityMetricColumns,
             'activityTotals' => $activityTotals,
+            'activityTeamTotals' => $activityTeamTotals,
             'activityDailyRows' => [],
             'sectionDefs' => $sectionDefs,
             'detail' => $detail,
@@ -255,6 +283,84 @@ class EmployeeProgressReportController extends Controller
             ->all();
 
         return array_merge($options, $employees);
+    }
+
+    /**
+     * Attach employee-vs-all contribution totals (mine / team) when viewing a single employee.
+     *
+     * @param  Collection<int, User>  $employees
+     * @param  array<string, mixed>  $scopedTotals
+     * @param  array<string, mixed>  $analytics
+     * @param  array<string, mixed>  $leadAnalytics
+     * @param  array<string, mixed>  $followupAnalytics
+     * @return array{0: array<string, int>, 1: array<string, mixed>, 2: array<string, mixed>, 3: array<string, mixed>}
+     */
+    private function withContributionTotals(
+        Collection $employees,
+        Carbon $dateFrom,
+        Carbon $dateTo,
+        bool $viewingAll,
+        array $scopedTotals,
+        array $analytics,
+        array $leadAnalytics,
+        array $followupAnalytics,
+    ): array {
+        if ($viewingAll) {
+            return [
+                [],
+                $this->contributionTotals->clearBookingContribution($analytics),
+                $this->contributionTotals->clearLeadContribution($leadAnalytics),
+                $this->contributionTotals->clearFollowupContribution($followupAnalytics),
+            ];
+        }
+
+        $teamEmployees = $this->employeeDashboard->dashboardEmployeeCollection();
+        if ($teamEmployees->isEmpty()) {
+            $teamEmployees = User::query()
+                ->where('user_type', 'admin-employee')
+                ->get();
+        }
+
+        if ($teamEmployees->count() <= 1) {
+            return [
+                DailyEmployeeReportService::withDerivedActivityMetrics($scopedTotals),
+                $this->contributionTotals->clearBookingContribution($analytics),
+                $this->contributionTotals->clearLeadContribution($leadAnalytics),
+                $this->contributionTotals->clearFollowupContribution($followupAnalytics),
+            ];
+        }
+
+        $teamReport = $this->reportService->buildReport($teamEmployees, $dateFrom, $dateTo);
+        $activityTeamTotals = DailyEmployeeReportService::withDerivedActivityMetrics($teamReport['totals'] ?? []);
+        $teamFullReport = $this->employeeDashboard->progressFullReportForEmployees(
+            $teamEmployees,
+            $dateFrom,
+            $dateTo,
+            $activityTeamTotals,
+        );
+        $teamAnalytics = $this->progressAnalytics->build(
+            $teamEmployees,
+            $dateFrom,
+            $dateTo,
+            $teamReport,
+            $teamFullReport,
+            true,
+            ['detail' => null],
+        );
+        $teamLeadAnalytics = $this->leadProgressAnalytics->build($teamEmployees, $dateFrom, $dateTo);
+        $teamFollowupAnalytics = $this->followupProgressAnalytics->build(
+            $teamEmployees,
+            $dateFrom,
+            $dateTo,
+            $teamFullReport,
+        );
+
+        return [
+            $activityTeamTotals,
+            $this->contributionTotals->attachBookingAnalytics($analytics, $teamAnalytics),
+            $this->contributionTotals->attachLeadAnalytics($leadAnalytics, $teamLeadAnalytics),
+            $this->contributionTotals->attachFollowupAnalytics($followupAnalytics, $teamFollowupAnalytics),
+        ];
     }
 
     /**

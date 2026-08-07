@@ -42,6 +42,8 @@
 .emp-progress-report .metric-card .mc-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);line-height:1.3;display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap}
 .emp-progress-report .metric-card .mc-lbl > span{min-width:0}
 .emp-progress-report .metric-card .mc-val{font-size:22px;font-weight:800;color:var(--text);margin:5px 0 0;letter-spacing:-.02em;line-height:1.05}
+.emp-progress-report .metric-card .mc-val .mc-of,
+.emp-progress-report .mc-of{font-size:.72em;font-weight:700;color:var(--brand-2);letter-spacing:0;white-space:nowrap}
 .emp-progress-report .metric-card .mc-foot{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:8px;min-height:auto}
 .emp-progress-report .metric-card .mc-spark{height:26px;width:100%;max-width:100%;flex:none;overflow:hidden}
 .emp-progress-report .metric-card.success{--accent:var(--green)}
@@ -148,15 +150,29 @@
 .emp-progress-report .side-stack{display:flex;flex-direction:column;gap:10px;min-width:0}
 .emp-progress-report .rank-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
 .emp-progress-report .rank-head{padding:8px 12px;border-bottom:1px solid var(--border-soft);font-size:11px;font-weight:800}
+.emp-progress-report .rank-score-legend{display:flex;flex-wrap:wrap;gap:4px 8px;padding:8px 12px;border-bottom:1px solid var(--border-soft);background:var(--surface-2)}
+.emp-progress-report .rank-score-legend span{font-size:9px;font-weight:700;color:var(--muted);line-height:1.3}
+.emp-progress-report .rank-score-legend .is-plus{color:var(--green)}
+.emp-progress-report .rank-score-legend .is-minus{color:var(--red)}
 .emp-progress-report .rank-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #f8fafc}
 .emp-progress-report .rank-item:last-child{border-bottom:none}
+.emp-progress-report .rank-item--scored{display:flex;flex-direction:column;align-items:stretch;gap:8px;padding:10px 12px}
+.emp-progress-report .rank-item-main{display:flex;align-items:center;gap:8px;min-width:0}
 .emp-progress-report .avatar{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .emp-progress-report .rank-meta{flex:1;min-width:0}
 .emp-progress-report .rank-name{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .emp-progress-report .rank-sub{font-size:10px;color:var(--muted)}
-.emp-progress-report .rank-val{font-size:12px;font-weight:800;color:var(--brand);text-align:right;white-space:nowrap}
+.emp-progress-report .rank-val{font-size:14px;font-weight:800;color:var(--brand);text-align:right;white-space:nowrap}
 .emp-progress-report .rank-bar{height:4px;background:#e2e8f0;border-radius:999px;margin-top:5px;overflow:hidden}
 .emp-progress-report .rank-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--brand),var(--brand-2));border-radius:999px}
+.emp-progress-report .rank-marks{display:grid;grid-template-columns:1fr;gap:3px;padding:8px;border-radius:8px;background:#f8fafc;border:1px solid var(--border-soft)}
+.emp-progress-report .rank-mark{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center;font-size:10px;line-height:1.3}
+.emp-progress-report .rank-mark-label{color:var(--muted);font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.emp-progress-report .rank-mark-count{color:#94a3b8;font-variant-numeric:tabular-nums;white-space:nowrap}
+.emp-progress-report .rank-mark-pts{font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.emp-progress-report .rank-mark.is-plus .rank-mark-pts{color:var(--green)}
+.emp-progress-report .rank-mark.is-minus .rank-mark-pts{color:var(--red)}
+.emp-progress-report .rank-mark.is-minus .rank-mark-count{color:#f87171}
 
 .emp-progress-report .insight-list{display:flex;flex-direction:column;gap:8px}
 .emp-progress-report .insight-item{display:flex;gap:8px;padding:10px 12px;border-radius:var(--radius);border:1px solid;font-size:12px;line-height:1.4}
@@ -249,6 +265,9 @@
 .emp-progress-report .followup-metric-card .fmc-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);line-height:1.35;display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;min-height:2.7em;align-content:flex-start}
 .emp-progress-report .followup-metric-card .fmc-lbl > span{min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .emp-progress-report .followup-metric-card .fmc-val{font-size:24px;font-weight:800;color:var(--text);margin-top:6px;letter-spacing:-.02em;line-height:1.05;white-space:nowrap}
+.emp-progress-report .followup-metric-card .fmc-val .fmc-of,
+.emp-progress-report .fmc-of{font-size:.72em;font-weight:700;color:var(--brand-2);letter-spacing:0}
+.emp-progress-report .data-table .mc-of{font-size:.9em;font-weight:700;color:var(--brand-2)}
 .emp-progress-report .followup-metric-card .fmc-foot{margin-top:auto;padding-top:10px;display:flex;flex-direction:column;gap:6px;width:100%}
 .emp-progress-report .followup-metric-card .fmc-share{font-size:10px;font-weight:600;color:var(--muted);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:1.35em}
 .emp-progress-report .followup-metric-card .fmc-bar{height:4px;background:#e2e8f0;border-radius:999px;overflow:hidden;width:100%}
@@ -289,6 +308,7 @@
 .emp-progress-report .daily-basis-total{text-align:right;min-width:88px}
 .emp-progress-report .daily-basis-total-lbl{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .emp-progress-report .daily-basis-total-val{display:block;font-size:28px;font-weight:800;color:var(--brand);letter-spacing:-.03em;line-height:1.1;margin-top:2px}
+.emp-progress-report .daily-basis-total-val .mc-of{font-size:.62em;color:var(--brand-2)}
 .emp-progress-report .daily-basis-group{min-width:0}
 .emp-progress-report .daily-basis-grid{margin-bottom:0}
 .emp-progress-report .daily-basis-grid .metric-card.is-zero{opacity:.72}
@@ -332,12 +352,45 @@
 .emp-progress-report .daily-basis-date-link{display:inline-block;color:#43466e;font-weight:700;text-decoration:none;white-space:nowrap;text-transform:none;letter-spacing:0;font-size:11px}
 .emp-progress-report .daily-basis-date-link:hover{text-decoration:underline}
 .emp-progress-report .daily-basis-empty{text-align:center;color:#64748b;padding:24px!important;white-space:normal}
-.emp-progress-report .overview-snapshots{margin-bottom:14px}
+/* Overview — compact widgets */
+.emp-progress-report #tab-overview .metric-grid{gap:8px;margin-bottom:10px;grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:900px){.emp-progress-report #tab-overview .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.emp-progress-report #tab-overview .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.emp-progress-report #tab-overview .metric-card{padding:8px 9px 7px}
+.emp-progress-report #tab-overview .metric-card .mc-icon{width:24px;height:24px;border-radius:6px}
+.emp-progress-report #tab-overview .metric-card .mc-icon .mso{font-size:14px}
+.emp-progress-report #tab-overview .metric-card .mc-lbl{font-size:9px;letter-spacing:.04em;gap:3px}
+.emp-progress-report #tab-overview .metric-card .mc-val{font-size:18px;margin:3px 0 0}
+.emp-progress-report #tab-overview .metric-card .mc-foot{margin-top:4px;gap:3px;min-height:0}
+.emp-progress-report #tab-overview .metric-card .mc-spark{height:16px}
+.emp-progress-report #tab-overview .metric-card .trend{font-size:9px;padding:1px 5px}
+.emp-progress-report #tab-overview .booking-status-section{margin-bottom:10px}
+.emp-progress-report #tab-overview .lead-metric-grid{gap:8px;margin-bottom:10px}
+.emp-progress-report #tab-overview .followup-metric-card{padding:8px 9px 7px;min-height:0}
+.emp-progress-report #tab-overview .followup-metric-card .fmc-icon{width:22px;height:22px;border-radius:6px}
+.emp-progress-report #tab-overview .followup-metric-card .fmc-icon .mso{font-size:13px}
+.emp-progress-report #tab-overview .followup-metric-card .fmc-lbl{font-size:9px;min-height:0;line-height:1.25}
+.emp-progress-report #tab-overview .followup-metric-card .fmc-val{font-size:18px;margin-top:3px}
+.emp-progress-report #tab-overview .followup-metric-card .fmc-foot{padding-top:6px;gap:4px}
+.emp-progress-report #tab-overview .followup-metric-card .fmc-share{font-size:9px;min-height:0;-webkit-line-clamp:1}
+.emp-progress-report #tab-overview .followup-metric-card .fmc-bar{height:3px}
+.emp-progress-report #tab-overview .section-sub{margin:0 0 10px;font-size:12px;line-height:1.45}
+.emp-progress-report #tab-overview .layout-main{gap:10px;margin-bottom:10px}
+.emp-progress-report #tab-overview .insight-item{padding:7px 9px;font-size:11px;gap:6px}
+.emp-progress-report #tab-overview .insight-item .mso{font-size:15px}
+.emp-progress-report #tab-overview .rank-item{padding:6px 10px}
+.emp-progress-report #tab-overview .rank-card{padding:0}
+.emp-progress-report #tab-overview #chart-overview-booking-trend{min-height:240px}
+.emp-progress-report #tab-overview .chart-trend{min-height:240px}
+.emp-progress-report #tab-overview .chart-card-head{padding:8px 12px}
+.emp-progress-report #tab-overview .chart-card-body{padding:10px 12px 12px}
+
+.emp-progress-report .overview-snapshots{margin-bottom:12px}
 .emp-progress-report .overview-snap-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
 @media(max-width:1280px){.emp-progress-report .overview-snap-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:900px){.emp-progress-report .overview-snap-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.emp-progress-report .overview-snap-grid{grid-template-columns:1fr}}
-.emp-progress-report .overview-snap-card{position:relative;display:flex;flex-direction:column;gap:10px;text-align:left;background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:12px;min-width:0;cursor:pointer;transition:box-shadow .15s,border-color .15s;overflow:hidden;font:inherit;color:inherit}
+.emp-progress-report .overview-snap-card{position:relative;display:flex;flex-direction:column;gap:8px;text-align:left;background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:11px 12px;min-width:0;cursor:pointer;transition:box-shadow .15s,border-color .15s;overflow:hidden;font:inherit;color:inherit}
 .emp-progress-report .overview-snap-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent,var(--brand));border-radius:3px 0 0 3px}
 .emp-progress-report .overview-snap-card:hover{box-shadow:var(--shadow);border-color:#cbd5e1}
 .emp-progress-report .overview-snap-card:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
@@ -346,20 +399,25 @@
 .emp-progress-report .overview-snap-card.danger{--accent:var(--red)}
 .emp-progress-report .overview-snap-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .emp-progress-report .overview-snap-title{display:inline-flex;align-items:center;gap:6px;min-width:0;font-size:12px;font-weight:800;color:var(--text)}
-.emp-progress-report .overview-snap-icon{width:24px;height:24px;border-radius:7px;background:var(--brand-soft);color:var(--brand);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
-.emp-progress-report .overview-snap-icon .mso{font-size:15px}
+.emp-progress-report .overview-snap-icon{width:22px;height:22px;border-radius:6px;background:var(--brand-soft);color:var(--brand);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.emp-progress-report .overview-snap-icon .mso{font-size:14px}
 .emp-progress-report .overview-snap-card.success .overview-snap-icon{background:var(--green-soft);color:var(--green)}
 .emp-progress-report .overview-snap-card.warning .overview-snap-icon{background:var(--amber-soft,#fff7ed);color:var(--amber)}
 .emp-progress-report .overview-snap-card.danger .overview-snap-icon{background:var(--red-soft,#fef2f2);color:var(--red)}
 .emp-progress-report .overview-snap-open{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--brand);flex-shrink:0}
 .emp-progress-report .overview-snap-primary{min-width:0}
-.emp-progress-report .overview-snap-val{font-size:24px;font-weight:800;letter-spacing:-.03em;line-height:1.05;color:var(--text)}
+.emp-progress-report .overview-snap-val{font-size:20px;font-weight:800;letter-spacing:-.03em;line-height:1.05;color:var(--text)}
+.emp-progress-report .overview-snap-val .mc-of,
+.emp-progress-report .overview-snap-stat .mc-of{font-size:.72em;font-weight:700;color:var(--brand-2)}
 .emp-progress-report .overview-snap-lbl{margin-top:2px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
-.emp-progress-report .overview-snap-stats{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}
+.emp-progress-report .overview-snap-stats{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px}
+.emp-progress-report .overview-snap-card[data-jump-tab="bookings"] .overview-snap-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(min-width:1400px){.emp-progress-report .overview-snap-card[data-jump-tab="bookings"] .overview-snap-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.emp-progress-report #chart-overview-booking-trend{min-height:240px}
 .emp-progress-report .overview-snap-stat{min-width:0;display:flex;flex-direction:column;gap:1px}
 .emp-progress-report .overview-snap-stat span{font-size:10px;color:var(--muted);font-weight:600;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .emp-progress-report .overview-snap-stat strong{font-size:12px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}
-.emp-progress-report .overview-snap-insight{margin:0;font-size:11px;line-height:1.4;color:var(--muted)}
+.emp-progress-report .overview-snap-insight{margin:0;font-size:11px;line-height:1.35;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .emp-progress-report .insight-item.is-jump{cursor:pointer;width:100%;border:none;font:inherit;text-align:left}
 .emp-progress-report .insight-item.is-jump:hover{filter:brightness(.98)}
 @media(max-width:720px){

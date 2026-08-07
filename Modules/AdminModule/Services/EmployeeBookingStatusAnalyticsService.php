@@ -267,6 +267,7 @@ class EmployeeBookingStatusAnalyticsService
                 'label' => translate('Bookings_created'),
                 'sublabel' => translate('Progress_bookings_handled_sub'),
                 'count' => $handled,
+                'total' => $handled,
                 'pct' => $handled > 0 ? 100.0 : 0.0,
                 'tone' => 'brand',
                 'icon' => 'event',
@@ -303,6 +304,7 @@ class EmployeeBookingStatusAnalyticsService
                 'label' => $def['name'],
                 'sublabel' => translate('Progress_of_created_bookings') ?? translate('Bookings_created'),
                 'count' => $count,
+                'total' => $handled,
                 'pct' => $pct($count),
                 'tone' => $def['tone'],
                 'icon' => $def['icon'],
@@ -315,6 +317,7 @@ class EmployeeBookingStatusAnalyticsService
                 'label' => translate('Progress_active_bookings'),
                 'sublabel' => translate('Progress_open_pipeline_sub'),
                 'count' => $activePipeline,
+                'total' => $handled,
                 'pct' => null,
                 'tone' => 'brand',
                 'icon' => 'pending_actions',
@@ -627,6 +630,7 @@ class EmployeeBookingStatusAnalyticsService
         return collect($counts)->map(fn (int $count, string $label) => [
             'label' => $label,
             'count' => $count,
+            'total' => $total,
             'pct' => round(($count / $total) * 100, 1),
         ])->values()->all();
     }

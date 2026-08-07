@@ -8,6 +8,7 @@
     var FRAME_ID = 'admin-main';
     var FULL_PAGE_PATHS = [
         '/admin/provider/create',
+        '/admin/my-progress',
     ];
     var FULL_PAGE_PATH_PREFIXES = [
         '/admin/booking/details',
@@ -15,6 +16,7 @@
         '/admin/booking/repeat-single-details',
         '/admin/booking/success',
         '/admin/booking/preview',
+        '/admin/my-progress',
     ];
     var progressEl = null;
     var activeController = null;

@@ -67,7 +67,13 @@
                 @forelse($customer['cancel_reasons'] ?? [] as $row)
                     <tr>
                         <td>{{ $row['label'] }}</td>
-                        <td>{{ $row['count'] }}</td>
+                        <td>
+                            @include('adminmodule::partials._employee-progress-metric-value', [
+                                'count' => $row['count'] ?? 0,
+                                'total' => $row['total'] ?? null,
+                                'ofClass' => 'mc-of',
+                            ])
+                        </td>
                         <td><div class="cell-bar"><div class="cell-bar-track"><div class="cell-bar-fill" style="width: {{ min(100, (float) ($row['pct'] ?? 0)) }}%"></div></div>{{ $row['pct'] }}%</div></td>
                     </tr>
                 @empty
@@ -111,7 +117,13 @@
                 @forelse($provider['cancel_reasons'] ?? [] as $row)
                     <tr>
                         <td>{{ $row['label'] }}</td>
-                        <td>{{ $row['count'] }}</td>
+                        <td>
+                            @include('adminmodule::partials._employee-progress-metric-value', [
+                                'count' => $row['count'] ?? 0,
+                                'total' => $row['total'] ?? null,
+                                'ofClass' => 'mc-of',
+                            ])
+                        </td>
                         <td><div class="cell-bar"><div class="cell-bar-track"><div class="cell-bar-fill" style="width: {{ min(100, (float) ($row['pct'] ?? 0)) }}%"></div></div>{{ $row['pct'] }}%</div></td>
                     </tr>
                 @empty
@@ -133,7 +145,13 @@
             @forelse($futureCustomerReasons as $row)
                 <tr>
                     <td>{{ $row['label'] }}</td>
-                    <td>{{ $row['count'] }}</td>
+                    <td>
+                        @include('adminmodule::partials._employee-progress-metric-value', [
+                            'count' => $row['count'] ?? 0,
+                            'total' => $row['total'] ?? null,
+                            'ofClass' => 'mc-of',
+                        ])
+                    </td>
                     <td><div class="cell-bar"><div class="cell-bar-track"><div class="cell-bar-fill" style="width: {{ min(100, (float) ($row['pct'] ?? 0)) }}%"></div></div>{{ $row['pct'] }}%</div></td>
                 </tr>
             @empty
@@ -154,7 +172,13 @@
             @forelse($invalidReasons as $row)
                 <tr>
                     <td>{{ $row['label'] }}</td>
-                    <td>{{ $row['count'] }}</td>
+                    <td>
+                        @include('adminmodule::partials._employee-progress-metric-value', [
+                            'count' => $row['count'] ?? 0,
+                            'total' => $row['total'] ?? null,
+                            'ofClass' => 'mc-of',
+                        ])
+                    </td>
                     <td><div class="cell-bar"><div class="cell-bar-track"><div class="cell-bar-fill" style="width: {{ min(100, (float) ($row['pct'] ?? 0)) }}%"></div></div>{{ $row['pct'] }}%</div></td>
                 </tr>
             @empty
@@ -187,7 +211,7 @@
             <thead><tr><th>{{ translate('Status') }}</th><th>{{ translate('Total') }}</th><th>{{ translate('Share') ?? '%' }}</th></tr></thead>
             <tbody>
                 @forelse($outbound['by_status'] ?? [] as $row)
-                    <tr><td>{{ $row['label'] }}</td><td>{{ $row['count'] }}</td><td>{{ $row['pct'] }}%</td></tr>
+                    <tr><td>{{ $row['label'] }}</td><td>@include('adminmodule::partials._employee-progress-metric-value', ['count' => $row['count'] ?? 0, 'total' => $row['total'] ?? null, 'ofClass' => 'mc-of'])</td><td>{{ $row['pct'] }}%</td></tr>
                 @empty
                     <tr><td colspan="3" style="text-align:center;color:#64748b;padding:16px">{{ translate('No_data_available') }}</td></tr>
                 @endforelse
@@ -203,7 +227,7 @@
             <thead><tr><th>{{ translate('Source') }}</th><th>{{ translate('Total') }}</th><th>{{ translate('Share') ?? '%' }}</th></tr></thead>
             <tbody>
                 @forelse($outbound['by_channel'] ?? [] as $row)
-                    <tr><td>{{ $row['label'] }}</td><td>{{ $row['count'] }}</td><td>{{ $row['pct'] }}%</td></tr>
+                    <tr><td>{{ $row['label'] }}</td><td>@include('adminmodule::partials._employee-progress-metric-value', ['count' => $row['count'] ?? 0, 'total' => $row['total'] ?? null, 'ofClass' => 'mc-of'])</td><td>{{ $row['pct'] }}%</td></tr>
                 @empty
                     <tr><td colspan="3" style="text-align:center;color:#64748b;padding:16px">{{ translate('No_data_available') }}</td></tr>
                 @endforelse
@@ -234,7 +258,13 @@
             @forelse($sources as $row)
                 <tr>
                     <td>{{ $row['source'] }}</td>
-                    <td>{{ $row['total'] }}</td>
+                    <td>
+                        @include('adminmodule::partials._employee-progress-metric-value', [
+                            'count' => $row['total'] ?? 0,
+                            'total' => $row['team_total'] ?? null,
+                            'ofClass' => 'mc-of',
+                        ])
+                    </td>
                     <td>{{ $row['customer'] ?? 0 }}</td>
                     <td>{{ $row['provider'] ?? 0 }}</td>
                     <td>{{ $row['unknown'] ?? 0 }}</td>

@@ -100,7 +100,7 @@ class EmployeeProgressMetricHelp
             ),
             'team_ranking' => self::entry(
                 translate('Progress_team_ranking'),
-                'Shows how team members compare when you are viewing all employees. Higher activity appears nearer the top.',
+                'Score = quantity marks − quality penalties. Quantity: Bookings handled (+3), Leads handled (+3), Chat replies (+1). Penalties: Missed follow-ups (−5), Booking cancellations (−3). Each row shows the marks breakdown.',
             ),
             'progress_insights' => self::entry(
                 translate('Progress_improvements') ?? 'Insights',

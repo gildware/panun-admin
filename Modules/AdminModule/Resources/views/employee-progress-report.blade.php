@@ -1,10 +1,28 @@
 @extends('adminmodule::layouts.new-master')
 
-@section('title', ! empty($viewingAsAdmin) ? translate('Progress_Report') : translate('My_Progress_Report'))
+@php
+    $selectedEmployeeName = ! empty($viewingAllEmployees)
+        ? translate('All_Employees')
+        : (trim(($user->first_name ?? '').' '.($user->last_name ?? '')) ?: ($user->email ?? ''));
+    $pageTitle = ! empty($viewingAsAdmin)
+        ? translate('Progress_Report').' of '.$selectedEmployeeName
+        : translate('My_Progress_Report');
+@endphp
+@section('title', $pageTitle)
 
 @push('css_or_js')
-<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260807ac">
+<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260807ah">
 <style>
+    .emp-progress-report .page-head-employee {
+        margin-left: auto;
+        flex: 0 0 auto;
+    }
+    .emp-progress-report .page-head-employee .form-select {
+        min-width: 180px; max-width: 240px;
+        padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 6px;
+        font-size: 12px; font-family: Outfit, sans-serif; min-height: auto;
+        background: #fff; color: #0f172a;
+    }
     .emp-progress-report .shell-filter .form-select,
     .emp-progress-report .shell-filter input[type="date"] {
         padding: 5px 8px; border: 1px solid #e2e8f0; border-radius: 6px;
@@ -39,13 +57,8 @@
     } else {
         $activeSection = 'overview';
     }
-    $employeeName = ! empty($viewingAllEmployees)
-        ? translate('All_Employees').' · '.($analytics['summary']['employee_count'] ?? 0)
-        : (trim(($user->first_name ?? '').' '.($user->last_name ?? '')) ?: ($user->email ?? ''));
     $completionRate = min(100, (float) ($analytics['summary']['completion_rate'] ?? 0));
     $disciplinePct = (float) ($analytics['summary']['discipline_pct'] ?? 0);
-    $completedAmount = $analytics['summary']['completed_amount'] ?? '';
-    $ringDash = round(min(100, $completionRate) * 2.26);
     $periodSubtitle = $tab === 'daily'
         ? ($dateLabel ?? translate('Daily_Report'))
         : ($periodLabel ?? translate('Monthly_Report'));
@@ -55,39 +68,41 @@
         <nav class="admin-crumb">
             <a href="{{ route('admin.dashboard') }}">{{ translate('dashboard') }}</a>
             <span class="material-symbols-outlined mso">chevron_right</span>
-            <span>{{ ! empty($viewingAsAdmin) ? translate('Progress_Report') : translate('My_Progress_Report') }}</span>
+            <span>{{ $pageTitle }}</span>
         </nav>
 
         <div class="page-head">
             <div>
-                <h1>{{ ! empty($viewingAsAdmin) ? translate('Progress_Report') : translate('My_Progress_Report') }}</h1>
+                <h1>{{ $pageTitle }}</h1>
                 <p>
-                    {{ $employeeName }}
-                    · {{ $periodSubtitle }}
+                    {{ $periodSubtitle }}
                     · {{ translate('Follow_up_accuracy') }} {{ $disciplinePct }}%
                     · {{ translate('completion_rate') }} {{ $completionRate }}%
                 </p>
             </div>
+            @if(! empty($viewingAsAdmin) && ! empty($employeeOptions))
+                <form method="get" action="{{ route('admin.my-progress') }}" class="page-head-employee" data-turbo="false">
+                    <input type="hidden" name="section" value="{{ $activeSection }}">
+                    <input type="hidden" name="tab" value="{{ $tab }}">
+                    @if($tab === 'daily')
+                        <input type="hidden" name="date" value="{{ $date }}">
+                    @else
+                        <input type="hidden" name="date_from" value="{{ $dateFrom }}">
+                        <input type="hidden" name="date_to" value="{{ $dateTo }}">
+                    @endif
+                    <label class="visually-hidden" for="progress-employee">{{ translate('Select_employee') }}</label>
+                    <select id="progress-employee" name="employee_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                        @foreach($employeeOptions as $option)
+                            <option value="{{ $option['id'] }}"
+                                @selected(
+                                    (! empty($viewingAllEmployees) && $option['id'] === '__all__')
+                                    || (empty($viewingAllEmployees) && $user && (string) $user->id === (string) $option['id'])
+                                )>{{ $option['name'] }}</option>
+                        @endforeach
+                    </select>
+                </form>
+            @endif
         </div>
-
-        @if($completedAmount !== '')
-            <div class="target-ring-wrap">
-                @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => 'completion_summary_ring'])
-                <svg class="target-ring" viewBox="0 0 88 88" aria-hidden="true">
-                    <circle cx="44" cy="44" r="36" fill="none" stroke="#e2e8f0" stroke-width="8"/>
-                    <circle cx="44" cy="44" r="36" fill="none" stroke="#43466e" stroke-width="8"
-                            stroke-dasharray="{{ $ringDash }} 226" stroke-linecap="round"/>
-                </svg>
-                <div class="target-copy">
-                    <h3>{{ $completionRate }}% {{ translate('completion_rate') }}</h3>
-                    <p>{{ $completedAmount }} {{ translate('Completed_amount') }} · {{ translate('Follow_up_accuracy') }} {{ $disciplinePct }}%</p>
-                </div>
-                <div class="target-stat-wrap" style="margin-left:auto;text-align:right">
-                    <div class="target-stat">{{ $completedAmount }}</div>
-                    <div class="target-stat-sub">{{ translate('Completed_amount') }}</div>
-                </div>
-            </div>
-        @endif
 
         <div class="report-shell">
             <div class="shell-head">
@@ -100,23 +115,12 @@
                     <button type="button" class="shell-tab {{ $activeSection === 'daily-basis' ? 'on' : '' }}" data-tab="daily-basis">{{ translate('Daily_Basis_Report') ?? 'Daily Basis Report' }}</button>
                 </div>
 
-                <form method="get" action="{{ route('admin.my-progress') }}" class="shell-filter">
+                <form method="get" action="{{ route('admin.my-progress') }}" class="shell-filter" data-turbo="false">
                     <input type="hidden" name="section" value="{{ $activeSection }}">
                     <input type="hidden" name="tab" value="{{ $tab }}">
                     @foreach($employeeQuery ?? [] as $key => $value)
                         <input type="hidden" name="{{ $key }}" value="{{ $value }}">
                     @endforeach
-                    @if(! empty($viewingAsAdmin) && ! empty($employeeOptions))
-                        <select id="progress-employee" name="employee_id" class="form-select form-select-sm">
-                            @foreach($employeeOptions as $option)
-                                <option value="{{ $option['id'] }}"
-                                    @selected(
-                                        (! empty($viewingAllEmployees) && $option['id'] === '__all__')
-                                        || (empty($viewingAllEmployees) && $user && (string) $user->id === (string) $option['id'])
-                                    )>{{ $option['name'] }}</option>
-                            @endforeach
-                        </select>
-                    @endif
                     @if($tab === 'daily')
                         <input type="date" name="date" value="{{ $date }}">
                     @else
@@ -125,13 +129,14 @@
                         <input type="date" name="date_to" value="{{ $dateTo }}">
                     @endif
                     <a href="{{ route('admin.my-progress', array_merge($employeeQuery ?? [], ['tab' => 'daily', 'section' => $activeSection, 'date' => $date ?? today()->toDateString()])) }}"
-                       class="period-link {{ $tab === 'daily' ? 'on' : '' }}">{{ translate('Daily_Report') }}</a>
+                       class="period-link {{ $tab === 'daily' ? 'on' : '' }}"
+                       data-turbo="false">{{ translate('Daily_Report') }}</a>
                     <a href="{{ route('admin.my-progress', array_merge($employeeQuery ?? [], ['tab' => 'monthly', 'section' => $activeSection])) }}"
-                       class="period-link {{ $tab === 'monthly' ? 'on' : '' }}">{{ translate('Monthly_Report') }}</a>
+                       class="period-link {{ $tab === 'monthly' ? 'on' : '' }}"
+                       data-turbo="false">{{ translate('Monthly_Report') }}</a>
                     <button type="submit" class="btn btn-brand">{{ translate('Apply') }}</button>
                 </form>
             </div>
-
             <div class="shell-body">
                 @if(! empty($analytics))
                     @include('adminmodule::partials._employee-progress-tab-panels', [

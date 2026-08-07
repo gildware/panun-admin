@@ -20,7 +20,21 @@
                             <span>{{ $kpi['label'] }}</span>
                             @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => $kpi['key'] ?? null, 'size' => 'xs'])
                         </div>
-                        <div class="mc-val">{{ $kpi['value'] }}</div>
+                        @php
+                            $kpiRaw = $kpi['raw'] ?? null;
+                            $kpiIsNumeric = is_numeric($kpiRaw);
+                            $kpiDisplay = (! $kpiIsNumeric && $kpiRaw !== null)
+                                ? (string) ($kpi['value'] ?? $kpiRaw)
+                                : null;
+                        @endphp
+                        <div class="mc-val">
+                            @include('adminmodule::partials._employee-progress-metric-value', [
+                                'count' => $kpiIsNumeric ? (int) $kpiRaw : (int) ($kpi['count'] ?? 0),
+                                'total' => $kpiDisplay !== null ? null : ($kpi['total'] ?? null),
+                                'displayValue' => $kpiDisplay,
+                                'ofClass' => 'mc-of',
+                            ])
+                        </div>
                     </div>
                     <div class="mc-icon">@include('adminmodule::partials._material-icon', ['name' => $kpi['icon'] ?? 'insights'])</div>
                 </div>
