@@ -113,7 +113,7 @@
 
 @push('script')
 <script src="{{ asset('assets/admin-module/plugins/apex/apexcharts.min.js') }}"></script>
-<script src="{{ asset('assets/admin-module/js/employee-progress-charts.js') }}?v=20260807ae" data-always-activate="1"></script>
+<script src="{{ asset('assets/admin-module/js/employee-progress-charts.js') }}?v=20260807cg" data-always-activate="1"></script>
 <script src="{{ asset('assets/admin-module/js/employee-progress-info.js') }}?v=20260807ae" data-always-activate="1"></script>
 <script>
 window.PanunProgressHelp = @json($metricHelpRegistry ?? []);

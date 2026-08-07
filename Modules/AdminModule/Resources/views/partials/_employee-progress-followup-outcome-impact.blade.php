@@ -54,7 +54,13 @@
                         <div class="otc-title">{{ $row['label'] ?? '' }}</div>
                     </div>
                     <div class="otc-hero">
-                        <div class="otc-rate">{{ number_format($total) }}</div>
+                        <div class="otc-rate">
+                            @include('adminmodule::partials._employee-progress-metric-value', [
+                                'count' => $total,
+                                'total' => $row['team_total'] ?? null,
+                                'ofClass' => 'mc-of',
+                            ])
+                        </div>
                         <div class="otc-rate-label">{{ translate('Leads') }}</div>
                     </div>
                     <div class="otc-mix" aria-hidden="true">
@@ -64,15 +70,15 @@
                         <span class="otc-seg danger" style="width: {{ round(($invalid / $denom) * 100, 1) }}%"></span>
                     </div>
                     <div class="otc-legend">
-                        <span><i class="brand"></i>{{ translate('Customer') }} {{ number_format($customer) }}</span>
-                        <span><i class="success"></i>{{ translate('Provider') }} {{ number_format($provider) }}</span>
-                        <span><i class="warning"></i>{{ translate('Future_Customer') }} {{ number_format($future) }}</span>
-                        <span><i class="danger"></i>{{ translate('Invalid') }} {{ number_format($invalid) }}</span>
+                        <span><i class="brand"></i>{{ translate('Customer') }} @include('adminmodule::partials._employee-progress-metric-value', ['count' => $customer, 'total' => $row['team_customer'] ?? null, 'ofClass' => 'mc-of'])</span>
+                        <span><i class="success"></i>{{ translate('Provider') }} @include('adminmodule::partials._employee-progress-metric-value', ['count' => $provider, 'total' => $row['team_provider'] ?? null, 'ofClass' => 'mc-of'])</span>
+                        <span><i class="warning"></i>{{ translate('Future_Customer') }} @include('adminmodule::partials._employee-progress-metric-value', ['count' => $future, 'total' => $row['team_future_customer'] ?? null, 'ofClass' => 'mc-of'])</span>
+                        <span><i class="danger"></i>{{ translate('Invalid') }} @include('adminmodule::partials._employee-progress-metric-value', ['count' => $invalid, 'total' => $row['team_invalid'] ?? null, 'ofClass' => 'mc-of'])</span>
                         @if($unknown > 0)
-                            <span><i class="danger"></i>{{ translate('Unknown') }} {{ number_format($unknown) }}</span>
+                            <span><i class="danger"></i>{{ translate('Unknown') }} @include('adminmodule::partials._employee-progress-metric-value', ['count' => $unknown, 'total' => $row['team_unknown'] ?? null, 'ofClass' => 'mc-of'])</span>
                         @endif
                     </div>
-                    <div class="otc-foot">{{ number_format($total) }} {{ translate('Total') }}</div>
+                    <div class="otc-foot">@include('adminmodule::partials._employee-progress-metric-value', ['count' => $total, 'total' => $row['team_total'] ?? null, 'ofClass' => 'mc-of']) {{ translate('Total') }}</div>
                 </div>
             @empty
                 <div class="outcome-timing-empty">{{ translate('No_data_available') }}</div>
@@ -95,11 +101,11 @@
                     @forelse($generalRows as $row)
                         <tr>
                             <td><strong>{{ $row['label'] ?? '' }}</strong></td>
-                            <td>{{ number_format((int) ($row['total'] ?? 0)) }}</td>
-                            <td>{{ number_format((int) ($row['customer'] ?? 0)) }}</td>
-                            <td>{{ number_format((int) ($row['provider'] ?? 0)) }}</td>
-                            <td>{{ number_format((int) ($row['future_customer'] ?? 0)) }}</td>
-                            <td>{{ number_format((int) ($row['invalid'] ?? 0)) }}</td>
+                            <td>@include('adminmodule::partials._employee-progress-metric-value', ['count' => (int) ($row['total'] ?? 0), 'total' => $row['team_total'] ?? null, 'ofClass' => 'mc-of'])</td>
+                            <td>@include('adminmodule::partials._employee-progress-metric-value', ['count' => (int) ($row['customer'] ?? 0), 'total' => $row['team_customer'] ?? null, 'ofClass' => 'mc-of'])</td>
+                            <td>@include('adminmodule::partials._employee-progress-metric-value', ['count' => (int) ($row['provider'] ?? 0), 'total' => $row['team_provider'] ?? null, 'ofClass' => 'mc-of'])</td>
+                            <td>@include('adminmodule::partials._employee-progress-metric-value', ['count' => (int) ($row['future_customer'] ?? 0), 'total' => $row['team_future_customer'] ?? null, 'ofClass' => 'mc-of'])</td>
+                            <td>@include('adminmodule::partials._employee-progress-metric-value', ['count' => (int) ($row['invalid'] ?? 0), 'total' => $row['team_invalid'] ?? null, 'ofClass' => 'mc-of'])</td>
                         </tr>
                     @empty
                         <tr><td colspan="6" style="text-align:center;color:#64748b;padding:12px">{{ translate('No_data_available') }}</td></tr>
@@ -165,10 +171,10 @@
                 @forelse($rows as $row)
                     <tr>
                         <td><strong>{{ $row['label'] ?? '' }}</strong></td>
-                        <td>{{ number_format((int) ($row['total'] ?? 0)) }}</td>
-                        <td>{{ $row['success_rate'] ?? 0 }}%</td>
-                        <td>{{ $row['cancel_rate'] ?? 0 }}%</td>
-                        <td>{{ $row['pending_rate'] ?? 0 }}%</td>
+                        <td>@include('adminmodule::partials._employee-progress-metric-value', ['count' => (int) ($row['total'] ?? 0), 'total' => $row['team_total'] ?? null, 'ofClass' => 'mc-of'])</td>
+                        <td>@include('adminmodule::partials._employee-progress-metric-value', ['count' => (int) ($row['success_count'] ?? 0), 'total' => $row['team_success_count'] ?? null, 'ofClass' => 'mc-of'])</td>
+                        <td>@include('adminmodule::partials._employee-progress-metric-value', ['count' => (int) ($row['cancel_count'] ?? 0), 'total' => $row['team_cancel_count'] ?? null, 'ofClass' => 'mc-of'])</td>
+                        <td>@include('adminmodule::partials._employee-progress-metric-value', ['count' => (int) ($row['pending_count'] ?? 0), 'total' => $row['team_pending_count'] ?? null, 'ofClass' => 'mc-of'])</td>
                     </tr>
                 @empty
                     <tr><td colspan="5" style="text-align:center;color:#64748b;padding:12px">{{ translate('No_data_available') }}</td></tr>

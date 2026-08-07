@@ -50,9 +50,16 @@
     'helpKey' => 'booking_delay_breakdown',
 ])
 <div class="aging-row">
-    @foreach($delayBuckets as $bucket)
+    @foreach($delayBuckets as $index => $bucket)
+        @php $teamBucketCount = $section['team_delay_buckets'][$index]['count'] ?? null; @endphp
         <div class="aging-cell {{ ! empty($bucket['crit']) ? 'crit' : '' }}">
-            <strong>{{ $bucket['count'] ?? 0 }}</strong><span>{{ $bucket['label'] ?? '' }}</span>
+            <strong>
+                @include('adminmodule::partials._employee-progress-metric-value', [
+                    'count' => $bucket['count'] ?? 0,
+                    'total' => $teamBucketCount,
+                    'ofClass' => 'mc-of',
+                ])
+            </strong><span>{{ $bucket['label'] ?? '' }}</span>
         </div>
     @endforeach
 </div>

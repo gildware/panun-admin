@@ -996,10 +996,14 @@ class EmployeeFollowupProgressAnalyticsService
         $rows = [];
         foreach ($disciplineKeys as $index => $key) {
             $bucket = $buckets[$key] ?? [];
+            $counts = is_array($bucket['counts'] ?? null) ? $bucket['counts'] : [];
             $rows[] = [
                 'key' => $key,
                 'label' => $disciplineLabels[$index] ?? $key,
                 'total' => (int) ($bucket['total'] ?? 0),
+                'success_count' => (int) ($counts[$successKey] ?? 0),
+                'cancel_count' => (int) ($counts['cancelled'] ?? 0),
+                'pending_count' => (int) ($counts['pending'] ?? 0),
                 'success_rate' => (float) ($bucket['rates'][$successKey] ?? 0),
                 'cancel_rate' => (float) ($bucket['rates']['cancelled'] ?? 0),
                 'pending_rate' => (float) ($bucket['rates']['pending'] ?? 0),
@@ -1254,6 +1258,9 @@ class EmployeeFollowupProgressAnalyticsService
             'key' => ['on_time', 'late', 'missed'][$i],
             'label' => $label,
             'total' => 0,
+            'success_count' => 0,
+            'cancel_count' => 0,
+            'pending_count' => 0,
             'success_rate' => 0.0,
             'cancel_rate' => 0.0,
             'pending_rate' => 0.0,
