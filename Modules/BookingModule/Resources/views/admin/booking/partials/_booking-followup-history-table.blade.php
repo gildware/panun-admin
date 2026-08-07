@@ -104,7 +104,12 @@
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#takeFollowupModal"
                                                 data-booking-take-followup
-                                                data-followup-id="{{ $followup->id }}">
+                                                data-followup-id="{{ $followup->id }}"
+                                                data-followup-update-url="{{ route('admin.booking.followup.update', [$booking->id, $followup->id]) }}"
+                                                data-followup-for="{{ $followup->for }}"
+                                                data-followup-date="{{ $followup->date?->format('d M Y, h:i A') }}"
+                                                data-followup-urgency="{{ $followup->urgency ?: 'medium' }}"
+                                                data-followup-reason="{{ $followup->reason }}">
                                             {{ translate('Take_Follow_up') }}
                                         </button>
                                     @endif
