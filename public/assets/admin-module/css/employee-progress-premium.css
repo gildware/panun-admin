@@ -1,0 +1,370 @@
+/* Premium progress report — balanced density, no chart overlap */
+.emp-progress-report {
+    --brand:#43466e;--brand-2:#5c6194;--brand-soft:#eef0f6;--brand-glow:rgba(67,70,110,.12);
+    --bg:#eef1f6;--surface:#fff;--surface-2:#f8fafc;--border:#e2e8f0;--border-soft:#eef0f3;
+    --text:#0f172a;--muted:#64748b;--green:#059669;--green-soft:#ecfdf5;
+    --amber:#d97706;--amber-soft:#fffbeb;--red:#dc2626;--red-soft:#fef2f2;
+    --blue:#2563eb;--radius:10px;--radius-lg:12px;
+    --shadow:0 1px 2px rgba(15,23,42,.04),0 2px 10px rgba(15,23,42,.05);
+    --chart-pad:12px 14px 16px;
+    background:var(--bg);
+    font-family:Outfit,system-ui,sans-serif;
+    color:var(--text);
+}
+.emp-progress-report .premium-wrap{max-width:1440px;margin:0 auto;padding:0 16px 36px;overflow-x:clip}
+.emp-progress-report .admin-crumb{display:flex;align-items:center;gap:6px;padding:12px 0 6px;font-size:11px;color:var(--muted);font-weight:500}
+.emp-progress-report .admin-crumb a{color:var(--brand);text-decoration:none;font-weight:600}
+.emp-progress-report .admin-crumb .mso{font-size:14px}
+.emp-progress-report .page-head{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.emp-progress-report .page-head h1{font-size:20px;font-weight:800;color:var(--text);letter-spacing:-.02em;line-height:1.2}
+.emp-progress-report .page-head p{font-size:12px;color:var(--muted);margin-top:3px;max-width:720px;line-height:1.45}
+.emp-progress-report .report-shell{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow);overflow:hidden}
+.emp-progress-report .shell-head{background:var(--surface-2);border-bottom:1px solid var(--border-soft);padding:10px 14px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;border-radius:var(--radius-lg) var(--radius-lg) 0 0}
+.emp-progress-report .shell-tabs{display:flex;flex-wrap:wrap;gap:6px;max-width:100%;flex:1 1 280px}
+.emp-progress-report .shell-tab{border:1px solid var(--border);background:#fff;color:var(--muted);padding:6px 12px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;line-height:1.3;white-space:nowrap}
+.emp-progress-report .shell-tab:hover{border-color:var(--brand);color:var(--brand)}
+.emp-progress-report .shell-tab.on{background:var(--brand);color:#fff;border-color:var(--brand);box-shadow:0 2px 6px var(--brand-glow)}
+.emp-progress-report .shell-filter{display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:1 1 320px;justify-content:flex-end}
+.emp-progress-report .shell-body{padding:16px;overflow-x:clip}
+.emp-progress-report .tab-panel{display:none;animation:fadeIn .2s ease}
+.emp-progress-report .tab-panel.on{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+.emp-progress-report .metric-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:14px;max-width:100%}
+@media(min-width:1200px){.emp-progress-report .metric-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:560px){.emp-progress-report .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.emp-progress-report .metric-card{position:relative;background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:11px 12px 10px;transition:box-shadow .15s;min-width:0;overflow:hidden}
+.emp-progress-report .metric-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent,var(--brand));border-radius:3px 0 0 3px}
+.emp-progress-report .metric-card:hover{box-shadow:var(--shadow)}
+.emp-progress-report .metric-card .mc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.emp-progress-report .metric-card .mc-icon{width:30px;height:30px;border-radius:8px;background:var(--brand-soft);color:var(--brand);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.emp-progress-report .metric-card .mc-icon .mso{font-size:17px}
+.emp-progress-report .metric-card .mc-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);line-height:1.3;display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap}
+.emp-progress-report .metric-card .mc-lbl > span{min-width:0}
+.emp-progress-report .metric-card .mc-val{font-size:22px;font-weight:800;color:var(--text);margin:5px 0 0;letter-spacing:-.02em;line-height:1.05}
+.emp-progress-report .metric-card .mc-foot{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:8px;min-height:auto}
+.emp-progress-report .metric-card .mc-spark{height:26px;width:100%;max-width:100%;flex:none;overflow:hidden}
+.emp-progress-report .metric-card.success{--accent:var(--green)}
+.emp-progress-report .metric-card.warning{--accent:var(--amber)}
+.emp-progress-report .metric-card.danger{--accent:var(--red)}
+
+.emp-progress-report .booking-status-section{margin-bottom:14px}
+.emp-progress-report .booking-status-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.emp-progress-report .booking-status-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:10px 11px;border-top:2px solid var(--brand);min-width:0}
+.emp-progress-report .booking-status-card.success{border-top-color:var(--green)}
+.emp-progress-report .booking-status-card.warning{border-top-color:var(--amber)}
+.emp-progress-report .booking-status-card.danger{border-top-color:var(--red)}
+.emp-progress-report .booking-status-top{display:flex;align-items:flex-start;gap:8px;margin-bottom:7px}
+.emp-progress-report .booking-status-icon{width:28px;height:28px;border-radius:8px;background:var(--brand-soft);color:var(--brand);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.emp-progress-report .booking-status-icon .mso{font-size:16px}
+.emp-progress-report .booking-status-card.success .booking-status-icon{background:var(--green-soft);color:var(--green)}
+.emp-progress-report .booking-status-card.warning .booking-status-icon{background:var(--amber-soft);color:var(--amber)}
+.emp-progress-report .booking-status-card.danger .booking-status-icon{background:var(--red-soft);color:var(--red)}
+.emp-progress-report .booking-status-meta{min-width:0}
+.emp-progress-report .booking-status-label{font-size:11px;font-weight:800;color:var(--text);line-height:1.3;word-wrap:break-word;overflow-wrap:anywhere;display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap}
+.emp-progress-report .booking-status-label > span{min-width:0}
+.emp-progress-report .booking-status-sub{font-size:10px;color:var(--muted);margin-top:2px;line-height:1.35}
+.emp-progress-report .booking-status-val{font-size:22px;font-weight:800;color:var(--text);line-height:1.05}
+.emp-progress-report .booking-status-pct{font-size:11px;font-weight:700;color:var(--muted);margin-top:3px}
+.emp-progress-report .booking-status-bar{height:4px;background:#e2e8f0;border-radius:999px;margin-top:6px;overflow:hidden}
+.emp-progress-report .booking-status-bar span{display:block;height:100%;background:linear-gradient(90deg,var(--brand),var(--brand-2));border-radius:999px}
+.emp-progress-report .booking-status-card.success .booking-status-bar span{background:linear-gradient(90deg,var(--green),#10b981)}
+.emp-progress-report .booking-status-card.warning .booking-status-bar span{background:linear-gradient(90deg,var(--amber),#f59e0b)}
+.emp-progress-report .booking-status-card.danger .booking-status-bar span{background:linear-gradient(90deg,var(--red),#ef4444)}
+
+.emp-progress-report .trend{font-size:10px;font-weight:700;display:inline-flex;align-items:center;gap:2px;padding:2px 7px;border-radius:999px;line-height:1.25;max-width:100%;white-space:normal}
+.emp-progress-report .trend.up{background:var(--green-soft);color:var(--green)}
+.emp-progress-report .trend.down{background:var(--red-soft);color:var(--red)}
+.emp-progress-report .trend.flat{background:#f1f5f9;color:var(--muted)}
+
+.emp-progress-report .layout-main{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:14px;margin-bottom:14px;align-items:start}
+@media(max-width:1024px){.emp-progress-report .layout-main{grid-template-columns:1fr}}
+.emp-progress-report .grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:14px;align-items:start}
+.emp-progress-report .grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:14px;align-items:start}
+@media(max-width:992px){.emp-progress-report .grid-2{grid-template-columns:1fr}}
+@media(max-width:1100px){.emp-progress-report .grid-3{grid-template-columns:1fr}}
+
+/* Chart cards */
+.emp-progress-report .chart-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:14px;min-width:0;display:flex;flex-direction:column}
+.emp-progress-report .grid-2 .chart-card,.emp-progress-report .grid-3 .chart-card,.emp-progress-report .layout-main .chart-card{margin-bottom:0;height:100%}
+.emp-progress-report .chart-card-head{padding:10px 14px;background:#fff;border-bottom:1px solid var(--border-soft);flex-shrink:0}
+.emp-progress-report .chart-card-head h3{font-size:12px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:5px;line-height:1.35;margin:0;flex-wrap:wrap}
+.emp-progress-report .chart-card-head h3 .mso{font-size:16px;flex-shrink:0}
+.emp-progress-report .chart-card-head h3 > span{min-width:0}
+.emp-progress-report .chart-card-head p{font-size:10px;color:var(--muted);margin:3px 0 0;line-height:1.4}
+.emp-progress-report .chart-card-body{padding:var(--chart-pad);flex:1;min-width:0;background:#fff}
+.emp-progress-report .chart-card-body [id^="chart-"]{width:100%;min-width:0}
+
+/* Chart slot heights — must exceed Apex height + legend */
+.emp-progress-report .chart-trend{min-height:300px}
+.emp-progress-report #chart-bookings-trend{min-height:320px}
+.emp-progress-report #chart-bookings-trend .apexcharts-legend-text,
+.emp-progress-report #chart-bookings-trend .apexcharts-text,
+.emp-progress-report #chart-bookings-trend .apexcharts-tooltip{font-family:Outfit,system-ui,sans-serif!important}
+.emp-progress-report .chart-line{min-height:290px}
+.emp-progress-report .chart-bar{min-height:280px}
+.emp-progress-report .chart-followup-daily{min-height:300px}
+.emp-progress-report .chart-donut{min-height:320px}
+.emp-progress-report .chart-stacked{min-height:340px}
+.emp-progress-report .chart-funnel{min-height:300px}
+.emp-progress-report .chart-h,.emp-progress-report .chart-m,.emp-progress-report .chart-s{min-height:290px}
+
+/* Outcome impact: 3 timing comparison cards + table */
+.emp-progress-report .outcome-timing-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px}
+@media(max-width:900px){.emp-progress-report .outcome-timing-grid{grid-template-columns:1fr}}
+.emp-progress-report .outcome-timing-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:14px 14px 12px;min-width:0;position:relative;overflow:hidden}
+.emp-progress-report .outcome-timing-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent,var(--brand))}
+.emp-progress-report .outcome-timing-card.success{--accent:var(--green)}
+.emp-progress-report .outcome-timing-card.warning{--accent:var(--amber)}
+.emp-progress-report .outcome-timing-card.danger{--accent:var(--red)}
+.emp-progress-report .outcome-timing-card .otc-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.emp-progress-report .outcome-timing-card .otc-icon{width:28px;height:28px;border-radius:8px;background:var(--brand-soft);color:var(--brand);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.emp-progress-report .outcome-timing-card .otc-icon .mso{font-size:16px}
+.emp-progress-report .outcome-timing-card.success .otc-icon{background:var(--green-soft);color:var(--green)}
+.emp-progress-report .outcome-timing-card.warning .otc-icon{background:var(--amber-soft);color:var(--amber)}
+.emp-progress-report .outcome-timing-card.danger .otc-icon{background:var(--red-soft);color:var(--red)}
+.emp-progress-report .outcome-timing-card .otc-title{font-size:12px;font-weight:800;color:var(--text);line-height:1.3}
+.emp-progress-report .outcome-timing-card .otc-hero{margin-bottom:12px}
+.emp-progress-report .outcome-timing-card .otc-rate{font-size:28px;font-weight:800;color:var(--text);letter-spacing:-.03em;line-height:1}
+.emp-progress-report .outcome-timing-card .otc-rate-label{font-size:11px;font-weight:600;color:var(--muted);margin-top:4px}
+.emp-progress-report .outcome-timing-card .otc-mix{display:flex;height:8px;border-radius:999px;overflow:hidden;background:#e2e8f0;margin-bottom:10px}
+.emp-progress-report .outcome-timing-card .otc-seg{display:block;height:100%;min-width:0}
+.emp-progress-report .outcome-timing-card .otc-seg.success{background:var(--green)}
+.emp-progress-report .outcome-timing-card .otc-seg.danger{background:var(--red)}
+.emp-progress-report .outcome-timing-card .otc-seg.warning{background:var(--amber)}
+.emp-progress-report .outcome-timing-card .otc-legend{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.emp-progress-report .outcome-timing-card .otc-legend span{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--muted);line-height:1.3}
+.emp-progress-report .outcome-timing-card .otc-legend i{width:8px;height:8px;border-radius:999px;flex-shrink:0;display:inline-block}
+.emp-progress-report .outcome-timing-card .otc-legend i.success{background:var(--green)}
+.emp-progress-report .outcome-timing-card .otc-legend i.danger{background:var(--red)}
+.emp-progress-report .outcome-timing-card .otc-legend i.warning{background:var(--amber)}
+.emp-progress-report .outcome-timing-card .otc-foot{font-size:11px;font-weight:700;color:var(--muted);padding-top:8px;border-top:1px solid var(--border-soft)}
+.emp-progress-report .outcome-timing-empty{grid-column:1/-1;padding:18px;text-align:center;color:var(--muted);background:#fff;border:1px solid var(--border);border-radius:var(--radius)}
+.emp-progress-report .outcome-timing-card .otc-seg.brand{background:var(--brand)}
+.emp-progress-report .outcome-timing-card .otc-legend i.brand{background:var(--brand)}
+.emp-progress-report .outcome-scope-block{margin-bottom:18px}
+.emp-progress-report .outcome-scope-block .section-label{margin-top:4px}
+
+.emp-progress-report .side-stack{display:flex;flex-direction:column;gap:10px;min-width:0}
+.emp-progress-report .rank-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.emp-progress-report .rank-head{padding:8px 12px;border-bottom:1px solid var(--border-soft);font-size:11px;font-weight:800}
+.emp-progress-report .rank-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #f8fafc}
+.emp-progress-report .rank-item:last-child{border-bottom:none}
+.emp-progress-report .avatar{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.emp-progress-report .rank-meta{flex:1;min-width:0}
+.emp-progress-report .rank-name{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.emp-progress-report .rank-sub{font-size:10px;color:var(--muted)}
+.emp-progress-report .rank-val{font-size:12px;font-weight:800;color:var(--brand);text-align:right;white-space:nowrap}
+.emp-progress-report .rank-bar{height:4px;background:#e2e8f0;border-radius:999px;margin-top:5px;overflow:hidden}
+.emp-progress-report .rank-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--brand),var(--brand-2));border-radius:999px}
+
+.emp-progress-report .insight-list{display:flex;flex-direction:column;gap:8px}
+.emp-progress-report .insight-item{display:flex;gap:8px;padding:10px 12px;border-radius:var(--radius);border:1px solid;font-size:12px;line-height:1.4}
+.emp-progress-report .insight-item .mso{font-size:17px;flex-shrink:0}
+.emp-progress-report .insight-item.success{background:var(--green-soft);border-color:#a7f3d0;color:#065f46}
+.emp-progress-report .insight-item.warning{background:var(--amber-soft);border-color:#fde68a;color:#92400e}
+.emp-progress-report .insight-item.danger{background:var(--red-soft);border-color:#fecaca;color:#991b1b}
+.emp-progress-report .insight-item.info{background:#eff6ff;border-color:#bfdbfe;color:#1e40af}
+.emp-progress-report .compact-banner{display:flex;align-items:flex-start;gap:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;border-radius:8px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;line-height:1.4}
+.emp-progress-report .compact-banner .mso{font-size:16px;flex-shrink:0;margin-top:1px}
+.emp-progress-report .section-sub{font-size:11px;color:var(--muted);margin:-4px 0 12px;line-height:1.45;max-width:880px}
+
+.emp-progress-report .data-table-wrap{border:1px solid var(--border);border-radius:var(--radius);overflow:auto;max-height:340px;background:#fff;margin-bottom:14px;min-width:0}
+.emp-progress-report .data-table-wrap .section-label{margin:0;padding:10px 12px 8px;background:var(--surface-2);border-bottom:1px solid var(--border-soft)}
+.emp-progress-report .data-table-wrap .section-label-rule{display:none}
+.emp-progress-report .table-head-with-info .section-label{margin-bottom:0}
+.emp-progress-report .grid-2 .data-table-wrap,.emp-progress-report .grid-3 .data-table-wrap{margin-bottom:0}
+.emp-progress-report .data-table{width:100%;border-collapse:collapse;font-size:12px;min-width:480px}
+.emp-progress-report .data-table thead th{position:sticky;top:0;z-index:2;background:var(--surface-2);padding:8px 10px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap}
+.emp-progress-report .data-table tbody td{padding:8px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+.emp-progress-report .data-table tbody tr:hover td{background:#f8fafc}
+.emp-progress-report .cell-bar{display:flex;align-items:center;gap:6px;font-size:11px}
+.emp-progress-report .cell-bar-track{flex:1;height:5px;background:#e2e8f0;border-radius:999px;max-width:72px;overflow:hidden}
+.emp-progress-report .cell-bar-fill{height:100%;background:var(--brand);border-radius:999px}
+.emp-progress-report .pill{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:700}
+
+.emp-progress-report .section-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:14px 0 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.emp-progress-report .section-label:first-child{margin-top:0}
+.emp-progress-report .section-label-text{flex:none}
+.emp-progress-report .section-label-rule{content:'';flex:1;height:1px;background:var(--border);min-width:40px}
+
+.emp-progress-report .progress-metric-info-btn{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);background:#fff;color:var(--muted);border-radius:999px;cursor:pointer;padding:0;flex-shrink:0;transition:all .15s;line-height:1}
+.emp-progress-report .progress-metric-info-btn .mso{font-size:14px}
+.emp-progress-report .progress-metric-info-btn--sm{width:22px;height:22px}
+.emp-progress-report .progress-metric-info-btn--xs{width:18px;height:18px}
+.emp-progress-report .progress-metric-info-btn--xs .mso{font-size:12px}
+.emp-progress-report .progress-metric-info-btn:hover,.emp-progress-report .progress-metric-info-btn:focus-visible{border-color:var(--brand);color:var(--brand);background:var(--brand-soft);outline:none;box-shadow:0 0 0 2px var(--brand-glow)}
+.emp-progress-report .progress-metric-info-btn[aria-expanded="true"]{border-color:var(--brand);color:var(--brand);background:var(--brand-soft)}
+
+.emp-progress-report .chart-card-head-inner{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.emp-progress-report .chart-card-head-inner > div:first-child{min-width:0;flex:1}
+.emp-progress-report .metric-card .mc-top{align-items:flex-start}
+.emp-progress-report .booking-status-card{position:relative}
+.emp-progress-report .rank-card .rank-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.emp-progress-report .target-ring-wrap{position:relative}
+.emp-progress-report .target-ring-wrap .progress-metric-info-btn{position:absolute;top:10px;right:10px}
+
+.progress-metric-info-dropdown{position:fixed;z-index:10050;width:min(300px,calc(100vw - 24px));background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 30px rgba(15,23,42,.12);padding:12px 14px 13px;animation:progressInfoDrop .14s ease}
+.progress-metric-info-dropdown[hidden]{display:none!important}
+.progress-metric-info-dropdown strong{display:block;font-size:12px;font-weight:800;color:#0f172a;line-height:1.35;margin-bottom:6px}
+.progress-metric-info-dropdown p{margin:0;font-size:12px;line-height:1.55;color:#64748b}
+.progress-metric-info-dropdown-arrow{position:absolute;top:-6px;left:var(--arrow-left,24px);width:12px;height:12px;background:#fff;border-left:1px solid #e2e8f0;border-top:1px solid #e2e8f0;transform:translateX(-50%) rotate(45deg)}
+.progress-metric-info-dropdown.is-above .progress-metric-info-dropdown-arrow{top:auto;bottom:-6px;border-left:none;border-top:none;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0}
+@keyframes progressInfoDrop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.progress-metric-info-dropdown.is-above{animation-name:progressInfoDropAbove}
+@keyframes progressInfoDropAbove{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+.emp-progress-report .target-ring-wrap{display:flex;align-items:center;gap:14px;padding:12px 14px;background:linear-gradient(135deg,var(--brand-soft),#fff);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:14px;flex-wrap:wrap}
+.emp-progress-report .target-ring{position:relative;width:72px;height:72px;flex-shrink:0}
+.emp-progress-report .target-ring svg{transform:rotate(-90deg);width:72px;height:72px}
+.emp-progress-report .target-copy h3{font-size:15px;font-weight:800;line-height:1.25}
+.emp-progress-report .target-copy p{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4}
+.emp-progress-report .target-stat{font-size:22px;font-weight:800;color:var(--brand);line-height:1.05}
+.emp-progress-report .target-stat-sub{font-size:10px;color:var(--muted)}
+
+.emp-progress-report .aging-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-bottom:14px}
+.emp-progress-report .aging-cell{text-align:center;padding:10px 8px;border-radius:var(--radius);border:1px solid var(--border);background:#fff;min-width:0}
+.emp-progress-report .aging-cell strong{display:block;font-size:18px;font-weight:800;color:var(--text);line-height:1.1}
+.emp-progress-report .aging-cell span{font-size:10px;color:var(--muted);font-weight:600;line-height:1.3;display:block;margin-top:3px;word-wrap:break-word}
+.emp-progress-report .aging-cell.crit{background:linear-gradient(180deg,#fff,#fef2f2);border-color:#fecaca}
+.emp-progress-report .aging-cell.crit strong{color:var(--red)}
+
+.emp-progress-report .followup-section-block{min-width:0;margin-bottom:14px}
+.emp-progress-report .followup-metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;max-width:100%}
+@media(max-width:1100px){.emp-progress-report .followup-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.emp-progress-report .followup-metric-grid{grid-template-columns:1fr}}
+.emp-progress-report .followup-metric-card{position:relative;display:flex;flex-direction:column;background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:12px 12px 10px;min-width:0;min-height:112px;transition:box-shadow .15s;overflow:hidden}
+.emp-progress-report .followup-metric-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent,var(--brand));border-radius:3px 0 0 3px}
+.emp-progress-report .followup-metric-card:hover{box-shadow:var(--shadow)}
+.emp-progress-report .followup-metric-card.success{--accent:var(--green)}
+.emp-progress-report .followup-metric-card.warning{--accent:var(--amber)}
+.emp-progress-report .followup-metric-card.danger{--accent:var(--red)}
+.emp-progress-report .followup-metric-card .fmc-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex:1}
+.emp-progress-report .followup-metric-card .fmc-main{min-width:0;flex:1}
+.emp-progress-report .followup-metric-card .fmc-icon{width:28px;height:28px;border-radius:8px;background:var(--brand-soft);color:var(--brand);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.emp-progress-report .followup-metric-card .fmc-icon .mso{font-size:16px}
+.emp-progress-report .followup-metric-card.success .fmc-icon{background:var(--green-soft);color:var(--green)}
+.emp-progress-report .followup-metric-card.warning .fmc-icon{background:var(--amber-soft);color:var(--amber)}
+.emp-progress-report .followup-metric-card.danger .fmc-icon{background:var(--red-soft);color:var(--red)}
+.emp-progress-report .followup-metric-card .fmc-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);line-height:1.35;display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;min-height:2.7em;align-content:flex-start}
+.emp-progress-report .followup-metric-card .fmc-lbl > span{min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.emp-progress-report .followup-metric-card .fmc-val{font-size:24px;font-weight:800;color:var(--text);margin-top:6px;letter-spacing:-.02em;line-height:1.05;white-space:nowrap}
+.emp-progress-report .followup-metric-card .fmc-foot{margin-top:auto;padding-top:10px;display:flex;flex-direction:column;gap:6px;width:100%}
+.emp-progress-report .followup-metric-card .fmc-share{font-size:10px;font-weight:600;color:var(--muted);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:1.35em}
+.emp-progress-report .followup-metric-card .fmc-bar{height:4px;background:#e2e8f0;border-radius:999px;overflow:hidden;width:100%}
+.emp-progress-report .followup-metric-card .fmc-bar span{display:block;height:100%;background:linear-gradient(90deg,var(--brand),var(--brand-2));border-radius:999px;transition:width .2s ease}
+.emp-progress-report .followup-metric-card.success .fmc-bar span{background:linear-gradient(90deg,var(--green),#10b981)}
+.emp-progress-report .followup-metric-card.warning .fmc-bar span{background:linear-gradient(90deg,var(--amber),#f59e0b)}
+.emp-progress-report .followup-metric-card.danger .fmc-bar span{background:linear-gradient(90deg,var(--red),#ef4444)}
+.emp-progress-report .lead-metric-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px;max-width:100%}
+.emp-progress-report .lead-metric-grid--handled{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(min-width:1200px){.emp-progress-report .lead-metric-grid--handled{grid-template-columns:repeat(6,minmax(0,1fr))}}
+.emp-progress-report .lead-metric-grid--outcomes{grid-template-columns:repeat(3,minmax(0,1fr))}
+.emp-progress-report .lead-metric-grid--bookings{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(min-width:1100px){.emp-progress-report .lead-metric-grid--bookings{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(min-width:1400px){.emp-progress-report .lead-metric-grid--bookings{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media(max-width:900px){.emp-progress-report .lead-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.emp-progress-report .lead-metric-grid{grid-template-columns:1fr}}
+.emp-progress-report .lead-metric-grid .followup-metric-card{margin:0}
+.emp-progress-report .booking-reason-reports{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:14px}
+@media(max-width:900px){.emp-progress-report .booking-reason-reports{grid-template-columns:1fr}}
+.emp-progress-report .booking-reason-report-card{margin:0}
+.emp-progress-report .booking-reason-report-card .section-label{margin-bottom:8px}
+.emp-progress-report .outcome-timing-table{margin-bottom:14px}
+.emp-progress-report .grid-2 > div,.emp-progress-report .grid-3 > div{min-width:0}
+
+/* ApexCharts polish — prevent legend/axis overlap */
+.emp-progress-report .apexcharts-canvas{margin:0 auto;max-width:100%}
+.emp-progress-report .apexcharts-legend{gap:6px!important;padding:8px 4px 2px!important;justify-content:center!important;flex-wrap:wrap!important}
+.emp-progress-report .apexcharts-legend-series{margin:2px 8px!important}
+.emp-progress-report .apexcharts-legend-text{font-size:11px!important;font-weight:600!important}
+.emp-progress-report .apexcharts-xaxis-label,.emp-progress-report .apexcharts-yaxis-label{font-size:10px!important;font-weight:600!important}
+.emp-progress-report .apexcharts-tooltip{font-size:11px!important}
+
+/* Daily Basis Report */
+.emp-progress-report .daily-basis{display:flex;flex-direction:column;gap:18px}
+.emp-progress-report .daily-basis-intro{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-bottom:4px}
+.emp-progress-report .daily-basis-title{margin:0;font-size:16px;font-weight:800;color:var(--text);letter-spacing:-.01em}
+.emp-progress-report .daily-basis-sub{margin:4px 0 0;font-size:12px;color:var(--muted);line-height:1.4}
+.emp-progress-report .daily-basis-total{text-align:right;min-width:88px}
+.emp-progress-report .daily-basis-total-lbl{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.emp-progress-report .daily-basis-total-val{display:block;font-size:28px;font-weight:800;color:var(--brand);letter-spacing:-.03em;line-height:1.1;margin-top:2px}
+.emp-progress-report .daily-basis-group{min-width:0}
+.emp-progress-report .daily-basis-grid{margin-bottom:0}
+.emp-progress-report .daily-basis-grid .metric-card.is-zero{opacity:.72}
+.emp-progress-report .daily-basis-grid .metric-card.is-zero .mc-val{color:#94a3b8}
+.emp-progress-report .daily-basis-table-wrap{max-height:min(70vh,560px);margin-bottom:0;overflow:auto;-webkit-overflow-scrolling:touch}
+.emp-progress-report .daily-basis-table{width:max-content;min-width:100%;table-layout:auto;border-collapse:separate;border-spacing:0}
+.emp-progress-report .daily-basis-table thead th,
+.emp-progress-report .daily-basis-table tbody th,
+.emp-progress-report .daily-basis-table tbody td{padding:9px 12px;vertical-align:middle;white-space:nowrap;box-sizing:border-box;font-size:12px;font-weight:600}
+.emp-progress-report .daily-basis-table th.col-metric,
+.emp-progress-report .daily-basis-table td.col-metric{
+    min-width:220px;max-width:280px;width:240px;
+    text-align:left!important;white-space:nowrap;
+    position:sticky;left:0;z-index:3;
+    background:var(--surface-2);box-shadow:1px 0 0 var(--border);
+    font-weight:700;color:var(--text);
+}
+.emp-progress-report .daily-basis-table thead th.col-metric{z-index:5;top:0}
+.emp-progress-report .daily-basis-table tbody th.col-metric{background:#fff;z-index:2;font-weight:600;color:var(--muted)}
+.emp-progress-report .daily-basis-table tbody tr:hover th.col-metric{background:#f8fafc}
+.emp-progress-report .daily-basis-table th.col-day,
+.emp-progress-report .daily-basis-table td.col-day,
+.emp-progress-report .daily-basis-table th.col-total,
+.emp-progress-report .daily-basis-table td.col-total{
+    min-width:96px;width:auto;max-width:none;
+    text-align:center!important;white-space:nowrap;font-variant-numeric:tabular-nums;
+}
+.emp-progress-report .daily-basis-table thead th.col-day,
+.emp-progress-report .daily-basis-table thead th.col-total{position:sticky;top:0;z-index:1;background:var(--surface-2);font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.emp-progress-report .daily-basis-table thead th.col-total{z-index:2;right:0;box-shadow:-1px 0 0 var(--border)}
+.emp-progress-report .daily-basis-table tbody td.col-total{position:sticky;right:0;z-index:2;background:#fff;font-weight:700;box-shadow:-1px 0 0 var(--border)}
+.emp-progress-report .daily-basis-table tbody tr:hover td.col-total{background:#f8fafc}
+.emp-progress-report .daily-basis-table tr.daily-basis-total-row th.col-metric,
+.emp-progress-report .daily-basis-table tr.daily-basis-total-row td{background:var(--surface-2);border-top:1px solid var(--border);font-weight:700;color:var(--text)}
+.emp-progress-report .daily-basis-table tr.daily-basis-total-row th.col-metric{z-index:3}
+.emp-progress-report .daily-basis-table tr.daily-basis-total-row td.col-total{background:var(--surface-2)}
+.emp-progress-report .daily-basis-table tr.daily-basis-total-row:hover th.col-metric,
+.emp-progress-report .daily-basis-table tr.daily-basis-total-row:hover td,
+.emp-progress-report .daily-basis-table tr.daily-basis-total-row:hover td.col-total{background:var(--surface-2)}
+.emp-progress-report .daily-basis-table td.is-zero{color:#cbd5e1}
+.emp-progress-report .daily-basis-date-link{display:inline-block;color:#43466e;font-weight:700;text-decoration:none;white-space:nowrap;text-transform:none;letter-spacing:0;font-size:11px}
+.emp-progress-report .daily-basis-date-link:hover{text-decoration:underline}
+.emp-progress-report .daily-basis-empty{text-align:center;color:#64748b;padding:24px!important;white-space:normal}
+.emp-progress-report .overview-snapshots{margin-bottom:14px}
+.emp-progress-report .overview-snap-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+@media(max-width:1280px){.emp-progress-report .overview-snap-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:900px){.emp-progress-report .overview-snap-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.emp-progress-report .overview-snap-grid{grid-template-columns:1fr}}
+.emp-progress-report .overview-snap-card{position:relative;display:flex;flex-direction:column;gap:10px;text-align:left;background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:12px;min-width:0;cursor:pointer;transition:box-shadow .15s,border-color .15s;overflow:hidden;font:inherit;color:inherit}
+.emp-progress-report .overview-snap-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent,var(--brand));border-radius:3px 0 0 3px}
+.emp-progress-report .overview-snap-card:hover{box-shadow:var(--shadow);border-color:#cbd5e1}
+.emp-progress-report .overview-snap-card:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.emp-progress-report .overview-snap-card.success{--accent:var(--green)}
+.emp-progress-report .overview-snap-card.warning{--accent:var(--amber)}
+.emp-progress-report .overview-snap-card.danger{--accent:var(--red)}
+.emp-progress-report .overview-snap-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.emp-progress-report .overview-snap-title{display:inline-flex;align-items:center;gap:6px;min-width:0;font-size:12px;font-weight:800;color:var(--text)}
+.emp-progress-report .overview-snap-icon{width:24px;height:24px;border-radius:7px;background:var(--brand-soft);color:var(--brand);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.emp-progress-report .overview-snap-icon .mso{font-size:15px}
+.emp-progress-report .overview-snap-card.success .overview-snap-icon{background:var(--green-soft);color:var(--green)}
+.emp-progress-report .overview-snap-card.warning .overview-snap-icon{background:var(--amber-soft,#fff7ed);color:var(--amber)}
+.emp-progress-report .overview-snap-card.danger .overview-snap-icon{background:var(--red-soft,#fef2f2);color:var(--red)}
+.emp-progress-report .overview-snap-open{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--brand);flex-shrink:0}
+.emp-progress-report .overview-snap-primary{min-width:0}
+.emp-progress-report .overview-snap-val{font-size:24px;font-weight:800;letter-spacing:-.03em;line-height:1.05;color:var(--text)}
+.emp-progress-report .overview-snap-lbl{margin-top:2px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.emp-progress-report .overview-snap-stats{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}
+.emp-progress-report .overview-snap-stat{min-width:0;display:flex;flex-direction:column;gap:1px}
+.emp-progress-report .overview-snap-stat span{font-size:10px;color:var(--muted);font-weight:600;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.emp-progress-report .overview-snap-stat strong{font-size:12px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}
+.emp-progress-report .overview-snap-insight{margin:0;font-size:11px;line-height:1.4;color:var(--muted)}
+.emp-progress-report .insight-item.is-jump{cursor:pointer;width:100%;border:none;font:inherit;text-align:left}
+.emp-progress-report .insight-item.is-jump:hover{filter:brightness(.98)}
+@media(max-width:720px){
+  .emp-progress-report .daily-basis-intro{align-items:flex-start}
+  .emp-progress-report .daily-basis-total{text-align:left}
+  .emp-progress-report .daily-basis-table th.col-metric,
+  .emp-progress-report .daily-basis-table td.col-metric{min-width:160px;width:180px;max-width:200px}
+}

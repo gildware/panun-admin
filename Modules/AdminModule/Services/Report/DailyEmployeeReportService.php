@@ -14,6 +14,7 @@ use Modules\BookingModule\Entities\BookingChangeLog;
 use Modules\BookingModule\Entities\BookingFollowup;
 use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\LeadManagement\Entities\Lead;
+use Modules\LeadManagement\Entities\LeadChangeLog;
 use Modules\LeadManagement\Entities\LeadFollowup;
 use Modules\LeadManagement\Entities\LeadOutboundEnquiry;
 use Modules\LeadManagement\Entities\Source;
@@ -25,16 +26,64 @@ class DailyEmployeeReportService
     public const METRIC_KEYS = [
         'leads_added',
         'leads_assigned',
+        'leads_handled',
         'lead_followups',
+        'lead_followups_taken',
+        'lead_followups_rescheduled',
         'whatsapp_assigned_from_ai',
         'whatsapp_assigned_from_employee',
         'whatsapp_chats_closed',
         'whatsapp_chats_replied',
+        'whatsapp_replies',
         'bookings_created',
+        'bookings_completed',
+        'bookings_cancelled',
+        'bookings_handled',
         'booking_followups',
+        'booking_followups_taken',
+        'booking_followups_rescheduled',
         'booking_status_updates',
         'outbound_enquiries',
+        'call_logs',
     ];
+
+    /**
+     * Ordered metric columns for the Daily Basis activity report UI.
+     *
+     * @return list<array{key: string, label: string, short: string, group: string, icon: string, tone?: string}>
+     */
+    public static function activityMetricColumns(): array
+    {
+        return [
+            ['key' => 'leads_added', 'label' => translate('New_Leads_Added') ?? 'New Leads Added', 'short' => translate('Leads_Added_short') ?? 'Added', 'group' => 'leads', 'icon' => 'person_add'],
+            ['key' => 'leads_assigned', 'label' => translate('New_Leads_Assigned') ?? 'New Leads Assigned', 'short' => translate('Assigned_short') ?? 'Assigned', 'group' => 'leads', 'icon' => 'assignment_ind'],
+            ['key' => 'leads_handled', 'label' => translate('Leads_Handled') ?? 'Leads Handled', 'short' => translate('Handled_short') ?? 'Handled', 'group' => 'leads', 'icon' => 'manage_accounts'],
+            ['key' => 'lead_followups_taken', 'label' => translate('Lead_Followups_Taken') ?? 'Lead Follow-ups Taken', 'short' => translate('Lead_FU_short') ?? 'Lead FU', 'group' => 'leads', 'icon' => 'task_alt', 'tone' => 'good'],
+            ['key' => 'lead_followups_rescheduled', 'label' => translate('Lead_Followups_Rescheduled') ?? 'Lead Follow-ups Rescheduled', 'short' => translate('Lead_Resched_short') ?? 'Lead Resched', 'group' => 'leads', 'icon' => 'event_repeat', 'tone' => 'warning'],
+            ['key' => 'bookings_created', 'label' => translate('New_Bookings_Created') ?? 'New Bookings Created', 'short' => translate('Created_short') ?? 'Created', 'group' => 'bookings', 'icon' => 'event'],
+            ['key' => 'bookings_completed', 'label' => translate('Bookings_Completed') ?? 'Bookings Completed', 'short' => translate('Completed_short') ?? 'Done', 'group' => 'bookings', 'icon' => 'check_circle', 'tone' => 'good'],
+            ['key' => 'bookings_cancelled', 'label' => translate('Bookings_Cancelled') ?? 'Bookings Cancelled', 'short' => translate('Cancelled_short') ?? 'Cancel', 'group' => 'bookings', 'icon' => 'cancel', 'tone' => 'danger'],
+            ['key' => 'bookings_handled', 'label' => translate('Bookings_Handled') ?? 'Bookings Handled', 'short' => translate('Bk_Handled_short') ?? 'Handled', 'group' => 'bookings', 'icon' => 'edit_calendar'],
+            ['key' => 'booking_followups_taken', 'label' => translate('Booking_Followups_Taken') ?? 'Booking Follow-ups Taken', 'short' => translate('Bk_FU_short') ?? 'Bk FU', 'group' => 'bookings', 'icon' => 'task_alt', 'tone' => 'good'],
+            ['key' => 'booking_followups_rescheduled', 'label' => translate('Booking_Followups_Rescheduled') ?? 'Booking Follow-ups Rescheduled', 'short' => translate('Bk_Resched_short') ?? 'Bk Resched', 'group' => 'bookings', 'icon' => 'event_repeat', 'tone' => 'warning'],
+            ['key' => 'whatsapp_assigned', 'label' => translate('WhatsApp_Chats_Assigned') ?? 'WhatsApp Chats Assigned', 'short' => translate('WA_Assigned_short') ?? 'WA Assign', 'group' => 'communication', 'icon' => 'forum'],
+            ['key' => 'whatsapp_replies', 'label' => translate('WhatsApp_Replies') ?? 'WhatsApp Replies', 'short' => translate('Replies_short') ?? 'Replies', 'group' => 'communication', 'icon' => 'reply'],
+            ['key' => 'whatsapp_chats_replied', 'label' => translate('People_Replied') ?? 'People Replied To', 'short' => translate('People_short') ?? 'People', 'group' => 'communication', 'icon' => 'chat'],
+            ['key' => 'call_logs', 'label' => translate('Call_Logs_Added') ?? 'Call Logs Added', 'short' => translate('Calls_short') ?? 'Calls', 'group' => 'communication', 'icon' => 'call'],
+        ];
+    }
+
+    /**
+     * @param  array<string, int|float|string>  $totals
+     * @return array<string, int>
+     */
+    public static function withDerivedActivityMetrics(array $totals): array
+    {
+        $totals['whatsapp_assigned'] = (int) ($totals['whatsapp_assigned_from_ai'] ?? 0)
+            + (int) ($totals['whatsapp_assigned_from_employee'] ?? 0);
+
+        return $totals;
+    }
 
     /**
      * @param  Collection<int, User>  $employees
@@ -62,12 +111,19 @@ class DailyEmployeeReportService
 
         $metrics = $this->initializeMetrics($employeeIds, $dateFrom, $dateTo);
         $this->aggregateLeadsAdded($metrics, $employeeIds, $rangeStart, $rangeEnd);
+        $this->aggregateLeadsHandled($metrics, $employeeIds, $rangeStart, $rangeEnd);
         $this->aggregateLeadFollowups($metrics, $employeeIds, $rangeStart, $rangeEnd);
+        $this->aggregateLeadFollowupsByStatus($metrics, $employeeIds, $rangeStart, $rangeEnd);
         $this->aggregateBookingFollowups($metrics, $employeeIds, $rangeStart, $rangeEnd);
+        $this->aggregateBookingFollowupsByStatus($metrics, $employeeIds, $rangeStart, $rangeEnd);
         $this->aggregateBookingsCreated($metrics, $employeeIds, $rangeStart, $rangeEnd);
+        $this->aggregateBookingsCompletedCancelled($metrics, $employeeIds, $rangeStart, $rangeEnd);
+        $this->aggregateBookingsHandled($metrics, $employeeIds, $rangeStart, $rangeEnd);
         $this->aggregateBookingStatusUpdates($metrics, $employeeIds, $rangeStart, $rangeEnd);
         $this->aggregateOutboundEnquiries($metrics, $employeeIds, $rangeStart, $rangeEnd);
         $this->aggregateWhatsAppRepliedChats($metrics, $employeeIds, $rangeStart, $rangeEnd);
+        $this->aggregateWhatsAppReplies($metrics, $employeeIds, $rangeStart, $rangeEnd);
+        $this->aggregateCallLogs($metrics, $employeeIds, $rangeStart, $rangeEnd);
         $this->aggregateStaffActivityEvents($metrics, $employeeIds, $rangeStart, $rangeEnd);
         $this->aggregatePresenceHours($metrics, $employees, $dateFrom, $dateTo);
 
@@ -112,7 +168,7 @@ class DailyEmployeeReportService
                 foreach (self::METRIC_KEYS as $key) {
                     $row[$key] = (int) $dayMetrics[$key];
                 }
-                $rows[] = $row;
+                $rows[] = self::withDerivedActivityMetrics($row);
             }
         }
 
@@ -128,7 +184,7 @@ class DailyEmployeeReportService
         $employeeTotals = array_values(array_map(function (array $item) {
             $item['online_hours'] = $this->formatDuration((int) $item['online_seconds']);
 
-            return $item;
+            return self::withDerivedActivityMetrics($item);
         }, $employeeTotalsMap));
 
         usort($employeeTotals, fn (array $a, array $b) => strcmp($a['employee_name'], $b['employee_name']));
@@ -138,6 +194,7 @@ class DailyEmployeeReportService
         }
         $totals['online_seconds'] = (int) array_sum(array_column($employeeTotals, 'online_seconds'));
         $totals['online_hours'] = $this->formatDuration((int) $totals['online_seconds']);
+        $totals = self::withDerivedActivityMetrics($totals);
 
         return [
             'rows' => $rows,
@@ -172,10 +229,10 @@ class DailyEmployeeReportService
 
         $summaryEmployees = $employees->filter(fn (User $u) => in_array((string) $u->id, $employeeIds, true));
         $summary = $this->buildReport($summaryEmployees, $dayStart, $dayStart);
-        $totals = $summary['totals'];
+        $totals = self::withDerivedActivityMetrics($summary['totals'] ?? []);
 
         if (count($focusEmployeeIds) === 1 && ! empty($summary['employee_totals'][0])) {
-            $totals = $summary['employee_totals'][0];
+            $totals = self::withDerivedActivityMetrics($summary['employee_totals'][0]);
             $totals['online_hours'] = $this->formatDuration((int) ($totals['online_seconds'] ?? 0));
         }
 
@@ -356,6 +413,67 @@ class DailyEmployeeReportService
     }
 
     /**
+     * Split lead follow-ups into taken vs rescheduled for the activity report.
+     *
+     * @param  array<string, array<string, array<string, int>>>  $metrics
+     * @param  list<string>  $employeeIds
+     */
+    private function aggregateLeadFollowupsByStatus(array &$metrics, array $employeeIds, Carbon $rangeStart, Carbon $rangeEnd): void
+    {
+        $table = (new LeadFollowup)->getTable();
+
+        $taken = DB::table($table)
+            ->selectRaw('DATE(created_at) as day, created_by as user_id, COUNT(*) as total')
+            ->whereIn('created_by', $employeeIds)
+            ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+            ->whereNotNull('created_by')
+            ->where(function ($query) {
+                $query->whereNull('followup_status')
+                    ->orWhere('followup_status', '!=', LeadFollowup::STATUS_RESCHEDULE);
+            })
+            ->groupBy('day', 'user_id')
+            ->get();
+
+        $this->applyGroupedCounts($metrics, $taken, 'lead_followups_taken');
+
+        $rescheduled = DB::table($table)
+            ->selectRaw('DATE(created_at) as day, created_by as user_id, COUNT(*) as total')
+            ->whereIn('created_by', $employeeIds)
+            ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+            ->whereNotNull('created_by')
+            ->where('followup_status', LeadFollowup::STATUS_RESCHEDULE)
+            ->groupBy('day', 'user_id')
+            ->get();
+
+        $this->applyGroupedCounts($metrics, $rescheduled, 'lead_followups_rescheduled');
+    }
+
+    /**
+     * Distinct leads the employee updated (via change log) in range.
+     *
+     * @param  array<string, array<string, array<string, int>>>  $metrics
+     * @param  list<string>  $employeeIds
+     */
+    private function aggregateLeadsHandled(array &$metrics, array $employeeIds, Carbon $rangeStart, Carbon $rangeEnd): void
+    {
+        $table = (new LeadChangeLog)->getTable();
+        if (! Schema::hasTable($table)) {
+            return;
+        }
+
+        $rows = DB::table($table)
+            ->selectRaw('DATE(created_at) as day, changed_by as user_id, COUNT(DISTINCT lead_id) as total')
+            ->whereIn('changed_by', $employeeIds)
+            ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+            ->whereNotNull('changed_by')
+            ->whereNotNull('lead_id')
+            ->groupBy('day', 'user_id')
+            ->get();
+
+        $this->applyGroupedCounts($metrics, $rows, 'leads_handled');
+    }
+
+    /**
      * @param  array<string, array<string, array<string, int>>>  $metrics
      * @param  list<string>  $employeeIds
      */
@@ -370,6 +488,39 @@ class DailyEmployeeReportService
             ->get();
 
         $this->applyGroupedCounts($metrics, $rows, 'booking_followups');
+    }
+
+    /**
+     * Split booking follow-ups into taken (completed) vs rescheduled.
+     *
+     * @param  array<string, array<string, array<string, int>>>  $metrics
+     * @param  list<string>  $employeeIds
+     */
+    private function aggregateBookingFollowupsByStatus(array &$metrics, array $employeeIds, Carbon $rangeStart, Carbon $rangeEnd): void
+    {
+        $table = (new BookingFollowup)->getTable();
+
+        $taken = DB::table($table)
+            ->selectRaw('DATE(created_at) as day, created_by as user_id, COUNT(*) as total')
+            ->whereIn('created_by', $employeeIds)
+            ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+            ->whereNotNull('created_by')
+            ->where('status', 'completed')
+            ->groupBy('day', 'user_id')
+            ->get();
+
+        $this->applyGroupedCounts($metrics, $taken, 'booking_followups_taken');
+
+        $rescheduled = DB::table($table)
+            ->selectRaw('DATE(created_at) as day, created_by as user_id, COUNT(*) as total')
+            ->whereIn('created_by', $employeeIds)
+            ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+            ->whereNotNull('created_by')
+            ->where('status', 'rescheduled')
+            ->groupBy('day', 'user_id')
+            ->get();
+
+        $this->applyGroupedCounts($metrics, $rescheduled, 'booking_followups_rescheduled');
     }
 
     /**
@@ -406,6 +557,71 @@ class DailyEmployeeReportService
             ->get();
 
         $this->applyGroupedCounts($metrics, $rows, 'bookings_created');
+    }
+
+    /**
+     * Status changes to completed / canceled attributed to the employee who made them.
+     *
+     * @param  array<string, array<string, array<string, int>>>  $metrics
+     * @param  list<string>  $employeeIds
+     */
+    private function aggregateBookingsCompletedCancelled(array &$metrics, array $employeeIds, Carbon $rangeStart, Carbon $rangeEnd): void
+    {
+        $historyTable = (new BookingStatusHistory)->getTable();
+        if (! Schema::hasTable($historyTable)) {
+            return;
+        }
+
+        $completed = DB::table($historyTable)
+            ->selectRaw('DATE(created_at) as day, changed_by as user_id, COUNT(DISTINCT booking_id) as total')
+            ->whereIn('changed_by', $employeeIds)
+            ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+            ->whereNotNull('changed_by')
+            ->where('booking_status', 'completed')
+            ->groupBy('day', 'user_id')
+            ->get();
+
+        $this->applyGroupedCounts($metrics, $completed, 'bookings_completed');
+
+        $cancelled = DB::table($historyTable)
+            ->selectRaw('DATE(created_at) as day, changed_by as user_id, COUNT(DISTINCT booking_id) as total')
+            ->whereIn('changed_by', $employeeIds)
+            ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+            ->whereNotNull('changed_by')
+            ->whereIn('booking_status', ['canceled', 'cancelled'])
+            ->groupBy('day', 'user_id')
+            ->get();
+
+        $this->applyGroupedCounts($metrics, $cancelled, 'bookings_cancelled');
+    }
+
+    /**
+     * Distinct bookings the employee updated (via change log) in range.
+     *
+     * @param  array<string, array<string, array<string, int>>>  $metrics
+     * @param  list<string>  $employeeIds
+     */
+    private function aggregateBookingsHandled(array &$metrics, array $employeeIds, Carbon $rangeStart, Carbon $rangeEnd): void
+    {
+        $table = (new BookingChangeLog)->getTable();
+        if (! Schema::hasTable($table)) {
+            return;
+        }
+
+        $rows = DB::table($table)
+            ->selectRaw('DATE(created_at) as day, changed_by as user_id, COUNT(DISTINCT booking_id) as total')
+            ->whereIn('changed_by', $employeeIds)
+            ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+            ->whereNotNull('changed_by')
+            ->whereNotNull('booking_id')
+            ->where(function ($query) {
+                $query->whereNull('property_key')
+                    ->orWhere('property_key', '!=', 'booking.created');
+            })
+            ->groupBy('day', 'user_id')
+            ->get();
+
+        $this->applyGroupedCounts($metrics, $rows, 'bookings_handled');
     }
 
     /**
@@ -479,6 +695,81 @@ class DailyEmployeeReportService
             ->get();
 
         $this->applyGroupedCounts($metrics, $chatRows, 'whatsapp_chats_replied');
+    }
+
+    /**
+     * Total outbound WhatsApp messages sent by the employee (reply volume).
+     *
+     * @param  array<string, array<string, array<string, int>>>  $metrics
+     * @param  list<string>  $employeeIds
+     */
+    private function aggregateWhatsAppReplies(array &$metrics, array $employeeIds, Carbon $rangeStart, Carbon $rangeEnd): void
+    {
+        $table = config('whatsappmodule.tables.messages', 'whatsapp_messages');
+        if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'sent_by_id')) {
+            return;
+        }
+
+        $rows = DB::table($table)
+            ->selectRaw('DATE(created_at) as day, sent_by_id as user_id, COUNT(*) as total')
+            ->where('direction', 'OUT')
+            ->whereIn('sent_by_id', $employeeIds)
+            ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+            ->whereNotNull('sent_by_id')
+            ->groupBy('day', 'user_id')
+            ->get();
+
+        $this->applyGroupedCounts($metrics, $rows, 'whatsapp_replies');
+    }
+
+    /**
+     * Manual call logs added on leads + bookings (contact_channel = call).
+     *
+     * @param  array<string, array<string, array<string, int>>>  $metrics
+     * @param  list<string>  $employeeIds
+     */
+    private function aggregateCallLogs(array &$metrics, array $employeeIds, Carbon $rangeStart, Carbon $rangeEnd): void
+    {
+        $leadTable = (new LeadFollowup)->getTable();
+        $leadRows = DB::table($leadTable)
+            ->selectRaw('DATE(created_at) as day, created_by as user_id, COUNT(*) as total')
+            ->whereIn('created_by', $employeeIds)
+            ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+            ->whereNotNull('created_by')
+            ->where('contact_channel', LeadFollowup::CHANNEL_CALL)
+            ->groupBy('day', 'user_id')
+            ->get();
+
+        $this->applyGroupedCountsAdditive($metrics, $leadRows, 'call_logs');
+
+        $bookingTable = (new BookingFollowup)->getTable();
+        $bookingRows = DB::table($bookingTable)
+            ->selectRaw('DATE(created_at) as day, created_by as user_id, COUNT(*) as total')
+            ->whereIn('created_by', $employeeIds)
+            ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+            ->whereNotNull('created_by')
+            ->where('contact_channel', BookingFollowup::CHANNEL_CALL)
+            ->groupBy('day', 'user_id')
+            ->get();
+
+        $this->applyGroupedCountsAdditive($metrics, $bookingRows, 'call_logs');
+    }
+
+    /**
+     * @param  array<string, array<string, array<string, int>>>  $metrics
+     * @param  \Illuminate\Support\Collection<int, object>  $rows
+     */
+    private function applyGroupedCountsAdditive(array &$metrics, $rows, string $metricKey): void
+    {
+        foreach ($rows as $row) {
+            $day = (string) $row->day;
+            $userId = (string) $row->user_id;
+            if (! isset($metrics[$day][$userId])) {
+                continue;
+            }
+
+            $metrics[$day][$userId][$metricKey] = (int) ($metrics[$day][$userId][$metricKey] ?? 0) + (int) $row->total;
+        }
     }
 
     /**

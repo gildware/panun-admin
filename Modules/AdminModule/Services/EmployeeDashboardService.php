@@ -3603,4 +3603,153 @@ class EmployeeDashboardService
 
         return array_slice($suggestions, 0, 6);
     }
+
+    /**
+     * @return Collection<int, User>
+     */
+    public function dashboardEmployeeCollection(): Collection
+    {
+        return $this->dashboardEmployees();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function monthlyPerformanceForEmployees(Collection $employees, Carbon $periodStart, Carbon $periodEnd): array
+    {
+        if ($employees->count() === 1) {
+            return $this->monthlyPerformanceForUser($employees->first(), $periodStart, $periodEnd);
+        }
+
+        $report = $this->dailyEmployeeReport->buildReport($employees, $periodStart, $periodEnd);
+
+        return $this->monthlyPerformanceForTeam(
+            $periodStart,
+            $periodEnd,
+            $report['totals'] ?? [],
+            $employees,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $periodTotals
+     * @return array<string, mixed>
+     */
+    public function progressFullReportForEmployees(
+        Collection $employees,
+        Carbon $periodStart,
+        Carbon $periodEnd,
+        array $periodTotals = [],
+    ): array {
+        if ($employees->count() === 1) {
+            $user = $employees->first();
+            if (! $user instanceof User) {
+                return [];
+            }
+
+            return $this->progressFullReportForUser($user, $periodStart, $periodEnd, $periodTotals);
+        }
+
+        return $this->progressFullReportForTeam($employees, $periodStart, $periodEnd, $periodTotals);
+    }
+
+    /**
+     * @param  array<string, mixed>  $periodTotals
+     * @return array<string, mixed>
+     */
+    private function progressFullReportForTeam(
+        Collection $employees,
+        Carbon $periodStart,
+        Carbon $periodEnd,
+        array $periodTotals = [],
+    ): array {
+        $teamReport = $this->dailyEmployeeReport->buildReport($employees, $periodStart, $periodEnd);
+        $teamTotals = $periodTotals !== [] ? $periodTotals : ($teamReport['totals'] ?? []);
+        $outcomes = $this->teamBookingOutcomesForPeriod($periodStart, $periodEnd);
+        $missedStats = $this->teamMissedFollowupStats($employees);
+        $disciplinePct = $missedStats['accuracy_pct'];
+        $qualityStats = $this->buildTeamQualityStatsForPeriod($employees, $periodStart, $periodEnd, $teamTotals);
+        $contribution = $this->teamEmployeeShareRows(
+            $teamReport['employee_totals'] ?? [],
+            $teamTotals,
+            $periodStart,
+            $periodEnd,
+        );
+        $teamRankRows = $this->teamOverallRankRows($employees, $periodStart, $periodEnd);
+
+        $scorecard = [
+            'good' => [],
+            'bad' => [],
+            'neutral' => [],
+        ];
+
+        if ($outcomes['completed_bookings'] > 0) {
+            $scorecard['good'][] = [
+                'icon' => 'check_circle',
+                'label' => translate('Bookings_completed'),
+                'value' => (string) $outcomes['completed_bookings'],
+                'detail' => with_currency_symbol($outcomes['completed_amount']),
+            ];
+        }
+
+        if ((int) ($teamTotals['bookings_created'] ?? 0) > 0) {
+            $scorecard['neutral'][] = [
+                'icon' => 'add_shopping_cart',
+                'label' => translate('Bookings_created'),
+                'value' => (string) (int) ($teamTotals['bookings_created'] ?? 0),
+                'detail' => null,
+            ];
+        }
+
+        if ($missedStats['missed'] > 0) {
+            $scorecard['bad'][] = [
+                'icon' => 'warning',
+                'label' => translate('Progress_missed_followups'),
+                'value' => (string) $missedStats['missed'],
+                'detail' => str_replace(':count', (string) $missedStats['missed'], translate('Progress_missed_followups_sub')),
+            ];
+        }
+
+        $improvements = [];
+        if ($missedStats['missed'] > 0) {
+            $improvements[] = [
+                'priority' => 'high',
+                'icon' => 'warning',
+                'title' => translate('Progress_improve_clear_overdue'),
+                'detail' => str_replace(':count', (string) $missedStats['missed'], translate('Progress_missed_followups_sub')),
+            ];
+        }
+
+        return [
+            'viewing_team' => true,
+            'contribution' => $contribution,
+            'leaderboard' => [
+                'total_employees' => $employees->count(),
+                'overall_rank' => 0,
+                'overall_score' => 0,
+                'metrics' => [],
+            ],
+            'team_rank_rows' => $teamRankRows,
+            'scorecard' => $scorecard,
+            'improvements' => $improvements,
+            'missed_followups' => [
+                'leads' => ['total' => 0, 'items' => collect()],
+                'bookings' => ['total' => 0, 'items' => collect()],
+                'total' => $missedStats['missed'],
+            ],
+            'pending_followups' => [
+                'leads' => ['total' => 0, 'items' => collect()],
+                'bookings' => ['total' => 0, 'items' => collect()],
+                'total' => 0,
+            ],
+            'pipeline' => [
+                'leads' => ['total' => 0, 'items' => collect()],
+                'bookings' => ['total' => 0, 'items' => collect()],
+            ],
+            'discipline_pct' => $disciplinePct,
+            'missed_stats' => $missedStats,
+            'quality_stats' => $qualityStats,
+            'outcomes' => $outcomes,
+        ];
+    }
 }

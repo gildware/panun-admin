@@ -4,6 +4,7 @@
 @include('adminmodule::layouts.partials.top-nav.group-admin-customers')
 @include('adminmodule::layouts.partials.top-nav.group-admin-providers')
 @include('adminmodule::layouts.partials.top-nav.group-admin-catalog')
+@include('adminmodule::layouts.partials.top-nav.group-employee-progress-report')
 @include('adminmodule::layouts.partials.top-nav._admin-divider')
 @include('adminmodule::layouts.partials.top-nav.group-finance')
 @include('adminmodule::layouts.partials.top-nav.group-employee-process-guides')

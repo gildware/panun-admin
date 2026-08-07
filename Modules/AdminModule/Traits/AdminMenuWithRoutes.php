@@ -598,9 +598,8 @@ trait AdminMenuWithRoutes
                 'uri' => 'admin/my-progress',
                 'full_route' => url('admin/my-progress'),
                 "page_title" => 'Progress_Report',
-                "keywords" => 'Reports, Progress Report, employee activity, leads, follow-ups, bookings',
+                "keywords" => 'Progress Report, employee activity, leads, follow-ups, bookings',
                 "type" => 'menu',
-                "module" => "reports",
                 "sorting" => 7,
             ],
             [

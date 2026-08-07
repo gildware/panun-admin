@@ -3,15 +3,16 @@
 @endphp
 
 @if($qualityItems !== [])
-    <div class="report-section">
-        <h6 class="report-section-title">
-            @include('adminmodule::partials._material-icon', ['name' => 'analytics', 'class' => ''])
-            {{ translate('Progress_quality_metrics') }}
-        </h6>
-        <div class="progress-stat-grid">
-            @foreach($qualityItems as $stat)
-                @include('adminmodule::partials._employee-progress-stat-tile', ['item' => $stat])
-            @endforeach
-        </div>
+    <div class="section-label">{{ translate('Progress_quality_metrics') }}</div>
+    <div class="score-grid mb-3">
+        @foreach($qualityItems as $stat)
+            <div class="score-tile">
+                <div class="sv">{{ $stat['value'] ?? 0 }}</div>
+                <div class="sl">{{ $stat['label'] ?? '' }}</div>
+                @if(! empty($stat['sub']))
+                    <div class="sw">{{ $stat['sub'] }}</div>
+                @endif
+            </div>
+        @endforeach
     </div>
 @endif

@@ -1,0 +1,51 @@
+@php
+    $rows = $rows ?? [];
+    $helpKeyPrefix = $helpKeyPrefix ?? '';
+    $toneClass = ['brand' => '', 'good' => 'success', 'warning' => 'warning', 'danger' => 'danger'];
+    $gridClass = $gridClass ?? 'lead-metric-grid';
+@endphp
+
+<div class="{{ $gridClass }}">
+    @forelse($rows as $row)
+        @php
+            $cardTone = $toneClass[$row['tone'] ?? 'brand'] ?? '';
+            $rowHelpKey = $row['help_key'] ?? ($helpKeyPrefix !== '' ? $helpKeyPrefix.($row['key'] ?? '') : null);
+            $hasPct = array_key_exists('pct', $row) && $row['pct'] !== null;
+            $pct = $hasPct ? min(100, (float) $row['pct']) : 0.0;
+            $displayValue = array_key_exists('value', $row)
+                ? (string) $row['value']
+                : number_format((int) ($row['count'] ?? 0));
+            if ($hasPct && ! empty($row['sublabel'])) {
+                $footerText = ($row['pct'] ?? 0).'% · '.$row['sublabel'];
+            } elseif ($hasPct) {
+                $footerText = ($row['pct'] ?? 0).'%';
+            } elseif (! empty($row['sublabel'])) {
+                $footerText = $row['sublabel'];
+            } else {
+                $footerText = '';
+            }
+        @endphp
+        <div class="followup-metric-card {{ $cardTone }}">
+            <div class="fmc-top">
+                <div class="fmc-main">
+                    <div class="fmc-lbl">
+                        <span>{{ $row['label'] ?? '' }}</span>
+                        @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => $rowHelpKey, 'size' => 'xs'])
+                    </div>
+                    <div class="fmc-val">{{ $displayValue }}</div>
+                </div>
+                <div class="fmc-icon">@include('adminmodule::partials._material-icon', ['name' => $row['icon'] ?? 'insights'])</div>
+            </div>
+            <div class="fmc-foot">
+                @if($footerText !== '')
+                    <span class="fmc-share">{{ $footerText }}</span>
+                @endif
+                @if($hasPct)
+                    <div class="fmc-bar" aria-hidden="true"><span style="width: {{ $pct }}%"></span></div>
+                @endif
+            </div>
+        </div>
+    @empty
+        <div class="outcome-timing-empty">{{ translate('No_data_available') }}</div>
+    @endforelse
+</div>

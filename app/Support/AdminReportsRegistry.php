@@ -47,9 +47,6 @@ final class AdminReportsRegistry
                 self::item(translate('Provider Reports'), route('admin.report.provider'), [
                     'admin/report/provider',
                 ], ['admin.report.provider'], 'report_view'),
-                self::item(translate('Progress_Report'), route('admin.my-progress', ['tab' => 'monthly']), [
-                    'admin/my-progress*',
-                ], ['admin.my-progress'], 'report_view'),
             ]),
             self::section('lead_reports', translate('Lead_Reports'), 'leaderboard', [
                 self::item(translate('Lead_Reports'), route('admin.lead.reports.index'), [
