@@ -83,10 +83,16 @@
 .emp-progress-report .layout-main:not(:has(.side-stack)){grid-template-columns:minmax(0,1fr)}
 @media(max-width:1024px){.emp-progress-report .layout-main{grid-template-columns:1fr}}
 .emp-progress-report .rank-card--team-row{margin-bottom:14px}
-.emp-progress-report .rank-row{display:flex;flex-direction:row;flex-wrap:nowrap;gap:10px;padding:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
-.emp-progress-report .rank-item--card{flex:0 0 min(260px,78vw);width:min(260px,78vw);border:1px solid var(--border-soft);border-radius:10px;background:#fff;border-bottom:1px solid var(--border-soft);min-height:100%}
+.emp-progress-report .rank-card--team-row .rank-row,
+.emp-progress-report .rank-row{display:flex !important;flex-direction:row !important;flex-wrap:nowrap !important;align-items:stretch;gap:10px;padding:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.emp-progress-report .rank-card--team-row .rank-item--card,
+.emp-progress-report .rank-item--card{flex:0 0 260px !important;width:260px !important;max-width:260px !important;box-sizing:border-box;border:1px solid var(--border-soft);border-radius:10px;background:#fff;border-bottom:1px solid var(--border-soft);min-height:100%}
 .emp-progress-report .rank-row .rank-item--card{border-bottom:1px solid var(--border-soft)}
 .emp-progress-report .rank-item--card .rank-marks{max-height:140px;overflow:auto}
+@media(max-width:640px){
+  .emp-progress-report .rank-card--team-row .rank-item--card,
+  .emp-progress-report .rank-item--card{flex-basis:78vw !important;width:78vw !important;max-width:78vw !important}
+}
 .emp-progress-report .grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:14px;align-items:start}
 .emp-progress-report .grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:14px;align-items:start}
 @media(max-width:992px){.emp-progress-report .grid-2{grid-template-columns:1fr}}
