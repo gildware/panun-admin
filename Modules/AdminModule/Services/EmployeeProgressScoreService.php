@@ -7,6 +7,7 @@ use Illuminate\Support\Collection;
 use Modules\BookingModule\Entities\BookingFollowup;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadFollowup;
+use Modules\LeadManagement\Services\LeadFollowupService;
 
 /**
  * Employee ranking score: quantity of work (+) and quality penalties (−).
@@ -20,6 +21,10 @@ class EmployeeProgressScoreService
     public const POINTS_CHAT_REPLIES = 1;
 
     public const PENALTY_LATE_FOLLOWUP = 1;
+
+    public function __construct(
+        private readonly LeadFollowupService $leadFollowupService,
+    ) {}
 
     /**
      * @return list<array{key: string, label: string, points: int, sign: string}>
@@ -191,6 +196,9 @@ class EmployeeProgressScoreService
     /**
      * Follow-ups completed after their due day (lead + booking), attributed to the performer.
      *
+     * Lead dues use stored due_followup_at when present; otherwise the same historical
+     * fallback as lead follow-up delay meta (previous scheduled due / default from lead received).
+     *
      * @param  list<string>  $employeeIds
      * @return array<string, int>
      */
@@ -205,23 +213,52 @@ class EmployeeProgressScoreService
         $rangeStart = $periodStart->copy()->startOfDay();
         $rangeEnd = $periodEnd->copy()->endOfDay();
 
-        $leadFollowups = LeadFollowup::query()
+        $periodLeadFollowups = LeadFollowup::query()
             ->whereIn('created_by', $employeeIds)
             ->whereNotNull('followup_at')
-            ->whereNotNull('due_followup_at')
             ->whereBetween('followup_at', [$rangeStart, $rangeEnd])
-            ->get(['created_by', 'followup_at', 'due_followup_at']);
+            ->get(['id', 'lead_id', 'created_by', 'followup_at', 'due_followup_at']);
 
-        foreach ($leadFollowups as $followup) {
-            $due = $followup->due_followup_at;
-            if (! $due || $followup->followup_at->lte($due->copy()->endOfDay())) {
-                continue;
+        $leadIds = $periodLeadFollowups->pluck('lead_id')->map(fn ($id) => (string) $id)->filter()->unique()->values()->all();
+        if ($leadIds !== []) {
+            $leads = Lead::query()
+                ->whereIn('id', $leadIds)
+                ->get(['id', 'date_time_of_lead_received'])
+                ->keyBy(fn (Lead $lead) => (string) $lead->id);
+
+            $historyByLead = LeadFollowup::query()
+                ->whereIn('lead_id', $leadIds)
+                ->whereNotNull('followup_at')
+                ->orderBy('followup_at')
+                ->get(['id', 'lead_id', 'followup_at', 'due_followup_at', 'next_followup_at'])
+                ->groupBy(fn (LeadFollowup $followup) => (string) $followup->lead_id);
+
+            $dueByFollowupId = [];
+            foreach ($historyByLead as $leadId => $history) {
+                $lead = $leads->get((string) $leadId);
+                if (! $lead) {
+                    continue;
+                }
+                foreach ($this->leadFollowupService->buildFollowupDelayMeta($lead, $history) as $followupId => $meta) {
+                    $dueByFollowupId[(int) $followupId] = $meta['due_at'] ?? null;
+                }
             }
-            $employeeId = (string) ($followup->created_by ?? '');
-            if ($employeeId === '' || ! array_key_exists($employeeId, $late)) {
-                continue;
+
+            foreach ($periodLeadFollowups as $followup) {
+                $due = $dueByFollowupId[(int) $followup->id] ?? $followup->due_followup_at;
+                if (! $due instanceof Carbon) {
+                    $due = $due ? Carbon::parse($due) : null;
+                }
+                if (! $due || $followup->followup_at->lte($due->copy()->endOfDay())) {
+                    continue;
+                }
+
+                $employeeId = (string) ($followup->created_by ?? '');
+                if ($employeeId === '' || ! array_key_exists($employeeId, $late)) {
+                    continue;
+                }
+                $late[$employeeId]++;
             }
-            $late[$employeeId]++;
         }
 
         $bookingFollowups = BookingFollowup::query()
