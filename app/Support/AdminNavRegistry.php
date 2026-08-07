@@ -382,7 +382,7 @@ class AdminNavRegistry
 
         if (is_admin_employee()) {
             return [
-                self::entry('leads', $group, null, translate('All_Leads'), route('admin.lead.index', ['handled_by' => ['__unassigned__']]), [
+                self::entry('leads', $group, null, translate('All_Leads'), route('admin.lead.index'), [
                     'admin/lead', 'admin/lead/show*', 'admin/lead/edit*', 'admin/lead/create*',
                 ], ['admin.lead.index', 'admin.lead.show'], 'lead.index'),
                 self::entry('leads', $group, null, translate('Web_Bookings'), route('admin.booking.web-bookings.index'), [
