@@ -8,7 +8,12 @@ use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Collection;
+use Modules\AdminModule\Services\EmployeeFollowupProgressAnalyticsService;
+use Modules\AdminModule\Services\EmployeeLeadProgressAnalyticsService;
 use Modules\AdminModule\Services\EmployeeDashboardService;
+use Modules\AdminModule\Services\EmployeeProgressMetricHelp;
+use Modules\AdminModule\Services\EmployeeProgressAnalyticsService;
 use Modules\AdminModule\Services\Report\DailyEmployeeReportService;
 use Modules\UserManagement\Entities\User;
 
@@ -19,6 +24,9 @@ class EmployeeProgressReportController extends Controller
     public function __construct(
         private readonly DailyEmployeeReportService $reportService,
         private readonly EmployeeDashboardService $employeeDashboard,
+        private readonly EmployeeProgressAnalyticsService $progressAnalytics,
+        private readonly EmployeeLeadProgressAnalyticsService $leadProgressAnalytics,
+        private readonly EmployeeFollowupProgressAnalyticsService $followupProgressAnalytics,
     ) {}
 
     /**
@@ -26,18 +34,22 @@ class EmployeeProgressReportController extends Controller
      */
     public function index(Request $request): Renderable
     {
-        $user = $this->resolveProgressReportUser($request);
-        $userId = (string) $user->id;
-        $employees = collect([$user]);
+        $scope = $this->resolveScope($request);
+        /** @var Collection<int, User> $employees */
+        $employees = $scope['employees'];
+        $user = $scope['user'];
+        $viewingAll = $scope['viewing_all'];
+        $viewingAsAdmin = $scope['viewing_as_admin'];
+        $employeeQuery = $scope['employee_query'];
+
         $tab = in_array($request->input('tab'), ['daily', 'monthly'], true)
             ? $request->input('tab')
-            : 'daily';
+            : 'monthly';
 
         $metricColumns = $this->metricColumns();
+        $activityMetricColumns = DailyEmployeeReportService::activityMetricColumns();
         $sectionDefs = $this->detailSectionDefs();
         $employeeOptions = $this->employeeOptionsForViewer();
-        $viewingAsAdmin = ! is_admin_employee();
-        $employeeQuery = $viewingAsAdmin ? ['employee_id' => $userId] : [];
 
         if ($tab === 'monthly') {
             [$dateFrom, $dateTo] = $this->resolveMonthRange($request);
@@ -46,92 +58,154 @@ class EmployeeProgressReportController extends Controller
                 ->filter(fn (array $row) => ! empty($row['has_activity']))
                 ->values()
                 ->all();
-            $activityTotals = $report['employee_totals'][0] ?? [];
-            $monthly = $this->employeeDashboard->monthlyPerformanceForUser($user, $dateFrom, $dateTo);
-            $fullReport = $this->employeeDashboard->progressFullReportForUser(
-                $user,
+            $activityTotals = $viewingAll
+                ? ($report['totals'] ?? [])
+                : ($report['employee_totals'][0] ?? []);
+            $activityTotals = DailyEmployeeReportService::withDerivedActivityMetrics($activityTotals);
+            $activityDailyRows = $this->buildActivityDailyRows($dailyRows, $viewingAll);
+            $monthly = $this->employeeDashboard->monthlyPerformanceForEmployees($employees, $dateFrom, $dateTo);
+            $fullReport = $this->employeeDashboard->progressFullReportForEmployees(
+                $employees,
                 $dateFrom,
                 $dateTo,
                 $activityTotals,
             );
+            $analytics = $this->progressAnalytics->build(
+                $employees,
+                $dateFrom,
+                $dateTo,
+                $report,
+                $fullReport,
+                $viewingAll,
+                ['detail' => null],
+            );
+            $leadAnalytics = $this->leadProgressAnalytics->build($employees, $dateFrom, $dateTo);
+            $leadAnalytics['period_label'] = $dateFrom->format('d M').' – '.$dateTo->format('d M Y');
+            $followupAnalytics = $this->followupProgressAnalytics->build($employees, $dateFrom, $dateTo, $fullReport);
+            $followupAnalytics['period_label'] = $dateFrom->format('d M').' – '.$dateTo->format('d M Y');
 
             return view('adminmodule::employee-progress-report', [
                 'tab' => 'monthly',
                 'user' => $user,
+                'viewingAllEmployees' => $viewingAll,
                 'dateFrom' => $dateFrom->toDateString(),
                 'dateTo' => $dateTo->toDateString(),
                 'periodLabel' => $dateFrom->format('d M').' – '.$dateTo->format('d M Y'),
                 'metricColumns' => $metricColumns,
+                'activityMetricColumns' => $activityMetricColumns,
                 'activityTotals' => $activityTotals,
+                'activityDailyRows' => $activityDailyRows,
                 'dailyRows' => $dailyRows,
                 'monthly' => $monthly,
                 'fullReport' => $fullReport,
+                'analytics' => $analytics,
+                'leadAnalytics' => $leadAnalytics,
+                'followupAnalytics' => $followupAnalytics,
                 'detail' => null,
                 'date' => null,
                 'employeeOptions' => $employeeOptions,
                 'viewingAsAdmin' => $viewingAsAdmin,
                 'employeeQuery' => $employeeQuery,
+                'metricHelpRegistry' => EmployeeProgressMetricHelp::registry(),
             ]);
         }
 
         $date = $this->resolveSingleDate($request->input('date'));
-        $detail = $this->reportService->buildDayDetail($employees, $date, [$userId]);
-        $fullReport = $this->employeeDashboard->progressFullReportForUser(
-            $user,
+        $focusIds = $viewingAll ? [] : [(string) $user?->id];
+        $detail = $this->reportService->buildDayDetail($employees, $date, $focusIds);
+        $dayReport = $this->reportService->buildReport($employees, $date, $date);
+        $activityTotals = DailyEmployeeReportService::withDerivedActivityMetrics($detail['totals'] ?? []);
+        $fullReport = $this->employeeDashboard->progressFullReportForEmployees(
+            $employees,
             $date,
             $date,
-            $detail['totals'] ?? [],
+            $activityTotals,
         );
+        $analytics = $this->progressAnalytics->build(
+            $employees,
+            $date,
+            $date,
+            $dayReport,
+            $fullReport,
+            $viewingAll,
+            ['detail' => $detail],
+        );
+        $leadAnalytics = $this->leadProgressAnalytics->build($employees, $date, $date);
+        $leadAnalytics['period_label'] = $detail['date_label'] ?? $date->format('d M Y');
+        $followupAnalytics = $this->followupProgressAnalytics->build($employees, $date, $date, $fullReport);
+        $followupAnalytics['period_label'] = $detail['date_label'] ?? $date->format('d M Y');
 
         return view('adminmodule::employee-progress-report', [
             'tab' => 'daily',
             'user' => $user,
+            'viewingAllEmployees' => $viewingAll,
             'date' => $date->toDateString(),
             'dateLabel' => $detail['date_label'],
             'metricColumns' => $metricColumns,
+            'activityMetricColumns' => $activityMetricColumns,
+            'activityTotals' => $activityTotals,
+            'activityDailyRows' => [],
             'sectionDefs' => $sectionDefs,
             'detail' => $detail,
             'dailyRows' => [],
-            'activityTotals' => [],
             'monthly' => [],
             'fullReport' => $fullReport,
+            'analytics' => $analytics,
+            'leadAnalytics' => $leadAnalytics,
+            'followupAnalytics' => $followupAnalytics,
             'dateFrom' => null,
             'dateTo' => null,
             'periodLabel' => null,
             'employeeOptions' => $employeeOptions,
             'viewingAsAdmin' => $viewingAsAdmin,
             'employeeQuery' => $employeeQuery,
+            'metricHelpRegistry' => EmployeeProgressMetricHelp::registry(),
         ]);
     }
 
     /**
+     * @return array{
+     *     employees: Collection<int, User>,
+     *     user: User|null,
+     *     viewing_all: bool,
+     *     viewing_as_admin: bool,
+     *     employee_query: array<string, string>
+     * }
+     *
      * @throws AuthorizationException
      */
-    private function resolveProgressReportUser(Request $request): User
+    private function resolveScope(Request $request): array
     {
         if (is_admin_employee()) {
             /** @var User $user */
             $user = auth()->user();
 
-            return $user;
+            return [
+                'employees' => collect([$user]),
+                'user' => $user,
+                'viewing_all' => false,
+                'viewing_as_admin' => false,
+                'employee_query' => [],
+            ];
         }
 
         $this->authorize('report_view');
 
-        $employeeId = $request->input('employee_id');
-        if (! $employeeId) {
-            /** @var User|null $firstEmployee */
-            $firstEmployee = User::query()
-                ->where('user_type', 'admin-employee')
-                ->orderBy('first_name')
-                ->orderBy('last_name')
-                ->first();
+        $allEmployees = $this->employeeDashboard->dashboardEmployeeCollection();
+        if ($allEmployees->isEmpty()) {
+            abort(404);
+        }
 
-            if (! $firstEmployee) {
-                abort(404);
-            }
+        $employeeId = (string) $request->input('employee_id', '__all__');
 
-            return $firstEmployee;
+        if ($employeeId === '__all__') {
+            return [
+                'employees' => $allEmployees,
+                'user' => null,
+                'viewing_all' => true,
+                'viewing_as_admin' => true,
+                'employee_query' => ['employee_id' => '__all__'],
+            ];
         }
 
         /** @var User $employee */
@@ -139,7 +213,13 @@ class EmployeeProgressReportController extends Controller
             ->where('user_type', 'admin-employee')
             ->findOrFail($employeeId);
 
-        return $employee;
+        return [
+            'employees' => collect([$employee]),
+            'user' => $employee,
+            'viewing_all' => false,
+            'viewing_as_admin' => true,
+            'employee_query' => ['employee_id' => (string) $employee->id],
+        ];
     }
 
     /**
@@ -151,7 +231,14 @@ class EmployeeProgressReportController extends Controller
             return [];
         }
 
-        return User::query()
+        $options = [
+            [
+                'id' => '__all__',
+                'name' => translate('All_Employees'),
+            ],
+        ];
+
+        $employees = User::query()
             ->where('user_type', 'admin-employee')
             ->orderBy('first_name')
             ->orderBy('last_name')
@@ -166,6 +253,79 @@ class EmployeeProgressReportController extends Controller
             })
             ->values()
             ->all();
+
+        return array_merge($options, $employees);
+    }
+
+    /**
+     * Day-wise activity rows for the Daily Basis report (aggregates team when viewing all).
+     *
+     * @param  list<array<string, mixed>>  $dailyRows
+     * @return list<array<string, mixed>>
+     */
+    private function buildActivityDailyRows(array $dailyRows, bool $viewingAll): array
+    {
+        if ($dailyRows === []) {
+            return [];
+        }
+
+        if (! $viewingAll) {
+            return collect($dailyRows)
+                ->map(fn (array $row) => DailyEmployeeReportService::withDerivedActivityMetrics($row))
+                ->sortByDesc('date')
+                ->values()
+                ->all();
+        }
+
+        $metricKeys = array_column(DailyEmployeeReportService::activityMetricColumns(), 'key');
+        $grouped = [];
+
+        foreach ($dailyRows as $row) {
+            $date = (string) ($row['date'] ?? '');
+            if ($date === '') {
+                continue;
+            }
+
+            if (! isset($grouped[$date])) {
+                $grouped[$date] = [
+                    'date' => $date,
+                    'date_label' => $row['date_label'] ?? $date,
+                    'online_seconds' => 0,
+                    'has_activity' => false,
+                ];
+                foreach ($metricKeys as $key) {
+                    $grouped[$date][$key] = 0;
+                }
+                foreach (DailyEmployeeReportService::METRIC_KEYS as $key) {
+                    $grouped[$date][$key] = 0;
+                }
+            }
+
+            $grouped[$date]['online_seconds'] += (int) ($row['online_seconds'] ?? 0);
+            if (! empty($row['has_activity'])) {
+                $grouped[$date]['has_activity'] = true;
+            }
+
+            foreach (DailyEmployeeReportService::METRIC_KEYS as $key) {
+                $grouped[$date][$key] += (int) ($row[$key] ?? 0);
+            }
+        }
+
+        $rows = array_map(function (array $row) {
+            $row = DailyEmployeeReportService::withDerivedActivityMetrics($row);
+            $seconds = (int) ($row['online_seconds'] ?? 0);
+            $hours = intdiv($seconds, 3600);
+            $minutes = intdiv($seconds % 3600, 60);
+            $row['online_hours'] = $seconds <= 0
+                ? '0m'
+                : ($hours > 0 ? sprintf('%dh %dm', $hours, $minutes) : sprintf('%dm', max($minutes, 1)));
+
+            return $row;
+        }, array_values($grouped));
+
+        usort($rows, fn (array $a, array $b) => strcmp((string) $b['date'], (string) $a['date']));
+
+        return $rows;
     }
 
     /**

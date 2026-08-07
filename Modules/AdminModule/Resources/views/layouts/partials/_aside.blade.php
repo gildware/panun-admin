@@ -302,8 +302,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         || request()->routeIs('admin.lead.reports.inbound')
                         || request()->routeIs('admin.lead.reports.outbound')
                         || request()->routeIs('admin.lead.reports.index')
-                        || request()->routeIs('admin.lead.reports.user')
-                        || request()->routeIs('admin.my-progress');
+                        || request()->routeIs('admin.lead.reports.user');
                 @endphp
                 <li class="has-sub-item {{ $reportsMenuOpen ? 'sub-menu-opened' : '' }}">
                     <a href="#" class="{{ $reportsMenuOpen ? 'active-menu' : '' }}">
@@ -350,14 +349,15 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                                     {{ translate('User_Report') }}
                                 </a>
                             </li>
-                            <li>
-                                <a href="{{ route('admin.my-progress', ['tab' => 'monthly']) }}"
-                                   class="{{ request()->routeIs('admin.my-progress') ? 'active-menu' : '' }}">
-                                    {{ translate('Progress_Report') }}
-                                </a>
-                            </li>
                         @endcan
                     </ul>
+                </li>
+                <li>
+                    <a href="{{ route('admin.my-progress', ['tab' => 'monthly']) }}"
+                       class="{{ request()->routeIs('admin.my-progress') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="Progress">assessment</span>
+                        <span class="link-title">{{ translate('Progress_Report') }}</span>
+                    </a>
                 </li>
             @endcanany
             @can('analytics_view')

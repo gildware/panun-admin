@@ -15,10 +15,13 @@ use Modules\BookingModule\Entities\BookingFollowup;
 use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\Lead;
+use Modules\LeadManagement\Entities\LeadCancellationReason;
 use Modules\LeadManagement\Entities\LeadFollowup;
 use Modules\LeadManagement\Entities\LeadFutureCustomerReason;
+use Modules\LeadManagement\Entities\LeadInvalidReason;
 use Modules\LeadManagement\Entities\LeadOutboundEnquiry;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
+use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Entities\Source;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\TaskBoardModule\Entities\TaskColumn;
@@ -65,9 +68,17 @@ class EmployeeDashboardDemoSeeder extends Seeder
 
         $this->purgeDemoData();
 
-        $sourceId = Source::query()->where('is_active', true)->orderBy('id')->value('id');
+        $sourceIds = Source::query()->where('is_active', true)->orderBy('id')->limit(3)->pluck('id')->all();
+        $sourceId = $sourceIds[0] ?? Source::query()->where('is_active', true)->orderBy('id')->value('id');
         $pendingStatusId = CustomerLeadStatus::defaultPendingStatusId();
+        $bookedStatusId = CustomerLeadStatus::query()->where('base_type', 'completed')->orderBy('id')->value('id');
+        $cancelStatusId = CustomerLeadStatus::query()->where('base_type', 'cancel')->orderBy('id')->value('id');
+        $providerPendingId = ProviderLeadStatus::defaultPendingStatusId();
+        $providerCompletedId = ProviderLeadStatus::query()->where('base_type', 'completed')->orderBy('id')->value('id');
+        $providerCancelId = ProviderLeadStatus::query()->where('base_type', 'cancel')->orderBy('id')->value('id');
         $futureReasonId = LeadFutureCustomerReason::query()->where('is_active', true)->orderBy('id')->value('id');
+        $invalidReasonId = LeadInvalidReason::query()->where('is_active', true)->orderBy('id')->value('id');
+        $cancelReasonId = LeadCancellationReason::query()->where('is_active', true)->orderBy('id')->value('id');
         $zoneId = Zone::query()->ofStatus(1)->orderBy('name')->value('id');
         $provider = Provider::query()->first();
         $customer = User::query()->inCustomerDirectory()->first();
@@ -77,9 +88,17 @@ class EmployeeDashboardDemoSeeder extends Seeder
 
         DB::transaction(function () use (
             $employees,
+            $sourceIds,
             $sourceId,
             $pendingStatusId,
+            $bookedStatusId,
+            $cancelStatusId,
+            $providerPendingId,
+            $providerCompletedId,
+            $providerCancelId,
             $futureReasonId,
+            $invalidReasonId,
+            $cancelReasonId,
             $zoneId,
             $provider,
             $customer,
@@ -93,9 +112,17 @@ class EmployeeDashboardDemoSeeder extends Seeder
                 $this->seedLeadsForEmployee(
                     $employee,
                     $phonePrefix,
+                    $sourceIds,
                     $sourceId,
                     $pendingStatusId,
+                    $bookedStatusId,
+                    $cancelStatusId,
+                    $providerPendingId,
+                    $providerCompletedId,
+                    $providerCancelId,
                     $futureReasonId,
+                    $invalidReasonId,
+                    $cancelReasonId,
                     $zoneId,
                     $today,
                     $now,
@@ -103,7 +130,7 @@ class EmployeeDashboardDemoSeeder extends Seeder
                     $index,
                 );
 
-                $this->seedBookingsForEmployee(
+                $bookings = $this->seedBookingsForEmployee(
                     $employee,
                     $provider,
                     $customer,
@@ -115,7 +142,7 @@ class EmployeeDashboardDemoSeeder extends Seeder
                 );
 
                 $this->seedOutboundForEmployee($employee, $phonePrefix, $today, $now, $monthStart, $index);
-                $this->seedMonthActivityForEmployee($employee, $phonePrefix, $today, $monthStart, $index);
+                $this->seedMonthActivityForEmployee($employee, $phonePrefix, $today, $monthStart, $index, $bookings);
                 $this->seedPresenceForEmployee($employee, $today, $monthStart, $index);
                 $this->seedTasksForEmployee($employee, $today, $now, $index);
                 $this->seedWhatsAppForEmployee($employee, $phonePrefix, $now, $index);
@@ -133,9 +160,17 @@ class EmployeeDashboardDemoSeeder extends Seeder
     private function seedLeadsForEmployee(
         User $employee,
         string $phonePrefix,
+        array $sourceIds,
         ?int $sourceId,
         ?int $pendingStatusId,
+        ?int $bookedStatusId,
+        ?int $cancelStatusId,
+        ?int $providerPendingId,
+        ?int $providerCompletedId,
+        ?int $providerCancelId,
         ?int $futureReasonId,
+        ?int $invalidReasonId,
+        ?int $cancelReasonId,
         ?string $zoneId,
         Carbon $today,
         Carbon $now,
@@ -144,35 +179,46 @@ class EmployeeDashboardDemoSeeder extends Seeder
     ): void {
         $employeeId = (string) $employee->id;
         $namePrefix = 'Progress Demo E'.($employeeIndex + 1);
+        $pickSource = fn (int $offset) => $sourceIds[$offset % max(1, count($sourceIds))] ?? $sourceId;
 
         $plans = [
-            ['suffix' => '0001', 'name' => $namePrefix.' — Missed AC', 'type' => Lead::TYPE_CUSTOMER, 'followup' => $today->copy()->subDays(2)->setTime(10, 0), 'received_days_ago' => 8],
-            ['suffix' => '0002', 'name' => $namePrefix.' — Missed Plumbing', 'type' => Lead::TYPE_CUSTOMER, 'followup' => $today->copy()->subDay()->setTime(15, 30), 'received_days_ago' => 7],
-            ['suffix' => '0003', 'name' => $namePrefix.' — Due Today Geyser', 'type' => Lead::TYPE_CUSTOMER, 'followup' => $today->copy()->setTime(11, 0), 'received_days_ago' => 5],
-            ['suffix' => '0004', 'name' => $namePrefix.' — Upcoming Painting', 'type' => Lead::TYPE_CUSTOMER, 'followup' => $today->copy()->addDays(2)->setTime(12, 0), 'received_days_ago' => 4],
+            ['suffix' => '0001', 'name' => $namePrefix.' — Missed AC', 'type' => Lead::TYPE_CUSTOMER, 'followup' => $today->copy()->subDays(2)->setTime(10, 0), 'received_days_ago' => 8, 'outcome' => 'pending'],
+            ['suffix' => '0002', 'name' => $namePrefix.' — Missed Plumbing', 'type' => Lead::TYPE_CUSTOMER, 'followup' => $today->copy()->subDay()->setTime(15, 30), 'received_days_ago' => 7, 'outcome' => 'pending'],
+            ['suffix' => '0003', 'name' => $namePrefix.' — Due Today Geyser', 'type' => Lead::TYPE_CUSTOMER, 'followup' => $today->copy()->setTime(11, 0), 'received_days_ago' => 5, 'outcome' => 'pending'],
+            ['suffix' => '0004', 'name' => $namePrefix.' — Upcoming Painting', 'type' => Lead::TYPE_CUSTOMER, 'followup' => $today->copy()->addDays(2)->setTime(12, 0), 'received_days_ago' => 4, 'outcome' => 'pending'],
             ['suffix' => '0005', 'name' => $namePrefix.' — Unknown Lead A', 'type' => Lead::TYPE_UNKNOWN, 'followup' => $today->copy()->addDay()->setTime(14, 0), 'received_days_ago' => 6],
             ['suffix' => '0006', 'name' => $namePrefix.' — Unknown Lead B', 'type' => Lead::TYPE_UNKNOWN, 'followup' => null, 'received_days_ago' => 10],
             ['suffix' => '0007', 'name' => $namePrefix.' — Future Customer', 'type' => Lead::TYPE_FUTURE_CUSTOMER, 'followup' => null, 'received_days_ago' => 9, 'future' => true],
-            ['suffix' => '0008', 'name' => '', 'type' => Lead::TYPE_CUSTOMER, 'followup' => null, 'received_days_ago' => 3, 'missing' => 'name'],
+            ['suffix' => '0008', 'name' => '', 'type' => Lead::TYPE_CUSTOMER, 'followup' => null, 'received_days_ago' => 3, 'missing' => 'name', 'outcome' => 'pending'],
             ['suffix' => '0009', 'name' => $namePrefix.' — Missing Status', 'type' => Lead::TYPE_CUSTOMER, 'followup' => null, 'received_days_ago' => 2, 'missing' => 'status'],
-            ['suffix' => '0010', 'name' => $namePrefix.' — Added This Month', 'type' => Lead::TYPE_CUSTOMER, 'followup' => $today->copy()->addDays(3), 'received_days_ago' => 1, 'created_by_self' => true],
+            ['suffix' => '0010', 'name' => $namePrefix.' — Added This Month', 'type' => Lead::TYPE_CUSTOMER, 'followup' => $today->copy()->addDays(3), 'received_days_ago' => 1, 'outcome' => 'pending'],
+            ['suffix' => '0011', 'name' => $namePrefix.' — Booked Carpentry', 'type' => Lead::TYPE_CUSTOMER, 'followup' => null, 'received_days_ago' => 11, 'outcome' => 'booked', 'source_offset' => 1],
+            ['suffix' => '0012', 'name' => $namePrefix.' — Booked Plumbing', 'type' => Lead::TYPE_CUSTOMER, 'followup' => null, 'received_days_ago' => 9, 'outcome' => 'booked', 'source_offset' => 2],
+            ['suffix' => '0013', 'name' => $namePrefix.' — Cancelled Price', 'type' => Lead::TYPE_CUSTOMER, 'followup' => null, 'received_days_ago' => 13, 'outcome' => 'cancelled', 'source_offset' => 0],
+            ['suffix' => '0014', 'name' => $namePrefix.' — Cancelled No Reply', 'type' => Lead::TYPE_CUSTOMER, 'followup' => null, 'received_days_ago' => 15, 'outcome' => 'cancelled', 'source_offset' => 1],
+            ['suffix' => '0015', 'name' => $namePrefix.' — Provider Pending', 'type' => Lead::TYPE_PROVIDER, 'followup' => $today->copy()->addDays(1), 'received_days_ago' => 6, 'provider_outcome' => 'pending'],
+            ['suffix' => '0016', 'name' => $namePrefix.' — Provider Registered', 'type' => Lead::TYPE_PROVIDER, 'followup' => null, 'received_days_ago' => 12, 'provider_outcome' => 'completed'],
+            ['suffix' => '0017', 'name' => $namePrefix.' — Provider Dropped', 'type' => Lead::TYPE_PROVIDER, 'followup' => null, 'received_days_ago' => 14, 'provider_outcome' => 'cancelled'],
+            ['suffix' => '0018', 'name' => $namePrefix.' — Invalid Wrong Number', 'type' => Lead::TYPE_INVALID, 'followup' => null, 'received_days_ago' => 5, 'invalid' => true],
+            ['suffix' => '0019', 'name' => $namePrefix.' — Invalid Duplicate', 'type' => Lead::TYPE_INVALID, 'followup' => null, 'received_days_ago' => 8, 'invalid' => true],
+            ['suffix' => '0020', 'name' => $namePrefix.' — Pending Electrical', 'type' => Lead::TYPE_CUSTOMER, 'followup' => $today->copy()->addDays(4), 'received_days_ago' => 3, 'outcome' => 'pending', 'source_offset' => 2],
         ];
 
-        foreach ($plans as $plan) {
+        foreach ($plans as $planIndex => $plan) {
             $phone = $phonePrefix.str_pad($plan['suffix'], 4, '0', STR_PAD_LEFT);
             $daysAgo = (int) ($plan['received_days_ago'] ?? 3);
-            $receivedAt = $today->copy()->subDays($daysAgo)->max($monthStart)->setTime(9 + ($employeeIndex % 4), 15);
+            $receivedAt = $today->copy()->subDays($daysAgo)->max($monthStart)->setTime(9 + (($employeeIndex + $planIndex) % 4), 15);
 
             $leadId = DB::table('leads')->insertGetId([
                 'name' => ($plan['missing'] ?? '') === 'name' ? null : $plan['name'],
                 'phone_number' => $phone,
-                'source_id' => $sourceId,
+                'source_id' => $pickSource((int) ($plan['source_offset'] ?? $planIndex)),
                 'lead_type' => $plan['type'],
                 'date_time_of_lead_received' => $receivedAt,
                 'handled_by' => $employeeId,
                 'remarks' => self::LEAD_REMARKS,
                 'next_followup_at' => $plan['followup'] ?? null,
-                'created_by' => ! empty($plan['created_by_self']) ? $employeeId : null,
+                'created_by' => $employeeId,
                 'created_at' => $receivedAt,
                 'updated_at' => $now,
             ]);
@@ -187,21 +233,76 @@ class EmployeeDashboardDemoSeeder extends Seeder
                     ],
                     'created_by' => $employeeId,
                 ]);
-            } elseif ($plan['type'] === Lead::TYPE_CUSTOMER
-                && ($plan['missing'] ?? '') !== 'status'
-                && $pendingStatusId
-                && Schema::hasTable('lead_type_histories')) {
+            } elseif ($plan['type'] === Lead::TYPE_INVALID && $invalidReasonId && Schema::hasTable('lead_type_histories')) {
                 LeadTypeHistory::create([
                     'lead_id' => $leadId,
-                    'type' => Lead::TYPE_CUSTOMER,
+                    'type' => Lead::TYPE_INVALID,
                     'data' => [
-                        'customer_lead_status_id' => $pendingStatusId,
-                        'booking_status' => 'pending',
-                        'zone_id' => $zoneId,
-                        'service_description' => 'Demo customer lead for progress report.',
+                        'invalid_reason_id' => $invalidReasonId,
+                        'invalid_remarks' => 'Progress demo invalid lead.',
                     ],
                     'created_by' => $employeeId,
                 ]);
+            } elseif ($plan['type'] === Lead::TYPE_PROVIDER && Schema::hasTable('lead_type_histories')) {
+                $providerOutcome = $plan['provider_outcome'] ?? 'pending';
+                $statusId = match ($providerOutcome) {
+                    'completed' => $providerCompletedId ?? $providerPendingId,
+                    'cancelled' => $providerCancelId ?? $providerPendingId,
+                    default => $providerPendingId,
+                };
+
+                if ($statusId) {
+                    $data = [
+                        'provider_lead_status_id' => $statusId,
+                        'service_description' => 'Demo provider lead for progress report.',
+                        'zone_id' => $zoneId,
+                    ];
+                    if ($providerOutcome === 'cancelled' && $cancelReasonId) {
+                        $data['cancellation_reason_id'] = $cancelReasonId;
+                        $data['cancellation_remarks'] = 'Provider did not complete onboarding.';
+                    }
+
+                    LeadTypeHistory::create([
+                        'lead_id' => $leadId,
+                        'type' => Lead::TYPE_PROVIDER,
+                        'data' => $data,
+                        'created_by' => $employeeId,
+                    ]);
+                }
+            } elseif ($plan['type'] === Lead::TYPE_CUSTOMER
+                && ($plan['missing'] ?? '') !== 'status'
+                && Schema::hasTable('lead_type_histories')) {
+                $outcome = $plan['outcome'] ?? 'pending';
+                $statusId = match ($outcome) {
+                    'booked' => $bookedStatusId ?? $pendingStatusId,
+                    'cancelled' => $cancelStatusId ?? $pendingStatusId,
+                    default => $pendingStatusId,
+                };
+
+                if ($statusId) {
+                    $data = [
+                        'customer_lead_status_id' => $statusId,
+                        'booking_status' => match ($outcome) {
+                            'booked' => 'booked',
+                            'cancelled' => 'cancelled',
+                            default => 'pending',
+                        },
+                        'zone_id' => $zoneId,
+                        'service_description' => 'Demo customer lead for progress report.',
+                    ];
+
+                    if ($outcome === 'cancelled' && $cancelReasonId) {
+                        $data['cancellation_reason_id'] = $cancelReasonId;
+                        $data['cancellation_remarks'] = 'Customer declined after quote.';
+                    }
+
+                    LeadTypeHistory::create([
+                        'lead_id' => $leadId,
+                        'type' => Lead::TYPE_CUSTOMER,
+                        'data' => $data,
+                        'created_by' => $employeeId,
+                    ]);
+                }
             }
 
             if (Schema::hasTable('staff_activity_events') && ($plan['received_days_ago'] ?? 0) <= 14) {
@@ -219,6 +320,9 @@ class EmployeeDashboardDemoSeeder extends Seeder
         }
     }
 
+    /**
+     * @return Collection<int, Booking>
+     */
     private function seedBookingsForEmployee(
         User $employee,
         ?Provider $provider,
@@ -228,19 +332,32 @@ class EmployeeDashboardDemoSeeder extends Seeder
         Carbon $now,
         Carbon $monthStart,
         int $employeeIndex,
-    ): void {
+    ): Collection {
         if (! $provider || ! $customer || ! $zoneId) {
-            return;
+            return collect();
         }
 
         $employeeId = (string) $employee->id;
+        $bookedLeadIds = Lead::query()
+            ->where('handled_by', $employeeId)
+            ->where('remarks', self::LEAD_REMARKS)
+            ->where('name', 'like', '%Booked%')
+            ->orderBy('id')
+            ->pluck('id');
+
         $bookingPlans = [
             ['tag' => 'missed-followup', 'status' => 'ongoing', 'followup' => $today->copy()->subDays(2), 'created_days_ago' => 12],
             ['tag' => 'today-followup', 'status' => 'accepted', 'followup' => $today->copy(), 'created_days_ago' => 8],
             ['tag' => 'upcoming-followup', 'status' => 'pending', 'followup' => $today->copy()->addDays(3), 'created_days_ago' => 6],
-            ['tag' => 'completed-mtd', 'status' => 'completed', 'followup' => null, 'created_days_ago' => 10],
+            ['tag' => 'completed-mtd', 'status' => 'completed', 'followup' => null, 'created_days_ago' => 10, 'lead_index' => 0],
+            ['tag' => 'completed-mtd-2', 'status' => 'completed', 'followup' => null, 'created_days_ago' => 9, 'lead_index' => 1],
             ['tag' => 'cancelled-mtd', 'status' => 'canceled', 'followup' => null, 'created_days_ago' => 7],
+            ['tag' => 'pending-mtd', 'status' => 'pending', 'followup' => $today->copy()->addDays(5), 'created_days_ago' => 5],
+            ['tag' => 'accepted-mtd', 'status' => 'accepted', 'followup' => $today->copy()->addDays(1), 'created_days_ago' => 4],
+            ['tag' => 'ongoing-mtd', 'status' => 'ongoing', 'followup' => $today->copy()->subDay(), 'created_days_ago' => 11],
         ];
+
+        $created = collect();
 
         foreach ($bookingPlans as $index => $plan) {
             $daysAgo = (int) $plan['created_days_ago'];
@@ -249,11 +366,14 @@ class EmployeeDashboardDemoSeeder extends Seeder
                 ? $today->copy()->subDays(max(1, $daysAgo - 1))->max($monthStart)->setTime(16, 0)
                 : $now;
 
+            $leadId = isset($plan['lead_index']) ? $bookedLeadIds->get((int) $plan['lead_index']) : null;
+
             $booking = Booking::query()->create([
                 'customer_id' => $customer->id,
                 'provider_id' => $provider->id,
                 'zone_id' => $zoneId,
                 'assignee_id' => $employeeId,
+                'lead_id' => $leadId,
                 'booking_status' => $plan['status'],
                 'payment_method' => 'cash_after_service',
                 'is_paid' => $plan['status'] === 'completed' ? 1 : 0,
@@ -263,12 +383,14 @@ class EmployeeDashboardDemoSeeder extends Seeder
                 'service_location' => 'customer',
                 'service_schedule' => $now->copy()->addDays($index + 1)->setTime(10, 0),
                 'service_description' => self::BOOKING_MARKER.' '.$plan['tag'].' e'.($employeeIndex + 1),
-                'booking_source' => 'admin_seed',
+                'booking_source' => $index % 2 === 0 ? 'admin_seed' : 'lead_conversion',
                 'is_verified' => 1,
                 'is_checked' => 1,
                 'created_at' => $createdAt,
                 'updated_at' => $updatedAt,
             ]);
+
+            $created->push($booking);
 
             BookingStatusHistory::query()->create([
                 'booking_id' => $booking->id,
@@ -292,7 +414,7 @@ class EmployeeDashboardDemoSeeder extends Seeder
                 ]);
             }
 
-            if ($plan['status'] === 'ongoing' && Schema::hasTable('booking_status_histories')) {
+            if (in_array($plan['status'], ['ongoing', 'accepted'], true) && Schema::hasTable('booking_status_histories')) {
                 BookingStatusHistory::query()->create([
                     'booking_id' => $booking->id,
                     'changed_by' => $employeeId,
@@ -318,6 +440,8 @@ class EmployeeDashboardDemoSeeder extends Seeder
                 ]);
             }
         }
+
+        return $created;
     }
 
     private function seedOutboundForEmployee(
@@ -338,14 +462,14 @@ class EmployeeDashboardDemoSeeder extends Seeder
             ->where('remarks', self::LEAD_REMARKS)
             ->first();
 
-        for ($i = 0; $i < 2 + ($employeeIndex % 3); $i++) {
-            $contactedAt = $today->copy()->subDays(3 + $i + $employeeIndex)->max($monthStart)->setTime(10 + $i, 30);
+        for ($i = 0; $i < 5 + ($employeeIndex % 2); $i++) {
+            $contactedAt = $today->copy()->subDays(2 + $i + $employeeIndex)->max($monthStart)->setTime(10 + $i, 30);
 
             LeadOutboundEnquiry::query()->create([
                 'lead_id' => $lead?->id,
                 'customer_name' => 'Progress Demo Outbound '.($i + 1),
                 'phone_number' => $phonePrefix.'9'.str_pad((string) (9000 + $i), 4, '0', STR_PAD_LEFT),
-                'contacted_through' => $i % 2 === 0 ? 'call' : 'message',
+                'contacted_through' => match ($i % 3) { 0 => 'call', 1 => 'message', default => 'whatsapp' },
                 'remarks' => self::BOOKING_MARKER.' outbound',
                 'contacted_at' => $contactedAt,
                 'created_by' => $employeeId,
@@ -356,12 +480,16 @@ class EmployeeDashboardDemoSeeder extends Seeder
         }
     }
 
+    /**
+     * @param  Collection<int, Booking>  $bookings
+     */
     private function seedMonthActivityForEmployee(
         User $employee,
         string $phonePrefix,
         Carbon $today,
         Carbon $monthStart,
         int $employeeIndex,
+        Collection $bookings,
     ): void {
         if (! Schema::hasTable('lead_followups')) {
             return;
@@ -372,54 +500,92 @@ class EmployeeDashboardDemoSeeder extends Seeder
             ->where('handled_by', $employeeId)
             ->where('phone_number', 'like', $phonePrefix.'%')
             ->orderBy('id')
-            ->limit(5)
             ->pluck('id');
 
-        $activityDays = [
-            $today->copy(),
-            $today->copy()->subDays(2),
-            $today->copy()->subDays(5),
-            $today->copy()->subDays(8),
-            $today->copy()->subDays(12)->max($monthStart),
+        $followupPlans = [
+            ['days_ago' => 1, 'hour' => 10, 'on_time' => true, 'lead_suffix' => '0011'],
+            ['days_ago' => 2, 'hour' => 11, 'on_time' => true, 'lead_suffix' => '0012'],
+            ['days_ago' => 4, 'hour' => 14, 'on_time' => true, 'lead_suffix' => '0013'],
+            ['days_ago' => 6, 'hour' => 15, 'on_time' => true, 'lead_suffix' => '0014'],
+            ['days_ago' => 3, 'hour' => 16, 'on_time' => false, 'lead_suffix' => '0003'],
+            ['days_ago' => 5, 'hour' => 12, 'on_time' => false, 'lead_suffix' => '0004'],
+            ['days_ago' => 7, 'hour' => 13, 'on_time' => false, 'lead_suffix' => '0020'],
+            ['days_ago' => 9, 'hour' => 17, 'on_time' => false, 'lead_suffix' => '0010'],
+            ['days_ago' => 11, 'hour' => 10, 'on_time' => true, 'lead_suffix' => '0015'],
+            ['days_ago' => 13, 'hour' => 11, 'on_time' => false, 'lead_suffix' => '0016'],
         ];
 
-        foreach ($activityDays as $dayIndex => $day) {
-            $leadId = $leadIds->get($dayIndex % max(1, $leadIds->count()));
+        foreach ($followupPlans as $planIndex => $plan) {
+            $leadId = Lead::query()
+                ->where('handled_by', $employeeId)
+                ->where('phone_number', $phonePrefix.str_pad((string) ($plan['lead_suffix'] ?? '0001'), 4, '0', STR_PAD_LEFT))
+                ->value('id');
+
+            if (! $leadId) {
+                $leadId = $leadIds->get($planIndex % max(1, $leadIds->count()));
+            }
             if (! $leadId) {
                 continue;
             }
 
-            $followupAt = $day->copy()->setTime(10 + $dayIndex, 30);
+            $day = $today->copy()->subDays((int) $plan['days_ago'])->max($monthStart);
+            $dueAt = $day->copy()->setTime((int) $plan['hour'], 0);
+            $followupAt = ! empty($plan['on_time'])
+                ? $dueAt->copy()->subHour()
+                : $dueAt->copy()->addDay()->setTime(11, 30);
+            $loggedAt = $followupAt->copy()->addMinutes(5);
 
             LeadFollowup::query()->create([
                 'lead_id' => $leadId,
                 'followup_at' => $followupAt,
+                'due_followup_at' => $dueAt,
                 'remarks' => 'Progress demo follow-up logged.',
                 'followup_status' => LeadFollowup::STATUS_TAKEN,
-                'contact_channel' => LeadFollowup::CHANNEL_CALL,
+                'contact_channel' => $planIndex % 2 === 0 ? LeadFollowup::CHANNEL_CALL : LeadFollowup::CHANNEL_WHATSAPP,
                 'created_by' => $employeeId,
-                'created_at' => $followupAt->copy()->addMinutes(5),
-                'updated_at' => $followupAt->copy()->addMinutes(5),
+                'created_at' => $loggedAt,
+                'updated_at' => $loggedAt,
             ]);
         }
 
-        $booking = Booking::query()
-            ->where('assignee_id', $employeeId)
-            ->where('service_description', 'like', self::BOOKING_MARKER.'%')
-            ->first();
+        $bookingFollowupPlans = [
+            ['days_ago' => 2, 'on_time' => true, 'for' => 'customer', 'tag' => 'completed-mtd'],
+            ['days_ago' => 4, 'on_time' => true, 'for' => 'provider', 'tag' => 'completed-mtd-2'],
+            ['days_ago' => 6, 'on_time' => true, 'for' => 'customer', 'tag' => 'cancelled-mtd'],
+            ['days_ago' => 8, 'on_time' => false, 'for' => 'customer', 'tag' => 'pending-mtd'],
+            ['days_ago' => 10, 'on_time' => false, 'for' => 'provider', 'tag' => 'ongoing-mtd'],
+            ['days_ago' => 12, 'on_time' => true, 'for' => 'customer', 'tag' => 'accepted-mtd', 'rescheduled' => true],
+        ];
 
-        if ($booking) {
+        $bookingByTag = $bookings->keyBy(fn (Booking $booking) => str_replace(self::BOOKING_MARKER.' ', '', explode(' e', (string) $booking->service_description)[0] ?? ''));
+        $bookingList = $bookings->values();
+        foreach ($bookingFollowupPlans as $planIndex => $plan) {
+            $booking = $bookingByTag->get($plan['tag']) ?? $bookingList->get($planIndex % max(1, $bookingList->count()));
+            if (! $booking) {
+                continue;
+            }
+
+            $day = $today->copy()->subDays((int) $plan['days_ago'])->max($monthStart);
+            $dueAt = $day->copy()->setTime(10, 0);
+            $followupAt = ! empty($plan['on_time'])
+                ? $dueAt->copy()->subMinutes(30)
+                : $dueAt->copy()->addDay()->setTime(10, 30);
+            $loggedAt = $followupAt->copy()->addMinutes(8);
+            $status = ! empty($plan['rescheduled']) ? 'rescheduled' : 'completed';
+
             BookingFollowup::query()->create([
                 'booking_id' => $booking->id,
-                'date' => $today->toDateString(),
-                'followup_at' => $today->copy()->setTime(14, 0),
-                'status' => BookingFollowup::ACTION_TAKEN,
-                'reason' => 'Progress demo booking follow-up taken.',
-                'for' => 'customer',
+                'date' => $dueAt->toDateString(),
+                'due_followup_at' => $dueAt,
+                'followup_at' => $followupAt,
+                'status' => $status,
+                'reason' => 'Progress demo booking follow-up '.($planIndex + 1).'.',
+                'for' => $plan['for'],
                 'contact_channel' => BookingFollowup::CHANNEL_CALL,
+                'urgency' => BookingFollowup::URGENCY_MEDIUM,
                 'created_by' => $employeeId,
-                'created_at' => $today->copy()->setTime(14, 5),
-                'updated_at' => $today->copy()->setTime(14, 5),
+                'created_at' => $loggedAt,
+                'updated_at' => $loggedAt,
             ]);
         }
     }

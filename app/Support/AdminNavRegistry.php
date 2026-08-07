@@ -37,6 +37,7 @@ class AdminNavRegistry
             self::leadsItems(),
             self::bookingsItems(),
             self::taskBoardItems(),
+            self::progressItems(),
             self::processGuidesItems(),
             self::reportsItems(),
             self::financeItems(),
@@ -197,7 +198,7 @@ class AdminNavRegistry
         $match = self::match($request);
         $groupKey = $match['group_key'] ?? null;
 
-        if (! $groupKey || $groupKey === 'dashboard' || $groupKey === 'settings' || $groupKey === 'communications') {
+        if (! $groupKey || $groupKey === 'dashboard' || $groupKey === 'settings' || $groupKey === 'communications' || $groupKey === 'progress') {
             return self::$cachedGroupSubmenu = null;
         }
 
@@ -448,6 +449,17 @@ class AdminNavRegistry
 
         return [
             self::entry('task_board', $group, null, translate('Task_Board'), route('admin.task-board.index'), ['admin/task-board*']),
+        ];
+    }
+
+    private static function progressItems(): array
+    {
+        $group = translate('Progress_Report');
+
+        return [
+            self::entry('progress', $group, null, translate('Progress_Report'), route('admin.my-progress', ['tab' => 'monthly']), [
+                'admin/my-progress*',
+            ], ['admin.my-progress']),
         ];
     }
 
