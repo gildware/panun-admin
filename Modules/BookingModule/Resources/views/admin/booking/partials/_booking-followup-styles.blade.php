@@ -279,6 +279,37 @@
         color: var(--bk-accent-dark, #1d4ed8);
         border-color: var(--bk-accent, #3b82f6);
     }
+    .booking-detail-v2 .ld-btn-icon {
+        padding: .35rem;
+        min-width: 2rem;
+        min-height: 2rem;
+        justify-content: center;
+        background: transparent;
+        border: 1px solid var(--bk-border, #e2e8f0);
+        border-radius: var(--bk-radius-sm, .375rem);
+        color: var(--bk-muted, #64748b);
+    }
+    .booking-detail-v2 .ld-btn-icon .material-icons {
+        font-size: 18px;
+        line-height: 1;
+    }
+    .booking-detail-v2 .ld-btn-icon:hover {
+        background: var(--bk-accent-soft, #eff6ff);
+        color: var(--bk-accent-dark, #1d4ed8);
+        border-color: var(--bk-accent, #3b82f6);
+    }
+    .booking-detail-v2 .ld-btn-icon--danger {
+        color: #dc3545;
+        border-color: #fecaca;
+    }
+    .booking-detail-v2 .ld-btn-icon--danger:hover {
+        background: #fef2f2;
+        color: #b91c1c;
+        border-color: #f87171;
+    }
+    .booking-detail-v2 .booking-followup-actions {
+        gap: .35rem;
+    }
     .booking-detail-v2 .lead-followup-history-table th {
         font-size: 0.8125rem;
         white-space: nowrap;
@@ -290,6 +321,9 @@
     .booking-detail-v2 .lead-followup-history-table .ld-btn {
         padding: .35rem .65rem;
         font-size: .75rem;
+    }
+    .booking-detail-v2 .lead-followup-history-table .ld-btn-icon {
+        padding: .35rem;
     }
     .booking-detail-v2 .lead-followup-history-table tbody tr.lead-followup-row--alt td,
     .booking-detail-v2 .lead-followup-history-table tbody tr.booking-followup-row--alt td {

@@ -29,6 +29,32 @@
             });
         }
 
+        function refreshFollowupNotFutureMax(input, clampValue) {
+            if (!input) {
+                return localFollowupScheduleMin();
+            }
+            var max = localFollowupScheduleMin();
+            input.max = max;
+            if (clampValue && input.value && input.value > max) {
+                input.value = max;
+            }
+            return max;
+        }
+
+        function applyFollowupNotFutureMax($root, clampValue) {
+            ($root && $root.length ? $root : $(document)).find('input.js-followup-not-future').each(function () {
+                refreshFollowupNotFutureMax(this, !!clampValue);
+            });
+        }
+
+        function isTakenAtInFuture(input) {
+            if (!input || !input.value) {
+                return false;
+            }
+            var max = refreshFollowupNotFutureMax(input, false);
+            return input.value > max;
+        }
+
         function toggleAddFollowupRecordingField() {
             var channel = $('#booking-add-followup-contact-channel').val();
             var $group = $('#booking-add-followup-recording-group');
@@ -95,12 +121,41 @@
             }
 
             applyFollowupFutureMin($modal);
+            applyFollowupNotFutureMax($modal, true);
         }
 
         $modal.on('show.bs.modal', function () {
             $('#booking-add-followup-action-taken').prop('checked', true);
+            $('#booking-add-followup-at-input').val(localFollowupScheduleMin());
             applyFollowupFutureMin($modal);
+            applyFollowupNotFutureMax($modal, true);
             toggleAddFollowupActionFields();
+        });
+
+        $('#booking-add-followup-form').on('submit', function (event) {
+            var action = $('input[name="followup_action"]:checked', '#booking-add-followup-form').val();
+            if (action === '{{ \Modules\BookingModule\Entities\BookingFollowup::ACTION_RESCHEDULE }}') {
+                return;
+            }
+            var takenAtInput = document.getElementById('booking-add-followup-at-input');
+            if (isTakenAtInFuture(takenAtInput)) {
+                event.preventDefault();
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(@json(translate('Follow_up_taken_at_cannot_be_in_the_future')));
+                }
+                takenAtInput.focus();
+            }
+        });
+
+        $(document).on('change input', '#booking-add-followup-at-input', function () {
+            if (isTakenAtInFuture(this)) {
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(@json(translate('Follow_up_taken_at_cannot_be_in_the_future')));
+                }
+                refreshFollowupNotFutureMax(this, true);
+            } else {
+                refreshFollowupNotFutureMax(this, false);
+            }
         });
 
         $(document).on('change', '#booking-add-followup-contact-channel', toggleAddFollowupRecordingField);

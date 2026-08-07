@@ -23,5 +23,12 @@
     'redirectWebPage' => $redirectWebPage,
     'followupScheduleMinAt' => $followupScheduleMinAt,
 ])
+@include('bookingmodule::admin.booking.partials._booking-edit-followup-modal', [
+    'booking' => $booking,
+    'redirectWebPage' => $redirectWebPage,
+])
+@include('bookingmodule::admin.booking.partials._booking-followup-delete-modal', [
+    'redirectWebPage' => $redirectWebPage,
+])
 <script type="application/json" id="booking-take-followup-routes">@json($takeFollowupRoutes)</script>
 <script type="application/json" id="booking-take-followup-meta">@json($takeFollowupMeta)</script>

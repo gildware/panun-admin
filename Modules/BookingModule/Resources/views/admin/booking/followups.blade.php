@@ -110,4 +110,5 @@
 @push('script')
     @include('bookingmodule::admin.booking.partials._booking-add-followup-scripts')
     @include('bookingmodule::admin.booking.partials._booking-take-followup-scripts')
+    @include('bookingmodule::admin.booking.partials._booking-edit-followup-scripts')
 @endpush

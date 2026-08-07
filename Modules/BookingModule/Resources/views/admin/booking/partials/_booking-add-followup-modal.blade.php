@@ -58,9 +58,13 @@
                                 <input type="datetime-local"
                                        name="followup_at"
                                        id="booking-add-followup-at-input"
-                                       class="form-control"
+                                       class="form-control js-followup-not-future"
                                        value="{{ now()->format('Y-m-d\TH:i') }}"
+                                       max="{{ now()->format('Y-m-d\TH:i') }}"
                                        required>
+                                @error('followup_at')
+                                <div class="text-danger small mt-1">{{ $message }}</div>
+                                @enderror
                             </div>
                             <div class="col-sm-6" id="booking-add-followup-channel-group">
                                 <label class="form-label">{{ translate('Follow_up_Taken_on') }}</label>

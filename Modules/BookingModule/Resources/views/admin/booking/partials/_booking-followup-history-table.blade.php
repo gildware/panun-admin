@@ -97,7 +97,15 @@
                         @endif
                         @if($showActionColumn)
                             <td class="text-end booking-followups-table__action">
-                                <div class="d-inline-flex flex-wrap justify-content-end align-items-center gap-1">
+                                @php
+                                    $canDeleteFollowup = $followup->status !== 'scheduled';
+                                    $followupDeleteLabel = trim(
+                                        ($followup->date?->format('d M Y, h:i A') ?? '')
+                                        .' · '.translate(ucfirst((string) $followup->for))
+                                        .' · '.$followup->followupStatusLabel()
+                                    );
+                                @endphp
+                                <div class="d-inline-flex flex-wrap justify-content-end align-items-center gap-1 booking-followup-actions">
                                     @if($followup->status === 'scheduled')
                                         <button type="button"
                                                 class="btn btn-demo-accent btn-sm text-nowrap"
@@ -113,11 +121,47 @@
                                             {{ translate('Take_Follow_up') }}
                                         </button>
                                     @endif
+                                    @can('booking_view')
+                                        <button type="button"
+                                                class="ld-btn ld-btn-icon js-edit-booking-followup-btn"
+                                                title="{{ translate('Edit') }}"
+                                                aria-label="{{ translate('Edit') }}"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#editFollowupModal"
+                                                data-followup-id="{{ $followup->id }}"
+                                                data-url="{{ route('admin.booking.followup.edit', [$booking->id, $followup->id]) }}"
+                                                data-status="{{ $followup->status }}"
+                                                data-for="{{ $followup->for }}"
+                                                data-date="{{ ($followup->date ?? $followup->due_followup_at)?->format('Y-m-d\TH:i') }}"
+                                                data-followup-at="{{ $followup->followup_at?->format('Y-m-d\TH:i') }}"
+                                                data-channel="{{ $followup->contact_channel }}"
+                                                data-urgency="{{ $followup->urgency ?: 'medium' }}"
+                                                data-reason="{{ $followup->reason }}"
+                                                data-remarks="{{ $followup->remarks }}"
+                                                data-next-at="{{ $followup->next_followup_at?->format('Y-m-d\TH:i') }}">
+                                            <span class="material-icons" aria-hidden="true">edit</span>
+                                        </button>
+                                        @if($canDeleteFollowup)
+                                            <button type="button"
+                                                    class="ld-btn ld-btn-icon ld-btn-icon--danger js-delete-booking-followup-btn"
+                                                    title="{{ translate('Delete') }}"
+                                                    aria-label="{{ translate('Delete') }}"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#deleteFollowupModal"
+                                                    data-url="{{ route('admin.booking.followup.destroy', [$booking->id, $followup->id]) }}"
+                                                    data-label="{{ $followupDeleteLabel }}">
+                                                <span class="material-icons" aria-hidden="true">delete_outline</span>
+                                            </button>
+                                        @endif
+                                    @endcan
                                     @if($hasRecording)
-                                        <button type="button" class="ld-btn ld-btn-outline voice-call-details-toggle py-0 px-2" style="font-size:.6875rem;" aria-expanded="false">{{ translate('View') }}</button>
-                                    @endif
-                                    @if($followup->status !== 'scheduled' && ! $hasRecording)
-                                        —
+                                        <button type="button"
+                                                class="ld-btn ld-btn-icon voice-call-details-toggle"
+                                                title="{{ translate('View') }}"
+                                                aria-label="{{ translate('View') }}"
+                                                aria-expanded="false">
+                                            <span class="material-icons js-followup-view-icon" aria-hidden="true">visibility</span>
+                                        </button>
                                     @endif
                                 </div>
                             </td>
