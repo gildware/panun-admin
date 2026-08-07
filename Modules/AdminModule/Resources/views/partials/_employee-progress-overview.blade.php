@@ -336,33 +336,113 @@
         ])
         <div class="chart-card-body"><div id="chart-overview-booking-trend" class="chart-trend"></div></div>
     </div>
+    @php
+        $scoreWeights = $analytics['score_weights'] ?? \Modules\AdminModule\Services\EmployeeProgressScoreService::weightLegend();
+        $rankRows = collect($topPerformers);
+        if (! $viewingAllEmployees) {
+            $rankRows = $rankRows->take(1);
+        }
+        $maxScore = max(1, (int) ($rankRows->first()['score'] ?? 1), abs((int) ($rankRows->min('score') ?? 0)));
+        $showSideStack = (! $viewingAllEmployees) || ($crossInsights !== []);
+    @endphp
+    @if($showSideStack)
     <div class="side-stack">
-        <div class="rank-card">
-            <div class="rank-head">
-                <span>{{ translate('Progress_team_ranking') }}</span>
-                @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => 'team_ranking', 'size' => 'xs'])
-            </div>
-            @php
-                $scoreWeights = $analytics['score_weights'] ?? \Modules\AdminModule\Services\EmployeeProgressScoreService::weightLegend();
-                $rankRows = collect($topPerformers)->take($viewingAllEmployees ? 5 : 1);
-                $maxScore = max(1, (int) ($rankRows->first()['score'] ?? 1), abs((int) ($rankRows->min('score') ?? 0)));
-            @endphp
-            @if($scoreWeights !== [])
-                <div class="rank-score-legend">
-                    @foreach($scoreWeights as $weight)
-                        <span class="{{ ($weight['sign'] ?? '+') === '+' ? 'is-plus' : 'is-minus' }}">
-                            {{ $weight['sign'] ?? '+' }}{{ $weight['points'] ?? 0 }} {{ $weight['label'] ?? '' }}
-                        </span>
-                    @endforeach
+        @if(! $viewingAllEmployees)
+            <div class="rank-card">
+                <div class="rank-head">
+                    <span>{{ translate('Progress_team_ranking') }}</span>
+                    @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => 'team_ranking', 'size' => 'xs'])
                 </div>
-            @endif
+                @if($scoreWeights !== [])
+                    <div class="rank-score-legend">
+                        @foreach($scoreWeights as $weight)
+                            <span class="{{ ($weight['sign'] ?? '+') === '+' ? 'is-plus' : 'is-minus' }}">
+                                {{ $weight['sign'] ?? '+' }}{{ $weight['points'] ?? 0 }} {{ $weight['label'] ?? '' }}
+                            </span>
+                        @endforeach
+                    </div>
+                @endif
+                @forelse($rankRows as $index => $performer)
+                    @php
+                        $initials = collect(explode(' ', $performer['name'] ?? ''))->filter()->map(fn ($p) => strtoupper(substr($p, 0, 1)))->take(2)->implode('');
+                        $avatarClass = match ($index) { 1 => 'silver', 2 => 'bronze', default => '' };
+                        $barPct = min(100, round((abs((int) ($performer['score'] ?? 0)) / $maxScore) * 100));
+                    @endphp
+                    <div class="rank-item rank-item--scored">
+                        <div class="rank-item-main">
+                            <div class="avatar {{ $avatarClass }}">{{ $initials ?: '#'.($performer['rank'] ?? ($index + 1)) }}</div>
+                            <div class="rank-meta">
+                                <div class="rank-name">{{ $performer['name'] }}</div>
+                                <div class="rank-sub">
+                                    {{ translate('Quantity') ?? 'Quantity' }} {{ (int) ($performer['quantity_score'] ?? 0) }}
+                                    · {{ translate('Penalties') ?? 'Penalties' }} {{ (int) ($performer['penalty_score'] ?? 0) }}
+                                </div>
+                                <div class="rank-bar"><i style="width: {{ $barPct }}%"></i></div>
+                            </div>
+                            <div class="rank-val">{{ (int) ($performer['score'] ?? 0) }}</div>
+                        </div>
+                        @if(! empty($performer['marks']))
+                            <div class="rank-marks">
+                                @foreach($performer['marks'] as $mark)
+                                    <div class="rank-mark {{ ! empty($mark['positive']) ? 'is-plus' : 'is-minus' }}">
+                                        <span class="rank-mark-label">{{ $mark['label'] }}</span>
+                                        <span class="rank-mark-count">{{ (int) ($mark['count'] ?? 0) }} × {{ (int) ($mark['unit_points'] ?? 0) }}</span>
+                                        <strong class="rank-mark-pts">{{ ((int) ($mark['points'] ?? 0)) > 0 ? '+' : '' }}{{ (int) ($mark['points'] ?? 0) }}</strong>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                @empty
+                    <div class="rank-item"><div class="rank-meta"><div class="rank-name">{{ translate('No_data_available') }}</div></div></div>
+                @endforelse
+            </div>
+        @endif
+
+        @if($crossInsights !== [])
+            <div class="insight-list">
+                <div class="section-label" style="margin:0 0 8px">
+                    <span class="section-label-text">{{ translate('Progress_improvements') ?? 'Insights' }}</span>
+                    @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => 'progress_insights', 'size' => 'xs'])
+                    <span class="section-label-rule" aria-hidden="true"></span>
+                </div>
+                @foreach($crossInsights as $insight)
+                    @php $cls = match ($insight['priority'] ?? 'low') { 'high' => 'danger', 'medium' => 'warning', default => 'success' }; @endphp
+                    <div class="insight-item {{ $cls }} {{ ! empty($insight['tab']) ? 'is-jump' : '' }}"
+                         @if(! empty($insight['tab'])) data-jump-tab="{{ $insight['tab'] }}" role="button" tabindex="0" @endif>
+                        @include('adminmodule::partials._material-icon', ['name' => 'lightbulb', 'class' => 'mso'])
+                        <div><strong>{{ $insight['title'] }}</strong>@if(! empty($insight['detail'])) — {{ $insight['detail'] }}@endif</div>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+    </div>
+    @endif
+</div>
+
+@if($viewingAllEmployees)
+    <div class="rank-card rank-card--team-row">
+        <div class="rank-head">
+            <span>{{ translate('Progress_team_ranking') }}</span>
+            @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => 'team_ranking', 'size' => 'xs'])
+        </div>
+        @if($scoreWeights !== [])
+            <div class="rank-score-legend">
+                @foreach($scoreWeights as $weight)
+                    <span class="{{ ($weight['sign'] ?? '+') === '+' ? 'is-plus' : 'is-minus' }}">
+                        {{ $weight['sign'] ?? '+' }}{{ $weight['points'] ?? 0 }} {{ $weight['label'] ?? '' }}
+                    </span>
+                @endforeach
+            </div>
+        @endif
+        <div class="rank-row">
             @forelse($rankRows as $index => $performer)
                 @php
                     $initials = collect(explode(' ', $performer['name'] ?? ''))->filter()->map(fn ($p) => strtoupper(substr($p, 0, 1)))->take(2)->implode('');
                     $avatarClass = match ($index) { 1 => 'silver', 2 => 'bronze', default => '' };
                     $barPct = min(100, round((abs((int) ($performer['score'] ?? 0)) / $maxScore) * 100));
                 @endphp
-                <div class="rank-item rank-item--scored">
+                <div class="rank-item rank-item--scored rank-item--card">
                     <div class="rank-item-main">
                         <div class="avatar {{ $avatarClass }}">{{ $initials ?: '#'.($performer['rank'] ?? ($index + 1)) }}</div>
                         <div class="rank-meta">
@@ -388,26 +468,8 @@
                     @endif
                 </div>
             @empty
-                <div class="rank-item"><div class="rank-meta"><div class="rank-name">{{ translate('No_data_available') }}</div></div></div>
+                <div class="rank-item rank-item--card"><div class="rank-meta"><div class="rank-name">{{ translate('No_data_available') }}</div></div></div>
             @endforelse
         </div>
-
-        @if($crossInsights !== [])
-            <div class="insight-list">
-                <div class="section-label" style="margin:0 0 8px">
-                    <span class="section-label-text">{{ translate('Progress_improvements') ?? 'Insights' }}</span>
-                    @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => 'progress_insights', 'size' => 'xs'])
-                    <span class="section-label-rule" aria-hidden="true"></span>
-                </div>
-                @foreach($crossInsights as $insight)
-                    @php $cls = match ($insight['priority'] ?? 'low') { 'high' => 'danger', 'medium' => 'warning', default => 'success' }; @endphp
-                    <div class="insight-item {{ $cls }} {{ ! empty($insight['tab']) ? 'is-jump' : '' }}"
-                         @if(! empty($insight['tab'])) data-jump-tab="{{ $insight['tab'] }}" role="button" tabindex="0" @endif>
-                        @include('adminmodule::partials._material-icon', ['name' => 'lightbulb', 'class' => 'mso'])
-                        <div><strong>{{ $insight['title'] }}</strong>@if(! empty($insight['detail'])) — {{ $insight['detail'] }}@endif</div>
-                    </div>
-                @endforeach
-            </div>
-        @endif
     </div>
-</div>
+@endif

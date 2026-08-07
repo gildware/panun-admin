@@ -165,6 +165,83 @@
         });
     }
 
+
+    function contributionEnabled(config) {
+        var c = (config && config.charts) || {};
+        var lc = (config && config.leadCharts) || {};
+        var fc = (config && config.followupCharts) || {};
+        return !!(c.show_contribution || lc.show_contribution || fc.show_contribution);
+    }
+
+    function fmtMineAll(mine, all, show) {
+        var m = Math.round(mine || 0);
+        if (!show || all === undefined || all === null || all === '') {
+            return String(m);
+        }
+        return m + ' / ' + Math.round(all || 0);
+    }
+
+    function teamTrendMap(teamTrend) {
+        var map = {};
+        (teamTrend || []).forEach(function (row, idx) {
+            var key = row.key || row.name || String(idx);
+            map[key] = row.data || [];
+            map['__idx_' + idx] = row.data || [];
+        });
+        return map;
+    }
+
+    function contributionTooltipY(teamDataBySeriesIndex, show) {
+        return {
+            formatter: function (val, opts) {
+                var mine = val || 0;
+                if (!show) return Math.round(mine);
+                var seriesIndex = opts.seriesIndex;
+                var dataIndex = opts.dataPointIndex;
+                var teamSeries = teamDataBySeriesIndex[seriesIndex] || [];
+                var teamVal = teamSeries[dataIndex];
+                return fmtMineAll(mine, teamVal, teamVal !== undefined);
+            }
+        };
+    }
+
+    function donutWithContribution(series, teamSeries, chartLabels, colors, labelBag, show) {
+        var opts = Object.assign({
+            series: series || [],
+            chart: { type: 'donut', height: H.donut },
+            labels: chartLabels || [],
+            colors: colors || ['#059669', '#d97706', '#dc2626']
+        }, donutOpts(labelBag));
+
+        if (show && teamSeries && teamSeries.length) {
+            var mineTotal = (series || []).reduce(function (s, n) { return s + (Number(n) || 0); }, 0);
+            var teamTotal = (teamSeries || []).reduce(function (s, n) { return s + (Number(n) || 0); }, 0);
+            opts.tooltip = {
+                theme: 'light',
+                y: {
+                    formatter: function (val, tipOpts) {
+                        return fmtMineAll(val, teamSeries[tipOpts.seriesIndex], true);
+                    }
+                }
+            };
+            opts.plotOptions = opts.plotOptions || {};
+            opts.plotOptions.pie = opts.plotOptions.pie || {};
+            opts.plotOptions.pie.donut = opts.plotOptions.pie.donut || {};
+            opts.plotOptions.pie.donut.labels = opts.plotOptions.pie.donut.labels || { show: true };
+            opts.plotOptions.pie.donut.labels.total = {
+                show: true,
+                label: labelBag.total || 'Total',
+                fontSize: '11px',
+                fontWeight: 700,
+                formatter: function () {
+                    return fmtMineAll(mineTotal, teamTotal, true);
+                }
+            };
+        }
+
+        return opts;
+    }
+
     function init() {
         if (typeof ApexCharts === 'undefined') return;
         if (!document.querySelector('.emp-progress-report')) return;
@@ -176,57 +253,59 @@
         var lc = config.leadCharts || {};
         var fc = config.followupCharts || {};
         var labels = config.labels || {};
+        var showContribution = contributionEnabled(config);
 
         initSparks(config);
 
-        var bookingTrendOpts = (function () {
-            var trend = c.booking_trend_series || [];
-            var series = trend.length
-                ? trend.map(function (row) {
-                    return { name: row.name || row.key || '', data: row.data || [] };
-                })
-                : [
-                    { name: labels.bookings || 'Created', data: c.bookings_series || [] },
-                    { name: labels.completed || 'Completed', data: c.completed_series || [] },
-                    { name: labels.cancelled || 'Cancelled', data: c.cancelled_series || [] }
-                ];
-            var colors = trend.length
-                ? trend.map(function (row) { return row.color || brand; })
-                : [brand, '#059669', '#dc2626'];
-
-            return {
-                series: series,
-                chart: { type: 'bar', height: H.stacked, stacked: true },
-                plotOptions: {
-                    bar: {
-                        borderRadius: 6,
-                        columnWidth: '48%',
-                        borderRadiusApplication: 'end',
-                        borderRadiusWhenStacked: 'last'
-                    }
-                },
-                colors: colors,
-                fill: { opacity: 1 },
-                stroke: { width: 0 },
-                xaxis: axisCats(c.activity_categories || []),
-                yaxis: {
-                    min: 0,
-                    tickAmount: 4,
-                    labels: {
-                        formatter: function (v) { return Math.round(v); },
-                        style: { fontSize: '11px', fontWeight: 600, fontFamily: 'Outfit, sans-serif', colors: '#64748b' }
-                    }
-                },
-                legend: legendTop(),
-                dataLabels: { enabled: false },
-                tooltip: {
-                    shared: true,
-                    intersect: false,
-                    style: { fontFamily: 'Outfit, sans-serif', fontSize: '12px' },
-                    y: { formatter: function (v) { return Math.round(v || 0); } }
+        var trend = c.booking_trend_series || [];
+        var teamTrend = c.team_booking_trend_series || [];
+        var bookingSeries = trend.length
+            ? trend.map(function (row) { return { name: row.name || row.key || '', data: row.data || [] }; })
+            : [
+                { name: labels.bookings || 'Created', data: c.bookings_series || [] },
+                { name: labels.completed || 'Completed', data: c.completed_series || [] },
+                { name: labels.cancelled || 'Cancelled', data: c.cancelled_series || [] }
+            ];
+        var bookingColors = trend.length
+            ? trend.map(function (row) { return row.color || brand; })
+            : [brand, '#059669', '#dc2626'];
+        var teamByKey = teamTrendMap(teamTrend);
+        var bookingTeamByIndex = bookingSeries.map(function (row, idx) {
+            var key = (trend[idx] && (trend[idx].key || trend[idx].name)) || row.name || '';
+            return teamByKey[key] || teamByKey['__idx_' + idx] || [];
+        });
+        var bookingTrendOpts = {
+            series: bookingSeries,
+            chart: { type: 'bar', height: H.stacked, stacked: true },
+            plotOptions: {
+                bar: {
+                    borderRadius: 6,
+                    columnWidth: '48%',
+                    borderRadiusApplication: 'end',
+                    borderRadiusWhenStacked: 'last'
                 }
-            };
-        })();
+            },
+            colors: bookingColors,
+            fill: { opacity: 1 },
+            stroke: { width: 0 },
+            xaxis: axisCats(c.activity_categories || []),
+            yaxis: {
+                min: 0,
+                tickAmount: 4,
+                labels: {
+                    formatter: function (v) { return Math.round(v); },
+                    style: { fontSize: '11px', fontWeight: 600, fontFamily: 'Outfit, sans-serif', colors: '#64748b' }
+                }
+            },
+            legend: legendTop(),
+            dataLabels: { enabled: false },
+            tooltip: {
+                shared: true,
+                intersect: false,
+                style: { fontFamily: 'Outfit, sans-serif', fontSize: '12px' },
+                y: contributionTooltipY(bookingTeamByIndex, showContribution && teamTrend.length)
+            }
+        };
         mk('#chart-bookings-trend', bookingTrendOpts);
         mk('#chart-overview-booking-trend', bookingTrendOpts);
 
@@ -235,7 +314,8 @@
             chart: { type: 'area', height: H.line },
             stroke: { curve: 'smooth', width: 2 },
             fill: { type: 'gradient', gradient: { opacityFrom: 0.45, opacityTo: 0.05 } },
-            xaxis: axisCats(c.activity_categories || [])
+            xaxis: axisCats(c.activity_categories || []),
+            tooltip: { y: contributionTooltipY([c.team_leads_series || []], showContribution && (c.team_leads_series || []).length) }
         });
 
         mk('#chart-funnel', {
@@ -245,14 +325,23 @@
             dataLabels: { enabled: true, style: { fontSize: '11px', fontWeight: 700, colors: ['#fff'] } },
             xaxis: { categories: c.funnel_categories || [], labels: { style: { fontSize: '11px', fontWeight: 600 } } },
             legend: { show: false },
-            grid: { padding: { left: 8, right: 16, top: 4, bottom: 4 } }
+            grid: { padding: { left: 8, right: 16, top: 4, bottom: 4 } },
+            tooltip: { y: contributionTooltipY([c.team_funnel_series || []], showContribution && (c.team_funnel_series || []).length) }
         });
 
         mk('#chart-mix', Object.assign({
             series: c.outcome_series || [],
             chart: { type: 'donut', height: H.donut },
             labels: c.outcome_labels || []
-        }, donutOpts(labels, '68%')));
+        }, donutOpts(labels, '68%'), showContribution && (c.team_outcome_series || []).length ? {
+            tooltip: {
+                y: {
+                    formatter: function (val, tipOpts) {
+                        return fmtMineAll(val, (c.team_outcome_series || [])[tipOpts.seriesIndex], true);
+                    }
+                }
+            }
+        } : {}));
 
         if (c.heatmap && c.heatmap.length) {
             mk('#chart-heatmap', {
@@ -277,7 +366,13 @@
             stroke: { curve: 'smooth', width: 2 },
             fill: { type: 'gradient', gradient: { opacityFrom: 0.5, opacityTo: 0.05 } },
             xaxis: axisCats(c.activity_categories || []),
-            legend: legendTop()
+            legend: legendTop(),
+            tooltip: {
+                y: contributionTooltipY(
+                    [c.team_leads_series || [], c.team_bookings_series || []],
+                    showContribution && ((c.team_leads_series || []).length || (c.team_bookings_series || []).length)
+                )
+            }
         });
 
         mk('#chart-fu-line', {
@@ -289,7 +384,13 @@
             stroke: { width: [3, 2], curve: 'smooth' },
             markers: { size: 4, strokeWidth: 0 },
             xaxis: axisCats(c.activity_categories || []),
-            legend: legendTop()
+            legend: legendTop(),
+            tooltip: {
+                y: contributionTooltipY(
+                    [c.team_followup_completed_series || [], c.team_followup_missed_series || []],
+                    showContribution
+                )
+            }
         });
 
         mk('#chart-rev-src', {
@@ -349,7 +450,15 @@
                 colors: ['#1cc88a', '#f6c23e', '#e74a3b'],
                 xaxis: axisCats(fc.lead_categories || fc.categories || []),
                 legend: legendTop(),
-                dataLabels: { enabled: false }
+                dataLabels: { enabled: false },
+                tooltip: {
+                    shared: true,
+                    intersect: false,
+                    y: contributionTooltipY(
+                        [fc.team_lead_done_series || [], fc.team_lead_late_series || [], fc.team_lead_missed_series || []],
+                        showContribution && !!fc.show_contribution
+                    )
+                }
             });
         }
 
@@ -365,26 +474,38 @@
                 colors: ['#1cc88a', '#f6c23e', '#e74a3b'],
                 xaxis: axisCats(fc.booking_categories || fc.categories || []),
                 legend: legendTop(),
-                dataLabels: { enabled: false }
+                dataLabels: { enabled: false },
+                tooltip: {
+                    shared: true,
+                    intersect: false,
+                    y: contributionTooltipY(
+                        [fc.team_booking_done_series || [], fc.team_booking_late_series || [], fc.team_booking_missed_series || []],
+                        showContribution && !!fc.show_contribution
+                    )
+                }
             });
         }
 
         if (lc.customer_outcome_series && lc.customer_outcome_series.length) {
-            mk('#chart-customer-outcomes', Object.assign({
-                series: lc.customer_outcome_series,
-                chart: { type: 'donut', height: H.donut },
-                labels: lc.customer_outcome_labels || [],
-                colors: ['#059669', '#d97706', '#dc2626']
-            }, donutOpts(labels)));
+            mk('#chart-customer-outcomes', donutWithContribution(
+                lc.customer_outcome_series,
+                lc.team_customer_outcome_series || [],
+                lc.customer_outcome_labels || [],
+                ['#059669', '#d97706', '#dc2626'],
+                labels,
+                showContribution && !!lc.show_contribution
+            ));
         }
 
         if (lc.provider_outcome_series && lc.provider_outcome_series.length) {
-            mk('#chart-provider-outcomes', Object.assign({
-                series: lc.provider_outcome_series,
-                chart: { type: 'donut', height: H.donut },
-                labels: lc.provider_outcome_labels || [],
-                colors: ['#059669', '#d97706', '#dc2626']
-            }, donutOpts(labels)));
+            mk('#chart-provider-outcomes', donutWithContribution(
+                lc.provider_outcome_series,
+                lc.team_provider_outcome_series || [],
+                lc.provider_outcome_labels || [],
+                ['#059669', '#d97706', '#dc2626'],
+                labels,
+                showContribution && !!lc.show_contribution
+            ));
         }
     }
 

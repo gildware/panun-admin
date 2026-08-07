@@ -265,11 +265,11 @@
                             'ofClass' => 'mc-of',
                         ])
                     </td>
-                    <td>{{ $row['customer'] ?? 0 }}</td>
-                    <td>{{ $row['provider'] ?? 0 }}</td>
-                    <td>{{ $row['unknown'] ?? 0 }}</td>
-                    <td>{{ $row['invalid'] ?? 0 }}</td>
-                    <td>{{ $row['future_customer'] ?? 0 }}</td>
+                    <td>@include('adminmodule::partials._employee-progress-metric-value', ['count' => $row['customer'] ?? 0, 'total' => $row['team_customer'] ?? null, 'ofClass' => 'mc-of'])</td>
+                    <td>@include('adminmodule::partials._employee-progress-metric-value', ['count' => $row['provider'] ?? 0, 'total' => $row['team_provider'] ?? null, 'ofClass' => 'mc-of'])</td>
+                    <td>@include('adminmodule::partials._employee-progress-metric-value', ['count' => $row['unknown'] ?? 0, 'total' => $row['team_unknown'] ?? null, 'ofClass' => 'mc-of'])</td>
+                    <td>@include('adminmodule::partials._employee-progress-metric-value', ['count' => $row['invalid'] ?? 0, 'total' => $row['team_invalid'] ?? null, 'ofClass' => 'mc-of'])</td>
+                    <td>@include('adminmodule::partials._employee-progress-metric-value', ['count' => $row['future_customer'] ?? 0, 'total' => $row['team_future_customer'] ?? null, 'ofClass' => 'mc-of'])</td>
                     <td><div class="cell-bar"><div class="cell-bar-track"><div class="cell-bar-fill" style="width: {{ min(100, (float) ($row['pct'] ?? 0)) }}%"></div></div>{{ $row['pct'] }}%</div></td>
                 </tr>
             @empty

@@ -275,7 +275,7 @@ class EmployeeProgressAnalyticsService
             return array_slice($ranked, 0, 1);
         }
 
-        return array_slice($ranked, 0, 8);
+        return $ranked;
     }
 
     /**
