@@ -2936,12 +2936,11 @@ class BookingController extends Controller
                 Rule::requiredIf(fn () => $requiresNext),
                 'nullable',
                 'date',
-                'after:now',
+                $this->bookingFollowupFutureDateRule(),
             ],
             'schedule_next' => ['nullable', 'in:1'],
         ], [
             'next_followup_at.required' => translate('Next_follow_up_date_is_required'),
-            'next_followup_at.after' => translate('Reschedule_date_must_be_in_the_future'),
             'recording.mimetypes' => translate('Please_upload_a_valid_audio_recording'),
         ]);
 
@@ -3022,11 +3021,10 @@ class BookingController extends Controller
             'next_followup_at' => [
                 'required',
                 'date',
-                'after:now',
+                $this->bookingFollowupFutureDateRule(),
             ],
         ], [
             'next_followup_at.required' => translate('Next_follow_up_date_is_required'),
-            'next_followup_at.after' => translate('Reschedule_date_must_be_in_the_future'),
         ]);
 
         BookingFollowup::create([
@@ -3669,7 +3667,26 @@ class BookingController extends Controller
     {
         $this->authorize('booking_view');
         $booking = $this->booking->findOrFail($id);
-        $followup = $booking->followups()->where('status', 'scheduled')->findOrFail($followupId);
+        $followup = $booking->followups()->find($followupId);
+
+        if (! $followup) {
+            Toastr::error(translate('Follow_up_not_found'));
+
+            return $this->redirectAfterBookingFollowup($request, $booking);
+        }
+
+        if ($followup->status !== 'scheduled') {
+            if ($followup->status === 'completed') {
+                Toastr::info(translate('Follow_up_already_taken'));
+            } elseif ($followup->status === 'rescheduled') {
+                Toastr::info(translate('Follow_up_already_rescheduled'));
+            } else {
+                Toastr::error(translate('Follow_up_no_longer_available'));
+            }
+
+            return $this->redirectAfterBookingFollowup($request, $booking);
+        }
+
         $requiresNext = $booking->requiresMandatoryNextFollowup();
         $followupAction = $request->input('followup_action', BookingFollowup::ACTION_TAKEN);
 
@@ -3692,7 +3709,7 @@ class BookingController extends Controller
     ): RedirectResponse {
         $request->merge(['remarks' => trim((string) $request->input('remarks', ''))]);
 
-        $validated = $request->validate([
+        $validator = Validator::make($request->all(), [
             'followup_at' => ['required', 'date'],
             'remarks' => ['required', 'string', 'max:1000'],
             'contact_channel' => ['nullable', 'in:'.implode(',', BookingFollowup::CONTACT_CHANNELS)],
@@ -3702,19 +3719,25 @@ class BookingController extends Controller
                 Rule::requiredIf(fn () => $requiresNext),
                 'nullable',
                 'date',
-                'after:now',
+                $this->bookingFollowupFutureDateRule(),
             ],
             'schedule_next' => ['nullable', 'in:1'],
         ], [
             'next_followup_at.required' => translate('Next_follow_up_date_is_required'),
-            'next_followup_at.after' => translate('Reschedule_date_must_be_in_the_future'),
             'recording.mimetypes' => translate('Please_upload_a_valid_audio_recording'),
             'remarks.required' => translate('Follow_up_remarks_required'),
         ]);
 
+        if ($validator->fails()) {
+            return $this->redirectBackAfterBookingFollowup($request, $booking)
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        $validated = $validator->validated();
+
         if (($validated['contact_channel'] ?? null) !== BookingFollowup::CHANNEL_CALL && $request->hasFile('recording')) {
-            return redirect()
-                ->back()
+            return $this->redirectBackAfterBookingFollowup($request, $booking)
                 ->withInput()
                 ->withErrors(['recording' => translate('Voice_recording_is_only_allowed_for_call_follow_ups')]);
         }
@@ -3726,8 +3749,7 @@ class BookingController extends Controller
             $storedName = file_uploader('booking-followups/', $extension, $recording);
 
             if ($storedName === 'def.png') {
-                return redirect()
-                    ->back()
+                return $this->redirectBackAfterBookingFollowup($request, $booking)
                     ->withInput()
                     ->withErrors(['recording' => translate('Failed_to_upload_voice_recording')]);
             }
@@ -3755,9 +3777,9 @@ class BookingController extends Controller
 
         if ($shouldScheduleNext) {
             if (empty($validated['next_followup_at'])) {
-                throw ValidationException::withMessages([
-                    'next_followup_at' => [translate('Next_follow_up_date_is_required')],
-                ]);
+                return $this->redirectBackAfterBookingFollowup($request, $booking)
+                    ->withInput()
+                    ->withErrors(['next_followup_at' => translate('Next_follow_up_date_is_required')]);
             }
 
             app(BookingFollowupService::class)->schedule(
@@ -3781,18 +3803,25 @@ class BookingController extends Controller
         BookingFollowup $followup,
         bool $requiresNext
     ): RedirectResponse {
-        $validated = $request->validate([
+        $validator = Validator::make($request->all(), [
             'remarks' => ['nullable', 'string', 'max:1000'],
             'urgency' => ['nullable', 'in:'.implode(',', BookingFollowup::URGENCIES)],
             'next_followup_at' => [
                 'required',
                 'date',
-                'after:now',
+                $this->bookingFollowupFutureDateRule(),
             ],
         ], [
             'next_followup_at.required' => translate('Next_follow_up_date_is_required'),
-            'next_followup_at.after' => translate('Reschedule_date_must_be_in_the_future'),
         ]);
+
+        if ($validator->fails()) {
+            return $this->redirectBackAfterBookingFollowup($request, $booking)
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        $validated = $validator->validated();
 
         $followup->update([
             'status' => 'rescheduled',
@@ -3818,14 +3847,49 @@ class BookingController extends Controller
 
     protected function redirectAfterBookingFollowup(Request $request, Booking $booking): RedirectResponse
     {
+        return $this->bookingFollowupRedirect($request, $booking);
+    }
+
+    protected function redirectBackAfterBookingFollowup(Request $request, Booking $booking): RedirectResponse
+    {
+        return $this->bookingFollowupRedirect($request, $booking);
+    }
+
+    /**
+     * Allow a small clock/timezone skew so "next follow-up" near now is not rejected.
+     */
+    protected function bookingFollowupFutureDateRule(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail): void {
+            if ($value === null || $value === '') {
+                return;
+            }
+
+            try {
+                if (Carbon::parse($value)->lt(now()->subMinutes(2))) {
+                    $fail(translate('Reschedule_date_must_be_in_the_future'));
+                }
+            } catch (\Throwable) {
+                $fail(translate('Reschedule_date_must_be_in_the_future'));
+            }
+        };
+    }
+
+    protected function bookingFollowupRedirect(Request $request, Booking $booking): RedirectResponse
+    {
         $redirectWebPage = $request->input('redirect_web_page', 'details');
         if (! in_array($redirectWebPage, ['details', 'followups'], true)) {
             $redirectWebPage = 'details';
         }
 
-        $redirect = redirect()->route('admin.booking.details', [$booking->id, 'web_page' => $redirectWebPage]);
+        $query = ['web_page' => $redirectWebPage];
+        if ($redirectWebPage === 'details') {
+            $query['activity'] = 'followup';
+        }
 
-        if ($redirectWebPage !== 'followups') {
+        $redirect = redirect()->route('admin.booking.details', array_merge([$booking->id], $query));
+
+        if ($redirectWebPage === 'details') {
             return $redirect->withFragment('booking-activity');
         }
 

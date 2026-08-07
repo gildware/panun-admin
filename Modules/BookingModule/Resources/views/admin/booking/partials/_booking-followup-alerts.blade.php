@@ -27,7 +27,12 @@
                         data-bs-toggle="modal"
                         data-bs-target="#takeFollowupModal"
                         data-booking-take-followup
-                        data-followup-id="{{ $partyMeta['followup']->id }}">
+                        data-followup-id="{{ $partyMeta['followup']->id }}"
+                        data-followup-update-url="{{ route('admin.booking.followup.update', [$bookingRef->id, $partyMeta['followup']->id]) }}"
+                        data-followup-for="{{ $partyMeta['followup']->for }}"
+                        data-followup-date="{{ $partyMeta['followup']->date?->format('d M Y, h:i A') }}"
+                        data-followup-urgency="{{ $partyMeta['followup']->urgency ?: 'medium' }}"
+                        data-followup-reason="{{ $partyMeta['followup']->reason }}">
                     <span class="material-icons">event_available</span>
                     {{ translate('Take_Follow_up') }}
                 </button>
