@@ -25,8 +25,6 @@ class EmployeeProgressScoreService
 
     public const PENALTY_MISSED_FOLLOWUP = 1;
 
-    public const PENALTY_CANCELLED_BOOKING = 3;
-
     public function __construct(
         private readonly LeadOpenStatusService $leadOpenStatus,
     ) {}
@@ -42,7 +40,6 @@ class EmployeeProgressScoreService
             ['key' => 'whatsapp_replies', 'label' => translate('WhatsApp_Replies') ?? 'Chat replies', 'points' => self::POINTS_CHAT_REPLIES, 'sign' => '+'],
             ['key' => 'late_followups', 'label' => translate('Progress_late_followups') ?? 'Late follow-ups', 'points' => self::PENALTY_LATE_FOLLOWUP, 'sign' => '−'],
             ['key' => 'missed_followups', 'label' => translate('Progress_missed_followups'), 'points' => self::PENALTY_MISSED_FOLLOWUP, 'sign' => '−'],
-            ['key' => 'bookings_cancelled', 'label' => translate('Bookings_Cancelled') ?? 'Booking cancellations', 'points' => self::PENALTY_CANCELLED_BOOKING, 'sign' => '−'],
         ];
     }
 
@@ -116,7 +113,6 @@ class EmployeeProgressScoreService
         $bookingsCreated = (int) ($employeeRow['bookings_created'] ?? 0);
         $leadsHandled = $leadsHandledOverride ?? (int) ($employeeRow['leads_assigned'] ?? $employeeRow['leads_handled'] ?? 0);
         $chatReplies = (int) ($employeeRow['whatsapp_replies'] ?? 0);
-        $cancelled = (int) ($employeeRow['bookings_cancelled'] ?? 0);
 
         $marks = [
             $this->markLine(
@@ -154,17 +150,10 @@ class EmployeeProgressScoreService
                 self::PENALTY_MISSED_FOLLOWUP,
                 false,
             ),
-            $this->markLine(
-                'bookings_cancelled',
-                translate('Bookings_Cancelled') ?? 'Booking cancellations',
-                $cancelled,
-                self::PENALTY_CANCELLED_BOOKING,
-                false,
-            ),
         ];
 
         $quantityScore = (int) ($marks[0]['points'] + $marks[1]['points'] + $marks[2]['points']);
-        $penaltyScore = (int) ($marks[3]['points'] + $marks[4]['points'] + $marks[5]['points']);
+        $penaltyScore = (int) ($marks[3]['points'] + $marks[4]['points']);
         $score = $quantityScore + $penaltyScore;
 
         return [
@@ -176,7 +165,7 @@ class EmployeeProgressScoreService
             'followups' => (int) ($employeeRow['lead_followups'] ?? 0) + (int) ($employeeRow['booking_followups'] ?? 0),
             'late_followups' => $lateFollowups,
             'missed_followups' => $missedFollowups,
-            'cancelled' => $cancelled,
+            'cancelled' => (int) ($employeeRow['bookings_cancelled'] ?? 0),
             'quantity_score' => $quantityScore,
             'penalty_score' => $penaltyScore,
             'score' => $score,
