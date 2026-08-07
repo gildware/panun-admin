@@ -550,11 +550,40 @@ class EmployeeFollowupProgressAnalyticsService
             ->whereIn('created_by', $employeeIds)
             ->whereNotNull('followup_at')
             ->whereBetween('followup_at', [$rangeStart, $rangeEnd])
-            ->get(['lead_id', 'followup_at', 'due_followup_at']);
+            ->get(['id', 'lead_id', 'followup_at', 'due_followup_at', 'next_followup_at']);
+
+        $leadIds = $completed->pluck('lead_id')->map(fn ($id) => (string) $id)->filter()->unique()->values()->all();
+        $dueByFollowupId = [];
+        if ($leadIds !== []) {
+            $leads = Lead::query()
+                ->whereIn('id', $leadIds)
+                ->get(['id', 'date_time_of_lead_received'])
+                ->keyBy(fn (Lead $lead) => (string) $lead->id);
+
+            $historyByLead = LeadFollowup::query()
+                ->whereIn('lead_id', $leadIds)
+                ->whereNotNull('followup_at')
+                ->orderBy('followup_at')
+                ->get(['id', 'lead_id', 'followup_at', 'due_followup_at', 'next_followup_at'])
+                ->groupBy(fn (LeadFollowup $followup) => (string) $followup->lead_id);
+
+            foreach ($historyByLead as $leadId => $history) {
+                $lead = $leads->get((string) $leadId);
+                if (! $lead) {
+                    continue;
+                }
+                foreach ($this->leadFollowupService->buildFollowupDelayMeta($lead, $history) as $followupId => $meta) {
+                    $dueByFollowupId[(int) $followupId] = $meta['due_at'] ?? null;
+                }
+            }
+        }
 
         foreach ($completed as $followup) {
             $leadId = (string) $followup->lead_id;
-            $due = $followup->due_followup_at;
+            $due = $dueByFollowupId[(int) $followup->id] ?? $followup->due_followup_at;
+            if (! $due instanceof Carbon) {
+                $due = $due ? Carbon::parse($due) : null;
+            }
             if (! $due) {
                 continue;
             }
@@ -665,7 +694,7 @@ class EmployeeFollowupProgressAnalyticsService
 
         $leads = Lead::query()
             ->whereIn('id', $leadIds)
-            ->get(['id', 'lead_type', 'name', 'phone_number']);
+            ->get(['id', 'lead_type', 'name', 'phone_number', 'created_at']);
 
         $historiesByLead = LeadTypeHistory::query()
             ->whereIn('lead_id', $leadIds)
@@ -718,6 +747,7 @@ class EmployeeFollowupProgressAnalyticsService
             if ($initialType === '') {
                 $initialType = Lead::TYPE_UNKNOWN;
             }
+            $startedAsUnknown = $this->leadStartedAsUnknown($lead, $histories, $initialType);
 
             if ($type === Lead::TYPE_INVALID) {
                 $details[$leadId] = [
@@ -725,6 +755,7 @@ class EmployeeFollowupProgressAnalyticsService
                     'segment' => $this->priorLeadSegmentFromHistories($histories, $type),
                     'lead_type' => Lead::TYPE_INVALID,
                     'initial_lead_type' => $initialType,
+                    'started_as_unknown' => $startedAsUnknown,
                 ];
                 continue;
             }
@@ -742,6 +773,7 @@ class EmployeeFollowupProgressAnalyticsService
                     'segment' => Lead::TYPE_CUSTOMER,
                     'lead_type' => Lead::TYPE_CUSTOMER,
                     'initial_lead_type' => $initialType,
+                    'started_as_unknown' => $startedAsUnknown,
                 ];
                 continue;
             }
@@ -759,6 +791,7 @@ class EmployeeFollowupProgressAnalyticsService
                     'segment' => Lead::TYPE_FUTURE_CUSTOMER,
                     'lead_type' => Lead::TYPE_FUTURE_CUSTOMER,
                     'initial_lead_type' => $initialType,
+                    'started_as_unknown' => $startedAsUnknown,
                 ];
                 continue;
             }
@@ -774,6 +807,7 @@ class EmployeeFollowupProgressAnalyticsService
                     'segment' => Lead::TYPE_PROVIDER,
                     'lead_type' => Lead::TYPE_PROVIDER,
                     'initial_lead_type' => $initialType,
+                    'started_as_unknown' => $startedAsUnknown,
                 ];
                 continue;
             }
@@ -783,10 +817,48 @@ class EmployeeFollowupProgressAnalyticsService
                 'segment' => 'unknown',
                 'lead_type' => 'unknown',
                 'initial_lead_type' => $initialType,
+                'started_as_unknown' => $startedAsUnknown,
             ];
         }
 
         return $details;
+    }
+
+    /**
+     * Leads are usually created as unknown without a type-history row; the first history is often the classification.
+     *
+     * @param  \Illuminate\Support\Collection<int, mixed>  $histories
+     */
+    private function leadStartedAsUnknown(Lead $lead, $histories, string $initialType): bool
+    {
+        if ($initialType === Lead::TYPE_UNKNOWN || $initialType === 'unknown') {
+            return true;
+        }
+
+        if ($histories->isEmpty()) {
+            // No history: still unknown, or typed without history — treat as unknown-origin.
+            return true;
+        }
+
+        $oldest = $histories->sortBy('created_at')->first();
+        $oldestType = (string) ($oldest->type ?? '');
+        if ($oldestType === Lead::TYPE_UNKNOWN) {
+            return true;
+        }
+
+        // Classification recorded after lead create ⇒ lead lived as unknown first.
+        $createdAt = $lead->created_at instanceof Carbon
+            ? $lead->created_at
+            : ($lead->created_at ? Carbon::parse($lead->created_at) : null);
+        $historyAt = $oldest->created_at instanceof Carbon
+            ? $oldest->created_at
+            : ($oldest->created_at ? Carbon::parse($oldest->created_at) : null);
+
+        if ($createdAt && $historyAt && $createdAt->lt($historyAt)) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -868,8 +940,8 @@ class EmployeeFollowupProgressAnalyticsService
                     continue;
                 }
 
-                $initialType = (string) ($details[$leadId]['initial_lead_type'] ?? '');
-                if ($initialType !== Lead::TYPE_UNKNOWN && $initialType !== 'unknown') {
+                $startedAsUnknown = ! empty($details[$leadId]['started_as_unknown']);
+                if (! $startedAsUnknown) {
                     continue;
                 }
 
