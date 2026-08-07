@@ -365,5 +365,6 @@
 </script>
 @include('bookingmodule::admin.booking.partials._booking-comment-tagging-scripts')
 @include('bookingmodule::admin.booking.partials._booking-take-followup-scripts')
+@include('bookingmodule::admin.booking.partials._booking-edit-followup-scripts')
 @include('bookingmodule::admin.booking.partials._booking-call-log-scripts')
 @endpush

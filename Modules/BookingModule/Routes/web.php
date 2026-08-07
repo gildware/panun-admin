@@ -49,7 +49,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::delete('comments/{comment}', [BookingCommentController::class, 'destroy'])->middleware(['can:booking_view'])->name('comments.destroy');
         Route::get('todays-followups', [BookingController::class, 'todaysFollowups'])->name('todays_followups');
         Route::post('followup/{id}', [BookingController::class, 'storeFollowup'])->name('followup.store');
-        Route::put('followup/{id}/{followupId}', [BookingController::class, 'updateFollowup'])->name('followup.update');
+        Route::match(['put', 'post'], 'followup/{id}/{followupId}', [BookingController::class, 'updateFollowup'])->name('followup.update');
+        Route::put('followup/{id}/{followupId}/details', [BookingController::class, 'editFollowup'])->middleware(['can:booking_view'])->name('followup.edit');
+        Route::delete('followup/{id}/{followupId}', [BookingController::class, 'destroyFollowup'])->middleware(['can:booking_view'])->name('followup.destroy');
         Route::post('{booking}/call-logs', [BookingController::class, 'storeCallLog'])->middleware(['can:booking_view'])->name('call-logs.store');
         Route::put('{booking}/call-logs/{followup}', [BookingController::class, 'updateCallLog'])->middleware(['can:booking_view'])->name('call-logs.update');
         Route::delete('{booking}/call-logs/{followup}', [BookingController::class, 'destroyCallLog'])->middleware(['can:booking_view'])->name('call-logs.destroy');

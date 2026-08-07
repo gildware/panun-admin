@@ -2510,6 +2510,17 @@ class BookingController extends Controller
         $this->authorize('booking_view');
 
         if (! $request->isMethod('get')) {
+            // Take-follow-up form historically posted here when its action URL was empty.
+            // Route::any(details) would then redirect GET and silently drop the save.
+            if ($this->requestLooksLikeBookingTakeFollowup($request)) {
+                $followupId = $request->input('scheduled_followup_id');
+                if (filled($followupId)) {
+                    return $this->updateFollowup($request, $id, $followupId);
+                }
+
+                Toastr::error(translate('Failed_to_update'));
+            }
+
             return redirect()->route('admin.booking.details', array_merge(
                 ['id' => $id],
                 array_filter($request->only(['web_page', 'activity', 'take']), static fn ($value) => $value !== null && $value !== '')
@@ -2927,7 +2938,7 @@ class BookingController extends Controller
     ): RedirectResponse {
         $validated = $request->validate([
             'for' => ['required', 'in:customer,provider'],
-            'followup_at' => ['required', 'date'],
+            'followup_at' => ['required', 'date', $this->bookingFollowupTakenAtRule()],
             'remarks' => ['nullable', 'string', 'max:1000'],
             'contact_channel' => ['nullable', 'in:'.implode(',', BookingFollowup::CONTACT_CHANNELS)],
             'recording' => voice_recording_file_rules(),
@@ -2942,6 +2953,7 @@ class BookingController extends Controller
         ], [
             'next_followup_at.required' => translate('Next_follow_up_date_is_required'),
             'recording.mimetypes' => translate('Please_upload_a_valid_audio_recording'),
+            'followup_at.required' => translate('Follow_up_taken_at_is_required'),
         ]);
 
         if (($validated['contact_channel'] ?? null) !== BookingFollowup::CHANNEL_CALL && $request->hasFile('recording')) {
@@ -3710,7 +3722,7 @@ class BookingController extends Controller
         $request->merge(['remarks' => trim((string) $request->input('remarks', ''))]);
 
         $validator = Validator::make($request->all(), [
-            'followup_at' => ['required', 'date'],
+            'followup_at' => ['required', 'date', $this->bookingFollowupTakenAtRule()],
             'remarks' => ['required', 'string', 'max:1000'],
             'contact_channel' => ['nullable', 'in:'.implode(',', BookingFollowup::CONTACT_CHANNELS)],
             'recording' => voice_recording_file_rules(),
@@ -3726,6 +3738,7 @@ class BookingController extends Controller
             'next_followup_at.required' => translate('Next_follow_up_date_is_required'),
             'recording.mimetypes' => translate('Please_upload_a_valid_audio_recording'),
             'remarks.required' => translate('Follow_up_remarks_required'),
+            'followup_at.required' => translate('Follow_up_taken_at_is_required'),
         ]);
 
         if ($validator->fails()) {
@@ -3845,6 +3858,84 @@ class BookingController extends Controller
         return $this->redirectAfterBookingFollowup($request, $booking);
     }
 
+    public function editFollowup(Request $request, $id, $followupId): RedirectResponse
+    {
+        $this->authorize('booking_view');
+        $booking = $this->booking->findOrFail($id);
+        $followup = $booking->followups()->findOrFail($followupId);
+
+        $validated = $request->validate([
+            'for' => ['required', 'in:customer,provider'],
+            'date' => ['required', 'date'],
+            'followup_at' => ['nullable', 'date', $this->bookingFollowupTakenAtRule()],
+            'remarks' => ['nullable', 'string', 'max:1000'],
+            'reason' => ['nullable', 'string', 'max:1000'],
+            'contact_channel' => ['nullable', 'in:'.implode(',', BookingFollowup::CONTACT_CHANNELS)],
+            'urgency' => ['nullable', 'in:'.implode(',', BookingFollowup::URGENCIES)],
+            'next_followup_at' => ['nullable', 'date'],
+        ]);
+
+        $payload = [
+            'for' => $validated['for'],
+            'date' => $validated['date'],
+            'remarks' => $validated['remarks'] ?? null,
+            'urgency' => $validated['urgency'] ?? $followup->urgency ?? BookingFollowup::URGENCY_MEDIUM,
+        ];
+
+        if (array_key_exists('reason', $validated)) {
+            $payload['reason'] = $validated['reason'] ?? null;
+        }
+
+        if ($followup->status === 'scheduled') {
+            $payload['followup_at'] = null;
+            $payload['contact_channel'] = null;
+            $payload['next_followup_at'] = null;
+        } else {
+            $payload['followup_at'] = $validated['followup_at'] ?? $followup->followup_at;
+            $payload['contact_channel'] = $validated['contact_channel'] ?? $followup->contact_channel;
+            $payload['next_followup_at'] = $validated['next_followup_at'] ?? null;
+        }
+
+        if ($followup->status === 'rescheduled' && array_key_exists('remarks', $validated)) {
+            $payload['reschedule_reason'] = $validated['remarks'] ?? null;
+        }
+
+        $followup->update($payload);
+
+        Toastr::success(translate('Follow_up_updated_successfully'));
+
+        return $this->redirectAfterBookingFollowup($request, $booking);
+    }
+
+    public function destroyFollowup(Request $request, $id, $followupId): RedirectResponse|JsonResponse
+    {
+        $this->authorize('booking_view');
+        $booking = $this->booking->findOrFail($id);
+        $followup = $booking->followups()->findOrFail($followupId);
+
+        if ($followup->status === 'scheduled') {
+            $message = translate('Cannot_delete_pending_follow_up');
+
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $message], 422);
+            }
+
+            Toastr::error($message);
+
+            return $this->redirectAfterBookingFollowup($request, $booking);
+        }
+
+        $followup->delete();
+
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true]);
+        }
+
+        Toastr::success(translate('Follow_up_deleted_successfully'));
+
+        return $this->redirectAfterBookingFollowup($request, $booking);
+    }
+
     protected function redirectAfterBookingFollowup(Request $request, Booking $booking): RedirectResponse
     {
         return $this->bookingFollowupRedirect($request, $booking);
@@ -3873,6 +3964,76 @@ class BookingController extends Controller
                 $fail(translate('Reschedule_date_must_be_in_the_future'));
             }
         };
+    }
+
+    /**
+     * Taken / logged follow-up time must not be in the future.
+     */
+    protected function bookingFollowupTakenAtRule(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail): void {
+            if ($value === null || $value === '') {
+                return;
+            }
+
+            try {
+                $takenAt = $this->parseBookingFollowupDateTime($value);
+                // 1-minute skew only (browser/server clock drift).
+                if ($takenAt->gt(now()->addMinute())) {
+                    $fail(translate('Follow_up_taken_at_cannot_be_in_the_future'));
+                }
+            } catch (\Throwable) {
+                $fail(translate('Follow_up_taken_at_cannot_be_in_the_future'));
+            }
+        };
+    }
+
+    /**
+     * Parse datetime-local / form datetime values in the same timezone as now().
+     * Admin datetime-local fields use wall-clock values matching now()->format(...).
+     */
+    protected function parseBookingFollowupDateTime(mixed $value): Carbon
+    {
+        if ($value instanceof Carbon) {
+            return $value->copy();
+        }
+
+        $raw = trim((string) $value);
+        $tz = now()->timezoneName ?: (string) config('app.timezone', 'UTC');
+
+        foreach (['Y-m-d\TH:i|', 'Y-m-d\TH:i:s|', 'Y-m-d H:i:s|', 'Y-m-d H:i|'] as $format) {
+            try {
+                $parsed = Carbon::createFromFormat($format, $raw, $tz);
+                if ($parsed !== false) {
+                    return $parsed;
+                }
+            } catch (\Throwable) {
+                // try next format
+            }
+        }
+
+        return Carbon::parse($raw, $tz);
+    }
+
+    /**
+     * Detect take-/reschedule-follow-up payloads that landed on the details route by mistake.
+     */
+    protected function requestLooksLikeBookingTakeFollowup(Request $request): bool
+    {
+        if ($request->input('followup_mode') === 'take') {
+            return true;
+        }
+
+        if ($request->filled('scheduled_followup_id') && (
+            $request->filled('followup_action')
+            || $request->filled('followup_at')
+            || $request->filled('remarks')
+            || $request->filled('next_followup_at')
+        )) {
+            return true;
+        }
+
+        return false;
     }
 
     protected function bookingFollowupRedirect(Request $request, Booking $booking): RedirectResponse

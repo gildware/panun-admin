@@ -1,17 +1,25 @@
 <script>
     (function () {
         var modalEl = document.getElementById('takeFollowupModal');
-        var $modal = $('#takeFollowupModal');
-        var $form = $('#booking-take-followup-form');
-        if (!modalEl || !$form.length) {
+        var formEl = document.getElementById('booking-take-followup-form');
+        if (!modalEl || !formEl) {
             return;
         }
 
         var routesEl = document.getElementById('booking-take-followup-routes');
         var metaEl = document.getElementById('booking-take-followup-meta');
-        var followupRoutes = routesEl ? JSON.parse(routesEl.textContent || '{}') : {};
-        var followupMeta = metaEl ? JSON.parse(metaEl.textContent || '{}') : {};
-        var mandatoryNext = modalEl.getAttribute('data-mandatory-next') === '1';
+        var followupRoutes = {};
+        var followupMeta = {};
+        try {
+            followupRoutes = routesEl ? JSON.parse(routesEl.textContent || '{}') : {};
+        } catch (e) {
+            followupRoutes = {};
+        }
+        try {
+            followupMeta = metaEl ? JSON.parse(metaEl.textContent || '{}') : {};
+        } catch (e) {
+            followupMeta = {};
+        }
 
         var labels = {
             take: @json(translate('Take_Follow_up')),
@@ -28,8 +36,106 @@
             remarksRequired: @json(translate('Follow_up_remarks_required')),
             nextDateRequired: @json(translate('Next_follow_up_date_is_required')),
             nextDateFuture: @json(translate('Reschedule_date_must_be_in_the_future')),
+            takenAtFuture: @json(translate('Follow_up_taken_at_cannot_be_in_the_future')),
             saving: @json(translate('Save_changes')) + '…'
         };
+
+        function showTakeFollowupError(message) {
+            if (typeof toastr !== 'undefined') {
+                toastr.error(message);
+            } else if (window.console && console.error) {
+                console.error(message);
+            }
+        }
+
+        function resolveTakeFollowupAction(trigger) {
+            var followupId = '';
+            var route = '';
+            if (trigger) {
+                followupId = trigger.getAttribute('data-followup-id') || '';
+                route = trigger.getAttribute('data-followup-update-url') || '';
+            }
+            if (!followupId) {
+                var idInput = document.getElementById('booking-followup-id-input');
+                followupId = idInput ? String(idInput.value || '') : '';
+            }
+            if (!route && followupId && followupRoutes[followupId]) {
+                route = followupRoutes[followupId];
+            }
+            return { followupId: followupId, route: (route || '').trim() };
+        }
+
+        function applyTakeFollowupAction(trigger) {
+            var form = document.getElementById('booking-take-followup-form');
+            if (!form) {
+                return false;
+            }
+            var resolved = resolveTakeFollowupAction(trigger);
+            if (!resolved.route) {
+                // Keep an already-correct action if routes map is empty.
+                var existing = (form.getAttribute('action') || '').trim();
+                if (existing && existing.indexOf('/followup/') !== -1) {
+                    return true;
+                }
+                return false;
+            }
+            form.setAttribute('action', resolved.route);
+            form.action = resolved.route;
+            var idInput = document.getElementById('booking-followup-id-input');
+            if (idInput && resolved.followupId) {
+                idInput.value = resolved.followupId;
+            }
+            return true;
+        }
+
+        // Vanilla capture listener — works even if jQuery is not ready yet (partial nav).
+        if (!window.__bookingTakeFollowupActionBound) {
+            window.__bookingTakeFollowupActionBound = true;
+            document.addEventListener('click', function (event) {
+                var trigger = event.target && event.target.closest
+                    ? event.target.closest('[data-booking-take-followup]')
+                    : null;
+                if (!trigger) {
+                    return;
+                }
+                applyTakeFollowupAction(trigger);
+            }, true);
+
+            document.addEventListener('submit', function (event) {
+                if (!event.target || event.target.id !== 'booking-take-followup-form') {
+                    return;
+                }
+                applyTakeFollowupAction(null);
+                var action = (event.target.getAttribute('action') || event.target.action || '').trim();
+                // Ignore same-page / empty actions that would POST to booking details.
+                if (!action || action === window.location.href || action === window.location.pathname) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    showTakeFollowupError(labels.failedToUpdate);
+                }
+            }, true);
+        }
+
+        function bootTakeFollowupScripts() {
+            if (!window.jQuery) {
+                return false;
+            }
+
+            var $ = window.jQuery;
+            var $modal = $('#takeFollowupModal');
+            var $form = $('#booking-take-followup-form');
+            if (!$modal.length || !$form.length) {
+                return false;
+            }
+
+            // Re-bind per modal instance (partial nav replaces the DOM).
+            if ($modal.data('bookingTakeBound')) {
+                return true;
+            }
+            $modal.data('bookingTakeBound', 1);
+
+            var mandatoryNext = ($modal[0] && $modal[0].getAttribute('data-mandatory-next') === '1')
+                || modalEl.getAttribute('data-mandatory-next') === '1';
 
         function readTriggerAttr(trigger, name) {
             return trigger ? (trigger.getAttribute(name) || '') : '';
@@ -40,14 +146,11 @@
                 return false;
             }
 
-            var followupId = readTriggerAttr(trigger, 'data-followup-id');
-            var route = readTriggerAttr(trigger, 'data-followup-update-url') || followupRoutes[followupId] || '';
-            if (!route) {
+            if (!applyTakeFollowupAction(trigger)) {
                 return false;
             }
 
-            $form.attr('action', route);
-            $('#booking-followup-id-input').val(followupId);
+            var followupId = readTriggerAttr(trigger, 'data-followup-id');
 
             var meta = followupMeta[followupId] || {};
             var forParty = readTriggerAttr(trigger, 'data-followup-for') || meta.for || '';
@@ -96,6 +199,32 @@
             ($root && $root.length ? $root : $(document)).find('input.js-followup-future-only').each(function () {
                 this.min = min;
             });
+        }
+
+        function refreshFollowupNotFutureMax(input, clampValue) {
+            if (!input) {
+                return localFollowupScheduleMin();
+            }
+            var max = localFollowupScheduleMin();
+            input.max = max;
+            if (clampValue && input.value && input.value > max) {
+                input.value = max;
+            }
+            return max;
+        }
+
+        function applyFollowupNotFutureMax($root, clampValue) {
+            ($root && $root.length ? $root : $(document)).find('input.js-followup-not-future').each(function () {
+                refreshFollowupNotFutureMax(this, !!clampValue);
+            });
+        }
+
+        function isTakenAtInFuture(input) {
+            if (!input || !input.value) {
+                return false;
+            }
+            var max = refreshFollowupNotFutureMax(input, false);
+            return input.value > max;
         }
 
         function toggleBookingFollowupRecordingField() {
@@ -168,6 +297,7 @@
             }
 
             applyFollowupFutureMin($modal);
+            applyFollowupNotFutureMax($modal, true);
         }
 
         function bindFollowupCopyButtons($scope) {
@@ -236,7 +366,16 @@
                         $table.find('tr.booking-followup-row.is-open, tr.lead-followup-row.is-open, tr.booking-call-log-row.is-open').removeClass('is-open');
                         $table.find('tr.voice-call-details-row').addClass('d-none');
                         $table.find('.voice-call-details-toggle[aria-expanded="true"]').each(function () {
-                            $(this).attr('aria-expanded', 'false').text(@json(translate('View')));
+                            var $toggle = $(this);
+                            $toggle.attr('aria-expanded', 'false');
+                            var $icon = $toggle.find('.js-followup-view-icon');
+                            if ($icon.length) {
+                                $icon.text('visibility');
+                                $toggle.attr('title', @json(translate('View')));
+                                $toggle.attr('aria-label', @json(translate('View')));
+                            } else {
+                                $toggle.text(@json(translate('View')));
+                            }
                         });
                         pauseBookingFollowupRecordings($table.find('tr.voice-call-details-row'));
                     }
@@ -244,7 +383,15 @@
                     $detailsRow.toggleClass('d-none', !isHidden);
                     $row.toggleClass('is-open', isHidden);
                     $btn.attr('aria-expanded', isHidden ? 'true' : 'false');
-                    $btn.text(isHidden ? @json(translate('Hide')) : @json(translate('View')));
+
+                    var $viewIcon = $btn.find('.js-followup-view-icon');
+                    if ($viewIcon.length) {
+                        $viewIcon.text(isHidden ? 'visibility_off' : 'visibility');
+                        $btn.attr('title', isHidden ? @json(translate('Hide')) : @json(translate('View')));
+                        $btn.attr('aria-label', isHidden ? @json(translate('Hide')) : @json(translate('View')));
+                    } else {
+                        $btn.text(isHidden ? @json(translate('Hide')) : @json(translate('View')));
+                    }
 
                     if (isHidden) {
                         bindFollowupCopyButtons($detailsRow);
@@ -280,7 +427,28 @@
                 return false;
             }
 
+            applyFollowupNotFutureMax($modal, false);
+
             var followupAction = $('input[name="followup_action"]:checked').val();
+            if (followupAction !== '{{ \Modules\BookingModule\Entities\BookingFollowup::ACTION_RESCHEDULE }}') {
+                var takenAtInput = document.getElementById('booking-followup-at-input');
+                var takenAt = (takenAtInput && takenAtInput.value) ? takenAtInput.value.trim() : '';
+                if (!takenAt) {
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error(@json(translate('Follow_up_taken_at_is_required')));
+                    }
+                    $('#booking-followup-at-input').focus();
+                    return false;
+                }
+                if (isTakenAtInFuture(takenAtInput)) {
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error(labels.takenAtFuture);
+                    }
+                    $('#booking-followup-at-input').focus();
+                    return false;
+                }
+            }
+
             var remarks = ($('#booking-followup-remarks-input').val() || '').trim();
             if (followupAction !== '{{ \Modules\BookingModule\Entities\BookingFollowup::ACTION_RESCHEDULE }}' && remarks === '') {
                 if (typeof toastr !== 'undefined') {
@@ -327,6 +495,7 @@
                     $form.attr('action', followupRoutes[storedFollowupId]);
                     toggleBookingFollowupActionFields();
                     applyFollowupFutureMin($modal);
+                    applyFollowupNotFutureMax($modal, true);
                     return;
                 }
             }
@@ -340,10 +509,22 @@
             }
 
             applyFollowupFutureMin($modal);
+            applyFollowupNotFutureMax($modal, true);
         });
 
         $modal.on('hidden.bs.modal', function () {
             modalEl.removeAttribute('data-reopen-on-load');
+        });
+
+        $(document).on('change input', '#booking-followup-at-input', function () {
+            if (isTakenAtInFuture(this)) {
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(labels.takenAtFuture);
+                }
+                refreshFollowupNotFutureMax(this, true);
+            } else {
+                refreshFollowupNotFutureMax(this, false);
+            }
         });
 
         $(document).on('change', '#booking-followup-contact-channel', toggleBookingFollowupRecordingField);
@@ -389,40 +570,68 @@
         });
 
         $form.on('submit', function (event) {
-            if (!validateTakeFollowupForm()) {
-                event.preventDefault();
-                return;
-            }
-
-            // Ensure action is set one last time before browser submit.
+            applyTakeFollowupAction(null);
             var action = ($form.attr('action') || '').trim();
             if (!action) {
                 event.preventDefault();
-                if (typeof toastr !== 'undefined') {
-                    toastr.error(labels.failedToUpdate);
-                }
+                showTakeFollowupError(labels.failedToUpdate);
+                return;
+            }
+
+            if (!validateTakeFollowupForm()) {
+                event.preventDefault();
             }
         });
+
+        var liveModalEl = $modal[0] || modalEl;
 
         var takeId = new URLSearchParams(window.location.search).get('take');
         if (takeId) {
             var takeBtn = document.querySelector('[data-booking-take-followup][data-followup-id="' + takeId + '"]');
             if (takeBtn && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-                bootstrap.Modal.getOrCreateInstance(modalEl).show(takeBtn);
+                applyTakeFollowupAction(takeBtn);
+                bootstrap.Modal.getOrCreateInstance(liveModalEl).show(takeBtn);
             }
         }
 
-        if (modalEl.getAttribute('data-reopen-on-load') === '1') {
+        if (liveModalEl.getAttribute('data-reopen-on-load') === '1') {
             var storedFollowupId = String($('#booking-followup-id-input').val() || '');
             var reopenTrigger = storedFollowupId
                 ? document.querySelector('[data-booking-take-followup][data-followup-id="' + storedFollowupId + '"]')
                 : null;
 
             if (reopenTrigger && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-                bootstrap.Modal.getOrCreateInstance(modalEl).show(reopenTrigger);
+                applyTakeFollowupAction(reopenTrigger);
+                bootstrap.Modal.getOrCreateInstance(liveModalEl).show(reopenTrigger);
             } else if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                applyTakeFollowupAction(null);
+                bootstrap.Modal.getOrCreateInstance(liveModalEl).show();
             }
+        }
+
+        @if($errors->has('followup_at') && old('followup_mode') === 'take')
+        if (typeof toastr !== 'undefined') {
+            toastr.error(@json($errors->first('followup_at')));
+        }
+        @endif
+
+            return true;
+        }
+
+        if (!bootTakeFollowupScripts()) {
+            document.addEventListener('DOMContentLoaded', function () {
+                bootTakeFollowupScripts();
+            });
+            document.addEventListener('admin:page-loaded', function () {
+                bootTakeFollowupScripts();
+            });
+            window.addEventListener('load', function () {
+                bootTakeFollowupScripts();
+            });
+        } else {
+            document.addEventListener('admin:page-loaded', function () {
+                bootTakeFollowupScripts();
+            });
         }
     })();
 </script>
