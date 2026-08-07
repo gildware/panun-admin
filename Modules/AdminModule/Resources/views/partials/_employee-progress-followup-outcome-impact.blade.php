@@ -30,10 +30,10 @@
 
     <div class="outcome-scope-block">
         @include('adminmodule::partials._employee-progress-section-label', [
-            'label' => translate('Progress_general_result') ?? 'General result',
+            'label' => translate('Progress_general_result') ?? 'Unknown → result',
             'helpKey' => 'lead_followup_outcome_general',
         ])
-        <p class="section-sub">{{ translate('Progress_general_result_sub') ?? 'After on-time, late, or missed follow-ups — how many leads are now customer, provider, future customer, or invalid.' }}</p>
+        <p class="section-sub">{{ translate('Progress_general_result_sub') ?? 'Leads that started as Unknown: after on-time, late, or missed follow-ups — how many became customer, provider, future customer, invalid, or are still unknown.' }}</p>
 
         <div class="outcome-timing-grid">
             @forelse($generalRows as $row)

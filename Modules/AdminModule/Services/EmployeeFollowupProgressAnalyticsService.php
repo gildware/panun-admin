@@ -711,12 +711,20 @@ class EmployeeFollowupProgressAnalyticsService
             $type = (string) ($lead->lead_type ?? '');
             $histories = $historiesByLead->get($lead->id) ?? collect();
             $latestHistory = $histories->first();
+            $oldestHistory = $histories->sortBy('created_at')->first();
+            $initialType = $oldestHistory
+                ? (string) ($oldestHistory->type ?? '')
+                : $type;
+            if ($initialType === '') {
+                $initialType = Lead::TYPE_UNKNOWN;
+            }
 
             if ($type === Lead::TYPE_INVALID) {
                 $details[$leadId] = [
                     'outcome' => 'invalid',
                     'segment' => $this->priorLeadSegmentFromHistories($histories, $type),
                     'lead_type' => Lead::TYPE_INVALID,
+                    'initial_lead_type' => $initialType,
                 ];
                 continue;
             }
@@ -733,6 +741,7 @@ class EmployeeFollowupProgressAnalyticsService
                     'outcome' => $this->classifyCustomerLeadOutcome($baseType, $bookingStatus, $hasBooking),
                     'segment' => Lead::TYPE_CUSTOMER,
                     'lead_type' => Lead::TYPE_CUSTOMER,
+                    'initial_lead_type' => $initialType,
                 ];
                 continue;
             }
@@ -749,6 +758,7 @@ class EmployeeFollowupProgressAnalyticsService
                     'outcome' => $this->classifyCustomerLeadOutcome($baseType, $bookingStatus, $hasBooking),
                     'segment' => Lead::TYPE_FUTURE_CUSTOMER,
                     'lead_type' => Lead::TYPE_FUTURE_CUSTOMER,
+                    'initial_lead_type' => $initialType,
                 ];
                 continue;
             }
@@ -763,6 +773,7 @@ class EmployeeFollowupProgressAnalyticsService
                     'outcome' => $this->classifyProviderLeadOutcome($baseType),
                     'segment' => Lead::TYPE_PROVIDER,
                     'lead_type' => Lead::TYPE_PROVIDER,
+                    'initial_lead_type' => $initialType,
                 ];
                 continue;
             }
@@ -771,6 +782,7 @@ class EmployeeFollowupProgressAnalyticsService
                 'outcome' => 'pending',
                 'segment' => 'unknown',
                 'lead_type' => 'unknown',
+                'initial_lead_type' => $initialType,
             ];
         }
 
@@ -830,8 +842,10 @@ class EmployeeFollowupProgressAnalyticsService
     }
 
     /**
+     * Unknown-origin leads only: after on-time / late / missed follow-ups, what type they are now.
+     *
      * @param  array<string, string>  $disciplineMap
-     * @param  array<string, array{outcome: string, segment: string, lead_type?: string}>  $details
+     * @param  array<string, array{outcome: string, segment: string, lead_type?: string, initial_lead_type?: string}>  $details
      * @param  list<string>  $disciplineKeys
      * @param  list<string>  $disciplineLabels
      * @return list<array<string, mixed>>
@@ -853,6 +867,12 @@ class EmployeeFollowupProgressAnalyticsService
                 if ($timing !== $key) {
                     continue;
                 }
+
+                $initialType = (string) ($details[$leadId]['initial_lead_type'] ?? '');
+                if ($initialType !== Lead::TYPE_UNKNOWN && $initialType !== 'unknown') {
+                    continue;
+                }
+
                 $type = (string) ($details[$leadId]['lead_type'] ?? 'unknown');
                 if (! array_key_exists($type, $counts)) {
                     $type = 'unknown';
