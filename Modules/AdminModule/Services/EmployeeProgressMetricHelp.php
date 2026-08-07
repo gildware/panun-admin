@@ -420,14 +420,14 @@ class EmployeeProgressMetricHelp
             $help["{$scope}_followup_outcome_impact"] = self::entry(
                 translate('Progress_followup_outcome_impact'),
                 $scope === 'lead'
-                    ? 'Shows the overall lead-type result after follow-ups, then customer and provider outcome detail.'
+                    ? 'Unknown → result after follow-ups, then customer and provider outcome detail.'
                     : 'Compare three groups: on-time, late, and missed. The big number is completion rate; the bar shows completed vs cancelled vs still pending.',
             );
 
             if ($scope === 'lead') {
                 $help['lead_followup_outcome_general'] = self::entry(
-                    translate('Progress_general_result') ?? 'General result',
-                    'For each follow-up timing group, shows how many leads are now customer, provider, future customer, or invalid.',
+                    translate('Progress_general_result') ?? 'Unknown → result',
+                    'Only leads that started as Unknown. For each follow-up timing (on-time, late, missed), shows what they became: customer, provider, future customer, invalid, or still unknown.',
                 );
                 $help['lead_followup_outcome_customer'] = self::entry(
                     (translate('Customer') ?? 'Customer').' '.translate('Leads'),
