@@ -30,7 +30,7 @@ class EmployeeProgressScoreService
     public static function weightLegend(): array
     {
         return [
-            ['key' => 'bookings_handled', 'label' => translate('Bookings_Handled') ?? 'Bookings handled', 'points' => self::POINTS_BOOKINGS_HANDLED, 'sign' => '+'],
+            ['key' => 'bookings_created', 'label' => translate('Bookings_created') ?? 'Bookings created', 'points' => self::POINTS_BOOKINGS_HANDLED, 'sign' => '+'],
             ['key' => 'leads_handled', 'label' => translate('Leads_Handled') ?? 'Leads handled', 'points' => self::POINTS_LEADS_HANDLED, 'sign' => '+'],
             ['key' => 'whatsapp_replies', 'label' => translate('WhatsApp_Replies') ?? 'Chat replies', 'points' => self::POINTS_CHAT_REPLIES, 'sign' => '+'],
             ['key' => 'missed_followups', 'label' => translate('Progress_missed_followups'), 'points' => self::PENALTY_MISSED_FOLLOWUP, 'sign' => '−'],
@@ -59,6 +59,7 @@ class EmployeeProgressScoreService
         }
 
         $missedByEmployee = $this->missedFollowupsByEmployee($employeeIds, $periodStart, $periodEnd);
+        $leadsByEmployee = $this->leadsHandledByEmployee($employeeIds, $periodStart, $periodEnd);
         $ranked = [];
 
         foreach ($employeeTotals as $employeeRow) {
@@ -70,6 +71,7 @@ class EmployeeProgressScoreService
             $ranked[] = $this->scoreEmployeeRow(
                 $employeeRow,
                 (int) ($missedByEmployee[$employeeId] ?? 0),
+                (int) ($leadsByEmployee[$employeeId] ?? 0),
             );
         }
 
@@ -94,18 +96,19 @@ class EmployeeProgressScoreService
      * @param  array<string, mixed>  $employeeRow
      * @return array<string, mixed>
      */
-    public function scoreEmployeeRow(array $employeeRow, int $missedFollowups): array
+    public function scoreEmployeeRow(array $employeeRow, int $missedFollowups, ?int $leadsHandledOverride = null): array
     {
-        $bookingsHandled = (int) ($employeeRow['bookings_handled'] ?? 0);
-        $leadsHandled = (int) ($employeeRow['leads_handled'] ?? 0);
+        // Match Bookings / Leads tab heroes: created bookings + assigned leads in period.
+        $bookingsCreated = (int) ($employeeRow['bookings_created'] ?? 0);
+        $leadsHandled = $leadsHandledOverride ?? (int) ($employeeRow['leads_assigned'] ?? $employeeRow['leads_handled'] ?? 0);
         $chatReplies = (int) ($employeeRow['whatsapp_replies'] ?? 0);
         $cancelled = (int) ($employeeRow['bookings_cancelled'] ?? 0);
 
         $marks = [
             $this->markLine(
-                'bookings_handled',
-                translate('Bookings_Handled') ?? 'Bookings handled',
-                $bookingsHandled,
+                'bookings_created',
+                translate('Bookings_created') ?? 'Bookings created',
+                $bookingsCreated,
                 self::POINTS_BOOKINGS_HANDLED,
                 true,
             ),
@@ -146,7 +149,7 @@ class EmployeeProgressScoreService
         return [
             'employee_id' => (string) ($employeeRow['employee_id'] ?? ''),
             'name' => (string) ($employeeRow['employee_name'] ?? ''),
-            'bookings' => $bookingsHandled,
+            'bookings' => $bookingsCreated,
             'leads' => $leadsHandled,
             'chats' => $chatReplies,
             'followups' => (int) ($employeeRow['lead_followups'] ?? 0) + (int) ($employeeRow['booking_followups'] ?? 0),
@@ -158,6 +161,39 @@ class EmployeeProgressScoreService
             'marks' => $marks,
             'revenue' => with_currency_symbol(0),
         ];
+    }
+
+    /**
+     * Same definition as Leads tab: leads assigned to the employee with received date in period.
+     *
+     * @param  list<string>  $employeeIds
+     * @return array<string, int>
+     */
+    public function leadsHandledByEmployee(array $employeeIds, Carbon $periodStart, Carbon $periodEnd): array
+    {
+        $counts = array_fill_keys($employeeIds, 0);
+
+        if ($employeeIds === []) {
+            return $counts;
+        }
+
+        $rows = Lead::query()
+            ->selectRaw('handled_by, COUNT(*) as cnt')
+            ->whereIn('handled_by', $employeeIds)
+            ->whereBetween('date_time_of_lead_received', [
+                $periodStart->copy()->startOfDay(),
+                $periodEnd->copy()->endOfDay(),
+            ])
+            ->whereNotNull('handled_by')
+            ->where('handled_by', '!=', Lead::HANDLED_BY_AI)
+            ->groupBy('handled_by')
+            ->pluck('cnt', 'handled_by');
+
+        foreach ($rows as $id => $count) {
+            $counts[(string) $id] = (int) $count;
+        }
+
+        return $counts;
     }
 
     /**
