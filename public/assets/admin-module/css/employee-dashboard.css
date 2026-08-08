@@ -812,6 +812,27 @@
     --bs-gutter-x: 0.5rem;
     --bs-gutter-y: 0.5rem;
 }
+/* Employee dashboard: shorter widgets (admin layout unchanged) */
+.emp-dash--employee {
+    --wq-widget-height: 240px;
+}
+.emp-dash--employee .progress-shell-header {
+    padding: 6px 10px;
+}
+.emp-dash--employee .progress-shell-title {
+    font-size: 14px;
+}
+.emp-dash--employee .progress-shell-sub {
+    font-size: 11px;
+}
+.emp-dash--employee .progress-shell-body {
+    padding: 4px 6px 6px;
+}
+.emp-dash--employee .progress-cards-row--employee {
+    align-items: flex-start !important;
+    --bs-gutter-x: 0.35rem;
+    --bs-gutter-y: 0.35rem;
+}
 @media (min-width: 992px) {
     .emp-dash .progress-cards-row--employee > .progress-metrics-col--left {
         flex: 0 0 60%;
@@ -824,39 +845,95 @@
         width: 40%;
     }
 }
-/* Employee ranking: dense single-card (admin keeps overview cards) */
-.emp-dash .progress-cards-row--employee > .progress-metrics-col--rank {
-    align-self: stretch;
-}
-.emp-dash .progress-cards-row--employee .progress-card--rank {
+.emp-dash .progress-cards-row--employee .progress-metrics-stack {
+    gap: 4px;
     height: auto;
     min-height: 0;
+    flex: 0 0 auto;
 }
-.emp-dash .progress-cards-row--employee .progress-card--rank .progress-card-header {
-    min-height: 28px;
-    padding: 4px 8px;
+.emp-dash .progress-cards-row--employee .progress-metrics-stack > .progress-card,
+.emp-dash .progress-cards-row--employee .progress-card {
+    flex: 0 0 auto;
+    height: auto;
+    min-height: 0;
+    border-radius: 6px;
 }
-.emp-dash .progress-cards-row--employee .progress-card--rank .progress-card-title {
+.emp-dash .progress-cards-row--employee .progress-card-header {
+    min-height: 26px;
+    padding: 3px 7px;
+}
+.emp-dash .progress-cards-row--employee .progress-card-title {
     font-size: 12px;
 }
-.emp-dash .progress-cards-row--employee .progress-card--rank .progress-tab {
+.emp-dash .progress-cards-row--employee .progress-tab {
     padding: 2px 7px;
     font-size: 10px;
 }
-.emp-dash .progress-cards-row--employee .progress-card--rank .progress-card-body {
-    padding: 5px 6px 6px;
+.emp-dash .progress-cards-row--employee .progress-card-body {
+    flex: 0 0 auto;
+    padding: 4px 6px 6px;
 }
-.emp-dash .progress-cards-row--employee .progress-card--rank .activity-panel {
-    gap: 4px;
+.emp-dash .progress-cards-row--employee .activity-panel {
+    flex: 0 0 auto;
+    gap: 3px;
 }
-.emp-dash .progress-cards-row--employee .progress-card--rank .activity-panel-meta {
+.emp-dash .progress-cards-row--employee .activity-panel-meta {
     font-size: 11px;
 }
-.emp-dash .progress-cards-row--employee .progress-card--rank .progress-summary-badge {
+.emp-dash .progress-cards-row--employee .progress-summary-badge {
     min-width: 22px;
     height: 20px;
     font-size: 10px;
     padding: 0 5px;
+}
+.emp-dash .progress-cards-row--employee .lead-metric-grid--dashboard {
+    grid-auto-rows: auto;
+    gap: 3px;
+    flex: 0 0 auto;
+}
+.emp-dash .progress-cards-row--employee .lead-metric-grid--dashboard > * {
+    height: auto;
+    min-height: 0;
+}
+.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card {
+    padding: 5px 6px 5px;
+    min-height: 0 !important;
+    height: auto;
+    border-radius: 6px;
+}
+.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card .fmc-top {
+    gap: 4px;
+}
+.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card .fmc-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+}
+.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card .fmc-icon .mso {
+    font-size: 12px;
+}
+.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card .fmc-lbl {
+    font-size: 9px;
+    min-height: 0;
+    line-height: 1.2;
+}
+.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card .fmc-val {
+    font-size: 15px;
+    margin-top: 2px;
+    line-height: 1;
+}
+.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card .fmc-foot {
+    margin-top: 3px;
+    padding-top: 3px;
+    gap: 2px;
+}
+.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card .fmc-share {
+    font-size: 9px;
+    -webkit-line-clamp: 1;
+    line-height: 1.2;
+}
+.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card .fmc-bar {
+    height: 2px;
 }
 .emp-dash .progress-cards-row--employee .team-rank-cards,
 .emp-dash .progress-cards-row--employee .rank-item--dash {

@@ -3,7 +3,7 @@
 @section('title', translate('dashboard'))
 
 @push('css_or_js')
-<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-dashboard.css') }}?v=20260808ay">
+<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-dashboard.css') }}?v=20260808az">
 <link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260808ao">
 @endpush
 
@@ -20,7 +20,7 @@
     $defaultDashboardScope = $employeeData['default_dashboard_scope'] ?? '__all__';
 @endphp
 
-<div class="main-content emp-dash">
+<div class="main-content emp-dash {{ is_admin_employee() ? 'emp-dash--employee' : 'emp-dash--admin' }}">
     <div class="container-fluid">
         @if(! is_admin_employee())
             <div class="emp-dash-topbar">
