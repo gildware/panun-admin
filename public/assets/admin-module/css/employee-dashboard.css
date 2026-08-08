@@ -813,16 +813,33 @@
     --bs-gutter-y: 0.5rem;
 }
 @media (min-width: 992px) {
-    .emp-dash .progress-cards-row--metrics > .progress-metrics-col--left {
+    .emp-dash .progress-cards-row--employee > .progress-metrics-col--left {
         flex: 0 0 60%;
         max-width: 60%;
         width: 60%;
     }
-    .emp-dash .progress-cards-row--metrics > .progress-metrics-col--rank {
+    .emp-dash .progress-cards-row--employee > .progress-metrics-col--rank {
         flex: 0 0 40%;
         max-width: 40%;
         width: 40%;
     }
+}
+.emp-dash .progress-cards-row--admin > .progress-metrics-col--rank {
+    flex: 0 0 100%;
+    max-width: 100%;
+    width: 100%;
+}
+.emp-dash .progress-cards-row--admin .team-rank-cards {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 8px;
+}
+.emp-dash .progress-cards-row--admin .rank-item--dash {
+    flex: 1 1 240px;
+    min-width: min(240px, 100%);
+    max-width: 100%;
+    height: auto;
 }
 .emp-dash .progress-cards-row--metrics > [class*="col-"] {
     display: flex;
