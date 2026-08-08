@@ -177,24 +177,15 @@ class EmployeeProgressScoreService
 
         foreach (self::LATE_PENALTY_BUCKETS as $bucket) {
             $bucketKey = $bucket['key'];
-            $bucketData = $latePenalty['buckets'][$bucketKey] ?? [
-                'count' => 0,
-                'unit_points' => $bucket['points'],
-                'points' => 0,
-                'label' => translate('Progress_'.$bucketKey) ?? $bucket['label'],
-            ];
+            $bucketData = $latePenalty['buckets'][$bucketKey] ?? [];
             $count = (int) ($bucketData['count'] ?? 0);
-            if ($count <= 0) {
-                continue;
-            }
-            $marks[] = [
-                'key' => $bucketKey,
-                'label' => (string) ($bucketData['label'] ?? $bucket['label']),
-                'count' => $count,
-                'unit_points' => (int) ($bucketData['unit_points'] ?? $bucket['points']),
-                'points' => (int) ($bucketData['points'] ?? 0),
-                'positive' => false,
-            ];
+            $marks[] = $this->markLine(
+                $bucketKey,
+                self::lateBucketLabel($bucket),
+                $count,
+                (int) ($bucketData['unit_points'] ?? $bucket['points']),
+                false,
+            );
         }
 
         $quantityScore = 0;
