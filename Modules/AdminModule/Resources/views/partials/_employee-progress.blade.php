@@ -179,22 +179,10 @@
                                     <span class="progress-summary-badge is-active">{{ $dailySub }}</span>
                                 </div>
                             @endif
-                            @if($teamRankRowsDaily !== [])
-                                <div class="team-rank-list">
-                                    @foreach($teamRankRowsDaily as $row)
-                                        @php
-                                            $isHighlighted = $highlightEmployeeId && (string) $highlightEmployeeId === (string) ($row['employee_id'] ?? '');
-                                        @endphp
-                                        <div class="team-rank-row {{ $isHighlighted ? 'is-highlighted' : '' }}">
-                                            <span class="team-rank-num">#{{ $row['rank'] }}</span>
-                                            <span class="team-rank-name">{{ $row['label'] }}</span>
-                                            <span class="team-rank-score">{{ $row['score'] }}</span>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            @else
-                                <div class="progress-empty">{{ translate('Progress_solo_team') }}</div>
-                            @endif
+                            @include('adminmodule::partials._employee-progress-team-rank-cards', [
+                                'rows' => $teamRankRowsDaily,
+                                'highlightEmployeeId' => $highlightEmployeeId,
+                            ])
                         </div>
                         <div data-panel="ranking-monthly" class="activity-panel">
                             @php $monthlySub = $rankSubtitle($teamRankRowsMonthly); @endphp
@@ -204,22 +192,10 @@
                                     <span class="progress-summary-badge is-active">{{ $monthlySub }}</span>
                                 @endif
                             </div>
-                            @if($teamRankRowsMonthly !== [])
-                                <div class="team-rank-list">
-                                    @foreach($teamRankRowsMonthly as $row)
-                                        @php
-                                            $isHighlighted = $highlightEmployeeId && (string) $highlightEmployeeId === (string) ($row['employee_id'] ?? '');
-                                        @endphp
-                                        <div class="team-rank-row {{ $isHighlighted ? 'is-highlighted' : '' }}">
-                                            <span class="team-rank-num">#{{ $row['rank'] }}</span>
-                                            <span class="team-rank-name">{{ $row['label'] }}</span>
-                                            <span class="team-rank-score">{{ $row['score'] }}</span>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            @else
-                                <div class="progress-empty">{{ translate('Progress_solo_team') }}</div>
-                            @endif
+                            @include('adminmodule::partials._employee-progress-team-rank-cards', [
+                                'rows' => $teamRankRowsMonthly,
+                                'highlightEmployeeId' => $highlightEmployeeId,
+                            ])
                         </div>
                     </div>
                 </div>
