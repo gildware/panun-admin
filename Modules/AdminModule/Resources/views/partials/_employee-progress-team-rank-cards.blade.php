@@ -26,6 +26,9 @@
                         <div class="rank-name">{{ $row['label'] }}</div>
                         <div class="rank-sub">
                             {{ translate('Quantity') ?? 'Quantity' }} {{ (int) ($row['quantity_score'] ?? 0) }}
+                            @if((int) ($row['helped_score'] ?? 0) > 0)
+                                · {{ translate('Progress_helped_others') ?? 'Helped other' }} {{ (int) ($row['helped_score'] ?? 0) }}
+                            @endif
                             · {{ translate('Penalties') ?? 'Penalties' }} {{ (int) ($row['penalty_score'] ?? 0) }}
                         </div>
                         <div class="rank-bar"><i style="width: {{ $barPct }}%"></i></div>
@@ -34,6 +37,11 @@
                 </div>
                 @include('adminmodule::partials._employee-progress-rank-marks', [
                     'marks' => $row['marks'] ?? [],
+                    'helpedMarks' => $row['helped_marks'] ?? [],
+                    'quantityScore' => (int) ($row['quantity_score'] ?? 0),
+                    'helpedScore' => (int) ($row['helped_score'] ?? 0),
+                    'penaltyScore' => (int) ($row['penalty_score'] ?? 0),
+                    'grandScore' => (int) ($row['score'] ?? 0),
                 ])
             </div>
         @endforeach

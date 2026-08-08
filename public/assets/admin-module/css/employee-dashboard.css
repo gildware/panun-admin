@@ -12,6 +12,22 @@
     --wq-hot: #dc2626;
     --wq-hot-soft: #fef2f2;
     --wq-widget-height: 300px;
+    --rm-green: #059669;
+    --rm-green-soft: #ecfdf5;
+    --rm-green-border: #a7f3d0;
+    --rm-green-text: #047857;
+    --rm-blue: #2563eb;
+    --rm-blue-soft: #eff6ff;
+    --rm-blue-border: #bfdbfe;
+    --rm-blue-text: #1d4ed8;
+    --rm-red: #dc2626;
+    --rm-red-soft: #fef2f2;
+    --rm-red-border: #fecaca;
+    --rm-red-text: #b91c1c;
+    --rm-slate: #475569;
+    --rm-slate-soft: #f8fafc;
+    --rm-slate-border: #e2e8f0;
+    --rm-slate-text: #334155;
 }
 .emp-dash .tone-lead { --wq-tone: #2563eb; --wq-tone-soft: #eff6ff; --wq-tone-border: #bfdbfe; --wq-tone-header-text: #1e40af; }
 .emp-dash .tone-booking { --wq-tone: #0891b2; --wq-tone-soft: #ecfeff; --wq-tone-border: #a5f3fc; --wq-tone-header-text: #0e7490; }
@@ -501,6 +517,109 @@
 }
 .emp-dash .rank-item--dash .rank-marks {
     margin-top: 0;
+}
+.emp-dash .rank-marks {
+    margin-top: 6px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--rm-slate-border);
+    background: #fff;
+}
+.emp-dash .rank-marks:first-child {
+    margin-top: 0;
+}
+.emp-dash .rank-marks-section-title {
+    padding: 5px 6px 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-bottom: 1px solid transparent;
+}
+.emp-dash .rank-marks--self {
+    border-color: var(--rm-green-border);
+}
+.emp-dash .rank-marks--self .rank-marks-section-title {
+    color: var(--rm-green-text);
+    background: var(--rm-green-soft);
+    border-bottom-color: var(--rm-green-border);
+}
+.emp-dash .rank-marks--self .rank-marks-table th {
+    color: var(--rm-green-text);
+    background: #f6fef9;
+    border-bottom-color: var(--rm-green-border);
+}
+.emp-dash .rank-marks--helped {
+    border-color: var(--rm-blue-border);
+}
+.emp-dash .rank-marks--helped .rank-marks-section-title {
+    color: var(--rm-blue-text);
+    background: var(--rm-blue-soft);
+    border-bottom-color: var(--rm-blue-border);
+}
+.emp-dash .rank-marks--helped .rank-marks-table th {
+    color: var(--rm-blue-text);
+    background: #f5f9ff;
+    border-bottom-color: var(--rm-blue-border);
+}
+.emp-dash .rank-marks--penalties {
+    border-color: var(--rm-red-border);
+}
+.emp-dash .rank-marks--penalties .rank-marks-section-title {
+    color: var(--rm-red-text);
+    background: var(--rm-red-soft);
+    border-bottom-color: var(--rm-red-border);
+}
+.emp-dash .rank-marks--penalties .rank-marks-table th {
+    color: var(--rm-red-text);
+    background: #fff7f7;
+    border-bottom-color: var(--rm-red-border);
+}
+.emp-dash .rank-marks--summary {
+    border-color: var(--rm-slate-border);
+}
+.emp-dash .rank-marks--summary .rank-marks-section-title {
+    color: var(--rm-slate-text);
+    background: var(--rm-slate-soft);
+    border-bottom-color: var(--rm-slate-border);
+}
+.emp-dash .rank-marks-table tr.is-plus .rank-mark-unit,
+.emp-dash .rank-marks-table tr.is-plus .rank-mark-total {
+    color: var(--rm-green);
+    font-weight: 700;
+}
+.emp-dash .rank-marks--helped .rank-marks-table tr.is-plus .rank-mark-unit,
+.emp-dash .rank-marks--helped .rank-marks-table tr.is-plus .rank-mark-total {
+    color: var(--rm-blue);
+}
+.emp-dash .rank-marks-table tr.is-minus .rank-mark-type,
+.emp-dash .rank-marks-table tr.is-minus .rank-mark-qty,
+.emp-dash .rank-marks-table tr.is-minus .rank-mark-unit,
+.emp-dash .rank-marks-table tr.is-minus .rank-mark-total,
+.emp-dash .rank-marks-table--summary tr.is-minus .rank-mark-total {
+    color: var(--rm-red);
+    font-weight: 700;
+}
+.emp-dash .rank-marks-table--summary tbody tr.rank-marks-summary-row td {
+    border-bottom: 1px solid #e2e8f0;
+    font-weight: 600;
+}
+.emp-dash .rank-marks-table--summary tbody tr.rank-marks-summary-row:last-child td {
+    border-bottom: none;
+}
+.emp-dash .rank-marks-summary-row--help .rank-mark-total {
+    color: var(--rm-blue);
+}
+.emp-dash .rank-marks-summary-row.is-plus .rank-mark-total {
+    color: var(--rm-green);
+}
+.emp-dash .rank-marks-summary-row--grand td {
+    background: var(--rm-slate-soft);
+    font-weight: 700;
+}
+.emp-dash .rank-marks-summary-row--grand .rank-mark-total {
+    color: var(--rm-slate-text);
+    font-size: 12px;
 }
 .emp-dash .rank-item--dash .rank-marks-table {
     font-size: 11px;

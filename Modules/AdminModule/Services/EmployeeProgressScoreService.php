@@ -4,9 +4,13 @@ namespace Modules\AdminModule\Services;
 
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingFollowup;
+use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\LeadManagement\Entities\Lead;
+use Modules\LeadManagement\Entities\LeadChangeLog;
 use Modules\LeadManagement\Entities\LeadFollowup;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Entities\ProviderLeadStatus;
@@ -24,6 +28,14 @@ class EmployeeProgressScoreService
     public const POINTS_LEADS_HANDLED = 3;
 
     public const POINTS_PROVIDERS_REGISTERED = 10;
+
+    public const POINTS_HELPED_LEAD_FOLLOWUP = 1;
+
+    public const POINTS_HELPED_BOOKING_FOLLOWUP = 1;
+
+    public const POINTS_HELPED_BOOKING_UPDATE = 2;
+
+    public const POINTS_HELPED_LEAD_UPDATE = 1;
 
     /** @var list<array{key: string, max_minutes: int|null, points: int, label: string}> */
     public const LATE_PENALTY_BUCKETS = [
@@ -72,6 +84,11 @@ class EmployeeProgressScoreService
             ];
         }
 
+        $legend[] = ['key' => 'helped_lead_followups', 'label' => translate('Progress_helped_lead_followups') ?? 'Lead follow-ups for others', 'points' => self::POINTS_HELPED_LEAD_FOLLOWUP, 'sign' => '+'];
+        $legend[] = ['key' => 'helped_booking_followups', 'label' => translate('Progress_helped_booking_followups') ?? 'Booking follow-ups for others', 'points' => self::POINTS_HELPED_BOOKING_FOLLOWUP, 'sign' => '+'];
+        $legend[] = ['key' => 'helped_booking_updates', 'label' => translate('Progress_helped_booking_updates') ?? 'Booking updates for others', 'points' => self::POINTS_HELPED_BOOKING_UPDATE, 'sign' => '+'];
+        $legend[] = ['key' => 'helped_lead_updates', 'label' => translate('Progress_helped_lead_updates') ?? 'Lead updates for others', 'points' => self::POINTS_HELPED_LEAD_UPDATE, 'sign' => '+'];
+
         return $legend;
     }
 
@@ -112,6 +129,7 @@ class EmployeeProgressScoreService
         $providersByEmployee = $this->providersRegisteredByEmployee($employeeIds, $periodStart, $periodEnd);
         $lateByEmployee = $this->lateFollowupPenaltiesByEmployee($employeeIds, $periodStart, $periodEnd);
         $qualityByEmployee = $this->leadDataQuality->summarizeForEmployees($employeeIds, $periodStart, $periodEnd);
+        $helpedByEmployee = $this->helpedOthersByEmployee($employeeIds, $periodStart, $periodEnd);
         $ranked = [];
 
         foreach ($employeeTotals as $employeeRow) {
@@ -128,6 +146,7 @@ class EmployeeProgressScoreService
                 $qualityByEmployee[$employeeId] ?? $this->leadDataQuality->emptySummary(),
                 (int) ($bookingsCreatedByEmployee[$employeeId] ?? 0),
                 (int) ($bookingsCompletedByEmployee[$employeeId] ?? 0),
+                $helpedByEmployee[$employeeId] ?? $this->emptyHelpedOthers(),
             );
         }
 
@@ -171,6 +190,7 @@ class EmployeeProgressScoreService
         array $dataQuality = [],
         ?int $bookingsCreatedOverride = null,
         ?int $bookingsCompletedOverride = null,
+        array $helpedOthers = [],
     ): array {
         $bookingsCreated = $bookingsCreatedOverride ?? (int) ($employeeRow['bookings_created'] ?? 0);
         $bookingsCompleted = $bookingsCompletedOverride ?? (int) ($employeeRow['bookings_completed'] ?? 0);
@@ -239,8 +259,41 @@ class EmployeeProgressScoreService
             );
         }
 
+        $helpedOthers = $helpedOthers === [] ? $this->emptyHelpedOthers() : $helpedOthers;
+        $helpedMarks = [
+            $this->markLine(
+                'helped_lead_followups',
+                translate('Progress_helped_lead_followups') ?? 'Lead follow-ups for others',
+                (int) ($helpedOthers['lead_followups'] ?? 0),
+                self::POINTS_HELPED_LEAD_FOLLOWUP,
+                true,
+            ),
+            $this->markLine(
+                'helped_booking_followups',
+                translate('Progress_helped_booking_followups') ?? 'Booking follow-ups for others',
+                (int) ($helpedOthers['booking_followups'] ?? 0),
+                self::POINTS_HELPED_BOOKING_FOLLOWUP,
+                true,
+            ),
+            $this->markLine(
+                'helped_booking_updates',
+                translate('Progress_helped_booking_updates') ?? 'Booking updates for others',
+                (int) ($helpedOthers['booking_updates'] ?? 0),
+                self::POINTS_HELPED_BOOKING_UPDATE,
+                true,
+            ),
+            $this->markLine(
+                'helped_lead_updates',
+                translate('Progress_helped_lead_updates') ?? 'Lead updates for others',
+                (int) ($helpedOthers['lead_updates'] ?? 0),
+                self::POINTS_HELPED_LEAD_UPDATE,
+                true,
+            ),
+        ];
+
         $quantityScore = 0;
         $penaltyScore = 0;
+        $helpedScore = 0;
         foreach ($marks as $mark) {
             if (! empty($mark['positive'])) {
                 $quantityScore += (int) ($mark['points'] ?? 0);
@@ -248,7 +301,10 @@ class EmployeeProgressScoreService
                 $penaltyScore += (int) ($mark['points'] ?? 0);
             }
         }
-        $score = $quantityScore + $penaltyScore;
+        foreach ($helpedMarks as $mark) {
+            $helpedScore += (int) ($mark['points'] ?? 0);
+        }
+        $score = $quantityScore + $helpedScore + $penaltyScore;
 
         return [
             'employee_id' => (string) ($employeeRow['employee_id'] ?? ''),
@@ -265,10 +321,133 @@ class EmployeeProgressScoreService
             'missed_followups' => 0,
             'cancelled' => (int) ($employeeRow['bookings_cancelled'] ?? 0),
             'quantity_score' => $quantityScore,
+            'helped_score' => $helpedScore,
             'penalty_score' => $penaltyScore,
             'score' => $score,
             'marks' => $marks,
+            'helped_marks' => $helpedMarks,
             'revenue' => with_currency_symbol(0),
+        ];
+    }
+
+    /**
+     * @param  list<string>  $employeeIds
+     * @return array<string, array{lead_followups: int, booking_followups: int, booking_updates: int, lead_updates: int}>
+     */
+    public function helpedOthersByEmployee(array $employeeIds, Carbon $periodStart, Carbon $periodEnd): array
+    {
+        $counts = [];
+        foreach ($employeeIds as $employeeId) {
+            $counts[(string) $employeeId] = $this->emptyHelpedOthers();
+        }
+
+        if ($employeeIds === []) {
+            return $counts;
+        }
+
+        $rangeStart = $periodStart->copy()->startOfDay();
+        $rangeEnd = $periodEnd->copy()->endOfDay();
+
+        LeadFollowup::query()
+            ->whereIn('created_by', $employeeIds)
+            ->whereNotNull('followup_at')
+            ->whereBetween('followup_at', [$rangeStart, $rangeEnd])
+            ->with(['lead:id,handled_by'])
+            ->get(['id', 'created_by', 'lead_id'])
+            ->each(function (LeadFollowup $followup) use (&$counts) {
+                $employeeId = (string) ($followup->created_by ?? '');
+                $assignee = (string) ($followup->lead?->handled_by ?? '');
+                if ($employeeId === '' || ! isset($counts[$employeeId])) {
+                    return;
+                }
+                if ($assignee === '' || $assignee === Lead::HANDLED_BY_AI || $assignee === $employeeId) {
+                    return;
+                }
+                $counts[$employeeId]['lead_followups']++;
+            });
+
+        BookingFollowup::query()
+            ->whereIn('created_by', $employeeIds)
+            ->whereNotNull('followup_at')
+            ->where('status', 'completed')
+            ->whereBetween('followup_at', [$rangeStart, $rangeEnd])
+            ->with(['booking:id,assignee_id'])
+            ->get(['id', 'created_by', 'booking_id', 'status'])
+            ->each(function (BookingFollowup $followup) use (&$counts) {
+                if ($followup->isRescheduled()) {
+                    return;
+                }
+                $employeeId = (string) ($followup->created_by ?? '');
+                $assignee = (string) ($followup->booking?->assignee_id ?? '');
+                if ($employeeId === '' || ! isset($counts[$employeeId])) {
+                    return;
+                }
+                if ($assignee === '' || $assignee === $employeeId) {
+                    return;
+                }
+                $counts[$employeeId]['booking_followups']++;
+            });
+
+        $historyTable = (new BookingStatusHistory)->getTable();
+        if (Schema::hasTable($historyTable)) {
+            $bookingUpdateRows = DB::table($historyTable.' as h')
+                ->join('bookings as b', 'b.id', '=', 'h.booking_id')
+                ->selectRaw('h.changed_by as user_id, COUNT(*) as total')
+                ->whereIn('h.changed_by', $employeeIds)
+                ->whereBetween('h.created_at', [$rangeStart, $rangeEnd])
+                ->whereNotNull('h.changed_by')
+                ->whereNotNull('b.assignee_id')
+                ->whereColumn('b.assignee_id', '!=', 'h.changed_by')
+                ->whereRaw('h.id > (
+                    SELECT MIN(h2.id) FROM '.$historyTable.' h2
+                    WHERE h2.booking_id = h.booking_id
+                )')
+                ->groupBy('h.changed_by')
+                ->get();
+
+            foreach ($bookingUpdateRows as $row) {
+                $employeeId = (string) ($row->user_id ?? '');
+                if ($employeeId !== '' && isset($counts[$employeeId])) {
+                    $counts[$employeeId]['booking_updates'] = (int) $row->total;
+                }
+            }
+        }
+
+        $changeLogTable = (new LeadChangeLog)->getTable();
+        if (Schema::hasTable($changeLogTable)) {
+            LeadChangeLog::query()
+                ->whereIn('changed_by', $employeeIds)
+                ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+                ->whereNotNull('changed_by')
+                ->whereNotNull('lead_id')
+                ->with(['lead:id,handled_by'])
+                ->get(['id', 'changed_by', 'lead_id'])
+                ->each(function (LeadChangeLog $log) use (&$counts) {
+                    $employeeId = (string) ($log->changed_by ?? '');
+                    $assignee = (string) ($log->lead?->handled_by ?? '');
+                    if ($employeeId === '' || ! isset($counts[$employeeId])) {
+                        return;
+                    }
+                    if ($assignee === '' || $assignee === Lead::HANDLED_BY_AI || $assignee === $employeeId) {
+                        return;
+                    }
+                    $counts[$employeeId]['lead_updates']++;
+                });
+        }
+
+        return $counts;
+    }
+
+    /**
+     * @return array{lead_followups: int, booking_followups: int, booking_updates: int, lead_updates: int}
+     */
+    private function emptyHelpedOthers(): array
+    {
+        return [
+            'lead_followups' => 0,
+            'booking_followups' => 0,
+            'booking_updates' => 0,
+            'lead_updates' => 0,
         ];
     }
 

@@ -561,6 +561,8 @@ class EmployeeDashboardService
                 'label' => (string) ($row['name'] ?? ''),
                 'score' => (int) ($row['score'] ?? 0),
                 'marks' => $row['marks'] ?? [],
+                'helped_marks' => $row['helped_marks'] ?? [],
+                'helped_score' => (int) ($row['helped_score'] ?? 0),
                 'quantity_score' => (int) ($row['quantity_score'] ?? 0),
                 'penalty_score' => (int) ($row['penalty_score'] ?? 0),
             ];

@@ -374,6 +374,9 @@
                             <div class="rank-name">{{ $performer['name'] }}</div>
                             <div class="rank-sub">
                                 {{ translate('Quantity') ?? 'Quantity' }} {{ (int) ($performer['quantity_score'] ?? 0) }}
+                                @if((int) ($performer['helped_score'] ?? 0) > 0)
+                                    · {{ translate('Progress_helped_others') ?? 'Helped other' }} {{ (int) ($performer['helped_score'] ?? 0) }}
+                                @endif
                                 · {{ translate('Penalties') ?? 'Penalties' }} {{ (int) ($performer['penalty_score'] ?? 0) }}
                             </div>
                             <div class="rank-bar"><i style="width: {{ $barPct }}%"></i></div>
@@ -382,6 +385,11 @@
                     </div>
                     @include('adminmodule::partials._employee-progress-rank-marks', [
                         'marks' => $performer['marks'] ?? [],
+                        'helpedMarks' => $performer['helped_marks'] ?? [],
+                        'quantityScore' => (int) ($performer['quantity_score'] ?? 0),
+                        'helpedScore' => (int) ($performer['helped_score'] ?? 0),
+                        'penaltyScore' => (int) ($performer['penalty_score'] ?? 0),
+                        'grandScore' => (int) ($performer['score'] ?? 0),
                     ])
                 </div>
             @empty
@@ -456,6 +464,9 @@
                             <div class="rank-name">{{ $performer['name'] }}</div>
                             <div class="rank-sub">
                                 {{ translate('Quantity') ?? 'Quantity' }} {{ (int) ($performer['quantity_score'] ?? 0) }}
+                                @if((int) ($performer['helped_score'] ?? 0) > 0)
+                                    · {{ translate('Progress_helped_others') ?? 'Helped other' }} {{ (int) ($performer['helped_score'] ?? 0) }}
+                                @endif
                                 · {{ translate('Penalties') ?? 'Penalties' }} {{ (int) ($performer['penalty_score'] ?? 0) }}
                             </div>
                             <div class="rank-bar"><i style="width: {{ $barPct }}%"></i></div>
@@ -464,6 +475,11 @@
                     </div>
                     @include('adminmodule::partials._employee-progress-rank-marks', [
                         'marks' => $performer['marks'] ?? [],
+                        'helpedMarks' => $performer['helped_marks'] ?? [],
+                        'quantityScore' => (int) ($performer['quantity_score'] ?? 0),
+                        'helpedScore' => (int) ($performer['helped_score'] ?? 0),
+                        'penaltyScore' => (int) ($performer['penalty_score'] ?? 0),
+                        'grandScore' => (int) ($performer['score'] ?? 0),
                     ])
                 </div>
             @empty
