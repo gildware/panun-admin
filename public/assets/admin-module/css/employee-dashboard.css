@@ -486,7 +486,7 @@
 .emp-dash .team-rank-cards {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 0;
 }
 .emp-dash .rank-item--dash {
     border: 1px solid var(--wq-border);
@@ -497,17 +497,17 @@
 }
 .emp-dash .rank-item--dash.is-highlighted {
     border-color: var(--pc-tone-border);
-    background: var(--pc-tone-soft);
+    background: #fffbeb;
 }
 .emp-dash .rank-item--dash .rank-marks {
-    margin-top: 2px;
+    margin-top: 0;
 }
 .emp-dash .rank-item--dash .rank-marks-table {
     font-size: 11px;
 }
 .emp-dash .rank-item--dash .rank-marks-table th,
 .emp-dash .rank-item--dash .rank-marks-table td {
-    padding: 5px 6px;
+    padding: 4px 5px;
 }
 .emp-dash .progress-card--rank .progress-card-body {
     overflow: visible;
@@ -661,7 +661,7 @@
 .emp-dash .progress-card--quantity .progress-card-body,
 .emp-dash .progress-card--rank .progress-card-body,
 .emp-dash .progress-card--contribution .progress-card-body {
-    overflow-y: auto;
+    overflow: visible;
 }
 .emp-dash .progress-stat-grid,
 .emp-dash .progress-stat-grid--compact {
@@ -806,32 +806,67 @@
     display: none;
 }
 
-/* Quality + Quantity metric cards — compact */
+/* Quality + Quantity + Ranking — equal-height, no gaps */
+.emp-dash .progress-cards-row--metrics {
+    align-items: stretch !important;
+}
 .emp-dash .progress-cards-row--metrics > [class*="col-"] {
     display: flex;
+    flex-direction: column;
+}
+.emp-dash .progress-cards-row--metrics .progress-card {
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 100%;
+}
+.emp-dash .progress-cards-row--metrics .progress-card-header {
+    flex-shrink: 0;
+    align-items: center;
+}
+.emp-dash .progress-cards-row--metrics .progress-card-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: visible;
+    padding: 8px;
+}
+.emp-dash .progress-cards-row--metrics .activity-panel {
+    display: none;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    gap: 6px;
+}
+.emp-dash .progress-cards-row--metrics .activity-panel.active {
+    display: flex;
+}
+.emp-dash .progress-cards-row--metrics .activity-panel-meta {
+    flex-shrink: 0;
+    margin-bottom: 0;
+    min-height: 22px;
 }
 .emp-dash .progress-card--quality .progress-card-sub,
 .emp-dash .progress-card--activity .progress-card-sub,
 .emp-dash .progress-card--quantity .progress-card-sub {
     display: none;
 }
-.emp-dash .progress-card--quality .progress-card-header,
-.emp-dash .progress-card--activity .progress-card-header,
-.emp-dash .progress-card--quantity .progress-card-header {
-    align-items: center;
-}
 .emp-dash .progress-shell-body.emp-progress-report .activity-panel-meta {
-    margin-bottom: 6px;
-}
-.emp-dash .progress-shell-body.emp-progress-report .lead-metric-grid--dashboard {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px;
     margin-bottom: 0;
 }
-@media (max-width: 1199px) {
-    .emp-dash .progress-shell-body.emp-progress-report .lead-metric-grid--dashboard {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
+.emp-dash .progress-shell-body.emp-progress-report .lead-metric-grid--dashboard {
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: 1fr;
+    align-content: stretch;
+    gap: 6px;
+    margin-bottom: 0;
+    min-height: 0;
+}
+.emp-dash .progress-shell-body.emp-progress-report .lead-metric-grid--dashboard > * {
+    min-height: 0;
+    height: 100%;
 }
 @media (max-width: 991px) {
     .emp-dash .progress-cards-row--metrics > [class*="col-"] {
@@ -842,6 +877,7 @@
 @media (max-width: 575px) {
     .emp-dash .progress-shell-body.emp-progress-report .lead-metric-grid--dashboard {
         grid-template-columns: 1fr;
+        grid-auto-rows: auto;
     }
 }
 .emp-dash .progress-card--rank .progress-summary-badge.is-active {
@@ -849,10 +885,54 @@
     border: 1px solid var(--pc-tone-border);
     font-size: 11px;
 }
-.emp-dash .progress-shell-body.emp-progress-report .followup-metric-card {
-    padding: 7px 8px 6px;
+.emp-dash .progress-cards-row--metrics .team-rank-cards {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
     min-height: 0;
+}
+.emp-dash .progress-cards-row--metrics .rank-item--dash {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: 100%;
+    margin: 0;
+    border: 1px solid var(--wq-border);
     border-radius: 8px;
+    padding: 8px;
+    background: #fff;
+}
+.emp-dash .progress-cards-row--metrics .rank-item--dash.is-highlighted {
+    border-color: var(--pc-tone-border);
+    background: #fffbeb;
+}
+.emp-dash .progress-cards-row--metrics .rank-item--dash .rank-item-main {
+    flex-shrink: 0;
+}
+.emp-dash .progress-cards-row--metrics .rank-item--dash .rank-marks {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    margin-top: 0;
+    overflow: visible;
+}
+.emp-dash .progress-cards-row--metrics .rank-item--dash .rank-marks-table {
+    width: 100%;
+    font-size: 11px;
+}
+.emp-dash .progress-cards-row--metrics .rank-item--dash .rank-marks-table th,
+.emp-dash .progress-cards-row--metrics .rank-item--dash .rank-marks-table td {
+    padding: 4px 5px;
+}
+.emp-dash .progress-shell-body.emp-progress-report .followup-metric-card {
+    padding: 8px;
+    min-height: 0;
+    height: 100%;
+    border-radius: 8px;
+    justify-content: flex-start;
+    gap: 0;
 }
 .emp-dash .progress-shell-body.emp-progress-report .followup-metric-card .fmc-top {
     flex: 0 0 auto;
@@ -882,7 +962,7 @@
     line-height: 1.1;
 }
 .emp-dash .progress-shell-body.emp-progress-report .followup-metric-card .fmc-foot {
-    margin-top: 4px;
+    margin-top: 6px;
     padding-top: 4px;
     gap: 3px;
 }
