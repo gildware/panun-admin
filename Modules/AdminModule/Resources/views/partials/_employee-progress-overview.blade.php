@@ -427,14 +427,14 @@
                 @endforeach
             </div>
         @endif
-        <div class="rank-row" style="display:flex;flex-direction:row;flex-wrap:nowrap;align-items:stretch;gap:10px;padding:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;">
+        <div class="rank-row">
             @forelse($rankRows as $index => $performer)
                 @php
                     $initials = collect(explode(' ', $performer['name'] ?? ''))->filter()->map(fn ($p) => strtoupper(substr($p, 0, 1)))->take(2)->implode('');
                     $avatarClass = match ($index) { 1 => 'silver', 2 => 'bronze', default => '' };
                     $barPct = min(100, round((abs((int) ($performer['score'] ?? 0)) / $maxScore) * 100));
                 @endphp
-                <div class="rank-item rank-item--scored rank-item--card" style="flex:0 0 260px;width:260px;max-width:260px;box-sizing:border-box;">
+                <div class="rank-item rank-item--scored rank-item--card">
                     <div class="rank-item-main">
                         <div class="avatar {{ $avatarClass }}">{{ $initials ?: '#'.($performer['rank'] ?? ($index + 1)) }}</div>
                         <div class="rank-meta">
