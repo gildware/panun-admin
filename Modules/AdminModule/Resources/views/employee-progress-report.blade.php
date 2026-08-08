@@ -11,7 +11,7 @@
 @section('title', $pageTitle)
 
 @push('css_or_js')
-<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260808am">
+<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260808an">
 <style>
     .emp-progress-report .page-head-employee {
         margin-left: auto;

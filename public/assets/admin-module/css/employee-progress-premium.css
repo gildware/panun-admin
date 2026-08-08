@@ -82,20 +82,20 @@
 .emp-progress-report .layout-main{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:14px;margin-bottom:14px;align-items:start}
 .emp-progress-report .layout-main:not(:has(.side-stack)){grid-template-columns:minmax(0,1fr)}
 @media(max-width:1024px){.emp-progress-report .layout-main{grid-template-columns:1fr}}
-.emp-progress-report .rank-card--team-row{margin-bottom:14px}
+.emp-progress-report .rank-card--team-row{margin-bottom:14px;overflow:visible}
 .emp-progress-report .rank-card--team-row .rank-row,
-.emp-progress-report .rank-row{display:flex !important;flex-direction:row !important;flex-wrap:nowrap !important;align-items:stretch;gap:10px;padding:12px;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.emp-progress-report .rank-row{display:flex !important;flex-direction:row !important;flex-wrap:wrap !important;align-items:stretch;gap:12px;padding:12px;overflow:visible}
 .emp-progress-report .rank-card--team-row .rank-item--card,
-.emp-progress-report .rank-item--card{flex:0 0 340px !important;width:340px !important;max-width:340px !important;box-sizing:border-box;border:1px solid var(--border-soft);border-radius:10px;background:#fff;display:flex;flex-direction:column;align-self:stretch;height:auto;min-height:100%}
+.emp-progress-report .rank-item--card{flex:1 1 260px !important;width:auto !important;min-width:min(260px,100%) !important;max-width:100% !important;box-sizing:border-box;border:1px solid var(--border-soft);border-radius:10px;background:#fff;display:flex;flex-direction:column;align-self:stretch;height:auto;min-height:100%}
 .emp-progress-report .rank-row .rank-item--card{border-bottom:1px solid var(--border-soft)}
 .emp-progress-report .rank-item--card .rank-item-main{flex-shrink:0}
 .emp-progress-report .rank-item--card .rank-marks,
-.emp-progress-report .rank-item--scored .rank-marks{max-height:none;overflow:visible;flex:1 1 auto;display:flex;flex-direction:column}
+.emp-progress-report .rank-item--scored .rank-marks{max-height:none !important;overflow:visible !important;flex:1 1 auto;display:flex;flex-direction:column}
 .emp-progress-report .rank-item--card .rank-marks-table,
-.emp-progress-report .rank-item--scored .rank-marks-table{flex:1}
+.emp-progress-report .rank-item--scored .rank-marks-table{flex:1;height:auto}
 @media(max-width:640px){
   .emp-progress-report .rank-card--team-row .rank-item--card,
-  .emp-progress-report .rank-item--card{flex-basis:78vw !important;width:78vw !important;max-width:78vw !important}
+  .emp-progress-report .rank-item--card{flex:1 1 100% !important;min-width:100% !important;width:100% !important;max-width:100% !important}
 }
 .emp-progress-report .grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:14px;align-items:start}
 .emp-progress-report .grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:14px;align-items:start}
@@ -167,6 +167,7 @@
 
 .emp-progress-report .side-stack{display:flex;flex-direction:column;gap:10px;min-width:0}
 .emp-progress-report .rank-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.emp-progress-report .rank-card.rank-card--team-row{overflow:visible}
 .emp-progress-report .rank-head{padding:8px 12px;border-bottom:1px solid var(--border-soft);font-size:11px;font-weight:800}
 .emp-progress-report .rank-score-legend{display:flex;flex-wrap:wrap;gap:4px 8px;padding:8px 12px;border-bottom:1px solid var(--border-soft);background:var(--surface-2)}
 .emp-progress-report .rank-score-legend span{font-size:9px;font-weight:700;color:var(--muted);line-height:1.3}
@@ -183,7 +184,7 @@
 .emp-progress-report .rank-val{font-size:18px;font-weight:800;color:var(--brand);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;min-width:2.5ch}
 .emp-progress-report .rank-bar{height:4px;background:#e2e8f0;border-radius:999px;margin-top:5px;overflow:hidden}
 .emp-progress-report .rank-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--brand),var(--brand-2));border-radius:999px}
-.emp-progress-report .rank-marks{padding:0;border-radius:8px;background:#fff;border:1px solid var(--border-soft);overflow:hidden}
+.emp-progress-report .rank-marks{padding:0;border-radius:8px;background:#fff;border:1px solid var(--border-soft);overflow:visible}
 .emp-progress-report .rank-marks-table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px;line-height:1.35}
 .emp-progress-report .rank-marks-table th,
 .emp-progress-report .rank-marks-table td{padding:7px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
