@@ -7,20 +7,31 @@ use Illuminate\Support\Collection;
 use Modules\BookingModule\Entities\BookingFollowup;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadFollowup;
+use Modules\LeadManagement\Entities\LeadTypeHistory;
+use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Services\LeadFollowupService;
 
 /**
- * Employee ranking score: quantity of work (+) and quality penalties (−).
+ * Employee ranking score: quantity of work (+) and late follow-up penalties (−).
  */
 class EmployeeProgressScoreService
 {
-    public const POINTS_BOOKINGS_HANDLED = 3;
+    public const POINTS_BOOKINGS_CREATED = 2;
+
+    public const POINTS_BOOKINGS_COMPLETED = 10;
 
     public const POINTS_LEADS_HANDLED = 3;
 
-    public const POINTS_CHAT_REPLIES = 1;
+    public const POINTS_PROVIDERS_REGISTERED = 10;
 
-    public const PENALTY_LATE_FOLLOWUP = 1;
+    /** @var list<array{key: string, max_minutes: int|null, points: int, label: string}> */
+    public const LATE_PENALTY_BUCKETS = [
+        ['key' => 'late_1h', 'max_minutes' => 60, 'points' => 1, 'label' => 'Late ≤1 hour'],
+        ['key' => 'late_2h', 'max_minutes' => 120, 'points' => 2, 'label' => 'Late ≤2 hours'],
+        ['key' => 'late_4h', 'max_minutes' => 240, 'points' => 3, 'label' => 'Late ≤4 hours'],
+        ['key' => 'late_8h', 'max_minutes' => 480, 'points' => 5, 'label' => 'Late ≤8 hours'],
+        ['key' => 'late_over_8h', 'max_minutes' => null, 'points' => 10, 'label' => 'Late >8 hours'],
+    ];
 
     public function __construct(
         private readonly LeadFollowupService $leadFollowupService,
@@ -31,12 +42,34 @@ class EmployeeProgressScoreService
      */
     public static function weightLegend(): array
     {
-        return [
-            ['key' => 'bookings_created', 'label' => translate('Bookings_created') ?? 'Bookings created', 'points' => self::POINTS_BOOKINGS_HANDLED, 'sign' => '+'],
+        $legend = [
+            ['key' => 'bookings_created', 'label' => translate('Bookings_created') ?? 'Bookings created', 'points' => self::POINTS_BOOKINGS_CREATED, 'sign' => '+'],
+            ['key' => 'bookings_completed', 'label' => translate('Bookings_Completed') ?? 'Bookings completed', 'points' => self::POINTS_BOOKINGS_COMPLETED, 'sign' => '+'],
             ['key' => 'leads_handled', 'label' => translate('Leads_Handled') ?? 'Leads handled', 'points' => self::POINTS_LEADS_HANDLED, 'sign' => '+'],
-            ['key' => 'whatsapp_replies', 'label' => translate('WhatsApp_Replies') ?? 'Chat replies', 'points' => self::POINTS_CHAT_REPLIES, 'sign' => '+'],
-            ['key' => 'late_followups', 'label' => translate('Progress_late_followups') ?? 'Late follow-ups', 'points' => self::PENALTY_LATE_FOLLOWUP, 'sign' => '−'],
+            ['key' => 'providers_registered', 'label' => translate('Progress_provider_registered') ?? 'Providers registered', 'points' => self::POINTS_PROVIDERS_REGISTERED, 'sign' => '+'],
         ];
+
+        foreach (self::LATE_PENALTY_BUCKETS as $bucket) {
+            $legend[] = [
+                'key' => $bucket['key'],
+                'label' => self::lateBucketLabel($bucket),
+                'points' => $bucket['points'],
+                'sign' => '−',
+            ];
+        }
+
+        return $legend;
+    }
+
+    /**
+     * @param  array{key: string, label: string}  $bucket
+     */
+    public static function lateBucketLabel(array $bucket): string
+    {
+        $key = 'Progress_'.$bucket['key'];
+        $translated = translate($key);
+
+        return ($translated !== '' && $translated !== $key) ? $translated : $bucket['label'];
     }
 
     /**
@@ -59,8 +92,9 @@ class EmployeeProgressScoreService
             $employeeIds = $employees->pluck('id')->map(fn ($id) => (string) $id)->filter()->values()->all();
         }
 
-        $lateByEmployee = $this->lateFollowupsByEmployee($employeeIds, $periodStart, $periodEnd);
         $leadsByEmployee = $this->leadsHandledByEmployee($employeeIds, $periodStart, $periodEnd);
+        $providersByEmployee = $this->providersRegisteredByEmployee($employeeIds, $periodStart, $periodEnd);
+        $lateByEmployee = $this->lateFollowupPenaltiesByEmployee($employeeIds, $periodStart, $periodEnd);
         $ranked = [];
 
         foreach ($employeeTotals as $employeeRow) {
@@ -72,7 +106,8 @@ class EmployeeProgressScoreService
             $ranked[] = $this->scoreEmployeeRow(
                 $employeeRow,
                 (int) ($leadsByEmployee[$employeeId] ?? 0),
-                (int) ($lateByEmployee[$employeeId] ?? 0),
+                (int) ($providersByEmployee[$employeeId] ?? 0),
+                $lateByEmployee[$employeeId] ?? $this->emptyLatePenalty(),
             );
         }
 
@@ -95,24 +130,33 @@ class EmployeeProgressScoreService
 
     /**
      * @param  array<string, mixed>  $employeeRow
+     * @param  array{total_count: int, total_points: int, buckets: array<string, array{count: int, unit_points: int, points: int, label: string}>}  $latePenalty
      * @return array<string, mixed>
      */
     public function scoreEmployeeRow(
         array $employeeRow,
         ?int $leadsHandledOverride = null,
-        int $lateFollowups = 0,
+        int $providersRegistered = 0,
+        array $latePenalty = [],
     ): array {
-        // Match Bookings / Leads tab heroes: created bookings + assigned leads in period.
         $bookingsCreated = (int) ($employeeRow['bookings_created'] ?? 0);
+        $bookingsCompleted = (int) ($employeeRow['bookings_completed'] ?? 0);
         $leadsHandled = $leadsHandledOverride ?? (int) ($employeeRow['leads_assigned'] ?? $employeeRow['leads_handled'] ?? 0);
-        $chatReplies = (int) ($employeeRow['whatsapp_replies'] ?? 0);
+        $latePenalty = $latePenalty === [] ? $this->emptyLatePenalty() : $latePenalty;
 
         $marks = [
             $this->markLine(
                 'bookings_created',
                 translate('Bookings_created') ?? 'Bookings created',
                 $bookingsCreated,
-                self::POINTS_BOOKINGS_HANDLED,
+                self::POINTS_BOOKINGS_CREATED,
+                true,
+            ),
+            $this->markLine(
+                'bookings_completed',
+                translate('Bookings_Completed') ?? 'Bookings completed',
+                $bookingsCompleted,
+                self::POINTS_BOOKINGS_COMPLETED,
                 true,
             ),
             $this->markLine(
@@ -123,33 +167,58 @@ class EmployeeProgressScoreService
                 true,
             ),
             $this->markLine(
-                'whatsapp_replies',
-                translate('WhatsApp_Replies') ?? 'Chat replies',
-                $chatReplies,
-                self::POINTS_CHAT_REPLIES,
+                'providers_registered',
+                translate('Progress_provider_registered') ?? 'Providers registered',
+                $providersRegistered,
+                self::POINTS_PROVIDERS_REGISTERED,
                 true,
-            ),
-            $this->markLine(
-                'late_followups',
-                translate('Progress_late_followups') ?? 'Late follow-ups',
-                $lateFollowups,
-                self::PENALTY_LATE_FOLLOWUP,
-                false,
             ),
         ];
 
-        $quantityScore = (int) ($marks[0]['points'] + $marks[1]['points'] + $marks[2]['points']);
-        $penaltyScore = (int) ($marks[3]['points']);
+        foreach (self::LATE_PENALTY_BUCKETS as $bucket) {
+            $bucketKey = $bucket['key'];
+            $bucketData = $latePenalty['buckets'][$bucketKey] ?? [
+                'count' => 0,
+                'unit_points' => $bucket['points'],
+                'points' => 0,
+                'label' => translate('Progress_'.$bucketKey) ?? $bucket['label'],
+            ];
+            $count = (int) ($bucketData['count'] ?? 0);
+            if ($count <= 0) {
+                continue;
+            }
+            $marks[] = [
+                'key' => $bucketKey,
+                'label' => (string) ($bucketData['label'] ?? $bucket['label']),
+                'count' => $count,
+                'unit_points' => (int) ($bucketData['unit_points'] ?? $bucket['points']),
+                'points' => (int) ($bucketData['points'] ?? 0),
+                'positive' => false,
+            ];
+        }
+
+        $quantityScore = 0;
+        $penaltyScore = 0;
+        foreach ($marks as $mark) {
+            if (! empty($mark['positive'])) {
+                $quantityScore += (int) ($mark['points'] ?? 0);
+            } else {
+                $penaltyScore += (int) ($mark['points'] ?? 0);
+            }
+        }
         $score = $quantityScore + $penaltyScore;
 
         return [
             'employee_id' => (string) ($employeeRow['employee_id'] ?? ''),
             'name' => (string) ($employeeRow['employee_name'] ?? ''),
             'bookings' => $bookingsCreated,
+            'bookings_completed' => $bookingsCompleted,
             'leads' => $leadsHandled,
-            'chats' => $chatReplies,
+            'providers_registered' => $providersRegistered,
+            'chats' => (int) ($employeeRow['whatsapp_replies'] ?? 0),
             'followups' => (int) ($employeeRow['lead_followups'] ?? 0) + (int) ($employeeRow['booking_followups'] ?? 0),
-            'late_followups' => $lateFollowups,
+            'late_followups' => (int) ($latePenalty['total_count'] ?? 0),
+            'late_penalty_points' => (int) ($latePenalty['total_points'] ?? 0),
             'missed_followups' => 0,
             'cancelled' => (int) ($employeeRow['bookings_cancelled'] ?? 0),
             'quantity_score' => $quantityScore,
@@ -194,17 +263,75 @@ class EmployeeProgressScoreService
     }
 
     /**
-     * Follow-ups completed after their due day (lead + booking), attributed to the performer.
-     *
-     * Lead dues use stored due_followup_at when present; otherwise the same historical
-     * fallback as lead follow-up delay meta (previous scheduled due / default from lead received).
+     * Provider leads marked Registered (base_type completed) by the employee in the period.
      *
      * @param  list<string>  $employeeIds
      * @return array<string, int>
      */
-    public function lateFollowupsByEmployee(array $employeeIds, Carbon $periodStart, Carbon $periodEnd): array
+    public function providersRegisteredByEmployee(array $employeeIds, Carbon $periodStart, Carbon $periodEnd): array
     {
-        $late = array_fill_keys($employeeIds, 0);
+        $counts = array_fill_keys($employeeIds, 0);
+
+        if ($employeeIds === []) {
+            return $counts;
+        }
+
+        $completedStatusIds = ProviderLeadStatus::query()
+            ->where('base_type', 'completed')
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+
+        if ($completedStatusIds === []) {
+            return $counts;
+        }
+
+        $histories = LeadTypeHistory::query()
+            ->where('type', Lead::TYPE_PROVIDER)
+            ->whereIn('created_by', $employeeIds)
+            ->whereBetween('created_at', [
+                $periodStart->copy()->startOfDay(),
+                $periodEnd->copy()->endOfDay(),
+            ])
+            ->get(['lead_id', 'created_by', 'data']);
+
+        $seen = [];
+        foreach ($histories as $history) {
+            $data = is_array($history->data) ? $history->data : [];
+            $statusId = isset($data['provider_lead_status_id']) ? (string) $data['provider_lead_status_id'] : '';
+            if ($statusId === '' || ! in_array($statusId, $completedStatusIds, true)) {
+                continue;
+            }
+
+            $employeeId = (string) ($history->created_by ?? '');
+            $leadId = (string) ($history->lead_id ?? '');
+            if ($employeeId === '' || $leadId === '' || ! array_key_exists($employeeId, $counts)) {
+                continue;
+            }
+
+            $dedupeKey = $employeeId.'|'.$leadId;
+            if (isset($seen[$dedupeKey])) {
+                continue;
+            }
+            $seen[$dedupeKey] = true;
+            $counts[$employeeId]++;
+        }
+
+        return $counts;
+    }
+
+    /**
+     * Late follow-ups with hour-tier penalties (lead + booking), attributed to the performer.
+     *
+     * @param  list<string>  $employeeIds
+     * @return array<string, array{total_count: int, total_points: int, buckets: array<string, array{count: int, unit_points: int, points: int, label: string}>}>
+     */
+    public function lateFollowupPenaltiesByEmployee(array $employeeIds, Carbon $periodStart, Carbon $periodEnd): array
+    {
+        $late = [];
+        foreach ($employeeIds as $employeeId) {
+            $late[$employeeId] = $this->emptyLatePenalty();
+        }
 
         if ($employeeIds === []) {
             return $late;
@@ -249,7 +376,7 @@ class EmployeeProgressScoreService
                 if (! $due instanceof Carbon) {
                     $due = $due ? Carbon::parse($due) : null;
                 }
-                if (! $due || $followup->followup_at->lte($due->copy()->endOfDay())) {
+                if (! $due || $followup->followup_at->lte($due)) {
                     continue;
                 }
 
@@ -257,7 +384,9 @@ class EmployeeProgressScoreService
                 if ($employeeId === '' || ! array_key_exists($employeeId, $late)) {
                     continue;
                 }
-                $late[$employeeId]++;
+
+                $delayMinutes = (int) round($due->diffInMinutes($followup->followup_at));
+                $this->addLatePenalty($late[$employeeId], $delayMinutes);
             }
         }
 
@@ -278,7 +407,7 @@ class EmployeeProgressScoreService
                 continue;
             }
             $due = $dueRaw instanceof Carbon ? $dueRaw : Carbon::parse($dueRaw);
-            if ($followup->followup_at->lte($due->copy()->endOfDay())) {
+            if ($followup->followup_at->lte($due)) {
                 continue;
             }
 
@@ -286,10 +415,68 @@ class EmployeeProgressScoreService
             if ($employeeId === '' || ! array_key_exists($employeeId, $late)) {
                 continue;
             }
-            $late[$employeeId]++;
+
+            $delayMinutes = (int) round($due->diffInMinutes($followup->followup_at));
+            $this->addLatePenalty($late[$employeeId], $delayMinutes);
         }
 
         return $late;
+    }
+
+    /**
+     * @return array{total_count: int, total_points: int, buckets: array<string, array{count: int, unit_points: int, points: int, label: string}>}
+     */
+    private function emptyLatePenalty(): array
+    {
+        $buckets = [];
+        foreach (self::LATE_PENALTY_BUCKETS as $bucket) {
+            $buckets[$bucket['key']] = [
+                'count' => 0,
+                'unit_points' => $bucket['points'],
+                'points' => 0,
+                'label' => self::lateBucketLabel($bucket),
+            ];
+        }
+
+        return [
+            'total_count' => 0,
+            'total_points' => 0,
+            'buckets' => $buckets,
+        ];
+    }
+
+    /**
+     * @param  array{total_count: int, total_points: int, buckets: array<string, array{count: int, unit_points: int, points: int, label: string}>}  $late
+     */
+    private function addLatePenalty(array &$late, int $delayMinutes): void
+    {
+        if ($delayMinutes <= 0) {
+            return;
+        }
+
+        $bucket = $this->lateBucketForMinutes($delayMinutes);
+        $key = $bucket['key'];
+        $unit = $bucket['points'];
+
+        $late['buckets'][$key]['count']++;
+        $late['buckets'][$key]['points'] -= $unit;
+        $late['total_count']++;
+        $late['total_points'] -= $unit;
+    }
+
+    /**
+     * @return array{key: string, max_minutes: int|null, points: int, label: string}
+     */
+    private function lateBucketForMinutes(int $delayMinutes): array
+    {
+        foreach (self::LATE_PENALTY_BUCKETS as $bucket) {
+            $max = $bucket['max_minutes'];
+            if ($max === null || $delayMinutes <= $max) {
+                return $bucket;
+            }
+        }
+
+        return self::LATE_PENALTY_BUCKETS[array_key_last(self::LATE_PENALTY_BUCKETS)];
     }
 
     /**

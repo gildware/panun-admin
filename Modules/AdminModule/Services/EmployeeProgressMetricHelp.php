@@ -100,7 +100,7 @@ class EmployeeProgressMetricHelp
             ),
             'team_ranking' => self::entry(
                 translate('Progress_team_ranking'),
-                'Score = quantity marks − quality penalties. Quantity: Bookings created (+3), Leads handled (+3), Chat replies (+1). Penalty: Late follow-ups (−1). Bookings created and Leads handled match the Bookings and Leads tabs for the same period.',
+                'Score = quantity − late penalties. Quantity: Bookings created (+2), Bookings completed (+10), Leads handled (+3), Providers registered (+10). Late follow-ups by delay: ≤1h (−1), ≤2h (−2), ≤4h (−3), ≤8h (−5), >8h (−10).',
             ),
             'progress_insights' => self::entry(
                 translate('Progress_improvements') ?? 'Insights',
