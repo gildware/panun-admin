@@ -104,7 +104,7 @@ class EmployeeProgressMetricHelp
             ),
             'team_ranking' => self::entry(
                 translate('Progress_team_ranking'),
-                'Score = quantity − late penalties. All counts use assignee/handled_by for the period. Quantity: assigned bookings created (+2), assigned bookings completed (+10), leads assigned (+3), provider leads registered (+10), closed leads with data quality ≥80% (+5) or 50–79% (+2). Late follow-ups on assigned leads/bookings by delay: ≤1h (−1), ≤2h (−2), ≤4h (−3), ≤8h (−5), >8h (−10).',
+                'Score = quantity + helped other − late penalties. Own-work counts use assignee/handled_by for the period. Quantity: assigned bookings created (+2), assigned bookings completed (+10), leads assigned (+3), provider leads registered (+10), closed leads with data quality ≥80% (+5) or 50–79% (+2). Helped other (performer on someone else’s lead/booking): lead follow-ups (+1), booking follow-ups (+1), booking status updates (+2), lead updates (+1). Late follow-ups on assigned leads/bookings by delay: ≤1h (−1), ≤2h (−2), ≤4h (−3), ≤8h (−5), >8h (−10).',
             ),
             'progress_insights' => self::entry(
                 translate('Progress_improvements') ?? 'Insights',
