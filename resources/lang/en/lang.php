@@ -10795,9 +10795,5 @@ _Message' => 'Customer notification for provider bid offer
   'Quality' => 'Quality',
   'Progress_leads_missing_data' => 'Missing / improper data',
   'Penalties' => 'Penalties',
-  'Progress_late_1h' => 'Progress late 1h',
-  'Progress_late_2h' => 'Progress late 2h',
-  'Progress_late_4h' => 'Progress late 4h',
-  'Progress_late_8h' => 'Progress late 8h',
-  'Progress_late_over_8h' => 'Progress late over 8h',
+  'Marks' => 'Marks',
 );
