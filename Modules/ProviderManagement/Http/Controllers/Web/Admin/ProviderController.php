@@ -560,6 +560,10 @@ class ProviderController extends Controller
             $request->merge(['contact_person_email' => null]);
         }
 
+        if (! $request->filled('company_email')) {
+            $request->merge(['company_email' => null]);
+        }
+
         if ($request->input('provider_type') === 'individual') {
             $request->request->remove('company_phone');
             $request->request->remove('company_phone_country_code');
@@ -599,7 +603,7 @@ class ProviderController extends Controller
             'company_name' => 'exclude_if:provider_type,individual|required_if:provider_type,company|string|max:191',
             'company_phone' => 'exclude_if:provider_type,individual|required_if:provider_type,company|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
             'company_address' => 'required',
-            'company_email' => 'exclude_if:provider_type,individual|required_if:provider_type,company|email',
+            'company_email' => 'exclude_if:provider_type,individual|nullable|email|max:191',
             'logo' => 'exclude_if:provider_type,individual|required_if:provider_type,company|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
 
             'contact_person_photo' => 'required|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
@@ -2339,6 +2343,10 @@ class ProviderController extends Controller
             $request->merge(['contact_person_email' => null]);
         }
 
+        if (! $request->filled('company_email')) {
+            $request->merge(['company_email' => null]);
+        }
+
         $this->mergeLegacyZoneIdIntoZoneIds($request);
 
         $allowedImageMimes = implode(',', array_column(IMAGEEXTENSION, 'key'));
@@ -2364,7 +2372,7 @@ class ProviderController extends Controller
             'company_name' => 'exclude_if:provider_type,individual|required_if:provider_type,company|string|max:191',
             'company_phone' => 'exclude_if:provider_type,individual|required_if:provider_type,company|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
             'company_address' => 'required',
-            'company_email' => 'exclude_if:provider_type,individual|required_if:provider_type,company|email',
+            'company_email' => 'exclude_if:provider_type,individual|nullable|email|max:191',
             'logo' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
             'contact_person_photo' => 'nullable|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
 
