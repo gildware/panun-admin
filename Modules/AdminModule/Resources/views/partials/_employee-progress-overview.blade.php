@@ -381,17 +381,9 @@
                             </div>
                             <div class="rank-val">{{ (int) ($performer['score'] ?? 0) }}</div>
                         </div>
-                        @if(! empty($performer['marks']))
-                            <div class="rank-marks">
-                                @foreach($performer['marks'] as $mark)
-                                    <div class="rank-mark {{ ! empty($mark['positive']) ? 'is-plus' : 'is-minus' }}">
-                                        <span class="rank-mark-label">{{ $mark['label'] }}</span>
-                                        <span class="rank-mark-count">{{ (int) ($mark['count'] ?? 0) }} × {{ (int) ($mark['unit_points'] ?? 0) }}</span>
-                                        <strong class="rank-mark-pts">{{ ((int) ($mark['points'] ?? 0)) > 0 ? '+' : '' }}{{ (int) ($mark['points'] ?? 0) }}</strong>
-                                    </div>
-                                @endforeach
-                            </div>
-                        @endif
+                        @include('adminmodule::partials._employee-progress-rank-marks', [
+                            'marks' => $performer['marks'] ?? [],
+                        ])
                     </div>
                 @empty
                     <div class="rank-item"><div class="rank-meta"><div class="rank-name">{{ translate('No_data_available') }}</div></div></div>
@@ -455,17 +447,9 @@
                         </div>
                         <div class="rank-val">{{ (int) ($performer['score'] ?? 0) }}</div>
                     </div>
-                    @if(! empty($performer['marks']))
-                        <div class="rank-marks">
-                            @foreach($performer['marks'] as $mark)
-                                <div class="rank-mark {{ ! empty($mark['positive']) ? 'is-plus' : 'is-minus' }}">
-                                    <span class="rank-mark-label">{{ $mark['label'] }}</span>
-                                    <span class="rank-mark-count">{{ (int) ($mark['count'] ?? 0) }} × {{ (int) ($mark['unit_points'] ?? 0) }}</span>
-                                    <strong class="rank-mark-pts">{{ ((int) ($mark['points'] ?? 0)) > 0 ? '+' : '' }}{{ (int) ($mark['points'] ?? 0) }}</strong>
-                                </div>
-                            @endforeach
-                        </div>
-                    @endif
+                    @include('adminmodule::partials._employee-progress-rank-marks', [
+                        'marks' => $performer['marks'] ?? [],
+                    ])
                 </div>
             @empty
                 <div class="rank-item rank-item--card"><div class="rank-meta"><div class="rank-name">{{ translate('No_data_available') }}</div></div></div>
