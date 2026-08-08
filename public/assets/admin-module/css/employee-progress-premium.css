@@ -208,6 +208,11 @@
 .emp-progress-report .rank-marks--penalties .rank-marks-table th{color:#b91c1c;background:#fff7f7;border-bottom-color:#fecaca}
 .emp-progress-report .rank-marks--summary{border-color:var(--border-soft)}
 .emp-progress-report .rank-marks--summary .rank-marks-section-title{color:#334155;background:#f8fafc;border-bottom-color:var(--border-soft)}
+.emp-progress-report .rank-sub--active-assignments{margin-top:2px;color:#475569;font-size:11px}
+.emp-progress-report .rank-marks--context{border-color:#cbd5e1;background:#f8fafc;margin-bottom:8px}
+.emp-progress-report .rank-marks--context .rank-marks-section-title{color:#475569;background:#f1f5f9;border-bottom-color:#cbd5e1}
+.emp-progress-report .rank-active-assignments{display:flex;flex-wrap:wrap;gap:8px 12px;padding:6px 8px;font-size:12px;font-weight:600;color:#334155}
+.emp-progress-report .rank-active-assignments-hint{margin:0;padding:0 8px 8px;font-size:11px;line-height:1.4;color:#64748b}
 .emp-progress-report .rank-marks--helped .rank-marks-table tr.is-plus .rank-mark-total,
 .emp-progress-report .rank-marks--helped .rank-marks-table tr.is-plus .rank-mark-unit{color:#2563eb}
 .emp-progress-report .rank-marks--summary{margin-top:8px}

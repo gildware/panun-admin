@@ -13,6 +13,9 @@
     $helpedScore = (int) ($helpedScore ?? 0);
     $penaltyScore = (int) ($penaltyScore ?? 0);
     $grandScore = (int) ($grandScore ?? ($quantityScore + $helpedScore + $penaltyScore));
+    $activeOpenLeads = (int) ($activeOpenLeads ?? 0);
+    $activeBookings = (int) ($activeBookings ?? 0);
+    $showActiveAssignments = $activeOpenLeads > 0 || $activeBookings > 0;
     $formatPoints = static function (int $points): string {
         if ($points > 0) {
             return '+'.$points;
@@ -41,6 +44,18 @@
         ],
     ];
 @endphp
+@if($showActiveAssignments)
+    <div class="rank-marks rank-marks--context">
+        <div class="rank-marks-section-title">{{ translate('Progress_active_assignments') ?? 'Active assignments' }}</div>
+        <div class="rank-active-assignments">
+            <span>{{ $activeOpenLeads }} {{ translate('Progress_open_leads_short') ?? 'open leads' }}</span>
+            <span>{{ $activeBookings }} {{ translate('Progress_active_bookings_short') ?? 'active bookings' }}</span>
+        </div>
+        <p class="rank-active-assignments-hint">
+            {{ translate('Progress_active_assignments_hint') ?? 'Currently assigned to you now. Late follow-up penalties apply to these, even when nothing new was received this period.' }}
+        </p>
+    </div>
+@endif
 @foreach($markSections as $section)
     <div class="rank-marks{{ $section['modifier'] ?? '' }}">
         @if(! empty($section['title']))

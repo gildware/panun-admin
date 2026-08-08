@@ -339,6 +339,9 @@
             'helped_score' => (int) ($performer['helped_score'] ?? 0),
             'quantity_score' => (int) ($performer['quantity_score'] ?? 0),
             'penalty_score' => (int) ($performer['penalty_score'] ?? 0),
+            'active_open_leads' => (int) ($performer['active_open_leads'] ?? 0),
+            'active_bookings' => (int) ($performer['active_bookings'] ?? 0),
+            'active_assignments' => (int) ($performer['active_assignments'] ?? 0),
         ];
     });
     if (! $viewingAllEmployees) {

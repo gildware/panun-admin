@@ -518,6 +518,38 @@
 .emp-dash .rank-item--dash .rank-marks {
     margin-top: 0;
 }
+.emp-dash .rank-sub--active-assignments {
+    margin-top: 2px;
+    color: #475569;
+    font-size: 11px;
+}
+.emp-dash .rank-marks--context {
+    margin-top: 0;
+    margin-bottom: 8px;
+    border-color: #cbd5e1;
+    background: #f8fafc;
+}
+.emp-dash .rank-marks--context .rank-marks-section-title {
+    color: #475569;
+    background: #f1f5f9;
+    border-bottom-color: #cbd5e1;
+}
+.emp-dash .rank-active-assignments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 6px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+}
+.emp-dash .rank-active-assignments-hint {
+    margin: 0;
+    padding: 0 8px 8px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: #64748b;
+}
 .emp-dash .rank-marks {
     margin-top: 6px;
     border-radius: 8px;

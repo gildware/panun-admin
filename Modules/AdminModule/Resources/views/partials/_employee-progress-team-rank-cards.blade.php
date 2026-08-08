@@ -39,6 +39,17 @@
                             @endif
                             · {{ translate('Penalties') ?? 'Penalties' }} {{ (int) ($row['penalty_score'] ?? 0) }}
                         </div>
+                        @php
+                            $activeOpenLeads = (int) ($row['active_open_leads'] ?? 0);
+                            $activeBookings = (int) ($row['active_bookings'] ?? 0);
+                        @endphp
+                        @if($activeOpenLeads > 0 || $activeBookings > 0)
+                            <div class="rank-sub rank-sub--active-assignments">
+                                {{ translate('Progress_active_assignments') ?? 'Active assignments' }}
+                                · {{ $activeOpenLeads }} {{ translate('Progress_open_leads_short') ?? 'open leads' }}
+                                · {{ $activeBookings }} {{ translate('Progress_active_bookings_short') ?? 'active bookings' }}
+                            </div>
+                        @endif
                         <div class="rank-bar"><i style="width: {{ $barPct }}%"></i></div>
                     </div>
                     <div class="rank-val">{{ (int) ($row['score'] ?? 0) }}</div>
@@ -50,6 +61,8 @@
                     'helpedScore' => (int) ($row['helped_score'] ?? 0),
                     'penaltyScore' => (int) ($row['penalty_score'] ?? 0),
                     'grandScore' => (int) ($row['score'] ?? 0),
+                    'activeOpenLeads' => (int) ($row['active_open_leads'] ?? 0),
+                    'activeBookings' => (int) ($row['active_bookings'] ?? 0),
                 ])
             </div>
         @endforeach
