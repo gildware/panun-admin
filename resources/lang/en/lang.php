@@ -10804,4 +10804,9 @@ _Message' => 'Customer notification for provider bid offer
   'Progress_leads_missing_data' => 'Missing / improper data',
   'Penalties' => 'Penalties',
   'Marks' => 'Marks',
+  'Progress_lead_data_quality_high' => 'Lead data quality ≥80%',
+  'Progress_lead_data_quality_mid' => 'Lead data quality 50–79%',
+  'Progress_lead_data_quality' => 'Lead data quality',
+  'Progress_lead_data_quality_sub' => 'Closed leads with complete remarks, call logs, and pipeline fields',
+  'Progress_no_closed_leads_scored' => 'No closed leads scored in this period',
 );

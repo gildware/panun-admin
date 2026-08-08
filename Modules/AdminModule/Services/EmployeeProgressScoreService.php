@@ -12,7 +12,7 @@ use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Services\LeadFollowupService;
 
 /**
- * Employee ranking score: quantity of work (+) and late follow-up penalties (−).
+ * Employee ranking score: quantity of work (+), lead data quality (+), and late follow-up penalties (−).
  */
 class EmployeeProgressScoreService
 {
@@ -35,6 +35,7 @@ class EmployeeProgressScoreService
 
     public function __construct(
         private readonly LeadFollowupService $leadFollowupService,
+        private readonly LeadDataQualityScoreService $leadDataQuality,
     ) {}
 
     /**
@@ -47,6 +48,18 @@ class EmployeeProgressScoreService
             ['key' => 'bookings_completed', 'label' => translate('Bookings_Completed') ?? 'Bookings completed', 'points' => self::POINTS_BOOKINGS_COMPLETED, 'sign' => '+'],
             ['key' => 'leads_handled', 'label' => translate('Leads_Handled') ?? 'Leads handled', 'points' => self::POINTS_LEADS_HANDLED, 'sign' => '+'],
             ['key' => 'providers_registered', 'label' => translate('Progress_provider_registered') ?? 'Providers registered', 'points' => self::POINTS_PROVIDERS_REGISTERED, 'sign' => '+'],
+            [
+                'key' => 'lead_data_quality_high',
+                'label' => translate('Progress_lead_data_quality_high') ?? 'Lead data quality ≥80%',
+                'points' => LeadDataQualityScoreService::MARKS_HIGH,
+                'sign' => '+',
+            ],
+            [
+                'key' => 'lead_data_quality_mid',
+                'label' => translate('Progress_lead_data_quality_mid') ?? 'Lead data quality 50–79%',
+                'points' => LeadDataQualityScoreService::MARKS_MID,
+                'sign' => '+',
+            ],
         ];
 
         foreach (self::LATE_PENALTY_BUCKETS as $bucket) {
@@ -95,6 +108,7 @@ class EmployeeProgressScoreService
         $leadsByEmployee = $this->leadsHandledByEmployee($employeeIds, $periodStart, $periodEnd);
         $providersByEmployee = $this->providersRegisteredByEmployee($employeeIds, $periodStart, $periodEnd);
         $lateByEmployee = $this->lateFollowupPenaltiesByEmployee($employeeIds, $periodStart, $periodEnd);
+        $qualityByEmployee = $this->leadDataQuality->summarizeForEmployees($employeeIds, $periodStart, $periodEnd);
         $ranked = [];
 
         foreach ($employeeTotals as $employeeRow) {
@@ -108,6 +122,7 @@ class EmployeeProgressScoreService
                 (int) ($leadsByEmployee[$employeeId] ?? 0),
                 (int) ($providersByEmployee[$employeeId] ?? 0),
                 $lateByEmployee[$employeeId] ?? $this->emptyLatePenalty(),
+                $qualityByEmployee[$employeeId] ?? $this->leadDataQuality->emptySummary(),
             );
         }
 
@@ -131,6 +146,16 @@ class EmployeeProgressScoreService
     /**
      * @param  array<string, mixed>  $employeeRow
      * @param  array{total_count: int, total_points: int, buckets: array<string, array{count: int, unit_points: int, points: int, label: string}>}  $latePenalty
+     * @param  array{
+     *     closed_count?: int,
+     *     avg_score?: float,
+     *     quality_pct?: float,
+     *     pass_count?: int,
+     *     high_count?: int,
+     *     mid_count?: int,
+     *     low_count?: int,
+     *     mark_points?: int
+     * }  $dataQuality
      * @return array<string, mixed>
      */
     public function scoreEmployeeRow(
@@ -138,11 +163,15 @@ class EmployeeProgressScoreService
         ?int $leadsHandledOverride = null,
         int $providersRegistered = 0,
         array $latePenalty = [],
+        array $dataQuality = [],
     ): array {
         $bookingsCreated = (int) ($employeeRow['bookings_created'] ?? 0);
         $bookingsCompleted = (int) ($employeeRow['bookings_completed'] ?? 0);
         $leadsHandled = $leadsHandledOverride ?? (int) ($employeeRow['leads_assigned'] ?? $employeeRow['leads_handled'] ?? 0);
         $latePenalty = $latePenalty === [] ? $this->emptyLatePenalty() : $latePenalty;
+        $dataQuality = $dataQuality === [] ? $this->leadDataQuality->emptySummary() : $dataQuality;
+        $qualityHigh = (int) ($dataQuality['high_count'] ?? 0);
+        $qualityMid = (int) ($dataQuality['mid_count'] ?? 0);
 
         $marks = [
             $this->markLine(
@@ -174,6 +203,21 @@ class EmployeeProgressScoreService
                 true,
             ),
         ];
+
+        $marks[] = $this->markLine(
+            'lead_data_quality_high',
+            translate('Progress_lead_data_quality_high') ?? 'Lead data quality ≥80%',
+            $qualityHigh,
+            LeadDataQualityScoreService::MARKS_HIGH,
+            true,
+        );
+        $marks[] = $this->markLine(
+            'lead_data_quality_mid',
+            translate('Progress_lead_data_quality_mid') ?? 'Lead data quality 50–79%',
+            $qualityMid,
+            LeadDataQualityScoreService::MARKS_MID,
+            true,
+        );
 
         foreach (self::LATE_PENALTY_BUCKETS as $bucket) {
             $bucketKey = $bucket['key'];
@@ -210,6 +254,7 @@ class EmployeeProgressScoreService
             'followups' => (int) ($employeeRow['lead_followups'] ?? 0) + (int) ($employeeRow['booking_followups'] ?? 0),
             'late_followups' => (int) ($latePenalty['total_count'] ?? 0),
             'late_penalty_points' => (int) ($latePenalty['total_points'] ?? 0),
+            'lead_data_quality' => $dataQuality,
             'missed_followups' => 0,
             'cancelled' => (int) ($employeeRow['bookings_cancelled'] ?? 0),
             'quantity_score' => $quantityScore,

@@ -576,6 +576,15 @@ class EmployeeProgressAnalyticsService
     private function qualityScoreFromStats(array $qualityStats): ?float
     {
         foreach ($qualityStats as $stat) {
+            if (($stat['key'] ?? '') === 'lead_data_quality_pct') {
+                $value = (string) ($stat['value'] ?? $stat['raw'] ?? '');
+                if (preg_match('/([\d.]+)/', $value, $matches)) {
+                    return (float) $matches[1];
+                }
+            }
+        }
+
+        foreach ($qualityStats as $stat) {
             $label = strtolower((string) ($stat['label'] ?? ''));
             if (str_contains($label, 'accuracy') || str_contains($label, 'quality')) {
                 $value = (string) ($stat['value'] ?? '');
