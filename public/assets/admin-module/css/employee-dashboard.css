@@ -664,6 +664,30 @@
     overflow: visible;
     max-height: none;
 }
+.emp-dash .rank-marks-trend {
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e2e8f0;
+}
+.emp-dash .rank-marks-trend-head {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+.emp-dash .rank-marks-trend-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+.emp-dash .rank-marks-trend-chart {
+    min-height: 150px;
+}
+.emp-dash .progress-cards-row--admin .rank-marks-trend-chart {
+    min-height: 190px;
+}
 .emp-dash .team-rank-row {
     display: grid; grid-template-columns: 32px 1fr auto; gap: 6px; align-items: center;
     padding: 6px 8px; border-radius: 6px; font-size: 13px;

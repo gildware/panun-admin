@@ -99,6 +99,7 @@ class EmployeeDashboardService
             'team_rank_rows' => $teamRankMonthly,
             'team_rank_rows_daily' => $teamRankDaily,
             'team_rank_rows_monthly' => $teamRankMonthly,
+            'rank_marks_chart' => $this->teamRankMarksTrend($teamEmployees, $monthStart, $monthEnd, $userId),
         ];
 
         if (! $employeeScope) {
@@ -202,6 +203,7 @@ class EmployeeDashboardService
             'team_rank_rows' => $teamRankMonthly,
             'team_rank_rows_daily' => $teamRankDaily,
             'team_rank_rows_monthly' => $teamRankMonthly,
+            'rank_marks_chart' => $this->teamRankMarksTrend($teamEmployees, $monthStart, $monthEnd, $userId),
         ];
     }
 
@@ -263,6 +265,7 @@ class EmployeeDashboardService
             'team_rank_rows' => $teamRankMonthly,
             'team_rank_rows_daily' => $teamRankDaily,
             'team_rank_rows_monthly' => $teamRankMonthly,
+            'rank_marks_chart' => $this->teamRankMarksTrend($employees, $monthStart, $monthEnd, null),
         ];
     }
 
@@ -570,6 +573,71 @@ class EmployeeDashboardService
                 'active_assignments' => (int) ($row['active_assignments'] ?? 0),
             ];
         }, $ranked);
+    }
+
+    /**
+     * Daily ranking marks trend for the current month (one point per day).
+     *
+     * @param  Collection<int, User>  $employees
+     * @return array{categories: list<string>, series: list<array{name: string, employee_id: string, data: list<int>}>}
+     */
+    private function teamRankMarksTrend(
+        Collection $employees,
+        Carbon $monthStart,
+        Carbon $monthEnd,
+        ?string $onlyEmployeeId = null,
+    ): array {
+        if ($employees->isEmpty()) {
+            return ['categories' => [], 'series' => []];
+        }
+
+        $today = Carbon::today();
+        $rangeEnd = $monthEnd->copy()->min($today);
+        if ($rangeEnd->lt($monthStart)) {
+            return ['categories' => [], 'series' => []];
+        }
+
+        $seriesByEmployee = [];
+        foreach ($employees as $employee) {
+            $employeeId = (string) $employee->id;
+            if ($onlyEmployeeId !== null && $onlyEmployeeId !== '' && $employeeId !== $onlyEmployeeId) {
+                continue;
+            }
+
+            $name = trim((string) $employee->first_name.' '.(string) $employee->last_name);
+            if ($name === '') {
+                $name = (string) ($employee->email ?? $employeeId);
+            }
+
+            $seriesByEmployee[$employeeId] = [
+                'name' => $name,
+                'employee_id' => $employeeId,
+                'data' => [],
+            ];
+        }
+
+        if ($seriesByEmployee === []) {
+            return ['categories' => [], 'series' => []];
+        }
+
+        $categories = [];
+        $cursor = $monthStart->copy()->startOfDay();
+        while ($cursor->lte($rangeEnd)) {
+            $categories[] = $cursor->format('j');
+            $dayRows = $this->teamOverallRankRows($employees, $cursor, $cursor);
+            $scoresByEmployee = collect($dayRows)->keyBy('employee_id');
+
+            foreach ($seriesByEmployee as $employeeId => $series) {
+                $seriesByEmployee[$employeeId]['data'][] = (int) ($scoresByEmployee[$employeeId]['score'] ?? 0);
+            }
+
+            $cursor->addDay();
+        }
+
+        return [
+            'categories' => $categories,
+            'series' => array_values($seriesByEmployee),
+        ];
     }
 
     /**

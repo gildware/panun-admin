@@ -3,8 +3,8 @@
 @section('title', translate('dashboard'))
 
 @push('css_or_js')
-<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-dashboard.css') }}?v=20260808bf">
-<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260808bf">
+<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-dashboard.css') }}?v=20260808bg">
+<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260808bg">
 @endpush
 
 @section('content')
@@ -80,6 +80,8 @@
                             'leaderboard' => $scope['leaderboard'] ?? [],
                             'teamRankRowsDaily' => $scope['team_rank_rows_daily'] ?? ($scope['team_rank_rows'] ?? []),
                             'teamRankRowsMonthly' => $scope['team_rank_rows_monthly'] ?? ($scope['team_rank_rows'] ?? []),
+                            'rankMarksChart' => $scope['rank_marks_chart'] ?? [],
+                            'progressScopeId' => $scopeId,
                             'highlightEmployeeId' => $scope['highlight_employee_id'] ?? ($scopeId !== '__all__' ? $scopeId : null),
                             'progressTitle' => $scope['title'] ?? translate('Team_Progress'),
                             'progressSubtitle' => $scope['subtitle'] ?? translate('Team_progress_sub'),
@@ -99,6 +101,8 @@
                     'leaderboard' => $employeeData['leaderboard'] ?? [],
                     'teamRankRowsDaily' => $employeeData['team_rank_rows_daily'] ?? ($employeeData['team_rank_rows'] ?? []),
                     'teamRankRowsMonthly' => $employeeData['team_rank_rows_monthly'] ?? ($employeeData['team_rank_rows'] ?? []),
+                    'rankMarksChart' => $employeeData['rank_marks_chart'] ?? [],
+                    'progressScopeId' => 'self',
                     'highlightEmployeeId' => $employeeData['highlight_employee_id'] ?? (string) ($employeeData['user']->id ?? ''),
                     'progressLayout' => 'employee',
                 ])
@@ -110,6 +114,8 @@
 @endsection
 
 @push('script')
+<script src="{{ asset('assets/admin-module/plugins/apex/apexcharts.min.js') }}"></script>
+<script src="{{ asset('assets/admin-module/js/employee-dashboard-charts.js') }}?v=20260808bg"></script>
 <script>
     'use strict';
 
@@ -124,6 +130,9 @@
                 container.querySelectorAll('[data-panel]').forEach(function (panel) {
                     panel.classList.toggle('active', panel.getAttribute('data-panel') === tab);
                 });
+                if (tab === 'ranking-monthly' && window.PanunDashboardCharts && window.PanunDashboardCharts.refreshVisible) {
+                    window.PanunDashboardCharts.refreshVisible(container);
+                }
             });
         });
     });
@@ -245,6 +254,10 @@
             var showPanel = isAll ? panelScope === '__all__' : panelScope === scopeValue;
             panel.classList.toggle('d-none', ! showPanel);
         });
+
+        if (window.PanunDashboardCharts && window.PanunDashboardCharts.refreshVisible) {
+            window.PanunDashboardCharts.refreshVisible(document);
+        }
 
         try {
             localStorage.setItem('admin_dashboard_scope', scopeValue);

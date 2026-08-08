@@ -15,6 +15,8 @@
     $highlightEmployeeId = $highlightEmployeeId ?? null;
     $teamRankRowsDaily = $teamRankRowsDaily ?? ($team_rank_rows_daily ?? []);
     $teamRankRowsMonthly = $teamRankRowsMonthly ?? ($team_rank_rows_monthly ?? ($teamRankRows ?? ($team_rank_rows ?? [])));
+    $rankMarksChart = $rankMarksChart ?? ($rank_marks_chart ?? []);
+    $progressScopeId = $progressScopeId ?? 'default';
     if ($teamRankRowsDaily === [] && ($teamRankRows ?? []) !== []) {
         $teamRankRowsDaily = $teamRankRows;
     }
@@ -197,6 +199,11 @@
                                         <span class="progress-summary-badge is-active">{{ $monthlySub }}</span>
                                     @endif
                                 </div>
+                                @include('adminmodule::partials._employee-progress-rank-marks-chart', [
+                                    'rankMarksChart' => $rankMarksChart,
+                                    'progressScopeId' => $progressScopeId,
+                                    'progressLayout' => $progressLayout,
+                                ])
                                 @include('adminmodule::partials._employee-progress-team-rank-cards', [
                                     'rows' => $teamRankRowsMonthly,
                                     'highlightEmployeeId' => $highlightEmployeeId,
@@ -325,6 +332,11 @@
                                         <span class="progress-summary-badge is-active">{{ $monthlySub }}</span>
                                     @endif
                                 </div>
+                                @include('adminmodule::partials._employee-progress-rank-marks-chart', [
+                                    'rankMarksChart' => $rankMarksChart,
+                                    'progressScopeId' => $progressScopeId,
+                                    'progressLayout' => $progressLayout,
+                                ])
                                 @include('adminmodule::partials._employee-progress-team-rank-cards', [
                                     'rows' => $teamRankRowsMonthly,
                                     'highlightEmployeeId' => $highlightEmployeeId,
