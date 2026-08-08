@@ -3,8 +3,8 @@
 @section('title', translate('dashboard'))
 
 @push('css_or_js')
-<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-dashboard.css') }}?v=20260808bk">
-<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260808bk">
+<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-dashboard.css') }}?v=20260808bl">
+<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260808bl">
 @endpush
 
 @section('content')
@@ -87,6 +87,7 @@
                             'progressSubtitle' => $scope['subtitle'] ?? translate('Team_progress_sub'),
                             'viewReportUrl' => $scope['view_report_url'] ?? route('admin.my-progress', ['tab' => 'monthly']),
                             'progressLayout' => 'admin',
+                            'chartEmployees' => $dashboardEmployees,
                         ])
                     </div>
                 @endforeach
@@ -115,7 +116,7 @@
 
 @push('script')
 <script src="{{ asset('assets/admin-module/plugins/apex/apexcharts.min.js') }}"></script>
-<script src="{{ asset('assets/admin-module/js/employee-dashboard-charts.js') }}?v=20260808bk"></script>
+<script src="{{ asset('assets/admin-module/js/employee-dashboard-charts.js') }}?v=20260808bl"></script>
 <script>
     'use strict';
 

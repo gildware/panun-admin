@@ -16,6 +16,7 @@
     $teamRankRowsDaily = $teamRankRowsDaily ?? ($team_rank_rows_daily ?? []);
     $teamRankRowsMonthly = $teamRankRowsMonthly ?? ($team_rank_rows_monthly ?? ($teamRankRows ?? ($team_rank_rows ?? [])));
     $rankMarksChart = $rankMarksChart ?? ($rank_marks_chart ?? []);
+    $chartEmployees = $chartEmployees ?? [];
     $progressScopeId = $progressScopeId ?? 'default';
     if ($teamRankRowsDaily === [] && ($teamRankRows ?? []) !== []) {
         $teamRankRowsDaily = $teamRankRows;
@@ -209,6 +210,7 @@
                                     'progressScopeId' => $progressScopeId,
                                     'progressLayout' => $progressLayout,
                                     'highlightEmployeeId' => $highlightEmployeeId,
+                                    'chartEmployees' => $chartEmployees,
                                 ])
                             </div>
                         </div>
@@ -342,6 +344,7 @@
                                     'progressScopeId' => $progressScopeId,
                                     'progressLayout' => $progressLayout,
                                     'highlightEmployeeId' => $highlightEmployeeId,
+                                    'chartEmployees' => $chartEmployees,
                                 ])
                             </div>
                         </div>
