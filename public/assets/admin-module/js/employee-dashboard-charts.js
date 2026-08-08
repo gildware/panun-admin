@@ -94,14 +94,36 @@
         delete el.dataset.rankChartRendered;
     }
 
+    function resolveEmployeeScope(chartEl) {
+        var wrap = chartEl.closest('.rank-marks-trend');
+        var employeeSelect = wrap ? wrap.querySelector('.js-rank-marks-employee') : null;
+        if (employeeSelect) {
+            return employeeSelect.value || '__all__';
+        }
+
+        var scope = chartEl.getAttribute('data-employee-scope') || '__all__';
+        return scope === '' ? '__all__' : scope;
+    }
+
+    function resolveChartMonth(chartEl, monthOverride) {
+        if (monthOverride) {
+            return monthOverride;
+        }
+
+        var wrap = chartEl.closest('.rank-marks-trend');
+        var monthSelect = wrap ? wrap.querySelector('.js-rank-marks-month') : null;
+        return monthSelect ? (monthSelect.value || '') : '';
+    }
+
     function buildChartRequestUrl(chartEl, month) {
         var url = chartEl.getAttribute('data-chart-url') || '';
-        var employeeScope = chartEl.getAttribute('data-employee-scope') || '';
-        if (url === '' || month === '') {
+        var monthValue = resolveChartMonth(chartEl, month);
+        var employeeScope = resolveEmployeeScope(chartEl);
+        if (url === '' || monthValue === '') {
             return '';
         }
 
-        var requestUrl = url + '?month=' + encodeURIComponent(month);
+        var requestUrl = url + '?month=' + encodeURIComponent(monthValue);
         if (employeeScope !== '' && employeeScope !== '__all__') {
             requestUrl += '&employee_id=' + encodeURIComponent(employeeScope);
         } else {
@@ -117,8 +139,7 @@
         }
 
         var wrap = chartEl.closest('.rank-marks-trend');
-        var monthSelect = wrap ? wrap.querySelector('.js-rank-marks-month') : null;
-        var monthValue = month || (monthSelect ? monthSelect.value : '') || '';
+        var monthValue = resolveChartMonth(chartEl, month);
         var requestUrl = buildChartRequestUrl(chartEl, monthValue);
 
         if (requestUrl === '') {
@@ -315,7 +336,14 @@
             return null;
         }
 
+        var wrap = chartEl.closest('.rank-marks-trend');
+        var employeeSelect = wrap ? wrap.querySelector('.js-rank-marks-employee') : null;
         var employeeScope = scopeValue === '__all__' || scopeValue === '' ? '__all__' : scopeValue;
+
+        if (employeeSelect) {
+            employeeSelect.value = employeeScope;
+        }
+
         chartEl.setAttribute('data-employee-scope', employeeScope);
 
         return chartEl;
@@ -344,6 +372,7 @@
 
     function init() {
         bindMonthPickers();
+        bindEmployeePickers();
         bindResizeRefresh();
     }
 
@@ -361,6 +390,29 @@
 
         global.addEventListener('resize', function () {
             renderVisibleCharts(document, true);
+        });
+    }
+
+    function bindEmployeePickers() {
+        if (global.__rankMarksEmployeeBound) {
+            return;
+        }
+        global.__rankMarksEmployeeBound = true;
+
+        document.addEventListener('change', function (event) {
+            var select = event.target.closest('.js-rank-marks-employee');
+            if (!select) {
+                return;
+            }
+
+            var wrap = select.closest('.rank-marks-trend');
+            var chartEl = wrap ? wrap.querySelector('.js-rank-marks-chart') : null;
+            if (!chartEl) {
+                return;
+            }
+
+            chartEl.setAttribute('data-employee-scope', select.value || '__all__');
+            reloadChartFromServer(chartEl, '', true);
         });
     }
 
