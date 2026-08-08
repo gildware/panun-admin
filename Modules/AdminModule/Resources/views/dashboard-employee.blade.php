@@ -3,7 +3,7 @@
 @section('title', translate('dashboard'))
 
 @push('css_or_js')
-<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-dashboard.css') }}?v=20260808av">
+<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-dashboard.css') }}?v=20260808aw">
 <link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260808ao">
 @endpush
 
@@ -84,6 +84,7 @@
                             'progressTitle' => $scope['title'] ?? translate('Team_Progress'),
                             'progressSubtitle' => $scope['subtitle'] ?? translate('Team_progress_sub'),
                             'viewReportUrl' => $scope['view_report_url'] ?? route('admin.my-progress', ['tab' => 'monthly']),
+                            'progressLayout' => 'admin',
                         ])
                     </div>
                 @endforeach
@@ -99,6 +100,7 @@
                     'teamRankRowsDaily' => $employeeData['team_rank_rows_daily'] ?? ($employeeData['team_rank_rows'] ?? []),
                     'teamRankRowsMonthly' => $employeeData['team_rank_rows_monthly'] ?? ($employeeData['team_rank_rows'] ?? []),
                     'highlightEmployeeId' => $employeeData['highlight_employee_id'] ?? (string) ($employeeData['user']->id ?? ''),
+                    'progressLayout' => 'employee',
                 ])
             </div>
         @endif
