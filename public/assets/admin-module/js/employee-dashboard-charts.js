@@ -94,6 +94,79 @@
         delete el.dataset.rankChartRendered;
     }
 
+    function buildChartRequestUrl(chartEl, month) {
+        var url = chartEl.getAttribute('data-chart-url') || '';
+        var employeeScope = chartEl.getAttribute('data-employee-scope') || '';
+        if (url === '' || month === '') {
+            return '';
+        }
+
+        var requestUrl = url + '?month=' + encodeURIComponent(month);
+        if (employeeScope !== '' && employeeScope !== '__all__') {
+            requestUrl += '&employee_id=' + encodeURIComponent(employeeScope);
+        } else {
+            requestUrl += '&employee_id=__all__';
+        }
+
+        return requestUrl;
+    }
+
+    function reloadChartFromServer(chartEl, month, forceRender) {
+        if (!chartEl) {
+            return Promise.resolve();
+        }
+
+        var wrap = chartEl.closest('.rank-marks-trend');
+        var monthSelect = wrap ? wrap.querySelector('.js-rank-marks-month') : null;
+        var monthValue = month || (monthSelect ? monthSelect.value : '') || '';
+        var requestUrl = buildChartRequestUrl(chartEl, monthValue);
+
+        if (requestUrl === '') {
+            if (forceRender) {
+                renderChart(chartEl, true);
+            }
+            return Promise.resolve();
+        }
+
+        if (wrap) {
+            wrap.classList.add('is-loading');
+        }
+
+        return fetch(requestUrl, {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+        })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Failed to load chart');
+                }
+                return response.json();
+            })
+            .then(function (payload) {
+                writeChartConfig(chartEl, {
+                    categories: payload.categories || [],
+                    series: payload.series || [],
+                    month: payload.month || monthValue,
+                    period_label: payload.period_label || '',
+                });
+                renderChart(chartEl, true);
+            })
+            .catch(function (error) {
+                console.warn('Rank marks chart reload failed:', error);
+                if (forceRender) {
+                    renderChart(chartEl, true);
+                }
+            })
+            .finally(function () {
+                if (wrap) {
+                    wrap.classList.remove('is-loading');
+                }
+            });
+    }
+
     function renderChart(el, force) {
         if (!el || typeof ApexCharts === 'undefined') {
             return;
@@ -212,8 +285,64 @@
         });
     }
 
+    function visibleScopeChart() {
+        var panel = document.querySelector('.js-progress-scope-panel:not(.d-none)');
+        if (panel) {
+            var monthlyPanel = panel.querySelector('[data-panel="ranking-monthly"]');
+            if (monthlyPanel && !monthlyPanel.classList.contains('active')) {
+                return null;
+            }
+
+            return panel.querySelector('.js-rank-marks-chart');
+        }
+
+        var employeeProgress = document.getElementById('section-progress');
+        if (!employeeProgress) {
+            return null;
+        }
+
+        var employeeMonthlyPanel = employeeProgress.querySelector('[data-panel="ranking-monthly"]');
+        if (employeeMonthlyPanel && !employeeMonthlyPanel.classList.contains('active')) {
+            return null;
+        }
+
+        return employeeProgress.querySelector('.js-rank-marks-chart');
+    }
+
+    function syncScopeChartEmployeeFilter(scopeValue) {
+        var chartEl = visibleScopeChart();
+        if (!chartEl) {
+            return null;
+        }
+
+        var employeeScope = scopeValue === '__all__' || scopeValue === '' ? '__all__' : scopeValue;
+        chartEl.setAttribute('data-employee-scope', employeeScope);
+
+        return chartEl;
+    }
+
+    function reloadVisibleScopeChart(scopeValue, forceServerReload) {
+        var chartEl = syncScopeChartEmployeeFilter(scopeValue);
+        if (!chartEl) {
+            renderVisibleCharts(document, true);
+            return Promise.resolve();
+        }
+
+        document.querySelectorAll('.js-rank-marks-chart').forEach(function (el) {
+            if (el !== chartEl) {
+                destroyChart(el);
+            }
+        });
+
+        if (forceServerReload) {
+            return reloadChartFromServer(chartEl, '', true);
+        }
+
+        renderChart(chartEl, true);
+        return Promise.resolve();
+    }
+
     function init() {
-        renderVisibleCharts(document, false);
         bindMonthPickers();
         bindResizeRefresh();
     }
@@ -253,47 +382,7 @@
                 return;
             }
 
-            var url = chartEl.getAttribute('data-chart-url') || '';
-            var month = select.value || '';
-            var employeeScope = chartEl.getAttribute('data-employee-scope') || '';
-            if (url === '' || month === '') {
-                return;
-            }
-
-            wrap.classList.add('is-loading');
-            var requestUrl = url + '?month=' + encodeURIComponent(month);
-            if (employeeScope !== '') {
-                requestUrl += '&employee_id=' + encodeURIComponent(employeeScope);
-            }
-
-            fetch(requestUrl, {
-                headers: {
-                    Accept: 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                credentials: 'same-origin',
-            })
-                .then(function (response) {
-                    if (!response.ok) {
-                        throw new Error('Failed to load chart');
-                    }
-                    return response.json();
-                })
-                .then(function (payload) {
-                    writeChartConfig(chartEl, {
-                        categories: payload.categories || [],
-                        series: payload.series || [],
-                        month: payload.month || month,
-                        period_label: payload.period_label || '',
-                    });
-                    renderChart(chartEl, true);
-                })
-                .catch(function (error) {
-                    console.warn('Rank marks month load failed:', error);
-                })
-                .finally(function () {
-                    wrap.classList.remove('is-loading');
-                });
+            reloadChartFromServer(chartEl, select.value || '', true);
         });
     }
 
@@ -302,12 +391,7 @@
         refreshVisible: function (root) {
             renderVisibleCharts(root || document, true);
         },
+        reloadVisibleScopeChart: reloadVisibleScopeChart,
         renderChart: renderChart,
     };
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
 })(window);

@@ -5,7 +5,9 @@
     $chartDataId = $chartId.'-data';
     $months = $rankMarksChart['months'] ?? [];
     $currentMonth = (string) ($rankMarksChart['month'] ?? now()->format('Y-m'));
-    $employeeScope = (string) ($highlightEmployeeId ?? '');
+    $employeeScope = ($progressScopeId ?? '') === '__all__'
+        ? '__all__'
+        : (string) ($highlightEmployeeId ?? ($progressScopeId ?? ''));
     $chartUrl = route('admin.dashboard.rank-marks-chart');
     $chartPayload = [
         'categories' => $rankMarksChart['categories'] ?? [],
