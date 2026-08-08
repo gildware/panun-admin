@@ -81,7 +81,7 @@
 
     <div class="progress-shell-body emp-progress-report">
         <div class="row g-1 progress-cards-row progress-cards-row--metrics">
-            <div class="col-lg-6">
+            <div class="col-lg-7 progress-metrics-col progress-metrics-col--left">
                 <div class="progress-metrics-stack">
                     {{-- Quality --}}
                     <div class="progress-card progress-card--compact progress-card--quality">
@@ -161,7 +161,7 @@
             </div>
 
             {{-- Ranking --}}
-            <div class="col-lg-6">
+            <div class="col-lg-5 progress-metrics-col progress-metrics-col--rank">
                 <div class="progress-card progress-card--compact progress-card--rank h-100">
                     <div class="progress-card-header">
                         <div class="progress-card-header-main">
