@@ -287,7 +287,7 @@
                 </div>
 
                 <div class="col-lg-5 progress-metrics-col progress-metrics-col--rank">
-                    <div class="progress-card progress-card--compact progress-card--rank h-100">
+                    <div class="progress-card progress-card--compact progress-card--rank">
                         <div class="progress-card-header">
                             <div class="progress-card-header-main">
                                 <span class="progress-card-title">{{ translate('Ranking') ?? translate('Progress_team_ranking') }}</span>
