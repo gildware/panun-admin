@@ -794,7 +794,7 @@
     margin-bottom: 6px;
 }
 .emp-dash .progress-shell-body.emp-progress-report .lead-metric-grid--dashboard {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
     margin-bottom: 0;
 }
@@ -803,10 +803,21 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
+@media (max-width: 991px) {
+    .emp-dash .progress-cards-row--metrics > [class*="col-"] {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+}
 @media (max-width: 575px) {
     .emp-dash .progress-shell-body.emp-progress-report .lead-metric-grid--dashboard {
         grid-template-columns: 1fr;
     }
+}
+.emp-dash .progress-card--rank .progress-summary-badge.is-active {
+    background: #fff; color: var(--pc-tone);
+    border: 1px solid var(--pc-tone-border);
+    font-size: 11px;
 }
 .emp-dash .progress-shell-body.emp-progress-report .followup-metric-card {
     padding: 7px 8px 6px;

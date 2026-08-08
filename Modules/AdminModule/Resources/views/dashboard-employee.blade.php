@@ -3,7 +3,7 @@
 @section('title', translate('dashboard'))
 
 @push('css_or_js')
-<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-dashboard.css') }}?v=20260807ah">
+<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-dashboard.css') }}?v=20260808ap">
 <link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260808ao">
 @endpush
 
@@ -77,6 +77,10 @@
                             'monthly' => $scope['monthly'] ?? [],
                             'qualityStatsDaily' => $scope['quality_stats_daily'] ?? [],
                             'qualityStatsMonthly' => $scope['quality_stats_monthly'] ?? ($scope['quality_stats'] ?? []),
+                            'leaderboard' => $scope['leaderboard'] ?? [],
+                            'teamRankRowsDaily' => $scope['team_rank_rows_daily'] ?? ($scope['team_rank_rows'] ?? []),
+                            'teamRankRowsMonthly' => $scope['team_rank_rows_monthly'] ?? ($scope['team_rank_rows'] ?? []),
+                            'highlightEmployeeId' => $scope['highlight_employee_id'] ?? ($scopeId !== '__all__' ? $scopeId : null),
                             'progressTitle' => $scope['title'] ?? translate('Team_Progress'),
                             'progressSubtitle' => $scope['subtitle'] ?? translate('Team_progress_sub'),
                             'viewReportUrl' => $scope['view_report_url'] ?? route('admin.my-progress', ['tab' => 'monthly']),
@@ -91,6 +95,10 @@
                     'monthly' => $monthly,
                     'qualityStatsDaily' => $employeeData['quality_stats_daily'] ?? [],
                     'qualityStatsMonthly' => $employeeData['quality_stats_monthly'] ?? ($monthly['quality_stats'] ?? []),
+                    'leaderboard' => $employeeData['leaderboard'] ?? [],
+                    'teamRankRowsDaily' => $employeeData['team_rank_rows_daily'] ?? ($employeeData['team_rank_rows'] ?? []),
+                    'teamRankRowsMonthly' => $employeeData['team_rank_rows_monthly'] ?? ($employeeData['team_rank_rows'] ?? []),
+                    'highlightEmployeeId' => $employeeData['highlight_employee_id'] ?? (string) ($employeeData['user']->id ?? ''),
                 ])
             </div>
         @endif

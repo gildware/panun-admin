@@ -70,6 +70,9 @@ class EmployeeDashboardService
             ),
         ];
         $leaderboard = $this->teamLeaderboardForPeriod($userId, $monthStart, $monthEnd);
+        $teamEmployees = $this->dashboardEmployees();
+        $teamRankDaily = $this->teamOverallRankRows($teamEmployees, $today, $today);
+        $teamRankMonthly = $this->teamOverallRankRows($teamEmployees, $monthStart, $monthEnd);
 
         $payload = [
             'user' => $user,
@@ -87,12 +90,19 @@ class EmployeeDashboardService
             'quality_stats_daily' => $this->buildQualityStatsForUser($userId, $today, $today, $todayTotals),
             'quality_stats_monthly' => $monthlyPerformance['quality_stats'] ?? [],
             'leaderboard' => $leaderboard,
-            'progress_side_panel' => 'contribution',
-            'team_rank_rows' => [],
+            'progress_side_panel' => 'team_rank',
+            'highlight_employee_id' => $userId,
+            'team_rank_rows' => $teamRankMonthly,
+            'team_rank_rows_daily' => $teamRankDaily,
+            'team_rank_rows_monthly' => $teamRankMonthly,
         ];
 
         if (! $employeeScope) {
-            $payload['progress_scopes'] = $this->buildAdminProgressScopes($this->dashboardEmployees());
+            $payload['progress_scopes'] = $this->buildAdminProgressScopes($teamEmployees);
+            $payload['highlight_employee_id'] = '';
+            $payload['team_rank_rows'] = [];
+            $payload['team_rank_rows_daily'] = [];
+            $payload['team_rank_rows_monthly'] = [];
         }
 
         return $payload;
@@ -131,6 +141,9 @@ class EmployeeDashboardService
         $todayTotals = $todayReport['employee_totals'][0] ?? [];
         $monthlyPerformance = $this->monthlyPerformance($userId, $monthStart, $monthEnd, $monthTotals);
         $leaderboard = $this->teamLeaderboardForPeriod($userId, $monthStart, $monthEnd);
+        $teamEmployees = $this->dashboardEmployees();
+        $teamRankDaily = $this->teamOverallRankRows($teamEmployees, $today, $today);
+        $teamRankMonthly = $this->teamOverallRankRows($teamEmployees, $monthStart, $monthEnd);
 
         $name = trim((string) $employee->first_name.' '.(string) $employee->last_name);
         if ($name === '') {
@@ -166,7 +179,10 @@ class EmployeeDashboardService
             ),
             'leaderboard' => $leaderboard,
             'progress_side_panel' => 'team_rank',
-            'team_rank_rows' => $this->teamOverallRankRows($this->dashboardEmployees(), $monthStart, $monthEnd),
+            'highlight_employee_id' => $userId,
+            'team_rank_rows' => $teamRankMonthly,
+            'team_rank_rows_daily' => $teamRankDaily,
+            'team_rank_rows_monthly' => $teamRankMonthly,
         ];
     }
 
@@ -188,6 +204,8 @@ class EmployeeDashboardService
         $monthlyPerformance = $this->monthlyPerformanceForTeam($monthStart, $monthEnd, $monthTotals, $employees);
         $qualityDaily = $this->buildTeamQualityStatsForPeriod($employees, $today, $today, $todayTotals);
         $qualityMonthly = $this->buildTeamQualityStatsForPeriod($employees, $monthStart, $monthEnd, $monthTotals);
+        $teamRankDaily = $this->teamOverallRankRows($employees, $today, $today);
+        $teamRankMonthly = $this->teamOverallRankRows($employees, $monthStart, $monthEnd);
 
         return [
             'title' => translate('Team_Progress'),
@@ -217,7 +235,10 @@ class EmployeeDashboardService
                 'metrics' => [],
             ],
             'progress_side_panel' => 'team_rank',
-            'team_rank_rows' => $this->teamOverallRankRows($employees, $monthStart, $monthEnd),
+            'highlight_employee_id' => '',
+            'team_rank_rows' => $teamRankMonthly,
+            'team_rank_rows_daily' => $teamRankDaily,
+            'team_rank_rows_monthly' => $teamRankMonthly,
         ];
     }
 
