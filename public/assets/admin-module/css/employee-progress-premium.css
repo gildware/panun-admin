@@ -80,8 +80,17 @@
 .emp-progress-report .trend.flat{background:#f1f5f9;color:var(--muted)}
 
 .emp-progress-report .layout-main{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:14px;margin-bottom:14px;align-items:start}
-.emp-progress-report .layout-main:not(:has(.side-stack)){grid-template-columns:minmax(0,1fr)}
-@media(max-width:1024px){.emp-progress-report .layout-main{grid-template-columns:1fr}}
+.emp-progress-report .layout-main:not(:has(.side-stack)):not(.layout-main--half){grid-template-columns:minmax(0,1fr)}
+.emp-progress-report .layout-main--half{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch}
+.emp-progress-report .layout-main--half .chart-card,
+.emp-progress-report .layout-main--half .rank-card--panel{min-width:0;height:100%}
+.emp-progress-report .rank-card--panel{display:flex;flex-direction:column;overflow:visible}
+.emp-progress-report .rank-card--panel .rank-item--scored{flex:1;min-height:0}
+.emp-progress-report .insight-list--below{margin-bottom:14px}
+@media(max-width:1024px){
+  .emp-progress-report .layout-main,
+  .emp-progress-report .layout-main--half{grid-template-columns:1fr}
+}
 .emp-progress-report .rank-card--team-row{margin-bottom:14px;overflow:visible}
 .emp-progress-report .rank-card--team-row .rank-row,
 .emp-progress-report .rank-row{display:flex !important;flex-direction:row !important;flex-wrap:wrap !important;align-items:stretch;gap:12px;padding:12px;overflow:visible}
