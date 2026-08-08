@@ -223,11 +223,11 @@ class EmployeeBookingStatusAnalyticsService
     private function statusDefinitions(): array
     {
         return [
-            ['key' => 'pending', 'name' => translate('Pending'), 'color' => '#d97706', 'tone' => 'warning', 'icon' => 'hourglass_top'],
-            ['key' => 'accepted', 'name' => translate('Accepted'), 'color' => '#2563eb', 'tone' => 'brand', 'icon' => 'thumb_up'],
-            ['key' => 'ongoing', 'name' => translate('Ongoing'), 'color' => '#5c6194', 'tone' => 'brand', 'icon' => 'play_circle'],
-            ['key' => 'on_hold', 'name' => translate('On_hold') ?? 'On hold', 'color' => '#64748b', 'tone' => 'warning', 'icon' => 'pause_circle'],
-            ['key' => 'hold_after_visit', 'name' => translate('Hold_after_visit') ?? 'Hold after visit', 'color' => '#7c3aed', 'tone' => 'warning', 'icon' => 'home_work'],
+            ['key' => 'pending', 'name' => translate('Booking_pending') ?? 'Booking pending', 'color' => '#d97706', 'tone' => 'warning', 'icon' => 'hourglass_top'],
+            ['key' => 'accepted', 'name' => translate('Booking_accepted') ?? 'Booking accepted', 'color' => '#2563eb', 'tone' => 'brand', 'icon' => 'thumb_up'],
+            ['key' => 'ongoing', 'name' => translate('Booking_ongoing') ?? 'Booking ongoing', 'color' => '#5c6194', 'tone' => 'brand', 'icon' => 'play_circle'],
+            ['key' => 'on_hold', 'name' => translate('Booking_on_hold') ?? 'Booking on hold', 'color' => '#64748b', 'tone' => 'warning', 'icon' => 'pause_circle'],
+            ['key' => 'hold_after_visit', 'name' => translate('Booking_hold_after_visit') ?? 'Booking hold after visit', 'color' => '#7c3aed', 'tone' => 'warning', 'icon' => 'home_work'],
             ['key' => 'pending_cancellation', 'name' => translate('Pending_cancellation') ?? 'Pending cancellation', 'color' => '#ea580c', 'tone' => 'danger', 'icon' => 'hourglass_bottom'],
             ['key' => 'completed', 'name' => translate('Bookings_completed') ?? translate('completed'), 'color' => '#059669', 'tone' => 'good', 'icon' => 'check_circle'],
             ['key' => 'completed_no_or_little', 'name' => translate('Bfs_list_badge_completed_no_or_little') ?? 'Completed (visit fee)', 'color' => '#0d9488', 'tone' => 'good', 'icon' => 'volunteer_activism'],
