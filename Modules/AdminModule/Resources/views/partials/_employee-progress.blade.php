@@ -81,87 +81,87 @@
 
     <div class="progress-shell-body emp-progress-report">
         <div class="row g-2 progress-cards-row progress-cards-row--metrics">
-            {{-- Quality --}}
-            <div class="col-lg-4">
-                <div class="progress-card progress-card--compact progress-card--quality h-100">
-                    <div class="progress-card-header">
-                        <div class="progress-card-header-main">
-                            <span class="progress-card-title">{{ translate('Quality') }}</span>
-                        </div>
-                        <div class="progress-card-header-action">
-                            <div class="progress-tabs" data-tabs="quality">
-                                <button type="button" class="progress-tab active" data-tab="quality-daily">{{ translate('Daily') }}</button>
-                                <button type="button" class="progress-tab" data-tab="quality-monthly">{{ translate('Monthly') }}</button>
+            <div class="col-lg-6">
+                <div class="progress-metrics-stack">
+                    {{-- Quality --}}
+                    <div class="progress-card progress-card--compact progress-card--quality">
+                        <div class="progress-card-header">
+                            <div class="progress-card-header-main">
+                                <span class="progress-card-title">{{ translate('Quality') }}</span>
                             </div>
-                        </div>
-                    </div>
-                    <div class="progress-card-body">
-                        <div data-panel="quality-daily" class="activity-panel active">
-                            <div class="activity-panel-meta">
-                                <span>{{ $todayLabel }}</span>
-                            </div>
-                            @include('adminmodule::partials._employee-progress-lead-metric-grid', [
-                                'rows' => $toMetricRows($qualityStatsDaily),
-                                'gridClass' => 'lead-metric-grid lead-metric-grid--dashboard',
-                            ])
-                        </div>
-                        <div data-panel="quality-monthly" class="activity-panel">
-                            @if($monthLabel !== '')
-                                <div class="activity-panel-meta">
-                                    <span>{{ $monthLabel }}</span>
+                            <div class="progress-card-header-action">
+                                <div class="progress-tabs" data-tabs="quality">
+                                    <button type="button" class="progress-tab active" data-tab="quality-daily">{{ translate('Daily') }}</button>
+                                    <button type="button" class="progress-tab" data-tab="quality-monthly">{{ translate('Monthly') }}</button>
                                 </div>
-                            @endif
-                            @include('adminmodule::partials._employee-progress-lead-metric-grid', [
-                                'rows' => $toMetricRows($qualityStatsMonthly),
-                                'gridClass' => 'lead-metric-grid lead-metric-grid--dashboard',
-                            ])
+                            </div>
+                        </div>
+                        <div class="progress-card-body">
+                            <div data-panel="quality-daily" class="activity-panel active">
+                                <div class="activity-panel-meta">
+                                    <span>{{ $todayLabel }}</span>
+                                </div>
+                                @include('adminmodule::partials._employee-progress-lead-metric-grid', [
+                                    'rows' => $toMetricRows($qualityStatsDaily),
+                                    'gridClass' => 'lead-metric-grid lead-metric-grid--dashboard',
+                                ])
+                            </div>
+                            <div data-panel="quality-monthly" class="activity-panel">
+                                @if($monthLabel !== '')
+                                    <div class="activity-panel-meta">
+                                        <span>{{ $monthLabel }}</span>
+                                    </div>
+                                @endif
+                                @include('adminmodule::partials._employee-progress-lead-metric-grid', [
+                                    'rows' => $toMetricRows($qualityStatsMonthly),
+                                    'gridClass' => 'lead-metric-grid lead-metric-grid--dashboard',
+                                ])
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
 
-            {{-- Quantity --}}
-            <div class="col-lg-4">
-                <div class="progress-card progress-card--compact progress-card--quantity h-100">
-                    <div class="progress-card-header">
-                        <div class="progress-card-header-main">
-                            <span class="progress-card-title">{{ translate('Quantity') }}</span>
-                        </div>
-                        <div class="progress-card-header-action">
-                            <div class="progress-tabs" data-tabs="quantity">
-                                <button type="button" class="progress-tab active" data-tab="quantity-daily">{{ translate('Daily') }}</button>
-                                <button type="button" class="progress-tab" data-tab="quantity-monthly">{{ translate('Monthly') }}</button>
+                    {{-- Quantity --}}
+                    <div class="progress-card progress-card--compact progress-card--quantity">
+                        <div class="progress-card-header">
+                            <div class="progress-card-header-main">
+                                <span class="progress-card-title">{{ translate('Quantity') }}</span>
                             </div>
-                        </div>
-                    </div>
-                    <div class="progress-card-body">
-                        <div data-panel="quantity-daily" class="activity-panel active">
-                            <div class="activity-panel-meta">
-                                <span>{{ $todayLabel }}</span>
-                                <span class="progress-summary-badge {{ $todayTotal > 0 ? 'is-active' : '' }}">{{ $todayTotal }}</span>
-                            </div>
-                            @include('adminmodule::partials._employee-progress-lead-metric-grid', [
-                                'rows' => $toMetricRows($todayItems),
-                                'gridClass' => 'lead-metric-grid lead-metric-grid--dashboard',
-                            ])
-                        </div>
-                        <div data-panel="quantity-monthly" class="activity-panel">
-                            @if($monthLabel !== '')
-                                <div class="activity-panel-meta">
-                                    <span>{{ $monthLabel }}</span>
+                            <div class="progress-card-header-action">
+                                <div class="progress-tabs" data-tabs="quantity">
+                                    <button type="button" class="progress-tab active" data-tab="quantity-daily">{{ translate('Daily') }}</button>
+                                    <button type="button" class="progress-tab" data-tab="quantity-monthly">{{ translate('Monthly') }}</button>
                                 </div>
-                            @endif
-                            @include('adminmodule::partials._employee-progress-lead-metric-grid', [
-                                'rows' => $toMetricRows($monthStats),
-                                'gridClass' => 'lead-metric-grid lead-metric-grid--dashboard',
-                            ])
+                            </div>
+                        </div>
+                        <div class="progress-card-body">
+                            <div data-panel="quantity-daily" class="activity-panel active">
+                                <div class="activity-panel-meta">
+                                    <span>{{ $todayLabel }}</span>
+                                    <span class="progress-summary-badge {{ $todayTotal > 0 ? 'is-active' : '' }}">{{ $todayTotal }}</span>
+                                </div>
+                                @include('adminmodule::partials._employee-progress-lead-metric-grid', [
+                                    'rows' => $toMetricRows($todayItems),
+                                    'gridClass' => 'lead-metric-grid lead-metric-grid--dashboard',
+                                ])
+                            </div>
+                            <div data-panel="quantity-monthly" class="activity-panel">
+                                @if($monthLabel !== '')
+                                    <div class="activity-panel-meta">
+                                        <span>{{ $monthLabel }}</span>
+                                    </div>
+                                @endif
+                                @include('adminmodule::partials._employee-progress-lead-metric-grid', [
+                                    'rows' => $toMetricRows($monthStats),
+                                    'gridClass' => 'lead-metric-grid lead-metric-grid--dashboard',
+                                ])
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
             {{-- Ranking --}}
-            <div class="col-lg-4">
+            <div class="col-lg-6">
                 <div class="progress-card progress-card--compact progress-card--rank h-100">
                     <div class="progress-card-header">
                         <div class="progress-card-header-main">
