@@ -80,7 +80,7 @@
     </div>
 
     <div class="progress-shell-body emp-progress-report">
-        <div class="row g-3 progress-cards-row progress-cards-row--metrics">
+        <div class="row g-2 progress-cards-row progress-cards-row--metrics">
             {{-- Quality --}}
             <div class="col-lg-4">
                 <div class="progress-card progress-card--compact progress-card--quality h-100">
