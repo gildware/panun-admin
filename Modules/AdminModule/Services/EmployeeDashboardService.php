@@ -73,6 +73,10 @@ class EmployeeDashboardService
         $teamEmployees = $this->dashboardEmployees();
         $teamRankDaily = $this->teamOverallRankRows($teamEmployees, $today, $today);
         $teamRankMonthly = $this->teamOverallRankRows($teamEmployees, $monthStart, $monthEnd);
+        if ($employeeScope) {
+            $teamRankDaily = $this->filterRankRowsForEmployee($teamRankDaily, $userId);
+            $teamRankMonthly = $this->filterRankRowsForEmployee($teamRankMonthly, $userId);
+        }
 
         $payload = [
             'user' => $user,
@@ -142,8 +146,14 @@ class EmployeeDashboardService
         $monthlyPerformance = $this->monthlyPerformance($userId, $monthStart, $monthEnd, $monthTotals);
         $leaderboard = $this->teamLeaderboardForPeriod($userId, $monthStart, $monthEnd);
         $teamEmployees = $this->dashboardEmployees();
-        $teamRankDaily = $this->teamOverallRankRows($teamEmployees, $today, $today);
-        $teamRankMonthly = $this->teamOverallRankRows($teamEmployees, $monthStart, $monthEnd);
+        $teamRankDaily = $this->filterRankRowsForEmployee(
+            $this->teamOverallRankRows($teamEmployees, $today, $today),
+            $userId,
+        );
+        $teamRankMonthly = $this->filterRankRowsForEmployee(
+            $this->teamOverallRankRows($teamEmployees, $monthStart, $monthEnd),
+            $userId,
+        );
 
         $name = trim((string) $employee->first_name.' '.(string) $employee->last_name);
         if ($name === '') {
@@ -489,6 +499,20 @@ class EmployeeDashboardService
         usort($rows, fn (array $a, array $b) => $b['mine'] <=> $a['mine']);
 
         return $rows;
+    }
+
+    /**
+     * Keep full-team rank numbers, but return only the selected employee's row.
+     *
+     * @param  list<array{rank: int, employee_id: string, label: string, score: int, marks?: list<array<string, mixed>>}>  $rows
+     * @return list<array{rank: int, employee_id: string, label: string, score: int, marks?: list<array<string, mixed>>}>
+     */
+    private function filterRankRowsForEmployee(array $rows, string $employeeId): array
+    {
+        return array_values(array_filter(
+            $rows,
+            static fn (array $row): bool => (string) ($row['employee_id'] ?? '') === $employeeId,
+        ));
     }
 
     /**

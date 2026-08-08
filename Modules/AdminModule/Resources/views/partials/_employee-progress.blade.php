@@ -51,12 +51,16 @@
     $rankSubtitle = static function (array $rows) use ($highlightEmployeeId, $leaderboard): string {
         $highlighted = $highlightEmployeeId
             ? collect($rows)->firstWhere('employee_id', (string) $highlightEmployeeId)
-            : null;
-        if ($highlighted) {
-            return '#'.($highlighted['rank'] ?? '—').' '.translate('Progress_out_of').' '.count($rows);
+            : ($rows[0] ?? null);
+        $outOf = (int) ($leaderboard['total_employees'] ?? 0);
+        if ($outOf <= 0) {
+            $outOf = count($rows);
         }
-        if (($leaderboard['total_employees'] ?? 0) > 1 && ($leaderboard['overall_rank'] ?? 0) > 0) {
-            return '#'.($leaderboard['overall_rank']).' '.translate('Progress_out_of').' '.($leaderboard['total_employees']);
+        if ($highlighted && $outOf > 0) {
+            return '#'.($highlighted['rank'] ?? '—').' '.translate('Progress_out_of').' '.$outOf;
+        }
+        if ($outOf > 1 && ($leaderboard['overall_rank'] ?? 0) > 0) {
+            return '#'.($leaderboard['overall_rank']).' '.translate('Progress_out_of').' '.$outOf;
         }
 
         return count($rows) > 0 ? count($rows).' '.translate('Progress_employees') : '';
