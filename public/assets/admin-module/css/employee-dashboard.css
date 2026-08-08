@@ -812,6 +812,18 @@
     --bs-gutter-x: 0.5rem;
     --bs-gutter-y: 0.5rem;
 }
+@media (min-width: 992px) {
+    .emp-dash .progress-cards-row--metrics > .progress-metrics-col--left {
+        flex: 0 0 60%;
+        max-width: 60%;
+        width: 60%;
+    }
+    .emp-dash .progress-cards-row--metrics > .progress-metrics-col--rank {
+        flex: 0 0 40%;
+        max-width: 40%;
+        width: 40%;
+    }
+}
 .emp-dash .progress-cards-row--metrics > [class*="col-"] {
     display: flex;
     flex-direction: column;
