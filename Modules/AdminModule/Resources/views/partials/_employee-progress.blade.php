@@ -169,13 +169,13 @@
                         </div>
                         <div class="progress-card-header-action">
                             <div class="progress-tabs" data-tabs="ranking">
-                                <button type="button" class="progress-tab active" data-tab="ranking-daily">{{ translate('Daily') }}</button>
-                                <button type="button" class="progress-tab" data-tab="ranking-monthly">{{ translate('Monthly') }}</button>
+                                <button type="button" class="progress-tab" data-tab="ranking-daily">{{ translate('Daily') }}</button>
+                                <button type="button" class="progress-tab active" data-tab="ranking-monthly">{{ translate('Monthly') }}</button>
                             </div>
                         </div>
                     </div>
                     <div class="progress-card-body">
-                        <div data-panel="ranking-daily" class="activity-panel active">
+                        <div data-panel="ranking-daily" class="activity-panel">
                             @php $dailySub = $rankSubtitle($teamRankRowsDaily); @endphp
                             @if($dailySub !== '')
                                 <div class="activity-panel-meta">
@@ -188,7 +188,7 @@
                                 'highlightEmployeeId' => $highlightEmployeeId,
                             ])
                         </div>
-                        <div data-panel="ranking-monthly" class="activity-panel">
+                        <div data-panel="ranking-monthly" class="activity-panel active">
                             @php $monthlySub = $rankSubtitle($teamRankRowsMonthly); @endphp
                             <div class="activity-panel-meta">
                                 <span>{{ $monthLabel !== '' ? $monthLabel : translate('Monthly') }}</span>
