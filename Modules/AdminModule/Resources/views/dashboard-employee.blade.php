@@ -3,8 +3,8 @@
 @section('title', translate('dashboard'))
 
 @push('css_or_js')
-<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-dashboard.css') }}?v=20260808bj">
-<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260808bj">
+<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-dashboard.css') }}?v=20260808bk">
+<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260808bk">
 @endpush
 
 @section('content')
@@ -115,7 +115,7 @@
 
 @push('script')
 <script src="{{ asset('assets/admin-module/plugins/apex/apexcharts.min.js') }}"></script>
-<script src="{{ asset('assets/admin-module/js/employee-dashboard-charts.js') }}?v=20260808bj"></script>
+<script src="{{ asset('assets/admin-module/js/employee-dashboard-charts.js') }}?v=20260808bk"></script>
 <script>
     'use strict';
 
@@ -259,11 +259,14 @@
             panel.classList.toggle('d-none', ! showPanel);
         });
 
-        var shouldRefreshCharts = previousScope !== null
-            ? previousScope !== scopeValue
-            : scopeValue !== '__all__' && scopeValue !== '';
+        var scopeChanged = previousScope !== null && previousScope !== scopeValue;
+        var needsInitialChart = previousScope === null;
 
-        if (shouldRefreshCharts && window.PanunDashboardCharts && window.PanunDashboardCharts.refreshVisible) {
+        if (window.PanunDashboardCharts && window.PanunDashboardCharts.reloadVisibleScopeChart) {
+            if (scopeChanged || needsInitialChart) {
+                window.PanunDashboardCharts.reloadVisibleScopeChart(scopeValue, true);
+            }
+        } else if ((scopeChanged || needsInitialChart) && window.PanunDashboardCharts && window.PanunDashboardCharts.refreshVisible) {
             window.PanunDashboardCharts.refreshVisible(document);
         }
 
@@ -284,6 +287,16 @@
     (function restoreDashboardScope() {
         var select = document.getElementById('dashboard-employee-select');
         if (! select) {
+            if (window.PanunDashboardCharts && window.PanunDashboardCharts.init) {
+                window.PanunDashboardCharts.init();
+            }
+            if (window.PanunDashboardCharts && window.PanunDashboardCharts.reloadVisibleScopeChart) {
+                var employeeId = document.querySelector('.js-rank-marks-chart');
+                var scopeValue = employeeId ? (employeeId.getAttribute('data-employee-scope') || '') : '';
+                window.PanunDashboardCharts.reloadVisibleScopeChart(scopeValue, true);
+            } else if (window.PanunDashboardCharts && window.PanunDashboardCharts.refreshVisible) {
+                window.PanunDashboardCharts.refreshVisible(document);
+            }
             return;
         }
 
@@ -294,6 +307,11 @@
         } catch (error) {}
 
         var scopeValue = storedScope || select.getAttribute('data-default-scope') || '__all__';
+
+        if (window.PanunDashboardCharts && window.PanunDashboardCharts.init) {
+            window.PanunDashboardCharts.init();
+        }
+
         setDashboardScope(scopeValue);
     })();
 </script>
