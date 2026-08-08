@@ -4,12 +4,18 @@
 @if($marks !== [])
     <div class="rank-marks">
         <table class="rank-marks-table">
+            <colgroup>
+                <col class="col-type">
+                <col class="col-qty">
+                <col class="col-marks">
+                <col class="col-total">
+            </colgroup>
             <thead>
                 <tr>
-                    <th>{{ translate('Type') ?? 'Type' }}</th>
-                    <th>{{ translate('Qty') ?? 'Qty' }}</th>
-                    <th>{{ translate('Marks') ?? 'Marks' }}</th>
-                    <th>{{ translate('Total') ?? 'Total' }}</th>
+                    <th scope="col">{{ translate('Type') ?? 'Type' }}</th>
+                    <th scope="col">{{ translate('Qty') ?? 'Qty' }}</th>
+                    <th scope="col">{{ translate('Marks') ?? 'Marks' }}</th>
+                    <th scope="col">{{ translate('Total') ?? 'Total' }}</th>
                 </tr>
             </thead>
             <tbody>

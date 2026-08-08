@@ -86,7 +86,7 @@
 .emp-progress-report .rank-card--team-row .rank-row,
 .emp-progress-report .rank-row{display:flex !important;flex-direction:row !important;flex-wrap:nowrap !important;align-items:stretch;gap:10px;padding:12px;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
 .emp-progress-report .rank-card--team-row .rank-item--card,
-.emp-progress-report .rank-item--card{flex:0 0 300px !important;width:300px !important;max-width:300px !important;box-sizing:border-box;border:1px solid var(--border-soft);border-radius:10px;background:#fff;display:flex;flex-direction:column;align-self:stretch;height:auto;min-height:100%}
+.emp-progress-report .rank-item--card{flex:0 0 340px !important;width:340px !important;max-width:340px !important;box-sizing:border-box;border:1px solid var(--border-soft);border-radius:10px;background:#fff;display:flex;flex-direction:column;align-self:stretch;height:auto;min-height:100%}
 .emp-progress-report .rank-row .rank-item--card{border-bottom:1px solid var(--border-soft)}
 .emp-progress-report .rank-item--card .rank-item-main{flex-shrink:0}
 .emp-progress-report .rank-item--card .rank-marks,
@@ -174,31 +174,43 @@
 .emp-progress-report .rank-score-legend .is-minus{color:var(--red)}
 .emp-progress-report .rank-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #f8fafc}
 .emp-progress-report .rank-item:last-child{border-bottom:none}
-.emp-progress-report .rank-item--scored{display:flex;flex-direction:column;align-items:stretch;gap:8px;padding:10px 12px}
-.emp-progress-report .rank-item-main{display:flex;align-items:center;gap:8px;min-width:0}
-.emp-progress-report .avatar{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.emp-progress-report .rank-item--scored{display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:12px}
+.emp-progress-report .rank-item-main{display:flex;align-items:center;gap:10px;min-width:0}
+.emp-progress-report .avatar{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .emp-progress-report .rank-meta{flex:1;min-width:0}
-.emp-progress-report .rank-name{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.emp-progress-report .rank-sub{font-size:10px;color:var(--muted)}
-.emp-progress-report .rank-val{font-size:14px;font-weight:800;color:var(--brand);text-align:right;white-space:nowrap}
+.emp-progress-report .rank-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.emp-progress-report .rank-sub{font-size:11px;color:var(--muted)}
+.emp-progress-report .rank-val{font-size:18px;font-weight:800;color:var(--brand);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;min-width:2.5ch}
 .emp-progress-report .rank-bar{height:4px;background:#e2e8f0;border-radius:999px;margin-top:5px;overflow:hidden}
 .emp-progress-report .rank-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--brand),var(--brand-2));border-radius:999px}
 .emp-progress-report .rank-marks{padding:0;border-radius:8px;background:#fff;border:1px solid var(--border-soft);overflow:hidden}
-.emp-progress-report .rank-marks-table{width:100%;border-collapse:collapse;font-size:10px;line-height:1.25}
+.emp-progress-report .rank-marks-table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px;line-height:1.35}
 .emp-progress-report .rank-marks-table th,
-.emp-progress-report .rank-marks-table td{padding:5px 6px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
-.emp-progress-report .rank-marks-table th{background:#f8fafc;color:var(--muted);font-weight:700;text-align:left;white-space:nowrap}
+.emp-progress-report .rank-marks-table td{padding:7px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+.emp-progress-report .rank-marks-table th{background:#f8fafc;color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;text-align:left;white-space:nowrap}
+.emp-progress-report .rank-marks-table col.col-type{width:auto}
+.emp-progress-report .rank-marks-table col.col-qty{width:44px}
+.emp-progress-report .rank-marks-table col.col-marks{width:52px}
+.emp-progress-report .rank-marks-table col.col-total{width:52px}
+.emp-progress-report .rank-marks-table th:nth-child(1),
+.emp-progress-report .rank-marks-table td:nth-child(1){width:auto;text-align:left}
 .emp-progress-report .rank-marks-table th:nth-child(2),
 .emp-progress-report .rank-marks-table th:nth-child(3),
 .emp-progress-report .rank-marks-table th:nth-child(4),
 .emp-progress-report .rank-marks-table td:nth-child(2),
 .emp-progress-report .rank-marks-table td:nth-child(3),
 .emp-progress-report .rank-marks-table td:nth-child(4){text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.emp-progress-report .rank-marks-table th:nth-child(2),
+.emp-progress-report .rank-marks-table td:nth-child(2){width:44px;padding-left:4px}
+.emp-progress-report .rank-marks-table th:nth-child(3),
+.emp-progress-report .rank-marks-table td:nth-child(3){width:52px;padding-left:4px}
+.emp-progress-report .rank-marks-table th:nth-child(4),
+.emp-progress-report .rank-marks-table td:nth-child(4){width:52px;padding-left:4px;padding-right:8px}
 .emp-progress-report .rank-marks-table tr:last-child td{border-bottom:none}
-.emp-progress-report .rank-mark-type{color:var(--muted);font-weight:600;min-width:0;max-width:none;white-space:normal;overflow:visible;word-break:break-word;hyphens:auto}
-.emp-progress-report .rank-mark-qty{color:#64748b;font-weight:600}
+.emp-progress-report .rank-mark-type{color:var(--text);font-weight:600;min-width:0;max-width:none;white-space:normal;overflow:visible;word-break:break-word;hyphens:auto;line-height:1.3}
+.emp-progress-report .rank-mark-qty{color:#64748b;font-weight:700}
 .emp-progress-report .rank-mark-unit{color:#94a3b8;font-weight:700}
-.emp-progress-report .rank-mark-total{font-weight:800}
+.emp-progress-report .rank-mark-total{font-weight:800;color:var(--text)}
 .emp-progress-report .rank-marks-table tr.is-plus .rank-mark-total,
 .emp-progress-report .rank-marks-table tr.is-plus .rank-mark-unit{color:var(--green)}
 .emp-progress-report .rank-marks-table tr.is-minus .rank-mark-total,
