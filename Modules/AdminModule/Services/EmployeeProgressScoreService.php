@@ -15,6 +15,7 @@ use Modules\LeadManagement\Entities\LeadFollowup;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Services\LeadFollowupService;
+use Modules\LeadManagement\Services\LeadOpenStatusService;
 
 /**
  * Employee ranking score: quantity of work (+), lead data quality (+), and late follow-up penalties (−).
@@ -49,6 +50,7 @@ class EmployeeProgressScoreService
     public function __construct(
         private readonly LeadFollowupService $leadFollowupService,
         private readonly LeadDataQualityScoreService $leadDataQuality,
+        private readonly LeadOpenStatusService $leadOpenStatus,
     ) {}
 
     /**
@@ -130,6 +132,7 @@ class EmployeeProgressScoreService
         $lateByEmployee = $this->lateFollowupPenaltiesByEmployee($employeeIds, $periodStart, $periodEnd);
         $qualityByEmployee = $this->leadDataQuality->summarizeForEmployees($employeeIds, $periodStart, $periodEnd);
         $helpedByEmployee = $this->helpedOthersByEmployee($employeeIds, $periodStart, $periodEnd);
+        $activeByEmployee = $this->activeAssignmentsByEmployee($employeeIds);
         $ranked = [];
 
         foreach ($employeeTotals as $employeeRow) {
@@ -147,6 +150,7 @@ class EmployeeProgressScoreService
                 (int) ($bookingsCreatedByEmployee[$employeeId] ?? 0),
                 (int) ($bookingsCompletedByEmployee[$employeeId] ?? 0),
                 $helpedByEmployee[$employeeId] ?? $this->emptyHelpedOthers(),
+                $activeByEmployee[$employeeId] ?? $this->emptyActiveAssignments(),
             );
         }
 
@@ -191,6 +195,7 @@ class EmployeeProgressScoreService
         ?int $bookingsCreatedOverride = null,
         ?int $bookingsCompletedOverride = null,
         array $helpedOthers = [],
+        array $activeAssignments = [],
     ): array {
         $bookingsCreated = $bookingsCreatedOverride ?? (int) ($employeeRow['bookings_created'] ?? 0);
         $bookingsCompleted = $bookingsCompletedOverride ?? (int) ($employeeRow['bookings_completed'] ?? 0);
@@ -260,6 +265,7 @@ class EmployeeProgressScoreService
         }
 
         $helpedOthers = $helpedOthers === [] ? $this->emptyHelpedOthers() : $helpedOthers;
+        $activeAssignments = $activeAssignments === [] ? $this->emptyActiveAssignments() : $activeAssignments;
         $helpedMarks = [
             $this->markLine(
                 'helped_lead_followups',
@@ -326,7 +332,76 @@ class EmployeeProgressScoreService
             'score' => $score,
             'marks' => $marks,
             'helped_marks' => $helpedMarks,
+            'active_open_leads' => (int) ($activeAssignments['open_leads'] ?? 0),
+            'active_bookings' => (int) ($activeAssignments['active_bookings'] ?? 0),
+            'active_assignments' => (int) ($activeAssignments['total'] ?? 0),
             'revenue' => with_currency_symbol(0),
+        ];
+    }
+
+    /**
+     * Open leads and active bookings currently assigned (not period-scoped).
+     *
+     * @param  list<string>  $employeeIds
+     * @return array<string, array{open_leads: int, active_bookings: int, total: int}>
+     */
+    public function activeAssignmentsByEmployee(array $employeeIds): array
+    {
+        $counts = [];
+        foreach ($employeeIds as $employeeId) {
+            $counts[(string) $employeeId] = $this->emptyActiveAssignments();
+        }
+
+        if ($employeeIds === []) {
+            return $counts;
+        }
+
+        $openLeadQuery = Lead::query()
+            ->whereIn('handled_by', $employeeIds)
+            ->whereNotNull('handled_by')
+            ->where('handled_by', '!=', Lead::HANDLED_BY_AI);
+        $this->leadOpenStatus->restrictQueryToOpenLeads($openLeadQuery);
+
+        foreach ($openLeadQuery
+            ->selectRaw('handled_by, COUNT(*) as cnt')
+            ->groupBy('handled_by')
+            ->pluck('cnt', 'handled_by') as $id => $count) {
+            $employeeId = (string) $id;
+            if (isset($counts[$employeeId])) {
+                $counts[$employeeId]['open_leads'] = (int) $count;
+            }
+        }
+
+        foreach (Booking::query()
+            ->selectRaw('assignee_id, COUNT(*) as cnt')
+            ->whereIn('assignee_id', $employeeIds)
+            ->whereNotNull('assignee_id')
+            ->whereIn('booking_status', Booking::STATUSES_FOR_SCHEDULED_FOLLOWUP_LISTS)
+            ->groupBy('assignee_id')
+            ->pluck('cnt', 'assignee_id') as $id => $count) {
+            $employeeId = (string) $id;
+            if (isset($counts[$employeeId])) {
+                $counts[$employeeId]['active_bookings'] = (int) $count;
+            }
+        }
+
+        foreach ($counts as &$row) {
+            $row['total'] = $row['open_leads'] + $row['active_bookings'];
+        }
+        unset($row);
+
+        return $counts;
+    }
+
+    /**
+     * @return array{open_leads: int, active_bookings: int, total: int}
+     */
+    private function emptyActiveAssignments(): array
+    {
+        return [
+            'open_leads' => 0,
+            'active_bookings' => 0,
+            'total' => 0,
         ];
     }
 

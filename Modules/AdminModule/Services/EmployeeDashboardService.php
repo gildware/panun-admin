@@ -565,6 +565,9 @@ class EmployeeDashboardService
                 'helped_score' => (int) ($row['helped_score'] ?? 0),
                 'quantity_score' => (int) ($row['quantity_score'] ?? 0),
                 'penalty_score' => (int) ($row['penalty_score'] ?? 0),
+                'active_open_leads' => (int) ($row['active_open_leads'] ?? 0),
+                'active_bookings' => (int) ($row['active_bookings'] ?? 0),
+                'active_assignments' => (int) ($row['active_assignments'] ?? 0),
             ];
         }, $ranked);
     }

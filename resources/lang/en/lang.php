@@ -10817,4 +10817,8 @@ _Message' => 'Customer notification for provider bid offer
   'Progress_marks_total_positive_help' => 'Total positive · Help',
   'Progress_marks_total_negative' => 'Total negative',
   'Progress_grand_total' => 'Grand total',
+  'Progress_active_assignments' => 'Active assignments',
+  'Progress_open_leads_short' => 'open leads',
+  'Progress_active_bookings_short' => 'active bookings',
+  'Progress_active_assignments_hint' => 'Currently assigned to you now. Late follow-up penalties apply to these, even when nothing new was received this period.',
 );
