@@ -704,7 +704,17 @@
     min-height: 150px;
 }
 .emp-dash .progress-cards-row--admin .rank-marks-trend-chart {
-    min-height: 190px;
+    min-height: 210px;
+}
+[data-bs-theme=dark] .emp-dash .rank-marks-trend--bottom {
+    border-top-color: #334155;
+}
+[data-bs-theme=dark] .emp-dash .rank-marks-trend-title {
+    color: #94a3b8;
+}
+[data-bs-theme=dark] .emp-dash .rank-marks-trend-chart .apexcharts-canvas,
+[data-bs-theme=dark] .emp-dash .rank-marks-trend-chart .apexcharts-svg {
+    background: transparent !important;
 }
 .emp-dash .team-rank-row {
     display: grid; grid-template-columns: 32px 1fr auto; gap: 6px; align-items: center;

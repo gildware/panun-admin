@@ -716,12 +716,32 @@ class EmployeeDashboardService
             ];
         }
 
+        $teamReport = $this->dailyEmployeeReport->buildReport(
+            $employees,
+            $monthStart->copy()->startOfDay(),
+            $rangeEnd->copy()->startOfDay(),
+        );
+        $dayRowsByDate = [];
+        foreach ($teamReport['rows'] as $row) {
+            $dayRowsByDate[(string) ($row['date'] ?? '')][(string) ($row['employee_id'] ?? '')] = $row;
+        }
+
         $categories = [];
         $cursor = $monthStart->copy()->startOfDay();
         while ($cursor->lte($rangeEnd)) {
             $categories[] = $cursor->format('j');
-            $dayRows = $this->teamOverallRankRows($employees, $cursor, $cursor);
-            $scoresByEmployee = collect($dayRows)->keyBy('employee_id');
+            $dayStr = $cursor->toDateString();
+            $dayEmployeeTotals = [];
+
+            foreach ($seriesByEmployee as $employeeId => $series) {
+                $dayEmployeeTotals[] = $dayRowsByDate[$dayStr][$employeeId]
+                    ?? $this->emptyRankMarksDayRow($employeeId, (string) ($series['name'] ?? $employeeId));
+            }
+
+            $dayStart = $cursor->copy()->startOfDay();
+            $dayEnd = $cursor->copy()->endOfDay();
+            $ranked = $this->progressScore->rankEmployees($dayEmployeeTotals, $employees, $dayStart, $dayEnd);
+            $scoresByEmployee = collect($ranked)->keyBy('employee_id');
 
             foreach ($seriesByEmployee as $employeeId => $series) {
                 $seriesByEmployee[$employeeId]['data'][] = (int) ($scoresByEmployee[$employeeId]['score'] ?? 0);
@@ -736,6 +756,23 @@ class EmployeeDashboardService
             'period_label' => $monthStart->format('F Y'),
             'month' => $monthStart->format('Y-m'),
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function emptyRankMarksDayRow(string $employeeId, string $employeeName): array
+    {
+        $row = [
+            'employee_id' => $employeeId,
+            'employee_name' => $employeeName,
+        ];
+
+        foreach (DailyEmployeeReportService::METRIC_KEYS as $key) {
+            $row[$key] = 0;
+        }
+
+        return $row;
     }
 
     /**

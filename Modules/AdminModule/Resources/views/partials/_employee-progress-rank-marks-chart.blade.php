@@ -2,10 +2,17 @@
     $rankMarksChart = $rankMarksChart ?? [];
     $progressScopeId = $progressScopeId ?? 'default';
     $chartId = 'chart-rank-marks-'.preg_replace('/[^a-zA-Z0-9_-]/', '-', (string) $progressScopeId);
+    $chartDataId = $chartId.'-data';
     $months = $rankMarksChart['months'] ?? [];
     $currentMonth = (string) ($rankMarksChart['month'] ?? now()->format('Y-m'));
     $employeeScope = (string) ($highlightEmployeeId ?? '');
     $chartUrl = route('admin.dashboard.rank-marks-chart');
+    $chartPayload = [
+        'categories' => $rankMarksChart['categories'] ?? [],
+        'series' => $rankMarksChart['series'] ?? [],
+        'month' => $currentMonth,
+        'period_label' => $rankMarksChart['period_label'] ?? '',
+    ];
 @endphp
 <div class="rank-marks-trend rank-marks-trend--bottom">
     <div class="rank-marks-trend-head">
@@ -21,10 +28,11 @@
         @endif
         @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => 'rank_marks_trend', 'size' => 'xs'])
     </div>
+    <script type="application/json" id="{{ $chartDataId }}" class="js-rank-marks-chart-data">@json($chartPayload)</script>
     <div
         id="{{ $chartId }}"
         class="js-rank-marks-chart rank-marks-trend-chart {{ ($progressLayout ?? '') === 'employee' ? 'rank-marks-trend-chart--compact' : '' }}"
-        data-chart='@json($rankMarksChart)'
+        data-chart-id="{{ $chartDataId }}"
         data-chart-url="{{ $chartUrl }}"
         data-employee-scope="{{ $employeeScope }}"
         aria-label="{{ translate('Progress_rank_marks_trend') ?? 'Daily marks trend' }}"
