@@ -39,11 +39,11 @@ class EmployeeProgressMetricHelp
             ),
             'bookings_created' => self::entry(
                 translate('Bookings_created'),
-                'Shows how many bookings you created in the selected period.',
+                'Bookings assigned to you that were created in the selected period.',
             ),
             'completed_bookings' => self::entry(
                 translate('Bookings_completed'),
-                'Shows how many of your bookings were marked completed during the selected period.',
+                'Bookings assigned to you, created in the period, that are currently completed.',
             ),
             'completed_amount' => self::entry(
                 translate('Completed_amount'),
@@ -104,7 +104,7 @@ class EmployeeProgressMetricHelp
             ),
             'team_ranking' => self::entry(
                 translate('Progress_team_ranking'),
-                'Score = quantity − late penalties. Quantity: Bookings created (+2), Bookings completed (+10), Leads handled (+3), provider leads received in period and currently Registered (+10), closed leads with data quality ≥80% (+5) or 50–79% (+2). Late follow-ups by delay: ≤1h (−1), ≤2h (−2), ≤4h (−3), ≤8h (−5), >8h (−10).',
+                'Score = quantity − late penalties. All counts use assignee/handled_by for the period. Quantity: assigned bookings created (+2), assigned bookings completed (+10), leads assigned (+3), provider leads registered (+10), closed leads with data quality ≥80% (+5) or 50–79% (+2). Late follow-ups on assigned leads/bookings by delay: ≤1h (−1), ≤2h (−2), ≤4h (−3), ≤8h (−5), >8h (−10).',
             ),
             'progress_insights' => self::entry(
                 translate('Progress_improvements') ?? 'Insights',
