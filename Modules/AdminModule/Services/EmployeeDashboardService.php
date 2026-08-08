@@ -118,22 +118,37 @@ class EmployeeDashboardService
      */
     private function buildAdminProgressScopes(Collection $employees): array
     {
+        $today = Carbon::today();
+        $monthStart = Carbon::now()->startOfMonth();
+        $monthEnd = Carbon::now()->endOfMonth();
+        $teamRankDaily = $this->teamOverallRankRows($employees, $today, $today);
+        $teamRankMonthly = $this->teamOverallRankRows($employees, $monthStart, $monthEnd);
+
         $scopes = [
-            '__all__' => $this->buildTeamProgressScope($employees),
+            '__all__' => $this->buildTeamProgressScope($employees, $teamRankDaily, $teamRankMonthly),
         ];
 
         foreach ($employees as $employee) {
-            $scopes[(string) $employee->id] = $this->buildEmployeeProgressScope($employee);
+            $scopes[(string) $employee->id] = $this->buildEmployeeProgressScope(
+                $employee,
+                $teamRankDaily,
+                $teamRankMonthly,
+            );
         }
 
         return $scopes;
     }
 
     /**
+     * @param  list<array<string, mixed>>|null  $teamRankDaily
+     * @param  list<array<string, mixed>>|null  $teamRankMonthly
      * @return array<string, mixed>
      */
-    private function buildEmployeeProgressScope(User $employee): array
-    {
+    private function buildEmployeeProgressScope(
+        User $employee,
+        ?array $teamRankDaily = null,
+        ?array $teamRankMonthly = null,
+    ): array {
         $userId = (string) $employee->id;
         $today = Carbon::today();
         $monthStart = Carbon::now()->startOfMonth();
@@ -146,14 +161,8 @@ class EmployeeDashboardService
         $monthlyPerformance = $this->monthlyPerformance($userId, $monthStart, $monthEnd, $monthTotals);
         $leaderboard = $this->teamLeaderboardForPeriod($userId, $monthStart, $monthEnd);
         $teamEmployees = $this->dashboardEmployees();
-        $teamRankDaily = $this->filterRankRowsForEmployee(
-            $this->teamOverallRankRows($teamEmployees, $today, $today),
-            $userId,
-        );
-        $teamRankMonthly = $this->filterRankRowsForEmployee(
-            $this->teamOverallRankRows($teamEmployees, $monthStart, $monthEnd),
-            $userId,
-        );
+        $teamRankDaily ??= $this->teamOverallRankRows($teamEmployees, $today, $today);
+        $teamRankMonthly ??= $this->teamOverallRankRows($teamEmployees, $monthStart, $monthEnd);
 
         $name = trim((string) $employee->first_name.' '.(string) $employee->last_name);
         if ($name === '') {
@@ -198,10 +207,15 @@ class EmployeeDashboardService
 
     /**
      * @param  Collection<int, User>  $employees
+     * @param  list<array<string, mixed>>|null  $teamRankDaily
+     * @param  list<array<string, mixed>>|null  $teamRankMonthly
      * @return array<string, mixed>
      */
-    private function buildTeamProgressScope(Collection $employees): array
-    {
+    private function buildTeamProgressScope(
+        Collection $employees,
+        ?array $teamRankDaily = null,
+        ?array $teamRankMonthly = null,
+    ): array {
         $today = Carbon::today();
         $monthStart = Carbon::now()->startOfMonth();
         $monthEnd = Carbon::now()->endOfMonth();
@@ -214,8 +228,8 @@ class EmployeeDashboardService
         $monthlyPerformance = $this->monthlyPerformanceForTeam($monthStart, $monthEnd, $monthTotals, $employees);
         $qualityDaily = $this->buildTeamQualityStatsForPeriod($employees, $today, $today, $todayTotals);
         $qualityMonthly = $this->buildTeamQualityStatsForPeriod($employees, $monthStart, $monthEnd, $monthTotals);
-        $teamRankDaily = $this->teamOverallRankRows($employees, $today, $today);
-        $teamRankMonthly = $this->teamOverallRankRows($employees, $monthStart, $monthEnd);
+        $teamRankDaily ??= $this->teamOverallRankRows($employees, $today, $today);
+        $teamRankMonthly ??= $this->teamOverallRankRows($employees, $monthStart, $monthEnd);
 
         return [
             'title' => translate('Team_Progress'),

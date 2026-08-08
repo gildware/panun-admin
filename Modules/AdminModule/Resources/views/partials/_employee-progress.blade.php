@@ -186,6 +186,7 @@
                                 @include('adminmodule::partials._employee-progress-team-rank-cards', [
                                     'rows' => $teamRankRowsDaily,
                                     'highlightEmployeeId' => $highlightEmployeeId,
+                                    'variant' => 'overview',
                                 ])
                             </div>
                             <div data-panel="ranking-monthly" class="activity-panel active">
@@ -199,6 +200,7 @@
                                 @include('adminmodule::partials._employee-progress-team-rank-cards', [
                                     'rows' => $teamRankRowsMonthly,
                                     'highlightEmployeeId' => $highlightEmployeeId,
+                                    'variant' => 'overview',
                                 ])
                             </div>
                         </div>
