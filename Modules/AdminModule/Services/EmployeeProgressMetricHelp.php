@@ -59,7 +59,11 @@ class EmployeeProgressMetricHelp
             ),
             'data_quality' => self::entry(
                 translate('Progress_quality_metrics'),
-                'Shows how complete and tidy your logged work looks. Higher is better and means fewer missing details.',
+                'Share of closed leads that have initial remarks, call-log remarks, zone/category/status, and end-state reason filled. Higher is better.',
+            ),
+            'lead_data_quality_pct' => self::entry(
+                translate('Progress_lead_data_quality') ?? 'Lead data quality',
+                'Closed leads scored on remarks, call logs, comments, typed fields, and cancel/invalid reasons. Ranking also awards +5 (≥80%) or +2 (50–79%) per closed lead.',
             ),
             'lead_followups' => self::entry(
                 translate('Lead_followups'),
@@ -100,7 +104,7 @@ class EmployeeProgressMetricHelp
             ),
             'team_ranking' => self::entry(
                 translate('Progress_team_ranking'),
-                'Score = quantity − late penalties. Quantity: Bookings created (+2), Bookings completed (+10), Leads handled (+3), Providers registered (+10). Late follow-ups by delay: ≤1h (−1), ≤2h (−2), ≤4h (−3), ≤8h (−5), >8h (−10).',
+                'Score = quantity − late penalties. Quantity: Bookings created (+2), Bookings completed (+10), Leads handled (+3), Providers registered (+10), closed leads with data quality ≥80% (+5) or 50–79% (+2). Late follow-ups by delay: ≤1h (−1), ≤2h (−2), ≤4h (−3), ≤8h (−5), >8h (−10).',
             ),
             'progress_insights' => self::entry(
                 translate('Progress_improvements') ?? 'Insights',
