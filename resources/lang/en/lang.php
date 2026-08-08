@@ -10822,8 +10822,10 @@ _Message' => 'Customer notification for provider bid offer
   'Progress_grand_total' => 'Grand total',
   'Progress_rank_marks_trend' => 'Daily marks trend',
   'Progress_rank_marks_trend_sub' => 'Ranking marks scored each day this month',
+  'Progress_rank_marks_month' => 'Month',
   'Progress_active_assignments' => 'Active assignments',
   'Progress_open_leads_short' => 'open leads',
   'Progress_active_bookings_short' => 'active bookings',
   'Progress_active_assignments_hint' => 'Currently assigned to you now. Late follow-up penalties apply to these, even when nothing new was received this period.',
+  'Progress_rank_marks_month' => 'Progress rank marks month',
 );

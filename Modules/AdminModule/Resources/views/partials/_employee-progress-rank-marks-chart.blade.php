@@ -2,19 +2,31 @@
     $rankMarksChart = $rankMarksChart ?? [];
     $progressScopeId = $progressScopeId ?? 'default';
     $chartId = 'chart-rank-marks-'.preg_replace('/[^a-zA-Z0-9_-]/', '-', (string) $progressScopeId);
-    $hasChart = ($rankMarksChart['categories'] ?? []) !== [] && ($rankMarksChart['series'] ?? []) !== [];
+    $months = $rankMarksChart['months'] ?? [];
+    $currentMonth = (string) ($rankMarksChart['month'] ?? now()->format('Y-m'));
+    $employeeScope = (string) ($highlightEmployeeId ?? '');
+    $chartUrl = route('admin.dashboard.rank-marks-chart');
 @endphp
-@if($hasChart)
-    <div class="rank-marks-trend">
-        <div class="rank-marks-trend-head">
-            <span class="rank-marks-trend-title">{{ translate('Progress_rank_marks_trend') ?? 'Daily marks trend' }}</span>
-            @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => 'rank_marks_trend', 'size' => 'xs'])
-        </div>
-        <div
-            id="{{ $chartId }}"
-            class="js-rank-marks-chart rank-marks-trend-chart {{ ($progressLayout ?? '') === 'employee' ? 'rank-marks-trend-chart--compact' : '' }}"
-            data-chart='@json($rankMarksChart)'
-            aria-label="{{ translate('Progress_rank_marks_trend') ?? 'Daily marks trend' }}"
-        ></div>
+<div class="rank-marks-trend rank-marks-trend--bottom">
+    <div class="rank-marks-trend-head">
+        <span class="rank-marks-trend-title">{{ translate('Progress_rank_marks_trend') ?? 'Daily marks trend' }}</span>
+        @if($months !== [])
+            <select class="form-select form-select-sm js-rank-marks-month" aria-label="{{ translate('Progress_rank_marks_month') ?? 'Month' }}">
+                @foreach($months as $monthOption)
+                    <option value="{{ $monthOption['value'] ?? '' }}" @selected(($monthOption['value'] ?? '') === $currentMonth)>
+                        {{ $monthOption['label'] ?? '' }}
+                    </option>
+                @endforeach
+            </select>
+        @endif
+        @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => 'rank_marks_trend', 'size' => 'xs'])
     </div>
-@endif
+    <div
+        id="{{ $chartId }}"
+        class="js-rank-marks-chart rank-marks-trend-chart {{ ($progressLayout ?? '') === 'employee' ? 'rank-marks-trend-chart--compact' : '' }}"
+        data-chart='@json($rankMarksChart)'
+        data-chart-url="{{ $chartUrl }}"
+        data-employee-scope="{{ $employeeScope }}"
+        aria-label="{{ translate('Progress_rank_marks_trend') ?? 'Daily marks trend' }}"
+    ></div>
+</div>

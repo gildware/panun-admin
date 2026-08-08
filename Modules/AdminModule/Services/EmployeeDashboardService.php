@@ -99,7 +99,7 @@ class EmployeeDashboardService
             'team_rank_rows' => $teamRankMonthly,
             'team_rank_rows_daily' => $teamRankDaily,
             'team_rank_rows_monthly' => $teamRankMonthly,
-            'rank_marks_chart' => $this->teamRankMarksTrend($teamEmployees, $monthStart, $monthEnd, $userId),
+            'rank_marks_chart' => $this->rankMarksChartPayload($teamEmployees, $monthStart, $monthEnd, $userId),
         ];
 
         if (! $employeeScope) {
@@ -203,7 +203,7 @@ class EmployeeDashboardService
             'team_rank_rows' => $teamRankMonthly,
             'team_rank_rows_daily' => $teamRankDaily,
             'team_rank_rows_monthly' => $teamRankMonthly,
-            'rank_marks_chart' => $this->teamRankMarksTrend($teamEmployees, $monthStart, $monthEnd, $userId),
+            'rank_marks_chart' => $this->rankMarksChartPayload($teamEmployees, $monthStart, $monthEnd, $userId),
         ];
     }
 
@@ -265,7 +265,7 @@ class EmployeeDashboardService
             'team_rank_rows' => $teamRankMonthly,
             'team_rank_rows_daily' => $teamRankDaily,
             'team_rank_rows_monthly' => $teamRankMonthly,
-            'rank_marks_chart' => $this->teamRankMarksTrend($employees, $monthStart, $monthEnd, null),
+            'rank_marks_chart' => $this->rankMarksChartPayload($employees, $monthStart, $monthEnd, null),
         ];
     }
 
@@ -576,10 +576,88 @@ class EmployeeDashboardService
     }
 
     /**
-     * Daily ranking marks trend for the current month (one point per day).
+     * Ranking marks chart for dashboard (supports month picker + AJAX reload).
+     *
+     * @return array<string, mixed>
+     */
+    public function buildRankMarksChartForUser(User $user, string $monthKey, ?string $scopeEmployeeId = null): array
+    {
+        if (! preg_match('/^\d{4}-\d{2}$/', $monthKey)) {
+            throw new \InvalidArgumentException('Invalid month.');
+        }
+
+        $monthStart = Carbon::createFromFormat('Y-m', $monthKey)->startOfMonth();
+        $monthEnd = $monthStart->copy()->endOfMonth();
+        $employees = $this->dashboardEmployees();
+        $onlyEmployeeId = $this->resolveRankMarksChartEmployeeFilter($user, $scopeEmployeeId, $employees);
+
+        return $this->rankMarksChartPayload($employees, $monthStart, $monthEnd, $onlyEmployeeId);
+    }
+
+    /**
+     * @param  Collection<int, User>  $employees
+     * @return array<string, mixed>
+     */
+    private function rankMarksChartPayload(
+        Collection $employees,
+        Carbon $monthStart,
+        Carbon $monthEnd,
+        ?string $onlyEmployeeId = null,
+    ): array {
+        $chart = $this->teamRankMarksTrend($employees, $monthStart, $monthEnd, $onlyEmployeeId);
+        $chart['months'] = $this->rankMarksMonthOptions();
+
+        return $chart;
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    private function rankMarksMonthOptions(int $count = 12): array
+    {
+        $options = [];
+        $cursor = Carbon::now()->startOfMonth();
+
+        for ($i = 0; $i < $count; $i++) {
+            $options[] = [
+                'value' => $cursor->format('Y-m'),
+                'label' => $cursor->format('F Y'),
+            ];
+            $cursor->subMonth();
+        }
+
+        return $options;
+    }
+
+    /**
+     * @param  Collection<int, User>  $employees
+     */
+    private function resolveRankMarksChartEmployeeFilter(
+        User $user,
+        ?string $scopeEmployeeId,
+        Collection $employees,
+    ): ?string {
+        if ($this->usesEmployeeDashboardScope($user)) {
+            return (string) $user->id;
+        }
+
+        if ($scopeEmployeeId === null || $scopeEmployeeId === '' || $scopeEmployeeId === '__all__') {
+            return null;
+        }
+
+        $validIds = $employees->pluck('id')->map(fn ($id) => (string) $id)->all();
+        if (! in_array($scopeEmployeeId, $validIds, true)) {
+            throw new \InvalidArgumentException('Invalid employee.');
+        }
+
+        return $scopeEmployeeId;
+    }
+
+    /**
+     * Daily ranking marks trend for a calendar month (one point per day).
      *
      * @param  Collection<int, User>  $employees
-     * @return array{categories: list<string>, series: list<array{name: string, employee_id: string, data: list<int>}>}
+     * @return array{categories: list<string>, series: list<array{name: string, employee_id: string, data: list<int>}>, period_label: string, month: string}
      */
     private function teamRankMarksTrend(
         Collection $employees,
@@ -588,13 +666,26 @@ class EmployeeDashboardService
         ?string $onlyEmployeeId = null,
     ): array {
         if ($employees->isEmpty()) {
-            return ['categories' => [], 'series' => []];
+            return [
+                'categories' => [],
+                'series' => [],
+                'period_label' => $monthStart->format('F Y'),
+                'month' => $monthStart->format('Y-m'),
+            ];
         }
 
-        $today = Carbon::today();
-        $rangeEnd = $monthEnd->copy()->min($today);
+        $today = Carbon::today()->endOfDay();
+        $rangeEnd = $monthEnd->copy()->endOfDay();
+        if ($rangeEnd->gt($today)) {
+            $rangeEnd = $today;
+        }
         if ($rangeEnd->lt($monthStart)) {
-            return ['categories' => [], 'series' => []];
+            return [
+                'categories' => [],
+                'series' => [],
+                'period_label' => $monthStart->format('F Y'),
+                'month' => $monthStart->format('Y-m'),
+            ];
         }
 
         $seriesByEmployee = [];
@@ -617,7 +708,12 @@ class EmployeeDashboardService
         }
 
         if ($seriesByEmployee === []) {
-            return ['categories' => [], 'series' => []];
+            return [
+                'categories' => [],
+                'series' => [],
+                'period_label' => $monthStart->format('F Y'),
+                'month' => $monthStart->format('Y-m'),
+            ];
         }
 
         $categories = [];
@@ -637,6 +733,8 @@ class EmployeeDashboardService
         return [
             'categories' => $categories,
             'series' => array_values($seriesByEmployee),
+            'period_label' => $monthStart->format('F Y'),
+            'month' => $monthStart->format('Y-m'),
         ];
     }
 

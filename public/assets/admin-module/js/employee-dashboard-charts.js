@@ -146,6 +146,64 @@
 
     function init() {
         renderVisibleCharts(document, false);
+        bindMonthPickers();
+    }
+
+    function bindMonthPickers() {
+        if (global.__rankMarksMonthBound) {
+            return;
+        }
+        global.__rankMarksMonthBound = true;
+
+        document.addEventListener('change', function (event) {
+            var select = event.target.closest('.js-rank-marks-month');
+            if (!select) {
+                return;
+            }
+
+            var wrap = select.closest('.rank-marks-trend');
+            var chartEl = wrap ? wrap.querySelector('.js-rank-marks-chart') : null;
+            if (!chartEl) {
+                return;
+            }
+
+            var url = chartEl.getAttribute('data-chart-url') || '';
+            var month = select.value || '';
+            var employeeScope = chartEl.getAttribute('data-employee-scope') || '';
+            if (url === '' || month === '') {
+                return;
+            }
+
+            wrap.classList.add('is-loading');
+            var requestUrl = url + '?month=' + encodeURIComponent(month);
+            if (employeeScope !== '') {
+                requestUrl += '&employee_id=' + encodeURIComponent(employeeScope);
+            }
+
+            fetch(requestUrl, {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Failed to load chart');
+                    }
+                    return response.json();
+                })
+                .then(function (payload) {
+                    chartEl.setAttribute('data-chart', JSON.stringify(payload));
+                    renderChart(chartEl, true);
+                })
+                .catch(function (error) {
+                    console.warn('Rank marks month load failed:', error);
+                })
+                .finally(function () {
+                    wrap.classList.remove('is-loading');
+                });
+        });
     }
 
     global.PanunDashboardCharts = {
