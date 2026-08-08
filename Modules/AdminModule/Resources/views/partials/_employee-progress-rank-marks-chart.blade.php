@@ -7,7 +7,7 @@
     $currentMonth = (string) ($rankMarksChart['month'] ?? now()->format('Y-m'));
     $chartEmployees = $chartEmployees ?? [];
     $isAdminChart = ($progressLayout ?? '') === 'admin' && $chartEmployees !== [];
-    $employeeScope = ($progressScopeId ?? '') === '__all__'
+    $employeeScope = $isAdminChart
         ? '__all__'
         : (string) ($highlightEmployeeId ?? ($progressScopeId ?? ''));
     $chartUrl = route('admin.dashboard.rank-marks-chart');

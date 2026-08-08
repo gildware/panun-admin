@@ -3,8 +3,8 @@
 @section('title', translate('dashboard'))
 
 @push('css_or_js')
-<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-dashboard.css') }}?v=20260808bl">
-<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260808bl">
+<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-dashboard.css') }}?v=20260808bm">
+<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260808bm">
 @endpush
 
 @section('content')
@@ -116,7 +116,7 @@
 
 @push('script')
 <script src="{{ asset('assets/admin-module/plugins/apex/apexcharts.min.js') }}"></script>
-<script src="{{ asset('assets/admin-module/js/employee-dashboard-charts.js') }}?v=20260808bl"></script>
+<script src="{{ asset('assets/admin-module/js/employee-dashboard-charts.js') }}?v=20260808bm"></script>
 <script>
     'use strict';
 
