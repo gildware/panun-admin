@@ -132,23 +132,23 @@ class EmployeeProgressMetricHelp
                 'Share of bookings you created that were completed.',
             ),
             'booking_status_pending' => self::entry(
-                translate('Pending'),
+                translate('Booking_pending') ?? 'Booking pending',
                 'Bookings created in this period that are still pending.',
             ),
             'booking_status_accepted' => self::entry(
-                translate('Accepted'),
+                translate('Booking_accepted') ?? 'Booking accepted',
                 'Bookings created in this period that are currently accepted.',
             ),
             'booking_status_ongoing' => self::entry(
-                translate('Ongoing'),
+                translate('Booking_ongoing') ?? 'Booking ongoing',
                 'Bookings created in this period that are currently ongoing.',
             ),
             'booking_status_on_hold' => self::entry(
-                translate('On_hold') ?? 'On hold',
+                translate('Booking_on_hold') ?? 'Booking on hold',
                 'Bookings created in this period that are on hold (before or without an after-visit hold).',
             ),
             'booking_status_hold_after_visit' => self::entry(
-                translate('Hold_after_visit') ?? 'Hold after visit',
+                translate('Booking_hold_after_visit') ?? 'Booking hold after visit',
                 'Bookings created in this period that were put on hold after work had already started (from Ongoing).',
             ),
             'booking_status_cancelled' => self::entry(
