@@ -199,15 +199,16 @@
                                         <span class="progress-summary-badge is-active">{{ $monthlySub }}</span>
                                     @endif
                                 </div>
-                                @include('adminmodule::partials._employee-progress-rank-marks-chart', [
-                                    'rankMarksChart' => $rankMarksChart,
-                                    'progressScopeId' => $progressScopeId,
-                                    'progressLayout' => $progressLayout,
-                                ])
                                 @include('adminmodule::partials._employee-progress-team-rank-cards', [
                                     'rows' => $teamRankRowsMonthly,
                                     'highlightEmployeeId' => $highlightEmployeeId,
                                     'variant' => 'overview',
+                                ])
+                                @include('adminmodule::partials._employee-progress-rank-marks-chart', [
+                                    'rankMarksChart' => $rankMarksChart,
+                                    'progressScopeId' => $progressScopeId,
+                                    'progressLayout' => $progressLayout,
+                                    'highlightEmployeeId' => $highlightEmployeeId,
                                 ])
                             </div>
                         </div>
@@ -332,13 +333,14 @@
                                         <span class="progress-summary-badge is-active">{{ $monthlySub }}</span>
                                     @endif
                                 </div>
+                                @include('adminmodule::partials._employee-progress-team-rank-cards', [
+                                    'rows' => $teamRankRowsMonthly,
+                                    'highlightEmployeeId' => $highlightEmployeeId,
+                                ])
                                 @include('adminmodule::partials._employee-progress-rank-marks-chart', [
                                     'rankMarksChart' => $rankMarksChart,
                                     'progressScopeId' => $progressScopeId,
                                     'progressLayout' => $progressLayout,
-                                ])
-                                @include('adminmodule::partials._employee-progress-team-rank-cards', [
-                                    'rows' => $teamRankRowsMonthly,
                                     'highlightEmployeeId' => $highlightEmployeeId,
                                 ])
                             </div>

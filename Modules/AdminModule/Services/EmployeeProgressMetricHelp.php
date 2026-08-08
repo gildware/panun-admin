@@ -108,7 +108,7 @@ class EmployeeProgressMetricHelp
             ),
             'rank_marks_trend' => self::entry(
                 translate('Progress_rank_marks_trend'),
-                'Line chart of total ranking marks earned each day in the current month. Admins see every employee on one chart; employees see only their own line.',
+                'Line chart of total ranking marks earned each day in the selected month. Use the month picker for the last 12 months. Admins see every employee on one chart; employees see only their own line.',
             ),
             'progress_insights' => self::entry(
                 translate('Progress_improvements') ?? 'Insights',

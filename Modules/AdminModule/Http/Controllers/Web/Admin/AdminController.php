@@ -96,6 +96,24 @@ class AdminController extends Controller
         return view('adminmodule::dashboard-employee', compact('employeeData', 'showEmployeeProgress'));
     }
 
+    public function rankMarksChart(Request $request): JsonResponse
+    {
+        $month = (string) $request->query('month', Carbon::now()->format('Y-m'));
+        $employeeId = $request->query('employee_id');
+
+        try {
+            $payload = app(EmployeeDashboardService::class)->buildRankMarksChartForUser(
+                auth()->user(),
+                $month,
+                $employeeId !== null ? (string) $employeeId : null,
+            );
+
+            return response()->json($payload);
+        } catch (\InvalidArgumentException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+    }
+
     /**
      * Admin finance overview (revenue, ledger snippets, earning charts).
      *
