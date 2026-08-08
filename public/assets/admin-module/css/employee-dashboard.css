@@ -483,6 +483,36 @@
 .emp-dash .rank-summary--compact .rank-summary-label { font-size: 13px; font-weight: 700; color: var(--wq-text); }
 .emp-dash .rank-summary--compact .rank-summary-sub { font-size: 12px; color: var(--wq-muted); }
 .emp-dash .team-rank-list { display: flex; flex-direction: column; gap: 4px; }
+.emp-dash .team-rank-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.emp-dash .rank-item--dash {
+    border: 1px solid var(--wq-border);
+    border-radius: 8px;
+    padding: 8px;
+    background: #fff;
+    gap: 8px;
+}
+.emp-dash .rank-item--dash.is-highlighted {
+    border-color: var(--pc-tone-border);
+    background: var(--pc-tone-soft);
+}
+.emp-dash .rank-item--dash .rank-marks {
+    margin-top: 2px;
+}
+.emp-dash .rank-item--dash .rank-marks-table {
+    font-size: 11px;
+}
+.emp-dash .rank-item--dash .rank-marks-table th,
+.emp-dash .rank-item--dash .rank-marks-table td {
+    padding: 5px 6px;
+}
+.emp-dash .progress-card--rank .progress-card-body {
+    overflow: visible;
+    max-height: none;
+}
 .emp-dash .team-rank-row {
     display: grid; grid-template-columns: 32px 1fr auto; gap: 6px; align-items: center;
     padding: 6px 8px; border-radius: 6px; font-size: 13px;
