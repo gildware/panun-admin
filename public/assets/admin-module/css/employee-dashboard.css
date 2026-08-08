@@ -824,6 +824,107 @@
         width: 40%;
     }
 }
+/* Employee ranking: dense single-card (admin keeps overview cards) */
+.emp-dash .progress-cards-row--employee > .progress-metrics-col--rank {
+    align-self: stretch;
+}
+.emp-dash .progress-cards-row--employee .progress-card--rank {
+    height: auto;
+    min-height: 0;
+}
+.emp-dash .progress-cards-row--employee .progress-card--rank .progress-card-header {
+    min-height: 28px;
+    padding: 4px 8px;
+}
+.emp-dash .progress-cards-row--employee .progress-card--rank .progress-card-title {
+    font-size: 12px;
+}
+.emp-dash .progress-cards-row--employee .progress-card--rank .progress-tab {
+    padding: 2px 7px;
+    font-size: 10px;
+}
+.emp-dash .progress-cards-row--employee .progress-card--rank .progress-card-body {
+    padding: 5px 6px 6px;
+}
+.emp-dash .progress-cards-row--employee .progress-card--rank .activity-panel {
+    gap: 4px;
+}
+.emp-dash .progress-cards-row--employee .progress-card--rank .activity-panel-meta {
+    font-size: 11px;
+}
+.emp-dash .progress-cards-row--employee .progress-card--rank .progress-summary-badge {
+    min-width: 22px;
+    height: 20px;
+    font-size: 10px;
+    padding: 0 5px;
+}
+.emp-dash .progress-cards-row--employee .team-rank-cards,
+.emp-dash .progress-cards-row--employee .rank-item--dash {
+    flex: 0 0 auto;
+    height: auto;
+}
+.emp-dash .progress-cards-row--employee .rank-item--dash {
+    gap: 4px;
+    padding: 6px;
+    border-radius: 6px;
+}
+.emp-dash .progress-cards-row--employee .rank-item--dash .rank-item-main {
+    gap: 6px;
+}
+.emp-dash .progress-cards-row--employee .rank-item--dash .avatar {
+    width: 26px;
+    height: 26px;
+    font-size: 10px;
+    border-radius: 6px;
+}
+.emp-dash .progress-cards-row--employee .rank-item--dash .rank-name {
+    font-size: 12px;
+    line-height: 1.2;
+}
+.emp-dash .progress-cards-row--employee .rank-item--dash .rank-sub {
+    font-size: 10px;
+    line-height: 1.2;
+}
+.emp-dash .progress-cards-row--employee .rank-item--dash .rank-val {
+    font-size: 15px;
+    line-height: 1;
+}
+.emp-dash .progress-cards-row--employee .rank-item--dash .rank-bar {
+    height: 3px;
+    margin-top: 2px;
+}
+.emp-dash .progress-cards-row--employee .rank-item--dash .rank-marks {
+    flex: 0 0 auto;
+}
+.emp-dash .progress-cards-row--employee .rank-item--dash .rank-marks-table {
+    font-size: 10px;
+    line-height: 1.2;
+}
+.emp-dash .progress-cards-row--employee .rank-item--dash .rank-marks-table th {
+    font-size: 9px;
+    padding: 2px 4px;
+    letter-spacing: 0.01em;
+}
+.emp-dash .progress-cards-row--employee .rank-item--dash .rank-marks-table td {
+    padding: 2px 4px;
+}
+.emp-dash .progress-cards-row--employee .rank-item--dash .rank-marks-table col.col-qty {
+    width: 34px;
+}
+.emp-dash .progress-cards-row--employee .rank-item--dash .rank-marks-table col.col-marks,
+.emp-dash .progress-cards-row--employee .rank-item--dash .rank-marks-table col.col-total {
+    width: 40px;
+}
+.emp-dash .progress-cards-row--employee .rank-item--dash .rank-marks-table th:nth-child(2),
+.emp-dash .progress-cards-row--employee .rank-item--dash .rank-marks-table td:nth-child(2) {
+    width: 34px;
+}
+.emp-dash .progress-cards-row--employee .rank-item--dash .rank-marks-table th:nth-child(3),
+.emp-dash .progress-cards-row--employee .rank-item--dash .rank-marks-table td:nth-child(3),
+.emp-dash .progress-cards-row--employee .rank-item--dash .rank-marks-table th:nth-child(4),
+.emp-dash .progress-cards-row--employee .rank-item--dash .rank-marks-table td:nth-child(4) {
+    width: 40px;
+}
 .emp-dash .progress-cards-row--admin > .progress-metrics-col--rank {
     flex: 0 0 100%;
     max-width: 100%;
