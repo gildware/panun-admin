@@ -9,6 +9,16 @@
     $progressTitle = $progressTitle ?? translate('My_Progress');
     $progressSubtitle = $progressSubtitle ?? translate('Progress_dashboard_sub');
     $viewReportUrl = $viewReportUrl ?? route('admin.my-progress');
+    $leaderboard = $leaderboard ?? [];
+    $highlightEmployeeId = $highlightEmployeeId ?? null;
+    $teamRankRowsDaily = $teamRankRowsDaily ?? ($team_rank_rows_daily ?? []);
+    $teamRankRowsMonthly = $teamRankRowsMonthly ?? ($team_rank_rows_monthly ?? ($teamRankRows ?? ($team_rank_rows ?? [])));
+    if ($teamRankRowsDaily === [] && ($teamRankRows ?? []) !== []) {
+        $teamRankRowsDaily = $teamRankRows;
+    }
+    if ($teamRankRowsMonthly === [] && ($teamRankRows ?? []) !== []) {
+        $teamRankRowsMonthly = $teamRankRows;
+    }
 
     $toneMap = [
         'good' => 'good',
@@ -38,6 +48,19 @@
             ];
         })->all();
     };
+    $rankSubtitle = static function (array $rows) use ($highlightEmployeeId, $leaderboard): string {
+        $highlighted = $highlightEmployeeId
+            ? collect($rows)->firstWhere('employee_id', (string) $highlightEmployeeId)
+            : null;
+        if ($highlighted) {
+            return '#'.($highlighted['rank'] ?? '—').' '.translate('Progress_out_of').' '.count($rows);
+        }
+        if (($leaderboard['total_employees'] ?? 0) > 1 && ($leaderboard['overall_rank'] ?? 0) > 0) {
+            return '#'.($leaderboard['overall_rank']).' '.translate('Progress_out_of').' '.($leaderboard['total_employees']);
+        }
+
+        return count($rows) > 0 ? count($rows).' '.translate('Progress_employees') : '';
+    };
 @endphp
 
 <div class="progress-shell js-progress-shell">
@@ -54,8 +77,8 @@
 
     <div class="progress-shell-body emp-progress-report">
         <div class="row g-3 progress-cards-row progress-cards-row--metrics">
-            {{-- Quality metrics --}}
-            <div class="col-lg-6">
+            {{-- Quality --}}
+            <div class="col-lg-4">
                 <div class="progress-card progress-card--compact progress-card--quality h-100">
                     <div class="progress-card-header">
                         <div class="progress-card-header-main">
@@ -93,8 +116,8 @@
                 </div>
             </div>
 
-            {{-- Quantity metrics --}}
-            <div class="col-lg-6">
+            {{-- Quantity --}}
+            <div class="col-lg-4">
                 <div class="progress-card progress-card--compact progress-card--quantity h-100">
                     <div class="progress-card-header">
                         <div class="progress-card-header-main">
@@ -128,6 +151,75 @@
                                 'rows' => $toMetricRows($monthStats),
                                 'gridClass' => 'lead-metric-grid lead-metric-grid--dashboard',
                             ])
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Ranking --}}
+            <div class="col-lg-4">
+                <div class="progress-card progress-card--compact progress-card--rank h-100">
+                    <div class="progress-card-header">
+                        <div class="progress-card-header-main">
+                            <span class="progress-card-title">{{ translate('Ranking') ?? translate('Progress_team_ranking') }}</span>
+                        </div>
+                        <div class="progress-card-header-action">
+                            <div class="progress-tabs" data-tabs="ranking">
+                                <button type="button" class="progress-tab active" data-tab="ranking-daily">{{ translate('Daily') }}</button>
+                                <button type="button" class="progress-tab" data-tab="ranking-monthly">{{ translate('Monthly') }}</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="progress-card-body">
+                        <div data-panel="ranking-daily" class="activity-panel active">
+                            @php $dailySub = $rankSubtitle($teamRankRowsDaily); @endphp
+                            @if($dailySub !== '')
+                                <div class="activity-panel-meta">
+                                    <span>{{ $todayLabel }}</span>
+                                    <span class="progress-summary-badge is-active">{{ $dailySub }}</span>
+                                </div>
+                            @endif
+                            @if($teamRankRowsDaily !== [])
+                                <div class="team-rank-list">
+                                    @foreach($teamRankRowsDaily as $row)
+                                        @php
+                                            $isHighlighted = $highlightEmployeeId && (string) $highlightEmployeeId === (string) ($row['employee_id'] ?? '');
+                                        @endphp
+                                        <div class="team-rank-row {{ $isHighlighted ? 'is-highlighted' : '' }}">
+                                            <span class="team-rank-num">#{{ $row['rank'] }}</span>
+                                            <span class="team-rank-name">{{ $row['label'] }}</span>
+                                            <span class="team-rank-score">{{ $row['score'] }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <div class="progress-empty">{{ translate('Progress_solo_team') }}</div>
+                            @endif
+                        </div>
+                        <div data-panel="ranking-monthly" class="activity-panel">
+                            @php $monthlySub = $rankSubtitle($teamRankRowsMonthly); @endphp
+                            <div class="activity-panel-meta">
+                                <span>{{ $monthLabel !== '' ? $monthLabel : translate('Monthly') }}</span>
+                                @if($monthlySub !== '')
+                                    <span class="progress-summary-badge is-active">{{ $monthlySub }}</span>
+                                @endif
+                            </div>
+                            @if($teamRankRowsMonthly !== [])
+                                <div class="team-rank-list">
+                                    @foreach($teamRankRowsMonthly as $row)
+                                        @php
+                                            $isHighlighted = $highlightEmployeeId && (string) $highlightEmployeeId === (string) ($row['employee_id'] ?? '');
+                                        @endphp
+                                        <div class="team-rank-row {{ $isHighlighted ? 'is-highlighted' : '' }}">
+                                            <span class="team-rank-num">#{{ $row['rank'] }}</span>
+                                            <span class="team-rank-name">{{ $row['label'] }}</span>
+                                            <span class="team-rank-score">{{ $row['score'] }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <div class="progress-empty">{{ translate('Progress_solo_team') }}</div>
+                            @endif
                         </div>
                     </div>
                 </div>
