@@ -299,7 +299,8 @@ class EmployeeProgressScoreService
     }
 
     /**
-     * Provider leads marked Registered (base_type completed) by the employee in the period.
+     * Provider leads assigned to the employee, received in period, currently Registered.
+     * Matches the Provider Leads tab (same base query + latest status outcome).
      *
      * @param  list<string>  $employeeIds
      * @return array<string, int>
@@ -312,6 +313,9 @@ class EmployeeProgressScoreService
             return $counts;
         }
 
+        $rangeStart = $periodStart->copy()->startOfDay();
+        $rangeEnd = $periodEnd->copy()->endOfDay();
+
         $completedStatusIds = ProviderLeadStatus::query()
             ->where('base_type', 'completed')
             ->pluck('id')
@@ -322,35 +326,38 @@ class EmployeeProgressScoreService
             return $counts;
         }
 
-        $histories = LeadTypeHistory::query()
-            ->where('type', Lead::TYPE_PROVIDER)
-            ->whereIn('created_by', $employeeIds)
-            ->whereBetween('created_at', [
-                $periodStart->copy()->startOfDay(),
-                $periodEnd->copy()->endOfDay(),
-            ])
-            ->get(['lead_id', 'created_by', 'data']);
+        $leads = Lead::query()
+            ->whereIn('handled_by', $employeeIds)
+            ->where('lead_type', Lead::TYPE_PROVIDER)
+            ->whereBetween('date_time_of_lead_received', [$rangeStart, $rangeEnd])
+            ->whereNotNull('handled_by')
+            ->where('handled_by', '!=', Lead::HANDLED_BY_AI)
+            ->get(['id', 'handled_by']);
 
-        $seen = [];
-        foreach ($histories as $history) {
-            $data = is_array($history->data) ? $history->data : [];
+        if ($leads->isEmpty()) {
+            return $counts;
+        }
+
+        $histories = LeadTypeHistory::query()
+            ->whereIn('lead_id', $leads->pluck('id')->all())
+            ->where('type', Lead::TYPE_PROVIDER)
+            ->orderByDesc('created_at')
+            ->get(['lead_id', 'data'])
+            ->groupBy('lead_id')
+            ->map(fn ($group) => $group->first());
+
+        foreach ($leads as $lead) {
+            $history = $histories->get($lead->id);
+            $data = is_array($history?->data) ? $history->data : [];
             $statusId = isset($data['provider_lead_status_id']) ? (string) $data['provider_lead_status_id'] : '';
             if ($statusId === '' || ! in_array($statusId, $completedStatusIds, true)) {
                 continue;
             }
 
-            $employeeId = (string) ($history->created_by ?? '');
-            $leadId = (string) ($history->lead_id ?? '');
-            if ($employeeId === '' || $leadId === '' || ! array_key_exists($employeeId, $counts)) {
-                continue;
+            $employeeId = (string) ($lead->handled_by ?? '');
+            if ($employeeId !== '' && array_key_exists($employeeId, $counts)) {
+                $counts[$employeeId]++;
             }
-
-            $dedupeKey = $employeeId.'|'.$leadId;
-            if (isset($seen[$dedupeKey])) {
-                continue;
-            }
-            $seen[$dedupeKey] = true;
-            $counts[$employeeId]++;
         }
 
         return $counts;

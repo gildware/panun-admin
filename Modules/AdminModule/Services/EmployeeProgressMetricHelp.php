@@ -104,7 +104,7 @@ class EmployeeProgressMetricHelp
             ),
             'team_ranking' => self::entry(
                 translate('Progress_team_ranking'),
-                'Score = quantity − late penalties. Quantity: Bookings created (+2), Bookings completed (+10), Leads handled (+3), Providers registered (+10), closed leads with data quality ≥80% (+5) or 50–79% (+2). Late follow-ups by delay: ≤1h (−1), ≤2h (−2), ≤4h (−3), ≤8h (−5), >8h (−10).',
+                'Score = quantity − late penalties. Quantity: Bookings created (+2), Bookings completed (+10), Leads handled (+3), provider leads received in period and currently Registered (+10), closed leads with data quality ≥80% (+5) or 50–79% (+2). Late follow-ups by delay: ≤1h (−1), ≤2h (−2), ≤4h (−3), ≤8h (−5), >8h (−10).',
             ),
             'progress_insights' => self::entry(
                 translate('Progress_improvements') ?? 'Insights',
@@ -286,7 +286,7 @@ class EmployeeProgressMetricHelp
             ),
             'provider_outcome_registered' => self::entry(
                 translate('Progress_provider_registered') ?? translate('completed'),
-                'Provider leads that completed registration successfully.',
+                'Provider leads you handled that were received in this period and are currently Registered. Same count as the Registered mark in team ranking.',
             ),
             'provider_outcome_pending' => self::entry(
                 translate('Pending'),
