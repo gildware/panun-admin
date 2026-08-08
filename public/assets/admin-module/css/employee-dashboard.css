@@ -829,17 +829,48 @@
     max-width: 100%;
     width: 100%;
 }
-.emp-dash .progress-cards-row--admin .team-rank-cards {
-    flex-direction: row;
-    flex-wrap: wrap;
+.emp-dash .progress-cards-row--admin .progress-card--rank .progress-card-body {
+    overflow: visible;
+}
+.emp-dash .progress-cards-row--admin .team-rank-cards--overview,
+.emp-dash .progress-cards-row--admin .rank-row.team-rank-cards {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
     align-items: stretch;
+    gap: 10px;
+    padding: 0;
+    overflow: visible;
+}
+.emp-dash .progress-cards-row--admin .rank-item--card {
+    flex: 1 1 260px !important;
+    width: auto !important;
+    min-width: min(260px, 100%) !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+    border: 1px solid var(--wq-border);
+    border-radius: 10px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 12px;
     gap: 8px;
 }
-.emp-dash .progress-cards-row--admin .rank-item--dash {
-    flex: 1 1 240px;
-    min-width: min(240px, 100%);
-    max-width: 100%;
-    height: auto;
+.emp-dash .progress-cards-row--admin .rank-item--card.is-highlighted {
+    border-color: var(--pc-tone-border);
+    background: #fffbeb;
+}
+.emp-dash .progress-cards-row--admin .rank-item--card .rank-marks {
+    max-height: none !important;
+    overflow: visible !important;
+    flex: 1 1 auto;
+}
+.emp-dash .progress-cards-row--admin .rank-item--card .rank-marks-table {
+    font-size: 11px;
+}
+.emp-dash .progress-cards-row--admin .rank-item--card .rank-marks-table th,
+.emp-dash .progress-cards-row--admin .rank-item--card .rank-marks-table td {
+    padding: 4px 5px;
 }
 .emp-dash .progress-cards-row--metrics > [class*="col-"] {
     display: flex;
