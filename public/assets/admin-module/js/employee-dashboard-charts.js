@@ -330,7 +330,7 @@
         return employeeProgress.querySelector('.js-rank-marks-chart');
     }
 
-    function syncScopeChartEmployeeFilter(scopeValue) {
+    function syncScopeChartEmployeeFilter() {
         var chartEl = visibleScopeChart();
         if (!chartEl) {
             return null;
@@ -338,19 +338,17 @@
 
         var wrap = chartEl.closest('.rank-marks-trend');
         var employeeSelect = wrap ? wrap.querySelector('.js-rank-marks-employee') : null;
-        var employeeScope = scopeValue === '__all__' || scopeValue === '' ? '__all__' : scopeValue;
 
         if (employeeSelect) {
-            employeeSelect.value = employeeScope;
+            employeeSelect.value = '__all__';
+            chartEl.setAttribute('data-employee-scope', '__all__');
         }
-
-        chartEl.setAttribute('data-employee-scope', employeeScope);
 
         return chartEl;
     }
 
     function reloadVisibleScopeChart(scopeValue, forceServerReload) {
-        var chartEl = syncScopeChartEmployeeFilter(scopeValue);
+        var chartEl = syncScopeChartEmployeeFilter();
         if (!chartEl) {
             renderVisibleCharts(document, true);
             return Promise.resolve();
