@@ -4,6 +4,7 @@ namespace Modules\AdminModule\Services;
 
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingFollowup;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadFollowup;
@@ -106,6 +107,8 @@ class EmployeeProgressScoreService
         }
 
         $leadsByEmployee = $this->leadsHandledByEmployee($employeeIds, $periodStart, $periodEnd);
+        $bookingsCreatedByEmployee = $this->bookingsCreatedByEmployee($employeeIds, $periodStart, $periodEnd);
+        $bookingsCompletedByEmployee = $this->bookingsCompletedByEmployee($employeeIds, $periodStart, $periodEnd);
         $providersByEmployee = $this->providersRegisteredByEmployee($employeeIds, $periodStart, $periodEnd);
         $lateByEmployee = $this->lateFollowupPenaltiesByEmployee($employeeIds, $periodStart, $periodEnd);
         $qualityByEmployee = $this->leadDataQuality->summarizeForEmployees($employeeIds, $periodStart, $periodEnd);
@@ -123,6 +126,8 @@ class EmployeeProgressScoreService
                 (int) ($providersByEmployee[$employeeId] ?? 0),
                 $lateByEmployee[$employeeId] ?? $this->emptyLatePenalty(),
                 $qualityByEmployee[$employeeId] ?? $this->leadDataQuality->emptySummary(),
+                (int) ($bookingsCreatedByEmployee[$employeeId] ?? 0),
+                (int) ($bookingsCompletedByEmployee[$employeeId] ?? 0),
             );
         }
 
@@ -164,9 +169,11 @@ class EmployeeProgressScoreService
         int $providersRegistered = 0,
         array $latePenalty = [],
         array $dataQuality = [],
+        ?int $bookingsCreatedOverride = null,
+        ?int $bookingsCompletedOverride = null,
     ): array {
-        $bookingsCreated = (int) ($employeeRow['bookings_created'] ?? 0);
-        $bookingsCompleted = (int) ($employeeRow['bookings_completed'] ?? 0);
+        $bookingsCreated = $bookingsCreatedOverride ?? (int) ($employeeRow['bookings_created'] ?? 0);
+        $bookingsCompleted = $bookingsCompletedOverride ?? (int) ($employeeRow['bookings_completed'] ?? 0);
         $leadsHandled = $leadsHandledOverride ?? (int) ($employeeRow['leads_assigned'] ?? $employeeRow['leads_handled'] ?? 0);
         $latePenalty = $latePenalty === [] ? $this->emptyLatePenalty() : $latePenalty;
         $dataQuality = $dataQuality === [] ? $this->leadDataQuality->emptySummary() : $dataQuality;
@@ -299,6 +306,73 @@ class EmployeeProgressScoreService
     }
 
     /**
+     * Bookings assigned to the employee and created in the period.
+     * Matches the Bookings tab / quantity widgets (assignee_id + created_at).
+     *
+     * @param  list<string>  $employeeIds
+     * @return array<string, int>
+     */
+    public function bookingsCreatedByEmployee(array $employeeIds, Carbon $periodStart, Carbon $periodEnd): array
+    {
+        $counts = array_fill_keys($employeeIds, 0);
+
+        if ($employeeIds === []) {
+            return $counts;
+        }
+
+        $rows = Booking::query()
+            ->selectRaw('assignee_id, COUNT(*) as cnt')
+            ->whereIn('assignee_id', $employeeIds)
+            ->whereNotNull('assignee_id')
+            ->whereBetween('created_at', [
+                $periodStart->copy()->startOfDay(),
+                $periodEnd->copy()->endOfDay(),
+            ])
+            ->groupBy('assignee_id')
+            ->pluck('cnt', 'assignee_id');
+
+        foreach ($rows as $id => $count) {
+            $counts[(string) $id] = (int) $count;
+        }
+
+        return $counts;
+    }
+
+    /**
+     * Bookings assigned to the employee, created in period, currently completed.
+     * Matches booking status analytics on the progress report.
+     *
+     * @param  list<string>  $employeeIds
+     * @return array<string, int>
+     */
+    public function bookingsCompletedByEmployee(array $employeeIds, Carbon $periodStart, Carbon $periodEnd): array
+    {
+        $counts = array_fill_keys($employeeIds, 0);
+
+        if ($employeeIds === []) {
+            return $counts;
+        }
+
+        $rows = Booking::query()
+            ->selectRaw('assignee_id, COUNT(*) as cnt')
+            ->whereIn('assignee_id', $employeeIds)
+            ->whereNotNull('assignee_id')
+            ->where('booking_status', 'completed')
+            ->whereBetween('created_at', [
+                $periodStart->copy()->startOfDay(),
+                $periodEnd->copy()->endOfDay(),
+            ])
+            ->groupBy('assignee_id')
+            ->pluck('cnt', 'assignee_id');
+
+        foreach ($rows as $id => $count) {
+            $counts[(string) $id] = (int) $count;
+        }
+
+        return $counts;
+    }
+
+    /**
      * Provider leads assigned to the employee, received in period, currently Registered.
      * Matches the Provider Leads tab (same base query + latest status outcome).
      *
@@ -364,7 +438,7 @@ class EmployeeProgressScoreService
     }
 
     /**
-     * Late follow-ups with hour-tier penalties (lead + booking), attributed to the performer.
+     * Late follow-ups with hour-tier penalties (lead + booking), attributed to assignee.
      *
      * @param  list<string>  $employeeIds
      * @return array<string, array{total_count: int, total_points: int, buckets: array<string, array{count: int, unit_points: int, points: int, label: string}>}>
@@ -384,16 +458,21 @@ class EmployeeProgressScoreService
         $rangeEnd = $periodEnd->copy()->endOfDay();
 
         $periodLeadFollowups = LeadFollowup::query()
-            ->whereIn('created_by', $employeeIds)
             ->whereNotNull('followup_at')
             ->whereBetween('followup_at', [$rangeStart, $rangeEnd])
-            ->get(['id', 'lead_id', 'created_by', 'followup_at', 'due_followup_at']);
+            ->whereHas('lead', function ($query) use ($employeeIds) {
+                $query->whereIn('handled_by', $employeeIds)
+                    ->whereNotNull('handled_by')
+                    ->where('handled_by', '!=', Lead::HANDLED_BY_AI);
+            })
+            ->with(['lead:id,handled_by,date_time_of_lead_received'])
+            ->get(['id', 'lead_id', 'followup_at', 'due_followup_at']);
 
         $leadIds = $periodLeadFollowups->pluck('lead_id')->map(fn ($id) => (string) $id)->filter()->unique()->values()->all();
         if ($leadIds !== []) {
             $leads = Lead::query()
                 ->whereIn('id', $leadIds)
-                ->get(['id', 'date_time_of_lead_received'])
+                ->get(['id', 'handled_by', 'date_time_of_lead_received'])
                 ->keyBy(fn (Lead $lead) => (string) $lead->id);
 
             $historyByLead = LeadFollowup::query()
@@ -423,7 +502,7 @@ class EmployeeProgressScoreService
                     continue;
                 }
 
-                $employeeId = (string) ($followup->created_by ?? '');
+                $employeeId = (string) ($followup->lead?->handled_by ?? $leads->get((string) $followup->lead_id)?->handled_by ?? '');
                 if ($employeeId === '' || ! array_key_exists($employeeId, $late)) {
                     continue;
                 }
@@ -434,11 +513,14 @@ class EmployeeProgressScoreService
         }
 
         $bookingFollowups = BookingFollowup::query()
-            ->whereIn('created_by', $employeeIds)
             ->whereNotNull('followup_at')
             ->whereIn('status', ['completed', 'rescheduled'])
             ->whereBetween('followup_at', [$rangeStart, $rangeEnd])
-            ->get(['created_by', 'followup_at', 'due_followup_at', 'date', 'status']);
+            ->whereHas('booking', function ($query) use ($employeeIds) {
+                $query->whereIn('assignee_id', $employeeIds)->whereNotNull('assignee_id');
+            })
+            ->with(['booking:id,assignee_id'])
+            ->get(['id', 'booking_id', 'followup_at', 'due_followup_at', 'date', 'status']);
 
         foreach ($bookingFollowups as $followup) {
             if ($followup->isRescheduled()) {
@@ -454,7 +536,7 @@ class EmployeeProgressScoreService
                 continue;
             }
 
-            $employeeId = (string) ($followup->created_by ?? '');
+            $employeeId = (string) ($followup->booking?->assignee_id ?? '');
             if ($employeeId === '' || ! array_key_exists($employeeId, $late)) {
                 continue;
             }

@@ -343,8 +343,15 @@ class EmployeeDashboardService
                 default => (int) ($outcomes[$source] ?? 0),
             };
 
+            if ($key === 'bookings_created') {
+                $created = $this->progressScore->bookingsCreatedByEmployee($employeeIds, $periodStart, $periodEnd);
+                $raw = (int) array_sum($created);
+            }
             if ($key === 'completed_bookings' && (int) ($statusTotals['completed'] ?? 0) > 0) {
                 $raw = (int) $statusTotals['completed'];
+            } elseif ($key === 'completed_bookings') {
+                $completed = $this->progressScore->bookingsCompletedByEmployee($employeeIds, $periodStart, $periodEnd);
+                $raw = (int) array_sum($completed);
             }
             if ($key === 'cancelled_bookings') {
                 $raw = (int) ($statusTotals['canceled'] ?? 0) + (int) ($statusTotals['cancelled_after_visit'] ?? 0);
@@ -1305,9 +1312,15 @@ class EmployeeDashboardService
                 default => (int) ($outcomes[$source] ?? 0),
             };
 
-            // Prefer created-in-period completed/cancelled counts when status analytics has them.
+            if ($key === 'bookings_created') {
+                $created = $this->progressScore->bookingsCreatedByEmployee([$userId], $periodStart, $periodEnd);
+                $raw = (int) ($created[$userId] ?? 0);
+            }
             if ($key === 'completed_bookings' && (int) ($statusTotals['completed'] ?? 0) > 0) {
                 $raw = (int) $statusTotals['completed'];
+            } elseif ($key === 'completed_bookings') {
+                $completed = $this->progressScore->bookingsCompletedByEmployee([$userId], $periodStart, $periodEnd);
+                $raw = (int) ($completed[$userId] ?? 0);
             }
             if ($key === 'cancelled_bookings') {
                 $raw = (int) ($statusTotals['canceled'] ?? 0) + (int) ($statusTotals['cancelled_after_visit'] ?? 0);
