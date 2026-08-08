@@ -26,11 +26,11 @@ class EmployeeProgressScoreService
 
     /** @var list<array{key: string, max_minutes: int|null, points: int, label: string}> */
     public const LATE_PENALTY_BUCKETS = [
-        ['key' => 'late_1h', 'max_minutes' => 60, 'points' => 1, 'label' => 'Late ≤1 hour'],
-        ['key' => 'late_2h', 'max_minutes' => 120, 'points' => 2, 'label' => 'Late ≤2 hours'],
-        ['key' => 'late_4h', 'max_minutes' => 240, 'points' => 3, 'label' => 'Late ≤4 hours'],
-        ['key' => 'late_8h', 'max_minutes' => 480, 'points' => 5, 'label' => 'Late ≤8 hours'],
-        ['key' => 'late_over_8h', 'max_minutes' => null, 'points' => 10, 'label' => 'Late >8 hours'],
+        ['key' => 'late_1h', 'max_minutes' => 60, 'points' => 1, 'label' => 'Follow up late by ≤1 hour'],
+        ['key' => 'late_2h', 'max_minutes' => 120, 'points' => 2, 'label' => 'Follow up late by ≤2 hours'],
+        ['key' => 'late_4h', 'max_minutes' => 240, 'points' => 3, 'label' => 'Follow up late by ≤4 hours'],
+        ['key' => 'late_8h', 'max_minutes' => 480, 'points' => 5, 'label' => 'Follow up late by ≤8 hours'],
+        ['key' => 'late_over_8h', 'max_minutes' => null, 'points' => 10, 'label' => 'Follow up late by >8 hours'],
     ];
 
     public function __construct(
