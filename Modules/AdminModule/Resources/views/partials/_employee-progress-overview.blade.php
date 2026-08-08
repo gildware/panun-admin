@@ -328,11 +328,23 @@
 
 @php
     $scoreWeights = $analytics['score_weights'] ?? \Modules\AdminModule\Services\EmployeeProgressScoreService::weightLegend();
-    $rankRows = collect($topPerformers);
+    $rankCardRows = collect($topPerformers)->map(static function (array $performer): array {
+        return [
+            'rank' => (int) ($performer['rank'] ?? 0),
+            'employee_id' => (string) ($performer['employee_id'] ?? ''),
+            'label' => (string) ($performer['name'] ?? ''),
+            'score' => (int) ($performer['score'] ?? 0),
+            'marks' => $performer['marks'] ?? [],
+            'helped_marks' => $performer['helped_marks'] ?? [],
+            'helped_score' => (int) ($performer['helped_score'] ?? 0),
+            'quantity_score' => (int) ($performer['quantity_score'] ?? 0),
+            'penalty_score' => (int) ($performer['penalty_score'] ?? 0),
+        ];
+    });
     if (! $viewingAllEmployees) {
-        $rankRows = $rankRows->take(1);
+        $rankCardRows = $rankCardRows->take(1);
     }
-    $maxScore = max(1, (int) ($rankRows->first()['score'] ?? 1), abs((int) ($rankRows->min('score') ?? 0)));
+    $rankCardRows = $rankCardRows->values()->all();
 @endphp
 
 <div class="layout-main {{ $viewingAllEmployees ? '' : 'layout-main--half' }}">
@@ -361,40 +373,10 @@
                     @endforeach
                 </div>
             @endif
-            @forelse($rankRows as $index => $performer)
-                @php
-                    $initials = collect(explode(' ', $performer['name'] ?? ''))->filter()->map(fn ($p) => strtoupper(substr($p, 0, 1)))->take(2)->implode('');
-                    $avatarClass = match ($index) { 1 => 'silver', 2 => 'bronze', default => '' };
-                    $barPct = min(100, round((abs((int) ($performer['score'] ?? 0)) / $maxScore) * 100));
-                @endphp
-                <div class="rank-item rank-item--scored">
-                    <div class="rank-item-main">
-                        <div class="avatar {{ $avatarClass }}">{{ $initials ?: '#'.($performer['rank'] ?? ($index + 1)) }}</div>
-                        <div class="rank-meta">
-                            <div class="rank-name">{{ $performer['name'] }}</div>
-                            <div class="rank-sub">
-                                {{ translate('Quantity') ?? 'Quantity' }} {{ (int) ($performer['quantity_score'] ?? 0) }}
-                                @if((int) ($performer['helped_score'] ?? 0) > 0)
-                                    · {{ translate('Progress_helped_others') ?? 'Helped other' }} {{ (int) ($performer['helped_score'] ?? 0) }}
-                                @endif
-                                · {{ translate('Penalties') ?? 'Penalties' }} {{ (int) ($performer['penalty_score'] ?? 0) }}
-                            </div>
-                            <div class="rank-bar"><i style="width: {{ $barPct }}%"></i></div>
-                        </div>
-                        <div class="rank-val">{{ (int) ($performer['score'] ?? 0) }}</div>
-                    </div>
-                    @include('adminmodule::partials._employee-progress-rank-marks', [
-                        'marks' => $performer['marks'] ?? [],
-                        'helpedMarks' => $performer['helped_marks'] ?? [],
-                        'quantityScore' => (int) ($performer['quantity_score'] ?? 0),
-                        'helpedScore' => (int) ($performer['helped_score'] ?? 0),
-                        'penaltyScore' => (int) ($performer['penalty_score'] ?? 0),
-                        'grandScore' => (int) ($performer['score'] ?? 0),
-                    ])
-                </div>
-            @empty
-                <div class="rank-item"><div class="rank-meta"><div class="rank-name">{{ translate('No_data_available') }}</div></div></div>
-            @endforelse
+            @include('adminmodule::partials._employee-progress-team-rank-cards', [
+                'rows' => $rankCardRows,
+                'variant' => 'panel',
+            ])
         </div>
     @elseif($crossInsights !== [])
         <div class="side-stack">
@@ -450,41 +432,9 @@
                 @endforeach
             </div>
         @endif
-        <div class="rank-row">
-            @forelse($rankRows as $index => $performer)
-                @php
-                    $initials = collect(explode(' ', $performer['name'] ?? ''))->filter()->map(fn ($p) => strtoupper(substr($p, 0, 1)))->take(2)->implode('');
-                    $avatarClass = match ($index) { 1 => 'silver', 2 => 'bronze', default => '' };
-                    $barPct = min(100, round((abs((int) ($performer['score'] ?? 0)) / $maxScore) * 100));
-                @endphp
-                <div class="rank-item rank-item--scored rank-item--card">
-                    <div class="rank-item-main">
-                        <div class="avatar {{ $avatarClass }}">{{ $initials ?: '#'.($performer['rank'] ?? ($index + 1)) }}</div>
-                        <div class="rank-meta">
-                            <div class="rank-name">{{ $performer['name'] }}</div>
-                            <div class="rank-sub">
-                                {{ translate('Quantity') ?? 'Quantity' }} {{ (int) ($performer['quantity_score'] ?? 0) }}
-                                @if((int) ($performer['helped_score'] ?? 0) > 0)
-                                    · {{ translate('Progress_helped_others') ?? 'Helped other' }} {{ (int) ($performer['helped_score'] ?? 0) }}
-                                @endif
-                                · {{ translate('Penalties') ?? 'Penalties' }} {{ (int) ($performer['penalty_score'] ?? 0) }}
-                            </div>
-                            <div class="rank-bar"><i style="width: {{ $barPct }}%"></i></div>
-                        </div>
-                        <div class="rank-val">{{ (int) ($performer['score'] ?? 0) }}</div>
-                    </div>
-                    @include('adminmodule::partials._employee-progress-rank-marks', [
-                        'marks' => $performer['marks'] ?? [],
-                        'helpedMarks' => $performer['helped_marks'] ?? [],
-                        'quantityScore' => (int) ($performer['quantity_score'] ?? 0),
-                        'helpedScore' => (int) ($performer['helped_score'] ?? 0),
-                        'penaltyScore' => (int) ($performer['penalty_score'] ?? 0),
-                        'grandScore' => (int) ($performer['score'] ?? 0),
-                    ])
-                </div>
-            @empty
-                <div class="rank-item rank-item--card"><div class="rank-meta"><div class="rank-name">{{ translate('No_data_available') }}</div></div></div>
-            @endforelse
-        </div>
+        @include('adminmodule::partials._employee-progress-team-rank-cards', [
+            'rows' => $rankCardRows,
+            'variant' => 'overview',
+        ])
     </div>
 @endif

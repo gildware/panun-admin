@@ -85,7 +85,8 @@
 .emp-progress-report .layout-main--half .chart-card,
 .emp-progress-report .layout-main--half .rank-card--panel{min-width:0;height:100%}
 .emp-progress-report .rank-card--panel{display:flex;flex-direction:column;overflow:visible}
-.emp-progress-report .rank-card--panel .rank-item--scored{flex:1;min-height:0}
+.emp-progress-report .rank-card--panel .team-rank-cards--panel{display:flex;flex-direction:column;flex:1;min-height:0;gap:0}
+.emp-progress-report .rank-card--panel .rank-item--scored{flex:1;min-height:0;display:flex;flex-direction:column}
 .emp-progress-report .insight-list--below{margin-bottom:14px}
 @media(max-width:1024px){
   .emp-progress-report .layout-main,
