@@ -361,11 +361,11 @@
     padding: 6px 10px; background: var(--wq-surface); border-bottom: 1px solid #eef0f3;
 }
 .emp-dash .progress-shell-title {
-    font-size: 12px; font-weight: 700; color: var(--wq-text); margin: 0;
+    font-size: 13px; font-weight: 700; color: var(--wq-text); margin: 0;
     text-transform: uppercase; letter-spacing: .03em;
 }
 .emp-dash .progress-shell-sub {
-    display: block; font-size: 10px; color: var(--wq-muted); margin-top: 1px; line-height: 1.25;
+    display: block; font-size: 11px; color: var(--wq-muted); margin-top: 1px; line-height: 1.25;
 }
 .emp-dash .progress-view-report-btn {
     display: inline-flex; align-items: center; gap: 3px;
@@ -849,21 +849,21 @@
 .emp-dash .progress-cards-row--metrics .progress-card-header {
     flex-shrink: 0;
     align-items: center;
-    min-height: 28px;
+    min-height: 32px;
     max-height: none;
-    padding: 4px 8px;
+    padding: 5px 9px;
 }
 .emp-dash .progress-cards-row--metrics .progress-card-title {
-    font-size: 11px;
+    font-size: 13px;
 }
 .emp-dash .progress-cards-row--metrics .progress-tabs {
-    gap: 3px;
+    gap: 4px;
     min-height: 0;
 }
 .emp-dash .progress-cards-row--metrics .progress-tab {
-    padding: 2px 7px;
-    font-size: 10px;
-    line-height: 1.2;
+    padding: 3px 9px;
+    font-size: 11px;
+    line-height: 1.25;
 }
 .emp-dash .progress-cards-row--metrics .progress-card-body {
     flex: 1 1 auto;
@@ -871,14 +871,14 @@
     flex-direction: column;
     min-height: 0;
     overflow: visible;
-    padding: 5px 6px 6px;
+    padding: 6px 8px 8px;
 }
 .emp-dash .progress-cards-row--metrics .activity-panel {
     display: none;
     flex: 1 1 auto;
     flex-direction: column;
     min-height: 0;
-    gap: 4px;
+    gap: 5px;
 }
 .emp-dash .progress-cards-row--metrics .activity-panel.active {
     display: flex;
@@ -887,13 +887,13 @@
     flex-shrink: 0;
     margin-bottom: 0;
     min-height: 0;
-    font-size: 10px;
+    font-size: 12px;
 }
 .emp-dash .progress-cards-row--metrics .progress-summary-badge {
-    min-width: 22px;
-    height: 20px;
-    font-size: 10px;
-    padding: 0 6px;
+    min-width: 26px;
+    height: 24px;
+    font-size: 12px;
+    padding: 0 7px;
 }
 .emp-dash .progress-card--quality .progress-card-sub,
 .emp-dash .progress-card--activity .progress-card-sub,
@@ -937,7 +937,7 @@
 .emp-dash .progress-card--rank .progress-summary-badge.is-active {
     background: #fff; color: var(--pc-tone);
     border: 1px solid var(--pc-tone-border);
-    font-size: 10px;
+    font-size: 11px;
 }
 .emp-dash .progress-cards-row--metrics .team-rank-cards {
     flex: 1 1 auto;
@@ -950,12 +950,12 @@
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
     height: 100%;
     margin: 0;
     border: 1px solid var(--wq-border);
-    border-radius: 6px;
-    padding: 5px 6px;
+    border-radius: 8px;
+    padding: 8px;
     background: #fff;
 }
 .emp-dash .progress-cards-row--metrics .rank-item--dash.is-highlighted {
@@ -964,26 +964,26 @@
 }
 .emp-dash .progress-cards-row--metrics .rank-item--dash .rank-item-main {
     flex-shrink: 0;
-    gap: 6px;
+    gap: 8px;
 }
 .emp-dash .progress-cards-row--metrics .rank-item--dash .avatar {
-    width: 26px;
-    height: 26px;
-    font-size: 9px;
-    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    font-size: 11px;
+    border-radius: 8px;
 }
 .emp-dash .progress-cards-row--metrics .rank-item--dash .rank-name {
-    font-size: 11px;
+    font-size: 13px;
 }
 .emp-dash .progress-cards-row--metrics .rank-item--dash .rank-sub {
-    font-size: 9px;
+    font-size: 11px;
 }
 .emp-dash .progress-cards-row--metrics .rank-item--dash .rank-val {
-    font-size: 14px;
+    font-size: 18px;
 }
 .emp-dash .progress-cards-row--metrics .rank-item--dash .rank-bar {
-    height: 3px;
-    margin-top: 3px;
+    height: 4px;
+    margin-top: 4px;
 }
 .emp-dash .progress-cards-row--metrics .rank-item--dash .rank-marks {
     flex: 1 1 auto;
@@ -994,64 +994,64 @@
 }
 .emp-dash .progress-cards-row--metrics .rank-item--dash .rank-marks-table {
     width: 100%;
-    font-size: 10px;
-    line-height: 1.2;
+    font-size: 12px;
+    line-height: 1.3;
 }
 .emp-dash .progress-cards-row--metrics .rank-item--dash .rank-marks-table th {
-    font-size: 9px;
-    padding: 3px 4px;
+    font-size: 11px;
+    padding: 5px 6px;
 }
 .emp-dash .progress-cards-row--metrics .rank-item--dash .rank-marks-table td {
-    padding: 2px 4px;
+    padding: 5px 6px;
 }
 .emp-dash .progress-shell-body.emp-progress-report .followup-metric-card {
-    padding: 5px 6px;
+    padding: 8px;
     min-height: 0;
     height: 100%;
-    border-radius: 6px;
+    border-radius: 8px;
     justify-content: flex-start;
     gap: 0;
 }
 .emp-dash .progress-shell-body.emp-progress-report .followup-metric-card .fmc-top {
     flex: 0 0 auto;
-    gap: 4px;
+    gap: 6px;
     align-items: center;
 }
 .emp-dash .progress-shell-body.emp-progress-report .followup-metric-card .fmc-icon {
-    width: 18px;
-    height: 18px;
-    border-radius: 5px;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
 }
 .emp-dash .progress-shell-body.emp-progress-report .followup-metric-card .fmc-icon .mso {
-    font-size: 11px;
+    font-size: 14px;
 }
 .emp-dash .progress-shell-body.emp-progress-report .followup-metric-card .fmc-lbl {
-    font-size: 8px;
+    font-size: 10px;
     min-height: 0;
-    line-height: 1.15;
-    letter-spacing: .02em;
+    line-height: 1.25;
+    letter-spacing: .03em;
 }
 .emp-dash .progress-shell-body.emp-progress-report .followup-metric-card .fmc-lbl > span {
     -webkit-line-clamp: 1;
 }
 .emp-dash .progress-shell-body.emp-progress-report .followup-metric-card .fmc-val {
-    font-size: 14px;
-    margin-top: 1px;
-    line-height: 1.05;
+    font-size: 18px;
+    margin-top: 3px;
+    line-height: 1.1;
 }
 .emp-dash .progress-shell-body.emp-progress-report .followup-metric-card .fmc-foot {
-    margin-top: 3px;
-    padding-top: 2px;
-    gap: 2px;
+    margin-top: 5px;
+    padding-top: 4px;
+    gap: 3px;
 }
 .emp-dash .progress-shell-body.emp-progress-report .followup-metric-card .fmc-share {
-    font-size: 8px;
+    font-size: 10px;
     min-height: 0;
     -webkit-line-clamp: 1;
-    line-height: 1.2;
+    line-height: 1.25;
 }
 .emp-dash .progress-shell-body.emp-progress-report .followup-metric-card .fmc-bar {
-    height: 2px;
+    height: 3px;
 }
 .emp-dash .progress-shell-body.emp-progress-report .progress-metric-info-btn {
     display: none;
