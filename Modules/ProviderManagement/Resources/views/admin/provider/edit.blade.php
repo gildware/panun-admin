@@ -905,12 +905,7 @@
                     contact_person_email: {
                         email: true
                     },
-                    company_email: {
-                        required: function () {
-                            return isProviderCompanyTypeEdit();
-                        },
-                        email: true
-                    }
+                    company_email: { email: true }
                 }
             });
         });
@@ -945,7 +940,7 @@
                     $formRoot.find('#company_phone').prop('disabled', false);
                     $formRoot.find('[name="company_phone"]').prop('required', true);
                     $formRoot.find('[name="company_phone"]').prop('disabled', false);
-                    $formRoot.find('[name="company_email"]').prop('required', true);
+                    $formRoot.find('[name="company_email"]').prop('required', false);
                     $formRoot.find('[name="company_email"]').prop('disabled', false);
                     $formRoot.find('[name="company_identity_type"]').prop('required', true);
                     $formRoot.find('[name="company_identity_type"]').prop('disabled', false);

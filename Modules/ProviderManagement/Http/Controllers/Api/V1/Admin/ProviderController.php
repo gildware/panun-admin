@@ -199,6 +199,10 @@ class ProviderController extends Controller
             $request->merge(['contact_person_email' => null]);
         }
 
+        if (! $request->filled('company_email')) {
+            $request->merge(['company_email' => null]);
+        }
+
         $validator = Validator::make($request->all(), [
             'provider_type' => 'required|in:company,individual',
 
@@ -214,7 +218,7 @@ class ProviderController extends Controller
             'company_name' => 'required_if:provider_type,company',
             'company_phone' => 'required_if:provider_type,company|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
             'company_address' => 'required',
-            'company_email' => 'required_if:provider_type,company|email',
+            'company_email' => 'nullable|email|max:191',
             'logo' => 'required|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
 
             'identity_type' => 'required|in:passport,driving_license,nid,trade_license,company_id',
@@ -382,7 +386,7 @@ class ProviderController extends Controller
                 'min:8',
                 User::uniquePhoneAmongUserTypesRule((string) $provider->user_id, PROVIDER_USER_TYPES),
             ],
-            'contact_person_email' => 'required|email|unique:users,email,' . $provider->user_id . ',id',
+            'contact_person_email' => 'nullable|email|max:191|unique:users,email,' . $provider->user_id . ',id',
 
             'password' => 'string|min:8',
             'confirm_password' => 'same:password',
@@ -396,7 +400,7 @@ class ProviderController extends Controller
                 ? 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8'
                 : 'nullable|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
             'company_address' => 'required',
-            'company_email' => $request->provider_type === 'company' ? 'required|email' : 'nullable|email',
+            'company_email' => 'nullable|email|max:191',
             'logo' => 'image|mimes:jpeg,jpg,png,gif|max:10000',
 
             'zone_ids' => 'required|array|min:1',

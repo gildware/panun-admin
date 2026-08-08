@@ -34,22 +34,24 @@ class AdminProviderValidationRulesTest extends TestCase
         )->fails());
     }
 
-    public function test_company_email_required_when_provider_type_is_company(): void
+    public function test_company_email_nullable_accepts_empty_and_valid_address(): void
     {
+        $rule = 'exclude_if:provider_type,individual|nullable|email|max:191';
+
         $this->assertTrue(Validator::make(
             [
                 'provider_type' => 'company',
                 'company_email' => '',
             ],
-            ['company_email' => 'required_if:provider_type,company|email']
-        )->fails());
+            ['company_email' => $rule]
+        )->passes());
 
         $this->assertTrue(Validator::make(
             [
                 'provider_type' => 'company',
                 'company_email' => 'company@example.com',
             ],
-            ['company_email' => 'required_if:provider_type,company|email']
+            ['company_email' => $rule]
         )->passes());
 
         $this->assertTrue(Validator::make(
@@ -57,8 +59,16 @@ class AdminProviderValidationRulesTest extends TestCase
                 'provider_type' => 'individual',
                 'company_email' => '',
             ],
-            ['company_email' => 'required_if:provider_type,company|email']
+            ['company_email' => $rule]
         )->passes());
+
+        $this->assertTrue(Validator::make(
+            [
+                'provider_type' => 'company',
+                'company_email' => 'not-an-email',
+            ],
+            ['company_email' => $rule]
+        )->fails());
     }
 
     public function test_zone_ids_must_contain_valid_uuids(): void

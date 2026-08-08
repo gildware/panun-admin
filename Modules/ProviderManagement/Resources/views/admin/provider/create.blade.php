@@ -974,7 +974,7 @@
                         required: true,
                         minlength: 8
                     },
-                    contact_person_email: { required: true, email: true },
+                    contact_person_email: { email: true },
                     company_address: { required: true },
                     identity_type: { required: true },
                     identity_number: { required: true },
@@ -992,12 +992,7 @@
                         },
                         minlength: 8
                     },
-                    company_email: {
-                        required: function () {
-                            return isProviderCompanyType();
-                        },
-                        email: true
-                    },
+                    company_email: { email: true },
                     company_identity_type: {
                         required: function () {
                             return isProviderCompanyType();
@@ -1320,7 +1315,7 @@
                     $formRoot.find('[name="company_name"]').prop('required', true).prop('disabled', false);
                     $formRoot.find('#company_phone, [name="company_phone"], [name="company_phone_country_code"]').prop('required', false).prop('disabled', false);
                     $formRoot.find('#company_phone, [name="company_phone"]').prop('required', true);
-                    $formRoot.find('[name="company_email"]').prop('required', true).prop('disabled', false);
+                    $formRoot.find('[name="company_email"]').prop('required', false).prop('disabled', false);
                     $formRoot.find('[name="company_identity_type"], [name="company_identity_number"]').prop('required', true).prop('disabled', false);
                 } else {
                     $(".provider-company-fields").hide();
