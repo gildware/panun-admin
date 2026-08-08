@@ -895,45 +895,73 @@
     height: auto;
     min-height: 0;
 }
-.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card {
-    padding: 5px 6px 5px;
+.emp-dash .progress-shell-body.emp-progress-report .progress-cards-row--employee .lead-metric-grid--dashboard.lead-metric-grid--inline {
+    grid-template-columns: 1fr;
+    gap: 3px;
+}
+@media (min-width: 576px) {
+    .emp-dash .progress-shell-body.emp-progress-report .progress-cards-row--employee .lead-metric-grid--dashboard.lead-metric-grid--inline {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 1199px) {
+    .emp-dash .progress-shell-body.emp-progress-report .progress-cards-row--employee .lead-metric-grid--dashboard.lead-metric-grid--inline {
+        grid-template-columns: 1fr;
+    }
+}
+@media (min-width: 1200px) {
+    .emp-dash .progress-shell-body.emp-progress-report .progress-cards-row--employee .lead-metric-grid--dashboard.lead-metric-grid--inline {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card--inline {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
     min-height: 0 !important;
     height: auto;
     border-radius: 6px;
 }
-.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card .fmc-top {
-    gap: 4px;
-}
-.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card .fmc-icon {
-    width: 20px;
-    height: 20px;
+.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card--inline .fmc-icon {
+    width: 22px;
+    height: 22px;
     border-radius: 5px;
+    flex-shrink: 0;
 }
-.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card .fmc-icon .mso {
-    font-size: 12px;
+.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card--inline .fmc-icon .mso {
+    font-size: 13px;
 }
-.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card .fmc-lbl {
-    font-size: 9px;
+.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card--inline .fmc-lbl {
+    flex: 1 1 auto;
+    min-width: 0;
     min-height: 0;
+    margin: 0;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
     line-height: 1.2;
+    color: var(--wq-text, #0f172a);
 }
-.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card .fmc-val {
-    font-size: 15px;
-    margin-top: 2px;
+.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card--inline .fmc-lbl > span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    -webkit-line-clamp: unset;
+}
+.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card--inline .fmc-val {
+    flex: 0 0 auto;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 800;
     line-height: 1;
+    text-align: right;
 }
-.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card .fmc-foot {
-    margin-top: 3px;
-    padding-top: 3px;
-    gap: 2px;
-}
-.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card .fmc-share {
-    font-size: 9px;
-    -webkit-line-clamp: 1;
-    line-height: 1.2;
-}
-.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card .fmc-bar {
-    height: 2px;
+.emp-dash.emp-dash--employee .progress-shell-body.emp-progress-report .progress-cards-row--employee .followup-metric-card--inline .progress-metric-info-btn {
+    display: none;
 }
 .emp-dash .progress-cards-row--employee .team-rank-cards,
 .emp-dash .progress-cards-row--employee .rank-item--dash {

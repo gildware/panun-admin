@@ -231,6 +231,7 @@
                                     @include('adminmodule::partials._employee-progress-lead-metric-grid', [
                                         'rows' => $toMetricRows($qualityStatsDaily),
                                         'gridClass' => 'lead-metric-grid lead-metric-grid--dashboard',
+                                        'layout' => 'inline',
                                     ])
                                 </div>
                                 <div data-panel="quality-monthly" class="activity-panel">
@@ -242,6 +243,7 @@
                                     @include('adminmodule::partials._employee-progress-lead-metric-grid', [
                                         'rows' => $toMetricRows($qualityStatsMonthly),
                                         'gridClass' => 'lead-metric-grid lead-metric-grid--dashboard',
+                                        'layout' => 'inline',
                                     ])
                                 </div>
                             </div>
@@ -268,6 +270,7 @@
                                     @include('adminmodule::partials._employee-progress-lead-metric-grid', [
                                         'rows' => $toMetricRows($todayItems),
                                         'gridClass' => 'lead-metric-grid lead-metric-grid--dashboard',
+                                        'layout' => 'inline',
                                     ])
                                 </div>
                                 <div data-panel="quantity-monthly" class="activity-panel">
@@ -279,6 +282,7 @@
                                     @include('adminmodule::partials._employee-progress-lead-metric-grid', [
                                         'rows' => $toMetricRows($monthStats),
                                         'gridClass' => 'lead-metric-grid lead-metric-grid--dashboard',
+                                        'layout' => 'inline',
                                     ])
                                 </div>
                             </div>
