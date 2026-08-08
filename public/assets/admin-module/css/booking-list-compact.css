@@ -445,6 +445,11 @@
     color: var(--tab-count-fg, #14532d);
 }
 
+.booking-list-tab[data-status].active .count {
+    background: rgba(255, 255, 255, 0.25);
+    color: #fff;
+}
+
 .booking-list-tab.booking-status-tabs-toggle {
     background: #e9ecef;
     color: #495057;
@@ -579,6 +584,26 @@
 
 .filter-aside--booking-compact .select2-container {
     width: 100% !important;
+}
+
+.filter-aside--booking-compact .select2-container .select2-selection--single,
+.filter-aside--booking-compact .select2-container--default .select2-selection--single {
+    min-height: 2.375rem !important;
+    height: 2.375rem !important;
+    border-radius: 0.375rem !important;
+    font-size: 0.8125rem;
+    display: flex;
+    align-items: center;
+}
+
+.filter-aside--booking-compact .select2-container .select2-selection--single .select2-selection__rendered {
+    line-height: 2.25rem !important;
+    padding-left: 0.625rem !important;
+    font-size: 0.8125rem;
+}
+
+.filter-aside--booking-compact .select2-container .select2-selection--single .select2-selection__arrow {
+    height: 2.25rem !important;
 }
 
 .filter-aside--booking-compact .select2-container .select2-selection--multiple,

@@ -12,6 +12,7 @@
     @php
         $isCancelledByProviderList = request()->routeIs('admin.booking.list.cancelled_by_provider');
         $isCancelledByCustomerList = request()->routeIs('admin.booking.list.cancelled_by_customer');
+        $isStandardListMode = ! $isCancelledByProviderList && ! $isCancelledByCustomerList;
         $bookingListFilterAction = $isCancelledByProviderList
             ? route('admin.booking.list.cancelled_by_provider', ['service_type' => $queryParams['service_type'] ?? 'all'])
             : ($isCancelledByCustomerList
@@ -32,6 +33,45 @@
             enctype="multipart/form-data" id="filter-form" class="filter-aside__form">
             @csrf
             <div class="filter-aside__body d-flex flex-column">
+                @if($isStandardListMode)
+                    @php
+                        $bookingFilterStatusOptions = [
+                            'all' => translate('All Booking'),
+                            'pending' => translate('Pending_Booking'),
+                            'accepted' => translate('Accepted'),
+                            'canceled' => translate('Cancelled'),
+                            'ongoing' => translate('Ongoing'),
+                            'completed' => translate('Completed'),
+                            'reopened' => translate('Reopened'),
+                            'resolved' => translate('Resolved'),
+                            'disputed_cancelled' => translate('Disputed_and_Cancelled'),
+                            'disputed_completed' => translate('Disputed_and_Completed'),
+                            'on_hold' => translate('On_hold'),
+                            'hold_after_visit' => translate('Hold_after_visit'),
+                            'completed_no_or_little' => translate('Booking_tag_complete_no_service'),
+                            'cancelled_after_visit' => translate('Booking_tag_cancel_after_visit'),
+                            'loss_making_pending' => translate('Bfs_list_badge_loss_making'),
+                            'loss_recovered' => translate('Bfs_list_badge_loss_recovered'),
+                            'loss_settled' => translate('Settled'),
+                        ];
+                        $selectedBookingFilterStatus = $queryParams['booking_status'] ?? 'all';
+                        if ($selectedBookingFilterStatus === 'loss_making') {
+                            $selectedBookingFilterStatus = 'loss_making_pending';
+                        }
+                    @endphp
+                    <div class="filter-aside__section">
+                        <label class="filter-aside__section-label" for="filter-booking-status">{{ translate('Booking_Status') }}</label>
+                        <div class="filter-aside__field">
+                            <select class="booking-status-select theme-input-style w-100" name="booking_status" id="filter-booking-status">
+                                @foreach ($bookingFilterStatusOptions as $statusKey => $statusLabel)
+                                    <option value="{{ $statusKey }}" {{ $selectedBookingFilterStatus === $statusKey ? 'selected' : '' }}>
+                                        {{ $statusLabel }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                @endif
                 <div class="filter-aside__section">
                     <label class="filter-aside__section-label">{{ translate('Booked_Date_Range') }}</label>
                     <div class="filter-aside__date-row">
@@ -219,7 +259,6 @@
                             'loss_settled',
                         ];
                         $bookingStatusExtraTabActive = in_array($bookingListTabStatus, $bookingStatusExtraTabs, true);
-                        $isStandardListMode = ! $isCancelledByProviderList && ! $isCancelledByCustomerList;
                     @endphp
 
                     @if($isStandardListMode)
@@ -383,6 +422,9 @@
                                     id="booking-list-search-form"
                                     class="search-form search-form_style-two booking-list-search-form" method="POST">
                                     @csrf
+                                    @if(!empty($queryParams['booking_status']))
+                                        <input type="hidden" name="booking_status" value="{{ $queryParams['booking_status'] }}">
+                                    @endif
                                     @foreach (['start_date', 'end_date', 'schedule_start_date', 'schedule_end_date'] as $dateParam)
                                         @if(!empty($queryParams[$dateParam]))
                                             <input type="hidden" name="{{ $dateParam }}" value="{{ $queryParams[$dateParam] }}">
@@ -514,6 +556,10 @@
             $('.assignee-select').select2({
                 placeholder: "{{ translate('Select_Assignee') }}"
             });
+            $('.booking-status-select').select2({
+                placeholder: "{{ translate('Select_booking_status') }}",
+                minimumResultsForSearch: 0
+            });
 
         })(jQuery);
     </script>
@@ -635,9 +681,10 @@
             $('#reset-btn').on('click', function() {
                 @if($isCancelledByProviderList)
                 window.location.href = '{{ route('admin.booking.list.cancelled_by_provider', ['service_type' => 'all']) }}';
+                @elseif($isCancelledByCustomerList)
+                window.location.href = '{{ route('admin.booking.list.cancelled_by_customer', ['service_type' => 'all']) }}';
                 @else
-                let bookingStatus = '{{ $queryParams['booking_status'] ?? 'all' }}';
-                window.location.href = `{{ route('admin.booking.list') }}?booking_status=${bookingStatus}&service_type=all`;
+                window.location.href = '{{ route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']) }}';
                 @endif
             });
         });
