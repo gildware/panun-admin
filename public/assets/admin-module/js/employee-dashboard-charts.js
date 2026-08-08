@@ -13,16 +13,28 @@
         }
     }
 
-    function destroyChart(id) {
+    function isVisible(el) {
+        return !!(el && el.offsetParent !== null);
+    }
+
+    function destroyChart(el) {
+        if (!el || !el.id) {
+            return;
+        }
+
+        var id = el.id;
         if (charts[id]) {
             try {
                 charts[id].destroy();
             } catch (error) {}
             delete charts[id];
         }
+
+        el.innerHTML = '';
+        delete el.dataset.rankChartRendered;
     }
 
-    function renderChart(el) {
+    function renderChart(el, force) {
         if (!el || typeof ApexCharts === 'undefined') {
             return;
         }
@@ -32,15 +44,25 @@
             return;
         }
 
+        if (!isVisible(el)) {
+            destroyChart(el);
+            return;
+        }
+
         var config = parseChart(el);
         var categories = config.categories || [];
         var series = config.series || [];
         if (categories.length === 0 || series.length === 0) {
-            destroyChart(id);
+            destroyChart(el);
             return;
         }
 
-        destroyChart(id);
+        var signature = JSON.stringify({ categories: categories, series: series });
+        if (!force && el.dataset.rankChartRendered === signature && charts[id]) {
+            return;
+        }
+
+        destroyChart(el);
 
         var apexSeries = series.map(function (row, index) {
             return {
@@ -105,28 +127,32 @@
                 },
             });
             charts[id].render();
+            el.dataset.rankChartRendered = signature;
         } catch (error) {
             console.warn('Rank marks chart failed:', id, error);
         }
     }
 
-    function renderVisibleCharts(root) {
+    function renderVisibleCharts(root, force) {
         var scope = root || document;
         scope.querySelectorAll('.js-rank-marks-chart').forEach(function (el) {
-            if (el.offsetParent === null) {
+            if (!isVisible(el)) {
+                destroyChart(el);
                 return;
             }
-            renderChart(el);
+            renderChart(el, !!force);
         });
     }
 
     function init() {
-        renderVisibleCharts(document);
+        renderVisibleCharts(document, false);
     }
 
     global.PanunDashboardCharts = {
         init: init,
-        refreshVisible: renderVisibleCharts,
+        refreshVisible: function (root) {
+            renderVisibleCharts(root || document, true);
+        },
         renderChart: renderChart,
     };
 

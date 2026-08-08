@@ -115,7 +115,7 @@
 
 @push('script')
 <script src="{{ asset('assets/admin-module/plugins/apex/apexcharts.min.js') }}"></script>
-<script src="{{ asset('assets/admin-module/js/employee-dashboard-charts.js') }}?v=20260808bg"></script>
+<script src="{{ asset('assets/admin-module/js/employee-dashboard-charts.js') }}?v=20260808bh"></script>
 <script>
     'use strict';
 
@@ -161,7 +161,11 @@
         return template.replace(/:name/g, employeeName);
     }
 
+    var activeDashboardScope = null;
+
     function setDashboardScope(scopeValue) {
+        var previousScope = activeDashboardScope;
+        activeDashboardScope = scopeValue;
         var select = document.getElementById('dashboard-employee-select');
         var isAll = scopeValue === '__all__' || scopeValue === '';
         var employeeName = '';
@@ -255,7 +259,11 @@
             panel.classList.toggle('d-none', ! showPanel);
         });
 
-        if (window.PanunDashboardCharts && window.PanunDashboardCharts.refreshVisible) {
+        var shouldRefreshCharts = previousScope !== null
+            ? previousScope !== scopeValue
+            : scopeValue !== '__all__' && scopeValue !== '';
+
+        if (shouldRefreshCharts && window.PanunDashboardCharts && window.PanunDashboardCharts.refreshVisible) {
             window.PanunDashboardCharts.refreshVisible(document);
         }
 
