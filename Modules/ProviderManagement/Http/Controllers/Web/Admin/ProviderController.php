@@ -216,7 +216,9 @@ class ProviderController extends Controller
                 'storage',
                 'subscribed_services.category',
             ])
-            ->withCount('bookings')
+            ->withCount(['bookings as bookings_count' => function ($query) {
+                $query->forRevenueReporting();
+            }])
             ->where(['is_approved' => 1])
             ->ofApproval(1);
 
@@ -254,7 +256,7 @@ class ProviderController extends Controller
 
             $row = $metrics->get($provider->id);
 
-            $provider->bookings_count = (int) ($row?->bookings_count ?? $provider->bookings_count ?? 0);
+            $provider->bookings_count = (int) ($provider->bookings_count ?? 0);
             $provider->performance_score = (int) ($row?->performance_score ?? 0);
 
             return $provider;
