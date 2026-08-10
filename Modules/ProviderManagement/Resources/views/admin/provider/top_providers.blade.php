@@ -59,7 +59,7 @@
                                         <span class="fw-medium">{{ (int) ($provider->performance_score ?? 0) }}</span>
                                     </td>
                                     <td class="text-end">
-                                        <span class="fw-medium">{{ $provider->completed_bookings_count }}</span>
+                                        <span class="fw-medium">{{ (int) ($provider->completed_bookings_count ?? 0) }}</span>
                                     </td>
                                 </tr>
                             @empty

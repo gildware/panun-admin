@@ -83,7 +83,7 @@ class EmployeeProgressMetricHelp
             ),
             'followup_accuracy' => self::entry(
                 translate('Follow_up_accuracy'),
-                'Shows how well you are keeping up with follow-ups. Higher means fewer overdue items.',
+                'Share of due follow-ups completed on or before the exact due time. Late (after due time) and missed (still open and overdue) reduce this percentage. Uses the same timing rules as rank penalties.',
             ),
             'completion_summary_ring' => self::entry(
                 translate('completion_rate'),
@@ -384,11 +384,11 @@ class EmployeeProgressMetricHelp
             ],
             'on_time' => [
                 'title' => translate('Progress_on_time_followups') ?? translate('Follow_up_accuracy'),
-                'summary' => 'Follow-ups you completed on or before the due date.',
+                'summary' => 'Follow-ups you completed on or before the exact due time.',
             ],
             'late' => [
                 'title' => translate('Progress_late_followups') ?? translate('Pending'),
-                'summary' => 'Follow-ups you did complete, but after the due date.',
+                'summary' => 'Follow-ups you completed after the due time. These count toward rank late penalties.',
             ],
             'missed' => [
                 'title' => translate('Progress_missed_followups'),

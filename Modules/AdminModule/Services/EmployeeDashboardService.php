@@ -817,8 +817,10 @@ class EmployeeDashboardService
         $cancelledBookings = 0;
         $completedBookings = 0;
         $leadOnTime = 0;
+        $leadLate = 0;
         $leadMissed = 0;
         $bookingOnTime = 0;
+        $bookingLate = 0;
         $bookingMissed = 0;
         $outboundsDone = (int) ($periodTotals['outbound_enquiries'] ?? 0);
 
@@ -842,15 +844,21 @@ class EmployeeDashboardService
             $cancelledBookings += (int) ($quality['booking_cancelled_count'] ?? 0);
             $completedBookings += (int) ($quality['booking_completed_count'] ?? 0);
             $leadOnTime += (int) ($discipline['leads']['on_time'] ?? 0);
+            $leadLate += (int) ($discipline['leads']['late'] ?? 0);
             $leadMissed += (int) ($discipline['leads']['missed'] ?? 0);
             $bookingOnTime += (int) ($discipline['bookings']['on_time'] ?? 0);
+            $bookingLate += (int) ($discipline['bookings']['late'] ?? 0);
             $bookingMissed += (int) ($discipline['bookings']['missed'] ?? 0);
         }
 
         $followupDiscipline = [
-            'leads' => $this->followupDisciplineBucket($leadOnTime, $leadMissed),
-            'bookings' => $this->followupDisciplineBucket($bookingOnTime, $bookingMissed),
-            'overall' => $this->followupDisciplineBucket($leadOnTime + $bookingOnTime, $leadMissed + $bookingMissed),
+            'leads' => $this->followupDisciplineBucket($leadOnTime, $leadLate, $leadMissed),
+            'bookings' => $this->followupDisciplineBucket($bookingOnTime, $bookingLate, $bookingMissed),
+            'overall' => $this->followupDisciplineBucket(
+                $leadOnTime + $bookingOnTime,
+                $leadLate + $bookingLate,
+                $leadMissed + $bookingMissed,
+            ),
         ];
 
         $bookingOutcomesTotal = $cancelledBookings + $completedBookings;
@@ -861,6 +869,9 @@ class EmployeeDashboardService
             'missed_followups' => $followupDiscipline['overall']['missed'],
             'missed_lead_followups' => $followupDiscipline['leads']['missed'],
             'missed_booking_followups' => $followupDiscipline['bookings']['missed'],
+            'late_followups' => $followupDiscipline['overall']['late'],
+            'late_lead_followups' => $followupDiscipline['leads']['late'],
+            'late_booking_followups' => $followupDiscipline['bookings']['late'],
             'on_time_followups' => $followupDiscipline['overall']['on_time'],
             'on_time_lead_followups' => $followupDiscipline['leads']['on_time'],
             'on_time_booking_followups' => $followupDiscipline['bookings']['on_time'],
@@ -883,9 +894,9 @@ class EmployeeDashboardService
 
     /**
      * @return array{
-     *     overall: array{on_time: int, missed: int, due: int, accuracy_pct: float},
-     *     leads: array{on_time: int, missed: int, due: int, accuracy_pct: float},
-     *     bookings: array{on_time: int, missed: int, due: int, accuracy_pct: float}
+     *     overall: array{on_time: int, late: int, missed: int, due: int, accuracy_pct: float},
+     *     leads: array{on_time: int, late: int, missed: int, due: int, accuracy_pct: float},
+     *     bookings: array{on_time: int, late: int, missed: int, due: int, accuracy_pct: float}
      * }
      */
     private function followupDisciplineForPeriod(string $userId, Carbon $periodStart, Carbon $periodEnd): array
@@ -895,6 +906,7 @@ class EmployeeDashboardService
         $asOf = Carbon::now()->lt($rangeEnd) ? Carbon::now() : $rangeEnd;
 
         $leadOnTime = 0;
+        $leadLate = 0;
         $leadMissed = 0;
         $leadCompleted = LeadFollowup::query()
             ->where('created_by', $userId)
@@ -908,10 +920,10 @@ class EmployeeDashboardService
                 continue;
             }
 
-            if ($followup->followup_at->lte($due->copy()->endOfDay())) {
+            if ($followup->followup_at->lte($due)) {
                 $leadOnTime++;
             } else {
-                $leadMissed++;
+                $leadLate++;
             }
         }
 
@@ -924,25 +936,30 @@ class EmployeeDashboardService
         $leadMissed += (int) $leadPendingMissedQuery->count();
 
         $bookingOnTime = 0;
+        $bookingLate = 0;
         $bookingMissed = 0;
         $bookingCompleted = BookingFollowup::query()
             ->where('created_by', $userId)
             ->whereNotNull('followup_at')
             ->whereIn('status', ['completed', 'rescheduled'])
             ->whereBetween('followup_at', [$rangeStart, $rangeEnd])
-            ->get(['followup_at', 'due_followup_at', 'date']);
+            ->get(['followup_at', 'due_followup_at', 'date', 'status']);
 
         foreach ($bookingCompleted as $followup) {
+            if ($followup->isRescheduled()) {
+                continue;
+            }
+
             $due = $followup->due_followup_at ?? $followup->date;
             if (! $due) {
                 continue;
             }
 
             $dueAt = $due instanceof Carbon ? $due : Carbon::parse($due);
-            if ($followup->followup_at->lte($dueAt->copy()->endOfDay())) {
+            if ($followup->followup_at->lte($dueAt)) {
                 $bookingOnTime++;
             } else {
-                $bookingMissed++;
+                $bookingLate++;
             }
         }
 
@@ -957,21 +974,26 @@ class EmployeeDashboardService
             ->count();
 
         return [
-            'leads' => $this->followupDisciplineBucket($leadOnTime, $leadMissed),
-            'bookings' => $this->followupDisciplineBucket($bookingOnTime, $bookingMissed),
-            'overall' => $this->followupDisciplineBucket($leadOnTime + $bookingOnTime, $leadMissed + $bookingMissed),
+            'leads' => $this->followupDisciplineBucket($leadOnTime, $leadLate, $leadMissed),
+            'bookings' => $this->followupDisciplineBucket($bookingOnTime, $bookingLate, $bookingMissed),
+            'overall' => $this->followupDisciplineBucket(
+                $leadOnTime + $bookingOnTime,
+                $leadLate + $bookingLate,
+                $leadMissed + $bookingMissed,
+            ),
         ];
     }
 
     /**
-     * @return array{on_time: int, missed: int, due: int, accuracy_pct: float}
+     * @return array{on_time: int, late: int, missed: int, due: int, accuracy_pct: float}
      */
-    private function followupDisciplineBucket(int $onTime, int $missed): array
+    private function followupDisciplineBucket(int $onTime, int $late, int $missed): array
     {
-        $due = $onTime + $missed;
+        $due = $onTime + $late + $missed;
 
         return [
             'on_time' => $onTime,
+            'late' => $late,
             'missed' => $missed,
             'due' => $due,
             'accuracy_pct' => $due > 0 ? max(0, round(($onTime / $due) * 100, 1)) : 100.0,
@@ -981,24 +1003,25 @@ class EmployeeDashboardService
     private function followupOnTimeMissedSub(array $bucket): string
     {
         $onTime = (int) ($bucket['on_time'] ?? 0);
+        $late = (int) ($bucket['late'] ?? 0);
         $missed = (int) ($bucket['missed'] ?? 0);
-        $due = (int) ($bucket['due'] ?? ($onTime + $missed));
+        $due = (int) ($bucket['due'] ?? ($onTime + $late + $missed));
 
         if ($due === 0) {
             return translate('Progress_no_followups_due');
         }
 
         return str_replace(
-            [':on_time', ':missed'],
-            [(string) $onTime, (string) $missed],
-            translate('Progress_on_time_vs_missed_sub'),
+            [':on_time', ':late', ':missed'],
+            [(string) $onTime, (string) $late, (string) $missed],
+            translate('Progress_on_time_late_missed_sub'),
         );
     }
 
     /**
-     * @param  array{on_time: int, missed: int, due: int, accuracy_pct: float}  $overall
-     * @param  array{on_time: int, missed: int, due: int, accuracy_pct: float}  $leads
-     * @param  array{on_time: int, missed: int, due: int, accuracy_pct: float}  $bookings
+     * @param  array{on_time: int, late: int, missed: int, due: int, accuracy_pct: float}  $overall
+     * @param  array{on_time: int, late: int, missed: int, due: int, accuracy_pct: float}  $leads
+     * @param  array{on_time: int, late: int, missed: int, due: int, accuracy_pct: float}  $bookings
      */
     private function followupDisciplineBreakdownSub(array $overall, array $leads, array $bookings): ?string
     {
@@ -1007,11 +1030,16 @@ class EmployeeDashboardService
         }
 
         return str_replace(
-            [':lead_on_time', ':lead_missed', ':booking_on_time', ':booking_missed'],
+            [
+                ':lead_on_time', ':lead_late', ':lead_missed',
+                ':booking_on_time', ':booking_late', ':booking_missed',
+            ],
             [
                 (string) ($leads['on_time'] ?? 0),
+                (string) ($leads['late'] ?? 0),
                 (string) ($leads['missed'] ?? 0),
                 (string) ($bookings['on_time'] ?? 0),
+                (string) ($bookings['late'] ?? 0),
                 (string) ($bookings['missed'] ?? 0),
             ],
             translate('Progress_followup_lead_booking_sub'),
@@ -1902,6 +1930,9 @@ class EmployeeDashboardService
             'missed_followups' => $followupAccuracy['overall']['missed'],
             'missed_lead_followups' => $followupAccuracy['leads']['missed'],
             'missed_booking_followups' => $followupAccuracy['bookings']['missed'],
+            'late_followups' => $followupAccuracy['overall']['late'] ?? 0,
+            'late_lead_followups' => $followupAccuracy['leads']['late'] ?? 0,
+            'late_booking_followups' => $followupAccuracy['bookings']['late'] ?? 0,
             'on_time_followups' => $followupAccuracy['overall']['on_time'] ?? 0,
             'on_time_lead_followups' => $followupAccuracy['leads']['on_time'] ?? 0,
             'on_time_booking_followups' => $followupAccuracy['bookings']['on_time'] ?? 0,
@@ -1923,9 +1954,9 @@ class EmployeeDashboardService
     /**
      * @param  array<string, mixed>  $qualityMetrics
      * @param  array{
-     *     overall: array{on_time: int, missed: int, due: int, accuracy_pct: float},
-     *     leads: array{on_time: int, missed: int, due: int, accuracy_pct: float},
-     *     bookings: array{on_time: int, missed: int, due: int, accuracy_pct: float}
+     *     overall: array{on_time: int, late: int, missed: int, due: int, accuracy_pct: float},
+     *     leads: array{on_time: int, late: int, missed: int, due: int, accuracy_pct: float},
+     *     bookings: array{on_time: int, late: int, missed: int, due: int, accuracy_pct: float}
      * }  $followupAccuracy
      * @return list<array<string, mixed>>
      */
@@ -1978,6 +2009,18 @@ class EmployeeDashboardService
                 ),
             ],
             [
+                'key' => 'followup_late',
+                'icon' => 'running_with_errors',
+                'label' => translate('Progress_late_followups'),
+                'value' => (string) ($followupAccuracy['overall']['late'] ?? 0),
+                'raw' => (int) ($followupAccuracy['overall']['late'] ?? 0),
+                'is_zero' => ($followupAccuracy['overall']['late'] ?? 0) === 0,
+                'tone' => ($followupAccuracy['overall']['late'] ?? 0) > 0 ? 'warn' : 'good',
+                'sub' => ($followupAccuracy['overall']['due'] ?? 0) > 0
+                    ? $this->followupDisciplineValue($followupAccuracy['overall']).' '.translate('Progress_followup_accuracy_short')
+                    : translate('Progress_no_followups_due'),
+            ],
+            [
                 'key' => 'followup_missed',
                 'icon' => 'event_busy',
                 'label' => translate('Progress_followups_missed'),
@@ -1999,9 +2042,13 @@ class EmployeeDashboardService
                 'is_zero' => ($followupAccuracy['leads']['due'] ?? 0) === 0,
                 'tone' => $pctTone($leadAcc),
                 'sub' => str_replace(
-                    [':on_time', ':missed'],
-                    [(string) ($followupAccuracy['leads']['on_time'] ?? 0), (string) ($followupAccuracy['leads']['missed'] ?? 0)],
-                    translate('Progress_on_time_missed_sub') ?? ':on_time on time · :missed missed',
+                    [':on_time', ':late', ':missed'],
+                    [
+                        (string) ($followupAccuracy['leads']['on_time'] ?? 0),
+                        (string) ($followupAccuracy['leads']['late'] ?? 0),
+                        (string) ($followupAccuracy['leads']['missed'] ?? 0),
+                    ],
+                    translate('Progress_on_time_late_missed_sub') ?? ':on_time on time · :late late · :missed missed',
                 ),
             ],
             [
@@ -2014,9 +2061,13 @@ class EmployeeDashboardService
                 'is_zero' => ($followupAccuracy['bookings']['due'] ?? 0) === 0,
                 'tone' => $pctTone($bookingAcc),
                 'sub' => str_replace(
-                    [':on_time', ':missed'],
-                    [(string) ($followupAccuracy['bookings']['on_time'] ?? 0), (string) ($followupAccuracy['bookings']['missed'] ?? 0)],
-                    translate('Progress_on_time_missed_sub') ?? ':on_time on time · :missed missed',
+                    [':on_time', ':late', ':missed'],
+                    [
+                        (string) ($followupAccuracy['bookings']['on_time'] ?? 0),
+                        (string) ($followupAccuracy['bookings']['late'] ?? 0),
+                        (string) ($followupAccuracy['bookings']['missed'] ?? 0),
+                    ],
+                    translate('Progress_on_time_late_missed_sub') ?? ':on_time on time · :late late · :missed missed',
                 ),
             ],
             [

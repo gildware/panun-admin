@@ -158,7 +158,7 @@ class EmployeeFollowupProgressAnalyticsService
                 continue;
             }
 
-            if ($followup->followup_at->lte($due->copy()->endOfDay())) {
+            if ($followup->followup_at->lte($due)) {
                 $onTime++;
                 $dailyOnTime[$dayKey] = ($dailyOnTime[$dayKey] ?? 0) + 1;
             } else {
@@ -296,7 +296,7 @@ class EmployeeFollowupProgressAnalyticsService
             }
             $due = $dueRaw instanceof Carbon ? $dueRaw : Carbon::parse($dueRaw);
 
-            if ($followup->followup_at->lte($due->copy()->endOfDay())) {
+            if ($followup->followup_at->lte($due)) {
                 $onTime++;
                 $dailyOnTime[$dayKey] = ($dailyOnTime[$dayKey] ?? 0) + 1;
             } else {
