@@ -13,6 +13,7 @@ use Modules\BookingModule\Entities\BookingFollowup;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadFollowup;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
+use Modules\LeadManagement\Services\LeadFollowupService;
 use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\TaskBoardModule\Entities\TaskColumn;
 use Modules\TaskBoardModule\Entities\TaskTicket;
@@ -27,6 +28,7 @@ class EmployeeDashboardService
 {
     public function __construct(
         protected LeadOpenStatusService $leadOpenStatus,
+        protected LeadFollowupService $leadFollowupService,
         protected DailyEmployeeReportService $dailyEmployeeReport,
         protected EmployeeBookingStatusAnalyticsService $bookingStatusAnalytics,
         protected EmployeeProgressScoreService $progressScore,
@@ -912,10 +914,40 @@ class EmployeeDashboardService
             ->where('created_by', $userId)
             ->whereNotNull('followup_at')
             ->whereBetween('followup_at', [$rangeStart, $rangeEnd])
-            ->get(['followup_at', 'due_followup_at']);
+            ->with(['lead:id,date_time_of_lead_received'])
+            ->get(['id', 'lead_id', 'followup_at', 'due_followup_at', 'next_followup_at']);
+
+        $leadIds = $leadCompleted->pluck('lead_id')->map(fn ($id) => (string) $id)->filter()->unique()->values()->all();
+        $dueByFollowupId = [];
+        if ($leadIds !== []) {
+            $leads = Lead::query()
+                ->whereIn('id', $leadIds)
+                ->get(['id', 'date_time_of_lead_received'])
+                ->keyBy(fn (Lead $lead) => (string) $lead->id);
+
+            $historyByLead = LeadFollowup::query()
+                ->whereIn('lead_id', $leadIds)
+                ->whereNotNull('followup_at')
+                ->orderBy('followup_at')
+                ->get(['id', 'lead_id', 'followup_at', 'due_followup_at', 'next_followup_at'])
+                ->groupBy(fn (LeadFollowup $followup) => (string) $followup->lead_id);
+
+            foreach ($historyByLead as $leadId => $history) {
+                $lead = $leads->get((string) $leadId);
+                if (! $lead) {
+                    continue;
+                }
+                foreach ($this->leadFollowupService->buildFollowupDelayMeta($lead, $history) as $followupId => $meta) {
+                    $dueByFollowupId[(int) $followupId] = $meta['due_at'] ?? null;
+                }
+            }
+        }
 
         foreach ($leadCompleted as $followup) {
-            $due = $followup->due_followup_at;
+            $due = $dueByFollowupId[(int) $followup->id] ?? $followup->due_followup_at;
+            if (! $due instanceof Carbon) {
+                $due = $due ? Carbon::parse($due) : null;
+            }
             if (! $due) {
                 continue;
             }
