@@ -458,16 +458,25 @@ function setIntlHiddenBestEffort(hiddenInput, iti, dialCode, localPartDigits) {
     if (!hiddenInput || !iti) {
         return;
     }
-    let full = "";
+    let fromIti = "";
     try {
-        full = String(iti.getNumber() || "").trim();
+        fromIti = String(iti.getNumber() || "").trim();
     } catch (e) {}
-    if (!full && dialCode && localPartDigits) {
+    let fromVisible = "";
+    if (dialCode && localPartDigits) {
         const d = String(dialCode).replace(/\D/g, "");
         const loc = String(localPartDigits).replace(/\D/g, "");
         if (d && loc.length >= 8) {
-            full = "+" + d + loc;
+            fromVisible = "+" + d + loc;
         }
+    }
+    let full = "";
+    if (fromVisible) {
+        const visDigits = fromVisible.replace(/\D/g, "");
+        const itiDigits = fromIti.replace(/\D/g, "");
+        full = !fromIti || visDigits !== itiDigits ? fromVisible : fromIti;
+    } else {
+        full = fromIti;
     }
     if (!full) {
         return;
