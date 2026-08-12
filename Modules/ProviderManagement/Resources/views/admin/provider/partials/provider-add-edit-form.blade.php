@@ -900,11 +900,12 @@
                         ? tel.parentNode.querySelector('input[type="hidden"][name="' + String(tel.id || "").replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"]')
                         : null;
                     var existingVal = existingHidden ? String(existingHidden.value || "").trim() : "";
-                    if (fromIti) {
-                        return fromIti;
-                    }
+                    // Prefer visible digits: iti.getNumber() can lag behind what the user typed (provider wizard).
                     if (fromVisible && raw.length >= 8) {
                         return fromVisible;
+                    }
+                    if (fromIti) {
+                        return fromIti;
                     }
                     if (existingVal) {
                         return existingVal;
@@ -1465,6 +1466,11 @@
                     const modalInstance = bootstrap.Modal.getInstance(refs.modalEl);
                     if (modalInstance) modalInstance.hide();
                 }
+                if (typeof window.markProviderEditUserEdited === "function") {
+                    window.markProviderEditUserEdited();
+                } else if (typeof window.refreshProviderEditDirtyState === "function") {
+                    window.refreshProviderEditDirtyState();
+                }
                 return false;
             }
 
@@ -1514,6 +1520,11 @@
                 if (!deleteBtn) return;
                 const row = deleteBtn.closest(".additional-document-row");
                 if (row) row.remove();
+                if (typeof window.markProviderEditUserEdited === "function") {
+                    window.markProviderEditUserEdited();
+                } else if (typeof window.refreshProviderEditDirtyState === "function") {
+                    window.refreshProviderEditDirtyState();
+                }
             });
 
             const initialRefs = getAdditionalDocRefs();

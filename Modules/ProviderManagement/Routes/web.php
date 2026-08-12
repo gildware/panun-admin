@@ -51,7 +51,6 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('check-owner-contact-unique', [ProviderController::class, 'checkOwnerContactUnique'])->name('check-owner-contact-unique');
         Route::post('store', [ProviderController::class, 'store'])->name('store');
         Route::get('edit/{id}', [ProviderController::class, 'edit'])->name('edit');
-        Route::post('owner-password/{id}', [ProviderController::class, 'updateOwnerPassword'])->name('owner-password.update');
         Route::put('update/{id}', [ProviderController::class, 'update'])->name('update');
         Route::delete('delete/{id}', [ProviderController::class, 'destroy'])->name('delete');
         Route::any('details/{id}', [ProviderController::class, 'details'])->name('details');

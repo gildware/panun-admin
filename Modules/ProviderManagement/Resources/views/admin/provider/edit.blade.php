@@ -4,29 +4,75 @@
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/swiper/swiper-bundle.min.css')}}">
-    <style>
-        /* Keep wizard actions visible while scrolling the long form */
-        #create-provider-form.wizard > .actions {
-            position: sticky;
-            bottom: 0;
-            z-index: 50;
-            margin-block-start: 1rem;
-            padding: 0.75rem 0;
-            background: var(--bs-body-bg, #fff);
-            border-top: 1px solid var(--border-color, #eff1f4);
-            box-shadow: 0 -0.375rem 0.75rem rgba(17, 38, 146, 0.04);
-        }
-        #create-provider-form.wizard > .actions ul {
-            margin: 0;
-        }
-        #create-provider-form.wizard > .actions li.disabled {
-            display: none;
-        }
-    </style>
 @endpush
 
 @section('content')
-    <div class="main-content">
+    {{-- Inline so Turbo frame navigations still get footer/wizard styles (@push css is head-only). --}}
+    <style>
+        .main-content.provider-edit-page .container-fluid {
+            padding-bottom: 5.5rem;
+        }
+
+        #create-provider-form.provider-edit-wizard.wizard > h3,
+        #create-provider-form.provider-edit-wizard.wizard > .steps,
+        #create-provider-form.provider-edit-wizard.wizard.vertical > .steps {
+            display: none !important;
+        }
+
+        #create-provider-form.provider-edit-wizard.wizard > .content,
+        #create-provider-form.provider-edit-wizard.wizard.vertical > .content {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            float: none;
+        }
+
+        #create-provider-form.provider-edit-wizard.wizard > .actions,
+        #create-provider-form.provider-edit-wizard.wizard.vertical > .actions {
+            position: fixed;
+            bottom: 0;
+            z-index: 1040;
+            margin: 0;
+            padding: 0.75rem 1.25rem;
+            background: var(--bs-body-bg, #fff);
+            border-top: 1px solid var(--border-color, #eff1f4);
+            box-shadow: 0 -0.375rem 0.75rem rgba(17, 38, 146, 0.06);
+        }
+
+        #create-provider-form.provider-edit-wizard.wizard > .actions ul,
+        #create-provider-form.provider-edit-wizard.wizard.vertical > .actions ul {
+            margin: 0;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        #create-provider-form.provider-edit-wizard .provider-edit-save-hint {
+            color: var(--bs-secondary-color, #6c757d);
+            font-size: 0.8125rem;
+            margin: 0;
+        }
+
+        #create-provider-form.provider-edit-wizard.wizard > .actions a[href="#previous"],
+        #create-provider-form.provider-edit-wizard.wizard > .actions a[href="#next"],
+        #create-provider-form.provider-edit-wizard.wizard.vertical > .actions a[href="#previous"],
+        #create-provider-form.provider-edit-wizard.wizard.vertical > .actions a[href="#next"] {
+            display: none !important;
+        }
+
+        #create-provider-form.provider-edit-wizard.wizard > .actions li.disabled,
+        #create-provider-form.provider-edit-wizard.wizard.vertical > .actions li.disabled {
+            display: list-item;
+        }
+
+        #create-provider-form.provider-edit-wizard.wizard > .actions a.provider-edit-save-disabled,
+        #create-provider-form.provider-edit-wizard.wizard.vertical > .actions a.provider-edit-save-disabled {
+            pointer-events: none;
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+    </style>
+    <div class="main-content provider-edit-page">
         <div class="container-fluid">
             @php
                 $updated = session('provider_updated');
@@ -67,7 +113,9 @@
             @endif
 
             <form action="{{route('admin.provider.update', [$provider->id])}}" method="POST" id="create-provider-form"
-                  enctype="multipart/form-data" novalidate>
+                  class="provider-edit-wizard"
+                  enctype="multipart/form-data" novalidate
+                  @if ($errors->any()) data-has-validation-errors="1" @endif>
                 @csrf
                 @method('PUT')
                 <input type="hidden" name="plan_type" value="{{ $packageSubscription ? 'subscription_based' : 'commission_based' }}">
@@ -552,66 +600,6 @@
                     @endif
                 </section>
             </form>
-
-            <div class="card mt-4">
-                <div class="card-body">
-                    <h4 class="c1 mb-2">{{ translate('Authentication') }}</h4>
-                    <p class="text-muted small mb-3">
-                        {{ translate('Change_the_provider_admin_login_password_separately_from_provider_details') }}
-                    </p>
-
-                    @if ($errors->updateOwnerPassword->any())
-                        <div class="alert alert-danger mb-3" role="alert">
-                            <ul class="mb-0 ps-3">
-                                @foreach ($errors->updateOwnerPassword->all() as $error)
-                                    <li>{{ $error }}</li>
-                                @endforeach
-                            </ul>
-                        </div>
-                    @endif
-
-                    <form action="{{ route('admin.provider.owner-password.update', [$provider->id]) }}" method="POST" novalidate>
-                        @csrf
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <div class="form-floating form-floating__icon">
-                                    <input
-                                        type="password"
-                                        class="form-control"
-                                        name="password"
-                                        id="provider_owner_password"
-                                        minlength="8"
-                                        autocomplete="new-password"
-                                        required
-                                        placeholder="{{ translate('Password') }}">
-                                    <label for="provider_owner_password">{{ translate('Password') }}</label>
-                                    <span class="material-icons togglePassword __right-eye">visibility_off</span>
-                                    <span class="material-icons">lock</span>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-floating form-floating__icon">
-                                    <input
-                                        type="password"
-                                        class="form-control"
-                                        name="password_confirmation"
-                                        id="provider_owner_password_confirmation"
-                                        minlength="8"
-                                        autocomplete="new-password"
-                                        required
-                                        placeholder="{{ translate('Confirm_Password') }}">
-                                    <label for="provider_owner_password_confirmation">{{ translate('Confirm_Password') }}</label>
-                                    <span class="material-icons togglePassword __right-eye">visibility_off</span>
-                                    <span class="material-icons">lock</span>
-                                </div>
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn--primary mt-3">
-                            {{ translate('Save_changes') }}
-                        </button>
-                    </form>
-                </div>
-            </div>
         </div>
     </div>
 @endsection
@@ -629,13 +617,106 @@
     <script>
         "use strict";
 
-        $(document).ready(function () {
+        function resetProviderEditWizard(formWizard) {
+            if (formWizard.hasClass("wizard")) {
+                try {
+                    formWizard.steps("destroy");
+                } catch (e) {
+                    var $sections = formWizard.find("section");
+                    if ($sections.length && $sections.first().parent().hasClass("content")) {
+                        $sections.detach().appendTo(formWizard);
+                    }
+                    formWizard.children(".content").remove();
+                    formWizard.children(".steps").remove();
+                    formWizard.removeClass("wizard clearfix vertical");
+                }
+            }
+
+            formWizard.removeData("validator");
+            formWizard.removeData("providerEditWizardInitialized");
+            formWizard.removeData("providerEditInitialSnapshot");
+            formWizard.removeData("providerEditAllowSave");
+            formWizard.find(".actions").remove();
+            formWizard.find(".is-invalid").removeClass("is-invalid");
+        }
+
+        function syncProviderEditFooterBar() {
+            var main = document.querySelector(".main-area");
+            var bar = document.querySelector("#create-provider-form.provider-edit-wizard > .actions");
+            if (!main || !bar) {
+                return;
+            }
+            var rect = main.getBoundingClientRect();
+            bar.style.left = rect.left + "px";
+            bar.style.width = rect.width + "px";
+        }
+
+        function serializeProviderEditForm(form) {
+            if (!form) {
+                return "";
+            }
+            var parts = [];
+            form.querySelectorAll("input, select, textarea").forEach(function (el) {
+                if (!el.name || el.disabled) {
+                    return;
+                }
+                if (el.type === "button" || el.type === "submit") {
+                    return;
+                }
+                if (el.type === "file") {
+                    if (el.files && el.files.length) {
+                        parts.push(el.name + ".__files=" + el.files.length);
+                    }
+                    return;
+                }
+                if (el.type === "checkbox" || el.type === "radio") {
+                    if (el.checked) {
+                        parts.push(el.name + "=" + (el.value || "on"));
+                    }
+                    return;
+                }
+                parts.push(el.name + "=" + (el.value || ""));
+            });
+            ["contact_person_phone", "company_phone"].forEach(function (fieldId) {
+                var tel = document.getElementById(fieldId);
+                if (tel && !tel.disabled) {
+                    parts.push("__tel_" + fieldId + "=" + String(tel.value || "").trim());
+                }
+            });
+            parts.push("__additional_rows=" + form.querySelectorAll(".additional-document-row").length);
+            return parts.sort().join("&");
+        }
+
+        function bootProviderEditWizard() {
+            var formEl = document.getElementById("create-provider-form");
+            if (!formEl || !formEl.classList.contains("provider-edit-wizard")) {
+                return true;
+            }
+
+            var formWizard = $("#create-provider-form");
+            if (formWizard.data("providerEditWizardInitialized")) {
+                syncProviderEditFooterBar();
+                return true;
+            }
+
+            if (typeof $.fn.steps !== "function" || typeof $.fn.validate !== "function") {
+                return false;
+            }
+
+            resetProviderEditWizard(formWizard);
+
             var successModalEl = document.getElementById("providerUpdatedSuccessModal");
             if (successModalEl && typeof bootstrap !== "undefined") {
                 new bootstrap.Modal(successModalEl).show();
             }
 
-            let formWizard = $("#create-provider-form");
+            var providerEditInitialSnapshot = "";
+            var providerEditIsDirty = false;
+            var providerEditSnapshotCaptured = false;
+            var providerEditUserHasEdited = false;
+            var providerEditAllowSave = formEl.getAttribute("data-has-validation-errors") === "1"
+                || !!document.getElementById("provider-edit-server-validation-alert");
+
             function providerEditIsJqvIgnoredHiddenField(el) {
                 if (!el || el.nodeType !== 1) {
                     return true;
@@ -672,10 +753,6 @@
                 return providerEditIsJqvIgnoredHiddenField(el);
             }
 
-            function isProviderCompanyTypeEdit() {
-                return formWizard.find('.provider-add-edit-form-root input[name="provider_type"]:checked').val() === "company";
-            }
-
             function providerEditPhoneHiddenMirror(telInput) {
                 if (!telInput) {
                     return null;
@@ -706,6 +783,69 @@
                 setTimeout(run, 50);
             }
 
+            function setProviderEditSaveEnabled(enabled) {
+                providerEditAllowSave = !!enabled;
+                formWizard.data("providerEditAllowSave", providerEditAllowSave);
+                var $finish = formWizard.find('a[href="#finish"]');
+                var $finishLi = $finish.closest("li");
+                var $hint = formWizard.find(".provider-edit-save-hint");
+                if (providerEditAllowSave) {
+                    $finish.removeClass("disabled provider-edit-save-disabled").attr("aria-disabled", "false");
+                    $finishLi.removeClass("disabled");
+                    $hint.addClass("d-none");
+                } else {
+                    $finish.addClass("disabled provider-edit-save-disabled").attr("aria-disabled", "true");
+                    $finishLi.addClass("disabled");
+                    $hint.removeClass("d-none");
+                }
+            }
+
+            function refreshProviderEditDirtyState() {
+                if (!providerEditSnapshotCaptured) {
+                    return;
+                }
+                providerEditIsDirty = serializeProviderEditForm(formEl) !== providerEditInitialSnapshot;
+                setProviderEditSaveEnabled(providerEditIsDirty || formEl.getAttribute("data-has-validation-errors") === "1");
+            }
+
+            function captureProviderEditInitialSnapshot(force) {
+                if (providerEditSnapshotCaptured && !force) {
+                    return;
+                }
+                if (providerEditUserHasEdited && !force) {
+                    return;
+                }
+                providerEditInitialSnapshot = serializeProviderEditForm(formEl);
+                providerEditSnapshotCaptured = true;
+                formWizard.data("providerEditInitialSnapshot", providerEditInitialSnapshot);
+                refreshProviderEditDirtyState();
+            }
+
+            function scheduleProviderEditInitialSnapshot() {
+                if (providerEditSnapshotCaptured || providerEditUserHasEdited) {
+                    return;
+                }
+                window.setTimeout(function () {
+                    if (!providerEditSnapshotCaptured && !providerEditUserHasEdited) {
+                        captureProviderEditInitialSnapshot(true);
+                    }
+                }, 600);
+            }
+
+            function markProviderEditUserEdited() {
+                providerEditUserHasEdited = true;
+                refreshProviderEditDirtyState();
+            }
+
+            formWizard.on("input change keyup paste", ":input:not([type=button]):not([type=submit])", function () {
+                markProviderEditUserEdited();
+            });
+
+            formWizard.on("click", 'a[href="#finish"].provider-edit-save-disabled', function (event) {
+                event.preventDefault();
+                return false;
+            });
+
             formWizard.on("input change blur", "select, textarea", function () {
                 var validator = formWizard.data("validator");
                 if (!validator || $(this).is(":disabled") || !this.name) {
@@ -731,6 +871,7 @@
 
             $(document).on("countrychange", "#create-provider-form input[type=\"tel\"]", function () {
                 providerEditSyncIntlPhoneValidation(this);
+                markProviderEditUserEdited();
             });
 
             formWizard.on("change", "input[type=\"checkbox\"], input[type=\"radio\"]", function () {
@@ -757,6 +898,57 @@
                         validator.element(firstLeaf);
                     }
                 }
+                markProviderEditUserEdited();
+            });
+
+            formWizard.on("change", "select, textarea", function () {
+                markProviderEditUserEdited();
+            });
+
+            formWizard.validate({
+                ignore: providerEditJqvIgnoreFilter,
+                errorPlacement: function (error, element) {
+                    if (element.is('input[type="hidden"]')) {
+                        var hn = element.attr("name") || "";
+                        if (hn === "contact_person_phone" || hn === "company_phone") {
+                            var $tel = element.parent().find('input[type="tel"]').first();
+                            if ($tel.length) {
+                                $tel.closest(".form-floting-fix, .form-floating, .form-error-wrap").first().after(error);
+                                return;
+                            }
+                        }
+                    }
+                    element.parents('.form-floating, .form-error-wrap').after(error);
+                },
+                highlight: function (element) {
+                    var $el = $(element);
+                    $el.addClass("is-invalid");
+                    if ($el.is('input[type="hidden"]')) {
+                        var hn = $el.attr("name") || "";
+                        if (hn === "contact_person_phone" || hn === "company_phone") {
+                            $el.parent().find('input[type="tel"]').addClass("is-invalid");
+                        }
+                    }
+                },
+                unhighlight: function (element) {
+                    var $el = $(element);
+                    $el.removeClass("is-invalid");
+                    if ($el.is('input[type="hidden"]')) {
+                        var hn = $el.attr("name") || "";
+                        if (hn === "contact_person_phone" || hn === "company_phone") {
+                            $el.parent().find('input[type="tel"]').removeClass("is-invalid");
+                        }
+                    }
+                },
+                rules: {
+                    provider_type: {
+                        required: true
+                    },
+                    contact_person_email: {
+                        email: true
+                    },
+                    company_email: { email: true }
+                }
             });
 
             formWizard.steps({
@@ -765,16 +957,28 @@
                 transitionEffect: "fade",
                 stepsOrientation: "vertical",
                 autoFocus: true,
+                enableFinishButton: true,
                 labels: {
-                    finish: "Submit",
-                    next: "Proceed",
-                    previous: "Back"
+                    finish: @json(translate('Save_changes')),
+                    next: @json(translate('Proceed')),
+                    previous: @json(translate('Back'))
                 },
-                onInit: function (event, currentIndex) {
-                   //
+                onInit: function () {
+                    formWizard.find('a[href="#previous"], a[href="#next"]').closest("li").hide();
+                    formWizard.find('a[href="#finish"]').addClass("btn btn--primary");
+                    var $actionsUl = formWizard.find(".actions > ul").first();
+                    if ($actionsUl.length && !$actionsUl.find(".provider-edit-save-hint").length) {
+                        $actionsUl.prepend(
+                            $('<li class="me-auto"></li>').append(
+                                $('<p class="provider-edit-save-hint mb-0"></p>').text(@json(translate('Make_a_change_to_enable_save')))
+                            )
+                        );
+                    }
+                    setProviderEditSaveEnabled(providerEditAllowSave);
+                    syncProviderEditFooterBar();
+                    scheduleProviderEditInitialSnapshot();
                 },
                 onStepChanging: function (event, currentIndex, newIndex) {
-
                     if (newIndex < currentIndex) {
                         return true;
                     }
@@ -851,63 +1055,61 @@
                     });
                     return stepValid;
                 },
-                onFinished: function (event, currentIndex) {
-                    var el = document.getElementById("create-provider-form");
-                    if (!el || typeof el.submit !== "function") {
-                        return;
+                onFinished: function () {
+                    if (!formWizard.data("providerEditAllowSave")) {
+                        return false;
                     }
+                    if (!formEl || typeof formEl.submit !== "function") {
+                        return false;
+                    }
+                    if (formEl.dataset.submitting === "1") {
+                        return false;
+                    }
+                    formEl.dataset.submitting = "1";
+                    setProviderEditSaveEnabled(false);
                     if (typeof window.syncProviderWizardIntlPhoneHiddens === "function") {
-                        window.syncProviderWizardIntlPhoneHiddens(el);
+                        window.syncProviderWizardIntlPhoneHiddens(formEl);
                     }
-                    el.submit();
+                    formEl.submit();
                 }
             });
 
-            formWizard.validate({
-                ignore: providerEditJqvIgnoreFilter,
-                errorPlacement: function (error, element) {
-                    if (element.is('input[type="hidden"]')) {
-                        var hn = element.attr("name") || "";
-                        if (hn === "contact_person_phone" || hn === "company_phone") {
-                            var $tel = element.parent().find('input[type="tel"]').first();
-                            if ($tel.length) {
-                                $tel.closest(".form-floting-fix, .form-floating, .form-error-wrap").first().after(error);
-                                return;
-                            }
-                        }
-                    }
-                    element.parents('.form-floating, .form-error-wrap').after(error);
-                },
-                highlight: function (element) {
-                    var $el = $(element);
-                    $el.addClass("is-invalid");
-                    if ($el.is('input[type="hidden"]')) {
-                        var hn = $el.attr("name") || "";
-                        if (hn === "contact_person_phone" || hn === "company_phone") {
-                            $el.parent().find('input[type="tel"]').addClass("is-invalid");
-                        }
-                    }
-                },
-                unhighlight: function (element) {
-                    var $el = $(element);
-                    $el.removeClass("is-invalid");
-                    if ($el.is('input[type="hidden"]')) {
-                        var hn = $el.attr("name") || "";
-                        if (hn === "contact_person_phone" || hn === "company_phone") {
-                            $el.parent().find('input[type="tel"]').removeClass("is-invalid");
-                        }
-                    }
-                },
-                rules: {
-                    provider_type: {
-                        required: true
-                    },
-                    contact_person_email: {
-                        email: true
-                    },
-                    company_email: { email: true }
-                }
-            });
+            window.addEventListener("resize", syncProviderEditFooterBar);
+            var mainArea = document.querySelector(".main-area");
+            if (mainArea && typeof ResizeObserver !== "undefined") {
+                new ResizeObserver(syncProviderEditFooterBar).observe(mainArea);
+            }
+
+            formWizard.data("providerEditWizardInitialized", true);
+            window.refreshProviderEditDirtyState = refreshProviderEditDirtyState;
+            window.markProviderEditUserEdited = markProviderEditUserEdited;
+            return true;
+        }
+
+        function tryBootProviderEditWizard(attempt) {
+            if (bootProviderEditWizard()) {
+                return;
+            }
+            if ((attempt || 0) >= 100) {
+                return;
+            }
+            setTimeout(function () {
+                tryBootProviderEditWizard((attempt || 0) + 1);
+            }, 100);
+        }
+
+        $(document).ready(function () {
+            tryBootProviderEditWizard(0);
+        });
+
+        $(window).on("load.providerEditWizard", function () {
+            tryBootProviderEditWizard(0);
+        });
+
+        document.addEventListener("admin:page-loaded", function () {
+            if (document.getElementById("create-provider-form")?.classList.contains("provider-edit-wizard")) {
+                tryBootProviderEditWizard(0);
+            }
         });
 
         $(document).ready(function () {

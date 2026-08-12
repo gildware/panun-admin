@@ -2291,32 +2291,6 @@ class ProviderController extends Controller
     }
 
     /**
-     * Update the provider owner's login password (separate from the main provider edit wizard).
-     */
-    public function updateOwnerPassword(Request $request, string $id): RedirectResponse
-    {
-        $this->authorize('provider_update');
-
-        $provider = $this->provider->with('owner')->find($id);
-        if (! $provider || ! $provider->owner) {
-            Toastr::error(translate('Provider_or_account_not_found'));
-
-            return redirect()->route('admin.provider.list');
-        }
-
-        $validated = $request->validateWithBag('updateOwnerPassword', [
-            'password' => 'required|string|min:8|confirmed',
-        ]);
-
-        $provider->owner->password = bcrypt($validated['password']);
-        $provider->owner->save();
-
-        Toastr::success(translate(DEFAULT_UPDATE_200['message']));
-
-        return redirect()->route('admin.provider.edit', [$id]);
-    }
-
-    /**
      * Update the specified resource in storage.
      * @param Request $request
      * @param string $id
