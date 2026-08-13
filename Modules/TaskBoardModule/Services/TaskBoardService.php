@@ -6,6 +6,8 @@ use App\Support\AdminHeaderTaskBoardCounts;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Modules\AdminModule\Entities\UserNotification;
 use Modules\AdminModule\Services\AdminInboxNotificationService;
 use Modules\ChattingModule\Services\StaffChatMessageParser;
@@ -321,7 +323,14 @@ class TaskBoardService
             'mentioned_user_ids' => $mentionedUserIds,
         ]);
 
-        $this->storeAttachments($ticket, $files, $comment->id);
+        $storedCount = $this->storeAttachments($ticket, $files, $comment->id);
+
+        if ($files !== [] && $storedCount === 0) {
+            $comment->delete();
+            throw ValidationException::withMessages([
+                'files' => [translate('Failed_to_upload_attachments')],
+            ]);
+        }
 
         $this->activityLogger->log(
             action: 'commented',
@@ -571,15 +580,16 @@ class TaskBoardService
         return 'E';
     }
 
-    private function serializeAttachment(TaskTicketAttachment $file): array
+    public function serializeAttachment(TaskTicketAttachment $file): array
     {
         return [
             'id' => $file->id,
             'name' => $file->original_name,
             'url' => $file->url,
             'file_type' => $file->file_type,
-            'is_image' => str_starts_with((string) $file->file_type, 'image/')
-                || in_array(strtolower(pathinfo((string) $file->stored_name, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif', 'webp'], true),
+            'is_image' => $file->isImage(),
+            'is_video' => $file->isVideo(),
+            'is_audio' => $file->isAudio(),
         ];
     }
 
@@ -697,20 +707,22 @@ class TaskBoardService
     }
 
     /**
-     * @param  array<int, UploadedFile>  $images
+     * @param  array<int, UploadedFile>  $files
      */
-    private function storeAttachments(TaskTicket $ticket, array $images, ?string $commentId = null): void
+    private function storeAttachments(TaskTicket $ticket, array $files, ?string $commentId = null): int
     {
-        foreach ($images as $image) {
-            if (! $image instanceof UploadedFile) {
+        $storedCount = 0;
+
+        foreach ($files as $file) {
+            if (! $file instanceof UploadedFile || ! $file->isValid()) {
                 continue;
             }
 
-            $extension = strtolower($image->getClientOriginalExtension() ?: 'webp');
-            $isImage = str_starts_with((string) $image->getMimeType(), 'image/');
+            $extension = strtolower($file->getClientOriginalExtension() ?: 'bin');
+            $isImage = str_starts_with((string) $file->getMimeType(), 'image/');
             $format = $isImage ? APPLICATION_IMAGE_FORMAT : $extension;
-            $stored = file_uploader('task-board/', $format, $image);
-            if (! $stored || $stored === 'def.png') {
+            $stored = $this->storeCommentFile('task-board/', $format, $file);
+            if (! $stored) {
                 continue;
             }
 
@@ -718,11 +730,51 @@ class TaskBoardService
                 'ticket_id' => $ticket->id,
                 'comment_id' => $commentId,
                 'uploaded_by' => auth()->id(),
-                'original_name' => $image->getClientOriginalName(),
+                'original_name' => $file->getClientOriginalName(),
                 'stored_name' => $stored,
-                'file_type' => $image->getMimeType(),
+                'file_type' => $file->getMimeType(),
                 'disk' => getDisk(),
             ]);
+            $storedCount++;
+        }
+
+        return $storedCount;
+    }
+
+    private function storeCommentFile(string $directory, string $format, UploadedFile $file): ?string
+    {
+        $stored = file_uploader($directory, $format, $file);
+
+        if ($stored && $stored !== 'def.png') {
+            return $stored;
+        }
+
+        $extension = strtolower($file->getClientOriginalExtension() ?: 'bin');
+
+        return $this->storeRawCommentFile($directory, $file, $extension);
+    }
+
+    private function storeRawCommentFile(string $directory, UploadedFile $file, string $extension): ?string
+    {
+        $disk = getDisk();
+        $dir = \App\Support\StoragePathPrefix::apply(rtrim($directory, '/').'/');
+        $storedName = now()->toDateString().'-'.uniqid().'.'.($extension ?: 'bin');
+
+        try {
+            if (! Storage::disk($disk)->exists($dir)) {
+                Storage::disk($disk)->makeDirectory($dir);
+            }
+
+            $contents = file_get_contents($file->getRealPath() ?: (string) $file->getPathname());
+            if ($contents === false) {
+                return null;
+            }
+
+            Storage::disk($disk)->put($dir.$storedName, $contents);
+
+            return $storedName;
+        } catch (\Throwable) {
+            return null;
         }
     }
 

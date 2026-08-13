@@ -2444,6 +2444,75 @@ class LeadController extends Controller
         return $this->redirectAfterFollowup($request, $lead);
     }
 
+    public function editFollowup(Request $request, int $leadId, int $followupId): RedirectResponse
+    {
+        $lead = Lead::findOrFail($leadId);
+        $followup = $lead->followups()->findOrFail($followupId);
+
+        $validated = $request->validate([
+            'date' => ['required', 'date'],
+            'followup_at' => ['nullable', 'date', $this->leadFollowupTakenAtRule()],
+            'remarks' => ['nullable', 'string', 'max:1000'],
+            'contact_channel' => ['nullable', 'in:'.implode(',', LeadFollowup::CONTACT_CHANNELS)],
+            'urgency' => ['nullable', 'in:'.implode(',', LeadFollowup::URGENCIES)],
+            'next_followup_at' => ['nullable', 'date'],
+        ]);
+
+        $payload = [
+            'due_followup_at' => $validated['date'],
+            'remarks' => $validated['remarks'] ?? null,
+            'urgency' => $validated['urgency'] ?? $followup->urgency ?? LeadFollowup::URGENCY_MEDIUM,
+        ];
+
+        if ($followup->isRescheduled()) {
+            $payload['followup_at'] = null;
+            $payload['contact_channel'] = null;
+            $payload['next_followup_at'] = $validated['next_followup_at'] ?? $followup->next_followup_at;
+        } else {
+            $payload['followup_at'] = $validated['followup_at'] ?? $followup->followup_at;
+            $payload['contact_channel'] = $validated['contact_channel'] ?? $followup->contact_channel;
+            $payload['next_followup_at'] = $validated['next_followup_at'] ?? null;
+        }
+
+        $followup->update($payload);
+
+        toastr()->success(translate('Follow_up_updated_successfully'));
+
+        return $this->redirectAfterFollowup($request, $lead);
+    }
+
+    public function destroyFollowup(Request $request, int $leadId, int $followupId): RedirectResponse|\Illuminate\Http\JsonResponse
+    {
+        $lead = Lead::findOrFail($leadId);
+        $followup = $lead->followups()->findOrFail($followupId);
+        $followup->delete();
+
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true]);
+        }
+
+        toastr()->success(translate('Follow_up_deleted_successfully'));
+
+        return $this->redirectAfterFollowup($request, $lead);
+    }
+
+    protected function leadFollowupTakenAtRule(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail): void {
+            if ($value === null || $value === '') {
+                return;
+            }
+
+            try {
+                if (\Carbon\Carbon::parse($value)->gt(now()->addMinute())) {
+                    $fail(translate('Follow_up_taken_at_cannot_be_in_the_future'));
+                }
+            } catch (\Throwable) {
+                $fail(translate('Follow_up_taken_at_cannot_be_in_the_future'));
+            }
+        };
+    }
+
     protected function redirectAfterFollowup(Request $request, Lead $lead): RedirectResponse
     {
         $query = ['activity' => 'followup'];

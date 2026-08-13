@@ -76,6 +76,14 @@
                                                    multiple
                                                    accept=".{{ implode(',.', array_column(ALLOWED_FILE_TYPE, 'key')) }}">
                                         </label>
+                                        <label class="ticket-attach-btn mb-0" title="{{ translate('Voice_Recording') }}">
+                                            <span class="material-symbols-outlined">mic</span>
+                                            <input type="file"
+                                                   id="ticketCommentRecordings"
+                                                   class="d-none"
+                                                   multiple
+                                                   accept="audio/*,.mp3,.wav,.webm,.ogg,.m4a,.aac,.mp4">
+                                        </label>
                                     </div>
                                     <button type="button" class="btn btn-sm btn-primary" id="btnAddComment">{{ translate('Add_Comment') }}</button>
                                 </div>

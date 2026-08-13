@@ -258,7 +258,47 @@
                             </td>
                             <td><span class="chip chip--{{ $followup->isRescheduled() ? 'info' : 'success' }}">{{ $followup->followupStatusLabel() }}</span></td>
                             <td class="text-nowrap">{{ $followup->contactChannelLabel() ?? '—' }}</td>
-                            <td class="text-end text-nowrap">—</td>
+                            <td class="text-end text-nowrap">
+                                @can('lead_update')
+                                    @php
+                                        $followupDeleteLabel = trim(
+                                            ($followup->due_followup_at?->format('d M Y, h:i A') ?? '')
+                                            .' · '.$followup->followupStatusLabel()
+                                        );
+                                    @endphp
+                                    <div class="d-inline-flex flex-wrap justify-content-end align-items-center gap-1">
+                                        <button type="button"
+                                                class="ld-btn ld-btn-icon js-edit-lead-followup-btn"
+                                                title="{{ translate('Edit') }}"
+                                                aria-label="{{ translate('Edit') }}"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#editLeadFollowupModal"
+                                                data-followup-id="{{ $followup->id }}"
+                                                data-url="{{ route('admin.lead.followups.edit', [$lead->id, $followup->id]) }}"
+                                                data-status="{{ $followup->followup_status }}"
+                                                data-date="{{ ($followup->due_followup_at ?? $followup->followup_at)?->format('Y-m-d\TH:i') }}"
+                                                data-followup-at="{{ $followup->followup_at?->format('Y-m-d\TH:i') }}"
+                                                data-channel="{{ $followup->contact_channel }}"
+                                                data-urgency="{{ $followup->urgency ?: 'medium' }}"
+                                                data-remarks="{{ $followup->remarks }}"
+                                                data-next-at="{{ $followup->next_followup_at?->format('Y-m-d\TH:i') }}">
+                                            <span class="material-icons" aria-hidden="true">edit</span>
+                                        </button>
+                                        <button type="button"
+                                                class="ld-btn ld-btn-icon ld-btn-icon--danger js-delete-lead-followup-btn"
+                                                title="{{ translate('Delete') }}"
+                                                aria-label="{{ translate('Delete') }}"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#deleteLeadFollowupModal"
+                                                data-url="{{ route('admin.lead.followups.destroy', [$lead->id, $followup->id]) }}"
+                                                data-label="{{ $followupDeleteLabel }}">
+                                            <span class="material-icons" aria-hidden="true">delete_outline</span>
+                                        </button>
+                                    </div>
+                                @else
+                                    —
+                                @endcan
+                            </td>
                         </tr>
                         <tr class="lead-followup-remarks-row {{ $loop->even ? 'lead-followup-remarks-row--alt' : '' }}">
                             <td colspan="9" class="lead-followup-remarks-cell">

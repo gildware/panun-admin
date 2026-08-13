@@ -119,6 +119,15 @@ class WhatsAppAiSupportOrchestrator
 
         $text = trim((string) $trigger->message_text);
 
+        if (strtoupper(trim((string) $trigger->message_type)) === 'UNSUPPORTED') {
+            $recorder->step('orchestrator.unsupported', 'Meta unsupported inbound — skip AI (content not in webhook)', 'skip', [
+                'message_type' => $trigger->message_type,
+            ]);
+            $recorder->finish('skipped_unsupported', ['status' => WhatsAppAiExecution::STATUS_SKIPPED]);
+
+            return;
+        }
+
         if (!$this->isInboundMessageTypeTextLike($trigger->message_type)) {
             $recorder->step('branch.intent', 'Non-text inbound — canned message + buttons', 'ok', [
                 'message_type' => $trigger->message_type,

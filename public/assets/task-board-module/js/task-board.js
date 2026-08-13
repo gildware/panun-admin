@@ -310,6 +310,7 @@
         commentPendingFiles = [];
         $("#ticketCommentImages").val("");
         $("#ticketCommentFiles").val("");
+        $("#ticketCommentRecordings").val("");
         $("#ticketCommentFilesPreview").empty();
     }
 
@@ -343,6 +344,17 @@
                     '" target="_blank" rel="noopener"><img src="' +
                     escapeHtml(file.url) +
                     '" alt=""></a>';
+            } else if (file.is_audio) {
+                html +=
+                    '<div class="ticket-comment-audio">' +
+                    '<audio controls preload="metadata" src="' +
+                    escapeHtml(file.url) +
+                    '"></audio>' +
+                    '<a class="ticket-comment-audio-download" href="' +
+                    escapeHtml(file.url) +
+                    '" target="_blank" rel="noopener">' +
+                    escapeHtml(file.name || "Recording") +
+                    "</a></div>";
             } else {
                 html +=
                     '<a class="ticket-comment-file" href="' +
@@ -918,7 +930,7 @@
         });
     });
 
-    $(document).on("change", "#ticketCommentImages, #ticketCommentFiles", function () {
+    $(document).on("change", "#ticketCommentImages, #ticketCommentFiles, #ticketCommentRecordings", function () {
         appendPendingFiles(this.files);
         this.value = "";
     });

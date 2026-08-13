@@ -93,6 +93,8 @@ class LeadSanityTestCommand extends Command
                 'temporary_provider_assign_clear' => fn () => $this->testTemporaryProviderAssignClear(),
                 'search_providers_endpoint' => fn () => $this->testSearchProvidersEndpoint(),
                 'store_followup' => fn () => $this->testStoreFollowup(),
+                'edit_followup' => fn () => $this->testEditFollowup(),
+                'delete_followup' => fn () => $this->testDeleteFollowup(),
                 'store_call_log_customer' => fn () => $this->testStoreCallLogCustomer(),
                 'store_call_log_provider' => fn () => $this->testStoreCallLogProvider(),
                 'store_call_log_other' => fn () => $this->testStoreCallLogOther(),
@@ -544,6 +546,96 @@ class LeadSanityTestCommand extends Command
         }
 
         return "lead #{$lead->id}, followups={$count}, next={$lead->next_followup_at->format('Y-m-d H:i')}";
+    }
+
+    private function testEditFollowup(): string
+    {
+        $lead = $this->createLeadViaStore([
+            'name' => "{$this->tag} followup-edit",
+            'phone_number' => $this->randomPhone(),
+            'lead_type' => Lead::TYPE_CUSTOMER,
+        ]);
+
+        app(LeadController::class)->storeFollowup(
+            Request::create('/', 'POST', [
+                'followup_at' => now()->subHour()->format('Y-m-d\TH:i'),
+                'remarks' => 'Before edit',
+                'contact_channel' => LeadFollowup::CHANNEL_WHATSAPP,
+                'urgency' => 'medium',
+                'next_followup_at' => now()->addDays(2)->format('Y-m-d\TH:i'),
+            ]),
+            $lead->id
+        );
+
+        $followup = $lead->followups()->latest('id')->first();
+        if (! $followup) {
+            throw new \RuntimeException('Follow-up was not stored for edit test.');
+        }
+
+        $response = app(LeadController::class)->editFollowup(
+            Request::create('/', 'PUT', [
+                'date' => now()->subDay()->format('Y-m-d\TH:i'),
+                'followup_at' => now()->subMinutes(30)->format('Y-m-d\TH:i'),
+                'remarks' => 'After edit',
+                'contact_channel' => LeadFollowup::CHANNEL_CALL,
+                'urgency' => 'high',
+                'next_followup_at' => now()->addDays(3)->format('Y-m-d\TH:i'),
+            ]),
+            $lead->id,
+            $followup->id
+        );
+
+        if ($response->getStatusCode() !== 302) {
+            throw new \RuntimeException('Edit follow-up HTTP '.$response->getStatusCode());
+        }
+
+        $followup->refresh();
+        if ($followup->remarks !== 'After edit' || $followup->contact_channel !== LeadFollowup::CHANNEL_CALL || $followup->urgency !== 'high') {
+            throw new \RuntimeException('Follow-up edit did not persist changes.');
+        }
+
+        return "lead #{$lead->id}, followup={$followup->id}";
+    }
+
+    private function testDeleteFollowup(): string
+    {
+        $lead = $this->createLeadViaStore([
+            'name' => "{$this->tag} followup-delete",
+            'phone_number' => $this->randomPhone(),
+            'lead_type' => Lead::TYPE_CUSTOMER,
+        ]);
+
+        app(LeadController::class)->storeFollowup(
+            Request::create('/', 'POST', [
+                'followup_at' => now()->subHour()->format('Y-m-d\TH:i'),
+                'remarks' => 'To delete',
+                'contact_channel' => LeadFollowup::CHANNEL_WHATSAPP,
+                'urgency' => 'medium',
+            ]),
+            $lead->id
+        );
+
+        $followup = $lead->followups()->latest('id')->first();
+        if (! $followup) {
+            throw new \RuntimeException('Follow-up was not stored for delete test.');
+        }
+
+        $followupId = $followup->id;
+        $response = app(LeadController::class)->destroyFollowup(
+            Request::create('/', 'DELETE'),
+            $lead->id,
+            $followupId
+        );
+
+        if ($response->getStatusCode() !== 302) {
+            throw new \RuntimeException('Delete follow-up HTTP '.$response->getStatusCode());
+        }
+
+        if (LeadFollowup::query()->whereKey($followupId)->exists()) {
+            throw new \RuntimeException('Follow-up was not deleted.');
+        }
+
+        return "lead #{$lead->id}, deleted followup={$followupId}";
     }
 
     private function testStoreCallLogCustomer(): string
