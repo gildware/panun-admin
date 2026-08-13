@@ -115,6 +115,7 @@ final class WhatsAppAiExecutionRecorder
             'no_context' => 'Skipped — no usable chat context',
             'skipped_not_latest' => 'Skipped — newer inbound message exists',
             'skipped_handled_by' => 'Skipped — chat not assigned to AI',
+            'skipped_unsupported' => 'Skipped — Meta unsupported message (OTP/system content not in webhook)',
             'skipped_trigger_invalid' => 'Skipped — invalid trigger message',
             'skipped_ai_disabled' => 'Skipped — AI disabled in config',
             'failed' => 'Pipeline failed',

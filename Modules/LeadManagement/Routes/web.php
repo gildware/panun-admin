@@ -51,6 +51,8 @@ Route::group([
 
         Route::post('{id}/type', [LeadController::class, 'updateType'])->middleware(['can:lead_update'])->name('type.update');
         Route::post('{lead}/followups', [LeadController::class, 'storeFollowup'])->middleware(['can:lead_update'])->name('followups.store');
+        Route::put('{lead}/followups/{followup}/details', [LeadController::class, 'editFollowup'])->middleware(['can:lead_update'])->name('followups.edit');
+        Route::delete('{lead}/followups/{followup}', [LeadController::class, 'destroyFollowup'])->middleware(['can:lead_update'])->name('followups.destroy');
         Route::post('{lead}/call-logs', [LeadController::class, 'storeCallLog'])->middleware(['can:lead_update'])->name('call-logs.store');
         Route::put('{lead}/call-logs/{followup}', [LeadController::class, 'updateCallLog'])->middleware(['can:lead_update'])->name('call-logs.update');
         Route::delete('{lead}/call-logs/{followup}', [LeadController::class, 'destroyCallLog'])->middleware(['can:lead_update'])->name('call-logs.destroy');

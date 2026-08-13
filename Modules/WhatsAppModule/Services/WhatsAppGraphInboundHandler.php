@@ -88,6 +88,8 @@ class WhatsAppGraphInboundHandler
             $text = '[Voice message]';
             $mediaId = $msg['audio']['id'] ?? null;
             $mime = $msg['audio']['mime_type'] ?? null;
+        } elseif ($type === 'unsupported') {
+            $text = $this->unsupportedInboundPlaceholder($msg);
         } else {
             $text = '[' . strtoupper($type) . ']';
         }
@@ -124,7 +126,7 @@ class WhatsAppGraphInboundHandler
             'phone' => $phone,
             'message_text' => $text,
             'direction' => 'IN',
-            'message_type' => strtoupper($type) === 'TEXT' ? 'TEXT' : strtoupper($type),
+            'message_type' => $this->normalizeInboundMessageType($type),
             'wa_message_id' => $waId,
             'reply_to_wa_message_id' => $replyToWa,
             'created_at' => $createdAt,
@@ -145,6 +147,42 @@ class WhatsAppGraphInboundHandler
         }
 
         return $this->messagePersistence->persist($payload);
+    }
+
+    /**
+     * Meta error 131051 — OTP/verification, polls, GIFs, edited/deleted messages, etc.
+     * The Cloud API webhook does not include the original body for these types.
+     *
+     * @param  array<string, mixed>  $msg
+     */
+    private function unsupportedInboundPlaceholder(array $msg): string
+    {
+        $unsupported = is_array($msg['unsupported'] ?? null) ? $msg['unsupported'] : [];
+        $subType = strtolower(trim((string) ($unsupported['type'] ?? 'unknown')));
+        $errors = is_array($msg['errors'] ?? null) ? $msg['errors'] : [];
+        $firstError = is_array($errors[0] ?? null) ? $errors[0] : [];
+        $errCode = (int) ($firstError['code'] ?? 0);
+
+        if ($subType === 'edit') {
+            return '[Message edited — content not available via WhatsApp API]';
+        }
+
+        if ($subType === 'revoke' || $subType === 'delete') {
+            return '[Message deleted — content not available via WhatsApp API]';
+        }
+
+        if ($errCode === 131051) {
+            return '[System message — WhatsApp API did not deliver content (often Facebook/Meta OTP, poll, GIF, sticker, or business-to-business message)]';
+        }
+
+        return '[Unsupported message — content not available via WhatsApp API]';
+    }
+
+    private function normalizeInboundMessageType(string $type): string
+    {
+        $normalized = strtoupper(trim($type));
+
+        return $normalized === 'TEXT' ? 'TEXT' : $normalized;
     }
 
     /**

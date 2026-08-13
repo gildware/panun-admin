@@ -134,7 +134,7 @@ class TaskTicketController extends Controller
         $data = $request->validate([
             'body' => 'nullable|string|max:5000',
             'files' => 'nullable|array',
-            'files.*' => 'file|max:10240',
+            'files.*' => 'file|max:'.uploadMaxFileSizeInKB('file'),
         ]);
 
         $files = $request->file('files', []);
@@ -157,14 +157,9 @@ class TaskTicketController extends Controller
                 'body_html' => $this->messageParser->format($comment->body),
                 'user' => trim(($comment->user?->first_name ?? '').' '.($comment->user?->last_name ?? '')),
                 'created_at' => optional($comment->created_at)?->diffForHumans(),
-                'attachments' => $comment->attachments->map(fn ($file) => [
-                    'id' => $file->id,
-                    'name' => $file->original_name,
-                    'url' => $file->url,
-                    'file_type' => $file->file_type,
-                    'is_image' => str_starts_with((string) $file->file_type, 'image/')
-                        || in_array(strtolower(pathinfo((string) $file->stored_name, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif', 'webp'], true),
-                ])->values(),
+                'attachments' => $comment->attachments->map(
+                    fn ($file) => $this->boardService->serializeAttachment($file)
+                )->values(),
             ],
         ]);
     }

@@ -797,6 +797,9 @@
                         </div>
                     </div>
 
+                    @include('leadmanagement::admin.leads.partials._lead-edit-followup-modal')
+                    @include('leadmanagement::admin.leads.partials._lead-followup-delete-modal')
+
                     @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER)
                         @can('lead_outbound_enquiry_add')
                             <div class="modal fade" id="addOutboundEnquiryModal" tabindex="-1" aria-labelledby="addOutboundEnquiryModalLabel" aria-hidden="true">
@@ -3515,6 +3518,7 @@
             @endif
         })();
     </script>
+    @include('leadmanagement::admin.leads.partials._lead-edit-followup-scripts')
 @endpush
 
 @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER)

@@ -51,4 +51,35 @@ class TaskTicketAttachment extends Model
             return asset('storage/'.$path);
         }
     }
+
+    public function isImage(): bool
+    {
+        if (str_starts_with((string) $this->file_type, 'image/')) {
+            return true;
+        }
+
+        return in_array(
+            strtolower(pathinfo((string) $this->stored_name, PATHINFO_EXTENSION)),
+            ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+            true
+        );
+    }
+
+    public function isVideo(): bool
+    {
+        return str_starts_with((string) $this->file_type, 'video/');
+    }
+
+    public function isAudio(): bool
+    {
+        if (str_starts_with((string) $this->file_type, 'audio/')) {
+            return true;
+        }
+
+        return in_array(
+            strtolower(pathinfo((string) $this->stored_name, PATHINFO_EXTENSION)),
+            ['mp3', 'wav', 'webm', 'ogg', 'm4a', 'aac', 'mp4'],
+            true
+        );
+    }
 }

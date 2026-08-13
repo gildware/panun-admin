@@ -741,6 +741,28 @@
             object-fit: cover;
             border-radius: 6px;
         }
+        .ticket-comment-audio {
+            display: flex;
+            flex-direction: column;
+            gap: .35rem;
+            max-width: 100%;
+        }
+        .ticket-comment-audio audio {
+            display: block;
+            width: min(100%, 320px);
+            max-height: 48px;
+            border-radius: 8px;
+        }
+        .ticket-comment-audio-download {
+            font-size: .72rem;
+            color: #475569;
+            text-decoration: none;
+            word-break: break-all;
+        }
+        .ticket-comment-audio-download:hover {
+            color: #0f172a;
+            text-decoration: underline;
+        }
         .ticket-attach-btn {
             cursor: pointer;
             color: #64748b;
