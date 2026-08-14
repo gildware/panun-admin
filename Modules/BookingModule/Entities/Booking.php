@@ -822,15 +822,13 @@ class Booking extends Model
                 }
             }
 
-            // Auto-add next follow-up for customer and provider: 1 day before scheduled, or 1 hour before if same-day
+            // Auto-add next follow-up for customer and provider (see BookingFollowupService::defaultFollowupAtForNewBooking).
             if ($model->service_schedule) {
                 $scheduledAt = Carbon::parse($model->service_schedule);
                 $bookedAt = Carbon::parse($model->created_at);
-                $followUpAt = $scheduledAt->isSameDay($bookedAt)
-                    ? $scheduledAt->copy()->subHour()
-                    : $scheduledAt->copy()->subDay();
-                $reason = translate('Reminder_before_service');
                 $followupService = app(BookingFollowupService::class);
+                $followUpAt = $followupService->defaultFollowupAtForNewBooking($scheduledAt, $bookedAt);
+                $reason = translate('Reminder_before_service');
                 foreach (['customer', 'provider'] as $for) {
                     $followupService->schedule(
                         $model,
