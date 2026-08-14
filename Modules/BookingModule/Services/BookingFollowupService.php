@@ -19,6 +19,54 @@ class BookingFollowupService
     /** List “Follow-up due soon” badge for scheduled times within this window (beyond due hours). */
     public const FOLLOWUP_DUE_SOON_HOURS = 24;
 
+    /** Service is within this many hours of booking → follow-up on service day morning. */
+    public const AUTO_FOLLOWUP_SHORT_NOTICE_HOURS = 48;
+
+    /** Follow-up time on the service day for short-notice bookings (< 48h). */
+    public const AUTO_FOLLOWUP_SERVICE_DAY_HOUR = 11;
+
+    /** Follow-up time on the day before service for bookings scheduled 48h+ out. */
+    public const AUTO_FOLLOWUP_DAY_BEFORE_HOUR = 10;
+
+    /**
+     * Default follow-up datetime when a booking is first created.
+     *
+     * - Same calendar day as service: 1 hour before service
+     * - Service within 48 hours: morning of service day (11:00)
+     * - Service 48+ hours out: prior day at 10:00
+     *
+     * Never schedules after service minus one hour, and never before booking time.
+     */
+    public function defaultFollowupAtForNewBooking(Carbon $scheduledAt, Carbon $bookedAt): Carbon
+    {
+        if ($scheduledAt->isSameDay($bookedAt)) {
+            $followUpAt = $scheduledAt->copy()->subHour();
+        } elseif ($bookedAt->diffInHours($scheduledAt) < self::AUTO_FOLLOWUP_SHORT_NOTICE_HOURS) {
+            $followUpAt = $scheduledAt->copy()->startOfDay()->setTime(
+                self::AUTO_FOLLOWUP_SERVICE_DAY_HOUR,
+                0,
+                0
+            );
+        } else {
+            $followUpAt = $scheduledAt->copy()->subDay()->startOfDay()->setTime(
+                self::AUTO_FOLLOWUP_DAY_BEFORE_HOUR,
+                0,
+                0
+            );
+        }
+
+        $latestAllowed = $scheduledAt->copy()->subHour();
+        if ($followUpAt->gt($latestAllowed)) {
+            $followUpAt = $latestAllowed;
+        }
+
+        if ($followUpAt->lt($bookedAt)) {
+            $followUpAt = $bookedAt->copy();
+        }
+
+        return $followUpAt;
+    }
+
     /**
      * Cancel open scheduled follow-ups for one party on a booking.
      */
