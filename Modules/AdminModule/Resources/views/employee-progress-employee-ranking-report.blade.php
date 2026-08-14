@@ -11,7 +11,7 @@
 @section('title', $pageTitle.' · '.$employeeName)
 
 @push('css_or_js')
-<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260814hdr4">
+<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260814hdr5">
 @endpush
 
 @section('content')
