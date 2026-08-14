@@ -44,6 +44,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
     Route::get('marketing/{section?}', [MarketingHubController::class, 'index'])->name('marketing.index');
     Route::get('reports/{section?}', [ReportsHubController::class, 'index'])->name('reports.index');
     Route::get('my-progress', [EmployeeProgressReportController::class, 'index'])->name('my-progress');
+    Route::get('my-progress/ranking/employee', [EmployeeProgressReportController::class, 'employeeRankingReport'])->name('my-progress.ranking-employee');
+    Route::get('my-progress/ranking', [EmployeeProgressReportController::class, 'rankingReport'])->name('my-progress.ranking');
+    Route::get('my-progress/rank-metric', [EmployeeProgressReportController::class, 'rankMetricDetail'])->name('my-progress.rank-metric');
 
     Route::get('workflow/stuck', [WorkflowStepController::class, 'stuckIndex'])->middleware(['can:lead_view'])->name('workflow.stuck');
     Route::post('workflow/steps/toggle', [WorkflowStepController::class, 'toggle'])->name('workflow.steps.toggle');

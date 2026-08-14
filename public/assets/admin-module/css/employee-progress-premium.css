@@ -186,6 +186,16 @@
 .emp-progress-report .rank-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #f8fafc}
 .emp-progress-report .rank-item:last-child{border-bottom:none}
 .emp-progress-report .rank-item--scored{display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:12px}
+.emp-progress-report .rank-item--with-report{position:relative;padding-top:34px}
+.emp-progress-report .rank-item-report-btn{
+    position:absolute;top:8px;right:8px;z-index:2;
+    display:inline-flex;align-items:center;gap:3px;
+    padding:3px 7px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;
+    color:#43466e;font-size:10px;font-weight:700;line-height:1.2;text-decoration:none;white-space:nowrap;
+}
+.emp-progress-report .rank-item-report-btn:hover{background:#eef2ff;border-color:#c7d2fe;color:#43466e}
+.emp-progress-report .rank-item-report-btn .material-symbols-outlined{font-size:14px}
+@media(max-width:720px){.emp-progress-report .rank-item-report-btn-label{display:none}}
 .emp-progress-report .rank-item-main{display:flex;align-items:center;gap:10px;min-width:0}
 .emp-progress-report .avatar{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .emp-progress-report .rank-meta{flex:1;min-width:0}
@@ -299,7 +309,11 @@
 .emp-progress-report .chart-card-head-inner > div:first-child{min-width:0;flex:1}
 .emp-progress-report .metric-card .mc-top{align-items:flex-start}
 .emp-progress-report .booking-status-card{position:relative}
-.emp-progress-report .rank-card .rank-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.emp-progress-report .rank-card .rank-head{display:flex;align-items:center;justify-content:flex-start;gap:8px;flex-wrap:wrap}
+.emp-progress-report .rank-head--with-action .progress-card-report-btn{margin-left:auto}
+.emp-progress-report .progress-card-report-btn{display:inline-flex;align-items:center;gap:3px;padding:3px 7px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;color:#43466e;font-size:10px;font-weight:700;line-height:1.2;text-decoration:none;white-space:nowrap}
+.emp-progress-report .progress-card-report-btn:hover{background:#eef2ff;border-color:#c7d2fe;color:#43466e}
+.emp-progress-report .progress-card-report-btn .material-symbols-outlined{font-size:14px}
 .emp-progress-report .target-ring-wrap{position:relative}
 .emp-progress-report .target-ring-wrap .progress-metric-info-btn{position:absolute;top:10px;right:10px}
 
@@ -509,3 +523,263 @@
   .emp-progress-report .daily-basis-table th.col-metric,
   .emp-progress-report .daily-basis-table td.col-metric{min-width:160px;width:180px;max-width:200px}
 }
+.emp-progress-report .rank-mark-detail-link{color:inherit;text-decoration:none;font-weight:inherit}
+.emp-progress-report .rank-mark-detail-link:hover{text-decoration:underline;color:var(--brand)}
+.emp-progress-report tr.rank-mark-row--link .rank-mark-qty .rank-mark-detail-link{font-weight:800}
+.emp-progress-report tr.rank-mark-row--link:hover{background:rgba(67,70,110,.04)}
+
+/* ── Rank metric report tables (employee marks + drill-down) ── */
+.rank-metric-report{
+    --rm-pill-fs:10px;
+    --rm-pill-fw:700;
+    --rm-pill-pad:3px 8px;
+    --rm-pill-radius:999px;
+}
+.rank-metric-report .back-link{
+    display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;
+    color:var(--brand);text-decoration:none;margin-bottom:12px;
+}
+.rank-metric-report .back-link:hover{text-decoration:underline}
+.rank-metric-report .score-summary{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.rank-metric-report .score-summary--in-shell{
+    margin:0;padding:12px 14px;border-bottom:1px solid var(--border-soft);background:#fff;
+}
+.rank-metric-report .score-summary-pill{
+    display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;
+    font-size:12px;font-weight:700;line-height:1.2;border:1px solid transparent;
+}
+.rank-metric-report .score-summary-pill .pill-label{color:inherit;opacity:.85;font-weight:600}
+.rank-metric-report .score-summary-pill .pill-value{font-variant-numeric:tabular-nums;font-weight:800}
+.rank-metric-report .score-summary-pill.is-quantity{background:var(--brand-soft);color:var(--brand);border-color:#dfe3f0}
+.rank-metric-report .score-summary-pill.is-helped{background:var(--green-soft);color:var(--green);border-color:#bbf7d0}
+.rank-metric-report .score-summary-pill.is-penalty{background:var(--red-soft);color:var(--red);border-color:#fecaca}
+.rank-metric-report .score-summary-pill.is-grand{background:var(--brand);color:#fff;border-color:var(--brand);box-shadow:0 2px 8px var(--brand-glow)}
+.rank-metric-report .marks-group{margin-bottom:24px}
+.rank-metric-report .marks-group-title{
+    font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--muted);margin:0 0 10px;
+}
+.rank-metric-report .marks-sections-grid{
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start;
+}
+@media(max-width:992px){.rank-metric-report .marks-sections-grid{grid-template-columns:1fr}}
+.rank-metric-report .marks-section{
+    border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:#fff;
+    display:flex;flex-direction:column;min-height:280px;max-height:280px;box-shadow:0 1px 2px rgba(15,23,42,.03);
+}
+.rank-metric-report .marks-section-head{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:10px 12px;background:var(--surface-2);border-bottom:1px solid var(--border-soft);
+}
+.rank-metric-report .marks-section-head h3{
+    margin:0;font-size:12px;font-weight:800;color:var(--text);line-height:1.3;letter-spacing:-.01em;
+}
+.rank-metric-report .marks-section-meta{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.rank-metric-report .marks-qty-pill,
+.rank-metric-report .marks-total-pill{
+    display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;
+    font-size:10px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.4;
+}
+.rank-metric-report .marks-qty-pill{background:#f1f5f9;color:#475569}
+.rank-metric-report .marks-total-pill.is-plus{background:var(--green-soft);color:var(--green)}
+.rank-metric-report .marks-total-pill.is-minus{background:var(--red-soft);color:var(--red)}
+.rank-metric-report .marks-section-body{padding:0;flex:1 1 auto;min-height:0;overflow:hidden}
+.rank-metric-report .rank-metric-table-wrap{border:none;border-radius:0;max-height:none;height:100%;margin:0}
+.rank-metric-report .rank-metric-table-scroll{
+    height:100%;max-height:228px;overflow:auto;-webkit-overflow-scrolling:touch;
+}
+.rank-metric-report.rank-metric-report--single .rank-metric-table-scroll{max-height:480px}
+.rank-metric-report .rank-metric-table{
+    width:100%;border-collapse:collapse;font-size:11px;line-height:1.35;
+}
+.rank-metric-report .rank-metric-table thead th{
+    position:sticky;top:0;z-index:2;background:#f8fafc;color:#64748b;
+    font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;
+    padding:8px 10px;border-bottom:1px solid var(--border-soft);white-space:nowrap;
+    box-shadow:0 1px 0 var(--border-soft);
+}
+.rank-metric-report .rank-metric-table tbody td{
+    padding:8px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle;color:var(--text);
+}
+.rank-metric-report .rank-metric-table tbody tr:hover td{background:#fafbff}
+.rank-metric-report .rank-metric-table tbody tr:last-child td{border-bottom:none}
+.rank-metric-report .rm-col-remarks,.rank-metric-report .rm-col-changes{max-width:160px}
+.rank-metric-report .rm-col-action{width:1%;white-space:nowrap}
+.rank-metric-report .rank-metric-empty{
+    min-height:228px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+    padding:20px;text-align:center;color:#94a3b8;font-size:12px;font-weight:600;
+}
+.rank-metric-report .rank-metric-empty .material-symbols-outlined{font-size:22px;color:#cbd5e1}
+.rank-metric-report .rm-cell-muted{color:#cbd5e1;font-weight:500}
+.rank-metric-report .rm-cell-default,.rank-metric-report .rm-cell-text{color:var(--text);font-weight:500}
+.rank-metric-report .rm-cell-text{
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;
+}
+.rank-metric-report .rm-cell-phone{color:#64748b;font-weight:600;font-variant-numeric:tabular-nums}
+.rank-metric-report .rm-cell-datetime{
+    color:#64748b;font-size:10px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.rank-metric-report .rm-ref-id{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;font-weight:700;color:var(--brand);
+}
+.rank-metric-report .rm-ref-link,.rank-metric-report .rm-entity-link{
+    color:var(--brand);font-weight:700;text-decoration:none;
+}
+.rank-metric-report .rm-ref-link:hover,.rank-metric-report .rm-entity-link:hover{text-decoration:underline}
+.rank-metric-report .rm-entity-name{font-weight:700;color:var(--text);line-height:1.3}
+.rank-metric-report .rm-view-btn{
+    display:inline-flex;align-items:center;padding:3px 8px;border-radius:6px;
+    background:var(--brand-soft);color:var(--brand);font-size:10px;font-weight:800;
+    text-decoration:none;border:1px solid #dfe3f0;white-space:nowrap;
+}
+.rank-metric-report .rm-view-btn:hover{background:var(--brand);color:#fff;border-color:var(--brand)}
+.rank-metric-report .rm-type-pill,.rank-metric-report .rm-assignee-pill,.rank-metric-report .rm-for-pill,.rank-metric-report .rm-kind-pill,.rank-metric-report .rm-score-pill,.rank-metric-report .rm-delay-pill,.rank-metric-report .rm-status-pill{
+    display:inline-flex;align-items:center;max-width:100%;
+    padding:var(--rm-pill-pad);border-radius:var(--rm-pill-radius);
+    font-size:var(--rm-pill-fs);font-weight:var(--rm-pill-fw);line-height:1.25;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.rank-metric-report .rm-type-pill{background:var(--brand-soft);color:var(--brand)}
+.rank-metric-report .rm-assignee-pill{background:#f1f5f9;color:#475569}
+.rank-metric-report .rm-for-pill.is-customer{background:#eff6ff;color:#1d4ed8}
+.rank-metric-report .rm-for-pill.is-provider{background:#f5f3ff;color:#6d28d9}
+.rank-metric-report .rm-for-pill.is-neutral{background:#f1f5f9;color:#64748b}
+.rank-metric-report .rm-kind-pill.is-lead{background:#ecfeff;color:#0e7490}
+.rank-metric-report .rm-kind-pill.is-booking{background:#fff7ed;color:#c2410c}
+.rank-metric-report .rm-score-pill.is-high{background:var(--green-soft);color:var(--green)}
+.rank-metric-report .rm-score-pill.is-mid{background:var(--amber-soft);color:var(--amber)}
+.rank-metric-report .rm-score-pill.is-low{background:var(--red-soft);color:var(--red)}
+.rank-metric-report .rm-delay-pill{background:#fef2f2;color:#b91c1c}
+.rank-metric-report .rm-status-pill[data-status="pending"]{background:#fffbeb;color:#b45309}
+.rank-metric-report .rm-status-pill[data-status="accepted"]{background:#f0f9ff;color:#0369a1}
+.rank-metric-report .rm-status-pill[data-status="ongoing"]{background:#fff7ed;color:#c2410c}
+.rank-metric-report .rm-status-pill[data-status="completed"]{background:#f0fdf4;color:#15803d}
+.rank-metric-report .rm-status-pill[data-status="completed_no_or_little"]{background:#dcfce7;color:#166534}
+.rank-metric-report .rm-status-pill[data-status="canceled"],
+.rank-metric-report .rm-status-pill[data-status="cancelled"],
+.rank-metric-report .rm-status-pill[data-status="booking_cancelled"],
+.rank-metric-report .rm-status-pill[data-status="cancelled_after_visit"]{background:#fef2f2;color:#b91c1c}
+.rank-metric-report .rm-status-pill[data-status="on_hold"]{background:#f4f4f5;color:#52525b}
+.rank-metric-report .rm-status-pill[data-status="hold_after_visit"]{background:#e4e4e7;color:#3f3f46}
+.rank-metric-report .rm-status-pill[data-status="reopened"]{background:#f5f3ff;color:#6d28d9}
+.rank-metric-report .rm-status-pill[data-status="resolved"]{background:#f0fdfa;color:#0f766e}
+.rank-metric-report .rm-status-pill[data-status="disputed_cancelled"],
+.rank-metric-report .rm-status-pill[data-status="disputed_and_cancelled"]{background:#fff1f2;color:#be123c}
+.rank-metric-report .rm-status-pill[data-status="disputed_completed"],
+.rank-metric-report .rm-status-pill[data-status="disputed_and_completed"]{background:#ffedd5;color:#c2410c}
+.rank-metric-report .rm-status-pill[data-status="loss_making"],
+.rank-metric-report .rm-status-pill[data-status="loss_making_pending"]{background:#fef3c7;color:#b45309}
+.rank-metric-report .rm-status-pill[data-status="loss_recovered"]{background:#ecfeff;color:#0e7490}
+.rank-metric-report .rm-status-pill[data-status="loss_settled"]{background:#eff6ff;color:#1d4ed8}
+.rank-metric-report .rm-status-pill[data-status="refunded"]{background:#faf5ff;color:#7e22ce}
+.rank-metric-report .rm-status-pill[data-status="pending_cancellation"]{background:#fef9c3;color:#a16207}
+.rank-metric-report .detail-count{
+    display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;
+    background:var(--brand-soft);color:var(--brand);font-size:11px;font-weight:800;
+}
+
+/* Report header — typography & toolbar */
+.rank-metric-report .shell-head--report{
+    display:flex;flex-direction:column;align-items:stretch;gap:14px;padding:16px 18px 14px;
+    background:linear-gradient(180deg,#fff 0%,var(--surface-2) 100%);
+    border-bottom:1px solid var(--border-soft);
+}
+.rank-metric-report .shell-head-top{
+    display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:10px 16px;
+}
+.rank-metric-report .shell-head-identity{
+    display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;min-width:0;
+}
+.rank-metric-report .shell-head-title{
+    margin:0;font-size:22px;font-weight:800;color:var(--text);line-height:1.15;
+    letter-spacing:-.03em;font-family:Outfit,system-ui,sans-serif;
+}
+.rank-metric-report .shell-rank-badge{
+    display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;
+    background:var(--brand-soft);color:var(--brand);border:1px solid #dfe3f0;
+    font-size:11px;font-weight:700;line-height:1.2;letter-spacing:.01em;white-space:nowrap;
+}
+.rank-metric-report .shell-period-display{
+    display:inline-flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0;
+}
+.rank-metric-report .shell-period-badge{
+    display:inline-flex;align-items:center;padding:4px 9px;border-radius:6px;
+    background:#fff;border:1px solid var(--border);color:var(--brand);
+    font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;line-height:1;
+}
+.rank-metric-report .shell-period-text{
+    font-size:14px;font-weight:600;color:var(--text);line-height:1.35;letter-spacing:-.01em;
+}
+.rank-metric-report .shell-toolbar{
+    display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 14px;width:100%;
+}
+.rank-metric-report .shell-toolbar-group{
+    display:flex;flex-direction:column;gap:5px;min-width:0;
+}
+.rank-metric-report .shell-toolbar-group--employee{flex:1 1 180px;max-width:220px}
+.rank-metric-report .shell-toolbar-group--dates{flex:1 1 220px;max-width:320px}
+.rank-metric-report .shell-toolbar-group--period{flex:0 0 auto}
+.rank-metric-report .shell-field-label{
+    font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;
+    color:var(--muted);line-height:1;font-family:Outfit,system-ui,sans-serif;
+}
+.rank-metric-report .shell-control{
+    width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:8px;
+    font-size:12px;font-weight:600;font-family:Outfit,system-ui,sans-serif;
+    color:var(--text);background:#fff;min-height:36px;line-height:1.2;
+    transition:border-color .15s,box-shadow .15s;
+}
+.rank-metric-report .shell-control:focus{
+    outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-glow);
+}
+.rank-metric-report .shell-date-controls{
+    display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap;
+}
+.rank-metric-report .shell-control--date,
+.rank-metric-report .shell-control--month{flex:1 1 auto;min-width:130px;width:auto}
+.rank-metric-report .shell-day-chip{
+    display:inline-flex;align-items:center;padding:6px 11px;border-radius:999px;
+    background:var(--brand-soft);color:var(--brand);border:1px solid #dfe3f0;
+    font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;
+    font-family:Outfit,system-ui,sans-serif;
+}
+.rank-metric-report .shell-date-sep{color:#94a3b8;font-size:13px;font-weight:700;line-height:1}
+.rank-metric-report .shell-period-segment{
+    display:inline-flex;align-items:center;padding:3px;border:1px solid var(--border);
+    border-radius:999px;background:#fff;gap:2px;
+}
+.rank-metric-report .shell-period-segment .period-link{
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:7px 14px;border-radius:999px;border:1px solid transparent;
+    font-size:11px;font-weight:700;line-height:1.2;text-decoration:none;
+    color:var(--muted);background:transparent;white-space:nowrap;
+    font-family:Outfit,system-ui,sans-serif;transition:all .15s;
+}
+.rank-metric-report .shell-period-segment .period-link:hover{
+    color:var(--brand);background:var(--brand-soft);
+}
+.rank-metric-report .shell-period-segment .period-link.on{
+    color:#fff;background:var(--brand);border-color:var(--brand);
+    box-shadow:0 2px 6px var(--brand-glow);
+}
+.rank-metric-report .shell-apply-btn{
+    flex:0 0 auto;align-self:flex-end;padding:9px 18px;border-radius:8px;
+    font-size:12px;font-weight:800;line-height:1.2;border:none;
+    background:var(--brand);color:#fff;cursor:pointer;
+    font-family:Outfit,system-ui,sans-serif;min-height:36px;
+    box-shadow:0 2px 8px var(--brand-glow);transition:background .15s,transform .1s;
+}
+.rank-metric-report .shell-apply-btn:hover{background:var(--brand-2)}
+.rank-metric-report .shell-apply-btn:active{transform:translateY(1px)}
+@media(max-width:768px){
+    .rank-metric-report .shell-head-title{font-size:19px}
+    .rank-metric-report .shell-period-display{width:100%}
+    .rank-metric-report .shell-toolbar-group--employee,
+    .rank-metric-report .shell-toolbar-group--dates{max-width:none;flex:1 1 100%}
+    .rank-metric-report .shell-apply-btn{width:100%}
+}
+.rank-metric-report .shell-body--metric-detail{padding:0}
+.rank-metric-report .detail-count--inline{
+    display:inline-flex;margin:12px 14px 0;
+}
+.rank-metric-report .shell-body{padding:16px}

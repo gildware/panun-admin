@@ -25,6 +25,17 @@
         $teamRankRowsMonthly = $teamRankRows;
     }
 
+    $rankMetricPeriods = $rankMetricPeriods ?? [
+        'daily' => ['period' => 'daily', 'date' => \Carbon\Carbon::today()->toDateString()],
+        'monthly' => [
+            'period' => 'monthly',
+            'date_from' => \Carbon\Carbon::now()->startOfMonth()->toDateString(),
+            'date_to' => \Carbon\Carbon::now()->endOfMonth()->toDateString(),
+        ],
+    ];
+    $rankMetricEmployeeQuery = $rankMetricEmployeeQuery ?? [];
+    $rankMetricLinksEnabled = $rankMetricLinksEnabled ?? true;
+
     $toneMap = [
         'good' => 'good',
         'warn' => 'warning',
@@ -190,6 +201,9 @@
                                     'rows' => $teamRankRowsDaily,
                                     'highlightEmployeeId' => $highlightEmployeeId,
                                     'variant' => 'overview',
+                                    'rankMetricPeriodParams' => $rankMetricPeriods['daily'],
+                                    'rankMetricEmployeeQuery' => $rankMetricEmployeeQuery,
+                                    'rankMetricLinksEnabled' => $rankMetricLinksEnabled,
                                 ])
                             </div>
                             <div data-panel="ranking-monthly" class="activity-panel active">
@@ -204,6 +218,9 @@
                                     'rows' => $teamRankRowsMonthly,
                                     'highlightEmployeeId' => $highlightEmployeeId,
                                     'variant' => 'overview',
+                                    'rankMetricPeriodParams' => $rankMetricPeriods['monthly'],
+                                    'rankMetricEmployeeQuery' => $rankMetricEmployeeQuery,
+                                    'rankMetricLinksEnabled' => $rankMetricLinksEnabled,
                                 ])
                                 @include('adminmodule::partials._employee-progress-rank-marks-chart', [
                                     'rankMarksChart' => $rankMarksChart,
@@ -325,6 +342,9 @@
                                 @include('adminmodule::partials._employee-progress-team-rank-cards', [
                                     'rows' => $teamRankRowsDaily,
                                     'highlightEmployeeId' => $highlightEmployeeId,
+                                    'rankMetricPeriodParams' => $rankMetricPeriods['daily'],
+                                    'rankMetricEmployeeQuery' => $rankMetricEmployeeQuery,
+                                    'rankMetricLinksEnabled' => $rankMetricLinksEnabled,
                                 ])
                             </div>
                             <div data-panel="ranking-monthly" class="activity-panel active">
@@ -338,6 +358,9 @@
                                 @include('adminmodule::partials._employee-progress-team-rank-cards', [
                                     'rows' => $teamRankRowsMonthly,
                                     'highlightEmployeeId' => $highlightEmployeeId,
+                                    'rankMetricPeriodParams' => $rankMetricPeriods['monthly'],
+                                    'rankMetricEmployeeQuery' => $rankMetricEmployeeQuery,
+                                    'rankMetricLinksEnabled' => $rankMetricLinksEnabled,
                                 ])
                                 @include('adminmodule::partials._employee-progress-rank-marks-chart', [
                                     'rankMarksChart' => $rankMarksChart,

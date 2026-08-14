@@ -16,6 +16,12 @@
     $activeOpenLeads = (int) ($activeOpenLeads ?? 0);
     $activeBookings = (int) ($activeBookings ?? 0);
     $showActiveAssignments = $activeOpenLeads > 0 || $activeBookings > 0;
+    $rankMetricEmployeeId = (string) ($rankMetricEmployeeId ?? '');
+    $rankMetricPeriodParams = $rankMetricPeriodParams ?? [];
+    $rankMetricEmployeeQuery = $rankMetricEmployeeQuery ?? [];
+    $rankMetricLinksEnabled = ! empty($rankMetricLinksEnabled)
+        && $rankMetricEmployeeId !== ''
+        && $rankMetricPeriodParams !== [];
     $formatPoints = static function (int $points): string {
         if ($points > 0) {
             return '+'.$points;
@@ -25,6 +31,27 @@
         }
 
         return '0';
+    };
+    $metricDetailUrl = static function (array $mark) use (
+        $rankMetricLinksEnabled,
+        $rankMetricEmployeeId,
+        $rankMetricPeriodParams,
+        $rankMetricEmployeeQuery,
+    ): ?string {
+        if (! $rankMetricLinksEnabled || (int) ($mark['count'] ?? 0) <= 0) {
+            return null;
+        }
+        $metricKey = (string) ($mark['key'] ?? '');
+        if ($metricKey === '') {
+            return null;
+        }
+
+        return \Modules\AdminModule\Services\EmployeeProgressRankMetricDetailService::detailUrl(
+            $metricKey,
+            $rankMetricEmployeeId,
+            $rankMetricPeriodParams,
+            $rankMetricEmployeeQuery,
+        );
     };
     $markSections = [
         [
@@ -84,10 +111,25 @@
                         $points = (int) ($mark['points'] ?? 0);
                         $unitDisplay = ($isPlus ? '+' : '−').abs($unit);
                         $pointsDisplay = $formatPoints($points);
+                        $detailUrl = $metricDetailUrl($mark);
                     @endphp
-                    <tr class="{{ $isPlus ? 'is-plus' : 'is-minus' }}">
-                        <td class="rank-mark-type">{{ $mark['label'] ?? '' }}</td>
-                        <td class="rank-mark-qty">{{ (int) ($mark['count'] ?? 0) }}</td>
+                    <tr class="{{ $isPlus ? 'is-plus' : 'is-minus' }}{{ $detailUrl ? ' rank-mark-row--link' : '' }}">
+                        <td class="rank-mark-type">
+                            @if($detailUrl)
+                                <a href="{{ $detailUrl }}" class="rank-mark-detail-link" data-turbo="false" title="{{ translate('View_details') ?? 'View details' }}">
+                                    {{ $mark['label'] ?? '' }}
+                                </a>
+                            @else
+                                {{ $mark['label'] ?? '' }}
+                            @endif
+                        </td>
+                        <td class="rank-mark-qty">
+                            @if($detailUrl)
+                                <a href="{{ $detailUrl }}" class="rank-mark-detail-link" data-turbo="false">{{ (int) ($mark['count'] ?? 0) }}</a>
+                            @else
+                                {{ (int) ($mark['count'] ?? 0) }}
+                            @endif
+                        </td>
                         <td class="rank-mark-unit">{{ $unitDisplay }}</td>
                         <td class="rank-mark-total">{{ $pointsDisplay }}</td>
                     </tr>
