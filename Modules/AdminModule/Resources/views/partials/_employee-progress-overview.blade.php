@@ -348,6 +348,20 @@
         $rankCardRows = $rankCardRows->take(1);
     }
     $rankCardRows = $rankCardRows->values()->all();
+
+    $reportTab = $tab ?? 'monthly';
+    $rankMetricPeriods = [
+        'daily' => ['period' => 'daily', 'date' => ($date ?? today()->toDateString())],
+        'monthly' => [
+            'period' => 'monthly',
+            'date_from' => $dateFrom ?? today()->startOfMonth()->toDateString(),
+            'date_to' => $dateTo ?? today()->endOfMonth()->toDateString(),
+        ],
+    ];
+    $rankMetricEmployeeQuery = $employeeQuery ?? [];
+    $rankMetricPeriodParams = $reportTab === 'daily'
+        ? $rankMetricPeriods['daily']
+        : $rankMetricPeriods['monthly'];
 @endphp
 
 <div class="layout-main {{ $viewingAllEmployees ? '' : 'layout-main--half' }}">
@@ -379,6 +393,9 @@
             @include('adminmodule::partials._employee-progress-team-rank-cards', [
                 'rows' => $rankCardRows,
                 'variant' => 'panel',
+                'rankMetricPeriodParams' => $rankMetricPeriodParams,
+                'rankMetricEmployeeQuery' => $rankMetricEmployeeQuery,
+                'rankMetricLinksEnabled' => true,
             ])
         </div>
     @elseif($crossInsights !== [])
@@ -438,6 +455,9 @@
         @include('adminmodule::partials._employee-progress-team-rank-cards', [
             'rows' => $rankCardRows,
             'variant' => 'overview',
+            'rankMetricPeriodParams' => $rankMetricPeriodParams,
+            'rankMetricEmployeeQuery' => $rankMetricEmployeeQuery,
+            'rankMetricLinksEnabled' => true,
         ])
     </div>
 @endif

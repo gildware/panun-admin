@@ -157,6 +157,8 @@
                         'dailyRows' => $dailyRows ?? [],
                         'monthly' => $monthly ?? [],
                         'employeeQuery' => $employeeQuery ?? [],
+                        'dateFrom' => $dateFrom ?? null,
+                        'dateTo' => $dateTo ?? null,
                         'leadAnalytics' => $leadAnalytics ?? [],
                         'followupAnalytics' => $followupAnalytics ?? [],
                         'metricHelpRegistry' => $metricHelpRegistry ?? [],

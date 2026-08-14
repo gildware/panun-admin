@@ -49,6 +49,11 @@
         'activityMetricColumns' => $activityMetricColumns ?? [],
         'viewingAllEmployees' => $viewingAllEmployees ?? false,
         'showContributionTotals' => $showContributionTotals ?? ! ($viewingAllEmployees ?? false),
+        'tab' => $tab ?? 'monthly',
+        'date' => $date ?? null,
+        'dateFrom' => $dateFrom ?? null,
+        'dateTo' => $dateTo ?? null,
+        'employeeQuery' => $employeeQuery ?? [],
     ])
 </div>
 

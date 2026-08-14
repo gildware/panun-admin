@@ -276,6 +276,21 @@ class LeadDataQualityScoreService
      *     provider_statuses: Collection<int|string, ProviderLeadStatus>
      * }
      */
+    public function scoringContextForLeadIds(array $leadIds): array
+    {
+        return $this->loadScoringContext($leadIds);
+    }
+
+    /**
+     * @param  list<string>  $leadIds
+     * @return array{
+     *     histories: Collection<string, Collection<int, LeadTypeHistory>>,
+     *     call_logs: Collection<string, Collection<int, LeadFollowup>>,
+     *     comments: Collection<string, Collection<int, LeadComment>>,
+     *     customer_statuses: Collection<int|string, CustomerLeadStatus>,
+     *     provider_statuses: Collection<int|string, ProviderLeadStatus>
+     * }
+     */
     private function loadScoringContext(array $leadIds): array
     {
         $histories = LeadTypeHistory::query()

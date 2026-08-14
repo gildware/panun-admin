@@ -15,6 +15,8 @@ use Modules\AdminModule\Services\EmployeeDashboardService;
 use Modules\AdminModule\Services\EmployeeProgressContributionService;
 use Modules\AdminModule\Services\EmployeeProgressMetricHelp;
 use Modules\AdminModule\Services\EmployeeProgressAnalyticsService;
+use Modules\AdminModule\Services\EmployeeProgressRankMetricDetailService;
+use Modules\AdminModule\Services\EmployeeProgressScoreService;
 use Modules\AdminModule\Services\Report\DailyEmployeeReportService;
 use Modules\UserManagement\Entities\User;
 
@@ -29,6 +31,7 @@ class EmployeeProgressReportController extends Controller
         private readonly EmployeeLeadProgressAnalyticsService $leadProgressAnalytics,
         private readonly EmployeeFollowupProgressAnalyticsService $followupProgressAnalytics,
         private readonly EmployeeProgressContributionService $contributionTotals,
+        private readonly EmployeeProgressRankMetricDetailService $rankMetricDetailService,
     ) {}
 
     /**
@@ -192,6 +195,207 @@ class EmployeeProgressReportController extends Controller
     }
 
     /**
+     * Full marks report for one employee — every mark type with underlying record tables.
+     *
+     * @throws AuthorizationException
+     */
+    public function employeeRankingReport(Request $request): Renderable
+    {
+        $scope = $this->resolveScope($request);
+
+        $employeeId = (string) $request->input('employee_id', '');
+        if ($employeeId === '' && $scope['user']) {
+            $employeeId = (string) $scope['user']->id;
+        }
+
+        if ($employeeId === '' || $employeeId === '__all__') {
+            abort(404);
+        }
+
+        if (is_admin_employee() && (string) auth()->id() !== $employeeId) {
+            abort(403);
+        }
+
+        $range = $this->resolveRankingPeriod($request);
+        $dateFrom = $range['dateFrom'];
+        $dateTo = $range['dateTo'];
+
+        /** @var User $employee */
+        $employee = User::query()
+            ->where('user_type', 'admin-employee')
+            ->findOrFail($employeeId);
+
+        $employeeName = trim((string) $employee->first_name.' '.(string) $employee->last_name);
+        if ($employeeName === '') {
+            $employeeName = (string) $employee->email;
+        }
+
+        $teamEmployees = $this->employeeDashboard->dashboardEmployeeCollection();
+        if ($teamEmployees->isEmpty()) {
+            $teamEmployees = collect([$employee]);
+        }
+
+        $teamRankRows = $this->employeeDashboard->teamOverallRankRows($teamEmployees, $dateFrom, $dateTo);
+        $scoreRow = collect($teamRankRows)->firstWhere('employee_id', $employeeId) ?? [];
+
+        $fullReport = $this->rankMetricDetailService->buildFullEmployeeReport($employeeId, $dateFrom, $dateTo);
+
+        $employeeOptions = $this->employeeOptionsForRankingReport();
+
+        return view('adminmodule::employee-progress-employee-ranking-report', [
+            'user' => $scope['user'],
+            'employee' => $employee,
+            'employeeName' => $employeeName,
+            'viewingAsAdmin' => $scope['viewing_as_admin'],
+            'employeeQuery' => $scope['employee_query'],
+            'employeeOptions' => $employeeOptions,
+            'period' => $range['period'],
+            'periodLabel' => $range['periodLabel'],
+            'dayLabel' => $range['dayLabel'],
+            'date' => $range['date'],
+            'month' => $range['month'],
+            'dateFrom' => $range['dateFromParam'],
+            'dateTo' => $range['dateToParam'],
+            'teamRank' => ! empty($scoreRow['rank']) ? (int) $scoreRow['rank'] : null,
+            'scoreRow' => $scoreRow,
+            'fullReport' => $fullReport,
+            'scoreWeights' => EmployeeProgressScoreService::weightLegend(),
+        ]);
+    }
+
+    /**
+     * Full ranking marks report (team scores with breakdown tables).
+     *
+     * @throws AuthorizationException
+     */
+    public function rankingReport(Request $request): Renderable
+    {
+        $scope = $this->resolveScope($request);
+        $teamEmployees = $this->employeeDashboard->dashboardEmployeeCollection();
+        if ($teamEmployees->isEmpty()) {
+            $teamEmployees = User::query()
+                ->where('user_type', 'admin-employee')
+                ->ofStatus(1)
+                ->get();
+        }
+
+        $period = $request->input('period') === 'monthly' ? 'monthly' : 'daily';
+        if ($period === 'monthly') {
+            [$dateFrom, $dateTo] = $this->resolveMonthRange($request);
+            $periodLabel = $dateFrom->format('d M').' – '.$dateTo->format('d M Y');
+        } else {
+            $date = $this->resolveSingleDate($request->input('date'));
+            $dateFrom = $date;
+            $dateTo = $date;
+            $periodLabel = $date->format('d M Y');
+        }
+
+        $teamRankRows = $this->employeeDashboard->teamOverallRankRows($teamEmployees, $dateFrom, $dateTo);
+        $highlightEmployeeId = $scope['user']
+            ? (string) $scope['user']->id
+            : (string) $request->input('employee_id', '');
+
+        if ($highlightEmployeeId === '__all__') {
+            $highlightEmployeeId = '';
+        }
+
+        $rankMetricPeriodParams = $period === 'monthly'
+            ? ['period' => 'monthly', 'date_from' => $dateFrom->toDateString(), 'date_to' => $dateTo->toDateString()]
+            : ['period' => 'daily', 'date' => $dateFrom->toDateString()];
+
+        $employeeOptions = $this->employeeOptionsForViewer();
+        $pageTitle = translate('Progress_ranking_marks_report') ?? 'Ranking marks report';
+
+        return view('adminmodule::employee-progress-ranking-report', [
+            'user' => $scope['user'],
+            'viewingAllEmployees' => $scope['viewing_all'],
+            'viewingAsAdmin' => $scope['viewing_as_admin'],
+            'employeeQuery' => $scope['employee_query'],
+            'employeeOptions' => $employeeOptions,
+            'period' => $period,
+            'periodLabel' => $periodLabel,
+            'date' => $period === 'daily' ? $dateFrom->toDateString() : null,
+            'dateFrom' => $period === 'monthly' ? $dateFrom->toDateString() : null,
+            'dateTo' => $period === 'monthly' ? $dateTo->toDateString() : null,
+            'teamRankRows' => $teamRankRows,
+            'highlightEmployeeId' => $highlightEmployeeId !== '' ? $highlightEmployeeId : null,
+            'scoreWeights' => EmployeeProgressScoreService::weightLegend(),
+            'rankMetricPeriodParams' => $rankMetricPeriodParams,
+            'rankMetricEmployeeQuery' => $scope['employee_query'],
+            'pageTitle' => $pageTitle,
+            'backUrl' => route('admin.dashboard'),
+        ]);
+    }
+
+    /**
+     * @throws AuthorizationException
+     */
+    public function rankMetricDetail(Request $request): Renderable
+    {
+        $scope = $this->resolveScope($request);
+        $metricKey = (string) $request->input('metric', '');
+
+        if (! in_array($metricKey, EmployeeProgressRankMetricDetailService::validMetricKeys(), true)) {
+            abort(404);
+        }
+
+        $employeeId = (string) $request->input('employee_id', '');
+        if ($employeeId === '' && $scope['user']) {
+            $employeeId = (string) $scope['user']->id;
+        }
+
+        if ($employeeId === '') {
+            abort(404);
+        }
+
+        if (is_admin_employee() && (string) auth()->id() !== $employeeId) {
+            abort(403);
+        }
+
+        $range = $this->resolveRankingPeriod($request);
+        $dateFrom = $range['dateFrom'];
+        $dateTo = $range['dateTo'];
+
+        /** @var User $employee */
+        $employee = User::query()
+            ->where('user_type', 'admin-employee')
+            ->findOrFail($employeeId);
+
+        $detail = $this->rankMetricDetailService->build($metricKey, $employeeId, $dateFrom, $dateTo);
+        $employeeName = trim((string) $employee->first_name.' '.(string) $employee->last_name);
+        if ($employeeName === '') {
+            $employeeName = (string) $employee->email;
+        }
+
+        $backParams = array_filter(array_merge(
+            $scope['employee_query'],
+            $this->rankingPeriodQueryParams($range),
+            ['section' => 'overview'],
+        ));
+
+        $employeeOptions = $this->employeeOptionsForRankingReport();
+
+        return view('adminmodule::employee-progress-rank-metric-detail', [
+            'user' => $scope['user'],
+            'employee' => $employee,
+            'employeeName' => $employeeName,
+            'viewingAsAdmin' => $scope['viewing_as_admin'],
+            'employeeQuery' => $scope['employee_query'],
+            'employeeOptions' => $employeeOptions,
+            'metric' => $metricKey,
+            'period' => $range['period'],
+            'periodLabel' => $range['periodLabel'],
+            'dayLabel' => $range['dayLabel'],
+            'date' => $range['date'],
+            'month' => $range['month'],
+            'dateFrom' => $range['dateFromParam'],
+            'dateTo' => $range['dateToParam'],
+            'detail' => $detail,
+            'backUrl' => route('admin.my-progress', $backParams),
+        ]);
+    }
+
+    /**
      * @return array{
      *     employees: Collection<int, User>,
      *     user: User|null,
@@ -283,6 +487,35 @@ class EmployeeProgressReportController extends Controller
             ->all();
 
         return array_merge($options, $employees);
+    }
+
+    /**
+     * Employee picker for ranking marks report (no "all employees" entry).
+     *
+     * @return list<array{id: string, name: string}>
+     */
+    private function employeeOptionsForRankingReport(): array
+    {
+        if (is_admin_employee()) {
+            return [];
+        }
+
+        return User::query()
+            ->where('user_type', 'admin-employee')
+            ->ofStatus(1)
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get(['id', 'first_name', 'last_name', 'email'])
+            ->map(function (User $employee): array {
+                $name = trim((string) $employee->first_name.' '.(string) $employee->last_name);
+
+                return [
+                    'id' => (string) $employee->id,
+                    'name' => $name !== '' ? $name : (string) $employee->email,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     /**
@@ -464,6 +697,122 @@ class EmployeeProgressReportController extends Controller
                 ],
             ],
         ];
+    }
+
+    /**
+     * @return array{
+     *     period: string,
+     *     dateFrom: Carbon,
+     *     dateTo: Carbon,
+     *     periodLabel: string,
+     *     dayLabel: string|null,
+     *     date: string|null,
+     *     month: string|null,
+     *     dateFromParam: string|null,
+     *     dateToParam: string|null,
+     * }
+     */
+    private function resolveRankingPeriod(Request $request): array
+    {
+        $period = (string) $request->input('period', 'daily');
+        if (! in_array($period, ['daily', 'monthly', 'custom'], true)) {
+            $period = 'daily';
+        }
+
+        if ($period === 'daily') {
+            $dateFrom = $this->resolveSingleDate($request->input('date'));
+
+            return [
+                'period' => 'daily',
+                'dateFrom' => $dateFrom,
+                'dateTo' => $dateFrom->copy(),
+                'periodLabel' => $dateFrom->format('l, d M Y'),
+                'dayLabel' => $dateFrom->format('l'),
+                'date' => $dateFrom->toDateString(),
+                'month' => null,
+                'dateFromParam' => null,
+                'dateToParam' => null,
+            ];
+        }
+
+        if ($period === 'monthly') {
+            $month = (string) $request->input('month', '');
+            if (preg_match('/^\d{4}-\d{2}$/', $month)) {
+                $dateFrom = Carbon::parse($month.'-01')->startOfDay();
+            } elseif ($request->filled('date_from')) {
+                try {
+                    $dateFrom = Carbon::parse((string) $request->input('date_from'))->startOfMonth()->startOfDay();
+                } catch (\Throwable) {
+                    $dateFrom = Carbon::today()->startOfMonth();
+                }
+            } else {
+                $dateFrom = Carbon::today()->startOfMonth();
+            }
+
+            $dateTo = $dateFrom->copy()->endOfMonth()->startOfDay();
+
+            return [
+                'period' => 'monthly',
+                'dateFrom' => $dateFrom,
+                'dateTo' => $dateTo,
+                'periodLabel' => $dateFrom->format('F Y'),
+                'dayLabel' => null,
+                'date' => null,
+                'month' => $dateFrom->format('Y-m'),
+                'dateFromParam' => $dateFrom->toDateString(),
+                'dateToParam' => $dateTo->toDateString(),
+            ];
+        }
+
+        [$dateFrom, $dateTo] = $this->resolveMonthRange($request);
+
+        return [
+            'period' => 'custom',
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'periodLabel' => $dateFrom->format('d M').' – '.$dateTo->format('d M Y'),
+            'dayLabel' => null,
+            'date' => null,
+            'month' => null,
+            'dateFromParam' => $dateFrom->toDateString(),
+            'dateToParam' => $dateTo->toDateString(),
+        ];
+    }
+
+    /**
+     * @param  array{
+     *     period: string,
+     *     date: string|null,
+     *     month: string|null,
+     *     dateFromParam: string|null,
+     *     dateToParam: string|null,
+     * }  $range
+     * @return array<string, string>
+     */
+    private function rankingPeriodQueryParams(array $range): array
+    {
+        if ($range['period'] === 'monthly') {
+            return array_filter([
+                'tab' => 'monthly',
+                'month' => $range['month'],
+                'date_from' => $range['dateFromParam'],
+                'date_to' => $range['dateToParam'],
+            ]);
+        }
+
+        if ($range['period'] === 'custom') {
+            return array_filter([
+                'tab' => 'monthly',
+                'period' => 'custom',
+                'date_from' => $range['dateFromParam'],
+                'date_to' => $range['dateToParam'],
+            ]);
+        }
+
+        return array_filter([
+            'tab' => 'daily',
+            'date' => $range['date'],
+        ]);
     }
 
     /**

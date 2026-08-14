@@ -3783,6 +3783,7 @@ class BookingController extends Controller
             'remarks' => $validated['remarks'] ?? null,
             'contact_channel' => $validated['contact_channel'] ?? null,
             'next_followup_at' => $validated['next_followup_at'] ?? null,
+            'created_by' => auth()->id(),
         ], $recordingData));
 
         $shouldScheduleNext = $requiresNext

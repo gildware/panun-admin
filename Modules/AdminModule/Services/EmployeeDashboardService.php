@@ -545,7 +545,7 @@ class EmployeeDashboardService
      * @param  Collection<int, User>  $employees
      * @return list<array{rank: int, employee_id: string, label: string, score: int, marks?: list<array<string, mixed>>}>
      */
-    private function teamOverallRankRows(Collection $employees, Carbon $periodStart, Carbon $periodEnd): array
+    public function teamOverallRankRows(Collection $employees, Carbon $periodStart, Carbon $periodEnd): array
     {
         if ($employees->isEmpty()) {
             return [];

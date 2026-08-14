@@ -26,8 +26,27 @@
                 $initials = collect(explode(' ', $row['label'] ?? ''))->filter()->map(fn ($p) => strtoupper(substr($p, 0, 1)))->take(2)->implode('');
                 $avatarClass = match ($index) { 1 => 'silver', 2 => 'bronze', default => '' };
                 $barPct = min(100, round((abs((int) ($row['score'] ?? 0)) / $maxScore) * 100));
+                $rowEmployeeId = (string) ($row['employee_id'] ?? '');
+                $canLinkRankMetrics = ! empty($rankMetricLinksEnabled)
+                    && $rowEmployeeId !== ''
+                    && (! is_admin_employee() || (string) auth()->id() === $rowEmployeeId);
+                $canViewEmployeeReport = $rowEmployeeId !== ''
+                    && (! is_admin_employee() || (string) auth()->id() === $rowEmployeeId);
+                $employeeReportUrl = $canViewEmployeeReport && ($rankMetricPeriodParams ?? []) !== []
+                    ? \Modules\AdminModule\Services\EmployeeProgressRankMetricDetailService::employeeReportUrl(
+                        $rowEmployeeId,
+                        $rankMetricPeriodParams,
+                        $rankMetricEmployeeQuery ?? [],
+                    )
+                    : null;
             @endphp
-            <div class="{{ $cardClass }} {{ $isHighlighted ? 'is-highlighted' : '' }}">
+            <div class="{{ $cardClass }} {{ $isHighlighted ? 'is-highlighted' : '' }} rank-item--with-report">
+                @if($employeeReportUrl)
+                    <a href="{{ $employeeReportUrl }}" class="rank-item-report-btn" data-turbo="false" title="{{ translate('View_full_report') ?? 'View full report' }}">
+                        <span class="material-symbols-outlined">description</span>
+                        <span class="rank-item-report-btn-label">{{ translate('View_full_report') ?? 'View full report' }}</span>
+                    </a>
+                @endif
                 <div class="rank-item-main">
                     <div class="avatar {{ $avatarClass }}">{{ $initials ?: '#'.($row['rank'] ?? ($index + 1)) }}</div>
                     <div class="rank-meta">
@@ -63,6 +82,10 @@
                     'grandScore' => (int) ($row['score'] ?? 0),
                     'activeOpenLeads' => (int) ($row['active_open_leads'] ?? 0),
                     'activeBookings' => (int) ($row['active_bookings'] ?? 0),
+                    'rankMetricEmployeeId' => $rowEmployeeId,
+                    'rankMetricPeriodParams' => $rankMetricPeriodParams ?? [],
+                    'rankMetricEmployeeQuery' => $rankMetricEmployeeQuery ?? [],
+                    'rankMetricLinksEnabled' => $canLinkRankMetrics,
                 ])
             </div>
         @endforeach

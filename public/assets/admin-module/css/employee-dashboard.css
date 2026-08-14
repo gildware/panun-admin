@@ -820,7 +820,35 @@
     display: inline-flex;
     align-items: center;
     justify-content: flex-end;
+    gap: 6px;
     min-height: 24px;
+}
+.emp-dash .progress-card-report-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 7px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #43466e;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.emp-dash .progress-card-report-btn:hover {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+    color: #43466e;
+}
+.emp-dash .progress-card-report-btn .material-symbols-outlined {
+    font-size: 14px;
+}
+@media (max-width: 720px) {
+    .emp-dash .progress-card-report-btn-label { display: none; }
+    .emp-dash .progress-card-report-btn { padding: 4px 6px; }
 }
 .emp-dash .progress-card-header-action--spacer {
     min-width: 72px;
@@ -1479,6 +1507,40 @@
 .emp-dash .progress-cards-row--metrics .rank-item--dash .rank-item-main {
     flex-shrink: 0;
     gap: 8px;
+}
+.emp-dash .rank-item--with-report {
+    position: relative;
+    padding-top: 34px;
+}
+.emp-dash .rank-item-report-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 7px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #43466e;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.emp-dash .rank-item-report-btn:hover {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+    color: #43466e;
+}
+.emp-dash .rank-item-report-btn .material-symbols-outlined {
+    font-size: 14px;
+}
+@media (max-width: 720px) {
+    .emp-dash .rank-item-report-btn-label { display: none; }
 }
 .emp-dash .progress-cards-row--metrics .rank-item--dash .avatar {
     width: 32px;
