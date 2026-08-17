@@ -56,7 +56,7 @@
                         <img width="35" class="avatar" src="{{ asset('assets/admin-module/img/icons/total_expense.png') }}" alt="">
                         <div>
                             <h2 class="fz-26">{{ $userLeadsTotal ?? 0 }}</h2>
-                            <span class="fz-12">{{ translate('Leads_Handled') }}</span>
+                            <span class="fz-12">{{ translate('New_Leads_Handled') }}</span>
                         </div>
                     </div>
                 </div>

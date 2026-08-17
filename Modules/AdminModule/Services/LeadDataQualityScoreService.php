@@ -43,6 +43,33 @@ class LeadDataQualityScoreService
 
     public const MARKS_MID = 2;
 
+    /**
+     * @return list<array{label: string, points: int}>
+     */
+    public static function checkLegend(): array
+    {
+        return [
+            ['label' => 'Initial call remarks', 'points' => self::POINTS_INITIAL_REMARKS],
+            ['label' => 'Call log added', 'points' => self::POINTS_CALL_LOG],
+            ['label' => 'Call log remarks', 'points' => self::POINTS_CALL_LOG_REMARKS],
+            ['label' => 'Comment added', 'points' => self::POINTS_COMMENT],
+            ['label' => 'Name and phone', 'points' => self::POINTS_IDENTITY],
+            ['label' => 'Lead type set', 'points' => self::POINTS_TYPED],
+            ['label' => 'Zone, category, and status', 'points' => self::POINTS_PIPELINE_FIELDS],
+            ['label' => 'End-state reason / remarks', 'points' => self::POINTS_END_STATE_HYGIENE],
+        ];
+    }
+
+    public static function rankingInputsSummary(): string
+    {
+        $parts = [];
+        foreach (self::checkLegend() as $row) {
+            $parts[] = $row['label'].' (+'.$row['points'].')';
+        }
+
+        return implode('; ', $parts).'. Total 100.';
+    }
+
     public function __construct(
         private readonly LeadOpenStatusService $leadOpenStatus,
     ) {}

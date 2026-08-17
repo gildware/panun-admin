@@ -170,7 +170,7 @@
             'primary' => number_format(max($leadsHandled, $leadsAdded)),
             'primary_total' => $leadsHandled > 0 ? $teamLeadsHandled : $teamLeadsAdded,
             'primary_label' => $leadsHandled > 0
-                ? (translate('Progress_leads_handled') ?? translate('Leads_Handled'))
+                ? (translate('Progress_leads_handled') ?? translate('New_Leads_Handled'))
                 : translate('Leads_added'),
             'stats' => [
                 ['label' => translate('Progress_converted') ?? 'Converted', 'value' => $customerBooked, 'total' => $teamCustomerBooked],

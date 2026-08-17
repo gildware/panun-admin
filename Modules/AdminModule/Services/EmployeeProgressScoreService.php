@@ -59,10 +59,10 @@ class EmployeeProgressScoreService
     public static function weightLegend(): array
     {
         $legend = [
-            ['key' => 'bookings_created', 'label' => translate('Bookings_created') ?? 'Bookings created', 'points' => self::POINTS_BOOKINGS_CREATED, 'sign' => '+'],
+            ['key' => 'bookings_created', 'label' => translate('New_Bookings_Created') ?? 'New Bookings created', 'points' => self::POINTS_BOOKINGS_CREATED, 'sign' => '+'],
             ['key' => 'bookings_completed', 'label' => translate('Bookings_Completed') ?? 'Bookings completed', 'points' => self::POINTS_BOOKINGS_COMPLETED, 'sign' => '+'],
-            ['key' => 'leads_handled', 'label' => translate('Leads_Handled') ?? 'Leads handled', 'points' => self::POINTS_LEADS_HANDLED, 'sign' => '+'],
-            ['key' => 'providers_registered', 'label' => translate('Progress_provider_registered') ?? 'Providers registered', 'points' => self::POINTS_PROVIDERS_REGISTERED, 'sign' => '+'],
+            ['key' => 'leads_handled', 'label' => translate('New_Leads_Handled') ?? 'New Leads handled', 'points' => self::POINTS_LEADS_HANDLED, 'sign' => '+'],
+            ['key' => 'providers_registered', 'label' => translate('New_Providers_Registered') ?? 'New Providers registered', 'points' => self::POINTS_PROVIDERS_REGISTERED, 'sign' => '+'],
             [
                 'key' => 'lead_data_quality_high',
                 'label' => translate('Progress_lead_data_quality_high') ?? 'Lead data quality ≥80%',
@@ -208,7 +208,7 @@ class EmployeeProgressScoreService
         $marks = [
             $this->markLine(
                 'bookings_created',
-                translate('Bookings_created') ?? 'Bookings created',
+                translate('New_Bookings_Created') ?? 'New Bookings created',
                 $bookingsCreated,
                 self::POINTS_BOOKINGS_CREATED,
                 true,
@@ -222,14 +222,14 @@ class EmployeeProgressScoreService
             ),
             $this->markLine(
                 'leads_handled',
-                translate('Leads_Handled') ?? 'Leads handled',
+                translate('New_Leads_Handled') ?? 'New Leads handled',
                 $leadsHandled,
                 self::POINTS_LEADS_HANDLED,
                 true,
             ),
             $this->markLine(
                 'providers_registered',
-                translate('Progress_provider_registered') ?? 'Providers registered',
+                translate('New_Providers_Registered') ?? 'New Providers registered',
                 $providersRegistered,
                 self::POINTS_PROVIDERS_REGISTERED,
                 true,

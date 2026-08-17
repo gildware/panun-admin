@@ -72,7 +72,7 @@ class EmployeeProgressRankMetricDetailService
         return [
             'bookings_created' => [
                 'key' => 'bookings_created',
-                'label' => translate('Bookings_created') ?? 'Bookings created',
+                'label' => translate('New_Bookings_Created') ?? 'New Bookings created',
                 'columns' => [
                     ['key' => 'readable_id', 'label' => translate('Booking_ID') ?? 'Booking ID'],
                     ['key' => 'customer', 'label' => translate('Customer') ?? 'Customer'],
@@ -91,7 +91,7 @@ class EmployeeProgressRankMetricDetailService
             ],
             'leads_handled' => [
                 'key' => 'leads_handled',
-                'label' => translate('Leads_Handled') ?? 'Leads handled',
+                'label' => translate('New_Leads_Handled') ?? 'New Leads handled',
                 'columns' => [
                     ['key' => 'lead', 'label' => translate('Lead') ?? 'Lead'],
                     ['key' => 'phone', 'label' => translate('Phone') ?? 'Phone'],
@@ -101,7 +101,7 @@ class EmployeeProgressRankMetricDetailService
             ],
             'providers_registered' => [
                 'key' => 'providers_registered',
-                'label' => translate('Progress_provider_registered') ?? 'Providers registered',
+                'label' => translate('New_Providers_Registered') ?? 'New Providers registered',
                 'columns' => [
                     ['key' => 'lead', 'label' => translate('Lead') ?? 'Lead'],
                     ['key' => 'phone', 'label' => translate('Phone') ?? 'Phone'],

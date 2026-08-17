@@ -87,11 +87,11 @@ class EmployeeProgressMetricHelp
             ),
             'data_quality' => self::entry(
                 translate('Progress_quality_metrics'),
-                'Share of closed leads that have initial remarks, call-log remarks, zone/category/status, and end-state reason filled. Higher is better.',
+                'Share of closed leads that pass the data-quality inputs. Inputs checked: '.LeadDataQualityScoreService::rankingInputsSummary(),
             ),
             'lead_data_quality_pct' => self::entry(
                 translate('Progress_lead_data_quality') ?? 'Lead data quality',
-                'Closed leads scored on remarks, call logs, comments, typed fields, and cancel/invalid reasons. Ranking also awards +5 (≥80%) or +2 (50–79%) per closed lead.',
+                'Closed leads scored out of 100. Inputs checked: '.LeadDataQualityScoreService::rankingInputsSummary().' Ranking awards +5 (≥80%) or +2 (50–79%) per closed lead.',
             ),
             'lead_followups' => self::entry(
                 translate('Lead_followups'),
@@ -132,7 +132,7 @@ class EmployeeProgressMetricHelp
             ),
             'team_ranking' => self::entry(
                 translate('Progress_team_ranking'),
-                'Score = quantity + helped other − late penalties. Own-work counts use assignee/handled_by for the period. Quantity: assigned bookings created (+2), assigned bookings completed (+10), leads assigned (+3), provider leads registered (+10), closed leads with data quality ≥80% (+5) or 50–79% (+2). Helped other (performer on someone else’s lead/booking): lead follow-ups (+1), booking follow-ups (+1), booking status updates (+2), lead updates (+1). Late follow-ups on assigned leads/bookings by delay: ≤1h (−1), ≤2h (−2), ≤4h (−3), ≤8h (−5), >8h (−10). Active assignments shows open leads and active bookings currently on your name (not period-scoped); penalties can apply even when Leads Handled / Bookings created are 0 for the period.',
+                'Score = quantity + helped other − late penalties. Own-work counts use assignee/handled_by for the period. Quantity: new bookings created (+2), assigned bookings completed (+10), new leads handled (+3), new providers registered (+10), closed leads with data quality ≥80% (+5) or 50–79% (+2). Helped other (performer on someone else’s lead/booking): lead follow-ups (+1), booking follow-ups (+1), booking status updates (+2), lead updates (+1). Late follow-ups on assigned leads/bookings by delay: ≤1h (−1), ≤2h (−2), ≤4h (−3), ≤8h (−5), >8h (−10). Active assignments shows open leads and active bookings currently on your name (not period-scoped); penalties can apply even when New Leads Handled / New Bookings Created are 0 for the period.',
             ),
             'rank_marks_trend' => self::entry(
                 translate('Progress_rank_marks_trend'),
@@ -274,11 +274,11 @@ class EmployeeProgressMetricHelp
         $help = [
             'leads_handled_section' => self::entry(
                 translate('Progress_leads_handled') ?? translate('Leads_added'),
-                'Shows the types of leads you handled during the selected period.',
+                'Shows the types of new leads assigned to you that were received in this period.',
             ),
             'lead_type_handled' => self::entry(
                 translate('Progress_leads_handled') ?? translate('Leads_added'),
-                'The total number of leads assigned to you in this period.',
+                'The total number of new leads assigned to you whose received date is in this period.',
             ),
             'chart_lead_types' => self::entry(
                 translate('Progress_lead_type_mix') ?? translate('Leads_added'),
@@ -318,7 +318,7 @@ class EmployeeProgressMetricHelp
             ),
             'provider_outcome_registered' => self::entry(
                 translate('Progress_provider_registered') ?? translate('completed'),
-                'Provider leads you handled that were received in this period and are currently Registered. Same count as the Registered mark in team ranking.',
+                'Provider leads you handled that were received in this period and are currently Registered. Same count as New Providers Registered in team ranking.',
             ),
             'provider_outcome_pending' => self::entry(
                 translate('Pending'),
@@ -588,7 +588,7 @@ class EmployeeProgressMetricHelp
             ),
             'overview_snap_leads' => self::entry(
                 translate('Leads'),
-                'Leads handled or added, plus customer conversion and cancellations.',
+                'New leads handled or added, plus customer conversion and cancellations.',
             ),
             'overview_snap_lead_fu' => self::entry(
                 translate('Lead_followups'),
@@ -623,8 +623,8 @@ class EmployeeProgressMetricHelp
 
         $help = [
             self::rankHelpKey('bookings_created') => self::rankEntry(
-                translate('Bookings_created') ?? 'Bookings created',
-                'Count of bookings assigned to you (assignee) that were created in this period. Score = quantity × +'.$created.'.',
+                translate('New_Bookings_Created') ?? 'New Bookings created',
+                'New bookings assigned to you that were created in this period. Older bookings you updated this period are not counted. Score = quantity × +'.$created.'.',
                 5,
                 $created,
             ),
@@ -635,26 +635,26 @@ class EmployeeProgressMetricHelp
                 $completed,
             ),
             self::rankHelpKey('leads_handled') => self::rankEntry(
-                translate('Leads_Handled') ?? 'Leads handled',
-                'Leads assigned to you (handled by) whose received date is in this period. AI-owned leads are excluded. Score = quantity × +'.$leads.'.',
+                translate('New_Leads_Handled') ?? 'New Leads handled',
+                'New leads assigned to you (handled by) whose received date is in this period. Older leads you followed up this period are not counted. AI-owned leads are excluded. Score = quantity × +'.$leads.'.',
                 4,
                 $leads,
             ),
             self::rankHelpKey('providers_registered') => self::rankEntry(
-                translate('Progress_provider_registered') ?? 'Providers registered',
-                'Provider leads assigned to you, received in this period, that are currently Registered. Score = quantity × +'.$providers.'.',
+                translate('New_Providers_Registered') ?? 'New Providers registered',
+                'New provider leads assigned to you whose received date is in this period and that are currently Registered. Older provider leads you registered this period are not counted. Score = quantity × +'.$providers.'.',
                 2,
                 $providers,
             ),
             self::rankHelpKey('lead_data_quality_high') => self::rankEntry(
                 translate('Progress_lead_data_quality_high') ?? 'Lead data quality ≥80%',
-                'Closed leads assigned to you with data quality of 80% or higher. Score = quantity × +'.$qualityHigh.'.',
+                'Closed leads assigned to you that were received in this period and scored 80% or higher. Inputs checked: '.LeadDataQualityScoreService::rankingInputsSummary().' Score = quantity × +'.$qualityHigh.'.',
                 3,
                 $qualityHigh,
             ),
             self::rankHelpKey('lead_data_quality_mid') => self::rankEntry(
                 translate('Progress_lead_data_quality_mid') ?? 'Lead data quality 50–79%',
-                'Closed leads assigned to you with data quality between 50% and 79%. Score = quantity × +'.$qualityMid.'.',
+                'Closed leads assigned to you that were received in this period and scored 50–79%. Inputs checked: '.LeadDataQualityScoreService::rankingInputsSummary().' Score = quantity × +'.$qualityMid.'.',
                 2,
                 $qualityMid,
             ),
@@ -684,7 +684,7 @@ class EmployeeProgressMetricHelp
             ),
             self::rankHelpKey('quantity') => self::entry(
                 translate('Quantity') ?? 'Quantity',
-                'Sum of your own-work marks: bookings created, bookings completed, leads handled, providers registered, and lead data quality.',
+                'Sum of your own-work marks: new bookings created, bookings completed, new leads handled, new providers registered, and lead data quality.',
                 'If Self items total +48, Quantity = +48',
             ),
             self::rankHelpKey('helped') => self::entry(
@@ -704,7 +704,7 @@ class EmployeeProgressMetricHelp
             ),
             self::rankHelpKey('active_assignments') => self::entry(
                 translate('Progress_active_assignments') ?? 'Active assignments',
-                'Open leads and active bookings currently on your name. This is not limited to the selected period. Late follow-up penalties can still apply even when Leads Handled or Bookings created are 0 for the period.',
+                'Open leads and active bookings currently on your name. This is not limited to the selected period. Late follow-up penalties can still apply even when New Leads Handled or New Bookings Created are 0 for the period.',
                 '3 open leads and 2 active bookings means these can still generate late penalties this period',
             ),
         ];
