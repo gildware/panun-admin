@@ -5,7 +5,7 @@ namespace Modules\AdminModule\Services;
 class EmployeeProgressMetricHelp
 {
     /**
-     * @return array<string, array{title: string, summary: string}>
+     * @return array<string, array{title: string, summary: string, example?: string}>
      */
     public static function registry(): array
     {
@@ -16,15 +16,43 @@ class EmployeeProgressMetricHelp
             self::leadHelp(),
             self::followupHelp(),
             self::dailyBasisHelp(),
+            self::rankingHelp(),
         );
     }
 
-    /**
-     * @return array<string, array{title: string, summary: string}>
-     */
-    private static function entry(string $title, string $summary): array
+    public static function rankHelpKey(string $metricKey): string
     {
-        return compact('title', 'summary');
+        return 'rank_'.$metricKey;
+    }
+
+    /**
+     * @return array{title: string, summary: string, example?: string}
+     */
+    private static function entry(string $title, string $summary, ?string $example = null): array
+    {
+        $entry = compact('title', 'summary');
+        if ($example !== null && $example !== '') {
+            $entry['example'] = $example;
+        }
+
+        return $entry;
+    }
+
+    /**
+     * @return array{title: string, summary: string, example: string}
+     */
+    private static function rankEntry(string $title, string $summary, int $qty, int $points, bool $positive = true): array
+    {
+        $sign = $positive ? '+' : '−';
+        $abs = abs($points);
+        $total = $qty * $abs;
+        $totalDisplay = $positive ? '+'.$total : '−'.$total;
+
+        return self::entry(
+            $title,
+            $summary,
+            $qty.' × '.$sign.$abs.' = '.$totalDisplay,
+        );
     }
 
     /**
@@ -575,5 +603,133 @@ class EmployeeProgressMetricHelp
                 'Total daily actions plus WhatsApp assigns, replies, call logs, and online time.',
             ),
         ];
+    }
+
+    /**
+     * @return array<string, array{title: string, summary: string, example?: string}>
+     */
+    private static function rankingHelp(): array
+    {
+        $created = EmployeeProgressScoreService::POINTS_BOOKINGS_CREATED;
+        $completed = EmployeeProgressScoreService::POINTS_BOOKINGS_COMPLETED;
+        $leads = EmployeeProgressScoreService::POINTS_LEADS_HANDLED;
+        $providers = EmployeeProgressScoreService::POINTS_PROVIDERS_REGISTERED;
+        $qualityHigh = LeadDataQualityScoreService::MARKS_HIGH;
+        $qualityMid = LeadDataQualityScoreService::MARKS_MID;
+        $helpedLeadFu = EmployeeProgressScoreService::POINTS_HELPED_LEAD_FOLLOWUP;
+        $helpedBookingFu = EmployeeProgressScoreService::POINTS_HELPED_BOOKING_FOLLOWUP;
+        $helpedBookingUpdate = EmployeeProgressScoreService::POINTS_HELPED_BOOKING_UPDATE;
+        $helpedLeadUpdate = EmployeeProgressScoreService::POINTS_HELPED_LEAD_UPDATE;
+
+        $help = [
+            self::rankHelpKey('bookings_created') => self::rankEntry(
+                translate('Bookings_created') ?? 'Bookings created',
+                'Count of bookings assigned to you (assignee) that were created in this period. Score = quantity × +'.$created.'.',
+                5,
+                $created,
+            ),
+            self::rankHelpKey('bookings_completed') => self::rankEntry(
+                translate('Bookings_Completed') ?? 'Bookings completed',
+                'Assigned bookings created in this period that are currently completed. Score = quantity × +'.$completed.'.',
+                3,
+                $completed,
+            ),
+            self::rankHelpKey('leads_handled') => self::rankEntry(
+                translate('Leads_Handled') ?? 'Leads handled',
+                'Leads assigned to you (handled by) whose received date is in this period. AI-owned leads are excluded. Score = quantity × +'.$leads.'.',
+                4,
+                $leads,
+            ),
+            self::rankHelpKey('providers_registered') => self::rankEntry(
+                translate('Progress_provider_registered') ?? 'Providers registered',
+                'Provider leads assigned to you, received in this period, that are currently Registered. Score = quantity × +'.$providers.'.',
+                2,
+                $providers,
+            ),
+            self::rankHelpKey('lead_data_quality_high') => self::rankEntry(
+                translate('Progress_lead_data_quality_high') ?? 'Lead data quality ≥80%',
+                'Closed leads assigned to you with data quality of 80% or higher. Score = quantity × +'.$qualityHigh.'.',
+                3,
+                $qualityHigh,
+            ),
+            self::rankHelpKey('lead_data_quality_mid') => self::rankEntry(
+                translate('Progress_lead_data_quality_mid') ?? 'Lead data quality 50–79%',
+                'Closed leads assigned to you with data quality between 50% and 79%. Score = quantity × +'.$qualityMid.'.',
+                2,
+                $qualityMid,
+            ),
+            self::rankHelpKey('helped_lead_followups') => self::rankEntry(
+                translate('Progress_helped_lead_followups') ?? 'Lead follow-ups for others',
+                'Lead follow-ups you logged on a lead assigned to someone else. Score = quantity × +'.$helpedLeadFu.'.',
+                6,
+                $helpedLeadFu,
+            ),
+            self::rankHelpKey('helped_booking_followups') => self::rankEntry(
+                translate('Progress_helped_booking_followups') ?? 'Booking follow-ups for others',
+                'Booking follow-ups you logged on a booking assigned to someone else. Score = quantity × +'.$helpedBookingFu.'.',
+                4,
+                $helpedBookingFu,
+            ),
+            self::rankHelpKey('helped_booking_updates') => self::rankEntry(
+                translate('Progress_helped_booking_updates') ?? 'Booking updates for others',
+                'Booking status updates you made on a booking assigned to someone else. Score = quantity × +'.$helpedBookingUpdate.'.',
+                3,
+                $helpedBookingUpdate,
+            ),
+            self::rankHelpKey('helped_lead_updates') => self::rankEntry(
+                translate('Progress_helped_lead_updates') ?? 'Lead updates for others',
+                'Lead field updates you made on a lead assigned to someone else. Score = quantity × +'.$helpedLeadUpdate.'.',
+                5,
+                $helpedLeadUpdate,
+            ),
+            self::rankHelpKey('quantity') => self::entry(
+                translate('Quantity') ?? 'Quantity',
+                'Sum of your own-work marks: bookings created, bookings completed, leads handled, providers registered, and lead data quality.',
+                'If Self items total +48, Quantity = +48',
+            ),
+            self::rankHelpKey('helped') => self::entry(
+                translate('Progress_helped_others') ?? 'Helped other',
+                'Sum of marks for work you did on someone else’s lead or booking.',
+                'If Helped other items total +8, Helped other = +8',
+            ),
+            self::rankHelpKey('penalties') => self::entry(
+                translate('Penalties') ?? 'Penalties',
+                'Sum of late follow-up penalties on leads and bookings assigned to you. Delay is measured from due time to when the follow-up was taken.',
+                'If late items total −7, Penalties = −7',
+            ),
+            self::rankHelpKey('grand_total') => self::entry(
+                translate('Progress_grand_total') ?? 'Grand total',
+                'Final ranking score = Quantity + Helped other + Penalties.',
+                '+48 Quantity + +8 Helped other + −7 Penalties = +49',
+            ),
+            self::rankHelpKey('active_assignments') => self::entry(
+                translate('Progress_active_assignments') ?? 'Active assignments',
+                'Open leads and active bookings currently on your name. This is not limited to the selected period. Late follow-up penalties can still apply even when Leads Handled or Bookings created are 0 for the period.',
+                '3 open leads and 2 active bookings means these can still generate late penalties this period',
+            ),
+        ];
+
+        foreach (EmployeeProgressScoreService::LATE_PENALTY_BUCKETS as $bucket) {
+            $label = EmployeeProgressScoreService::lateBucketLabel($bucket);
+            $points = (int) ($bucket['points'] ?? 0);
+            $maxMinutes = $bucket['max_minutes'] ?? null;
+            if ($maxMinutes === null) {
+                $window = 'more than 8 hours after the due time';
+            } elseif ((int) $maxMinutes === 60) {
+                $window = 'up to 1 hour after the due time';
+            } else {
+                $window = 'up to '.((int) $maxMinutes / 60).' hours after the due time';
+            }
+
+            $help[self::rankHelpKey((string) $bucket['key'])] = self::rankEntry(
+                $label,
+                'Follow-ups taken '.$window.' on a lead or booking assigned to you. Score = quantity × −'.$points.'.',
+                2,
+                $points,
+                false,
+            );
+        }
+
+        return $help;
     }
 }

@@ -567,6 +567,9 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
     border-bottom: 1px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 .emp-dash .rank-marks--self {
     border-color: var(--rm-green-border);
@@ -1631,4 +1634,8 @@
 }
 .emp-dash .progress-shell-body.emp-progress-report .progress-metric-info-btn {
     display: none;
+}
+.emp-dash .progress-shell-body.emp-progress-report .rank-item .progress-metric-info-btn,
+.emp-dash .progress-shell-body.emp-progress-report .rank-marks .progress-metric-info-btn {
+    display: inline-flex;
 }

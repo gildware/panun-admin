@@ -11,7 +11,7 @@
 @section('title', $pageTitle.' · '.$employeeName)
 
 @push('css_or_js')
-<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260814hdr5">
+<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260817rank2">
 @endpush
 
 @section('content')
@@ -36,19 +36,31 @@
 
             <div class="score-summary score-summary--in-shell">
                 <span class="score-summary-pill is-quantity">
-                    <span class="pill-label">{{ translate('Quantity') ?? 'Quantity' }}</span>
+                    <span class="pill-label">
+                        {{ translate('Quantity') ?? 'Quantity' }}
+                        @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => \Modules\AdminModule\Services\EmployeeProgressMetricHelp::rankHelpKey('quantity'), 'size' => 'xs'])
+                    </span>
                     <span class="pill-value">{{ (int) ($scoreRow['quantity_score'] ?? 0) }}</span>
                 </span>
                 <span class="score-summary-pill is-helped">
-                    <span class="pill-label">{{ translate('Progress_helped_others') ?? 'Helped other' }}</span>
+                    <span class="pill-label">
+                        {{ translate('Progress_helped_others') ?? 'Helped other' }}
+                        @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => \Modules\AdminModule\Services\EmployeeProgressMetricHelp::rankHelpKey('helped'), 'size' => 'xs'])
+                    </span>
                     <span class="pill-value">{{ (int) ($scoreRow['helped_score'] ?? 0) }}</span>
                 </span>
                 <span class="score-summary-pill is-penalty">
-                    <span class="pill-label">{{ translate('Penalties') ?? 'Penalties' }}</span>
+                    <span class="pill-label">
+                        {{ translate('Penalties') ?? 'Penalties' }}
+                        @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => \Modules\AdminModule\Services\EmployeeProgressMetricHelp::rankHelpKey('penalties'), 'size' => 'xs'])
+                    </span>
                     <span class="pill-value">{{ (int) ($scoreRow['penalty_score'] ?? 0) }}</span>
                 </span>
                 <span class="score-summary-pill is-grand">
-                    <span class="pill-label">{{ translate('Progress_grand_total') ?? 'Grand total' }}</span>
+                    <span class="pill-label">
+                        {{ translate('Progress_grand_total') ?? 'Grand total' }}
+                        @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => \Modules\AdminModule\Services\EmployeeProgressMetricHelp::rankHelpKey('grand_total'), 'size' => 'xs'])
+                    </span>
                     <span class="pill-value">{{ (int) ($scoreRow['score'] ?? 0) }}</span>
                 </span>
             </div>
@@ -70,7 +82,13 @@
                                 @endphp
                                 <article class="marks-section">
                                     <div class="marks-section-head">
-                                        <h3>{{ $section['label'] ?? '' }}</h3>
+                                        <h3>
+                                            <span>{{ $section['label'] ?? '' }}</span>
+                                            @include('adminmodule::partials._employee-progress-info-btn', [
+                                                'helpKey' => \Modules\AdminModule\Services\EmployeeProgressMetricHelp::rankHelpKey((string) $metricKey),
+                                                'size' => 'xs',
+                                            ])
+                                        </h3>
                                         <div class="marks-section-meta">
                                             <span class="marks-qty-pill">{{ translate('Qty') ?? 'Qty' }} {{ $markCount }}</span>
                                             <span class="marks-total-pill {{ $isPlus ? 'is-plus' : 'is-minus' }}">{{ translate('Total') ?? 'Total' }} {{ $pointsDisplay }}</span>
@@ -88,4 +106,5 @@
         </div>
     </div>
 </div>
+@include('adminmodule::partials._employee-progress-info-assets')
 @endsection

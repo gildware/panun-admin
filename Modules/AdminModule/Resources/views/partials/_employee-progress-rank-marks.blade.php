@@ -53,6 +53,10 @@
             $rankMetricEmployeeQuery,
         );
     };
+    $rankHelpKey = static function (string $metricKey): string {
+        return \Modules\AdminModule\Services\EmployeeProgressMetricHelp::rankHelpKey($metricKey);
+    };
+    $metricHelpRegistry = $metricHelpRegistry ?? \Modules\AdminModule\Services\EmployeeProgressMetricHelp::registry();
     $markSections = [
         [
             'title' => translate('Progress_marks_self') ?? 'Self',
@@ -73,7 +77,10 @@
 @endphp
 @if($showActiveAssignments)
     <div class="rank-marks rank-marks--context">
-        <div class="rank-marks-section-title">{{ translate('Progress_active_assignments') ?? 'Active assignments' }}</div>
+        <div class="rank-marks-section-title">
+            <span>{{ translate('Progress_active_assignments') ?? 'Active assignments' }}</span>
+            @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => $rankHelpKey('active_assignments'), 'size' => 'xs'])
+        </div>
         <div class="rank-active-assignments">
             <span>{{ $activeOpenLeads }} {{ translate('Progress_open_leads_short') ?? 'open leads' }}</span>
             <span>{{ $activeBookings }} {{ translate('Progress_active_bookings_short') ?? 'active bookings' }}</span>
@@ -115,13 +122,19 @@
                     @endphp
                     <tr class="{{ $isPlus ? 'is-plus' : 'is-minus' }}{{ $detailUrl ? ' rank-mark-row--link' : '' }}">
                         <td class="rank-mark-type">
-                            @if($detailUrl)
-                                <a href="{{ $detailUrl }}" class="rank-mark-detail-link" data-turbo="false" title="{{ translate('View_details') ?? 'View details' }}">
-                                    {{ $mark['label'] ?? '' }}
-                                </a>
-                            @else
-                                {{ $mark['label'] ?? '' }}
-                            @endif
+                            <span class="rank-mark-type-inner">
+                                @if($detailUrl)
+                                    <a href="{{ $detailUrl }}" class="rank-mark-detail-link rank-mark-type-label" data-turbo="false" title="{{ translate('View_details') ?? 'View details' }}">
+                                        {{ $mark['label'] ?? '' }}
+                                    </a>
+                                @else
+                                    <span class="rank-mark-type-label">{{ $mark['label'] ?? '' }}</span>
+                                @endif
+                                @include('adminmodule::partials._employee-progress-info-btn', [
+                                    'helpKey' => $rankHelpKey((string) ($mark['key'] ?? '')),
+                                    'size' => 'xs',
+                                ])
+                            </span>
                         </td>
                         <td class="rank-mark-qty">
                             @if($detailUrl)
@@ -154,19 +167,39 @@
         </colgroup>
         <tbody>
             <tr class="is-plus rank-marks-summary-row">
-                <td class="rank-mark-type" colspan="3">{{ translate('Progress_marks_total_positive_self') ?? 'Total positive · Self' }}</td>
+                <td class="rank-mark-type" colspan="3">
+                    <span class="rank-mark-type-inner">
+                        <span class="rank-mark-type-label">{{ translate('Progress_marks_total_positive_self') ?? 'Total positive · Self' }}</span>
+                        @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => $rankHelpKey('quantity'), 'size' => 'xs'])
+                    </span>
+                </td>
                 <td class="rank-mark-total">{{ $formatPoints($quantityScore) }}</td>
             </tr>
             <tr class="is-plus rank-marks-summary-row rank-marks-summary-row--help">
-                <td class="rank-mark-type" colspan="3">{{ translate('Progress_marks_total_positive_help') ?? 'Total positive · Help' }}</td>
+                <td class="rank-mark-type" colspan="3">
+                    <span class="rank-mark-type-inner">
+                        <span class="rank-mark-type-label">{{ translate('Progress_marks_total_positive_help') ?? 'Total positive · Help' }}</span>
+                        @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => $rankHelpKey('helped'), 'size' => 'xs'])
+                    </span>
+                </td>
                 <td class="rank-mark-total">{{ $formatPoints($helpedScore) }}</td>
             </tr>
             <tr class="is-minus rank-marks-summary-row">
-                <td class="rank-mark-type" colspan="3">{{ translate('Progress_marks_total_negative') ?? 'Total negative' }}</td>
+                <td class="rank-mark-type" colspan="3">
+                    <span class="rank-mark-type-inner">
+                        <span class="rank-mark-type-label">{{ translate('Progress_marks_total_negative') ?? 'Total negative' }}</span>
+                        @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => $rankHelpKey('penalties'), 'size' => 'xs'])
+                    </span>
+                </td>
                 <td class="rank-mark-total">{{ $formatPoints($penaltyScore) }}</td>
             </tr>
             <tr class="rank-marks-summary-row rank-marks-summary-row--grand">
-                <td class="rank-mark-type" colspan="3">{{ translate('Progress_grand_total') ?? 'Grand total' }}</td>
+                <td class="rank-mark-type" colspan="3">
+                    <span class="rank-mark-type-inner">
+                        <span class="rank-mark-type-label">{{ translate('Progress_grand_total') ?? 'Grand total' }}</span>
+                        @include('adminmodule::partials._employee-progress-info-btn', ['helpKey' => $rankHelpKey('grand_total'), 'size' => 'xs'])
+                    </span>
+                </td>
                 <td class="rank-mark-total">{{ $formatPoints($grandScore) }}</td>
             </tr>
         </tbody>
