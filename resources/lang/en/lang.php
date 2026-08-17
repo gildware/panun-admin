@@ -10845,4 +10845,5 @@ _Message' => 'Customer notification for provider bid offer
   'date_to' => 'Date to',
   'Custom_range' => 'Custom range',
   'Report_period' => 'Report period',
+  'Example' => 'Example',
 );

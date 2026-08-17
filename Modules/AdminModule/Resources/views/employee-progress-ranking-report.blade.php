@@ -3,8 +3,8 @@
 @section('title', $pageTitle ?? translate('Progress_ranking_marks_report'))
 
 @push('css_or_js')
-<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260814hdr5">
-<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-dashboard.css') }}?v=20260814hdr5">
+<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260817rank2">
+<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-dashboard.css') }}?v=20260817rank2">
 <style>
     .ranking-marks-report .page-head-employee .form-select {
         min-width: 180px; max-width: 240px;
@@ -118,4 +118,5 @@
         </div>
     </div>
 </div>
+@include('adminmodule::partials._employee-progress-info-assets')
 @endsection

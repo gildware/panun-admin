@@ -377,3 +377,4 @@
         @endif
     </div>
 </div>
+@include('adminmodule::partials._employee-progress-info-assets')
