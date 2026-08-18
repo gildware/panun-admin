@@ -1352,6 +1352,11 @@
     flex-direction: column;
     padding: 10px 12px;
     gap: 8px;
+    overflow: hidden;
+}
+.emp-dash .progress-cards-row--admin .rank-item--card .rank-item-main {
+    align-items: flex-start;
+    min-width: 0;
 }
 .emp-dash .progress-cards-row--admin .rank-item--card.is-highlighted {
     border-color: var(--pc-tone-border);
@@ -1513,16 +1518,22 @@
 }
 .emp-dash .rank-item--with-report {
     position: relative;
-    padding-top: 34px;
+}
+.emp-dash .rank-item-aside {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: flex-start;
+    gap: 4px;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 48%;
 }
 .emp-dash .rank-item-report-btn {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    z-index: 2;
     display: inline-flex;
     align-items: center;
     gap: 3px;
+    max-width: 100%;
     padding: 3px 7px;
     border-radius: 6px;
     border: 1px solid #e2e8f0;
@@ -1541,6 +1552,12 @@
 }
 .emp-dash .rank-item-report-btn .material-symbols-outlined {
     font-size: 14px;
+    flex-shrink: 0;
+}
+.emp-dash .rank-item-report-btn-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 @media (max-width: 720px) {
     .emp-dash .rank-item-report-btn-label { display: none; }

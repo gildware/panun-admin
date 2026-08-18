@@ -40,13 +40,7 @@
                     )
                     : null;
             @endphp
-            <div class="{{ $cardClass }} {{ $isHighlighted ? 'is-highlighted' : '' }} rank-item--with-report">
-                @if($employeeReportUrl)
-                    <a href="{{ $employeeReportUrl }}" class="rank-item-report-btn" data-turbo="false" title="{{ translate('View_full_report') ?? 'View full report' }}">
-                        <span class="material-symbols-outlined">description</span>
-                        <span class="rank-item-report-btn-label">{{ translate('View_full_report') ?? 'View full report' }}</span>
-                    </a>
-                @endif
+            <div class="{{ $cardClass }} {{ $isHighlighted ? 'is-highlighted' : '' }} {{ $employeeReportUrl ? 'rank-item--with-report' : '' }}">
                 <div class="rank-item-main">
                     <div class="avatar {{ $avatarClass }}">{{ $initials ?: '#'.($row['rank'] ?? ($index + 1)) }}</div>
                     <div class="rank-meta">
@@ -71,7 +65,15 @@
                         @endif
                         <div class="rank-bar"><i style="width: {{ $barPct }}%"></i></div>
                     </div>
-                    <div class="rank-val">{{ (int) ($row['score'] ?? 0) }}</div>
+                    <div class="rank-item-aside">
+                        @if($employeeReportUrl)
+                            <a href="{{ $employeeReportUrl }}" class="rank-item-report-btn" data-turbo="false" title="{{ translate('View_full_report') ?? 'View full report' }}">
+                                <span class="material-symbols-outlined">description</span>
+                                <span class="rank-item-report-btn-label">{{ translate('View_full_report') ?? 'View full report' }}</span>
+                            </a>
+                        @endif
+                        <div class="rank-val">{{ (int) ($row['score'] ?? 0) }}</div>
+                    </div>
                 </div>
                 @include('adminmodule::partials._employee-progress-rank-marks', [
                     'marks' => $row['marks'] ?? [],
