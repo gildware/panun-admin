@@ -12,6 +12,7 @@ use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadChangeLog;
 use Modules\LeadManagement\Entities\LeadFollowup;
+use Modules\LeadManagement\Entities\LeadOutboundEnquiry;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Services\LeadFollowupService;
@@ -29,6 +30,8 @@ class EmployeeProgressScoreService
     public const POINTS_LEADS_HANDLED = 3;
 
     public const POINTS_PROVIDERS_REGISTERED = 10;
+
+    public const POINTS_OUTBOUND_ENQUIRIES = 1;
 
     public const POINTS_HELPED_LEAD_FOLLOWUP = 1;
 
@@ -63,6 +66,7 @@ class EmployeeProgressScoreService
             ['key' => 'bookings_completed', 'label' => translate('Bookings_Completed') ?? 'Bookings completed', 'points' => self::POINTS_BOOKINGS_COMPLETED, 'sign' => '+'],
             ['key' => 'leads_handled', 'label' => translate('New_Leads_Handled') ?? 'New Leads handled', 'points' => self::POINTS_LEADS_HANDLED, 'sign' => '+'],
             ['key' => 'providers_registered', 'label' => translate('New_Providers_Registered') ?? 'New Providers registered', 'points' => self::POINTS_PROVIDERS_REGISTERED, 'sign' => '+'],
+            ['key' => 'outbound_enquiries', 'label' => translate('Outbound_Enquiries') ?? 'Outbound Enquiries', 'points' => self::POINTS_OUTBOUND_ENQUIRIES, 'sign' => '+'],
             [
                 'key' => 'lead_data_quality_high',
                 'label' => translate('Progress_lead_data_quality_high') ?? 'Lead data quality ≥80%',
@@ -129,6 +133,7 @@ class EmployeeProgressScoreService
         $bookingsCreatedByEmployee = $this->bookingsCreatedByEmployee($employeeIds, $periodStart, $periodEnd);
         $bookingsCompletedByEmployee = $this->bookingsCompletedByEmployee($employeeIds, $periodStart, $periodEnd);
         $providersByEmployee = $this->providersRegisteredByEmployee($employeeIds, $periodStart, $periodEnd);
+        $outboundByEmployee = $this->outboundEnquiriesByEmployee($employeeIds, $periodStart, $periodEnd);
         $lateByEmployee = $this->lateFollowupPenaltiesByEmployee($employeeIds, $periodStart, $periodEnd);
         $qualityByEmployee = $this->leadDataQuality->summarizeForEmployees($employeeIds, $periodStart, $periodEnd);
         $helpedByEmployee = $this->helpedOthersByEmployee($employeeIds, $periodStart, $periodEnd);
@@ -151,6 +156,7 @@ class EmployeeProgressScoreService
                 (int) ($bookingsCompletedByEmployee[$employeeId] ?? 0),
                 $helpedByEmployee[$employeeId] ?? $this->emptyHelpedOthers(),
                 $activeByEmployee[$employeeId] ?? $this->emptyActiveAssignments(),
+                (int) ($outboundByEmployee[$employeeId] ?? 0),
             );
         }
 
@@ -196,10 +202,12 @@ class EmployeeProgressScoreService
         ?int $bookingsCompletedOverride = null,
         array $helpedOthers = [],
         array $activeAssignments = [],
+        ?int $outboundEnquiriesOverride = null,
     ): array {
         $bookingsCreated = $bookingsCreatedOverride ?? (int) ($employeeRow['bookings_created'] ?? 0);
         $bookingsCompleted = $bookingsCompletedOverride ?? (int) ($employeeRow['bookings_completed'] ?? 0);
         $leadsHandled = $leadsHandledOverride ?? (int) ($employeeRow['leads_assigned'] ?? $employeeRow['leads_handled'] ?? 0);
+        $outboundEnquiries = $outboundEnquiriesOverride ?? (int) ($employeeRow['outbound_enquiries'] ?? 0);
         $latePenalty = $latePenalty === [] ? $this->emptyLatePenalty() : $latePenalty;
         $dataQuality = $dataQuality === [] ? $this->leadDataQuality->emptySummary() : $dataQuality;
         $qualityHigh = (int) ($dataQuality['high_count'] ?? 0);
@@ -232,6 +240,13 @@ class EmployeeProgressScoreService
                 translate('New_Providers_Registered') ?? 'New Providers registered',
                 $providersRegistered,
                 self::POINTS_PROVIDERS_REGISTERED,
+                true,
+            ),
+            $this->markLine(
+                'outbound_enquiries',
+                translate('Outbound_Enquiries') ?? 'Outbound Enquiries',
+                $outboundEnquiries,
+                self::POINTS_OUTBOUND_ENQUIRIES,
                 true,
             ),
         ];
@@ -319,6 +334,7 @@ class EmployeeProgressScoreService
             'bookings_completed' => $bookingsCompleted,
             'leads' => $leadsHandled,
             'providers_registered' => $providersRegistered,
+            'outbound_enquiries' => $outboundEnquiries,
             'chats' => (int) ($employeeRow['whatsapp_replies'] ?? 0),
             'followups' => (int) ($employeeRow['lead_followups'] ?? 0) + (int) ($employeeRow['booking_followups'] ?? 0),
             'late_followups' => (int) ($latePenalty['total_count'] ?? 0),
@@ -618,6 +634,38 @@ class EmployeeProgressScoreService
             ])
             ->groupBy('assignee_id')
             ->pluck('cnt', 'assignee_id');
+
+        foreach ($rows as $id => $count) {
+            $counts[(string) $id] = (int) $count;
+        }
+
+        return $counts;
+    }
+
+    /**
+     * Outbound enquiries logged against the employee (handled_by) in the period.
+     *
+     * @param  list<string>  $employeeIds
+     * @return array<string, int>
+     */
+    public function outboundEnquiriesByEmployee(array $employeeIds, Carbon $periodStart, Carbon $periodEnd): array
+    {
+        $counts = array_fill_keys($employeeIds, 0);
+
+        if ($employeeIds === [] || ! Schema::hasTable((new LeadOutboundEnquiry)->getTable())) {
+            return $counts;
+        }
+
+        $rows = LeadOutboundEnquiry::query()
+            ->selectRaw('handled_by, COUNT(*) as cnt')
+            ->whereIn('handled_by', $employeeIds)
+            ->whereNotNull('handled_by')
+            ->whereBetween('contacted_at', [
+                $periodStart->copy()->startOfDay(),
+                $periodEnd->copy()->endOfDay(),
+            ])
+            ->groupBy('handled_by')
+            ->pluck('cnt', 'handled_by');
 
         foreach ($rows as $id => $count) {
             $counts[(string) $id] = (int) $count;

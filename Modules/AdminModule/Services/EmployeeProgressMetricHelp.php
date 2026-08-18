@@ -614,6 +614,7 @@ class EmployeeProgressMetricHelp
         $completed = EmployeeProgressScoreService::POINTS_BOOKINGS_COMPLETED;
         $leads = EmployeeProgressScoreService::POINTS_LEADS_HANDLED;
         $providers = EmployeeProgressScoreService::POINTS_PROVIDERS_REGISTERED;
+        $outbound = EmployeeProgressScoreService::POINTS_OUTBOUND_ENQUIRIES;
         $qualityHigh = LeadDataQualityScoreService::MARKS_HIGH;
         $qualityMid = LeadDataQualityScoreService::MARKS_MID;
         $helpedLeadFu = EmployeeProgressScoreService::POINTS_HELPED_LEAD_FOLLOWUP;
@@ -645,6 +646,12 @@ class EmployeeProgressMetricHelp
                 'New provider leads assigned to you whose received date is in this period and that are currently Registered. Older provider leads you registered this period are not counted. Score = quantity × +'.$providers.'.',
                 2,
                 $providers,
+            ),
+            self::rankHelpKey('outbound_enquiries') => self::rankEntry(
+                translate('Outbound_Enquiries') ?? 'Outbound Enquiries',
+                'Outbound enquiries you made (Handled By) with a contact date in this period. Call and message both count. Score = quantity × +'.$outbound.'.',
+                6,
+                $outbound,
             ),
             self::rankHelpKey('lead_data_quality_high') => self::rankEntry(
                 translate('Progress_lead_data_quality_high') ?? 'Lead data quality ≥80%',
@@ -684,7 +691,7 @@ class EmployeeProgressMetricHelp
             ),
             self::rankHelpKey('quantity') => self::entry(
                 translate('Quantity') ?? 'Quantity',
-                'Sum of your own-work marks: new bookings created, bookings completed, new leads handled, new providers registered, and lead data quality.',
+                'Sum of your own-work marks: new bookings created, bookings completed, new leads handled, new providers registered, outbound enquiries, and lead data quality.',
                 'If Self items total +48, Quantity = +48',
             ),
             self::rankHelpKey('helped') => self::entry(

@@ -12,6 +12,7 @@ use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadChangeLog;
 use Modules\LeadManagement\Entities\LeadFollowup;
+use Modules\LeadManagement\Entities\LeadOutboundEnquiry;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Services\LeadFollowupService;
@@ -39,6 +40,7 @@ class EmployeeProgressRankMetricDetailService
             'bookings_completed',
             'leads_handled',
             'providers_registered',
+            'outbound_enquiries',
             'lead_data_quality_high',
             'lead_data_quality_mid',
             'helped_lead_followups',
@@ -106,6 +108,17 @@ class EmployeeProgressRankMetricDetailService
                     ['key' => 'lead', 'label' => translate('Lead') ?? 'Lead'],
                     ['key' => 'phone', 'label' => translate('Phone') ?? 'Phone'],
                     ['key' => 'at', 'label' => translate('Received_at') ?? 'Received'],
+                ],
+            ],
+            'outbound_enquiries' => [
+                'key' => 'outbound_enquiries',
+                'label' => translate('Outbound_Enquiries') ?? 'Outbound Enquiries',
+                'columns' => [
+                    ['key' => 'customer', 'label' => translate('Customer') ?? 'Customer'],
+                    ['key' => 'phone', 'label' => translate('Phone') ?? 'Phone'],
+                    ['key' => 'channel', 'label' => translate('Contacted_Through') ?? 'Channel'],
+                    ['key' => 'status', 'label' => translate('Status') ?? 'Status'],
+                    ['key' => 'at', 'label' => translate('Date_Time') ?? 'Date'],
                 ],
             ],
             'lead_data_quality_high' => [
@@ -223,6 +236,7 @@ class EmployeeProgressRankMetricDetailService
             'bookings_completed' => $this->bookingsCompleted($employeeId, $periodStart, $periodEnd),
             'leads_handled' => $this->leadsHandled($employeeId, $periodStart, $periodEnd),
             'providers_registered' => $this->providersRegistered($employeeId, $periodStart, $periodEnd),
+            'outbound_enquiries' => $this->outboundEnquiries($employeeId, $periodStart, $periodEnd),
             'lead_data_quality_high' => $this->leadDataQualityLeads($employeeId, $periodStart, $periodEnd, 'high'),
             'lead_data_quality_mid' => $this->leadDataQualityLeads($employeeId, $periodStart, $periodEnd, 'mid'),
             'helped_lead_followups' => $this->helpedLeadFollowups($employeeId, $periodStart, $periodEnd),
@@ -293,6 +307,7 @@ class EmployeeProgressRankMetricDetailService
                     'bookings_completed',
                     'leads_handled',
                     'providers_registered',
+                    'outbound_enquiries',
                     'lead_data_quality_high',
                     'lead_data_quality_mid',
                 ],
@@ -468,6 +483,49 @@ class EmployeeProgressRankMetricDetailService
         }
 
         return $rows;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function outboundEnquiries(string $employeeId, Carbon $periodStart, Carbon $periodEnd): array
+    {
+        if (! Schema::hasTable((new LeadOutboundEnquiry)->getTable())) {
+            return [];
+        }
+
+        $rangeStart = $periodStart->copy()->startOfDay();
+        $rangeEnd = $periodEnd->copy()->endOfDay();
+
+        return LeadOutboundEnquiry::query()
+            ->with(['statusConfig:id,name', 'lead:id', 'relatedLead:id', 'booking:id,readable_id'])
+            ->where('handled_by', $employeeId)
+            ->whereBetween('contacted_at', [$rangeStart, $rangeEnd])
+            ->orderByDesc('contacted_at')
+            ->orderByDesc('id')
+            ->get()
+            ->map(function (LeadOutboundEnquiry $enquiry) {
+                $url = null;
+                if ($enquiry->lead_id) {
+                    $url = route('admin.lead.show', $enquiry->lead_id);
+                } elseif ($enquiry->related_lead_id) {
+                    $url = route('admin.lead.show', $enquiry->related_lead_id);
+                } elseif ($enquiry->booking_id) {
+                    $url = route('admin.booking.details', $enquiry->booking_id);
+                }
+
+                $channel = (string) ($enquiry->contacted_through ?? '');
+
+                return [
+                    'customer' => $enquiry->customer_name ?: '—',
+                    'phone' => $enquiry->phone_number ?: '—',
+                    'channel' => $channel !== '' ? ucfirst($channel) : '—',
+                    'status' => $enquiry->statusConfig?->name ?? ($enquiry->status ?: '—'),
+                    'at' => optional($enquiry->contacted_at)->format('d M Y h:i a'),
+                    'url' => $url,
+                ];
+            })
+            ->all();
     }
 
     /**
