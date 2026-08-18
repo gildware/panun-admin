@@ -3,7 +3,7 @@
 @section('title', ($detail['label'] ?? translate('Metric_detail')).' · '.$employeeName)
 
 @push('css_or_js')
-<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260817rank2">
+<link rel="stylesheet" href="{{ asset('assets/admin-module/css/employee-progress-premium.css') }}?v=20260818rank3">
 @endpush
 
 @section('content')
