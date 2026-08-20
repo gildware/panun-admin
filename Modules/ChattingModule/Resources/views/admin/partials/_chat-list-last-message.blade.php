@@ -31,7 +31,19 @@
 
         if ($isOutgoingLast) {
             $recipientChannelUsers = $chat->channelUsers
-                ->where('user_id', '!=', auth()->id())
+                ->filter(function ($channelUser) use ($chat) {
+                    if ((string) $channelUser->user_id === (string) auth()->id()) {
+                        return false;
+                    }
+
+                    if (is_support_channel_reference_type($chat->reference_type ?? null)) {
+                        $type = $channelUser->user->user_type ?? null;
+
+                        return $type && ! in_array($type, ADMIN_USER_TYPES, true);
+                    }
+
+                    return true;
+                })
                 ->values();
         }
     }

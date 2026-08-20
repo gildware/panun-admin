@@ -1,4 +1,4 @@
-@php($fromUser = $chat->channelUsers->where('user_id', '!=', auth()->id())->first())
+@php($fromUser = support_inbox_peer_channel_user($chat->channelUsers, auth()->id()))
 @php($supportChannelType = $chat->reference_type ?? null)
 @php($showAsCustomer = $supportChannelType === 'support_customer' || ($supportChannelType === 'support' && isset($fromUser->user) && in_array($fromUser->user->user_type, CUSTOMER_USER_TYPES, true)))
 @php($showAsProvider = in_array($supportChannelType, ['support_provider'], true) || ($supportChannelType === 'support' && isset($fromUser->user) && $fromUser->user->user_type === 'provider-admin'))

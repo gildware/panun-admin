@@ -66,7 +66,7 @@ class ChannelList extends Model
 
     public function channelUsers(): HasMany
     {
-        return $this->hasMany(ChannelUser::class, 'channel_id', 'id');
+        return $this->hasMany(ChannelUser::class, 'channel_id', 'id')->orderBy('id');
     }
 
     public function channelConversations(): HasMany
