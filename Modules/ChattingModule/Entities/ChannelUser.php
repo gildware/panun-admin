@@ -27,7 +27,7 @@ class ChannelUser extends Model
     public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class)
-            ->select('id', 'first_name', 'last_name', 'email', 'phone', 'profile_image', 'fcm_token', 'user_type', 'provider_id', 'staff_presence_status', 'last_seen_at', 'created_at', 'updated_at', 'current_language_key');
+            ->select('id', 'first_name', 'last_name', 'email', 'phone', 'profile_image', 'fcm_token', 'user_type', 'staff_presence_status', 'last_seen_at', 'created_at', 'updated_at', 'current_language_key');
     }
 
     protected static function newFactory()
