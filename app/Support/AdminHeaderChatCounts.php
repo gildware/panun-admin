@@ -103,12 +103,8 @@ final class AdminHeaderChatCounts
     {
         $userId = $user->id;
 
-        $staffUnreadChannelIds = ChannelList::query()
+        $staffUnreadChannelIds = constrain_staff_direct_channels(ChannelList::query(), $userId)
             ->whereHas('channelUsers', fn ($query) => $query->where('user_id', $userId)->where('is_read', 0))
-            ->whereHas('channelUsers', function ($query) use ($userId) {
-                $query->where('user_id', '!=', $userId)
-                    ->whereHas('user', fn ($uq) => $uq->whereIn('user_type', ADMIN_USER_TYPES));
-            })
             ->pluck('id');
 
         if ($staffUnreadChannelIds->isEmpty()) {

@@ -1456,6 +1456,68 @@ if (! function_exists('is_support_channel_reference_type')) {
     }
 }
 
+if (! function_exists('staff_direct_channel_excluded_reference_types')) {
+    /**
+     * Channel types that must never appear in the staff 1:1 inbox.
+     *
+     * @return list<string>
+     */
+    function staff_direct_channel_excluded_reference_types(): array
+    {
+        return array_merge(
+            support_channel_reference_types(),
+            [\Modules\ChattingModule\Services\StaffGroupChannelService::REFERENCE_TYPE]
+        );
+    }
+}
+
+if (! function_exists('is_staff_direct_channel')) {
+    /**
+     * True for a 1:1 staff conversation: only admin members, not support, not the group.
+     */
+    function is_staff_direct_channel(?string $referenceType, $channelUsers): bool
+    {
+        if (is_support_channel_reference_type($referenceType)) {
+            return false;
+        }
+
+        if ((string) $referenceType === \Modules\ChattingModule\Services\StaffGroupChannelService::REFERENCE_TYPE) {
+            return false;
+        }
+
+        $types = collect($channelUsers)
+            ->map(fn ($channelUser) => $channelUser->user->user_type ?? null)
+            ->filter()
+            ->unique()
+            ->values();
+
+        return $types->isNotEmpty()
+            && $types->every(fn ($type) => in_array($type, ADMIN_USER_TYPES, true));
+    }
+}
+
+if (! function_exists('constrain_staff_direct_channels')) {
+    /**
+     * Limit a channel_lists query to 1:1 staff threads for this admin.
+     */
+    function constrain_staff_direct_channels($query, string $userId)
+    {
+        return $query
+            ->where(function ($inner) {
+                $inner->whereNull('reference_type')
+                    ->orWhereNotIn('reference_type', staff_direct_channel_excluded_reference_types());
+            })
+            ->whereHas('channelUsers', fn ($channelQuery) => $channelQuery->where('user_id', $userId))
+            ->whereHas('channelUsers', function ($channelQuery) use ($userId) {
+                $channelQuery->where('user_id', '!=', $userId)
+                    ->whereHas('user', fn ($userQuery) => $userQuery->whereIn('user_type', ADMIN_USER_TYPES));
+            })
+            ->whereDoesntHave('channelUsers.user', function ($userQuery) {
+                $userQuery->whereNotIn('user_type', ADMIN_USER_TYPES);
+            });
+    }
+}
+
 if (! function_exists('support_channel_reference_type_for_app')) {
     /**
      * Distinct support channel type per mobile app so dual-role users keep separate threads.
