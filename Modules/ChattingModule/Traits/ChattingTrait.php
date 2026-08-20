@@ -77,6 +77,8 @@ trait ChattingTrait
 
         $existing = $this->findChannelBetweenUsers($fromUser, $toUser, $referenceType);
         if ($existing) {
+            ensure_all_admin_staff_on_support_channel($existing->id);
+
             return $existing;
         }
 
@@ -85,12 +87,16 @@ trait ChattingTrait
             if ($legacy) {
                 $legacy->reference_type = $referenceType;
                 $legacy->save();
+                ensure_all_admin_staff_on_support_channel($legacy->id);
 
                 return $legacy->fresh();
             }
         }
 
-        return $this->createNewChannel($fromUser, $toUser, '', $referenceType);
+        $channel = $this->createNewChannel($fromUser, $toUser, '', $referenceType);
+        ensure_all_admin_staff_on_support_channel($channel->id);
+
+        return $channel;
     }
 
     /**
@@ -193,15 +199,14 @@ trait ChattingTrait
             return false;
         }
 
-        $hasSuperAdmin = $this->channelUser
-            ->where('channel_id', $channelId)
-            ->whereHas('user', function ($query) {
-                $query->where('user_type', ADMIN_USER_TYPES[0]);
-            })
-            ->exists();
+        $userType = $this->user->where('id', $userId)->value('user_type');
+        if (in_array((string) $userType, ADMIN_USER_TYPES, true)) {
+            ensure_all_admin_staff_on_support_channel($channelId);
 
-        if (! $hasSuperAdmin) {
-            return false;
+            return $this->channelUser
+                ->where('channel_id', $channelId)
+                ->where('user_id', $userId)
+                ->exists();
         }
 
         // Never attach a different provider/customer to another account's support thread.
@@ -215,15 +220,7 @@ trait ChattingTrait
             return false;
         }
 
-        $this->channelUser->create([
-            'id' => Uuid::uuid4(),
-            'channel_id' => $channelId,
-            'user_id' => $userId,
-            'is_read' => 1,
-            'read_at' => now(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $this->ensureChannelUser($channelId, $userId);
 
         return true;
     }

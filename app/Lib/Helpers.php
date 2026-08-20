@@ -1483,6 +1483,48 @@ if (! function_exists('support_channel_reference_type_for_user_type')) {
     }
 }
 
+if (! function_exists('support_inbox_peer_channel_user')) {
+    /**
+     * Customer/provider member of a support thread (not another admin).
+     */
+    function support_inbox_peer_channel_user($channelUsers, ?string $currentUserId = null)
+    {
+        $users = collect($channelUsers);
+
+        $peer = $users->first(function ($channelUser) {
+            $type = $channelUser->user->user_type ?? null;
+
+            return $type && ! in_array($type, ADMIN_USER_TYPES, true);
+        });
+
+        if ($peer) {
+            return $peer;
+        }
+
+        if ($currentUserId) {
+            return $users->first(fn ($channelUser) => (string) ($channelUser->user_id ?? '') !== (string) $currentUserId);
+        }
+
+        return $users->first();
+    }
+}
+
+if (! function_exists('active_admin_staff_ids')) {
+    /**
+     * @return list<string>
+     */
+    function active_admin_staff_ids(): array
+    {
+        return \Modules\UserManagement\Entities\User::query()
+            ->whereIn('user_type', ADMIN_USER_TYPES)
+            ->where('is_active', 1)
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id)
+            ->values()
+            ->all();
+    }
+}
+
 if (! function_exists('ensure_support_channel_user')) {
     function ensure_support_channel_user(string $channelId, string $userId): void
     {
@@ -1495,15 +1537,47 @@ if (! function_exists('ensure_support_channel_user')) {
             return;
         }
 
+        $isRead = 1;
+        $readAt = now();
+        $userType = \Modules\UserManagement\Entities\User::query()
+            ->where('id', $userId)
+            ->value('user_type');
+
+        if (in_array((string) $userType, ADMIN_USER_TYPES, true)) {
+            $adminRow = \Modules\ChattingModule\Entities\ChannelUser::query()
+                ->where('channel_id', $channelId)
+                ->whereHas('user', fn ($query) => $query->where('user_type', ADMIN_USER_TYPES[0]))
+                ->first();
+
+            if ($adminRow) {
+                $isRead = (int) $adminRow->is_read;
+                $readAt = $isRead === 1 ? ($adminRow->read_at ?? now()) : null;
+            }
+        }
+
         \Modules\ChattingModule\Entities\ChannelUser::query()->create([
             'id' => \Ramsey\Uuid\Uuid::uuid4(),
             'channel_id' => $channelId,
             'user_id' => $userId,
-            'is_read' => 1,
-            'read_at' => now(),
+            'is_read' => $isRead,
+            'read_at' => $readAt,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+}
+
+if (! function_exists('ensure_all_admin_staff_on_support_channel')) {
+    function ensure_all_admin_staff_on_support_channel(string $channelId): void
+    {
+        $channel = \Modules\ChattingModule\Entities\ChannelList::query()->find($channelId);
+        if (! $channel || ! is_support_channel_reference_type($channel->reference_type)) {
+            return;
+        }
+
+        foreach (active_admin_staff_ids() as $adminId) {
+            ensure_support_channel_user($channelId, $adminId);
+        }
     }
 }
 
@@ -1557,6 +1631,7 @@ if (! function_exists('find_or_create_admin_support_channel')) {
                     'updated_at' => now(),
                 ],
             ]);
+            ensure_all_admin_staff_on_support_channel($channel->id);
 
             return ['channel' => $channel->fresh(), 'created' => true];
         }
@@ -1573,7 +1648,7 @@ if (! function_exists('find_or_create_admin_support_channel')) {
         }
 
         if ($existing) {
-            ensure_support_channel_user($existing->id, $adminUserId);
+            ensure_all_admin_staff_on_support_channel($existing->id);
 
             return ['channel' => $existing->fresh(), 'created' => false];
         }
@@ -1617,6 +1692,7 @@ if (! function_exists('find_or_create_admin_support_channel')) {
         }
 
         \Modules\ChattingModule\Entities\ChannelUser::query()->insert($members);
+        ensure_all_admin_staff_on_support_channel($channel->id);
 
         return ['channel' => $channel->fresh(), 'created' => true];
     }

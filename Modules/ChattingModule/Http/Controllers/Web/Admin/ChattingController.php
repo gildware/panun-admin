@@ -94,39 +94,31 @@ class ChattingController extends Controller
             $filter = 'all';
         }
 
-        $chatListQuery = $this->channelList
-            ->with($this->channelListEagerLoads())
-            ->whereHas('channelUsers', function ($query) use ($request) {
-                $query->where(['user_id' => $request->user()->id]);
-            });
-
         if ($isStaffMode) {
-            $chatListQuery->whereHas('channelUsers', function ($channelQuery) use ($request) {
-                $channelQuery->where('user_id', '!=', $request->user()->id)
-                    ->whereHas('user', fn ($userQuery) => $userQuery->whereIn('user_type', ADMIN_USER_TYPES));
-            });
-        } else {
-            $chatListQuery
+            $chatListQuery = $this->channelList
+                ->with($this->channelListEagerLoads())
+                ->whereHas('channelUsers', function ($query) use ($request) {
+                    $query->where(['user_id' => $request->user()->id]);
+                })
                 ->whereHas('channelUsers', function ($channelQuery) use ($request) {
                     $channelQuery->where('user_id', '!=', $request->user()->id)
-                        ->whereHas('user', function ($userQuery) {
-                            $userQuery->where(function ($query) {
-                                $query->whereIn('user_type', CUSTOMER_USER_TYPES)
-                                    ->orWhere('user_type', 'provider-admin');
-                            });
-                        });
-                })
-                ->when($filter === 'unread', function ($query) use ($request) {
-                    $query->whereHas('channelUsers', fn ($q) => $q
-                        ->where('user_id', $request->user()->id)
-                        ->where('is_read', 0));
+                        ->whereHas('user', fn ($userQuery) => $userQuery->whereIn('user_type', ADMIN_USER_TYPES));
                 });
+        } else {
+            $chatListQuery = $this->supportInboxListQuery($request, $filter);
         }
 
         $chatList = $chatListQuery->orderBy('updated_at', 'DESC')->get();
 
+        if (! $isStaffMode) {
+            foreach ($chatList as $chat) {
+                ensure_support_channel_user($chat->id, (string) $request->user()->id);
+            }
+            $chatList->load($this->channelListEagerLoads());
+        }
+
         $chatList->map(function ($chat) use ($request) {
-            $chat['is_read'] = $chat->channelUsers->where('user_id', $request->user()->id)->first()->is_read;
+            $chat['is_read'] = $chat->channelUsers->where('user_id', $request->user()->id)->first()?->is_read ?? 1;
         });
 
         $type = $isStaffMode ? 'staff' : 'support';
@@ -446,6 +438,7 @@ class ChattingController extends Controller
             (string) $request['channel_id'],
             (string) $request->user()->id
         );
+        $this->healSupportChannelMembership($channelId, (string) $request->user()->id);
 
         $replyToId = $this->resolveReplyToConversationId(
             $channelId,
@@ -496,10 +489,14 @@ class ChattingController extends Controller
 
         $channel = $this->channelList->with($this->channelListEagerLoads())
             ->find($channelId);
-        $fromUser = $this->channelUser->where('channel_id', $channelId)
-            ->where('user_id', '!=', $request->user()->id)
-            ->with($this->channelMemberEagerLoads())
-            ->first();
+        $fromUser = $this->peerChannelUserFor(
+            $channel,
+            $this->channelUser->where('channel_id', $channelId)
+                ->where('user_id', '!=', $request->user()->id)
+                ->with($this->channelMemberEagerLoads())
+                ->get(),
+            (string) $request->user()->id
+        );
         $messagingContext = $this->staffMessagingViewContext($channel, $fromUser);
         if ($channel) {
             $channel['is_read'] = 1;
@@ -717,6 +714,8 @@ class ChattingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
+        $this->healSupportChannelMembership((string) $request['channel_id'], (string) $request->user()->id);
+
         $this->channelUser->where('channel_id', $request['channel_id'])->where('user_id', $request->user()->id)
             ->update([
                 'is_read' => 1,
@@ -728,13 +727,16 @@ class ChattingController extends Controller
                 $query->where(['user_id' => $request->user()->id]);
             })->latest()->paginate(100, ['*'], 'offset', $request['offset']);
 
-        $fromUser = $this->channelUser->where('channel_id', $request['channel_id'])
-            ->where('user_id', '!=', $request->user()->id)
-            ->with($this->channelMemberEagerLoads())
-            ->first();
-
         $channelId = $request['channel_id'];
         $channel = $this->channelList->withCount('channelUsers')->find($channelId);
+        $fromUser = $this->peerChannelUserFor(
+            $channel,
+            $this->channelUser->where('channel_id', $request['channel_id'])
+                ->where('user_id', '!=', $request->user()->id)
+                ->with($this->channelMemberEagerLoads())
+                ->get(),
+            (string) $request->user()->id
+        );
         $supportChannelType = $channel?->reference_type;
         $messagingContext = $this->staffMessagingViewContext($channel, $fromUser);
         $presenceContext = ($messagingContext['isStaffGroup'] ?? false)
@@ -1032,10 +1034,17 @@ class ChattingController extends Controller
 
     private function recipientChannelUsersFor(string $channelId, string $senderUserId): \Illuminate\Support\Collection
     {
-        return $this->channelUser->query()
+        $channel = $this->channelList->find($channelId);
+        $query = $this->channelUser->query()
             ->where('channel_id', $channelId)
             ->where('user_id', '!=', $senderUserId)
-            ->get(['user_id', 'is_read', 'read_at']);
+            ->with($this->channelMemberEagerLoads());
+
+        if ($channel && is_support_channel_reference_type($channel->reference_type)) {
+            $query->whereHas('user', fn ($userQuery) => $userQuery->whereNotIn('user_type', ADMIN_USER_TYPES));
+        }
+
+        return $query->get(['id', 'user_id', 'is_read', 'read_at']);
     }
 
     private function buildLiveSyncChatList(Request $request): \Illuminate\Support\Collection
@@ -1071,32 +1080,50 @@ class ChattingController extends Controller
             $filter = 'all';
         }
 
-        $chatListQuery = $this->channelList->withCount(['channelUsers'])
-            ->with($this->channelListEagerLoads())
-            ->whereHas('channelUsers', function ($query) use ($request) {
-                $query->where(['user_id' => $request->user()->id]);
-            })
-            ->whereHas('channelUsers', function ($channelQuery) use ($request) {
-                $channelQuery->where('user_id', '!=', $request->user()->id)
-                    ->whereHas('user', function ($userQuery) {
-                        $userQuery->where(function ($query) {
-                            $query->whereIn('user_type', CUSTOMER_USER_TYPES)
-                                ->orWhere('user_type', 'provider-admin');
-                        });
-                    });
+        $chatList = $this->supportInboxListQuery($request, $filter, true)
+            ->orderBy('updated_at', 'DESC')
+            ->get();
+
+        foreach ($chatList as $chat) {
+            ensure_support_channel_user($chat->id, (string) $request->user()->id);
+        }
+        $chatList->load($this->channelListEagerLoads());
+
+        return $chatList->map(function ($chat) use ($request) {
+            $chat['is_read'] = $chat->channelUsers->where('user_id', $request->user()->id)->first()?->is_read ?? 1;
+
+            return $chat;
+        });
+    }
+
+    private function supportInboxListQuery(Request $request, string $filter, bool $withCount = false)
+    {
+        $query = $withCount
+            ? $this->channelList->withCount(['channelUsers'])->with($this->channelListEagerLoads())
+            : $this->channelList->with($this->channelListEagerLoads());
+
+        return $query
+            ->whereIn('reference_type', support_channel_reference_types())
+            ->whereHas('channelUsers.user', function ($userQuery) {
+                $userQuery->where(function ($query) {
+                    $query->whereIn('user_type', CUSTOMER_USER_TYPES)
+                        ->orWhere('user_type', 'provider-admin');
+                });
             })
             ->when($filter === 'unread', function ($query) use ($request) {
                 $query->whereHas('channelUsers', fn ($q) => $q
                     ->where('user_id', $request->user()->id)
                     ->where('is_read', 0));
             });
+    }
 
-        return $chatListQuery->orderBy('updated_at', 'DESC')->get()
-            ->map(function ($chat) use ($request) {
-                $chat['is_read'] = $chat->channelUsers->where('user_id', $request->user()->id)->first()?->is_read ?? 1;
+    private function peerChannelUserFor(?ChannelList $channel, $channelUsers, string $currentUserId): ?ChannelUser
+    {
+        if ($channel && is_support_channel_reference_type($channel->reference_type)) {
+            return support_inbox_peer_channel_user($channelUsers, $currentUserId);
+        }
 
-                return $chat;
-            });
+        return collect($channelUsers)->first();
     }
 
     private function buildStaffChatListForSync(Request $request): \Illuminate\Support\Collection
@@ -1197,10 +1224,14 @@ class ChattingController extends Controller
             })->latest()->paginate(100, ['*'], 'offset', 1);
 
         $channel = $this->channelList->withCount('channelUsers')->find($channelId);
-        $fromUser = $this->channelUser->where('channel_id', $channelId)
-            ->where('user_id', '!=', $request->user()->id)
-            ->with($this->channelMemberEagerLoads())
-            ->first();
+        $fromUser = $this->peerChannelUserFor(
+            $channel,
+            $this->channelUser->where('channel_id', $channelId)
+                ->where('user_id', '!=', $request->user()->id)
+                ->with($this->channelMemberEagerLoads())
+                ->get(),
+            (string) $request->user()->id
+        );
         $messagingContext = $this->staffMessagingViewContext($channel, $fromUser);
 
         return [
