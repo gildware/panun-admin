@@ -73,17 +73,17 @@ class ChattingController extends Controller
         ]));
     }
 
-    public function staffIndex(Request $request): Factory|View|Application
+    public function staffIndex(Request $request): Factory|View|Application|RedirectResponse
     {
         return $this->renderChatPage($request, true);
     }
 
-    public function supportIndex(Request $request): Factory|View|Application
+    public function supportIndex(Request $request): Factory|View|Application|RedirectResponse
     {
         return $this->renderChatPage($request, false);
     }
 
-    private function renderChatPage(Request $request, bool $isStaffMode): Factory|View|Application
+    private function renderChatPage(Request $request, bool $isStaffMode): Factory|View|Application|RedirectResponse
     {
         $request->validate([
             'filter' => 'nullable|in:all,unread',
@@ -95,15 +95,7 @@ class ChattingController extends Controller
         }
 
         if ($isStaffMode) {
-            $chatListQuery = $this->channelList
-                ->with($this->channelListEagerLoads())
-                ->whereHas('channelUsers', function ($query) use ($request) {
-                    $query->where(['user_id' => $request->user()->id]);
-                })
-                ->whereHas('channelUsers', function ($channelQuery) use ($request) {
-                    $channelQuery->where('user_id', '!=', $request->user()->id)
-                        ->whereHas('user', fn ($userQuery) => $userQuery->whereIn('user_type', ADMIN_USER_TYPES));
-                });
+            $chatListQuery = $this->staffInboxListQuery($request);
         } else {
             $chatListQuery = $this->supportInboxListQuery($request, $filter);
         }
@@ -159,6 +151,18 @@ class ChattingController extends Controller
         }
 
         $openChannelId = $request->query('channel_id');
+        if ($openChannelId) {
+            $openChannel = $this->channelList->with('channelUsers.user')->find($openChannelId);
+            if ($isStaffMode && $openChannel && is_support_channel_reference_type($openChannel->reference_type)) {
+                return redirect()->route('admin.chat.support', array_filter([
+                    'filter' => $filter,
+                    'channel_id' => $openChannelId,
+                ]));
+            }
+            if (! $isStaffMode && $openChannel && is_staff_direct_channel($openChannel->reference_type, $openChannel->channelUsers)) {
+                return redirect()->route('admin.chat.staff', ['channel_id' => $openChannelId]);
+            }
+        }
 
         return view('chattingmodule::admin.index', compact('chatList', 'customers', 'providers', 'servicemen', 'staffMembers', 'staffPresenceById', 'type', 'filter', 'openChannelId', 'staffGroupChannel', 'staffGroupMemberCount'));
     }
@@ -1117,6 +1121,15 @@ class ChattingController extends Controller
             });
     }
 
+    private function staffInboxListQuery(Request $request, bool $withCount = false)
+    {
+        $query = $withCount
+            ? $this->channelList->withCount(['channelUsers'])->with($this->channelListEagerLoads())
+            : $this->channelList->with($this->channelListEagerLoads());
+
+        return constrain_staff_direct_channels($query, (string) $request->user()->id);
+    }
+
     private function peerChannelUserFor(?ChannelList $channel, $channelUsers, string $currentUserId): ?ChannelUser
     {
         if ($channel && is_support_channel_reference_type($channel->reference_type)) {
@@ -1128,15 +1141,7 @@ class ChattingController extends Controller
 
     private function buildStaffChatListForSync(Request $request): \Illuminate\Support\Collection
     {
-        $chatList = $this->channelList->withCount(['channelUsers'])
-            ->with($this->channelListEagerLoads())
-            ->whereHas('channelUsers', function ($query) use ($request) {
-                $query->where(['user_id' => $request->user()->id]);
-            })
-            ->whereHas('channelUsers', function ($channelQuery) use ($request) {
-                $channelQuery->where('user_id', '!=', $request->user()->id)
-                    ->whereHas('user', fn ($userQuery) => $userQuery->whereIn('user_type', ADMIN_USER_TYPES));
-            })
+        $chatList = $this->staffInboxListQuery($request, true)
             ->orderBy('updated_at', 'DESC')
             ->get()
             ->filter(fn ($chat) => ! $this->staffGroupChannelService->isStaffGroupChannel($chat))
