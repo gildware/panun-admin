@@ -213,3 +213,4 @@ if ($prefixSetting && $originalPrefix !== null) {
 }
 
 echo 'Done. Seeded '.count($services)." home appliance services on live.\n";
+echo "Next: cd panun-marketing && npm run sync-catalog   # refresh marketing image URLs\n";
