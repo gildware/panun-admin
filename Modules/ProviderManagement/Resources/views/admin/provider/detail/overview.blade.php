@@ -247,9 +247,6 @@
                         <a class="nav-link {{ $webPage == 'bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=bookings">{{ translate('Bookings') }}</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{ $webPage == 'withdrawn_bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=withdrawn_bookings">{{ translate('Provider_withdrawals_and_rejections') }}</a>
-                    </li>
-                    <li class="nav-item">
                         <a class="nav-link {{ $webPage == 'special_bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=special_bookings">{{ translate('Special_Bookings') }}</a>
                     </li>
                     <li class="nav-item">
@@ -289,9 +286,6 @@
                                     <span class="booking-status-chip ongoing">{{ translate('Ongoing') }} ({{ $bookingStatusCounts['ongoing'] ?? 0 }})</span>
                                     <span class="booking-status-chip completed">{{ translate('Completed') }} ({{ $bookingStatusCounts['completed'] ?? 0 }})</span>
                                     <span class="booking-status-chip canceled">{{ translate('Canceled') }} ({{ $bookingStatusCounts['canceled'] ?? 0 }})</span>
-                                    <a href="{{ url()->current() }}?web_page=withdrawn_bookings" class="booking-status-chip canceled text-decoration-none">
-                                        {{ translate('Provider_withdrawals_and_rejections') }} ({{ $withdrawnBookingsCount ?? 0 }})
-                                    </a>
                                 </div>
                             </div>
                         </div>

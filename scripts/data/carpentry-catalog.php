@@ -41,7 +41,7 @@ return [
         [
             'name' => 'Carpentry Installation',
             'slug' => 'carpentry-installation',
-            'description' => 'Door, window, bed, and table installation by verified carpenters.',
+            'description' => 'Door, window, bed, table, and wooden flooring installation by verified carpenters.',
             'sort_order' => 1,
         ],
         [
@@ -53,7 +53,7 @@ return [
         [
             'name' => 'Carpentry Repairs',
             'slug' => 'carpentry-repairs',
-            'description' => 'Door, furniture, kitchen cabinet, wardrobe, window, and other carpentry repairs.',
+            'description' => 'Door, furniture, kitchen cabinet, wardrobe, window, wooden flooring, and other carpentry repairs.',
             'sort_order' => 3,
         ],
         [
@@ -109,6 +109,18 @@ return [
                 carpentry_variant('table-install', 'Table Install'),
                 carpentry_variant('table-uninstall', 'Table Uninstall'),
                 carpentry_variant('table-install-uninstall', 'Table Install Uninstall'),
+            ],
+        ],
+        [
+            'name' => 'Wooden Flooring Install',
+            'slug' => 'wooden-flooring-install',
+            'sub_category_slug' => 'carpentry-installation',
+            'base_price' => 499.0,
+            'variants' => [
+                carpentry_variant('laminate-click-lock', 'Laminate / Click-lock', 499.0),
+                carpentry_variant('engineered-wood', 'Engineered Wood', 699.0),
+                carpentry_variant('solid-wood', 'Solid Wood', 899.0),
+                carpentry_variant('flooring-with-skirting', 'Flooring with Skirting', 999.0),
             ],
         ],
 
@@ -170,6 +182,19 @@ return [
             'sub_category_slug' => 'carpentry-repairs',
             'base_price' => 50.0,
             'variants' => [carpentry_inspection_variant('Book Site Inspection')],
+        ],
+        [
+            'name' => 'Wooden Flooring Repair',
+            'slug' => 'wooden-flooring-repair',
+            'sub_category_slug' => 'carpentry-repairs',
+            'base_price' => 199.0,
+            'variants' => [
+                carpentry_variant('book-site-inspection', 'Book Site Inspection', 199.0),
+                carpentry_variant('loose-lifting-plank', 'Loose / lifting plank', 299.0),
+                carpentry_variant('scratch-dent', 'Scratch / dent', 299.0),
+                carpentry_variant('gap-clicking', 'Gap / clicking', 299.0),
+                carpentry_variant('water-damage', 'Water damage', 399.0),
+            ],
         ],
         [
             'name' => 'Furniture Repair',

@@ -51,6 +51,7 @@ class BookingRepeat extends Model
         'total_tax_amount',
         'total_discount_amount',
         'service_schedule',
+        'visit_remarks',
         'service_address_id',
         'created_at',
         'updated_at',
@@ -110,6 +111,11 @@ class BookingRepeat extends Model
         return $this->hasMany(BookingRepeatDetails::class);
     }
 
+    public function extra_services(): HasMany
+    {
+        return $this->hasMany(BookingExtraService::class, 'booking_repeat_id');
+    }
+
     public function details_amounts(): hasMany
     {
         return $this->hasMany(BookingDetailsAmount::class);
@@ -156,14 +162,6 @@ class BookingRepeat extends Model
         parent::boot();
 
         self::updating(function ($model) {
-            // Prevent completion unless full payment received
-            if ($model->isDirty('booking_status') && $model->booking_status === 'completed') {
-                $r = BookingRepeat::find($model->id);
-                if ($r && !booking_can_be_completed($r)) {
-                    throw new \RuntimeException(translate('Booking cannot be completed until full payment is received.'));
-                }
-            }
-
             $booking_notification_status = business_config('booking', 'notification_settings')->live_values;
             $permission = isNotificationActive(null, 'booking', 'notification', 'user');
             $providerPermission = isNotificationActive(null, 'booking', 'notification', 'provider');
@@ -210,12 +208,16 @@ class BookingRepeat extends Model
                         ];
                     }
 
-                    $model->is_paid = 1;
+                    $visitPaidInFull = round((float) get_booking_total_paid($model), 2) + 0.005
+                        >= round((float) get_booking_total_amount($model), 2);
+                    if ($visitPaidInFull) {
+                        $model->is_paid = 1;
+                    }
 
                     $provider = $model->provider;
 
                     if ($provider) {
-                        $model->update_admin_commission($model, $model->total_booking_amount, $model->provider_id);
+                        $model->update_admin_commission($model, (float) ($model->total_booking_amount ?? 0), $model->provider_id);
                     }
 
 
@@ -225,13 +227,13 @@ class BookingRepeat extends Model
                         $model->loyaltyPointCalculation($model?->booking?->customer_id, $model);
 
                         if ($model->total_referral_discount_amount > 0){
-                            referralEarningTransactionAfterBookingRepeatCompleteFirst($model->customer, $model->total_referral_discount_amount, $model->id);
+                            referralEarningTransactionAfterBookingRepeatCompleteFirst($model->booking->customer, $model->total_referral_discount_amount, $model->id);
                         }
                     }
 
                     //================ Transactions for Booking ================
 
-                    if ($model?->provider) {
+                    if ($model?->provider && $visitPaidInFull) {
                         if ($model->payment_method == 'cash_after_service') {
                             completeBookingRepeatTransactionForCashAfterService($model);
                         } else {

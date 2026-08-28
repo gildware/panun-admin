@@ -37,11 +37,16 @@
                         <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center mt-4">
                             {{-- Add New Booking --}}
                             <a href="{{ route('admin.booking.create') }}" class="btn btn-primary">
-                                {{ translate('Add_New_Booking') }}
+                                {{ translate('One_time_booking') }}
+                            </a>
+                            <a href="{{ route('admin.booking.create-repeat') }}" class="btn btn-outline-primary">
+                                {{ translate('Repeat_booking') }}
                             </a>
 
                             {{-- View Booking Details --}}
-                            <a href="{{ route('admin.booking.details', ['id' => $booking->id, 'web_page' => 'details']) }}" class="btn btn-outline-primary" data-turbo="false">
+                            <a href="{{ (int) ($booking->is_repeated ?? 0) === 1
+                                ? route('admin.booking.repeat_details', [$booking->id, 'web_page' => 'details'])
+                                : route('admin.booking.details', ['id' => $booking->id, 'web_page' => 'details']) }}" class="btn btn-outline-primary" data-turbo="false">
                                 {{ translate('View_Details') }}
                             </a>
 

@@ -1381,22 +1381,12 @@ class BookingController extends Controller
                     sync_repeat_series_additional_charges((string) $booking->booking_id);
                     $bookingStatusHistory->save();
 
-                    $fullBooking = $this->bookingRepeat->where('booking_id', $booking->booking_id)->get();
-                    $allInactive = $fullBooking->every(function ($repeat) {
-                        return !in_array($repeat->booking_status, ['pending', 'accepted', 'ongoing']);
-                    });
-
-                    if ($allInactive) {
-                        $booking->booking->booking_status = 'completed';
-                        $booking->booking->is_paid = 1;
-                        $booking->booking->save();
-                    }
-
-                    if (in_array($booking->booking_status, ['ongoing', 'completed', 'canceled'])) {
-                        if ($booking->booking->booking_status != 'ongoing' && $booking->booking->booking_status != 'completed' && $booking->booking->booking_status != 'canceled') {
-                            $booking->booking->booking_status = 'ongoing';
-                            $booking->booking->save();
-                        }
+                    $parentBooking = $booking->booking;
+                    if ($parentBooking && empty($parentBooking->repeat_stopped_at)
+                        && in_array($booking->booking_status, ['ongoing', 'completed', 'canceled'], true)
+                        && ! in_array((string) $parentBooking->booking_status, ['ongoing', 'completed', 'canceled'], true)) {
+                        $parentBooking->booking_status = 'ongoing';
+                        $parentBooking->save();
                     }
                 });
 

@@ -276,6 +276,10 @@ if (! function_exists('notification_default_message_templates')) {
                     'title' => 'Booking {{bookingStatus}} – {{bookingId}}',
                     'description' => 'Hi {{providerName}}, booking {{bookingId}} status is now {{bookingStatus}}. Customer: {{userName}}.',
                 ],
+                'booking_reminder' => [
+                    'title' => 'Upcoming Booking – {{bookingId}}',
+                    'description' => 'Hi {{providerName}}, reminder: booking {{bookingId}} for {{userName}} is scheduled for {{scheduleTime}}.',
+                ],
                 'chat_message' => [
                     'title' => 'New Chat Message',
                     'description' => 'Hi {{providerName}}, you have a new chat message about booking {{bookingId}} from {{userName}}.',
@@ -2002,16 +2006,20 @@ if (! function_exists('notification_trigger_scenarios_for_key')) {
                 'wired' => true,
             ] : null,
 
-            'booking_reminder' => $isCustomer ? [
+            'booking_reminder' => [
                 'summary' => 'Sent before the scheduled service time as a reminder.',
-                'scenarios' => [
+                'scenarios' => $isCustomer ? [
                     'Automated reminder runs about one hour before service_schedule.',
                     'Customer has an accepted or ongoing booking coming up.',
+                    'A scheduled repeat visit is coming up.',
+                ] : [
+                    'Automated reminder runs about one hour before a scheduled visit.',
+                    'Provider has an accepted or ongoing booking or repeat visit coming up.',
                 ],
-                'recipient' => 'Customer',
+                'recipient' => $isCustomer ? 'Customer' : 'Provider',
                 'module' => 'Bookings',
                 'wired' => true,
-            ] : null,
+            ],
 
             'chat_message' => [
                 'summary' => 'Sent when a new in-app chat message arrives.',
@@ -2379,6 +2387,7 @@ if (! function_exists('notification_scenario_registry')) {
                 'trigger_action' => 'Scheduled reminder before the booking service time',
                 'audiences' => [
                     ['audience' => 'customer', 'channel' => 'push', 'key' => 'booking_reminder', 'settings_type' => 'customer_notification', 'wired' => true],
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'booking_reminder', 'settings_type' => 'provider_notification', 'wired' => true],
                 ],
             ],
             [
@@ -3843,45 +3852,70 @@ if (! function_exists('send_provider_settlement_received_notification')) {
 }
 
 if (! function_exists('send_booking_reminder_notification')) {
-    function send_booking_reminder_notification(Booking $booking): void
+    function send_booking_reminder_notification(Booking $booking, ?\Modules\BookingModule\Entities\BookingRepeat $repeat = null): void
     {
         $config = business_config('booking', 'notification_settings');
         if (! ($config->live_values['push_notification_booking'] ?? false)) {
             return;
         }
 
-        if (! isNotificationActive(null, 'booking', 'notification', 'user')) {
-            return;
-        }
-
-        $user = $booking->customer;
-        $title = get_push_notification_message('booking_reminder', 'customer_notification', $user?->current_language_key);
-        $description = get_push_notification_description('booking_reminder', 'customer_notification', $user?->current_language_key);
-        if (! $user || ! $user->is_active || ! $title) {
-            return;
-        }
-
         $repeatOrRegular = (int) ($booking->is_repeated ?? 0) ? 'repeat' : 'regular';
+        $scheduleSource = $repeat?->service_schedule ?: $booking->service_schedule;
+        $statusSource = $repeat?->booking_status ?: $booking->booking_status;
         $data = [
-            'booking_status' => ucfirst(str_replace('_', ' ', (string) ($booking->booking_status ?? ''))),
-            'schedule_time' => $booking->service_schedule
-                ? \Carbon\Carbon::parse($booking->service_schedule)->format('Y-m-d H:i')
+            'booking_status' => ucfirst(str_replace('_', ' ', (string) ($statusSource ?? ''))),
+            'schedule_time' => $scheduleSource
+                ? \Carbon\Carbon::parse($scheduleSource)->format('Y-m-d H:i')
                 : '',
         ];
+        if ($repeat) {
+            $data = booking_repeat_notification_template_data($repeat, $data);
+        }
 
-        scenario_push_notification(
-            $user,
-            $title,
-            $description,
-            $booking->id,
-            'booking',
-            $user->id,
-            $data,
-            $repeatOrRegular,
-            null,
-            'customer',
-            $booking->zone_id
-        );
+        $bookingId = $repeat?->id ?: $booking->id;
+
+        if (isNotificationActive(null, 'booking', 'notification', 'user')) {
+            $user = $booking->customer;
+            $title = get_push_notification_message('booking_reminder', 'customer_notification', $user?->current_language_key);
+            $description = get_push_notification_description('booking_reminder', 'customer_notification', $user?->current_language_key);
+            if ($user && $user->is_active && $title) {
+                scenario_push_notification(
+                    $user,
+                    $title,
+                    $description,
+                    $bookingId,
+                    'booking',
+                    $user->id,
+                    $data,
+                    $repeatOrRegular,
+                    null,
+                    'customer',
+                    $booking->zone_id
+                );
+            }
+        }
+
+        if (isNotificationActive(null, 'booking', 'notification', 'provider')) {
+            $booking->loadMissing('provider.owner');
+            $provider = $booking->provider?->owner;
+            $title = get_push_notification_message('booking_reminder', 'provider_notification', $provider?->current_language_key);
+            $description = get_push_notification_description('booking_reminder', 'provider_notification', $provider?->current_language_key);
+            if ($provider && $title && sendDeviceNotificationPermission($booking->provider_id) && user_has_fcm_devices($provider)) {
+                scenario_push_notification(
+                    $provider,
+                    $title,
+                    $description,
+                    $bookingId,
+                    'booking',
+                    $provider->id,
+                    $data,
+                    $repeatOrRegular,
+                    null,
+                    'provider-admin',
+                    $booking->zone_id
+                );
+            }
+        }
     }
 }
 

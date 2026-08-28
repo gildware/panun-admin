@@ -209,7 +209,7 @@
                     const $btn = $(this);
                     $btn.prop('disabled', true);
                     $.ajax({
-                        url: bsrStatusUpdateUrl,
+                        url: window.__bsrStatusUpdateUrlOverride || bsrStatusUpdateUrl,
                         method: 'POST',
                         dataType: 'json',
                         data: data,
@@ -258,11 +258,12 @@
                 });
             }
 
-            window.bookingAdminOpenStatusReasonModal = function (targetStatus, previousStatus) {
+            window.bookingAdminOpenStatusReasonModal = function (targetStatus, previousStatus, statusUrl) {
                 var $ = window.jQuery;
                 if (!$) {
                     return;
                 }
+                window.__bsrStatusUpdateUrlOverride = statusUrl || null;
                 bsrResetGroups();
                 const to = String(targetStatus);
                 $('#bsr-target-status').val(to);

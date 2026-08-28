@@ -168,11 +168,19 @@
                             </a>
                         </li>
                         @can('booking_view')
-                        <li class="nav-item max-sm-m-0">
-                            <a href="{{ route('admin.booking.create') }}" class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none">
+                        <li class="nav-item max-sm-m-0 dropdown">
+                            <a href="#" class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                                 <span class="material-symbols-outlined" aria-hidden="true">add_circle</span>
                                 <span class="d-none d-md-block">{{ translate('Add_New_Booking') }}</span>
                             </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <a class="dropdown-item" href="{{ route('admin.booking.create') }}">{{ translate('One_time_booking') }}</a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{{ route('admin.booking.create-repeat') }}">{{ translate('Repeat_booking') }}</a>
+                                </li>
+                            </ul>
                         </li>
                         @endcan
                         <li class="nav-item max-sm-m-0">

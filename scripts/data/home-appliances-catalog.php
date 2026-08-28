@@ -64,22 +64,34 @@ return [
             'sort_order' => 6,
         ],
         [
+            'name' => 'Deep Freezers',
+            'slug' => 'deep-freezers',
+            'description' => 'Deep freezer installation, repair, and gas refill / leak fix for home and commercial units.',
+            'sort_order' => 7,
+        ],
+        [
             'name' => 'Washing Machine',
             'slug' => 'washing-machine',
             'description' => 'Washing machine installation, repair, servicing, and uninstallation.',
-            'sort_order' => 7,
+            'sort_order' => 8,
         ],
         [
             'name' => 'Water Purifier',
             'slug' => 'ro-purifier',
             'description' => 'RO installation and service / repair.',
-            'sort_order' => 8,
+            'sort_order' => 9,
         ],
         [
             'name' => 'Small Appliances',
             'slug' => 'induction-heaters',
             'description' => 'Repair and installation for fans, microwave, chimney, hob, cooler, heater, and more.',
-            'sort_order' => 9,
+            'sort_order' => 10,
+        ],
+        [
+            'name' => 'Generators',
+            'slug' => 'generators',
+            'description' => 'Petrol and diesel generator installation, repair, servicing, and uninstallation.',
+            'sort_order' => 11,
         ],
     ],
     'deactivate_sub_slugs' => [],
@@ -316,6 +328,42 @@ return [
             ],
         ],
 
+        // Deep Freezers
+        [
+            'name' => 'Deep Freezer Installation',
+            'slug' => 'deep-freezer-installation',
+            'sub_category_slug' => 'deep-freezers',
+            'base_price' => 349.0,
+            'variants' => [
+                ha_variant('chest-freezer', 'Chest freezer', 349.0),
+                ha_variant('upright-freezer', 'Upright freezer', 399.0),
+                ha_variant('commercial-display', 'Commercial / display', 499.0),
+            ],
+        ],
+        [
+            'name' => 'Deep Freezer Repair',
+            'slug' => 'deep-freezer-repair',
+            'sub_category_slug' => 'deep-freezers',
+            'base_price' => 199.0,
+            'variants' => [
+                ha_variant('book-site-inspection', 'Book Site Inspection', 199.0),
+                ha_variant('cooling-issue', 'Cooling issue', 299.0),
+                ha_variant('leak', 'Leak', 299.0),
+                ha_variant('noise', 'Noise', 299.0),
+                ha_variant('thermostat-issue', 'Thermostat issue', 699.0),
+                ha_variant('power-issue', 'Power issue', 299.0),
+            ],
+        ],
+        [
+            'name' => 'Deep Freezer gas refill & leak fix',
+            'slug' => 'deep-freezer-gas-refill-leak-fix',
+            'sub_category_slug' => 'deep-freezers',
+            'base_price' => 1999.0,
+            'variants' => [
+                ha_variant('gas-refill-leak-fix', 'Deep Freezer Gas Refill & Leak Fix', 1999.0),
+            ],
+        ],
+
         // Washing Machine
         [
             'name' => 'Washing Machine Installation',
@@ -524,6 +572,57 @@ return [
             'base_price' => 699.0,
             'variants' => [
                 ha_variant('dishwasher-installation', 'Dishwasher Installation', 699.0),
+            ],
+        ],
+
+        // Generators
+        [
+            'name' => 'Generator Installation',
+            'slug' => 'generator-installation',
+            'sub_category_slug' => 'generators',
+            'base_price' => 799.0,
+            'variants' => [
+                ha_variant('petrol-upto-3kva', 'Petrol Generator (upto 3 kVA)', 799.0),
+                ha_variant('petrol-3-to-5kva', 'Petrol Generator (3 to 5 kVA)', 999.0),
+                ha_variant('diesel-upto-10kva', 'Diesel Generator (upto 10 kVA)', 1499.0),
+                ha_variant('diesel-10-to-20kva', 'Diesel Generator (10 to 20 kVA)', 2499.0),
+                ha_variant('diesel-above-20kva', 'Diesel Generator (above 20 kVA)', 3499.0),
+            ],
+        ],
+        [
+            'name' => 'Generator Repair',
+            'slug' => 'generator-repair',
+            'sub_category_slug' => 'generators',
+            'base_price' => 199.0,
+            'variants' => [
+                ha_variant('book-site-inspection', 'Book Site Inspection', 199.0),
+                ha_variant('wont-start', 'Won’t start', 299.0),
+                ha_variant('no-power-output', 'No power output', 299.0),
+                ha_variant('noise-smoke', 'Unusual noise/smoke', 499.0),
+                ha_variant('fuel-oil-leak', 'Fuel/oil leak', 299.0),
+            ],
+        ],
+        [
+            'name' => 'Generator Servicing',
+            'slug' => 'generator-servicing',
+            'sub_category_slug' => 'generators',
+            'base_price' => 499.0,
+            'variants' => [
+                ha_variant('petrol-upto-5kva', 'Petrol Generator Servicing (upto 5 kVA)', 499.0),
+                ha_variant('diesel-upto-10kva', 'Diesel Servicing (upto 10 kVA)', 899.0),
+                ha_variant('diesel-10-to-20kva', 'Diesel Servicing (10 to 20 kVA)', 1299.0),
+                ha_variant('diesel-above-20kva', 'Diesel Servicing (above 20 kVA)', 1799.0),
+            ],
+        ],
+        [
+            'name' => 'Generator Uninstallation',
+            'slug' => 'generator-uninstallation',
+            'sub_category_slug' => 'generators',
+            'base_price' => 399.0,
+            'variants' => [
+                ha_variant('petrol', 'Petrol Generator', 399.0),
+                ha_variant('diesel-upto-10kva', 'Diesel Generator (upto 10 kVA)', 699.0),
+                ha_variant('diesel-above-10kva', 'Diesel Generator (above 10 kVA)', 999.0),
             ],
         ],
     ],

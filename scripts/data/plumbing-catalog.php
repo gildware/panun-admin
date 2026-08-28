@@ -144,6 +144,18 @@ return [
             ],
         ],
         [
+            'name' => 'Booster Pump Install',
+            'slug' => 'booster-pump-install',
+            'sub_category_slug' => 'plumbing-installation',
+            'base_price' => 399.0,
+            'variants' => [
+                plumbing_variant('single-line-shower', 'Single Line / Shower Booster', 399.0),
+                plumbing_variant('whole-house', 'Whole House Booster', 499.0),
+                plumbing_variant('booster-with-piping', 'Booster with Piping', 599.0),
+                plumbing_variant('booster-auto-pressure-switch', 'Booster with Auto Pressure Switch', 699.0),
+            ],
+        ],
+        [
             'name' => 'Plumbing Tank Install',
             'slug' => 'plumbing-tank-install',
             'sub_category_slug' => 'plumbing-installation',
@@ -307,6 +319,19 @@ return [
                 plumbing_variant('low-pressure-weak-flow', 'Low Pressure / Weak Flow', 199.0),
                 plumbing_variant('noise-overheating', 'Noise / Overheating', 199.0),
                 plumbing_variant('air-cavity-removal', 'Air Cavity Removal', 99.0),
+            ],
+        ],
+        [
+            'name' => 'Booster Pump Repair',
+            'slug' => 'booster-pump-repair',
+            'sub_category_slug' => 'plumbing-repair',
+            'base_price' => 199.0,
+            'variants' => [
+                plumbing_variant('book-site-inspection', 'Book Site Inspection', 199.0),
+                plumbing_variant('wont-start', 'Won’t start', 199.0),
+                plumbing_variant('no-low-pressure', 'No / low pressure', 199.0),
+                plumbing_variant('leak', 'Leak', 199.0),
+                plumbing_variant('noise-overheating', 'Noise / overheating', 249.0),
             ],
         ],
         [

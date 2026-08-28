@@ -1,6 +1,10 @@
 @extends('adminmodule::layouts.master')
 
-@section('title', translate('Add_New_Booking'))
+@php
+    $isRepeatCreate = !empty($isRepeatCreate) && empty($reopenNewBookingDraft['source_booking_id'] ?? null);
+@endphp
+
+@section('title', $isRepeatCreate ? translate('Repeat_booking') : translate('One_time_booking'))
 
 @push('css_or_js')
     @include('zonemanagement::admin.partials._zone-select2-assets')
@@ -55,6 +59,11 @@
                 flex: 0 0 30%;
                 max-width: 30%;
             }
+            .booking-create-provider-schedule-row.booking-create-repeat-stack .booking-create-provider-col,
+            .booking-create-provider-schedule-row.booking-create-repeat-stack .booking-create-schedule-col {
+                flex: 0 0 100%;
+                max-width: 100%;
+            }
         }
     </style>
 @endpush
@@ -62,7 +71,7 @@
 @section('content')
     <div class="content container-fluid">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h2 class="mb-0">{{ translate('Add_New_Booking') }}</h2>
+            <h2 class="mb-0">{{ $isRepeatCreate ? translate('Repeat_booking') : translate('One_time_booking') }}</h2>
             <a href="{{ $bookingGoBackUrl ?? route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']) }}"
                class="btn btn-secondary">
                 {{ translate('Go_back') }}
@@ -189,15 +198,25 @@
                                     <label class="form-label">{{ translate('Booking_Source') }}</label>
                                     <select name="booking_source" class="form-control" required>
                                         <option value="">{{ translate('Select_Booking_Source') }}</option>
+                                        @php
+                                            $currentCreateSource = (string) old('booking_source', request('booking_source'));
+                                            $createSourceMatched = false;
+                                        @endphp
                                         @foreach($sources as $source)
                                             @php
                                                 $value = $source->name;
-                                                $selected = old('booking_source', request('booking_source')) == $value ? 'selected' : '';
+                                                $isSelected = strtolower($value) === strtolower($currentCreateSource);
+                                                if ($isSelected) {
+                                                    $createSourceMatched = true;
+                                                }
                                             @endphp
-                                            <option value="{{ $value }}" {{ $selected }}>
+                                            <option value="{{ $value }}" {{ $isSelected ? 'selected' : '' }}>
                                                 {{ $source->name }}
                                             </option>
                                         @endforeach
+                                        @if($currentCreateSource !== '' && ! $createSourceMatched)
+                                            <option value="{{ $currentCreateSource }}" selected>{{ $currentCreateSource }}</option>
+                                        @endif
                                     </select>
                                     @error('booking_source')
                                     <span class="text-danger">{{ $message }}</span>
@@ -318,8 +337,8 @@
                         </div>
                     </div>
 
-                    {{-- Provider (70%) + Date & Time / Service Schedule (30%) --}}
-                    <div class="row g-3 mb-4 align-items-stretch booking-create-provider-schedule-row">
+                    {{-- Provider + Date & Time. Repeat create stacks Date & Time on a full row. --}}
+                    <div class="row g-3 mb-4 align-items-stretch booking-create-provider-schedule-row{{ !empty($isRepeatCreate) ? ' booking-create-repeat-stack' : '' }}">
                         <div class="col-12 col-lg booking-create-provider-col">
                             <div class="border rounded-3 p-3 h-100">
                                 <h4 class="mb-3">{{ translate('Provider_information') }}</h4>
@@ -371,14 +390,65 @@
                         <div class="col-12 col-lg booking-create-schedule-col">
                             <div class="border rounded-3 p-3 h-100">
                                 <h4 class="mb-3">{{ translate('Date_&_Time') }}</h4>
+                                @php
+                                    $repeatTypeOld = old('repeat_booking_type', request('repeat_booking_type', 'monthly'));
+                                @endphp
+                                <input type="hidden" name="is_repeat_booking" id="is-repeat-booking" value="{{ $isRepeatCreate ? '1' : '0' }}">
+                                @if($isRepeatCreate)
+                                    <p class="text-muted small mb-3">{{ translate('Repeat_booking_admin_create_help') }}</p>
+                                @endif
                                 <div class="mb-0">
-                                    <label class="form-label">{{ translate('Service_Schedule') }}</label>
+                                    <label class="form-label" id="service-schedule-label">{{ $isRepeatCreate ? translate('Starting_date') : translate('Service_Schedule') }}</label>
                                     <input type="datetime-local" name="service_schedule" class="form-control"
                                            value="{{ old('service_schedule', request('service_schedule')) }}" required>
+                                    @if($isRepeatCreate)
+                                        <small class="text-muted d-block mt-1">{{ translate('Starting_date_help') }}</small>
+                                    @endif
                                     @error('service_schedule')
                                     <span class="text-danger">{{ $message }}</span>
                                     @enderror
                                 </div>
+
+                                @if($isRepeatCreate)
+                                <div id="repeat-booking-options" class="mt-3">
+                                    <label class="form-label">{{ translate('Repeat_type') }}</label>
+                                    <div class="d-flex flex-wrap gap-2 mb-3">
+                                        @foreach(['daily' => translate('Daily'), 'weekly' => translate('Weekly'), 'monthly' => translate('Monthly'), 'yearly' => translate('Yearly')] as $typeKey => $typeLabel)
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="repeat_booking_type"
+                                                       id="repeat-type-{{ $typeKey }}" value="{{ $typeKey }}"
+                                                    {{ $repeatTypeOld === $typeKey ? 'checked' : '' }}>
+                                                <label class="form-check-label" for="repeat-type-{{ $typeKey }}">{{ $typeLabel }}</label>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                    @error('repeat_booking_type')
+                                    <span class="text-danger d-block mb-2">{{ $message }}</span>
+                                    @enderror
+
+                                    <div id="repeat-planned-visits-wrap" class="mb-3">
+                                        <label class="form-label" for="repeat-planned-visits" id="repeat-planned-visits-label">{{ translate('Visits_per_month') }}</label>
+                                        <input type="number" min="1" max="31" name="repeat_planned_visits" id="repeat-planned-visits"
+                                               class="form-control" value="{{ old('repeat_planned_visits', request('repeat_planned_visits', 1)) }}">
+                                        <small class="text-muted d-block mt-1" id="repeat-planned-visits-help">{{ translate('Visits_per_period_help') }}</small>
+                                        @error('repeat_planned_visits')
+                                        <span class="text-danger d-block">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+
+                                    <div id="repeat-end-date-wrap" class="mb-2">
+                                        <label class="form-label" for="repeat-end-date">{{ translate('Repeat_until_date') }}</label>
+                                        <input type="date" name="repeat_end_date" id="repeat-end-date" class="form-control"
+                                               value="{{ old('repeat_end_date', request('repeat_end_date')) }}">
+                                        <small class="text-muted d-block mt-1">{{ translate('Repeat_end_date_optional_help') }}</small>
+                                        @error('repeat_end_date')
+                                        <span class="text-danger">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+
+                                    <p class="small mb-0 mt-2" id="repeat-visit-count-hint"></p>
+                                </div>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -443,6 +513,10 @@
                             <h5 class="mb-3">{{ translate('Total_Billing') }}</h5>
                             <table class="table table-sm table-borderless mb-0">
                                 <tbody>
+                                <tr id="billing-visit-count-row" class="d-none">
+                                    <td class="text-wrap">{{ translate('Repeat_visits') }}</td>
+                                    <td class="text-end text-nowrap" id="billing-visit-count">—</td>
+                                </tr>
                                 <tr>
                                     <td class="text-wrap">{{ translate('Total_service_charges') }}</td>
                                     <td class="text-end text-nowrap" id="billing-total-service-charges">—</td>
@@ -1472,6 +1546,81 @@
                 setBookingCreateSummaryLayoutMode(true);
             }
 
+            function isAdminRepeatCreate() {
+                return String($('#is-repeat-booking').val() || $('input[name="is_repeat_booking"]').val() || '0') === '1';
+            }
+
+            function isRepeatUntilStopped() {
+                return !($('#repeat-end-date').val() || '').trim();
+            }
+
+            function getAdminRepeatVisitCount() {
+                return 1;
+            }
+
+            function getAdminRepeatPlannedVisitCount() {
+                if (!isAdminRepeatCreate()) {
+                    return 1;
+                }
+                var n = parseInt($('#repeat-planned-visits').val(), 10);
+                if (!n || n < 1) {
+                    return 1;
+                }
+                return n;
+            }
+
+            function repeatPeriodLabel(type) {
+                if (type === 'daily') {
+                    return '{{ translate('Visits_per_day') }}';
+                }
+                if (type === 'weekly') {
+                    return '{{ translate('Visits_per_week') }}';
+                }
+                if (type === 'yearly') {
+                    return '{{ translate('Visits_per_year') }}';
+                }
+                return '{{ translate('Visits_per_month') }}';
+            }
+
+            function repeatPeriodWord(type) {
+                if (type === 'daily') {
+                    return '{{ translate('Repeat_period_day') }}';
+                }
+                if (type === 'weekly') {
+                    return '{{ translate('Repeat_period_week') }}';
+                }
+                if (type === 'yearly') {
+                    return '{{ translate('Repeat_period_year') }}';
+                }
+                return '{{ translate('Repeat_period_month') }}';
+            }
+
+            function syncRepeatBookingOptionsUi() {
+                var isRepeat = isAdminRepeatCreate();
+                $('#repeat-booking-options').toggleClass('d-none', !isRepeat);
+                $('#service-schedule-label').text(isRepeat
+                    ? '{{ translate('Starting_date') }}'
+                    : '{{ translate('Service_Schedule') }}');
+                var type = $('input[name="repeat_booking_type"]:checked').val() || 'monthly';
+                $('#repeat-planned-visits-label').text(repeatPeriodLabel(type));
+                var maxByType = { daily: 8, weekly: 14, monthly: 31, yearly: 52 };
+                var max = maxByType[type] || 31;
+                $('#repeat-planned-visits').attr('max', max);
+                if (isRepeat) {
+                    var visits = getAdminRepeatPlannedVisitCount();
+                    var period = repeatPeriodWord(type);
+                    var hint = visits + ' {{ translate('visits_per') }} ' + period;
+                    if (isRepeatUntilStopped()) {
+                        hint += ' — {{ translate('Repeat_until_stopped_visit_hint') }}';
+                    } else {
+                        hint += ' {{ translate('until') }} ' + ($('#repeat-end-date').val() || '');
+                    }
+                    $('#repeat-visit-count-hint').text(hint);
+                } else {
+                    $('#repeat-visit-count-hint').text('');
+                }
+            }
+
             function updatePaymentBillingFromCartContent(content) {
                 if (!content || content.grand_total == null) {
                     $('#billing-summary-box').hide();
@@ -1482,24 +1631,37 @@
                     $('.billing-commission-preview-row').addClass('d-none');
                     return;
                 }
-                var extraFee = parseFloat(content.extra_fee) || 0;
-                var grand = parseFloat(content.grand_total) || 0;
+                var visits = getAdminRepeatVisitCount();
+                var extrasTotal = parseFloat(content.extras_total) || 0;
+                var oneExtraFee = parseFloat(content.extra_fee) || 0;
+                var extraFee = oneExtraFee * visits;
+                var oneGrand = parseFloat(content.grand_total) || 0;
+                var grand = ((oneGrand - extrasTotal - oneExtraFee) * visits) + extraFee + extrasTotal;
                 billingBaseWithoutAc = grand - extraFee;
                 currentBillingTotal = grand;
 
+                var extrasService = 0;
+                (content.extras || []).forEach(function (ex) {
+                    if (ex.type !== 'spare_part') {
+                        extrasService += parseFloat(ex.total) || 0;
+                    }
+                });
                 var totalService = parseFloat(content.total_service_charges);
                 if (isNaN(totalService)) {
                     totalService = 0;
                     (content.lines || []).forEach(function (ln) {
                         totalService += parseFloat(ln.line_total) || 0;
                     });
-                    (content.extras || []).forEach(function (ex) {
-                        if (ex.type !== 'spare_part') {
-                            totalService += parseFloat(ex.total) || 0;
-                        }
-                    });
+                    totalService += extrasService;
                 }
+                totalService = ((totalService - extrasService) * visits) + extrasService;
                 $('#billing-total-service-charges').text(formatPrice(totalService));
+                if (visits > 1) {
+                    $('#billing-visit-count').text(visits);
+                    $('#billing-visit-count-row').removeClass('d-none');
+                } else {
+                    $('#billing-visit-count-row').addClass('d-none');
+                }
 
                 var totalSpare = parseFloat(content.total_spare_part_charges);
                 if (isNaN(totalSpare)) {
@@ -1550,6 +1712,7 @@
                         sumTax += parseFloat(ln.tax_amount) || 0;
                     });
                 }
+                sumTax = sumTax * visits;
                 if (sumTax > 0.0001) {
                     $('#billing-tax-summary-row').removeClass('d-none');
                     $('#billing-tax-sum').text(formatPrice(sumTax));
@@ -1557,16 +1720,19 @@
                     $('#billing-tax-summary-row').addClass('d-none');
                 }
 
+                var extrasDisc = 0;
+                (content.extras || []).forEach(function (ex) {
+                    extrasDisc += parseFloat(ex.discount) || 0;
+                });
                 var totalDisc = parseFloat(content.total_discount_amount);
                 if (isNaN(totalDisc)) {
                     totalDisc = 0;
                     (content.lines || []).forEach(function (ln) {
                         totalDisc += parseFloat(ln.discount_total) || 0;
                     });
-                    (content.extras || []).forEach(function (ex) {
-                        totalDisc += parseFloat(ex.discount) || 0;
-                    });
+                    totalDisc += extrasDisc;
                 }
+                totalDisc = ((totalDisc - extrasDisc) * visits) + extrasDisc;
                 $('#billing-discount-total').text(totalDisc > 0.0001 ? ('- ' + formatPrice(totalDisc)) : formatPrice(0));
 
                 $('#billing-grand-total').text(formatPrice(grand));
@@ -1577,8 +1743,8 @@
                 var co = content.company_commission;
                 var pr = content.provider_commission;
                 if (co != null && pr != null && !isNaN(parseFloat(co)) && !isNaN(parseFloat(pr))) {
-                    $('#billing-company-commission').text(formatPrice(co));
-                    $('#billing-provider-commission').text(formatPrice(pr));
+                    $('#billing-company-commission').text(formatPrice(parseFloat(co) * visits));
+                    $('#billing-provider-commission').text(formatPrice(parseFloat(pr) * visits));
                     $('.billing-commission-preview-row').removeClass('d-none');
                 } else {
                     $('.billing-commission-preview-row').addClass('d-none');
@@ -2491,6 +2657,16 @@
             if (oldValues.service_schedule) {
                 $('input[name="service_schedule"]').val(oldValues.service_schedule);
             }
+            if (!$('input[name="repeat_booking_type"]:checked').length) {
+                $('#repeat-type-monthly').prop('checked', true);
+            }
+            syncRepeatBookingOptionsUi();
+            $(document).on('change input', 'input[name="is_repeat_booking"], input[name="repeat_booking_type"], #repeat-planned-visits, #repeat-end-date, input[name="service_schedule"]', function () {
+                syncRepeatBookingOptionsUi();
+                if (lastCartSummaryContent) {
+                    updatePaymentBillingFromCartContent(lastCartSummaryContent);
+                }
+            });
             if (oldValues.advance_paid_amount) {
                 $('input[name="advance_paid_amount"]').val(oldValues.advance_paid_amount);
             }
@@ -2989,6 +3165,27 @@
                     var t = Date.parse(scheduleVal);
                     if (isNaN(t)) {
                         pushError('{{ translate('Service_Schedule') }}', '{{ translate('Please_enter_a_valid_service_schedule') }}', $schedule);
+                    }
+                }
+                if (isAdminRepeatCreate()) {
+                    var rType = $('input[name="repeat_booking_type"]:checked').val();
+                    if (!rType) {
+                        pushError('{{ translate('Repeat_type') }}', req, $('input[name="repeat_booking_type"]').first());
+                    }
+                    var planned = parseInt($('#repeat-planned-visits').val(), 10);
+                    var maxByType = { daily: 8, weekly: 14, monthly: 31, yearly: 52 };
+                    var max = maxByType[rType] || 31;
+                    if (!planned || planned < 1 || planned > max) {
+                        pushError($('#repeat-planned-visits-label').text() || '{{ translate('Number_of_visits') }}', '{{ translate('Repeat_planned_visits_invalid') }}', $('#repeat-planned-visits'));
+                    }
+                    var endVal = ($('#repeat-end-date').val() || '').trim();
+                    var startVal = ($('input[name="service_schedule"]').val() || '').trim();
+                    if (endVal && startVal) {
+                        var endDay = Date.parse(endVal + 'T23:59:59');
+                        var startDay = Date.parse(startVal);
+                        if (!isNaN(endDay) && !isNaN(startDay) && endDay < startDay) {
+                            pushError('{{ translate('Repeat_until_date') }}', '{{ translate('Repeat_end_date_must_be_on_or_after_start') }}', $('#repeat-end-date'));
+                        }
                     }
                 }
 

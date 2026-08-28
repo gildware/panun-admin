@@ -12,7 +12,7 @@ class SendBookingReminderNotifications extends Command
 {
     protected $signature = 'notifications:send-booking-reminders';
 
-    protected $description = 'Send push reminders to customers before upcoming booking service times';
+    protected $description = 'Send push reminders to customers and providers before upcoming booking service times';
 
     public function handle(): int
     {
@@ -34,6 +34,9 @@ class SendBookingReminderNotifications extends Command
     {
         Booking::query()
             ->with('customer')
+            ->where(function ($query) {
+                $query->where('is_repeated', 0)->orWhereNull('is_repeated');
+            })
             ->whereIn('booking_status', ['accepted', 'ongoing'])
             ->whereNotNull('service_schedule')
             ->whereBetween('service_schedule', [$windowStart, $windowEnd])
@@ -50,7 +53,7 @@ class SendBookingReminderNotifications extends Command
     private function sendForRepeats(Carbon $windowStart, Carbon $windowEnd): void
     {
         BookingRepeat::query()
-            ->with(['booking.customer'])
+            ->with(['booking.customer', 'booking.provider.owner'])
             ->whereIn('booking_status', ['accepted', 'ongoing'])
             ->whereNotNull('service_schedule')
             ->whereBetween('service_schedule', [$windowStart, $windowEnd])
@@ -62,8 +65,8 @@ class SendBookingReminderNotifications extends Command
                         continue;
                     }
 
-                    $this->sendReminderOnce('repeat', (string) $repeat->id, function () use ($booking) {
-                        send_booking_reminder_notification($booking);
+                    $this->sendReminderOnce('repeat', (string) $repeat->id, function () use ($booking, $repeat) {
+                        send_booking_reminder_notification($booking, $repeat);
                     });
                 }
             });

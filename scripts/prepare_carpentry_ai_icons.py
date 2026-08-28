@@ -81,6 +81,8 @@ def main() -> None:
         save_category(row["slug"])
 
     for row in data["variants"]:
+        if str(row.get("service_slug", "")).startswith("wooden-flooring-"):
+            continue
         if not (SRC / row["filename"]).is_file():
             missing.append(row["filename"])
             continue

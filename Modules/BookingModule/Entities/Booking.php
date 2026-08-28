@@ -83,6 +83,9 @@ class Booking extends Model
         'reopen_disputed_snapshot' => 'array',
         'admin_commission_override' => 'float',
         'provider_cancelled_at' => 'datetime',
+        'repeat_until_stopped' => 'boolean',
+        'repeat_stopped_at' => 'datetime',
+        'repeat_cadence_meta' => 'array',
     ];
 
     protected $fillable = [
@@ -143,6 +146,9 @@ class Booking extends Model
         'admin_commission_override',
         'provider_cancelled_at',
         'provider_cancelled_by_provider_id',
+        'repeat_until_stopped',
+        'repeat_stopped_at',
+        'repeat_cadence_meta',
     ];
 
     protected $appends = ['evidence_photos_full_path'];
@@ -224,6 +230,63 @@ class Booking extends Model
     public function repeat(): HasMany
     {
         return $this->hasMany(BookingRepeat::class);
+    }
+
+    public function isRepeatUntilStopped(): bool
+    {
+        return (int) ($this->is_repeated ?? 0) === 1
+            && (int) ($this->repeat_until_stopped ?? 0) === 1
+            && empty($this->repeat_stopped_at);
+    }
+
+    public function plannedRepeatVisits(): int
+    {
+        return $this->visitsPerPeriod();
+    }
+
+    public function visitsPerPeriod(): int
+    {
+        $meta = is_array($this->repeat_cadence_meta) ? $this->repeat_cadence_meta : [];
+        $fromPeriod = (int) ($meta['visits_per_period'] ?? 0);
+        if ($fromPeriod > 0) {
+            return $fromPeriod;
+        }
+
+        return max(0, (int) ($meta['planned_visits'] ?? 0));
+    }
+
+    public function repeatSeriesEndDate(): ?string
+    {
+        $meta = is_array($this->repeat_cadence_meta) ? $this->repeat_cadence_meta : [];
+        $end = trim((string) ($meta['end_date'] ?? ''));
+
+        return $end !== '' ? $end : null;
+    }
+
+    public function repeatSeriesStartDate(): ?string
+    {
+        $meta = is_array($this->repeat_cadence_meta) ? $this->repeat_cadence_meta : [];
+        $start = trim((string) ($meta['start_date'] ?? ''));
+        if ($start !== '') {
+            return $start;
+        }
+        if (! empty($this->service_schedule)) {
+            return Carbon::parse($this->service_schedule)->toDateString();
+        }
+
+        return null;
+    }
+
+    public function repeatCadenceType(): string
+    {
+        $meta = is_array($this->repeat_cadence_meta) ? $this->repeat_cadence_meta : [];
+        $type = strtolower((string) ($meta['type'] ?? ''));
+        if ($type !== '' && in_array($type, ['daily', 'weekly', 'monthly', 'yearly', 'custom'], true)) {
+            return $type;
+        }
+        $fromVisit = strtolower((string) ($this->relationLoaded('repeat') ? ($this->repeat->first()?->booking_type ?? '') : ''));
+
+        return in_array($fromVisit, ['daily', 'weekly', 'monthly', 'yearly', 'custom'], true) ? $fromVisit : '';
     }
 
     public function booking_partial_payments(): HasMany

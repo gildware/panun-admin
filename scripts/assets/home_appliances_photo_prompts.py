@@ -19,9 +19,11 @@ SCENE = {
     "geysers": "a clean Kashmir home bathroom with a wall geyser",
     "led-smart-tv": "a modern Kashmir living room with a wall-mounted TV",
     "refrigerators": "a Kashmir home kitchen with a refrigerator",
+    "deep-freezers": "a Kashmir home kitchen or small shop with a chest deep freezer",
     "washing-machine": "a Kashmir home laundry area with a washing machine",
     "ro-purifier": "a Kashmir home kitchen counter with an RO water purifier",
     "induction-heaters": "a Kashmir home kitchen or living space with a small appliance",
+    "generators": "a Kashmir home courtyard or shop backyard with a petrol or diesel generator",
 }
 
 ACTION = {
@@ -46,6 +48,9 @@ ACTION = {
     "refrigerator-installation": "installing and leveling a home refrigerator",
     "refrigerator-repair": "diagnosing a refrigerator cooling fault",
     "gas-refill-leak-fix": "refilling refrigerator refrigerant with manifold gauges at the fridge compressor — not LPG cooking gas",
+    "deep-freezer-installation": "installing and leveling a chest deep freezer",
+    "deep-freezer-repair": "diagnosing a chest deep freezer cooling fault",
+    "deep-freezer-gas-refill-leak-fix": "refilling deep freezer refrigerant with manifold gauges at the compressor — not LPG cooking gas",
     "washing-machine-installation": "installing a washing machine with inlet and drain setup",
     "washing-machine-repair": "repairing a washing machine drain or spin fault",
     "washing-machine-servicing": "deep cleaning and jet servicing a washing machine",
@@ -66,6 +71,10 @@ ACTION = {
     "room-heater-repair": "repairing a room oil heater",
     "dishwasher-repair": "diagnosing a built-in dishwasher fault",
     "dishwasher-installation": "installing a kitchen dishwasher with water connections",
+    "generator-installation": "installing a home petrol or diesel generator and checking placement",
+    "generator-repair": "diagnosing a generator that will not start, checking fuel and wiring",
+    "generator-servicing": "servicing a generator with oil, filter, and engine checks",
+    "generator-uninstallation": "safely disconnecting and uninstalling a home generator",
 }
 
 PRO_LINE = (

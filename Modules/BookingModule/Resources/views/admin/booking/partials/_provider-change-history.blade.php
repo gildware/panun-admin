@@ -33,7 +33,7 @@
                             <td class="text-nowrap">{{ optional($history->created_at)->format('d-M-Y h:i A') ?? '—' }}</td>
                             <td>
                                 @if($booking->providerCancelledByProvider)
-                                    <a href="{{ route('admin.provider.details', [$booking->provider_cancelled_by_provider_id, 'web_page' => 'withdrawn_bookings']) }}">
+                                    <a href="{{ route('admin.provider.details', [$booking->provider_cancelled_by_provider_id, 'web_page' => 'bookings']) }}">
                                         {{ $booking->providerCancelledByProvider->company_name }}
                                     </a>
                                 @else

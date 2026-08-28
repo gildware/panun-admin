@@ -3819,6 +3819,7 @@ const NOTIFICATION_FOR_PROVIDER = [
     ['key' => 'booking_complete', 'value' => 'Booking Completed', 'category' => 'booking_status'],
     ['key' => 'booking_schedule_time_change', 'value' => 'Booking Schedule Time Change', 'category' => 'booking_status'],
     ['key' => 'booking_status_change', 'value' => 'Other Status Change', 'category' => 'booking_status'],
+    ['key' => 'booking_reminder', 'value' => 'Booking Reminder', 'category' => 'booking_status'],
     ['key' => 'chat_message', 'value' => 'New Chat Message', 'category' => 'booking_status'],
     ['key' => 'booking_edit_service_add', 'value' => 'Service Added', 'category' => 'service_updates'],
     ['key' => 'booking_edit_service_update', 'value' => 'Service Updated', 'category' => 'service_updates'],

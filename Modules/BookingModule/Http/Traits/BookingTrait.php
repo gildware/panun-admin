@@ -34,10 +34,25 @@ use Modules\BookingModule\Entities\BookingScheduleHistory;
 use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\BusinessSettingsModule\Entities\BusinessSettings;
 use Modules\UserManagement\Entities\UserAddress;
+use Modules\BookingModule\Entities\BookingSource;
 
 trait BookingTrait
 {
     //=============== PLACE BOOKING ===============
+
+    /**
+     * Customer checkout (app / digital payment) bookings always use this source.
+     */
+    protected function applyDirectAppBookingSource(Booking $booking): void
+    {
+        static $ensured = false;
+        if (! $ensured) {
+            BookingSource::ensureDirectAppBookingSource();
+            $ensured = true;
+        }
+
+        $booking->booking_source = strtolower(BookingSource::NAME_DIRECT_APP_BOOKING);
+    }
 
     /**
      * @param $userId
@@ -200,6 +215,7 @@ trait BookingTrait
                 $booking->total_referral_discount_amount = $referralDiscount;
                 $booking->service_address_location = json_encode(UserAddress::find($itemAddressId)) ?: null;
                 $booking->service_location = $request['service_location'];
+                $this->applyDirectAppBookingSource($booking);
                 $booking->save();
 
                 if ($isPartials) {
@@ -412,6 +428,7 @@ trait BookingTrait
                 $booking->is_repeated = 1;
                 $booking->service_location = $request->service_location;
                 $booking->service_address_location = $serviceAddress;
+                $this->applyDirectAppBookingSource($booking);
                 $booking->save();
 
                 foreach ($cartData as $data) {
@@ -645,6 +662,7 @@ trait BookingTrait
             $booking->extra_fee = $extraFee;
             $booking->additional_charges_breakdown = count($chargeRes['lines']) ? $chargeRes['lines'] : null;
             $booking->total_referral_discount_amount = $referralDiscount;
+            $this->applyDirectAppBookingSource($booking);
             $booking->save();
 
             if ($isPartials) {

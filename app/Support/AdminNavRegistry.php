@@ -430,10 +430,12 @@ class AdminNavRegistry
 
         return [
             self::entry('bookings', $group, null, translate('Booking_Requests'), route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']), [
-                'admin/booking/list', 'admin/booking/details*', 'admin/booking/repeat*', 'admin/booking/rebooking*',
-                'admin/booking/success*',
+                'admin/booking/list', 'admin/booking/details*', 'admin/booking/rebooking*',
+                'admin/booking/success*', 'admin/booking/create',
             ], [], 'booking.requests'),
-            self::entry('bookings', $group, null, translate('Add_New_Booking'), route('admin.booking.create'), ['admin/booking/create']),
+            self::entry('bookings', $group, null, translate('Repeat_booking'), route('admin.booking.repeat_list', ['booking_status' => 'all', 'service_type' => 'all']), [
+                'admin/booking/repeat/list*', 'admin/booking/create/repeat', 'admin/booking/repeat-details*', 'admin/booking/repeat-single-details*',
+            ], [], 'booking.repeat'),
             self::entry('bookings', $group, null, translate('verify_requests'), route('admin.booking.list.verification', ['booking_status' => 'pending', 'type' => 'pending']), ['admin/booking/list/verification*'], [], 'booking.verify'),
             self::entry('bookings', $group, null, translate('Booking_Review'), route('admin.booking.reviews.list'), ['admin/booking/reviews/list*']),
         ];

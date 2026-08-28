@@ -49,6 +49,14 @@ VARIANT_SUBJECTS = {
     "table-install-uninstall": "wooden table with install uninstall cycle arrows",
     "book-on-site-inspection": "clipboard with checklist and magnifying glass site inspection icon",
     "book-site-inspection": "clipboard with checklist and magnifying glass site inspection icon",
+    "laminate-click-lock": "laminate click lock wooden floor plank silhouette",
+    "engineered-wood": "engineered wood floor plank layers silhouette",
+    "solid-wood": "solid hardwood floor plank silhouette",
+    "flooring-with-skirting": "wooden floor with skirting board silhouette",
+    "loose-lifting-plank": "lifting wooden floor plank silhouette",
+    "scratch-dent": "scratched wooden floor plank silhouette",
+    "gap-clicking": "wooden floor gap between planks silhouette",
+    "water-damage": "water damaged wooden floor plank silhouette",
 }
 
 

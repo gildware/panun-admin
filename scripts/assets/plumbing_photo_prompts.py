@@ -27,6 +27,8 @@ ACTION = {
     "plumbing-pipe-install": "fitting and joining home water pipes safely",
     "plumbing-drain-install": "installing a floor drain and waste pipe",
     "plumbing-motor-install": "installing a home water motor pump with piping",
+    "booster-pump-install": "installing a home water booster pump on the water line",
+    "booster-pump-repair": "diagnosing a booster pump with low pressure or that will not start",
     "plumbing-tank-install": "connecting an overhead water tank float valve",
     "plumbing-geyser-connection": "connecting hot and cold water lines to a geyser",
     "plumbing-accessory-install": "installing a shut-off valve on a water line",

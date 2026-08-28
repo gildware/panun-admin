@@ -14,6 +14,8 @@ use Modules\BookingModule\Http\Controllers\Web\Provider\BookingController as Pro
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
     Route::group(['prefix' => 'booking', 'as' => 'booking.'], function () {
+        Route::any('repeat/list', [BookingController::class, 'repeatList'])->name('repeat_list');
+        Route::match(['get', 'post'], 'create/repeat', [BookingController::class, 'createRepeat'])->name('create-repeat');
         Route::match(['get', 'post'], 'create', [BookingController::class, 'create'])->name('create');
         Route::get('create/from-lead/{lead}', [BookingController::class, 'createFromLead'])->name('create-from-lead');
         Route::get('create/from-whatsapp-booking/{booking_id}', [BookingController::class, 'createFromWhatsAppBooking'])->name('create-from-whatsapp-booking');
@@ -29,6 +31,10 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('app-custom-requests/{id}/update', [AppCustomRequestController::class, 'update'])->middleware(['can:booking_view'])->name('app-custom-requests.update');
         Route::delete('app-custom-requests/{id}', [AppCustomRequestController::class, 'destroy'])->middleware(['can:booking_delete'])->name('app-custom-requests.destroy');
         Route::post('preview', [BookingController::class, 'preview'])->name('preview');
+        Route::post('convert-to-repeat/{id}', [BookingController::class, 'convertToRepeat'])->name('convert_to_repeat');
+        Route::post('stop-repeat/{id}', [BookingController::class, 'stopRepeat'])->name('stop_repeat');
+        Route::post('extend-repeat/{id}', [BookingController::class, 'extendRepeat'])->name('extend_repeat');
+        Route::post('repeat-series-dates/{id}', [BookingController::class, 'updateRepeatSeriesDates'])->name('repeat_series_dates');
         Route::post('store', [BookingController::class, 'store'])->name('store');
         Route::post('whatsapp-automation-prompt/send', [BookingWhatsAppAdminPromptController::class, 'send'])->name('whatsapp_automation_prompt.send');
         Route::post('whatsapp-automation-prompt/send-row', [BookingWhatsAppAdminPromptController::class, 'sendRow'])->name('whatsapp_automation_prompt.send_row');
@@ -79,6 +85,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::put('info-update/{id}', [BookingController::class, 'updateBookingInfo'])->name('info-update');
         Route::put('admin-commission-override/{id}', [BookingController::class, 'updateAdminCommissionOverride'])->name('admin_commission_override.update');
         Route::post('extra-service/{id}', [BookingController::class, 'storeExtraService'])->name('extra-service.store');
+        Route::put('extra-service/{id}/{extraId}', [BookingController::class, 'updateExtraService'])->name('extra-service.update');
         Route::put('additional-charges/{id}', [BookingController::class, 'updateBookingAdditionalCharges'])->name('additional-charges.update');
         Route::delete('extra-service/{id}/{extraId}', [BookingController::class, 'destroyExtraService'])->name('extra-service.destroy');
         Route::post('service-address-update/{id}', [BookingController::class, 'serviceAddressUpdate'])->name('service_address_update');

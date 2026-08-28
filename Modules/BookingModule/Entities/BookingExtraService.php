@@ -18,6 +18,7 @@ class BookingExtraService extends Model
 
     protected $fillable = [
         'booking_id',
+        'booking_repeat_id',
         'title',
         'details',
         'type',
@@ -41,6 +42,11 @@ class BookingExtraService extends Model
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);
+    }
+
+    public function repeat(): BelongsTo
+    {
+        return $this->belongsTo(BookingRepeat::class, 'booking_repeat_id');
     }
 
     /**

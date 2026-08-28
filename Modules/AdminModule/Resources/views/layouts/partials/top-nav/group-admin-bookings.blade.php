@@ -18,13 +18,14 @@
         @include('adminmodule::layouts.partials.top-nav._link', [
             'href' => route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']),
             'label' => translate('Booking_Requests'),
-            'active' => (request()->is('admin/booking/list') || request()->is('admin/booking/details*') || request()->is('admin/booking/repeat*') || request()->is('admin/booking/rebooking*') || request()->is('admin/booking/success*')) && ! request()->is('admin/booking/list/verification') && ! request()->is('admin/booking/list/special-scenarios') && ! request()->is('admin/booking/list/cancelled-by-provider') && ! request()->is('admin/booking/list/cancelled-by-customer') && ! request()->is('admin/booking/reviews/list') && ! request()->is('admin/booking/todays-followups*'),
+            'active' => (request()->is('admin/booking/list') || request()->is('admin/booking/details*') || request()->is('admin/booking/rebooking*') || request()->is('admin/booking/success*')) && ! request()->is('admin/booking/list/verification') && ! request()->is('admin/booking/list/special-scenarios') && ! request()->is('admin/booking/list/cancelled-by-provider') && ! request()->is('admin/booking/list/cancelled-by-customer') && ! request()->is('admin/booking/reviews/list') && ! request()->is('admin/booking/todays-followups*') && ! request()->is('admin/booking/repeat*'),
             'count' => $all_bookings_menu_count ?? 0,
         ])
         @include('adminmodule::layouts.partials.top-nav._link', [
-            'href' => route('admin.booking.create'),
-            'label' => translate('Add_New_Booking'),
-            'active' => request()->is('admin/booking/create'),
+            'href' => route('admin.booking.repeat_list', ['booking_status' => 'all', 'service_type' => 'all']),
+            'label' => translate('Repeat_booking'),
+            'active' => request()->is('admin/booking/repeat*') || request()->is('admin/booking/create/repeat'),
+            'count' => $repeat_bookings_menu_count ?? 0,
         ])
         @include('adminmodule::layouts.partials.top-nav._link', [
             'href' => route('admin.booking.list.verification', ['booking_status' => 'pending', 'type' => 'pending']),

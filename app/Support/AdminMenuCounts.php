@@ -27,7 +27,8 @@ final class AdminMenuCounts
     {
         return Cache::remember('admin_sidebar_menu_counts', 60, function () {
             return [
-                'all_bookings' => Booking::count(),
+                'all_bookings' => Booking::query()->where('is_repeated', 0)->count(),
+                'repeat_bookings' => Booking::query()->where('is_repeated', 1)->count(),
                 'pending_booking_reviews' => Review::where('is_active', 0)->count()
                     + ProviderCustomerReview::where('is_active', 0)->count(),
                 'special_scenarios' => Booking::query()
@@ -111,6 +112,10 @@ final class AdminMenuCounts
 
         if (str_starts_with($path, 'admin/customer-cart')) {
             return (int) ($counts['customer_cart_not_contacted'] ?? 0);
+        }
+
+        if (str_starts_with($path, 'admin/booking/repeat/list')) {
+            return (int) ($counts['repeat_bookings'] ?? 0);
         }
 
         if (str_starts_with($path, 'admin/booking/list') || str_starts_with($path, 'admin/booking/details')) {
@@ -265,7 +270,7 @@ final class AdminMenuCounts
         try {
             $maxBookingAmount = (float) ((business_config('max_booking_amount', 'booking_setup'))->live_values ?? 0);
 
-            return Booking::query()->adminPendingBookings($maxBookingAmount)->count();
+            return Booking::query()->where('is_repeated', 0)->adminPendingBookings($maxBookingAmount)->count();
         } catch (\Throwable) {
             return 0;
         }

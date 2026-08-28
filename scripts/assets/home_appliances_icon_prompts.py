@@ -37,6 +37,9 @@ CATEGORY_PROMPTS = {
     "refrigerators": (
         "Category icon: double door refrigerator silhouette. " + ICON_STYLE
     ),
+    "deep-freezers": (
+        "Category icon: chest deep freezer with hinged top lid silhouette, commercial freezer services. " + ICON_STYLE
+    ),
     "washing-machine": (
         "Category icon: front load washing machine silhouette. " + ICON_STYLE
     ),
@@ -45,6 +48,9 @@ CATEGORY_PROMPTS = {
     ),
     "induction-heaters": (
         "Category icon: small kitchen appliances cluster microwave mixer chimney silhouette. " + ICON_STYLE
+    ),
+    "generators": (
+        "Category icon: portable petrol generator silhouette with handle and outlet panel, home generator services. " + ICON_STYLE
     ),
 }
 
@@ -89,6 +95,9 @@ VARIANT_SUBJECTS = {
     "leak": "fridge water leak drip silhouette",
     "noise": "appliance with noise sound waves silhouette",
     "gas-refill-leak-fix": "refrigerator with refrigerant manifold gauges and snowflake silhouette",
+    "chest-freezer": "horizontal chest deep freezer with top lid silhouette",
+    "upright-freezer": "tall upright deep freezer single door silhouette",
+    "commercial-display": "commercial glass-top display freezer silhouette",
     "front-load": "front load washing machine silhouette",
     "top-load": "top load washing machine silhouette",
     "semi-automatic": "semi automatic twin tub washer silhouette",
@@ -109,6 +118,18 @@ VARIANT_SUBJECTS = {
     "chimney-installation": "kitchen chimney install silhouette",
     "hob-installation": "kitchen gas hob install silhouette",
     "dishwasher-installation": "dishwasher install silhouette",
+    "petrol-upto-3kva": "small portable petrol generator up to 3 kVA silhouette",
+    "petrol-3-to-5kva": "medium petrol generator 3 to 5 kVA silhouette",
+    "diesel-upto-10kva": "home diesel generator up to 10 kVA silhouette",
+    "diesel-10-to-20kva": "shop diesel generator 10 to 20 kVA silhouette",
+    "diesel-above-20kva": "large diesel generator above 20 kVA silhouette",
+    "wont-start": "generator that will not start with spark plug silhouette",
+    "no-power-output": "generator with no electricity output plug silhouette",
+    "noise-smoke": "generator with noise waves and smoke silhouette",
+    "fuel-oil-leak": "generator fuel or oil leak drip silhouette",
+    "petrol-upto-5kva": "petrol generator servicing oil can and filter silhouette",
+    "petrol": "portable petrol generator removal silhouette",
+    "diesel-above-10kva": "larger diesel generator uninstall silhouette",
 }
 
 

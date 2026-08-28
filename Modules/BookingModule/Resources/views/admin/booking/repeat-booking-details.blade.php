@@ -4,41 +4,38 @@
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/plugins/swiper/swiper-bundle.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-detail-redesign.css') }}?v=2026082414">
+    @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')
 @endpush
 
 @section('content')
     @php
         $bookingHasTax = (float)($booking->total_tax_amount ?? 0) > 0;
+        extract(repeat_admin_detail_chrome_vars($booking, $customerAddress ?? null, ! empty($canStopRepeatSeries)));
+        $canExtend = ! empty($canExtendRepeatSeries);
+        $repeatChromeShowScheduleVisit = $canExtend;
+        $repeatChromeShowAddVisit = $canExtend;
+        $customerName = $repeatChromeCustomerName ?? null;
+        $customerPhone = $repeatChromeCustomerPhone ?? null;
+        $customer_name = $customerName;
+        $customer_phone = $customerPhone;
+        $openVisitId = (string) request()->query('visit', '');
+        $repeatPaymentHistoryModalId = 'bookingPaymentHistoryModal-' . $booking->id;
     @endphp
     <div class="main-content">
         <div class="container-fluid">
             <div class="page-title-wrap mb-3">
                 <h2 class="page-title">{{ translate('Booking_Details') }} </h2>
             </div>
+            <div class="row">
+                <div class="col-12 booking-detail-v2 booking-detail-v2--{{ $repeatChromeStatusClass }}">
+                    <div class="booking-detail-v2__wrap">
+                        @include('bookingmodule::admin.booking.partials._repeat-detail-compact-topbar')
+                        @include('bookingmodule::admin.booking.partials._repeat-detail-compact-header')
 
-            <div class="pb-3 d-flex justify-content-between align-items-center gap-3 flex-wrap">
-                <div>
-                    <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
-                        <h3 class="c1 d-flex align-items-center gap-1 fw-bold">
-                            {{ translate('Repeat_Booking') }} # {{ $booking['readable_id'] }}
-                            <img width="34" height="34"
-                                src="{{ asset('assets/admin-module/img/icons/repeat.svg') }}"
-                                class="rounded-circle repeat-icon" alt="{{ translate('repeat') }}">
-                        </h3>
-                        <span class="badge badge-{{
-                            $booking->booking_status == 'ongoing' ? 'warning' :
-                            ($booking->booking_status == 'completed' ? 'success' :
-                            ($booking->booking_status == 'canceled' ? 'danger' : 'info'))
-                        }}">
-                            {{ ucwords($booking->booking_status) }}
-                        </span>
-                    </div>
-                    <p class="opacity-75 fz-12">{{ translate('Booking_Placed') }}
-                        : {{ date('d-M-Y h:ia', strtotime($booking->created_at)) }}</p>
-                </div>
-                <div class="d-flex flex-wrap flex-xxl-nowrap gap-3">
-                    <div class="d-flex flex-wrap gap-3">
-                        @php($maxBookingAmount = business_config('max_booking_amount', 'booking_setup')->live_values)
+                        @php
+                            $maxBookingAmount = business_config('max_booking_amount', 'booking_setup')->live_values;
+                        @endphp
                         @if (
                             $booking['payment_method'] == 'cash_after_service' &&
                                 $booking->is_verified == '0' &&
@@ -159,26 +156,10 @@
                             </div>
                         @endif
 
-                        <a href="{{ route('admin.booking.full_repeat_invoice', [$booking->id]) }}" class="btn btn-primary"
-                            target="_blank">
-                            <span class="material-icons">description</span>{{ translate('Invoice') }}
-                        </a>
-                    </div>
-                </div>
-            </div>
-
-            <div class="d-flex flex-wrap justify-content-between align-items-center flex-xxl-nowrap gap-3 mb-4">
-                <ul class="nav nav--tabs nav--tabs__style2">
-                    <li class="nav-item">
-                        <a class="nav-link {{ $webPage == 'details' ? 'active' : '' }}"
-                            href="{{ url()->current() }}?web_page=details">{{ translate('details') }}</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ $webPage == 'service_log' ? 'active' : '' }}"
-                            href="{{ url()->current() }}?web_page=service_log">{{ translate('service_log') }}</a>
-                    </li>
-                </ul>
-                @php($max_booking_amount = business_config('max_booking_amount', 'booking_setup')->live_values ?? 0)
+            <div class="d-flex flex-wrap justify-content-between align-items-center flex-xxl-nowrap gap-3 mb-4 booking-detail-nav-wrap">
+                @php
+                    $max_booking_amount = business_config('max_booking_amount', 'booking_setup')->live_values ?? 0;
+                @endphp
 
                 @if (
                     $booking->is_verified == 2 &&
@@ -201,10 +182,46 @@
 
             </div>
 
+            <div class="booking-overview-trio mb-3">
+                <div class="booking-overview-trio__cell">
+                    @include('bookingmodule::admin.booking.partials._booking-overview-party-customer', [
+                        'booking' => $booking,
+                        'customerName' => $customerName ?? null,
+                        'customerPhone' => $customerPhone ?? null,
+                        'customerAddress' => $customerAddress ?? null,
+                        'followupDetailMeta' => $followupDetailMeta ?? null,
+                        'nextFollowupCustomer' => $nextFollowupCustomer ?? null,
+                    ])
+                </div>
+                <div class="booking-overview-trio__cell">
+                    @include('bookingmodule::admin.booking.partials._booking-overview-party-provider', [
+                        'booking' => $booking,
+                        'followupDetailMeta' => $followupDetailMeta ?? null,
+                        'nextFollowupProvider' => $nextFollowupProvider ?? null,
+                        'bookingNotEditable' => $bookingNotEditable ?? false,
+                    ])
+                </div>
+                <div class="booking-overview-trio__cell">
+                    @include('bookingmodule::admin.booking.partials._repeat-payment-snapshot', [
+                        'booking' => $booking,
+                        'viewAllHref' => '',
+                        'viewAllModalId' => $repeatPaymentHistoryModalId,
+                    ])
+                </div>
+            </div>
+
             <div class="row gy-3">
-                <div class="col-lg-8">
-                    @if(!is_null($booking->nextService))
+                <div class="col-lg-8 order-1">
+                    @if ($booking->totalCount == 0)
                     <div class="card mb-3">
+                        <div class="card-body py-4">
+                            <p class="mb-2 fw-semibold">{{ translate('Not_scheduled_yet') }}</p>
+                            <p class="text-muted mb-0">{{ translate('Repeat_visits_schedule_or_log_help') }}</p>
+                        </div>
+                    </div>
+                    @endif
+                    @if(!is_null($booking->nextService))
+                    <div class="card mb-3 repeat-next-card">
                         <div class="card-header shadow-none border-bottom">
                             <div
                                 class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-sm-center gap-3 flex-wrap">
@@ -217,12 +234,28 @@
                                         ($booking->nextService['booking_status'] == 'completed' ? 'success' :
                                         ($booking->nextService['booking_status'] == 'canceled' ? 'danger' : 'info'))
                                     }}">
-                                    {{ ucwords($booking->nextService['booking_status']) }}
+                                        {{ ucwords($booking->nextService['booking_status']) }}
+                                    </span>
                                 </div>
 
-                                <a href="{{ route('admin.booking.repeat_single_details', [$booking->nextService['id'], 'web_page' => 'details'])}}" class="btn btn--secondary-two text-capitalize fw-semibold fz-14">
-                                    {{ translate('view_details') }}
-                                </a>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    @php
+                                        $nextVisitModalId = 'repeat-visit-modal-' . $booking->nextService['id'];
+                                        $__nextCanReschedule = in_array($booking->nextService['booking_status'] ?? '', ['pending', 'accepted', 'ongoing', 'on_hold'], true);
+                                    @endphp
+                                    <button type="button" class="btn btn-demo-outline btn-sm text-capitalize fw-semibold js-repeat-visit-toggle"
+                                            data-visit-id="{{ $booking->nextService['id'] }}"
+                                            data-bs-toggle="modal" data-bs-target="#{{ $nextVisitModalId }}">
+                                        {{ translate('view_details') }}
+                                    </button>
+                                    @if ($__nextCanReschedule)
+                                        @can('booking_can_manage_status')
+                                            <button type="button" class="btn btn-demo-outline btn-sm text-capitalize fw-semibold" data-bs-toggle="modal" data-bs-target="#reschedule-{{ $booking->nextService['id'] }}">
+                                                {{ translate('Reschedule_visit') }}
+                                            </button>
+                                        @endcan
+                                    @endif
+                                </div>
                             </div>
                         </div>
                         <div class="card-body">
@@ -233,6 +266,7 @@
                                         {{ translate('Scheduled At') }}:
                                         <span class="opacity-75">{{ date('d-M-Y h:ia', strtotime($booking->nextService['service_schedule'])) }}</span>
                                     </button>
+                                    @include('bookingmodule::admin.booking.partials._repeat-visit-remarks', ['remarks' => $booking->nextService['visit_remarks'] ?? ''])
                                 </div>
                                 <div class="col-md-6">
                                     <div class="d-flex gap-30 justify-content-md-around mt-3 mt-md-0">
@@ -261,94 +295,143 @@
                             </div>
                         </div>
                     </div>
+                    @include('bookingmodule::admin.booking.partials._reschedule-repeat-visit-modal', [
+                        'repeatId' => $booking->nextService['id'],
+                        'schedule' => $booking->nextService['service_schedule'],
+                    ])
                     @endif
-                    <div class="card mb-3">
-                        <div class="card-header shadow-none border-bottom">
-                            <div class="d-flex justify-content-between flex-wrap gap-3 align-items-center">
-                                <h3 class="mb-0">{{ translate('All_Booking_Summary') }}</h3>
-                                <div class="d-flex flex-wrap align-items-center gap-2">
-                                    @if (in_array($booking['booking_status'], ['accepted', 'ongoing']) && !is_null($booking->nextService) && !$booking->nextService['is_paid'] && $booking->nextService['payment_method'] == 'cash_after_service')
+                    @php
+                        $canEditRepeatServices = in_array($booking['booking_status'], ['accepted', 'ongoing']) && ! is_null($booking->nextService) && ! $booking->nextService['is_paid'] && $booking->nextService['payment_method'] == 'cash_after_service';
+                        $hasCanEditSeriesDates = ! empty($canEditSeriesDates);
+                        $hasRepeatStoppedAt = ! empty($booking['repeatStoppedAt']);
+                        $hasRepeatUntilStopped = ! empty($booking['repeatUntilStopped']);
+                        $hasNoSeriesEnd = $hasRepeatUntilStopped || empty($booking['seriesEndDate']);
+                        $hasWeekNames = $booking->bookingType == 'weekly' && ! empty($booking['weekNames']);
+                        $hasMonthDays = $booking->bookingType == 'monthly' && ! empty($booking['monthDays']);
+                        $hasVisitsPerPeriod = ($booking['visitsPerPeriod'] ?? 0) > 0;
+                        $hasTotalCount = $booking->totalCount > 0;
+                        $hasZeroCount = $booking->totalCount == 0;
+                    @endphp
+                    <section class="summary-panel booking-summary-panel repeat-series-box mb-3" id="repeat-series-box">
+                        <div class="summary-panel__head">
+                            <h2 class="summary-panel__title">
+                                <span class="material-icons">event_repeat</span>
+                                {{ translate('Series_details') }}
+                            </h2>
+                            <div class="summary-panel__head-actions">
+                                @if($hasCanEditSeriesDates)
+                                    @can('booking_edit')
+                                        <button type="button" class="btn btn-demo-outline btn-sm"
+                                            data-bs-toggle="modal" data-bs-target="#editRepeatSeriesDatesModal">
+                                            {{ translate('Change_series_dates') }}
+                                        </button>
+                                    @endcan
+                                @endif
+                            </div>
+                        </div>
+                        <div class="repeat-series-facts">
+                            <div class="repeat-series-facts__item">
+                                <span class="repeat-series-facts__label">{{ translate('Total_Booking') }}</span>
+                                <span class="repeat-series-facts__value">{{ $booking->totalCount }}</span>
+                            </div>
+                            <div class="repeat-series-facts__item">
+                                <span class="repeat-series-facts__label">{{ translate('Booking_Type') }}</span>
+                                <span class="repeat-series-facts__value">
+                                    {{ ucwords($booking->bookingType) }}
+                                    @if ($hasVisitsPerPeriod)
+                                        — {{ (int) $booking['visitsPerPeriod'] }}
+                                        {{ match ($booking->bookingType) {
+                                            'daily' => translate('visits_per') . ' ' . translate('Repeat_period_day'),
+                                            'weekly' => translate('visits_per') . ' ' . translate('Repeat_period_week'),
+                                            'yearly' => translate('visits_per') . ' ' . translate('Repeat_period_year'),
+                                            default => translate('visits_per') . ' ' . translate('Repeat_period_month'),
+                                        } }}
+                                    @endif
+                                </span>
+                            </div>
+                            <div class="repeat-series-facts__item">
+                                <span class="repeat-series-facts__label">{{ translate('Series_start_date') }}</span>
+                                <span class="repeat-series-facts__value">{{ $booking['seriesStartDate'] ?? $booking->startDate }}</span>
+                            </div>
+                            <div class="repeat-series-facts__item">
+                                <span class="repeat-series-facts__label">{{ translate('Series_end_date') }}</span>
+                                <span class="repeat-series-facts__value">
+                                    @if($hasRepeatStoppedAt)
+                                        {{ translate('Stopped') }}
+                                    @elseif($hasNoSeriesEnd)
+                                        {{ translate('No_end_date') }}
+                                    @else
+                                        {{ $booking['seriesEndDate'] }}
+                                    @endif
+                                </span>
+                            </div>
+                            <div class="repeat-series-facts__item">
+                                <span class="repeat-series-facts__label">{{ translate('Completed') }}</span>
+                                <span class="repeat-series-facts__value">{{ $booking->completedCount }}</span>
+                            </div>
+                            <div class="repeat-series-facts__item">
+                                <span class="repeat-series-facts__label">{{ translate('Canceled') }}</span>
+                                <span class="repeat-series-facts__value">{{ $booking->canceledCount }}</span>
+                            </div>
+                            <div class="repeat-series-facts__item">
+                                <span class="repeat-series-facts__label">{{ translate('Payment') }}</span>
+                                <span class="repeat-series-facts__value">{{ ucwords(str_replace('_', ' ', $booking->payment_method)) }}</span>
+                            </div>
+                            <div class="repeat-series-facts__item">
+                                <span class="repeat-series-facts__label">{{ translate('Total_Amount') }}</span>
+                                <span class="repeat-series-facts__value">{{ with_currency_symbol($booking->total_booking_amount) }}</span>
+                            </div>
+                            @if($hasWeekNames)
+                                <div class="repeat-series-facts__item">
+                                    <span class="repeat-series-facts__label">{{ translate('Weekly Selected Days') }}</span>
+                                    <span class="repeat-series-facts__value">{{ implode(', ', $booking->weekNames) }}</span>
+                                </div>
+                            @endif
+                            @if($hasMonthDays)
+                                <div class="repeat-series-facts__item">
+                                    <span class="repeat-series-facts__label">{{ translate('Monthly_visit_days') }}</span>
+                                    <span class="repeat-series-facts__value">{{ implode(', ', $booking['monthDays']) }}</span>
+                                </div>
+                            @endif
+                            @if($hasTotalCount)
+                                <div class="repeat-series-facts__item">
+                                    <span class="repeat-series-facts__label">{{ translate('Arrival') }}</span>
+                                    <span class="repeat-series-facts__value">{{ $booking->time }}</span>
+                                </div>
+                            @endif
+                        </div>
+                        @if ($hasZeroCount)
+                            <p class="repeat-series-facts__note">{{ translate('Repeat_visits_schedule_or_log_help') }}</p>
+                        @endif
+                        @if($hasRepeatUntilStopped)
+                            <p class="repeat-series-facts__note">{{ translate('Repeat_until_stopped_help') }}</p>
+                        @endif
+                    </section>
+                </div>
+                <div class="col-12 order-3">
+                    <section class="summary-panel booking-summary-panel" id="booking-summary">
+                        <div class="summary-panel__head">
+                            <h2 class="summary-panel__title">
+                                <span class="material-icons">receipt_long</span>
+                                {{ translate('All_Booking_Summary') }}
+                            </h2>
+                            <div class="summary-panel__head-actions">
+                                    @if ($canEditRepeatServices)
                                         @can('booking_edit')
-                                            <button type="button" class="btn btn--primary btn-sm" data-bs-toggle="modal"
+                                            <button type="button" class="btn btn-demo-outline btn-sm" data-bs-toggle="modal"
                                                 data-bs-target="#serviceUpdateModal--{{ $booking['id'] }}" data-toggle="tooltip"
                                                 title="{{ translate('Add or remove services') }}">
                                                 <span class="material-symbols-outlined">edit</span>{{ translate('Edit Services') }}
                                             </button>
                                         @endcan
                                     @endif
-                                    <a href="{{ url()->current() }}?web_page=service_log" class="btn-link text-primary fw-semibold">{{translate('View All Booking')}}</a>
-                                </div>
+                                    <a href="#repeat-service-log" class="btn btn-demo-outline btn-sm">{{translate('View_all_visits')}}</a>
                             </div>
                         </div>
-                        <div class="card-body pb-5">
-                            <div
-                                class="border-bottom d-flex flex-column flex-sm-row justify-content-sm-between align-items-sm-center gap-3 flex-wrap mb-3 pb-3">
-                                <div>
-                                    <p>
-                                        <span>{{ translate('Total_Booking') }} : </span>
-                                        <span class="fw-semibold">{{ $booking->totalCount }}</span>
-                                    </p>
-                                    <p>
-                                        <span>{{ translate('Booking_Type') }} : </span>
-                                        <span class="fw-semibold">
-                                            {{ ucwords($booking->bookingType )}}
-                                        </span>
-                                    </p>
-                                    <p>
-                                        <span>{{ translate('Booking_Date_Range') }} : </span>
-                                        <span class="fw-semibold">
-                                            {{ $booking->startDate }} - {{ $booking->endDate }}
-                                        </span>
-                                    </p>
-                                    @if($booking->bookingType == 'weekly')
-                                        <p>
-                                            <span>{{ translate('Weekly Selected Days') }} : </span>
-                                            <span class="fw-semibold">
-                                                {{ implode(', ', $booking->weekNames) }}
-                                            </span>
-                                        </p>
-                                    @endif
-                                    <p>
-                                        <span>{{ translate('Arrival') }} : </span>
-                                        <span class="fw-semibold">
-                                            {{ $booking->time }}
-                                        </span>
-                                    </p>
-                                </div>
-                                <div>
-                                    <p>
-                                        <span>{{ translate('Completed') }} : </span>
-                                        <span class="fw-semibold">
-                                            {{ $booking->completedCount }}
-                                        </span>
-                                    </p>
-                                    <p>
-                                        <span>{{ translate('Canceled') }} : </span>
-                                        <span class="fw-semibold">
-                                            {{ $booking->canceledCount }}
-                                        </span>
-                                    </p>
-                                    <p>
-                                        <span>{{ translate('Payment') }} : </span>
-                                        <span class="fw-semibold">
-                                            {{ ucwords(str_replace('_', ' ', $booking->payment_method)) }}
-                                        </span>
-                                    </p>
-                                    <p>
-                                        <span>{{ translate('Total_Amount') }} : </span>
-                                        <span class="fw-semibold">
-                                            {{ with_currency_symbol($booking->total_booking_amount) }}
-                                        </span>
-                                    </p>
-                                </div>
-
-                            </div>
-
-                            <div class="d-flex justify-content-start gap-2">
-                                <h3 class="mb-3">{{ translate('Billing_Summary') }}</h3>
-                            </div>
-
-                            <div class="table-responsive border-bottom">
+                        <div class="summary-panel__body">
+                            <div class="summary-panel__split">
+                            <div class="summary-panel__services">
+                            <div class="summary-table-wrap table-responsive">
                                 <table class="table text-nowrap align-middle mb-0">
                                     <thead>
                                         <tr>
@@ -360,7 +443,9 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @php($subTotal = 0)
+                                        @php
+                                            $subTotal = 0;
+                                        @endphp
                                         @if (!empty($booking?->detail))
                                             @foreach ($booking?->detail as $detail)
                                                 <tr>
@@ -400,16 +485,18 @@
                                                     <td class="text--end">{{ with_currency_symbol($detail['total_cost']) }}
                                                     </td>
                                                 </tr>
-                                                @php($subTotal += $detail['service_cost'] * $detail['quantity'])
+                                                @php
+                                                    $subTotal += $detail['service_cost'] * $detail['quantity'];
+                                                @endphp
                                             @endforeach
                                         @endif
                                     </tbody>
                                 </table>
                             </div>
-                            <div class="row justify-content-end mt-3">
-                                <div class="col-sm-10 col-md-6 col-xl-5">
-                                    <div class="table-responsive">
-                                        <table class="table-md title-color align-right w-100">
+                            </div>
+                            <div class="summary-panel__breakdown">
+                            <div class="summary-breakdown-wrap">
+                                        <table class="booking-summary-breakdown breakdown-table mb-0">
                                             <tbody>
                                                 @if($booking['repeatHistory'])
                                                     <tr>
@@ -424,18 +511,24 @@
                                                     </tr>
                                                 @else
                                                     <tr>
-                                                        <td class="text-capitalize">{{ translate('Sub Total') }} x {{ count($booking->repeat) }} {{translate('days')}}</td>
-                                                        <td class="text--end pe--4">{{ with_currency_symbol($subTotal * $booking->totalCount) }}</td>
+                                                        <td class="text-capitalize">
+                                                            @if ($booking->totalCount > 0)
+                                                                {{ translate('Sub Total') }} x {{ (int) $booking->totalCount }} {{ translate('visits') }}
+                                                            @else
+                                                                {{ translate('Quoted_per_visit') }}
+                                                            @endif
+                                                        </td>
+                                                        <td class="text--end pe--4">{{ with_currency_symbol((int) $booking->totalCount > 0 ? $subTotal * $booking->totalCount : $subTotal) }}</td>
                                                     </tr>
                                                 @endif
-                                                @if((float)($booking->total_discount_amount ?? 0) > 0)
+                                                @if (($booking->total_discount_amount ?? 0) > 0)
                                                 <tr>
                                                     <td class="text-capitalize">{{ translate('Discount') }}</td>
                                                     <td class="text--end pe--4">
                                                         {{ with_currency_symbol($booking->total_discount_amount) }}</td>
                                                 </tr>
                                                 @endif
-                                                @if((float)($booking->total_coupon_discount_amount ?? 0) > 0)
+                                                @if (($booking->total_coupon_discount_amount ?? 0) > 0)
                                                 <tr>
                                                     <td class="text-capitalize">{{ translate('coupon_discount') }}</td>
                                                     <td class="text--end pe--4">
@@ -443,7 +536,7 @@
                                                     </td>
                                                 </tr>
                                                 @endif
-                                                @if((float)($booking->total_campaign_discount_amount ?? 0) > 0)
+                                                @if (($booking->total_campaign_discount_amount ?? 0) > 0)
                                                 <tr>
                                                     <td class="text-capitalize">{{ translate('campaign_discount') }}</td>
                                                     <td class="text--end pe--4">
@@ -469,7 +562,7 @@
                                                 @if ($booking->extra_fee > 0)
                                                     @if(is_array($booking->additional_charges_breakdown) && count($booking->additional_charges_breakdown))
                                                         @foreach($booking->additional_charges_breakdown as $acRow)
-                                                            @if((float)($acRow['amount'] ?? 0) > 0)
+                                                            @if (($acRow['amount'] ?? 0) > 0)
                                                             <tr>
                                                                 <td class="text-capitalize">{{ $acRow['name'] ?? translate('Additional_charges') }}</td>
                                                                 <td class="text--end pe--4">{{ with_currency_symbol($acRow['amount'] ?? 0) }}</td>
@@ -533,13 +626,13 @@
                                                 @endif
                                             </tbody>
                                         </table>
-                                    </div>
-                                </div>
+                            </div>
+                            </div>
                             </div>
                         </div>
-                    </div>
+                    </section>
                 </div>
-                <div class="col-lg-4">
+                <div class="col-lg-4 order-2">
                     <div class="card">
                         <div class="card-body">
                             <h3 class="c1">{{ translate('Booking Setup') }}</h3>
@@ -579,26 +672,33 @@
                              @endcan
 
                             <div class="py-3 d-flex flex-column gap-3 mb-2">
-                                @php($serviceAtProviderPlace = (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0))
+                                @php
+                                    $serviceAtProviderPlace = (int) ((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0);
+                                @endphp
                                 <div class="c1-light-bg radius-10">
                                     <div class="border-bottom d-flex align-items-center justify-content-between gap-2 py-3 px-4 mb-2">
                                         <h4 class="d-flex align-items-center gap-2">
                                             <span class="material-icons title-color">map</span>
                                             {{ translate('Service_location') }}
                                         </h4>
-                                        @if($serviceAtProviderPlace == 1)
-                                            <div class="btn-group">
+                                        <div class="d-flex align-items-center gap-2">
+                                            @can('booking_edit')
+                                                <div class="cursor-pointer" data-bs-toggle="modal"
+                                                     data-bs-target="#serviceAddressModal--{{ $booking['id'] }}"
+                                                     title="{{ translate('Edit_Details') }}">
+                                                    <span class="material-symbols-outlined">edit_square</span>
+                                                </div>
+                                            @endcan
+                                            @if($serviceAtProviderPlace == 1)
                                                 @can('booking_edit')
-                                                    <div data-bs-toggle="modal"
+                                                    <div class="cursor-pointer" data-bs-toggle="modal"
                                                          data-bs-target="#serviceLocationModal--{{ $booking['id'] }}"
-                                                         data-toggle="tooltip" data-placement="top">
-                                                        <div class="d-flex align-items-center gap-2">
-                                                            <span class="material-symbols-outlined">edit_square</span>
-                                                        </div>
+                                                         title="{{ translate('Service_location') }}">
+                                                        <span class="material-symbols-outlined">map</span>
                                                     </div>
                                                 @endcan
-                                            </div>
-                                        @endif
+                                            @endif
+                                        </div>
                                     </div>
 
                                     <div class="py-3 px-4">
@@ -636,177 +736,25 @@
                                         @endif
                                     </div>
                                 </div>
-
-                                <div class="c1-light-bg radius-10">
-                                    <div class="border-bottom d-flex align-items-center justify-content-between gap-2 py-3 px-4 mb-2">
-                                        <h4 class="d-flex align-items-center gap-2">
-                                            <span class="material-icons title-color">person</span>
-                                            {{ translate('Customer_Information') }}
-                                        </h4>
-
-                                        <div class="btn-group">
-                                            @if (in_array($booking->booking_status, ['completed', 'cancelled']))
-                                                @if (!$booking?->is_guest)
-                                                    <div
-                                                        class="d-flex align-items-center gap-2 cursor-pointer customer-chat">
-                                                        <span class="material-symbols-outlined">chat</span>
-                                                        <form action="{{ route('admin.chat.create-channel') }}"
-                                                            method="post" id="chatForm-{{ $booking->id }}">
-                                                            @csrf
-                                                            <input type="hidden" name="customer_id"
-                                                                value="{{ $booking?->customer?->id }}">
-                                                            <input type="hidden" name="type" value="booking">
-                                                            <input type="hidden" name="user_type" value="customer">
-                                                        </form>
-                                                    </div>
-                                                @endif
-                                            @else
-                                                <div class="cursor-pointer" data-bs-toggle="dropdown"
-                                                    aria-expanded="false">
-                                                    <span class="material-symbols-outlined">more_vert</span>
-                                                </div>
-                                                <ul
-                                                    class="dropdown-menu dropdown-menu__custom border-none dropdown-menu-end">
-                                                    @can('booking_edit')
-                                                        <li data-bs-toggle="modal"
-                                                            data-bs-target="#serviceAddressModal--{{ $booking['id'] }}"
-                                                            data-toggle="tooltip" data-placement="top">
-                                                            <div class="d-flex align-items-center gap-2">
-                                                                <span class="material-symbols-outlined">edit_square</span>
-                                                                {{ translate('Edit_Details') }}
-                                                            </div>
-                                                        </li>
-                                                    @endcan
-                                                </ul>
-                                            @endif
-                                        </div>
-                                    </div>
-
-                                    <div class="py-3 px-4">
-                                        @php($customer_name = booking_display_customer_name($booking, $customerAddress))
-                                        @php($customer_phone = booking_display_customer_phone($booking, $customerAddress))
-
-                                        <div class="media gap-2 flex-wrap">
-                                            @if (!$booking?->is_guest && $booking?->customer)
-                                                <img width="58" height="58"
-                                                    class="rounded-circle border border-white aspect-square object-fit-cover"
-                                                    src="{{ $booking?->customer?->profile_image_full_path }}"
-                                                    alt="{{ translate('user_image') }}">
-                                            @else
-                                                <img width="58" height="58"
-                                                    class="rounded-circle border border-white aspect-square object-fit-cover"
-                                                    src="{{ asset('assets/provider-module/img/user2x.png') }}"
-                                                    alt="{{ translate('user_image') }}">
-                                            @endif
-
-                                            <div class="media-body">
-                                                <h5 class="c1 mb-3">
-                                                    @if (!$booking?->is_guest && $booking?->customer)
-                                                        <a href="{{ route('admin.customer.detail', [$booking?->customer?->id, 'web_page' => 'overview']) }}"
-                                                            class="c1">{{ Str::limit($customer_name, 30) }}</a>
-                                                    @else
-                                                        <span>{{ Str::limit($customer_name ?? '', 30) }}</span>
-                                                    @endif
-                                                </h5>
-                                                <ul class="list-info">
-                                                    @if ($customer_phone)
-                                                        <li>
-                                                            <span class="material-icons">phone_iphone</span>
-                                                            <a
-                                                                href="tel:{{ $customer_phone }}">{{ $customer_phone }}</a>
-                                                        </li>
-                                                    @endif
-                                                        @if(!empty($booking?->service_address?->address))
-                                                            <li>
-                                                                <span class="material-icons">map</span>
-                                                                <p>{{ Str::limit($booking?->service_address?->address ?? translate('not_available'), 100) }}
-                                                                </p>
-                                                            </li>
-                                                        @endif
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="c1-light-bg radius-10 provider-information">
-                                    <div
-                                        class="border-bottom d-flex align-items-center justify-content-between gap-2 py-3 px-4 mb-2">
-                                        <h4 class="d-flex align-items-center gap-2">
-                                            <span class="material-icons title-color">person</span>
-                                            {{ translate('Provider_Information') }}
-                                        </h4>
-                                        @if (isset($booking->provider))
-                                            <div class="btn-group">
-                                                <div class="cursor-pointer" data-bs-toggle="dropdown"
-                                                    aria-expanded="false">
-                                                    <span class="material-symbols-outlined">more_vert</span>
-                                                </div>
-                                                <ul
-                                                    class="dropdown-menu dropdown-menu__custom border-none dropdown-menu-end">
-                                                    <li>
-                                                        <a class="d-flex align-items-center gap-2 cursor-pointer p-0"
-                                                            href="{{ route('admin.provider.details', [$booking?->provider?->id, 'web_page' => 'overview']) }}">
-                                                            <span class="material-icons">person</span>
-                                                            {{ translate('View_Details') }}
-                                                        </a>
-                                                    </li>
-{{--                                                    <li>--}}
-{{--                                                        <div class="d-flex align-items-center gap-2"--}}
-{{--                                                             data-bs-target="#providerModal" data-bs-toggle="modal">--}}
-{{--                                                                    <span--}}
-{{--                                                                        class="material-symbols-outlined">manage_history</span>--}}
-{{--                                                            {{ translate('change_Provider') }}--}}
-{{--                                                        </div>--}}
-{{--                                                    </li>--}}
-                                                </ul>
-                                            </div>
-                                        @endif
-                                    </div>
-                                    @if (isset($booking->provider))
-                                        <div class="py-3 px-4">
-                                            <div class="media gap-2 flex-wrap">
-                                                <img width="58" height="58"
-                                                    class="rounded-circle border border-white aspect-square object-fit-cover"
-                                                    src="{{ $booking?->provider?->logo_full_path }}"
-                                                    alt="{{ translate('provider') }}">
-                                                <div class="media-body">
-                                                    <a
-                                                        href="{{ route('admin.provider.details', [$booking?->provider?->id, 'web_page' => 'overview']) }}">
-                                                        <h5 class="c1 mb-3">
-                                                            {{ Str::limit($booking->provider->company_name ?? '', 30) }}
-                                                        </h5>
-                                                    </a>
-                                                    <ul class="list-info">
-                                                        <li>
-                                                            <span class="material-icons">phone_iphone</span>
-                                                            <a
-                                                                href="tel:{{ $booking->provider->contact_person_phone ?? '' }}">{{ $booking->provider->contact_person_phone ?? '' }}</a>
-                                                        </li>
-                                                        <li>
-                                                            <span class="material-icons">map</span>
-                                                            <p>{{ Str::limit($booking->provider->company_address ?? '', 100) }}
-                                                            </p>
-                                                        </li>
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @else
-                                        <div class="d-flex flex-column gap-2 mt-30 align-items-center">
-                                            <span class="material-icons text-muted fs-2">account_circle</span>
-                                            <p class="text-muted text-center fw-medium mb-3">
-                                                {{ translate('No Provider Information') }}</p>
-                                        </div>
-                                        @if($booking['booking_status'] != 'canceled')
-                                            <div class="text-center pb-4">
-                                                <button class="btn btn--primary" data-bs-target="#providerModal" data-bs-toggle="modal">{{ translate('assign provider') }}</button>
-                                            </div>
-                                        @endif
-                                    @endif
-                                </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <section id="repeat-service-log" class="repeat-detail-section mt-4">
+                <div class="summary-panel booking-summary-panel mb-0">
+                    <div class="summary-panel__head">
+                        <h2 class="summary-panel__title">
+                            <span class="material-icons">event_repeat</span>
+                            {{ translate('service_log') }}
+                        </h2>
+                    </div>
+                    <div class="summary-panel__body p-3">
+                        @include('bookingmodule::admin.booking.partials._repeat-visits-board')
+                    </div>
+                </div>
+            </section>
                     </div>
                 </div>
             </div>
@@ -814,6 +762,73 @@
     </div>
 
     @include('bookingmodule::admin.booking.partials.details._service-address-modal')
+    @include('bookingmodule::admin.booking.partials._repeat-payment-history-modal', [
+        'booking' => $booking,
+        'repeatPaymentHistoryModalId' => $repeatPaymentHistoryModalId,
+    ])
+
+    @if(!empty($canEditSeriesDates))
+        @can('booking_edit')
+            <div class="modal fade" id="editRepeatSeriesDatesModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <form method="POST" action="{{ route('admin.booking.repeat_series_dates', $booking->id) }}">
+                            @csrf
+                            <div class="modal-header">
+                                <h5 class="modal-title">{{ translate('Change_series_dates') }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="text-muted">{{ translate('Change_series_dates_help') }}</p>
+                                <div class="mb-3">
+                                    <label class="form-label" for="series-start-date">{{ translate('Series_start_date') }}</label>
+                                    <input type="date" name="series_start_date" id="series-start-date" class="form-control"
+                                           value="{{ $booking['seriesStartDateInput'] ?? '' }}" required>
+                                </div>
+                                <div class="mb-0">
+                                    <label class="form-label" for="series-end-date">{{ translate('Series_end_date') }}</label>
+                                    <input type="date" name="series_end_date" id="series-end-date" class="form-control"
+                                           value="{{ $booking['seriesEndDateInput'] ?? '' }}">
+                                    <p class="form-text mb-0">{{ translate('Repeat_until_stopped_help') }}</p>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                <button type="submit" class="btn btn--primary">{{ translate('Save') }}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        @endcan
+    @endif
+
+    @if(!empty($canStopRepeatSeries))
+        @can('booking_can_manage_status')
+            <div class="modal fade" id="stopRepeatSeriesModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <form method="POST" action="{{ route('admin.booking.stop_repeat', $booking->id) }}">
+                            @csrf
+                            <div class="modal-header">
+                                <h5 class="modal-title">{{ translate('Stop_series_and_complete') }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="mb-0">{{ translate('Stop_repeat_series_confirm') }}</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                <button type="submit" class="btn btn--danger">{{ translate('Stop_series_and_complete') }}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        @endcan
+    @endif
+
+    @include('bookingmodule::admin.booking.partials._add-repeat-visit-modal')
 
     @include('bookingmodule::admin.booking.partials._booking-status-reason-modal')
 
@@ -889,7 +904,9 @@
                                 </thead>
 
                                 <tbody id="service-edit-tbody">
-                                    @php($sub_total = 0)
+                                    @php
+                                        $sub_total = 0;
+                                    @endphp
                                     @foreach ($booking?->nextService['detail'] as $key => $detail)
                                         <tr id="service-row--{{ $detail['variant_key'] }}">
                                             <td class="text-wrap ps-lg-3">
@@ -924,7 +941,9 @@
                                             <input type="hidden" name="variant_keys[]"
                                                 value="{{ $detail['variant_key'] }}">
                                         </tr>
-                                        @php($sub_total += $detail['service_cost'] * $detail['quantity'])
+                                        @php
+                                            $sub_total += $detail['service_cost'] * $detail['quantity'];
+                                        @endphp
                                     @endforeach
                                     <input type="hidden" name="zone_id" value="{{ $booking->zone_id }}">
                                     <input type="hidden" name="booking_id" value="{{ $booking->id }}">
@@ -1024,7 +1043,7 @@
                                                     <div>{{('Service Discount')}}:</div>
                                                     <div class="fw-bold">{{ with_currency_symbol($serviceLog->discount_amount) }}</div>
                                                 </div>
-                                                @if((float)($repeat['total_tax_amount'] ?? 0) > 0)
+                                                @if (($repeat['total_tax_amount'] ?? 0) > 0)
                                                 <div class="d-flex gap-4 justify-content-end px-2">
                                                     <div>{{ translate('Service') }} {{ company_default_tax_label() }}:</div>
                                                     <div class="fw-bold">{{ with_currency_symbol($repeat['total_tax_amount']) }}</div>
@@ -2003,7 +2022,48 @@
             $('.without-search').select2({
                 minimumResultsForSearch: Infinity
             });
-        });
 
+            function repeatShowVisitTab(visitId) {
+                var visitModalEl = document.getElementById('repeat-visit-modal-' + visitId);
+                if (!visitModalEl) {
+                    return;
+                }
+                var tabPane = visitModalEl.closest('.tab-pane');
+                if (!tabPane || !tabPane.id || !window.bootstrap || !bootstrap.Tab) {
+                    return;
+                }
+                var tabTrigger = document.querySelector('[data-bs-target="#' + tabPane.id + '"]');
+                if (tabTrigger) {
+                    bootstrap.Tab.getOrCreateInstance(tabTrigger).show();
+                }
+            }
+
+            function repeatOpenVisitModal(visitId) {
+                if (!visitId) {
+                    return;
+                }
+                repeatShowVisitTab(visitId);
+                var visitModalEl = document.getElementById('repeat-visit-modal-' + visitId);
+                if (!visitModalEl || !window.bootstrap || !bootstrap.Modal) {
+                    return;
+                }
+                bootstrap.Modal.getOrCreateInstance(visitModalEl).show();
+            }
+
+            var openVisitId = @json($openVisitId);
+            if (openVisitId) {
+                repeatOpenVisitModal(openVisitId);
+            }
+
+            var paymentModalId = @json($repeatPaymentHistoryModalId);
+            if (window.location.hash === '#repeat-payments' && paymentModalId) {
+                var paymentModalEl = document.getElementById(paymentModalId);
+                if (paymentModalEl && window.bootstrap && bootstrap.Modal) {
+                    bootstrap.Modal.getOrCreateInstance(paymentModalEl).show();
+                }
+            }
+
+        });
     </script>
+    @include('bookingmodule::admin.booking.partials._repeat-visit-status-script')
 @endpush

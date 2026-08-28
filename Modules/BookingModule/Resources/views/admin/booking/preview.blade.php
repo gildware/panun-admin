@@ -11,7 +11,12 @@
                    class="btn btn-outline-secondary">
                     {{ translate('Go_back') }}
                 </a>
-                <a href="{{ route('admin.booking.create', !empty($data['reopen_source_booking_id'] ?? null) ? ['from_reopen' => 1] : []) }}" class="btn btn-secondary">
+                @php
+                    $createEditRoute = !empty($data['is_repeat_booking']) && empty($data['reopen_source_booking_id'] ?? null)
+                        ? 'admin.booking.create-repeat'
+                        : 'admin.booking.create';
+                @endphp
+                <a href="{{ route($createEditRoute, !empty($data['reopen_source_booking_id'] ?? null) ? ['from_reopen' => 1] : []) }}" class="btn btn-secondary">
                     {{ translate('Back_to_Edit') }}
                 </a>
             </div>
@@ -99,7 +104,7 @@
                     {{-- 3. Date & Time --}}
                     <div class="mb-4 border rounded-3 p-3">
                         <h4 class="mb-3">{{ translate('Date_&_Time') }}</h4>
-                        <p><strong>{{ translate('Service_Schedule') }}:</strong> {{ \Carbon\Carbon::parse($data['service_schedule'])->format('Y-m-d H:i') }}</p>
+                        @include('bookingmodule::admin.booking.partials._preview-repeat-schedule', ['data' => $data, 'repeatPlan' => $repeatPlan ?? ['is_repeat' => false]])
                     </div>
 
                     {{-- 4. Provider Information --}}
@@ -227,7 +232,7 @@
 
                     {{-- Action buttons: sibling forms only (nested forms are invalid HTML and can submit the wrong action). --}}
                     <div class="d-flex justify-content-end gap-2 mt-1">
-                        <form action="{{ route('admin.booking.create') }}" method="POST" class="d-inline">
+                        <form action="{{ route(!empty($data['is_repeat_booking']) && empty($data['reopen_source_booking_id'] ?? null) ? 'admin.booking.create-repeat' : 'admin.booking.create') }}" method="POST" class="d-inline">
                             @csrf
                             @include('bookingmodule::admin.booking.partials._preview-booking-hidden-fields', ['data' => $data])
                             <button type="submit" class="btn btn-secondary">

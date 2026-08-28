@@ -45,6 +45,19 @@ $dryRun = filter_var(env('CARPENTRY_DRY_RUN', false), FILTER_VALIDATE_BOOLEAN);
 $onlySlugs = array_filter(array_map('trim', explode(',', (string) env('CARPENTRY_ONLY_SLUGS', ''))));
 $catalog = require base_path('scripts/data/carpentry-catalog.php');
 
+$woodenFlooringSlugs = ['wooden-flooring-install', 'wooden-flooring-repair'];
+$serviceImageDirEarly = base_path('scripts/assets/service-images');
+$woodenFlooringAssetsReady = is_file($serviceImageDirEarly.'/wooden-flooring-install/thumbnail.png')
+    && is_file($serviceImageDirEarly.'/wooden-flooring-repair/thumbnail.png');
+
+if (! $woodenFlooringAssetsReady) {
+    $catalog['services'] = array_values(array_filter(
+        $catalog['services'],
+        static fn (array $service): bool => ! in_array($service['slug'] ?? '', $woodenFlooringSlugs, true)
+    ));
+    echo "Skipping Wooden Flooring (assets not prepared). Use seed-wooden-flooring-live.php.\n";
+}
+
 if ($onlySlugs !== []) {
     $catalog['services'] = array_values(array_filter(
         $catalog['services'],
@@ -504,7 +517,7 @@ foreach ($catalog['services'] as $serviceSpec) {
 
 $oldServices = Service::on($liveConnection)->withoutGlobalScopes()
     ->where('category_id', $mainCategory->id)
-    ->whereNotIn('slug', $newServiceSlugs)
+    ->whereNotIn('slug', array_values(array_unique(array_merge($newServiceSlugs, $woodenFlooringSlugs))))
     ->get(['id', 'slug', 'name', 'is_active']);
 
 foreach ($oldServices as $old) {

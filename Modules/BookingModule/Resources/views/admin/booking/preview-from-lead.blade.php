@@ -96,7 +96,7 @@
                     {{-- 3. Date & Time --}}
                     <div class="mb-4 border rounded-3 p-3">
                         <h4 class="mb-3">{{ translate('Date_&_Time') }}</h4>
-                        <p><strong>{{ translate('Service_Schedule') }}:</strong> {{ \Carbon\Carbon::parse($data['service_schedule'])->format('Y-m-d H:i') }}</p>
+                        @include('bookingmodule::admin.booking.partials._preview-repeat-schedule', ['data' => $data, 'repeatPlan' => $repeatPlan ?? ['is_repeat' => false]])
                     </div>
 
                     {{-- 4. Provider Information --}}
