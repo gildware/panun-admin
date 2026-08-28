@@ -862,24 +862,77 @@ class CustomerController extends Controller
             ));
 
         } elseif ($webPage == 'bookings') {
+            $search = trim((string) $request->input('search', ''));
+            $allowedBookingStatuses = array_merge(['all'], array_column(BOOKING_STATUSES, 'key'));
+            $bookingStatus = (string) $request->input('booking_status', 'all');
+            if (! in_array($bookingStatus, $allowedBookingStatuses, true)) {
+                $bookingStatus = 'all';
+            }
+            $paymentStatus = (string) $request->input('payment_status', 'all');
+            if (! in_array($paymentStatus, ['all', 'paid', 'unpaid'], true)) {
+                $paymentStatus = 'all';
+            }
+            $startDate = trim((string) $request->input('start_date', ''));
+            $endDate = trim((string) $request->input('end_date', ''));
 
-            $search = $request->has('search') ? $request['search'] : '';
-            $queryParam = ['web_page' => $webPage, 'search' => $search];
+            $queryParam = array_filter([
+                'web_page' => $webPage,
+                'search' => $search !== '' ? $search : null,
+                'booking_status' => $bookingStatus !== 'all' ? $bookingStatus : null,
+                'payment_status' => $paymentStatus !== 'all' ? $paymentStatus : null,
+                'start_date' => $startDate !== '' ? $startDate : null,
+                'end_date' => $endDate !== '' ? $endDate : null,
+            ], fn ($value) => $value !== null && $value !== '');
 
-            $bookings = $this->booking->with(['provider.owner', 'extra_services'])
+            $filterCounter = collect([
+                $bookingStatus !== 'all',
+                $paymentStatus !== 'all',
+                $startDate !== '',
+                $endDate !== '',
+            ])->filter()->count();
+
+            $bookings = $this->booking
+                ->with(['provider.owner', 'extra_services', 'details_amounts', 'booking_partial_payments'])
                 ->where('customer_id', $id)
-                ->where(function ($query) use ($request) {
-                    $keys = explode(' ', $request['search']);
-                    foreach ($keys as $key) {
-                        $query->where('readable_id', 'LIKE', '%' . $key . '%');
-                    }
+                ->when($search !== '', function ($query) use ($search) {
+                    $query->where(function ($inner) use ($search) {
+                        foreach (array_filter(explode(' ', $search)) as $key) {
+                            $inner->where('readable_id', 'LIKE', '%' . $key . '%');
+                        }
+                    });
+                })
+                ->when($bookingStatus !== 'all', function ($query) use ($bookingStatus) {
+                    $query->ofBookingStatus($bookingStatus);
+                })
+                ->when($paymentStatus === 'paid', function ($query) {
+                    $query->where('is_paid', 1);
+                })
+                ->when($paymentStatus === 'unpaid', function ($query) {
+                    $query->where('is_paid', 0);
+                })
+                ->when($startDate !== '', function ($query) use ($startDate) {
+                    $query->whereDate('created_at', '>=', $startDate);
+                })
+                ->when($endDate !== '', function ($query) use ($endDate) {
+                    $query->whereDate('created_at', '<=', $endDate);
                 })
                 ->latest()
-                ->paginate(pagination_limit())->appends($queryParam);
+                ->paginate(pagination_limit())
+                ->appends($queryParam);
 
             $customer = $this->user->inCustomerDirectory()->find($id);
 
-            return view('customermodule::admin.detail.bookings', compact('bookings', 'webPage', 'customer', 'search'));
+            return view('customermodule::admin.detail.bookings', compact(
+                'bookings',
+                'webPage',
+                'customer',
+                'search',
+                'bookingStatus',
+                'paymentStatus',
+                'startDate',
+                'endDate',
+                'filterCounter'
+            ));
 
         } elseif ($webPage == 'reviews') {
             $search = $request->has('search') ? $request['search'] : '';
