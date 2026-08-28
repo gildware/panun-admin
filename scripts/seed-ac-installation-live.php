@@ -374,3 +374,4 @@ if ($prefixSetting && $originalPrefix !== null) {
 }
 
 echo "AC Installation seeded on live with 4 variants x {$zones->count()} zones.\n";
+echo "Next: cd panun-marketing && npm run sync-catalog   # refresh marketing image URLs\n";
