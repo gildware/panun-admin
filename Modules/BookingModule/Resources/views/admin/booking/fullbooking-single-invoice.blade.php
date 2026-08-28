@@ -175,7 +175,9 @@ h1, h2,h3,h4, h5, h6 {
         <div>
             <table>
                 <tbody>
-                @php($invoice_business_name = business_config('business_name','business_information'))
+                @php
+                    $invoice_business_name = $visitInvoiceBusinessName ?? null;
+                @endphp
                 <tr>
                     <td colspan="2" class="text-center" style="padding-bottom: 12px; padding-top: 0;">
                         <div class="fw-700" style="font-size: 17px;">{{ $invoice_business_name->live_values ?? '' }}</div>
@@ -189,8 +191,10 @@ h1, h2,h3,h4, h5, h6 {
                     </td>
                     <td class="company-details">
                         <a target="_blank" href="#">
-                            @php($invoiceLogoPlaceholder = asset('assets/admin-module/img/placeholder.png'))
-                            @php($logo = admin_nav_image_src(getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'business_information', path: 'business/', defaultPath: 'assets/admin-module/img/placeholder.png'), 'logo'))
+                            @php
+                                $invoiceLogoPlaceholder = $visitInvoiceLogoPlaceholder ?? asset('assets/admin-module/img/placeholder.png');
+                                $logo = $visitInvoiceLogo ?? $invoiceLogoPlaceholder;
+                            @endphp
                             <img style="max-height: 48px; max-width: 160px; width: auto; height: auto;"
                                  src="{{ $logo }}"
                                  data-fallback="{{ $invoiceLogoPlaceholder }}"
@@ -198,9 +202,11 @@ h1, h2,h3,h4, h5, h6 {
                                  alt="{{ translate('logo') }}"
                                  data-holder-rendered="true"/>
                         </a>
-                        @php($business_email = business_config('business_email','business_information'))
-                        @php($business_phone = business_config('business_phone','business_information'))
-                        @php($business_address = business_config('business_address','business_information'))
+                        @php
+                            $business_email = $visitInvoiceBusinessEmail ?? null;
+                            $business_phone = $visitInvoiceBusinessPhone ?? null;
+                            $business_address = $visitInvoiceBusinessAddress ?? null;
+                        @endphp
                         <div class="mt-2">{{$business_address->live_values}}</div>
                         <div>{{$business_phone->live_values}}</div>
                         <div>{{$business_email->live_values}}</div>
@@ -209,8 +215,10 @@ h1, h2,h3,h4, h5, h6 {
                 </tbody>
             </table>
 
-            @php($customer_name = $booking->booking->customer ? $booking?->booking?->customer?->first_name.' '.$booking?->booking?->customer?->last_name : $booking?->booking?->service_address?->contact_person_name)
-            @php($customer_phone = $booking->booking->customer ? $booking?->booking?->customer?->phone : $booking?->booking?->service_address?->contact_person_number)
+            @php
+                $customer_name = $visitInvoiceCustomerName ?? '';
+                $customer_phone = $visitInvoiceCustomerPhone ?? '';
+            @endphp
 
             <div class="white-box-content border rounded-12 border">
                 <table>
@@ -232,7 +240,7 @@ h1, h2,h3,h4, h5, h6 {
                         <td class="border-bottom">
                             <div class="text-right">
                                 <div>{{translate('Invoice of')}} ({{currency_code()}})</div>
-                                <h5 style="font-size:20px; font-weight: 700;margin:0;color:#007bff">{{with_currency_symbol($booking->total_booking_amount)}}</h5>
+                                <h5 style="font-size:20px; font-weight: 700;margin:0;color:#007bff">{{with_currency_symbol($visitInvoiceGrandTotal)}}</h5>
                             </div>
                         </td>
                     </tr>
@@ -300,30 +308,60 @@ h1, h2,h3,h4, h5, h6 {
                         </tr>
                         </thead>
                         <tbody>
-                        @php($sub_total=0; $sl = 0)
-                        @foreach($booking->detail as $index=>$item)
-                            @php($sl++)
+                        @php
+                            $sub_total = 0;
+                            $sl = 0;
+                            $extraServices = $visitInvoiceExtras ?? collect();
+                            $extraServicesTotal = $visitInvoiceExtrasTotal ?? $extraServices->sum('total');
+                            $fbsInvSvcDisc = round(($booking->total_discount_amount ?? 0) + get_booking_extra_service_line_discount_total($booking), 2);
+                            $showCampaignDiscount = ($booking->total_campaign_discount_amount ?? 0) > 0;
+                            $showCouponDiscount = ($booking->total_coupon_discount_amount ?? 0) > 0;
+                            $showTax = ($booking->total_tax_amount ?? 0) > 0;
+                            $showExtraFee = ($booking->extra_fee ?? 0) > 0;
+                            $invoiceAcRows = [];
+                            if (is_array($booking->additional_charges_breakdown)) {
+                                foreach ($booking->additional_charges_breakdown as $acRow) {
+                                    if (($acRow['amount'] ?? 0) > 0) {
+                                        $invoiceAcRows[] = $acRow;
+                                    }
+                                }
+                            }
+                            $showAcBreakdown = count($invoiceAcRows) > 0;
+                            $invoiceTotal = $visitInvoiceGrandTotal ?? (($booking->total_booking_amount ?? 0) + $extraServicesTotal);
+                            $showRefund = ! empty($visitInvoiceShowRefund);
+                        @endphp
+                        @foreach($booking->detail as $item)
+                            @php
+                                $sl = $sl + 1;
+                                $slLabel = strlen((string) $sl) == 1 ? '0' . $sl : (string) $sl;
+                                $sub_total = $sub_total + ($item->service_cost * $item->quantity);
+                                $itemServiceName = $item->service ? $item->service->name : '';
+                            @endphp
                             <tr>
-                                <td class="border-bottom text-left">{{(strlen($sl)<2?'0':'').$sl}}</td>
+                                <td class="border-bottom text-left">{{ $slLabel }}</td>
                                 <td class="border-bottom text-left">
-                                    <div>{{$item->service->name??''}}</div>
-                                    <div>{{$item->variant_key}}</div>
+                                    <div>{{ $itemServiceName }}</div>
+                                    <div>{{ $item->variant_key }}</div>
                                 </td>
-                                <td class="border-bottom text-center">{{$item->quantity}}</td>
-                                <td class="border-bottom text-right">{{with_currency_symbol($item->service_cost)}}</td>
-                                <td class="border-bottom text-right">{{with_currency_symbol($item->total_cost)}}</td>
+                                <td class="border-bottom text-center">{{ $item->quantity }}</td>
+                                <td class="border-bottom text-right">{{ with_currency_symbol($item->service_cost) }}</td>
+                                <td class="border-bottom text-right">{{ with_currency_symbol($item->total_cost) }}</td>
                             </tr>
-                            @php($sub_total+=$item->service_cost*$item->quantity)
                         @endforeach
-                        @php($mainBooking = $booking->booking ?? null; $extraServicesTotal = ($mainBooking && $mainBooking->relationLoaded('extra_services')) ? $mainBooking->extra_services->sum('total') : 0)
-                        @foreach(optional($mainBooking)->extra_services ?? [] as $extra)
-                            @php($sl++)
+                        @foreach($extraServices as $extra)
+                            @php
+                                $sl = $sl + 1;
+                                $slLabel = strlen((string) $sl) == 1 ? '0' . $sl : (string) $sl;
+                                $extraTypeLabel = $extra->type === 'spare_part' ? translate('Spare_Part') : translate('Service');
+                            @endphp
                             <tr>
-                                <td class="border-bottom text-left">{{(strlen($sl)<2?'0':'').$sl}}</td>
+                                <td class="border-bottom text-left">{{ $slLabel }}</td>
                                 <td class="border-bottom text-left">
                                     <div>{{ $extra->title }}</div>
-                                    @if($extra->details)<div class="text-muted">{{ Str::limit($extra->details, 50) }}</div>@endif
-                                    <div class="text-capitalize">{{ $extra->type === 'spare_part' ? translate('Spare_Part') : translate('Service') }}</div>
+                                    @if($extra->details)
+                                        <div class="text-muted">{{ Str::limit($extra->details, 50) }}</div>
+                                    @endif
+                                    <div class="text-capitalize">{{ $extraTypeLabel }}</div>
                                 </td>
                                 <td class="border-bottom text-center">{{ $extra->quantity }}</td>
                                 <td class="border-bottom text-right">{{ with_currency_symbol($extra->price) }}</td>
@@ -337,7 +375,6 @@ h1, h2,h3,h4, h5, h6 {
                             <td class="">{{translate('subtotal')}}</td>
                             <td>{{with_currency_symbol($sub_total)}}</td>
                         </tr>
-                        @php($fbsInvSvcDisc = round((float) ($booking->total_discount_amount ?? 0) + get_booking_extra_service_line_discount_total($booking), 2))
                         @if($fbsInvSvcDisc > 0)
                         <tr>
                             <td colspan="3"></td>
@@ -345,14 +382,14 @@ h1, h2,h3,h4, h5, h6 {
                             <td>- {{with_currency_symbol($fbsInvSvcDisc)}}</td>
                         </tr>
                         @endif
-                        @if((float)($booking->total_campaign_discount_amount ?? 0) > 0)
+                        @if($showCampaignDiscount)
                         <tr>
                             <td colspan="3"></td>
                             <td>{{translate('Campaign_Discount')}}</td>
                             <td>- {{with_currency_symbol($booking->total_campaign_discount_amount)}}</td>
                         </tr>
                         @endif
-                        @if((float)($booking->total_coupon_discount_amount ?? 0) > 0)
+                        @if($showCouponDiscount)
                         <tr>
                             <td colspan="3"></td>
                             <td class="">{{translate('Coupon_Discount')}} </td>
@@ -364,23 +401,21 @@ h1, h2,h3,h4, h5, h6 {
                             <td class="">{{translate('Referral_Discount')}} </td>
                             <td>- {{with_currency_symbol($booking->total_referral_discount_amount)}}</td>
                         </tr>
-                        @if((float)($booking->total_tax_amount ?? 0) > 0)
+                        @if($showTax)
                         <tr>
                             <td colspan="3"></td>
                             <td class="">{{ company_default_tax_label() }} (%)</td>
                             <td>+ {{with_currency_symbol($booking->total_tax_amount)}}</td>
                         </tr>
                         @endif
-                        @if ($booking->extra_fee > 0)
-                            @if(is_array($booking->additional_charges_breakdown) && count($booking->additional_charges_breakdown))
-                                @foreach($booking->additional_charges_breakdown as $acRow)
-                                    @if((float)($acRow['amount'] ?? 0) > 0)
+                        @if($showExtraFee)
+                            @if($showAcBreakdown)
+                                @foreach($invoiceAcRows as $acRow)
                                     <tr>
                                         <td colspan="2"></td>
                                         <td colspan="2" class="text-uppercase">{{ $acRow['name'] ?? translate('Additional_charges') }}</td>
                                         <td>+ {{ with_currency_symbol($acRow['amount'] ?? 0) }}</td>
                                     </tr>
-                                    @endif
                                 @endforeach
                             @else
                                 <tr>
@@ -393,10 +428,10 @@ h1, h2,h3,h4, h5, h6 {
                         <tr>
                             <td colspan="3"></td>
                             <td class="fw-700 border-top">{{translate('Total')}}</td>
-                            <td class="fw-700 border-top">{{ with_currency_symbol($booking->total_booking_amount + ($extraServicesTotal ?? 0)) }}</td>
+                            <td class="fw-700 border-top">{{ with_currency_symbol($invoiceTotal) }}</td>
                         </tr>
 
-                        @if($booking->payment_method != 'cash_after_service' && $booking->additional_charge < 0)
+                        @if($showRefund)
                             <tr>
                                 <td colspan="3"></td>
                                 <td class="fw-700">{{translate('Refund')}}</td>

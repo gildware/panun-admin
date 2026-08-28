@@ -45,6 +45,20 @@ $dryRun = filter_var(env('PLUMBING_DRY_RUN', false), FILTER_VALIDATE_BOOLEAN);
 $onlySlugs = array_filter(array_map('trim', explode(',', (string) env('PLUMBING_ONLY_SLUGS', ''))));
 $catalog = require base_path('scripts/data/plumbing-catalog.php');
 
+$boosterSlugs = ['booster-pump-install', 'booster-pump-repair'];
+$serviceImageDir = base_path('scripts/assets/service-images');
+$variantIconDir = base_path('scripts/assets/variant-icons');
+$boosterAssetsReady = is_file($serviceImageDir.'/booster-pump-install/thumbnail.png')
+    && is_file($serviceImageDir.'/booster-pump-repair/thumbnail.png');
+
+if (! $boosterAssetsReady) {
+    $catalog['services'] = array_values(array_filter(
+        $catalog['services'],
+        static fn (array $service): bool => ! in_array($service['slug'] ?? '', $boosterSlugs, true)
+    ));
+    echo "Skipping Booster Pump (assets not prepared). Use seed-booster-pump-live.php.\n";
+}
+
 if ($onlySlugs !== []) {
     $catalog['services'] = array_values(array_filter(
         $catalog['services'],
@@ -504,7 +518,7 @@ foreach ($catalog['services'] as $serviceSpec) {
 
 $oldServices = Service::on($liveConnection)->withoutGlobalScopes()
     ->where('category_id', $mainCategory->id)
-    ->whereNotIn('slug', $newServiceSlugs)
+    ->whereNotIn('slug', array_values(array_unique(array_merge($newServiceSlugs, $boosterSlugs))))
     ->get(['id', 'slug', 'name', 'is_active']);
 
 foreach ($oldServices as $old) {

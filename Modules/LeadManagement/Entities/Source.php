@@ -28,6 +28,9 @@ class Source extends Model
     /** Canonical name for leads created from the mobile app custom request form. */
     public const NAME_APP_CUSTOM_REQUEST = 'App Custom Request';
 
+    /** Canonical name for bookings placed by the customer in the mobile app. */
+    public const NAME_DIRECT_APP_BOOKING = 'Direct App Booking';
+
     protected $fillable = [
         'name',
         'description',
@@ -63,6 +66,7 @@ class Source extends Model
             self::NAME_WEBSITE_DIRECT_BOOKING,
             self::NAME_WEBSITE_PARTNER_APPLICATION,
             self::NAME_APP_CUSTOM_REQUEST,
+            self::NAME_DIRECT_APP_BOOKING,
         ];
     }
 
@@ -202,6 +206,26 @@ class Source extends Model
         return static::create([
             'name' => self::NAME_APP_CUSTOM_REQUEST,
             'description' => 'Leads created from the mobile app custom request form.',
+            'is_active' => true,
+        ]);
+    }
+
+    /**
+     * Return the source used for customer checkout bookings from the mobile app; creates it if missing.
+     */
+    public static function ensureDirectAppBookingSource(): self
+    {
+        $found = static::query()
+            ->whereRaw('LOWER(TRIM(name)) = ?', [strtolower(self::NAME_DIRECT_APP_BOOKING)])
+            ->first();
+
+        if ($found) {
+            return $found;
+        }
+
+        return static::create([
+            'name' => self::NAME_DIRECT_APP_BOOKING,
+            'description' => 'Bookings placed directly by the customer in the mobile app.',
             'is_active' => true,
         ]);
     }

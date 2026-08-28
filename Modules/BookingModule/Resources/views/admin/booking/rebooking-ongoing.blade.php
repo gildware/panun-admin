@@ -4,169 +4,62 @@
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/plugins/swiper/swiper-bundle.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-detail-redesign.css') }}">
+    @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')
 @endpush
 
 @section('content')
     @php
         $bookingHasTax = (float)($booking->total_tax_amount ?? 0) > 0;
+        $maxBookingAmount = business_config('max_booking_amount', 'booking_setup')->live_values ?? 0;
+        $max_booking_amount = $maxBookingAmount;
+        $hasServiceDiscount = ($booking->total_discount_amount ?? 0) > 0;
+        $hasCouponDiscount = ($booking->total_coupon_discount_amount ?? 0) > 0;
+        $hasCampaignDiscount = ($booking->total_campaign_discount_amount ?? 0) > 0;
+        $hasReferralDiscount = ($booking->total_referral_discount_amount ?? 0) > 0;
+        $hasNegativeAdditionalCharge = $booking->payment_method != 'cash_after_service' && ($booking->additional_charge ?? 0) < 0;
+        $serviceAtProviderPlaceRaw = business_config('service_at_provider_place', 'provider_config');
+        $serviceAtProviderPlace = (int) ($serviceAtProviderPlaceRaw->live_values ?? 0);
+        $customer_name = booking_display_customer_name($booking, $customerAddress);
+        $customer_phone = booking_display_customer_phone($booking, $customerAddress);
+        $customerName = $customer_name;
+        $customerPhone = $customer_phone;
+        $name = $customer_name;
+        $phone = $customer_phone;
+        $partyBooking = $booking->booking ?? $booking;
+        $visitExtras = $visitExtras ?? collect();
+        $visitExtrasTotal = $visitExtrasTotal ?? 0;
+        $visitHasExtras = ! empty($visitHasExtras);
+        $visitGrandTotal = $visitGrandTotal ?? $booking->total_booking_amount;
+        $visitCanEditExtras = ! empty($visitCanEditExtras);
+        $visitExtraStoreUrl = $visitExtraStoreUrl ?? '';
+        $repeatChromeEntity = $booking;
+        $repeatChromeBackUrl = route('admin.booking.repeat_details', [$booking->booking_id]);
+        $repeatChromeParentUrl = $repeatChromeBackUrl;
+        $repeatChromeParentCrumb = '#' . ($booking->booking->readable_id ?? '');
+        $repeatChromeInvoiceUrl = route('admin.booking.single_invoice', [$booking->id]);
+        $repeatChromeStatusClass = preg_replace('/[^a-z0-9_-]/', '', strtolower((string) ($booking->booking_status ?? 'pending'))) ?: 'pending';
+        $repeatChromeTitle = translate('Visit') . ' #' . $booking->readable_id;
+        $repeatChromeSubtitle = translate('Repeat_Booking') . ' #' . ($booking->booking->readable_id ?? '');
+        $repeatChromeSchedule = $booking->service_schedule ? date('d-M-Y h:ia', strtotime($booking->service_schedule)) : '';
+        $repeatChromeCustomerName = $customer_name;
+        $repeatChromeCustomerPhone = $customer_phone;
+        $repeatChromeCrumb = '#' . $booking->readable_id;
+        $repeatChromeBackLabel = translate('Repeat_Booking');
+        extract(repeat_admin_detail_chrome_vars($booking, $customerAddress ?? null, false, $customer_name ?? null, $customer_phone ?? null));
     @endphp
     <div class="main-content">
         <div class="container-fluid">
             <div class="page-title-wrap mb-3">
                 <h2 class="page-title">{{ translate('Booking_Details') }} </h2>
             </div>
+            <div class="row">
+                <div class="col-12 booking-detail-v2 booking-detail-v2--{{ $repeatChromeStatusClass }}">
+                    <div class="booking-detail-v2__wrap">
+                        @include('bookingmodule::admin.booking.partials._repeat-detail-compact-topbar')
+                        @include('bookingmodule::admin.booking.partials._repeat-detail-compact-header')
 
-            <div class="pb-3 d-flex justify-content-between align-items-center gap-3 flex-wrap">
-                <div>
-                    <h5 class="mb-2">{{ translate('Booking') }} # {{ $booking->booking->readable_id }}
-                        <span class="fw-normal title-color">({{ translate('Total_Booking') }} - {{ count($booking->booking->repeat) }})</span>
-                    </h5>
-                    <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
-                        <h3 class="c1 fw-bold">{{ translate('Sub-Booking') }} # {{ $booking['readable_id'] }}</h3>
-                        <span class="badge badge-{{
-                            $booking->booking_status == 'ongoing' ? 'warning' :
-                            ($booking->booking_status == 'completed' ? 'success' :
-                            ($booking->booking_status == 'canceled' ? 'danger' : 'info'))
-                        }}">
-                            {{ ucwords($booking->booking_status) }}
-                        </span>
-
-                    </div>
-                    <p class="opacity-75 fz-12">{{ translate('Booking_Placed') }}
-                        : {{ date('d-M-Y h:ia', strtotime($booking->created_at)) }}</p>
-                </div>
-                <div class="d-flex flex-wrap flex-xxl-nowrap gap-3">
-                    <div class="d-flex flex-wrap gap-3">
-                        @if ($booking['payment_method'] == 'offline_payment' && !$booking['is_paid'])
-                            @can('booking_can_approve_or_deny')
-                                <span class="btn btn--primary offline-payment" data-id="{{ $booking->id }}">
-                                    <span class="material-icons">done</span>{{ translate('Verify Offline Payment') }}
-                                </span>
-                            @endcan
-                        @endif
-                        @php($maxBookingAmount = business_config('max_booking_amount', 'booking_setup')->live_values)
-                        @if (
-                            $booking['payment_method'] == 'cash_after_service' &&
-                                $booking->is_verified == '0' &&
-                                $booking->total_booking_amount >= $maxBookingAmount)
-
-                            <div class="modal fade" id="exampleModal--{{ $booking->id }}" tabindex="-1"
-                                 aria-labelledby="exampleModalLabel--{{ $booking->id }}" aria-hidden="true">
-                                <div class="modal-dialog">
-                                    <div class="modal-content">
-                                        <div class="modal-body p-4 py-5">
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                                    aria-label="Close"></button>
-                                            <div class="text-center mb-4 pb-3">
-                                                <div class="text-center">
-                                                    <img class="mb-4"
-                                                         src="{{ asset('/assets/admin-module/img/booking-req-status.png') }}"
-                                                         alt="">
-                                                </div>
-                                                <h3 class="mb-1 fw-medium">
-                                                    {{ translate('Verify the booking request status?') }}</h3>
-                                                <p class="fs-12 fw-medium text-muted">
-                                                    {{ translate('Need verification for max booking amount') }}</p>
-                                            </div>
-                                            <form method="post"
-                                                  action="{{ route('admin.booking.verification-status', [$booking->id]) }}">
-                                                @csrf
-                                                <div class="c1-light-bg p-4 rounded">
-                                                    <h5 class="mb-3">{{ translate('Request Status') }}</h5>
-                                                    <div class="d-flex flex-wrap gap-2">
-                                                        <div class="form-check-inline">
-                                                            <input
-                                                                class="form-check-input approve-request check-approve-status"
-                                                                checked type="radio" name="status" id="inlineRadio1"
-                                                                value="approve">
-                                                            <label class="form-check-label"
-                                                                   for="inlineRadio1">{{ translate('Approve the Request') }}</label>
-                                                        </div>
-                                                        <div class="form-check-inline">
-                                                            <input class="form-check-input deny-request" type="radio"
-                                                                   name="status" id="inlineRadio2" value="deny">
-                                                            <label class="form-check-label"
-                                                                   for="inlineRadio2">{{ translate('Deny the Request') }}</label>
-                                                        </div>
-                                                    </div>
-                                                    <div class="mt-4 cancellation-note" style="display: none;">
-                                                        <textarea class="form-control h-69px" placeholder="{{ translate('Cancellation Note ...') }}" name="booking_deny_note"
-                                                                  id="add-your-note"></textarea>
-                                                    </div>
-                                                </div>
-                                                <div class="d-flex justify-content-center mt-4">
-                                                    <button type="submit"
-                                                            class="btn btn--primary">{{ translate('submit') }}</button>
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        @endif
-                        @if (
-                            $booking['payment_method'] == 'cash_after_service' &&
-                                $booking->is_verified == '2' &&
-                                $booking->total_booking_amount >= $maxBookingAmount)
-                            @can('booking_can_manage_status')
-                                <span class="btn btn--primary change-booking-request" data-id="{{ $booking->id }}"
-                                      data-bs-toggle="modal" data-bs-target="#exampleModals--{{ $booking->id }}">
-                                    <span class="material-icons">done</span>{{ translate('Change Request Status') }}
-                                </span>
-                            @endcan
-
-                            <div class="modal fade" id="exampleModals--{{ $booking->id }}" tabindex="-1"
-                                 aria-labelledby="exampleModalLabels--{{ $booking->id }}" aria-hidden="true">
-                                <div class="modal-dialog">
-                                    <div class="modal-content">
-                                        <div class="modal-body pt-5 p-md-5">
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                                    aria-label="Close"></button>
-                                            <div class="text-center mb-4 pb-3">
-                                                <img class="mb-4"
-                                                     src="{{ asset('/assets/admin-module/img/booking-req-status.png') }}"
-                                                     alt="">
-                                                <h3 class="mb-1 fw-medium">
-                                                    {{ translate('Verify the booking request status?') }}</h3>
-                                                <p class="text-start fs-12 fw-medium text-muted">
-                                                    {{ translate('Need verification for max booking amount') }}</p>
-                                            </div>
-                                            <form method="post"
-                                                  action="{{ route('admin.booking.verification-status', [$booking->id]) }}">
-                                                @csrf
-
-                                                <div class="c1-light-bg p-4 rounded">
-                                                    <h5 class="mb-3">{{ translate('Request Status') }}</h5>
-                                                    <div class="d-flex flex-wrap gap-2">
-                                                        <div class="form-check-inline">
-                                                            <input class="form-check-input approve-request" checked
-                                                                   type="radio" name="status" id="inlineRadio1"
-                                                                   value="approve">
-                                                            <label class="form-check-label"
-                                                                   for="inlineRadio1">{{ translate('Approve the Request') }}</label>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="d-flex justify-content-center mt-4">
-                                                    <button type="submit"
-                                                            class="btn btn--primary">{{ translate('submit') }}</button>
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        @endif
-
-                        <a href="{{ route('admin.booking.single_invoice', [$booking->id]) }}" class="btn btn-primary"
-                           target="_blank">
-                            <span class="material-icons">description</span>{{ translate('Invoice') }}
-                        </a>
-                    </div>
-                </div>
-            </div>
-
-            <div class="d-flex flex-wrap justify-content-between align-items-center flex-xxl-nowrap gap-3 mb-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center flex-xxl-nowrap gap-3 mb-4 booking-detail-nav-wrap">
                 <ul class="nav nav--tabs nav--tabs__style2">
                     <li class="nav-item">
                         <a class="nav-link {{ $webPage == 'details' ? 'active' : '' }}"
@@ -177,8 +70,6 @@
                            href="{{ url()->current() }}?web_page=history">{{ translate('History') }}</a>
                     </li>
                 </ul>
-                @php($max_booking_amount = business_config('max_booking_amount', 'booking_setup')->live_values ?? 0)
-
                 @if (
                     $booking->is_verified == 2 &&
                         $booking->payment_method == 'cash_after_service' &&
@@ -200,127 +91,74 @@
 
             </div>
 
+            <div class="booking-overview-trio mb-3">
+                <div class="booking-overview-trio__cell">
+                    @include('bookingmodule::admin.booking.partials._booking-overview-party-customer', [
+                        'booking' => $partyBooking,
+                        'customerName' => $customerName ?? null,
+                        'customerPhone' => $customerPhone ?? null,
+                        'customerAddress' => $customerAddress ?? null,
+                        'followupDetailMeta' => $followupDetailMeta ?? null,
+                        'nextFollowupCustomer' => $nextFollowupCustomer ?? null,
+                    ])
+                </div>
+                <div class="booking-overview-trio__cell">
+                    @include('bookingmodule::admin.booking.partials._booking-overview-party-provider', [
+                        'booking' => $partyBooking,
+                        'followupDetailMeta' => $followupDetailMeta ?? null,
+                        'nextFollowupProvider' => $nextFollowupProvider ?? null,
+                        'bookingNotEditable' => $bookingNotEditable ?? false,
+                    ])
+                </div>
+                <div class="booking-overview-trio__cell">
+                    @include('bookingmodule::admin.booking.partials._repeat-payment-snapshot', [
+                        'booking' => $booking,
+                        'viewAllHref' => '',
+                    ])
+                </div>
+            </div>
+
             <div class="row gy-3">
                 <div class="col-lg-8">
-                    <div class="card mb-3">
-                        <div class="card-body pb-5">
-                            <div class="border-bottom pb-3 mb-3">
-                                <div
-                                    class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-sm-center gap-3 flex-wrap mb-40">
-                                    <div>
-                                        <h4 class="mb-2">{{ translate('Payment_Info') }}</h4>
-                                        <p class="mb-2">
-                                            {{ translate('Payment_Method') }} :
-                                            <span class="text-info fw-semibold">{{ ucwords(str_replace(['_', '-'], ' ', $booking->payment_method)) }}
-                                            </span>
-                                        </p>
-                                        <p class="mb-2">
-                                            <span>{{ translate('Amount') }} : </span>
-                                            <span
-                                                class="c1">{{ with_currency_symbol($booking->total_booking_amount) }}</span>
-                                        </p>
-                                        @if($booking->is_paid)
-                                        <p>
-                                            <span>{{ translate('Payment by') }} : </span>
-                                            <span class="c1">{{ ($booking?->booking?->customer?->first_name . ' ' . $booking?->booking?->customer?->last_name) }}</span>
-                                        </p>
-                                        @endif
-                                    </div>
-                                    <div class="text-start text-sm-end">
-                                        @if (
-                                            $booking->is_verified == '0' &&
-                                                $booking->payment_method == 'cash_after_service' &&
-                                                $booking->total_booking_amount >= $maxBookingAmount)
-                                            <p class="mb-2"><span>{{ translate('Request Verify Status:') }} :</span>
-                                                <span class="c1 text-capitalize">{{ translate('Pending') }}</span>
-                                            </p>
-                                        @elseif(
-                                            $booking->is_verified == '2' &&
-                                                $booking->payment_method == 'cash_after_service' &&
-                                                $booking->total_booking_amount >= $maxBookingAmount)
-                                            <p class="mb-2"><span>{{ translate('Request Verify Status:') }} :</span>
-                                                <span class="text-danger text-capitalize"
-                                                      id="booking_status__span">{{ translate('Denied') }}</span>
-                                            </p>
-                                        @endif
-
-                                        <p class="mb-2">
-                                            <span>{{ translate('Payment_Status') }} : </span>
-                                            <span class="ms-3 badge badge-{{ $booking->is_paid ? 'success' : 'danger' }}"
-                                                  id="payment_status__span">{{ $booking->is_paid ? translate('Paid') : translate('Unpaid') }}</span>
-                                        </p>
-                                        <p class="mb-2"><span>{{ translate('Booking_Otp') }} :</span> <span
-                                                class="c1 text-capitalize">{{ $booking?->booking_otp ?? '' }}</span></p>
-
-                                            @if($booking?->scheduleHistories->count() > 1)
-                                                <h5 class="d-flex gap-1 flex-wrap align-items-center">
-                                                    <div>{{ translate('Schedule_Date') }} :</div>
-                                                    <div>
-                                                        <div>{{ date('d-M-Y h:ia', strtotime($booking->scheduleHistories->first()->schedule)) }}</div>
-                                                    </div>
-                                                </h5>
-                                                <h5 class="d-flex gap-1 flex-wrap align-items-center mt-3">
-                                                    <div>{{ translate('Re-schedule_Date') }} :</div>
-                                                    <div id="service_schedule__span">
-                                                        <div>{{ date('d-M-Y h:ia', strtotime($booking->service_schedule)) }}</div>
-                                                        <div class="timeline-container">
-                                                            <ul class="timeline-sessions">
-                                                                <p class="fs-14">{{ translate('Schedule Change Log') }}</p>
-                                                                @foreach ($booking?->scheduleHistories()->orderBy('created_at', 'desc')->get() as $key => $history)
-                                                                    <li class="{{ $booking->service_schedule == $history->schedule ? 'active' : '' }}">
-                                                                        <div class="timeline-date">
-                                                                            {{ \Carbon\Carbon::parse($history->schedule)->format('d-M-Y') }}
-                                                                        </div>
-                                                                        <div class="timeline-time">
-                                                                            {{ \Carbon\Carbon::parse($history->schedule)->format('h:i A') }}
-                                                                        </div>
-                                                                    </li>
-                                                                @endforeach
-                                                            </ul>
-                                                        </div>
-                                                    </div>
-                                                </h5>
-                                            @else
-                                                <h5 class="d-flex gap-1 flex-wrap align-items-center">
-                                                    <div>{{ translate('Schedule_Date') }} :</div>
-                                                    <div id="service_schedule__span">
-                                                        <div>{{ date('d-M-Y h:ia', strtotime($booking->service_schedule)) }}</div>
-                                                        <div class="timeline-container">
-                                                            <ul class="timeline-sessions">
-                                                                <p class="fs-14">{{ translate('Schedule Change Log') }}</p>
-                                                                @foreach ($booking?->scheduleHistories()->orderBy('created_at', 'desc')->get() as $key => $history)
-                                                                    <li class="{{ $booking->service_schedule == $history->schedule ? 'active' : '' }}">
-                                                                        <div class="timeline-date">
-                                                                            {{ \Carbon\Carbon::parse($history->schedule)->format('d-M-Y') }}
-                                                                        </div>
-                                                                        <div class="timeline-time">
-                                                                            {{ \Carbon\Carbon::parse($history->schedule)->format('h:i A') }}
-                                                                        </div>
-                                                                    </li>
-                                                                @endforeach
-                                                            </ul>
-                                                        </div>
-                                                    </div>
-                                                </h5>
-                                            @endif
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
-                                <h3 class="mb-0">{{ translate('Booking_Summary') }}</h3>
-                                @if (in_array($booking['booking_status'], ['accepted', 'ongoing']) && $booking['payment_method'] == 'cash_after_service' && !$booking['is_paid'])
+                    <section class="summary-panel booking-summary-panel" id="booking-summary">
+                        <div class="summary-panel__head">
+                            <h2 class="summary-panel__title">
+                                <span class="material-icons">receipt_long</span>
+                                {{ translate('Booking_Summary') }}
+                            </h2>
+                            <div class="summary-panel__head-actions">
+                                @if (booking_admin_can_correct_line_items($booking))
                                     @can('booking_edit')
-                                        <button type="button" class="btn btn--primary btn-sm flex-shrink-0" data-bs-toggle="modal"
+                                        <button type="button" class="btn btn-demo-outline btn-sm flex-shrink-0" data-bs-toggle="modal"
                                                 data-bs-target="#serviceUpdateModal--{{ $booking['id'] }}" data-toggle="tooltip"
-                                                title="{{ translate('Add or remove services') }}">
+                                                title="{{ translate('Correct_missed_or_wrong_items') }}">
                                             <span class="material-symbols-outlined">edit</span>{{ translate('Edit Services') }}
                                         </button>
                                     @endcan
                                 @endif
+                                @if($visitCanEditExtras)
+                                    @can('booking_edit')
+                                        <button type="button" class="btn btn-demo-outline btn-sm flex-shrink-0" data-bs-toggle="modal"
+                                                data-bs-target="#addVisitExtraServiceModal">
+                                            <span class="material-symbols-outlined">add</span>{{ translate('Add_Extra_Service') }}
+                                        </button>
+                                    @endcan
+                                @endif
                             </div>
-
-                            <div class="table-responsive border-bottom">
+                        </div>
+                        <div class="summary-meta">
+                            <span><strong>{{ translate('Payment_Method') }}:</strong> {{ ucwords(str_replace(['_', '-'], ' ', $booking->payment_method)) }}</span>
+                            <span><strong>{{ translate('Amount') }}:</strong> {{ with_currency_symbol($visitGrandTotal) }}</span>
+                            <span><strong>{{ translate('Payment_Status') }}:</strong> {{ $booking->is_paid ? translate('Paid') : translate('Unpaid') }}</span>
+                            <span><strong>{{ translate('Booking_Otp') }}:</strong> {{ $booking->booking_otp ?? '' }}</span>
+                        </div>
+                        <div class="summary-panel__body">
+                            @if(in_array((string) ($booking->booking_status ?? ''), ['completed'], true) && $visitCanEditExtras)
+                                <p class="fz-12 text-muted mb-2 px-3 pt-2">{{ translate('Completed_booking_line_item_correction_hint') }}</p>
+                            @endif
+                            <div class="summary-panel__split">
+                            <div class="summary-panel__services">
+                            <div class="summary-table-wrap table-responsive">
                                 <table class="table text-nowrap align-middle mb-0">
                                     <thead>
                                     <tr>
@@ -335,7 +173,9 @@
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    @php($subTotal = 0)
+                                    @php
+                                        $subTotal = 0;
+                                    @endphp
                                     @foreach ($booking->detail as $detail)
                                         <tr>
                                             <td class="text-wrap ps-lg-3">
@@ -376,30 +216,82 @@
                                             @endif
                                             <td class="text--end">{{ with_currency_symbol($detail->total_cost) }}</td>
                                         </tr>
-                                        @php($subTotal += $detail->service_cost * $detail->quantity)
+                                        @php
+                                            $subTotal += $detail->service_cost * $detail->quantity;
+                                        @endphp
+                                    @endforeach
+                                    @foreach ($visitExtras as $extra)
+                                        <tr class="table-light">
+                                            <td class="text-wrap ps-lg-3">
+                                                <div class="d-flex flex-column">
+                                                    <span class="fw-bold">{{ $extra['title'] }}</span>
+                                                    @if(!empty($extra['details']))
+                                                        <small class="text-muted">{{ $extra['details'] }}</small>
+                                                    @endif
+                                                    <span class="badge badge-{{ !empty($extra['is_spare']) ? 'info' : 'primary' }} mt-1" style="width: fit-content;">
+                                                        {{ $extra['type_label'] }}
+                                                    </span>
+                                                    @if($visitCanEditExtras)
+                                                        @can('booking_edit')
+                                                            <div class="d-flex flex-wrap gap-2 mt-1">
+                                                                <button type="button"
+                                                                        class="btn btn-sm btn-link p-0 js-edit-visit-extra-service"
+                                                                        data-bs-toggle="modal"
+                                                                        data-bs-target="#addVisitExtraServiceModal"
+                                                                        data-update-url="{{ $extra['update_url'] }}"
+                                                                        data-title="{{ e($extra['title']) }}"
+                                                                        data-details="{{ e($extra['details'] ?? '') }}"
+                                                                        data-type="{{ e($extra['type'] ?? ($extra['is_spare'] ? 'spare_part' : 'service')) }}"
+                                                                        data-quantity="{{ (int) $extra['quantity'] }}"
+                                                                        data-price="{{ $extra['price'] }}"
+                                                                        data-discount="{{ $extra['discount'] }}">
+                                                                    {{ translate('Edit') }}
+                                                                </button>
+                                                                <form method="post" action="{{ $extra['destroy_url'] }}" class="d-inline" onsubmit="return confirm('{{ translate('Remove_this_item') }}');">
+                                                                    @csrf
+                                                                    @method('DELETE')
+                                                                    <button type="submit" class="btn btn-sm btn-link text-danger p-0">{{ translate('Remove') }}</button>
+                                                                </form>
+                                                            </div>
+                                                        @endcan
+                                                    @endif
+                                                </div>
+                                            </td>
+                                            <td>{{ with_currency_symbol($extra['price']) }}</td>
+                                            <td>{{ $extra['quantity'] }}</td>
+                                            <td>{{ with_currency_symbol($extra['discount']) }}</td>
+                                            @if($bookingHasTax)
+                                            <td>—</td>
+                                            @endif
+                                            <td class="text--end">{{ with_currency_symbol($extra['total']) }}</td>
+                                        </tr>
                                     @endforeach
                                     </tbody>
                                 </table>
                             </div>
-                            <div class="row justify-content-end mt-3">
-                                <div class="col-sm-10 col-md-6 col-xl-5">
-                                    <div class="table-responsive">
-                                        <table class="table-md title-color align-right w-100">
+                            </div>
+                            <div class="summary-panel__breakdown">
+                            <div class="summary-breakdown-wrap">
+                                        <table class="booking-summary-breakdown breakdown-table mb-0">
                                             <tbody>
                                             <tr>
-                                                <td class="text-capitalize">{{ translate('service_amount') }}@if($bookingHasTax) <small
-                                                        class="fz-12">{{ booking_tax_excluded_bracket_hint() }}</small>@endif</td>
+                                                <td class="text-capitalize">
+                                                    {{ translate('service_amount') }}
+                                                    @if($bookingHasTax)
+                                                        <small class="fz-12">{{ booking_tax_excluded_bracket_hint() }}</small>
+                                                    @endif
+                                                </td>
                                                 <td class="text--end pe--4">{{ with_currency_symbol($subTotal) }}
                                                 </td>
                                             </tr>
-                                            @if((float)($booking->total_discount_amount ?? 0) > 0)
+                                            @if($hasServiceDiscount)
                                             <tr>
                                                 <td class="text-capitalize">{{ translate('service_discount') }}</td>
                                                 <td class="text--end pe--4">
                                                     {{ with_currency_symbol($booking->total_discount_amount) }}</td>
                                             </tr>
                                             @endif
-                                            @if((float)($booking->total_coupon_discount_amount ?? 0) > 0)
+                                            @if($hasCouponDiscount)
                                             <tr>
                                                 <td class="text-capitalize">{{ translate('coupon_discount') }}</td>
                                                 <td class="text--end pe--4">
@@ -407,7 +299,7 @@
                                                 </td>
                                             </tr>
                                             @endif
-                                            @if((float)($booking->total_campaign_discount_amount ?? 0) > 0)
+                                            @if($hasCampaignDiscount)
                                             <tr>
                                                 <td class="text-capitalize">{{ translate('campaign_discount') }}</td>
                                                 <td class="text--end pe--4">
@@ -415,7 +307,7 @@
                                                 </td>
                                             </tr>
                                             @endif
-                                            @if((float)($booking->total_referral_discount_amount ?? 0) > 0)
+                                            @if($hasReferralDiscount)
                                             <tr>
                                                 <td class="text-capitalize">{{ translate('Referral Discount') }}</td>
                                                 <td class="text--end pe--4">
@@ -433,7 +325,7 @@
                                             @if ($booking->extra_fee > 0)
                                                 @if(is_array($booking->additional_charges_breakdown) && count($booking->additional_charges_breakdown))
                                                     @foreach($booking->additional_charges_breakdown as $acRow)
-                                                        @if((float)($acRow['amount'] ?? 0) > 0)
+                                                        @if(($acRow['amount'] ?? 0) > 0)
                                                         <tr>
                                                             <td class="text-capitalize">{{ $acRow['name'] ?? translate('Additional_charges') }}</td>
                                                             <td class="text--end pe--4">{{ with_currency_symbol($acRow['amount'] ?? 0) }}</td>
@@ -448,14 +340,21 @@
                                                 @endif
                                             @endif
 
+                                            @if($visitHasExtras)
+                                                <tr>
+                                                    <td class="text-capitalize">{{ translate('Extra_Services') }}</td>
+                                                    <td class="text--end pe--4">{{ with_currency_symbol($visitExtrasTotal) }}</td>
+                                                </tr>
+                                            @endif
+
                                             <tr>
                                                 <td><strong>{{ translate('Grand_Total') }}</strong></td>
                                                 <td class="text--end pe--4">
-                                                    <strong>{{ with_currency_symbol($booking->total_booking_amount) }}</strong>
+                                                    <strong>{{ with_currency_symbol($visitGrandTotal) }}</strong>
                                                 </td>
                                             </tr>
 
-                                            @if ($booking->payment_method != 'cash_after_service' && $booking->additional_charge < 0)
+                                            @if($hasNegativeAdditionalCharge)
                                                 <tr>
                                                     <td>{{ translate('Refund') }}</td>
                                                     <td class="text--end pe--4">
@@ -465,11 +364,11 @@
                                             @endif
                                             </tbody>
                                         </table>
-                                    </div>
-                                </div>
+                            </div>
+                            </div>
                             </div>
                         </div>
-                    </div>
+                    </section>
                 </div>
                 <div class="col-lg-4">
                     <div class="card">
@@ -559,32 +458,37 @@
                                                 @foreach ($booking->evidence_photos_full_path ?? [] as $key => $img)
                                                     <img width="100" class="max-height-100"
                                                          src="{{ $img }}"
-                                                         alt="{{ translate('evidence-photo') }}" @endforeach
+                                                         alt="{{ translate('evidence-photo') }}">
+                                                @endforeach
                                             </div>
                                         </div>
                                     </div>
                                 @endif
 
-                                    @php($serviceAtProviderPlace = (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0))
                                     <div class="c1-light-bg radius-10">
                                         <div class="border-bottom d-flex align-items-center justify-content-between gap-2 py-3 px-4 mb-2">
                                             <h4 class="d-flex align-items-center gap-2">
                                                 <span class="material-icons title-color">map</span>
                                                 {{ translate('Service_location') }}
                                             </h4>
-                                            @if($serviceAtProviderPlace == 1)
-                                                <div class="btn-group">
+                                            <div class="d-flex align-items-center gap-2">
+                                                @can('booking_edit')
+                                                    <div class="cursor-pointer" data-bs-toggle="modal"
+                                                         data-bs-target="#serviceAddressModal--{{ $booking['id'] }}"
+                                                         title="{{ translate('Edit_Details') }}">
+                                                        <span class="material-symbols-outlined">edit_square</span>
+                                                    </div>
+                                                @endcan
+                                                @if($serviceAtProviderPlace == 1)
                                                     @can('booking_edit')
-                                                        <div data-bs-toggle="modal"
+                                                        <div class="cursor-pointer" data-bs-toggle="modal"
                                                              data-bs-target="#repeatServiceLocationModal--{{ $booking['id'] }}"
-                                                             data-toggle="tooltip" data-placement="top">
-                                                            <div class="d-flex align-items-center gap-2">
-                                                                <span class="material-symbols-outlined">edit_square</span>
-                                                            </div>
+                                                             title="{{ translate('Service_location') }}">
+                                                            <span class="material-symbols-outlined">map</span>
                                                         </div>
                                                     @endcan
-                                                </div>
-                                            @endif
+                                                @endif
+                                            </div>
                                         </div>
 
                                         <div class="py-3 px-4">
@@ -622,216 +526,6 @@
                                             @endif
                                         </div>
                                     </div>
-
-                                <div class="c1-light-bg radius-10">
-                                    <div
-                                        class="border-bottom d-flex align-items-center justify-content-between gap-2 py-3 px-4 mb-2">
-                                        <h4 class="d-flex align-items-center gap-2">
-                                            <span class="material-icons title-color">person</span>
-                                            {{ translate('Customer_Information') }}
-                                        </h4>
-
-                                        <div class="btn-group">
-                                            @if (in_array($booking->booking_status, ['completed', 'cancelled']))
-                                                @if (!$booking?->is_guest)
-                                                    <div
-                                                        class="d-flex align-items-center gap-2 cursor-pointer customer-chat">
-                                                        <span class="material-symbols-outlined">chat</span>
-                                                        <form action="{{ route('admin.chat.create-channel') }}"
-                                                              method="post" id="chatForm-{{ $booking->id }}">
-                                                            @csrf
-                                                            <input type="hidden" name="customer_id"
-                                                                   value="{{ $booking?->booking?->customer?->id }}">
-                                                            <input type="hidden" name="type" value="booking">
-                                                            <input type="hidden" name="user_type" value="customer">
-                                                        </form>
-                                                    </div>
-                                                @endif
-                                            @else
-                                                <div class="cursor-pointer" data-bs-toggle="dropdown"
-                                                     aria-expanded="false">
-                                                    <span class="material-symbols-outlined">more_vert</span>
-                                                </div>
-                                                <ul
-                                                    class="dropdown-menu dropdown-menu__custom border-none dropdown-menu-end">
-                                                    @can('booking_edit')
-                                                        <li data-bs-toggle="modal"
-                                                            data-bs-target="#serviceAddressModal--{{ $booking['id'] }}"
-                                                            data-toggle="tooltip" data-placement="top">
-                                                            <div class="d-flex align-items-center gap-2">
-                                                                <span class="material-symbols-outlined">edit_square</span>
-                                                                {{ translate('Edit_Details') }}
-                                                            </div>
-                                                        </li>
-                                                    @endcan
-                                                    @if (!$booking?->is_guest)
-                                                        <li>
-                                                            <div
-                                                                class="d-flex align-items-center gap-2 cursor-pointer customer-chat">
-                                                                <span class="material-symbols-outlined">chat</span>
-                                                                {{ translate('chat_with_Customer') }}
-                                                                <form action="{{ route('admin.chat.create-channel') }}"
-                                                                      method="post" id="chatForm-{{ $booking->booking_id }}">
-                                                                    @csrf
-                                                                    <input type="hidden" name="customer_id"
-                                                                           value="{{ $booking?->booking?->customer?->id }}">
-                                                                    <input type="hidden" name="type" value="booking">
-                                                                    <input type="hidden" name="user_type"
-                                                                           value="customer">
-                                                                </form>
-                                                            </div>
-                                                        </li>
-                                                    @endif
-                                                </ul>
-                                            @endif
-                                        </div>
-                                    </div>
-
-                                    <div class="py-3 px-4">
-                                        @php($customer_name = booking_display_customer_name($booking, $customerAddress))
-                                        @php($customer_phone = booking_display_customer_phone($booking, $customerAddress))
-
-                                        @php($name = $customer_name)
-                                        @php($phone = $customer_phone)
-
-                                        <div class="media gap-2 flex-wrap">
-                                            @if (!$booking?->booking?->is_guest && $booking?->booking?->customer)
-                                                <img width="58" height="58"
-                                                     class="rounded-circle border border-white aspect-square object-fit-cover"
-                                                     src="{{ $booking?->booking?->customer?->profile_image_full_path }}"
-                                                     alt="{{ translate('user_image') }}">
-                                            @else
-                                                <img width="58" height="58"
-                                                     class="rounded-circle border border-white aspect-square object-fit-cover"
-                                                     src="{{ asset('assets/provider-module/img/user2x.png') }}"
-                                                     alt="{{ translate('user_image') }}">
-                                            @endif
-
-                                            <div class="media-body">
-                                                <h5 class="c1 mb-3">
-                                                    @if (!$booking?->booking?->is_guest && $booking?->booking?->customer)
-                                                        <a href="{{ route('admin.customer.detail', [$booking?->booking?->customer?->id, 'web_page' => 'overview']) }}"
-                                                           class="c1">{{ Str::limit($customer_name, 30) }}</a>
-                                                    @else
-                                                        <span>{{ Str::limit($customer_name ?? '', 30) }}</span>
-                                                    @endif
-                                                </h5>
-                                                <ul class="list-info">
-                                                    @if ($customer_phone)
-                                                        <li>
-                                                            <span class="material-icons">phone_iphone</span>
-                                                            <a
-                                                                href="tel:{{ $customer_phone }}">{{ $customer_phone }}</a>
-                                                        </li>
-                                                    @endif
-                                                        @if(!empty($booking?->service_address?->address))
-                                                            <li>
-                                                                <span class="material-icons">map</span>
-                                                                <p>{{ Str::limit($booking?->service_address?->address ?? translate('not_available'), 100) }}
-                                                                </p>
-                                                            </li>
-                                                        @endif
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="c1-light-bg radius-10 provider-information">
-                                    <div
-                                        class="border-bottom d-flex align-items-center justify-content-between gap-2 py-3 px-4 mb-2">
-                                        <h4 class="d-flex align-items-center gap-2">
-                                            <span class="material-icons title-color">person</span>
-                                            {{ translate('Provider_Information') }}
-                                        </h4>
-                                        @if (isset($booking->provider))
-                                            <div class="btn-group">
-                                                <div class="cursor-pointer" data-bs-toggle="dropdown"
-                                                     aria-expanded="false">
-                                                    <span class="material-symbols-outlined">more_vert</span>
-                                                </div>
-                                                <ul
-                                                    class="dropdown-menu dropdown-menu__custom border-none dropdown-menu-end">
-                                                    <li>
-                                                        <div
-                                                            class="d-flex align-items-center gap-2 cursor-pointer provider-chat">
-                                                            <span class="material-symbols-outlined">chat</span>
-                                                            {{ translate('chat_with_Provider') }}
-                                                            <form action="{{ route('admin.chat.create-channel') }}"
-                                                                  method="post" id="chatForm-{{ $booking->id }}">
-                                                                @csrf
-                                                                <input type="hidden" name="provider_id"
-                                                                       value="{{ $booking?->provider?->owner?->id }}">
-                                                                <input type="hidden" name="type" value="booking">
-                                                                <input type="hidden" name="user_type"
-                                                                       value="provider-admin">
-                                                            </form>
-                                                        </div>
-                                                    </li>
-{{--                                                    @if (in_array($booking->booking_status, ['ongoing', 'accepted']))--}}
-{{--                                                        @can('booking_can_manage_status')--}}
-{{--                                                            <li>--}}
-{{--                                                                <div class="d-flex align-items-center gap-2"--}}
-{{--                                                                     data-bs-target="#providerModal" data-bs-toggle="modal">--}}
-{{--                                                                    <span--}}
-{{--                                                                        class="material-symbols-outlined">manage_history</span>--}}
-{{--                                                                    {{ translate('change_Provider') }}--}}
-{{--                                                                </div>--}}
-{{--                                                            </li>--}}
-{{--                                                        @endcan--}}
-{{--                                                    @endif--}}
-                                                    <li>
-                                                        <a class="d-flex align-items-center gap-2 cursor-pointer p-0"
-                                                           href="{{ route('admin.provider.details', [$booking?->provider?->id, 'web_page' => 'overview']) }}">
-                                                            <span class="material-icons">person</span>
-                                                            {{ translate('View_Details') }}
-                                                        </a>
-                                                    </li>
-                                                </ul>
-                                            </div>
-                                        @endif
-                                    </div>
-                                    @if (isset($booking->provider))
-                                        <div class="py-3 px-4">
-                                            <div class="media gap-2 flex-wrap">
-                                                <img width="58" height="58"
-                                                     class="rounded-circle border border-white aspect-square object-fit-cover"
-                                                     src="{{ $booking?->provider?->logo_full_path }}"
-                                                     alt="{{ translate('provider') }}">
-                                                <div class="media-body">
-                                                    <a
-                                                        href="{{ route('admin.provider.details', [$booking?->provider?->id, 'web_page' => 'overview']) }}">
-                                                        <h5 class="c1 mb-3">
-                                                            {{ Str::limit($booking->provider->company_name ?? '', 30) }}
-                                                        </h5>
-                                                    </a>
-                                                    <ul class="list-info">
-                                                        <li>
-                                                            <span class="material-icons">phone_iphone</span>
-                                                            <a
-                                                                href="tel:{{ $booking->provider->contact_person_phone ?? '' }}">{{ $booking->provider->contact_person_phone ?? '' }}</a>
-                                                        </li>
-                                                        <li>
-                                                            <span class="material-icons">map</span>
-                                                            <p>{{ Str::limit($booking->provider->company_address ?? '', 100) }}
-                                                            </p>
-                                                        </li>
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @else
-                                        <div class="d-flex flex-column gap-2 mt-30 align-items-center">
-                                            <span class="material-icons text-muted fs-2">account_circle</span>
-                                            <p class="text-muted text-center fw-medium mb-3">
-                                                {{ translate('No Provider Information') }}</p>
-                                        </div>
-
-                                        <div class="text-center pb-4">
-                                            <button class="btn btn--primary" data-bs-target="#providerModal" data-bs-toggle="modal" @if($booking['booking_status'] == 'canceled') disabled @endif>{{ translate('assign provider') }}</button>
-                                        </div>
-                                    @endif
-                                </div>
 
                                 <div class="c1-light-bg radius-10 serviceman-information">
                                     <div
@@ -922,6 +616,9 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
                     </div>
                 </div>
             </div>
@@ -1104,6 +801,59 @@
 
     @include('providermanagement::admin.partials.provider-performance-feedback-modal')
 
+    @if($visitCanEditExtras)
+    <div class="modal fade" id="addVisitExtraServiceModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form action="{{ $visitExtraStoreUrl }}" method="POST" id="visit-extra-service-form" data-store-url="{{ $visitExtraStoreUrl }}">
+                    @csrf
+                    <input type="hidden" name="_method" value="POST" class="js-visit-extra-service-method">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addVisitExtraServiceModalLabel">{{ translate('Add_Extra_Service') }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">{{ translate('Title') }} <span class="text-danger">*</span></label>
+                            <input type="text" name="title" class="form-control" required maxlength="255" placeholder="{{ translate('Title') }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">{{ translate('Details_of_Service') }}</label>
+                            <textarea name="details" class="form-control" rows="2" maxlength="2000" placeholder="{{ translate('Details_of_Service') }}"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">{{ translate('Type') }} <span class="text-danger">*</span></label>
+                            <select name="type" class="form-control" required>
+                                <option value="service" selected>{{ translate('Service') }}</option>
+                                <option value="spare_part">{{ translate('Spare_Part') }}</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">{{ translate('Qty') }} <span class="text-danger">*</span></label>
+                                <input type="number" name="quantity" class="form-control" value="1" required min="1" step="1">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">{{ translate('Price') }} <span class="text-danger">*</span></label>
+                                <input type="number" name="price" class="form-control" value="0" required min="0" step="0.01">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">{{ translate('Discount') }}</label>
+                                <input type="number" name="discount" class="form-control" value="0" min="0" step="0.01">
+                            </div>
+                        </div>
+                        <p class="mb-0 small text-muted">{{ translate('Total') }} = ({{ translate('Qty') }} × {{ translate('Price') }}) − {{ translate('Discount') }}</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                        <button type="submit" class="btn btn--primary js-visit-extra-service-submit">{{ translate('Add') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endif
+
     <div class="modal fade" id="serviceUpdateModal--{{ $booking['id'] }}" tabindex="-1"
          aria-labelledby="serviceUpdateModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered">
@@ -1161,7 +911,9 @@
                                 </thead>
 
                                 <tbody id="service-edit-tbody">
-                                @php($sub_total = 0)
+                                @php
+                                    $sub_total = 0;
+                                @endphp
                                 @foreach ($booking->detail as $key => $detail)
                                     <tr id="service-row--{{ $detail?->variant_key }}">
                                         <td class="text-wrap ps-lg-3">
@@ -1196,7 +948,9 @@
                                         <input type="hidden" name="variant_keys[]"
                                                value="{{ $detail->variant_key }}">
                                     </tr>
-                                    @php($sub_total += $detail->service_cost * $detail->quantity)
+                                    @php
+                                        $sub_total += $detail->service_cost * $detail->quantity;
+                                    @endphp
                                 @endforeach
                                 <input type="hidden" name="zone_id" value="{{ $booking->booking->zone_id }}">
                                 <input type="hidden" name="booking_id" value="{{ $booking->booking_id }}">
@@ -1227,6 +981,77 @@
 @push('script')
     <script>
         "use strict";
+
+        (function () {
+            var form = document.getElementById('visit-extra-service-form');
+            if (!form) {
+                return;
+            }
+            var storeUrl = form.getAttribute('data-store-url') || form.getAttribute('action');
+            var titleEl = document.getElementById('addVisitExtraServiceModalLabel');
+            var submitBtn = form.querySelector('.js-visit-extra-service-submit');
+            var methodInput = form.querySelector('.js-visit-extra-service-method');
+            var modalEl = document.getElementById('addVisitExtraServiceModal');
+            var addLabel = @json(translate('Add_Extra_Service'));
+            var editLabel = @json(translate('Edit_Extra_Service'));
+            var addBtnLabel = @json(translate('Add'));
+            var updateBtnLabel = @json(translate('Update'));
+
+            function setField(name, value) {
+                var field = form.querySelector('[name="' + name + '"]');
+                if (field) {
+                    field.value = value;
+                }
+            }
+
+            function resetToAdd() {
+                form.setAttribute('action', storeUrl);
+                if (methodInput) {
+                    methodInput.value = 'POST';
+                }
+                form.reset();
+                setField('quantity', '1');
+                setField('price', '0');
+                setField('discount', '0');
+                setField('type', 'service');
+                if (titleEl) {
+                    titleEl.textContent = addLabel;
+                }
+                if (submitBtn) {
+                    submitBtn.textContent = addBtnLabel;
+                }
+            }
+
+            function fillFromButton(btn) {
+                form.setAttribute('action', btn.getAttribute('data-update-url'));
+                if (methodInput) {
+                    methodInput.value = 'PUT';
+                }
+                setField('title', btn.getAttribute('data-title') || '');
+                setField('details', btn.getAttribute('data-details') || '');
+                setField('type', btn.getAttribute('data-type') || 'service');
+                setField('quantity', btn.getAttribute('data-quantity') || '1');
+                setField('price', btn.getAttribute('data-price') || '0');
+                setField('discount', btn.getAttribute('data-discount') || '0');
+                if (titleEl) {
+                    titleEl.textContent = editLabel;
+                }
+                if (submitBtn) {
+                    submitBtn.textContent = updateBtnLabel;
+                }
+            }
+
+            if (modalEl) {
+                modalEl.addEventListener('show.bs.modal', function (event) {
+                    var trigger = event.relatedTarget;
+                    if (trigger && trigger.classList.contains('js-edit-visit-extra-service')) {
+                        fillFromButton(trigger);
+                    } else {
+                        resetToAdd();
+                    }
+                });
+            }
+        })();
 
         // Provider performance feedback must be submitted before proceeding with completion/cancellation/provider reassign.
         let pendingReassignProviderId = null;

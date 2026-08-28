@@ -2,30 +2,26 @@
 
 @section('title', translate('Booking_Status'))
 
+@push('css_or_js')
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-detail-redesign.css') }}">
+    @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')
+@endpush
+
 @section('content')
+    @php
+        extract(repeat_admin_detail_chrome_vars($booking, $customerAddress ?? null));
+    @endphp
     <div class="main-content">
         <div class="container-fluid">
             <div class="page-title-wrap mb-3">
                 <h2 class="page-title">{{ translate('Booking_Details') }} </h2>
             </div>
+            <div class="row">
+                <div class="col-12 booking-detail-v2 booking-detail-v2--{{ $repeatChromeStatusClass }}">
+                    <div class="booking-detail-v2__wrap">
+                        @include('bookingmodule::admin.booking.partials._repeat-detail-compact-topbar')
+                        @include('bookingmodule::admin.booking.partials._repeat-detail-compact-header')
 
-            <div class="pb-3 d-flex justify-content-between align-items-center gap-3 flex-wrap">
-                <div>
-                    <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
-                        <h3 class="c1">{{ translate('Booking') }} # {{ $booking['readable_id'] }}</h3>
-                        <span class="badge badge-{{
-                            $booking->booking_status == 'ongoing' ? 'warning' :
-                            ($booking->booking_status == 'completed' ? 'success' :
-                            ($booking->booking_status == 'canceled' ? 'danger' : 'info'))
-                        }}">
-                            {{ ucwords($booking->booking_status) }}
-                        </span>
-                    </div>
-                    <p class="opacity-75 fz-12">{{ translate('Booking_Placed') }}
-                        : {{ date('d-M-Y h:ia', strtotime($booking->created_at)) }}</p>
-                </div>
-                <div class="d-flex flex-wrap flex-xxl-nowrap gap-3">
-                    <div class="d-flex flex-wrap gap-3">
                         @if ($booking['payment_method'] == 'offline_payment' && !$booking['is_paid'])
                             <span class="btn btn--primary offline-payment" data-id="{{ $booking->id }}">
                                 <span class="material-icons">done</span>{{ translate('Verify Offline Payment') }}
@@ -97,15 +93,8 @@
                                 </button>
                             @endcan
                         @endif
-                        <a href="{{ route('admin.booking.single_invoice', [$booking->id]) }}" class="btn btn-primary"
-                            target="_blank">
-                            <span class="material-icons">description</span>{{ translate('Invoice') }}
-                        </a>
-                    </div>
-                </div>
-            </div>
 
-            <div class="d-flex flex-wrap justify-content-between align-items-center flex-xxl-nowrap gap-3 mb-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center flex-xxl-nowrap gap-3 mb-4 booking-detail-nav-wrap">
                 <ul class="nav nav--tabs nav--tabs__style2">
                     <li class="nav-item">
                         <a class="nav-link {{ $webPage == 'details' ? 'active' : '' }}"
@@ -117,7 +106,9 @@
                     </li>
                 </ul>
 
-                @php($max_booking_amount = business_config('max_booking_amount', 'booking_setup')->live_values ?? 0)
+                @php
+                    $max_booking_amount = business_config('max_booking_amount', 'booking_setup')->live_values ?? 0;
+                @endphp
 
                 @if (
                     $booking->is_verified == 2 &&
@@ -184,6 +175,7 @@
                                                 <div>{{ date('d-M-Y h:ia', strtotime($booking->service_schedule)) }} <span
                                                         class="text-secondary">{{ $booking?->scheduleHistories->count() > 1 ? '(' . translate('Edited') . ')' : '' }}</span>
                                                 </div>
+                                                @include('bookingmodule::admin.booking.partials._repeat-visit-remarks', ['remarks' => $booking->visit_remarks ?? ''])
 
                                                 <div class="timeline-container">
                                                     <ul class="timeline-sessions">
@@ -610,6 +602,9 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
                     </div>
                 </div>
             </div>

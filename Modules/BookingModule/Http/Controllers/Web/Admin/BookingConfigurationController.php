@@ -12,11 +12,13 @@ use Modules\BookingModule\Entities\BookingDisputeReason;
 use Modules\BookingModule\Entities\BookingHoldReopenReason;
 use Modules\BookingModule\Entities\BookingCustomerCancellationReason;
 use Modules\BookingModule\Entities\BookingProviderCancellationReason;
+use Modules\BookingModule\Entities\BookingSource;
 
 class BookingConfigurationController extends Controller
 {
     public function index(): View
     {
+        $bookingSources = BookingSource::orderBy('name')->get();
         $bookingCancellationReasons = BookingCancellationReason::orderBy('name')->get();
         $bookingProviderCancellationReasons = BookingProviderCancellationReason::orderBy('name')->get();
         $bookingCustomerCancellationReasons = BookingCustomerCancellationReason::orderBy('name')->get();
@@ -25,6 +27,7 @@ class BookingConfigurationController extends Controller
         $bookingDisputeReasons = BookingDisputeReason::orderBy('name')->get();
 
         return view('bookingmodule::admin.configuration.index', compact(
+            'bookingSources',
             'bookingCancellationReasons',
             'bookingProviderCancellationReasons',
             'bookingCustomerCancellationReasons',
@@ -138,6 +141,7 @@ class BookingConfigurationController extends Controller
     protected function resolveType(string $type): array
     {
         return match ($type) {
+            'booking_source' => [BookingSource::class, 'name', ['show_responsible' => false]],
             'booking_cancellation_reason' => [BookingCancellationReason::class, 'name', ['show_responsible' => true]],
             'booking_provider_cancellation_reason' => [BookingProviderCancellationReason::class, 'name', ['show_responsible' => false]],
             'booking_customer_cancellation_reason' => [BookingCustomerCancellationReason::class, 'name', ['show_responsible' => false]],

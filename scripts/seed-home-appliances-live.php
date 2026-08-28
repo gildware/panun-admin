@@ -3,9 +3,11 @@
 /**
  * Seed / replace Home Appliances catalog on live DB.
  *
- * - Upserts main category (`home-appliance`) + 9 sub-categories
+ * - Upserts main category (`home-appliance`) + 10 sub-categories
  * - Creates/refreshes services with overview, FAQs, images, priced variants
  * - Deactivates old home-appliance services not in the new catalog (no hard delete)
+ * - Skips Generators unless `scripts/assets/category-icons/generators.png` exists
+ *   (use `scripts/seed-generators-live.php` for that subcategory)
  *
  * Prerequisites:
  *   python3 scripts/assets/home_appliances_icon_prompts.py
@@ -13,7 +15,7 @@
  *   # Generate AI icons + photos into Cursor assets/, then:
  *   python3 scripts/prepare_home_appliances_ai_icons.py
  *   python3 scripts/assets/prepare_home_appliances_assets.py
- *   python3 scripts/assets/category-icons/make_theme_pairs.py home-appliance air-conditioners battery-inverters cctv geysers led-smart-tv refrigerators washing-machine ro-purifier induction-heaters
+ *   python3 scripts/assets/category-icons/make_theme_pairs.py home-appliance air-conditioners battery-inverters cctv geysers led-smart-tv refrigerators deep-freezers washing-machine ro-purifier induction-heaters generators
  *
  * LIVE_DB_PASSWORD='...' php artisan tinker scripts/seed-home-appliances-live.php
  *
@@ -45,6 +47,22 @@ $dryRun = filter_var(env('HOME_APPLIANCES_DRY_RUN', false), FILTER_VALIDATE_BOOL
 $onlySlugs = array_filter(array_map('trim', explode(',', (string) env('HOME_APPLIANCES_ONLY_SLUGS', ''))));
 $catalog = require base_path('scripts/data/home-appliances-catalog.php');
 
+$categoryIconDir = base_path('scripts/assets/category-icons');
+$serviceImageDir = base_path('scripts/assets/service-images');
+$variantIconDir = base_path('scripts/assets/variant-icons');
+
+if (! is_file($categoryIconDir.'/generators.png')) {
+    $catalog['sub_categories'] = array_values(array_filter(
+        $catalog['sub_categories'],
+        static fn (array $sub): bool => ($sub['slug'] ?? '') !== 'generators'
+    ));
+    $catalog['services'] = array_values(array_filter(
+        $catalog['services'],
+        static fn (array $service): bool => ($service['sub_category_slug'] ?? '') !== 'generators'
+    ));
+    echo "Skipping Generators (assets not prepared). Use seed-generators-live.php.\n";
+}
+
 if ($onlySlugs !== []) {
     $catalog['services'] = array_values(array_filter(
         $catalog['services'],
@@ -53,6 +71,11 @@ if ($onlySlugs !== []) {
     if ($catalog['services'] === []) {
         throw new RuntimeException('HOME_APPLIANCES_ONLY_SLUGS did not match any catalog services.');
     }
+    $neededSubs = array_values(array_unique(array_column($catalog['services'], 'sub_category_slug')));
+    $catalog['sub_categories'] = array_values(array_filter(
+        $catalog['sub_categories'],
+        static fn (array $sub): bool => in_array($sub['slug'] ?? '', $neededSubs, true)
+    ));
 }
 
 $withDbRetry = static function (callable $callback, int $attempts = 5) {
@@ -72,10 +95,6 @@ $withDbRetry = static function (callable $callback, int $attempts = 5) {
 
     throw $last ?? new RuntimeException('Retry failed.');
 };
-
-$categoryIconDir = base_path('scripts/assets/category-icons');
-$serviceImageDir = base_path('scripts/assets/service-images');
-$variantIconDir = base_path('scripts/assets/variant-icons');
 
 foreach ([$catalog['category']['slug'] ?? 'home-appliance'] as $slug) {
     if (! is_file($categoryIconDir.'/'.$slug.'.png')) {
@@ -290,6 +309,12 @@ $ensureCategory = static function (array $spec, ?string $parentId, int $position
     $newImage = $uploadAsset($iconPath, $storageDir, $category->image);
     Category::on($liveConnection)->withoutGlobalScopes()->where('id', $category->id)->update(['image' => $newImage]);
 
+    $darkIconPath = base_path('scripts/category-icons/dark/'.$slug.'.png');
+    if (is_file($darkIconPath) && Schema::connection($liveConnection)->hasColumn('categories', 'image_dark')) {
+        $newDark = $uploadAsset($darkIconPath, $storageDir, $category->image_dark);
+        Category::on($liveConnection)->withoutGlobalScopes()->where('id', $category->id)->update(['image_dark' => $newDark]);
+    }
+
     $upsertCategoryTranslation($category, 'name', $spec['name']);
     if (! empty($spec['description'])) {
         $upsertCategoryTranslation($category, 'description', $spec['description']);
@@ -307,8 +332,18 @@ if ($zones->isEmpty()) {
 
 $leafZoneIds = $zones->pluck('id')->all();
 
-$mainCategory = $ensureCategory($catalog['category'], null, 1);
-$mainCategory->zones()->sync($leafZoneIds);
+if ($onlySlugs !== []) {
+    $mainCategory = Category::on($liveConnection)->withoutGlobalScopes()
+        ->where('slug', $catalog['category']['slug'] ?? 'home-appliance')
+        ->first();
+    if (! $mainCategory) {
+        throw new RuntimeException('Home Appliances category missing on live — refuse to create it from an incremental seed.');
+    }
+    echo "Using existing category: {$mainCategory->name} ({$mainCategory->slug})\n";
+} else {
+    $mainCategory = $ensureCategory($catalog['category'], null, 1);
+    $mainCategory->zones()->sync($leafZoneIds);
+}
 
 $subCategoryMap = [];
 foreach ($catalog['sub_categories'] as $subSpec) {
@@ -504,9 +539,19 @@ foreach ($catalog['services'] as $serviceSpec) {
 
 $oldServices = collect();
 if ($onlySlugs === []) {
+    $protectedSlugs = $newServiceSlugs;
+    if (! in_array('generator-installation', $protectedSlugs, true)) {
+        $protectedSlugs = array_merge($protectedSlugs, [
+            'generator-installation',
+            'generator-repair',
+            'generator-servicing',
+            'generator-uninstallation',
+        ]);
+    }
+
     $oldServices = Service::on($liveConnection)->withoutGlobalScopes()
         ->where('category_id', $mainCategory->id)
-        ->whereNotIn('slug', $newServiceSlugs)
+        ->whereNotIn('slug', $protectedSlugs)
         ->get(['id', 'slug', 'name', 'is_active']);
 
     foreach ($oldServices as $old) {

@@ -1,0 +1,76 @@
+{
+  "variants": [
+    {
+      "service_slug": "booster-pump-install",
+      "service_name": "Booster Pump Install",
+      "variant_key": "single-line-shower",
+      "title": "Single Line / Shower Booster",
+      "filename": "booster-pump-install-single-line-shower.png",
+      "prompt": "Variation icon for booster pump install: small inline shower booster pump silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "booster-pump-install",
+      "service_name": "Booster Pump Install",
+      "variant_key": "whole-house",
+      "title": "Whole House Booster",
+      "filename": "booster-pump-install-whole-house.png",
+      "prompt": "Variation icon for booster pump install: whole house water booster pump silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "booster-pump-install",
+      "service_name": "Booster Pump Install",
+      "variant_key": "booster-with-piping",
+      "title": "Booster with Piping",
+      "filename": "booster-pump-install-booster-with-piping.png",
+      "prompt": "Variation icon for booster pump install: booster pump with connected piping silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "booster-pump-install",
+      "service_name": "Booster Pump Install",
+      "variant_key": "booster-auto-pressure-switch",
+      "title": "Booster with Auto Pressure Switch",
+      "filename": "booster-pump-install-booster-auto-pressure-switch.png",
+      "prompt": "Variation icon for booster pump install: booster pump with automatic pressure switch silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "booster-pump-repair",
+      "service_name": "Booster Pump Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "booster-pump-repair-book-site-inspection.png",
+      "prompt": "Variation icon for booster pump repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "booster-pump-repair",
+      "service_name": "Booster Pump Repair",
+      "variant_key": "wont-start",
+      "title": "Won\u2019t start",
+      "filename": "booster-pump-repair-wont-start.png",
+      "prompt": "Variation icon for booster pump repair: booster pump with stop symbol silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "booster-pump-repair",
+      "service_name": "Booster Pump Repair",
+      "variant_key": "no-low-pressure",
+      "title": "No / low pressure",
+      "filename": "booster-pump-repair-no-low-pressure.png",
+      "prompt": "Variation icon for booster pump repair: booster pump with weak water pressure gauge silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "booster-pump-repair",
+      "service_name": "Booster Pump Repair",
+      "variant_key": "leak",
+      "title": "Leak",
+      "filename": "booster-pump-repair-leak.png",
+      "prompt": "Variation icon for booster pump repair: booster pump with water leak drip silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "booster-pump-repair",
+      "service_name": "Booster Pump Repair",
+      "variant_key": "noise-overheating",
+      "title": "Noise / overheating",
+      "filename": "booster-pump-repair-noise-overheating.png",
+      "prompt": "Variation icon for booster pump repair: booster pump with heat and sound waves silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ]
+}

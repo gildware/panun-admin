@@ -2,35 +2,29 @@
 
 @section('title', translate('Booking_Service_log'))
 
+@push('css_or_js')
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/booking-detail-redesign.css') }}?v=2026082414">
+    @include('bookingmodule::admin.booking.partials._booking-status-colors-styles')
+@endpush
+
 @section('content')
     <div class="main-content">
         <div class="container-fluid">
             <div class="page-title-wrap mb-3">
                 <h2 class="page-title">{{ translate('Booking_Details') }} </h2>
             </div>
+            @php
+                extract(repeat_admin_detail_chrome_vars($booking, $customerAddress ?? null, ! empty($canStopRepeatSeries)));
+                $canExtend = ! empty($canExtendRepeatSeries);
+                $repeatChromeShowScheduleVisit = $canExtend;
+                $repeatChromeShowAddVisit = $canExtend;
+            @endphp
+            <div class="row">
+                <div class="col-12 booking-detail-v2 booking-detail-v2--{{ $repeatChromeStatusClass }}">
+                    <div class="booking-detail-v2__wrap">
+                        @include('bookingmodule::admin.booking.partials._repeat-detail-compact-topbar')
+                        @include('bookingmodule::admin.booking.partials._repeat-detail-compact-header')
 
-            <div class="pb-3 d-flex justify-content-between align-items-center gap-3 flex-wrap">
-                <div>
-                    <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
-                        <h3 class="c1 d-flex align-items-center gap-1">
-                            {{ translate('Repeat_Booking') }} # {{ $booking['readable_id'] }}
-                            <img width="34" height="34"
-                                src="{{ asset('assets/admin-module/img/icons/repeat.svg') }}"
-                                class="rounded-circle repeat-icon" alt="{{ translate('repeat') }}">
-                        </h3>
-                        <span class="badge badge-{{
-                            $booking->booking_status == 'ongoing' ? 'warning' :
-                            ($booking->booking_status == 'completed' ? 'success' :
-                            ($booking->booking_status == 'canceled' ? 'danger' : 'info'))
-                        }}">
-                            {{ ucwords($booking->booking_status) }}
-                        </span>
-                    </div>
-                    <p class="opacity-75 fz-12">{{ translate('Booking_Placed') }}
-                        : {{ date('d-M-Y h:ia', strtotime($booking->created_at)) }}</p>
-                </div>
-                <div class="d-flex flex-wrap flex-xxl-nowrap gap-3">
-                    <div class="d-flex flex-wrap gap-3">
                         @if ($booking['payment_method'] == 'offline_payment' && !$booking['is_paid'])
                             @can('booking_can_approve_or_deny')
                                 <span class="btn btn--primary offline-payment" data-id="{{ $booking->id }}">
@@ -38,7 +32,9 @@
                                 </span>
                             @endcan
                         @endif
-                        @php($maxBookingAmount = business_config('max_booking_amount', 'booking_setup')->live_values)
+                        @php
+                            $maxBookingAmount = business_config('max_booking_amount', 'booking_setup')->live_values;
+                        @endphp
                         @if (
                             $booking['payment_method'] == 'cash_after_service' &&
                                 $booking->is_verified == '0' &&
@@ -168,27 +164,13 @@
                                 </button>
                             @endcan
                         @endif
-                        <a href="{{ route('admin.booking.full_repeat_invoice', [$booking->id]) }}" class="btn btn-primary"
-                            target="_blank">
-                            <span class="material-icons">description</span>{{ translate('Invoice') }}
-                        </a>
-                    </div>
-                </div>
-            </div>
 
-            <div class="d-flex flex-wrap justify-content-between align-items-center flex-xxl-nowrap gap-3 mb-4">
-                <ul class="nav nav--tabs nav--tabs__style2">
-                    <li class="nav-item">
-                        <a class="nav-link {{ $webPage == 'details' ? 'active' : '' }}"
-                           href="{{ url()->current() }}?web_page=details">{{ translate('details') }}</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ $webPage == 'service_log' ? 'active' : '' }}"
-                           href="{{ url()->current() }}?web_page=service_log">{{ translate('service_log') }}</a>
-                    </li>
-                </ul>
+            <div class="d-flex flex-wrap justify-content-between align-items-center flex-xxl-nowrap gap-3 mb-4 booking-detail-nav-wrap">
+                @include('bookingmodule::admin.booking.partials._repeat-booking-tabs')
 
-                @php($max_booking_amount = business_config('max_booking_amount', 'booking_setup')->live_values ?? 0)
+                @php
+                    $max_booking_amount = business_config('max_booking_amount', 'booking_setup')->live_values ?? 0;
+                @endphp
 
                 @if (
                     $booking->is_verified == 2 &&
@@ -213,222 +195,7 @@
 
             <div class="row gy-3">
                 <div class="col-lg-8">
-                    <div class="card">
-                        <div class="card-body">
-                            @if (!empty($booking['nextService'] && $booking['booking_status'] != 'pending'))
-                                <h5 class="mb-3">{{ translate('Ongoing') }}</h5>
-                                <div class="p-4 mb-3 d-flex flex-column gap-3">
-                                    <div class="card card-border">
-                                        <div class="card-body">
-                                            <div class="d-flex flex-wrap justify-content-between align-content-center gap-3">
-                                                <div>
-                                                    <h6 class="fz-13 mb-2">{{ translate('Booking Id') }}
-                                                        #{{ $booking->nextService['readable_id'] }}
-                                                    </h6>
-                                                    <p class="fz-12 mb-1">{{ date('d-M-Y h:ia', strtotime($booking->nextService['service_schedule'])) }}</p>
-                                                    @if($booking->nextService['is_reassign'])
-                                                        <span class="text-primary fw-semibold">
-                                                                (
-                                                                <span class="title-color opacity-75">{{ translate('Reassigned to') }}</span>
-                                                                {{ $booking->provider->company_name }}
-                                                                )
-                                                            </span>
-                                                    @endif
-                                                </div>
-                                                <div class="d-flex gap-2 justify-content-center">
-                                                    <a href="{{ route('admin.booking.single_invoice', [$booking->nextService['id']]) }}" type="button" target="_blank"
-                                                        class="action-btn btn--light-primary text-primary fw-medium text-capitalize fz-14"
-                                                        style="--size: 30px">
-                                                        <span class="material-icons">description</span>
-                                                    </a>
-                                                    <a href="{{ route('admin.booking.repeat_single_details', [$booking->nextService['id'], 'web_page' => 'details'])}}" type="button"
-                                                        class="action-btn btn--light-primary fw-medium text-capitalize fz-14"
-                                                        style="--size: 30px">
-                                                        <span class="material-icons">visibility</span>
-                                                    </a>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            @endif
-                            @if(!empty($booking['completeCancel']))
-                                <h5 class="mb-3">{{ translate('Completed & Canceled') }}</h5>
-                                @foreach($booking['completeCancel'] as $data)
-                                    <div class="d-flex align-items-center mb-3 gap-20">
-                                        <div>
-                                            <span class="fz-14 color-93A2AE">#{{ $loop->iteration }}</span>
-                                        </div>
-                                        <div class="card card-border w-100">
-                                            <div class="card-body">
-                                                <div class="d-flex flex-wrap justify-content-between align-content-center gap-3">
-                                                    <div>
-                                                        <h6 class="fz-13 mb-2">{{ translate('Booking Id') }}
-                                                            #{{ $data['readable_id']}}
-                                                        </h6>
-                                                        <p class="fz-12">{{ date('d-M-Y h:ia', strtotime($data['service_schedule'])) }}</p>
-                                                    </div>
-                                                    <div class="d-flex gap-2 justify-content-center">
-                                                        <a href="{{ route('admin.booking.single_invoice', [$data['id']]) }}" type="button"
-                                                           class="action-btn btn--light-primary text-primary fw-medium text-capitalize fz-14" target="_blank"
-                                                           style="--size: 30px">
-                                                            <span class="material-icons">description</span>
-                                                        </a>
-                                                        <a href="{{ route('admin.booking.repeat_single_details', [$data['id'], 'web_page' => 'details'])}}" type="button"
-                                                           class="action-btn btn--light-primary fw-medium text-capitalize fz-14"
-                                                           style="--size: 30px">
-                                                            <span class="material-icons">visibility</span>
-                                                        </a>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                @endforeach
-                            @endif
-
-                            @if(!empty($booking['upComing']))
-                                <h5 class="mb-3">{{ translate('Upcoming') }}</h5>
-                                @foreach($booking['upComing'] as $upComing)
-                                    <div class="d-flex align-items-center mb-3 gap-20">
-                                        <div>
-                                            <span class="fz-14 color-93A2AE">#{{ $loop->iteration }}</span>
-                                        </div>
-                                        <div class="card card-border w-100 shadow-none">
-                                            <div class="card-body">
-                                                <div class="d-flex justify-content-between align-items-center gap-3">
-                                                    <div>
-                                                        <h6 class="fz-13 mb-2">{{ translate('Booking Id') }}
-                                                            #{{ $upComing['readable_id'] }}
-                                                            @if(count($upComing['schedule_histories']) > 1)
-                                                            <span class="title-color opacity-75">({{ translate('Rescheduled') }})</span>
-                                                            @endif
-                                                        </h6>
-                                                        <p class="fz-12 mb-1">{{ date('d-M-Y h:ia', strtotime($upComing['service_schedule'])) }}</p>
-                                                        @if($upComing['is_reassign'])
-                                                            <span class="text-primary fw-semibold">
-                                                                (
-                                                                <span class="title-color opacity-75">{{ translate('Reassigned to') }}</span>
-                                                                {{ $booking->provider->company_name }}
-                                                                )
-                                                            </span>
-                                                        @endif
-                                                    </div>
-                                                    <div class="dropstart">
-                                                        <a href="javascript:" class="title-color" data-bs-toggle="dropdown">
-                                                            <span class="material-icons">more_vert</span>
-                                                        </a>
-                                                        <ul class="dropdown-menu border-none dropdown-menu-left p-2">
-                                                            <li><a class="dropdown-item d-flex align-items-center gap-1" type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#reschedule-{{$upComing['id']}}"
-                                                                    href="javascript:">
-                                                                    <span class="material-icons">
-                                                                        pending_actions
-                                                                    </span>
-                                                                    {{ translate('Reschedule') }}
-                                                                </a>
-                                                            </li>
-                                                            <li><a class="dropdown-item d-flex align-items-center gap-1" target="_blank"
-                                                                    href="{{ route('admin.booking.single_invoice', [$upComing['id']]) }}">
-                                                                    <span class="material-icons">
-                                                                        download
-                                                                    </span>
-                                                                    {{ translate('download_invoice') }}
-                                                                </a>
-                                                            </li>
-                                                            @if(isset($upComing['booking_status']) && booking_admin_status_transition_allowed($upComing['booking_status'], 'on_hold'))
-                                                            <li>
-                                                                <button type="button"
-                                                                        data-bs-toggle="modal"
-                                                                        data-bs-target="#upcomingHoldModal-{{ $upComing['id'] }}"
-                                                                        class="dropdown-item d-flex align-items-center gap-1 {{ env('APP_ENV') != 'demo' ? '' : 'demo_check' }}">
-                                                                    <span class="material-icons">pause_circle</span>
-                                                                    {{ translate('Put_on_hold') }}
-                                                                </button>
-                                                            </li>
-                                                            @endif
-                                                        </ul>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="modal fade" id="upcomingHoldModal-{{ $upComing['id'] }}" tabindex="-1" aria-hidden="true">
-                                        <div class="modal-dialog modal-dialog-centered">
-                                            <div class="modal-content">
-                                                <form method="post" action="{{ route('admin.booking.up_coming_booking_cancel', [$upComing['id']]) }}" class="upcoming-hold-form">
-                                                    @csrf
-                                                    <input type="hidden" name="booking_status" value="on_hold">
-                                                    <input type="hidden" name="reason_responsible" value="" class="upcoming-hold-responsible">
-                                                    <div class="modal-header border-0">
-                                                        <h5 class="modal-title">{{ translate('Put_on_hold') }}</h5>
-                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
-                                                    </div>
-                                                    <div class="modal-body pt-0">
-                                                        <p class="small text-muted mb-3">{{ translate('want_to_update_status') }}</p>
-                                                        <div class="mb-3">
-                                                            <label class="form-label">{{ translate('Hold_reason') }} <span class="text-danger">*</span></label>
-                                                            <select name="booking_hold_reopen_reason_id" class="form-select upcoming-hold-reason" required>
-                                                                <option value="">{{ translate('Select') }}</option>
-                                                                @foreach($bookingHoldReasons ?? [] as $r)
-                                                                    <option value="{{ $r->id }}" data-responsible="{{ $r->responsible }}">{{ $r->name }}</option>
-                                                                @endforeach
-                                                            </select>
-                                                            @if(($bookingHoldReasons ?? collect())->isEmpty())
-                                                                <div class="form-text small text-danger">{{ translate('No_hold_reasons_configured') }}</div>
-                                                            @endif
-                                                        </div>
-                                                        <div class="mb-3">
-                                                            <label class="form-label">{{ translate('Hold_estimated_service_schedule') }} <span class="text-danger">*</span></label>
-                                                            @php
-                                                                $__upcomingHoldSchedule = '';
-                                                                try {
-                                                                    $__upcomingHoldSchedule = \Carbon\Carbon::parse($upComing['service_schedule'] ?? null)->format('Y-m-d\TH:i');
-                                                                } catch (\Throwable $e) {
-                                                                    $__upcomingHoldSchedule = '';
-                                                                }
-                                                            @endphp
-                                                            <input type="datetime-local" name="hold_estimated_service_schedule" class="form-control" value="{{ $__upcomingHoldSchedule }}" required>
-                                                        </div>
-                                                        <div class="mb-0">
-                                                            <label class="form-label">{{ translate('Status_change_remarks') }}</label>
-                                                            <textarea name="status_change_remarks" class="form-control" rows="2" maxlength="2000"></textarea>
-                                                        </div>
-                                                    </div>
-                                                    <div class="modal-footer border-0">
-                                                        <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
-                                                        <button type="submit" class="btn btn--primary" @if(($bookingHoldReasons ?? collect())->isEmpty()) disabled @endif>{{ translate('Confirm') }}</button>
-                                                    </div>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="modal fade" id="reschedule-{{$upComing['id']}}" data-bs-backdrop="static" tabindex="-1" aria-labelledby="" aria-hidden="true">
-                                        <div class="modal-dialog">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title" id="">{{translate('Repeat Booking reschedule')}}</h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                </div>
-                                                    <form action="{{ route('admin.booking.up_coming_booking_schedule_update', [$upComing['id']]) }}" method="post">
-                                                        @csrf
-                                                        <div class="modal-body">
-                                                            <input type="datetime-local" class="form-control h-45" name="service_schedule"
-                                                                   value="{{$upComing['service_schedule']}}">
-                                                            <div class="pt-3 text-end">
-                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{translate('Close')}}</button>
-                                                                <button type="submit" class="btn btn--primary">{{translate('Save changes')}}</button>
-                                                            </div>
-                                                        </div>
-                                                    </form>
-                                            </div>
-                                        </div>
-                                    </div>
-                                @endforeach
-                            @endif
-                        </div>
-                    </div>
+                    @include('bookingmodule::admin.booking.partials._repeat-visits-board')
                 </div>
                 <div class="col-lg-4">
                     <div class="card">
@@ -503,8 +270,10 @@
                                     </div>
 
                                     <div class="py-3 px-4">
-                                        @php($customer_name = booking_display_customer_name($booking, $customerAddress))
-                                        @php($customer_phone = booking_display_customer_phone($booking, $customerAddress))
+                                        @php
+                                            $customer_name = booking_display_customer_name($booking, $customerAddress);
+                                            $customer_phone = booking_display_customer_phone($booking, $customerAddress);
+                                        @endphp
 
                                         <div class="media gap-2 flex-wrap">
                                             @if (!$booking?->is_guest && $booking?->customer)
@@ -629,10 +398,40 @@
                     </div>
                 </div>
             </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     @include('bookingmodule::admin.booking.partials.details._service-address-modal')
+
+    @if(!empty($canStopRepeatSeries))
+        @can('booking_can_manage_status')
+            <div class="modal fade" id="stopRepeatSeriesModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <form method="POST" action="{{ route('admin.booking.stop_repeat', $booking->id) }}">
+                            @csrf
+                            <div class="modal-header">
+                                <h5 class="modal-title">{{ translate('Stop_series_and_complete') }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="mb-0">{{ translate('Stop_repeat_series_confirm') }}</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                <button type="submit" class="btn btn--danger">{{ translate('Stop_series_and_complete') }}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        @endcan
+    @endif
+
+    @include('bookingmodule::admin.booking.partials._add-repeat-visit-modal')
 
     @include('bookingmodule::admin.booking.partials._booking-status-reason-modal')
 
@@ -703,7 +502,9 @@
                                     </thead>
 
                                     <tbody id="service-edit-tbody">
-                                    @php($sub_total = 0)
+                                    @php
+                                        $sub_total = 0;
+                                    @endphp
                                     @foreach ($booking->nextService['detail'] as $key => $detail)
                                         <tr id="service-row--{{ $detail['variant_key'] }}">
                                             <td class="text-wrap ps-lg-3">
@@ -738,7 +539,9 @@
                                             <input type="hidden" name="variant_keys[]"
                                                    value="{{ $detail['variant_key'] }}">
                                         </tr>
-                                        @php($sub_total += $detail['service_cost'] * $detail['quantity'])
+                                        @php
+                                            $sub_total += $detail['service_cost'] * $detail['quantity'];
+                                        @endphp
                                     @endforeach
                                     <input type="hidden" name="zone_id" value="{{ $booking->zone_id }}">
                                     <input type="hidden" name="booking_id" value="{{ $booking->id }}">
@@ -1546,4 +1349,5 @@
             });
         });
     </script>
+    @include('bookingmodule::admin.booking.partials._repeat-visit-status-script')
 @endpush

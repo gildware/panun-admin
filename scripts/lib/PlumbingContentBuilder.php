@@ -106,6 +106,20 @@ class PlumbingContentBuilder
                 'Civil flooring / tile redo unless agreed',
                 'Septic tank or outdoor drain construction',
             ]),
+            'booster-pump-install' => self::install($name, 'home water pressure booster pumps', [
+                'Single-line / shower boosters', 'Whole-house boosters', 'Auto pressure-switch setups', 'Low-pressure homes and shops',
+            ], [
+                'Booster pump install labour for the booked variation',
+                'Placement and connection review on the water line',
+                'Basic piping / valve connection within scope',
+                'Start and pressure check when water is available',
+                'Work-area cleanup and handover tips',
+            ], [
+                'Cost of the booster pump, tank, valves, or pipe materials',
+                'Electrical point / wiring (book Electrician)',
+                'Water motor / overhead tank filling (book Plumbing Motor Install)',
+                'Civil platform, tank stand, or concealed chasing unless agreed',
+            ]),
             'plumbing-motor-install' => self::install($name, 'water motors and pump piping', [
                 'Water motor / pump install', 'Motor with piping', 'Home water pressure pump setup',
             ], [
@@ -274,6 +288,20 @@ class PlumbingContentBuilder
                 'Utility street supply faults',
                 'Borewell or municipal line work outside home scope',
             ]),
+            'booster-pump-repair' => self::repair($name, 'booster pump pressure and start faults', [
+                'Booster not starting', 'No / low pressure', 'Leak', 'Noise / overheating',
+            ], [
+                'On-site booster diagnosis',
+                'Repair labour for the booked symptom when practical',
+                'Pressure switch / connection check within scope',
+                'Start and pressure test after repair',
+                'Work-area cleanup',
+            ], [
+                'Cost of impeller, pressure switch, seals, or replacement pump',
+                'New electrical point or wiring (book Electrician)',
+                'Water motor repair (book Plumbing Motor Repair)',
+                'Full pump replacement if repair is not practical',
+            ]),
             'plumbing-motor-repair' => self::repair($name, 'water motor and pump faults', [
                 'Motor not starting', 'Weak flow', 'Noise / overheating', 'Air cavity issues',
             ], [
@@ -356,8 +384,12 @@ class PlumbingContentBuilder
             'plumbing-pre-work-check',
         ];
 
-        if (in_array($serviceSlug, $inspectionSlugs, true)) {
-            return 'Inspection fee may be adjusted against your final plumbing bill if you proceed with the full service through Panun Kaergar.';
+        if (in_array($serviceSlug, $inspectionSlugs, true) || $serviceSlug === 'booster-pump-repair') {
+            return 'Inspection or visit fee may be adjusted against your final plumbing bill if you proceed with the full service through Panun Kaergar. The pump, spare parts, and extra piping are extra unless listed.';
+        }
+
+        if ($serviceSlug === 'booster-pump-install') {
+            return 'Final price is based on the selected variation. The booster pump, extra piping, valves, and electrical point need confirmation before work starts.';
         }
 
         return 'Final price is based on the selected variation. Extra piping, parts, or materials need confirmation before work starts.';

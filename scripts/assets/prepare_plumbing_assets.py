@@ -47,7 +47,7 @@ def main() -> None:
         print(f"Missing catalog: {CATALOG}", file=sys.stderr)
         sys.exit(1)
 
-    slugs = load_slugs()
+    slugs = [slug for slug in load_slugs() if not slug.startswith("booster-pump-")]
     missing = []
     prepared = 0
 

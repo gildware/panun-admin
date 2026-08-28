@@ -372,6 +372,7 @@
         $advanceOffline = ($booking->booking_partial_payments ?? collect())->where('paid_with', 'offline')->first();
         $bookingHasTax = (float)($booking->total_tax_amount ?? 0) > 0;
         $bookingNotEditable = in_array($booking->booking_status ?? '', ['completed', 'canceled', 'refunded']);
+        $bookingCanCorrectLineItems = booking_admin_can_correct_line_items($booking);
         $serviceAtProviderPlace = (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0);
         $__bfsDecidedChargesSnapshot = ! empty($booking->settlement_snapshot)
             && is_array($booking->settlement_snapshot)
@@ -412,7 +413,8 @@
         $bookingStatusForAddPayment = (string) ($booking->booking_status ?? '');
         // Reopened bookings can be in pending/accepted; allow admin to record payments there too.
         $addPaymentAllowedByStatus = in_array($bookingStatusForAddPayment, ['pending', 'accepted', 'ongoing'], true)
-            || ($bookingStatusForAddPayment === 'on_hold' && booking_on_hold_is_after_visit_from_ongoing($booking));
+            || ($bookingStatusForAddPayment === 'on_hold' && booking_on_hold_is_after_visit_from_ongoing($booking))
+            || ($bookingStatusForAddPayment === 'completed' && round($adminAddPaymentRemainingCapacity, 2) > 0.009);
         // Loss-making (scaled) bookings: allow recording additional payments even after completion
         // (up to invoice recovery cap), so don't require ongoing/on-hold here.
         $bfsShowRecordPaymentButton = $__bfsScaledLive !== null
@@ -424,6 +426,7 @@
                 (! $bookingNotEditable && ! $paymentFullyCovered)
                 || ($bookingNotEditable && $__bfsScaledLive !== null)
                 || ($__bfsScaledLive !== null && $paymentFullyCovered)
+                || ($bookingNotEditable && round($adminAddPaymentRemainingCapacity, 2) > 0.009)
             );
     @endphp
     <div class="main-content">
@@ -1031,6 +1034,7 @@
             @endif
 
             @include('bookingmodule::admin.booking.partials._reopen-from-completed-modal')
+            @include('bookingmodule::admin.booking.partials._convert-to-repeat-modal')
             @include('bookingmodule::admin.booking.partials._reopen-resolve-modal', [
                 'modalId' => 'reopenResolveModal--' . $booking->id,
                 'formId' => 'reopenResolveForm--' . $booking->id,
@@ -1074,7 +1078,7 @@
             @endif
 
             @can('booking_edit')
-            @if(!$bookingNotEditable)
+            @if($bookingCanCorrectLineItems)
             <div class="modal fade" id="bookingInfoModal--{{ $booking->id }}" tabindex="-1" aria-labelledby="bookingInfoModalLabel--{{ $booking->id }}" aria-hidden="true">
                 <div class="modal-dialog">
                     <div class="modal-content">
@@ -1100,9 +1104,27 @@
                                 <div class="mb-3">
                                     <label class="form-label">{{ translate('Source') }}</label>
                                     <select name="booking_source" class="form-control">
-                                        <option value="whatsapp" {{ (old('booking_source', $booking->booking_source ?? 'whatsapp') == 'whatsapp') ? 'selected' : '' }}>{{ translate('Whatsapp') }}</option>
-                                        <option value="call" {{ (old('booking_source', $booking->booking_source) == 'call') ? 'selected' : '' }}>{{ translate('Call') }}</option>
-                                        <option value="social_media" {{ (old('booking_source', $booking->booking_source) == 'social_media') ? 'selected' : '' }}>{{ translate('Social_Media') }}</option>
+                                        @php
+                                            $currentBookingSource = strtolower((string) old('booking_source', $booking->booking_source ?? ''));
+                                            $bookingSourceMatched = false;
+                                        @endphp
+                                        @forelse($sources ?? [] as $source)
+                                            @php
+                                                $isSelected = strtolower((string) $source->name) === $currentBookingSource;
+                                                if ($isSelected) {
+                                                    $bookingSourceMatched = true;
+                                                }
+                                            @endphp
+                                            <option value="{{ $source->name }}" {{ $isSelected ? 'selected' : '' }}>{{ $source->name }}</option>
+                                        @empty
+                                            <option value="whatsapp" {{ $currentBookingSource === 'whatsapp' ? 'selected' : '' }}>{{ translate('Whatsapp') }}</option>
+                                            <option value="call" {{ $currentBookingSource === 'call' ? 'selected' : '' }}>{{ translate('Call') }}</option>
+                                            <option value="social_media" {{ $currentBookingSource === 'social_media' ? 'selected' : '' }}>{{ translate('Social_Media') }}</option>
+                                            <option value="direct app booking" {{ in_array($currentBookingSource, ['direct app booking', 'app', ''], true) ? 'selected' : '' }}>{{ translate('Direct_App_Booking') }}</option>
+                                        @endforelse
+                                        @if($currentBookingSource !== '' && empty($bookingSourceMatched) && ($sources ?? collect())->isNotEmpty())
+                                            <option value="{{ $booking->booking_source }}" selected>{{ booking_source_display_label($booking->booking_source) }}</option>
+                                        @endif
                                     </select>
                                 </div>
                                 <div class="mb-3">
@@ -1123,8 +1145,10 @@
             <div class="modal fade" id="addExtraServiceModal--{{ $booking->id }}" tabindex="-1" aria-labelledby="addExtraServiceModalLabel--{{ $booking->id }}" aria-hidden="true">
                 <div class="modal-dialog">
                     <div class="modal-content">
-                        <form action="{{ route('admin.booking.extra-service.store', [$booking->id]) }}" method="POST" id="extra-service-form--{{ $booking->id }}">
+                        <form action="{{ route('admin.booking.extra-service.store', [$booking->id]) }}" method="POST" id="extra-service-form--{{ $booking->id }}"
+                              data-store-url="{{ route('admin.booking.extra-service.store', [$booking->id]) }}">
                             @csrf
+                            <input type="hidden" name="_method" value="POST" class="js-extra-service-method">
                             <div class="modal-header">
                                 <h5 class="modal-title" id="addExtraServiceModalLabel--{{ $booking->id }}">{{ translate('Add_Extra_Service') }}</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
@@ -1163,7 +1187,7 @@
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
-                                <button type="submit" class="btn btn--primary">{{ translate('Add') }}</button>
+                                <button type="submit" class="btn btn--primary js-extra-service-submit">{{ translate('Add') }}</button>
                             </div>
                         </form>
                     </div>
@@ -1171,6 +1195,83 @@
             </div>
             @endif
             @endcan
+
+            @if($bookingCanCorrectLineItems)
+            @push('script')
+            <script>
+                (function () {
+                    var form = document.getElementById('extra-service-form--{{ $booking->id }}');
+                    if (!form) {
+                        return;
+                    }
+                    var storeUrl = form.getAttribute('data-store-url') || form.getAttribute('action');
+                    var titleEl = document.getElementById('addExtraServiceModalLabel--{{ $booking->id }}');
+                    var submitBtn = form.querySelector('.js-extra-service-submit');
+                    var methodInput = form.querySelector('.js-extra-service-method');
+                    var modalEl = document.getElementById('addExtraServiceModal--{{ $booking->id }}');
+                    var addLabel = @json(translate('Add_Extra_Service'));
+                    var editLabel = @json(translate('Edit_Extra_Service'));
+                    var addBtnLabel = @json(translate('Add'));
+                    var updateBtnLabel = @json(translate('Update'));
+
+                    function setField(name, value) {
+                        var field = form.querySelector('[name="' + name + '"]');
+                        if (field) {
+                            field.value = value;
+                        }
+                    }
+
+                    function resetToAdd() {
+                        form.setAttribute('action', storeUrl);
+                        if (methodInput) {
+                            methodInput.value = 'POST';
+                        }
+                        form.reset();
+                        setField('quantity', '1');
+                        setField('price', '0');
+                        setField('discount', '0');
+                        setField('type', 'service');
+                        if (titleEl) {
+                            titleEl.textContent = addLabel;
+                        }
+                        if (submitBtn) {
+                            submitBtn.textContent = addBtnLabel;
+                        }
+                    }
+
+                    function fillFromButton(btn) {
+                        form.setAttribute('action', btn.getAttribute('data-update-url'));
+                        if (methodInput) {
+                            methodInput.value = 'PUT';
+                        }
+                        setField('title', btn.getAttribute('data-title') || '');
+                        setField('details', btn.getAttribute('data-details') || '');
+                        setField('type', btn.getAttribute('data-type') || 'service');
+                        setField('quantity', btn.getAttribute('data-quantity') || '1');
+                        setField('price', btn.getAttribute('data-price') || '0');
+                        setField('discount', btn.getAttribute('data-discount') || '0');
+                        if (titleEl) {
+                            titleEl.textContent = editLabel;
+                        }
+                        if (submitBtn) {
+                            submitBtn.textContent = updateBtnLabel;
+                        }
+                    }
+
+                    if (modalEl) {
+                        modalEl.addEventListener('show.bs.modal', function (event) {
+                            var trigger = event.relatedTarget;
+                            if (trigger && trigger.classList.contains('js-edit-extra-service')) {
+                                fillFromButton(trigger);
+                            } else {
+                                resetToAdd();
+                            }
+                        });
+                    }
+                })();
+            </script>
+            @endpush
+            @endif
 
             @include('bookingmodule::admin.booking.partials.details._special-financial-settlement-banner', [
                 'booking' => $booking,
@@ -1814,18 +1915,18 @@
                                 {{ $__bfsSplitBookingSummary ? ($__bfsSplitBookingSummaryComplete ? translate('Booking_Summary_before_complete') : translate('Booking_Summary_before_cancel')) : translate('Booking_Summary') }}
                             </h2>
                             <div class="summary-panel__head-actions">
-                                @if (in_array($booking['booking_status'], ['pending', 'accepted', 'ongoing', 'on_hold']))
+                                @if ($bookingCanCorrectLineItems)
                                     @can('booking_edit')
                                         <button type="button" class="btn btn-demo-outline btn-sm flex-shrink-0" data-bs-toggle="modal"
                                             data-bs-target="#serviceUpdateModal--{{ $booking['id'] }}" data-toggle="tooltip"
-                                            title="{{ translate('Add or remove services') }}">
+                                            title="{{ translate('Correct_missed_or_wrong_items') }}">
                                             <span class="material-symbols-outlined">edit</span>{{ translate('Edit Services') }}
                                         </button>
                                     @endcan
                                 @endif
                                 @can('booking_edit')
-                                    @if(!$bookingNotEditable)
-                                        <button type="button" class="btn btn-demo-outline btn-sm flex-shrink-0" data-bs-toggle="modal" data-bs-target="#addExtraServiceModal--{{ $booking->id }}">
+                                    @if($bookingCanCorrectLineItems)
+                                        <button type="button" class="btn btn-demo-outline btn-sm flex-shrink-0 js-add-extra-service" data-bs-toggle="modal" data-bs-target="#addExtraServiceModal--{{ $booking->id }}">
                                             <span class="material-symbols-outlined">add</span>
                                             {{ translate('Add_Extra_Service') }}
                                         </button>
@@ -1840,6 +1941,9 @@
                             </div>
                         </div>
                         <div class="summary-panel__body">
+                            @if ($bookingNotEditable && $bookingCanCorrectLineItems)
+                                <p class="fz-12 text-muted mb-2 px-3 pt-2">{{ translate('Completed_booking_line_item_correction_hint') }}</p>
+                            @endif
                             @if ($__bfsSplitBookingSummary)
                                 <p class="fz-12 text-muted mb-2 px-3 pt-2">{{ $__bfsSplitBookingSummaryComplete ? translate('Bfs_booking_summary_before_complete_hint') : translate('Bfs_booking_summary_before_cancel_hint') }}</p>
                             @endif
@@ -1959,12 +2063,27 @@
                                                             {{ $extra->type === 'spare_part' ? translate('Spare_Part') : translate('Service') }}
                                                         </span>
                                                         @can('booking_edit')
-                                                        @if(!$bookingNotEditable)
-                                                        <form method="post" action="{{ route('admin.booking.extra-service.destroy', [$booking->id, $extra->id]) }}" class="d-inline mt-1" onsubmit="return confirm('{{ translate('Remove_this_item') }}?');">
-                                                            @csrf
-                                                            @method('DELETE')
-                                                            <button type="submit" class="btn btn-sm btn-link text-danger p-0">{{ translate('Remove') }}</button>
-                                                        </form>
+                                                        @if($bookingCanCorrectLineItems)
+                                                        <div class="d-flex flex-wrap gap-2 mt-1">
+                                                            <button type="button"
+                                                                    class="btn btn-sm btn-link p-0 js-edit-extra-service"
+                                                                    data-bs-toggle="modal"
+                                                                    data-bs-target="#addExtraServiceModal--{{ $booking->id }}"
+                                                                    data-update-url="{{ route('admin.booking.extra-service.update', [$booking->id, $extra->id]) }}"
+                                                                    data-title="{{ e($extra->title) }}"
+                                                                    data-details="{{ e($extra->details ?? '') }}"
+                                                                    data-type="{{ e($extra->type) }}"
+                                                                    data-quantity="{{ (int) $extra->quantity }}"
+                                                                    data-price="{{ $extra->price }}"
+                                                                    data-discount="{{ $extra->discount }}">
+                                                                {{ translate('Edit') }}
+                                                            </button>
+                                                            <form method="post" action="{{ route('admin.booking.extra-service.destroy', [$booking->id, $extra->id]) }}" class="d-inline" onsubmit="return confirm('{{ translate('Remove_this_item') }}?');">
+                                                                @csrf
+                                                                @method('DELETE')
+                                                                <button type="submit" class="btn btn-sm btn-link text-danger p-0">{{ translate('Remove') }}</button>
+                                                            </form>
+                                                        </div>
                                                         @endif
                                                         @endcan
                                                     </div>
@@ -2042,7 +2161,7 @@
                                                                     <span class="d-inline-flex align-items-center gap-1 flex-wrap">
                                                                         {{ $acRow['name'] ?? translate('Additional_charges') }}
                                                                         @can('booking_edit')
-                                                                            @if(!$bookingNotEditable && $acLineCustomizable)
+                                                                            @if($bookingCanCorrectLineItems && $acLineCustomizable)
                                                                                 <button type="button" class="btn btn-link p-0 border-0 lh-1 text-decoration-none ac-charge-line-edit-btn" title="{{ translate('Edit') }}" aria-label="{{ translate('Edit') }}">
                                                                                     <span class="material-icons title-color" style="font-size: 14px;">edit</span>
                                                                                 </button>
@@ -2056,7 +2175,7 @@
                                                                             <span class="ac-charge-line-amount">{{ with_currency_symbol($acLineAmount) }}</span>
                                                                         </div>
                                                                         @can('booking_edit')
-                                                                            @if(!$bookingNotEditable && $acLineCustomizable)
+                                                                            @if($bookingCanCorrectLineItems && $acLineCustomizable)
                                                                                 <div class="ac-charge-line-edit d-none mt-1">
                                                                                     <form method="post" action="{{ route('admin.booking.additional-charges.update', $booking->id) }}" class="d-flex flex-column align-items-end gap-1">
                                                                                         @csrf
@@ -2290,6 +2409,7 @@
                     @include('bookingmodule::admin.booking.partials._booking-detail-panel-info', [
                         'booking' => $booking,
                         'bookingNotEditable' => $bookingNotEditable ?? false,
+                        'bookingCanCorrectLineItems' => $bookingCanCorrectLineItems ?? false,
                     ])
                     @include('bookingmodule::admin.booking.partials._booking-detail-panel-schedule-location', [
                         'booking' => $booking,

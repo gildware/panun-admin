@@ -1,0 +1,42 @@
+[
+  {
+    "slug": "generator-installation",
+    "name": "Generator Installation",
+    "sub_category_slug": "generators",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of generator installation in progress, installing a home petrol or diesel generator and checking placement, a Kashmir home courtyard or shop backyard with a petrol or diesel generator, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing generator installation, installing a home petrol or diesel generator and checking placement, a Kashmir home courtyard or shop backyard with a petrol or diesel generator, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/generator-installation-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/generator-installation-cover.png"
+  },
+  {
+    "slug": "generator-repair",
+    "name": "Generator Repair",
+    "sub_category_slug": "generators",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of generator repair in progress, diagnosing a generator that will not start, checking fuel and wiring, a Kashmir home courtyard or shop backyard with a petrol or diesel generator, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing generator repair, diagnosing a generator that will not start, checking fuel and wiring, a Kashmir home courtyard or shop backyard with a petrol or diesel generator, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/generator-repair-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/generator-repair-cover.png"
+  },
+  {
+    "slug": "generator-servicing",
+    "name": "Generator Servicing",
+    "sub_category_slug": "generators",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of generator servicing in progress, servicing a generator with oil, filter, and engine checks, a Kashmir home courtyard or shop backyard with a petrol or diesel generator, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing generator servicing, servicing a generator with oil, filter, and engine checks, a Kashmir home courtyard or shop backyard with a petrol or diesel generator, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/generator-servicing-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/generator-servicing-cover.png"
+  },
+  {
+    "slug": "generator-uninstallation",
+    "name": "Generator Uninstallation",
+    "sub_category_slug": "generators",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of generator uninstallation in progress, safely disconnecting and uninstalling a home generator, a Kashmir home courtyard or shop backyard with a petrol or diesel generator, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing generator uninstallation, safely disconnecting and uninstalling a home generator, a Kashmir home courtyard or shop backyard with a petrol or diesel generator, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/generator-uninstallation-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/generator-uninstallation-cover.png"
+  }
+]

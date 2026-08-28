@@ -102,9 +102,6 @@
                         <a class="nav-link {{ $webPage == 'bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=bookings">{{ translate('Bookings') }}</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{ $webPage == 'withdrawn_bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=withdrawn_bookings">{{ translate('Provider_withdrawals_and_rejections') }}</a>
-                    </li>
-                    <li class="nav-item">
                         <a class="nav-link {{ $webPage == 'special_bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=special_bookings">{{ translate('Special_Bookings') }}</a>
                     </li>
                     <li class="nav-item">

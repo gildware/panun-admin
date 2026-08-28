@@ -724,22 +724,12 @@ class BookingController extends Controller
                     sync_repeat_series_additional_charges((string) $repeatBooking->booking_id);
                     $bookingStatusHistory->save();
 
-                    $fullBooking = $this->bookingRepeat->where('booking_id', $repeatBooking->booking_id)->get();
-                    $allInactive = $fullBooking->every(function ($repeat) {
-                        return !in_array($repeat->booking_status, ['pending', 'accepted', 'ongoing']);
-                    });
-
-                    if ($allInactive) {
-                        $repeatBooking->booking->booking_status = 'completed';
-                        $repeatBooking->booking->is_paid = 1;
-                        $repeatBooking->booking->save();
-                    }
-
-                    if (in_array($repeatBooking->booking_status, ['ongoing', 'completed', 'canceled'])) {
-                        if ($repeatBooking->booking->booking_status != 'ongoing' && $repeatBooking->booking->booking_status != 'completed' && $repeatBooking->booking->booking_status != 'canceled') {
-                            $repeatBooking->booking->booking_status = 'ongoing';
-                            $repeatBooking->booking->save();
-                        }
+                    $parentBooking = $repeatBooking->booking;
+                    if ($parentBooking && empty($parentBooking->repeat_stopped_at)
+                        && in_array($repeatBooking->booking_status, ['ongoing', 'completed', 'canceled'], true)
+                        && ! in_array((string) $parentBooking->booking_status, ['ongoing', 'completed', 'canceled'], true)) {
+                        $parentBooking->booking_status = 'ongoing';
+                        $parentBooking->save();
                     }
                 });
 
@@ -1333,11 +1323,25 @@ class BookingController extends Controller
     {
         $booking = $this->bookingRepeat->with(['detail.service' => function ($query) {
             $query->withTrashed();
-        }, 'booking.extra_services', 'provider', 'serviceman'])->find($id);
+        }, 'booking.customer', 'booking.extra_services', 'extra_services', 'provider', 'serviceman'])->find($id);
+
+        if (! $booking || ! $booking->booking) {
+            abort(404);
+        }
 
         $booking->booking->service_address = $booking->booking->service_address_location != null ? json_decode($booking->booking->service_address_location) : $booking->booking->service_address;
+        $visitInvoiceGrandTotal = get_booking_total_amount($booking);
+        $visitInvoiceExtras = $booking->extra_services ?? collect();
+        $visitInvoiceExtrasTotal = round((float) $visitInvoiceExtras->sum('total'), 2);
+        $visitInvoiceShowRefund = $booking->payment_method != 'cash_after_service' && (float) ($booking->additional_charge ?? 0) < 0;
 
-        return view('bookingmodule::provider.booking.fullbooking-single-invoice', compact('booking'));
+        return view('bookingmodule::provider.booking.fullbooking-single-invoice', compact(
+            'booking',
+            'visitInvoiceGrandTotal',
+            'visitInvoiceExtras',
+            'visitInvoiceExtrasTotal',
+            'visitInvoiceShowRefund'
+        ));
     }
 
     /**

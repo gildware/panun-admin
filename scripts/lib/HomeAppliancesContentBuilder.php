@@ -28,8 +28,16 @@ class HomeAppliancesContentBuilder
 
     public static function variantNote(string $serviceSlug): string
     {
+        if (str_starts_with($serviceSlug, 'generator-') && (str_contains($serviceSlug, 'repair') || str_contains($serviceSlug, 'servicing'))) {
+            return 'Inspection or visit fee may be adjusted against your final bill if you proceed with the full service through Panun Kaergar. Fuel, oil, filters, and spare parts are extra unless listed.';
+        }
+
         if (str_contains($serviceSlug, 'repair') || str_contains($serviceSlug, 'service')) {
             return 'Inspection or visit fee may be adjusted against your final bill if you proceed with the full service through Panun Kaergar. Spare parts and consumables are extra unless listed.';
+        }
+
+        if (str_starts_with($serviceSlug, 'generator-')) {
+            return 'Final price is based on the selected kVA variation. Fuel, oil, filters, spare parts, and new changeover wiring need confirmation before work starts.';
         }
 
         return 'Final price is based on the selected variation. Extra materials, mounts, copper piping, or parts need confirmation before work starts.';
@@ -40,7 +48,7 @@ class HomeAppliancesContentBuilder
         if (str_contains($slug, 'uninstallation')) {
             return 'uninstall';
         }
-        if (str_contains($slug, 'servicing') || str_contains($slug, 'cleaning') || $slug === 'gas-refill-check-up' || $slug === 'gas-refill-leak-fix') {
+        if (str_contains($slug, 'servicing') || str_contains($slug, 'cleaning') || str_contains($slug, 'gas-refill') || $slug === 'gas-refill-check-up') {
             return 'service';
         }
         if (str_contains($slug, 'installation') || str_ends_with($slug, '-installation')) {
@@ -62,8 +70,10 @@ class HomeAppliancesContentBuilder
             str_starts_with($slug, 'geyser-') => 'geysers and water heaters',
             str_starts_with($slug, 'tv-') => 'LED and smart TVs',
             str_starts_with($slug, 'refrigerator-') || $slug === 'gas-refill-leak-fix' => 'refrigerators',
+            str_starts_with($slug, 'deep-freezer-') => 'deep freezers',
             str_starts_with($slug, 'washing-machine-') => 'washing machines',
             str_starts_with($slug, 'ro-') => 'RO water purifiers',
+            str_starts_with($slug, 'generator-') => 'petrol and diesel generators',
             default => strtolower($name),
         };
     }
@@ -77,8 +87,10 @@ class HomeAppliancesContentBuilder
             str_starts_with($slug, 'geyser-') => ['Homes', 'Bathrooms', 'Winter readiness', 'Storage / Instant units'],
             str_starts_with($slug, 'tv-') => ['Homes', 'Wall mounting', 'Living rooms', 'Smart TVs'],
             str_starts_with($slug, 'refrigerator-') || $slug === 'gas-refill-leak-fix' => ['Homes', 'Kitchens', 'Single / Double door', 'Side by Side / French door'],
+            str_starts_with($slug, 'deep-freezer-') => ['Homes', 'Shops', 'Chest freezer', 'Upright freezer', 'Commercial / display'],
             str_starts_with($slug, 'washing-machine-') => ['Homes', 'Front load', 'Top load', 'Semi-automatic'],
             str_starts_with($slug, 'ro-') => ['Homes', 'Kitchens', 'RO systems', 'Filter care'],
+            str_starts_with($slug, 'generator-') => ['Homes', 'Shops', 'Petrol generators', 'Diesel generators', 'Power cuts'],
             str_contains($slug, 'chimney') || str_contains($slug, 'hob') => ['Kitchens', 'Cooking areas', 'Home upgrades'],
             default => ['Homes', 'Appliance faults', 'Quick diagnosis', 'Verified technicians'],
         };
@@ -86,6 +98,16 @@ class HomeAppliancesContentBuilder
 
     private static function includedInstall(string $slug): array
     {
+        if (str_starts_with($slug, 'generator-')) {
+            return [
+                'On-site placement and install review',
+                'Labour for the booked kVA variation',
+                'Basic generator connections within scope',
+                'Startup and load test when fuel is available',
+                'Work-area tidy-up and handover tips',
+            ];
+        }
+
         return [
             'On-site placement and install review',
             'Labour for the booked variation',
@@ -97,6 +119,16 @@ class HomeAppliancesContentBuilder
 
     private static function excludedInstall(string $slug): array
     {
+        if (str_starts_with($slug, 'generator-')) {
+            return [
+                'Cost of the generator, canopy, stand, or spare parts',
+                'Fuel, engine oil, and filters',
+                'Generator hire or overnight operator',
+                'New changeover, DB, or house wiring (book Electrician)',
+                'Civil foundation or exhaust fabrication unless agreed',
+            ];
+        }
+
         return [
             'Cost of the appliance, mounts, stand, or spare parts',
             'Extra copper piping, wiring, or civil chasing unless agreed',
@@ -108,6 +140,16 @@ class HomeAppliancesContentBuilder
 
     private static function includedRepair(string $slug): array
     {
+        if (str_starts_with($slug, 'generator-')) {
+            return [
+                'On-site fault diagnosis',
+                'Repair labour for the booked variation when practical',
+                'Safety and operating checks',
+                'Test run after repair when fuel is available',
+                'Clear briefing before major parts work',
+            ];
+        }
+
         return [
             'On-site fault diagnosis',
             'Repair labour for the booked variation when practical',
@@ -119,6 +161,16 @@ class HomeAppliancesContentBuilder
 
     private static function excludedRepair(string $slug): array
     {
+        if (str_starts_with($slug, 'generator-')) {
+            return [
+                'Cost of spare parts, starter motor, AVR, carburettor, or PCB',
+                'Fuel, engine oil, and filters',
+                'Generator hire or overnight operator',
+                'New changeover or house wiring (book Electrician)',
+                'Full engine overhaul unless quoted after inspection',
+            ];
+        }
+
         return [
             'Cost of spare parts, PCBs, motors, filters, or sensors',
             'Full appliance replacement',
@@ -130,6 +182,16 @@ class HomeAppliancesContentBuilder
 
     private static function includedService(string $slug): array
     {
+        if (str_starts_with($slug, 'generator-')) {
+            return [
+                'Scheduled servicing labour for the booked kVA variation',
+                'Oil, filter, and accessible checks within practical scope',
+                'Basic safety review',
+                'Test run after service when fuel is available',
+                'Care tips at handover',
+            ];
+        }
+
         return [
             'Scheduled servicing labour for the booked variation',
             'Cleaning / checks within practical access',
@@ -141,6 +203,16 @@ class HomeAppliancesContentBuilder
 
     private static function excludedService(string $slug): array
     {
+        if (str_starts_with($slug, 'generator-')) {
+            return [
+                'Cost of oil, filters, spark plugs, or spare parts',
+                'Fuel for the test run if none is available on site',
+                'Major engine or electrical repairs (book Generator Repair)',
+                'Generator hire or overnight operator',
+                'Changeover or house wiring (book Electrician)',
+            ];
+        }
+
         return [
             'Major spare-part replacement unless approved separately',
             'Gas top-up unless booked as gas refill',
@@ -152,6 +224,16 @@ class HomeAppliancesContentBuilder
 
     private static function includedUninstall(string $slug): array
     {
+        if (str_starts_with($slug, 'generator-')) {
+            return [
+                'Safe shutdown and disconnection',
+                'Careful generator removal for the booked variation',
+                'Basic fuel and exhaust isolation where applicable',
+                'Shift-ready handover',
+                'Work-area tidy-up',
+            ];
+        }
+
         return [
             'Safe shutdown and disconnection',
             'Careful appliance removal for the booked variation',
@@ -163,6 +245,16 @@ class HomeAppliancesContentBuilder
 
     private static function excludedUninstall(string $slug): array
     {
+        if (str_starts_with($slug, 'generator-')) {
+            return [
+                'Transport, packing, or shifting labour unless agreed',
+                'Civil, exhaust, or foundation repair after removal',
+                'Reinstallation at a new location (book Generator Installation)',
+                'Disposal of old units unless arranged separately',
+                'Fuel draining beyond basic safe shutdown unless agreed',
+            ];
+        }
+
         return [
             'Transport, packing, or shifting labour unless agreed',
             'Wall, plaster, or tile repair after mount removal',
@@ -306,6 +398,43 @@ class HomeAppliancesContentBuilder
 
     private static function faqs(string $name, string $kind): array
     {
+        if (str_contains($name, 'Generator')) {
+            return match ($kind) {
+                'install' => [
+                    ['What should I keep ready for Generator Installation?', 'Keep the generator, fuel for a test run, and clear access ready. Share petrol or diesel type and kVA while booking.'],
+                    ['Are fuel, oil, or the generator unit included?', 'No. Labour for the booked kVA variation is included. The machine, fuel, oil, filters, and spare parts are extra.'],
+                    ['Do you also do changeover or house wiring?', 'Basic generator connections are covered. New changeover, DB, or house wiring should be booked under Electrician.'],
+                    ['Can you install both petrol and diesel generators?', 'Yes. Choose the matching kVA variation so the technician arrives prepared.'],
+                    ['Will the technician test after install?', 'Yes. A startup and basic load test is done when fuel is available on site.'],
+                    ['How do I contact support?', 'Use call, WhatsApp, website, or the app profile and contact sections for booking help.'],
+                ],
+                'repair' => [
+                    ['What if I am unsure why the generator failed?', 'Choose Book Site Inspection. The technician diagnoses first and then recommends the right repair.'],
+                    ['Are spare parts, oil, or fuel included?', 'No. Parts, oil, filters, and fuel are quoted after inspection and used only with your approval.'],
+                    ['Will inspection fee be adjusted?', 'Often yes if you proceed with the full repair through Panun Kaergar.'],
+                    ['Can you repair both petrol and diesel generators?', 'Yes. Share the fuel type, kVA, brand, and symptom while booking.'],
+                    ['How long does a repair visit take?', 'Most visits take about 1 to 3 hours depending on access, fault type, and parts.'],
+                    ['How do I contact support?', 'Use call, WhatsApp, website, or the app profile and contact sections for booking help.'],
+                ],
+                'service' => [
+                    ['How often should I service a generator?', 'Every 3 to 6 months for regular use, or sooner after heavy outage use or if it starts roughly.'],
+                    ['Does servicing include oil and filters?', 'Labour is included. Oil, filters, spark plugs, and fuel are extra unless listed.'],
+                    ['Does servicing include major repairs?', 'No. Book Generator Repair if it will not start, has no output, leaks, or unusual smoke.'],
+                    ['Can you service both petrol and diesel sets?', 'Yes. Choose the matching kVA variation.'],
+                    ['How long does servicing take?', 'Most routine services take about 1 to 2 hours depending on size and access.'],
+                    ['How do I contact support?', 'Use call, WhatsApp, website, or the app profile and contact sections for booking help.'],
+                ],
+                default => [
+                    ['Is Generator Uninstallation safe for shifting?', 'Yes. Technicians shut down and disconnect carefully so the set is better prepared for transport or storage.'],
+                    ['Does uninstallation include reinstallation?', 'No. Book Generator Installation separately at the new location.'],
+                    ['Do you also remove changeover wiring?', 'Basic generator disconnection is included. House or DB wiring changes should be booked under Electrician.'],
+                    ['Should I drain the fuel first?', 'Leave enough for a safe shutdown check. Full draining is extra unless agreed.'],
+                    ['How long does removal take?', 'Most uninstallations take about 45 to 120 minutes depending on size and access.'],
+                    ['How do I contact support?', 'Use call, WhatsApp, website, or the app profile and contact sections for booking help.'],
+                ],
+            };
+        }
+
         return match ($kind) {
             'install' => [
                 ["What should I keep ready for {$name}?", 'Keep the appliance, mounts, manuals, and clear access ready. Share brand and model while booking.'],

@@ -12,26 +12,32 @@
     @php
         $isCancelledByProviderList = request()->routeIs('admin.booking.list.cancelled_by_provider');
         $isCancelledByCustomerList = request()->routeIs('admin.booking.list.cancelled_by_customer');
+        $isRepeatBookingList = !empty($isRepeatBookingList);
         $isStandardListMode = ! $isCancelledByProviderList && ! $isCancelledByCustomerList;
+        $bookingListRouteName = $isRepeatBookingList ? 'admin.booking.repeat_list' : 'admin.booking.list';
         $bookingListFilterAction = $isCancelledByProviderList
-            ? route('admin.booking.list.cancelled_by_provider', ['service_type' => $queryParams['service_type'] ?? 'all'])
+            ? route('admin.booking.list.cancelled_by_provider')
             : ($isCancelledByCustomerList
-                ? route('admin.booking.list.cancelled_by_customer', ['service_type' => $queryParams['service_type'] ?? 'all'])
-                : route('admin.booking.list', [
-                'booking_status' => $queryParams['booking_status'],
-                'service_type' => $queryParams['service_type'],
-                'booking_type' => $queryParams['booking_type'],
-                'provider_assigned' => $queryParams['provider_assigned'],
-            ]));
+                ? route('admin.booking.list.cancelled_by_customer')
+                : route($bookingListRouteName));
     @endphp
     <div class="filter-aside filter-aside--booking-compact">
         <div class="filter-aside__header d-flex justify-content-between align-items-center">
             <h3 class="filter-aside__title mb-0">{{ translate('Filter_your_Booking') }}</h3>
             <button type="button" class="btn-close p-2 btn-close-white"></button>
         </div>
-        <form action="{{ $bookingListFilterAction }}" method="POST"
-            enctype="multipart/form-data" id="filter-form" class="filter-aside__form">
-            @csrf
+        <form action="{{ $bookingListFilterAction }}" method="GET"
+            id="filter-form" class="filter-aside__form">
+            <input type="hidden" name="service_type" value="{{ $queryParams['service_type'] ?? 'all' }}">
+            @if(!empty($queryParams['booking_type']))
+                <input type="hidden" name="booking_type" value="{{ $queryParams['booking_type'] }}">
+            @endif
+            @if(!empty($queryParams['provider_assigned']))
+                <input type="hidden" name="provider_assigned" value="{{ $queryParams['provider_assigned'] }}">
+            @endif
+            @if(!empty($queryParams['search']))
+                <input type="hidden" name="search" value="{{ $queryParams['search'] }}">
+            @endif
             <div class="filter-aside__body d-flex flex-column">
                 @if($isStandardListMode)
                     @php
@@ -185,7 +191,9 @@
                 <div class="col-12">
                     <div
                         class="page-title-wrap d-flex flex-wrap justify-content-between align-items-center border-bottom pb-2">
-                        @if(($queryParams['booking_status'] ?? '') === 'reopened')
+                        @if($isRepeatBookingList)
+                            <h2 class="page-title">{{ translate('Repeat_bookings') }}</h2>
+                        @elseif(($queryParams['booking_status'] ?? '') === 'reopened')
                             <h2 class="page-title">{{ translate('Reopened_bookings') }}</h2>
                         @elseif(($queryParams['booking_status'] ?? '') === 'on_hold')
                             <h2 class="page-title">{{ translate('On_hold_bookings') }}</h2>
@@ -212,6 +220,21 @@
                         @endif
 
                         <div class="d-flex flex-wrap align-items-center gap-3 fw-medium">
+                            @if($isStandardListMode)
+                                @can('booking_view')
+                                    @if($isRepeatBookingList)
+                                        <a href="{{ route('admin.booking.create-repeat') }}" class="btn btn--primary btn-sm h-45">
+                                            <span class="material-icons">add</span>
+                                            {{ translate('Add_repeat_booking') }}
+                                        </a>
+                                    @else
+                                        <a href="{{ route('admin.booking.create') }}" class="btn btn--primary btn-sm h-45">
+                                            <span class="material-icons">add</span>
+                                            {{ translate('Add_New_Booking') }}
+                                        </a>
+                                    @endif
+                                @endcan
+                            @endif
                             <div class="d-flex gap-2 align-items-center">
                                 <span class="opacity-75">{{ translate('Total_Request') }}:</span>
                                 <span class="title-color">{{ $bookings->total() }}</span>
@@ -259,6 +282,11 @@
                             'loss_settled',
                         ];
                         $bookingStatusExtraTabActive = in_array($bookingListTabStatus, $bookingStatusExtraTabs, true);
+                        $lossMakingTabActive = in_array($bookingListTabStatus, ['loss_making_pending', 'loss_making'], true);
+                        $bookingListTabUrls = [];
+                        foreach (['all', 'pending', 'accepted', 'canceled', 'ongoing', 'completed', 'reopened', 'resolved', 'disputed_cancelled', 'disputed_completed', 'on_hold', 'hold_after_visit', 'completed_no_or_little', 'cancelled_after_visit', 'loss_making_pending', 'loss_recovered', 'loss_settled'] as $tabStatus) {
+                            $bookingListTabUrls[$tabStatus] = route($bookingListRouteName, array_merge($queryParams, ['booking_status' => $tabStatus]));
+                        }
                     @endphp
 
                     @if($isStandardListMode)
@@ -267,7 +295,7 @@
                             <li>
                                 <a class="booking-list-tab {{ $bookingListTabStatus === 'all' ? 'active' : '' }}"
                                    data-status="all"
-                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'all'])) }}">
+                                   href="{{ $bookingListTabUrls['all'] }}">
                                     {{ translate('All Booking') }}
                                     <span class="count">{{ $bookingTabCounts['all'] }}</span>
                                 </a>
@@ -275,7 +303,7 @@
                             <li>
                                 <a class="booking-list-tab {{ $bookingListTabStatus === 'pending' ? 'active' : '' }}"
                                    data-status="pending"
-                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'pending'])) }}">
+                                   href="{{ $bookingListTabUrls['pending'] }}">
                                     {{ translate('Pending_Booking') }}
                                     <span class="count">{{ $bookingTabCounts['pending'] }}</span>
                                 </a>
@@ -283,7 +311,7 @@
                             <li>
                                 <a class="booking-list-tab {{ $bookingListTabStatus === 'accepted' ? 'active' : '' }}"
                                    data-status="accepted"
-                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'accepted'])) }}">
+                                   href="{{ $bookingListTabUrls['accepted'] }}">
                                     {{ translate('Accepted') }}
                                     <span class="count">{{ $bookingTabCounts['accepted'] }}</span>
                                 </a>
@@ -291,7 +319,7 @@
                             <li>
                                 <a class="booking-list-tab {{ $bookingListTabStatus === 'canceled' ? 'active' : '' }}"
                                    data-status="canceled"
-                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'canceled'])) }}">
+                                   href="{{ $bookingListTabUrls['canceled'] }}">
                                     {{ translate('Cancelled') }}
                                     <span class="count">{{ $bookingTabCounts['canceled'] }}</span>
                                 </a>
@@ -299,7 +327,7 @@
                             <li>
                                 <a class="booking-list-tab {{ $bookingListTabStatus === 'ongoing' ? 'active' : '' }}"
                                    data-status="ongoing"
-                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'ongoing'])) }}">
+                                   href="{{ $bookingListTabUrls['ongoing'] }}">
                                     {{ translate('Ongoing') }}
                                     <span class="count">{{ $bookingTabCounts['ongoing'] }}</span>
                                 </a>
@@ -307,7 +335,7 @@
                             <li>
                                 <a class="booking-list-tab {{ $bookingListTabStatus === 'completed' ? 'active' : '' }}"
                                    data-status="completed"
-                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'completed'])) }}">
+                                   href="{{ $bookingListTabUrls['completed'] }}">
                                     {{ translate('Completed') }}
                                     <span class="count">{{ $bookingTabCounts['completed'] }}</span>
                                 </a>
@@ -315,7 +343,7 @@
                             <li class="booking-status-tab-extra">
                                 <a class="booking-list-tab {{ $bookingListTabStatus === 'reopened' ? 'active' : '' }}"
                                    data-status="reopened"
-                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'reopened'])) }}">
+                                   href="{{ $bookingListTabUrls['reopened'] }}">
                                     {{ translate('Reopened') }}
                                     <span class="count">{{ $bookingTabCounts['reopened'] }}</span>
                                 </a>
@@ -323,7 +351,7 @@
                             <li class="booking-status-tab-extra">
                                 <a class="booking-list-tab {{ $bookingListTabStatus === 'resolved' ? 'active' : '' }}"
                                    data-status="resolved"
-                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'resolved'])) }}">
+                                   href="{{ $bookingListTabUrls['resolved'] }}">
                                     {{ translate('Resolved') }}
                                     <span class="count">{{ $bookingTabCounts['resolved'] ?? 0 }}</span>
                                 </a>
@@ -331,7 +359,7 @@
                             <li class="booking-status-tab-extra">
                                 <a class="booking-list-tab {{ $bookingListTabStatus === 'disputed_cancelled' ? 'active' : '' }}"
                                    data-status="disputed_cancelled"
-                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'disputed_cancelled'])) }}">
+                                   href="{{ $bookingListTabUrls['disputed_cancelled'] }}">
                                     {{ translate('Disputed_and_Cancelled') }}
                                     <span class="count">{{ $bookingTabCounts['disputed_cancelled'] ?? 0 }}</span>
                                 </a>
@@ -339,7 +367,7 @@
                             <li class="booking-status-tab-extra">
                                 <a class="booking-list-tab {{ $bookingListTabStatus === 'disputed_completed' ? 'active' : '' }}"
                                    data-status="disputed_completed"
-                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'disputed_completed'])) }}">
+                                   href="{{ $bookingListTabUrls['disputed_completed'] }}">
                                     {{ translate('Disputed_and_Completed') }}
                                     <span class="count">{{ $bookingTabCounts['disputed_completed'] ?? 0 }}</span>
                                 </a>
@@ -347,7 +375,7 @@
                             <li class="booking-status-tab-extra">
                                 <a class="booking-list-tab {{ $bookingListTabStatus === 'on_hold' ? 'active' : '' }}"
                                    data-status="on_hold"
-                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'on_hold'])) }}">
+                                   href="{{ $bookingListTabUrls['on_hold'] }}">
                                     {{ translate('On_hold') }}
                                     <span class="count">{{ $bookingTabCounts['on_hold'] }}</span>
                                 </a>
@@ -355,7 +383,7 @@
                             <li class="booking-status-tab-extra">
                                 <a class="booking-list-tab {{ $bookingListTabStatus === 'hold_after_visit' ? 'active' : '' }}"
                                    data-status="hold_after_visit"
-                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'hold_after_visit'])) }}">
+                                   href="{{ $bookingListTabUrls['hold_after_visit'] }}">
                                     {{ translate('Hold_after_visit') }}
                                     <span class="count">{{ $bookingTabCounts['hold_after_visit'] ?? 0 }}</span>
                                 </a>
@@ -363,7 +391,7 @@
                             <li class="booking-status-tab-extra">
                                 <a class="booking-list-tab {{ $bookingListTabStatus === 'completed_no_or_little' ? 'active' : '' }}"
                                    data-status="completed_no_or_little"
-                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'completed_no_or_little'])) }}">
+                                   href="{{ $bookingListTabUrls['completed_no_or_little'] }}">
                                     {{ translate('Booking_tag_complete_no_service') }}
                                     <span class="count">{{ $bookingTabCounts['completed_no_or_little'] ?? 0 }}</span>
                                 </a>
@@ -371,15 +399,15 @@
                             <li class="booking-status-tab-extra">
                                 <a class="booking-list-tab {{ $bookingListTabStatus === 'cancelled_after_visit' ? 'active' : '' }}"
                                    data-status="cancelled_after_visit"
-                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'cancelled_after_visit'])) }}">
+                                   href="{{ $bookingListTabUrls['cancelled_after_visit'] }}">
                                     {{ translate('Booking_tag_cancel_after_visit') }}
                                     <span class="count">{{ $bookingTabCounts['cancelled_after_visit'] ?? 0 }}</span>
                                 </a>
                             </li>
                             <li class="booking-status-tab-extra">
-                                <a class="booking-list-tab {{ in_array($bookingListTabStatus, ['loss_making_pending', 'loss_making'], true) ? 'active' : '' }}"
+                                <a class="booking-list-tab {{ $lossMakingTabActive ? 'active' : '' }}"
                                    data-status="loss_making_pending"
-                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'loss_making_pending'])) }}">
+                                   href="{{ $bookingListTabUrls['loss_making_pending'] }}">
                                     {{ translate('Bfs_list_badge_loss_making') }}
                                     <span class="count">{{ $bookingTabCounts['loss_making_pending'] ?? 0 }}</span>
                                 </a>
@@ -387,7 +415,7 @@
                             <li class="booking-status-tab-extra">
                                 <a class="booking-list-tab {{ $bookingListTabStatus === 'loss_recovered' ? 'active' : '' }}"
                                    data-status="loss_recovered"
-                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'loss_recovered'])) }}">
+                                   href="{{ $bookingListTabUrls['loss_recovered'] }}">
                                     {{ translate('Bfs_list_badge_loss_recovered') }}
                                     <span class="count">{{ $bookingTabCounts['loss_recovered'] ?? 0 }}</span>
                                 </a>
@@ -395,7 +423,7 @@
                             <li class="booking-status-tab-extra">
                                 <a class="booking-list-tab {{ $bookingListTabStatus === 'loss_settled' ? 'active' : '' }}"
                                    data-status="loss_settled"
-                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'loss_settled'])) }}">
+                                   href="{{ $bookingListTabUrls['loss_settled'] }}">
                                     {{ translate('Settled') }}
                                     <span class="count">{{ $bookingTabCounts['loss_settled'] ?? 0 }}</span>
                                 </a>
@@ -420,10 +448,16 @@
                                 <form
                                     action="{{ $bookingListFilterAction }}"
                                     id="booking-list-search-form"
-                                    class="search-form search-form_style-two booking-list-search-form" method="POST">
-                                    @csrf
+                                    class="search-form search-form_style-two booking-list-search-form" method="GET">
                                     @if(!empty($queryParams['booking_status']))
                                         <input type="hidden" name="booking_status" value="{{ $queryParams['booking_status'] }}">
+                                    @endif
+                                    <input type="hidden" name="service_type" value="{{ $queryParams['service_type'] ?? 'all' }}">
+                                    @if(!empty($queryParams['booking_type']))
+                                        <input type="hidden" name="booking_type" value="{{ $queryParams['booking_type'] }}">
+                                    @endif
+                                    @if(!empty($queryParams['provider_assigned']))
+                                        <input type="hidden" name="provider_assigned" value="{{ $queryParams['provider_assigned'] }}">
                                     @endif
                                     @foreach (['start_date', 'end_date', 'schedule_start_date', 'schedule_end_date'] as $dateParam)
                                         @if(!empty($queryParams[$dateParam]))
@@ -683,6 +717,8 @@
                 window.location.href = '{{ route('admin.booking.list.cancelled_by_provider', ['service_type' => 'all']) }}';
                 @elseif($isCancelledByCustomerList)
                 window.location.href = '{{ route('admin.booking.list.cancelled_by_customer', ['service_type' => 'all']) }}';
+                @elseif($isRepeatBookingList)
+                window.location.href = '{{ route('admin.booking.repeat_list', ['booking_status' => 'all', 'service_type' => 'all']) }}';
                 @else
                 window.location.href = '{{ route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']) }}';
                 @endif

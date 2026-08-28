@@ -56,6 +56,7 @@ final class AdminChromeViewData
             'notificationExternalRecent' => $notificationExternalRecent,
             'notificationInternalRecent' => $notificationInternalRecent,
             'all_bookings_menu_count' => $menuCounts['all_bookings'],
+            'repeat_bookings_menu_count' => $menuCounts['repeat_bookings'] ?? 0,
             'pending_booking_reviews_count' => $menuCounts['pending_booking_reviews'],
             'special_scenarios_menu_count' => $menuCounts['special_scenarios'],
             'cancelled_by_provider_menu_count' => $menuCounts['cancelled_by_provider'],

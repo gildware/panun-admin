@@ -121,6 +121,8 @@
     border-radius: 6px;
     font-weight: 600;
     line-height: 1.25;
+    color: #1f2937;
+    background-color: #e5e7eb;
 }
 
 .booking-compact-list .bc-badges .booking-status-badge {

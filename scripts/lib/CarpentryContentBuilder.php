@@ -68,6 +68,20 @@ class CarpentryContentBuilder
                 'Painting or polishing',
                 'Moving furniture between floors unless agreed',
             ]),
+            'wooden-flooring-install' => self::install($name, 'laminate, engineered, and solid wooden floors', [
+                'Laminate / click-lock floors', 'Engineered wood', 'Solid wood planks', 'Flooring with skirting', 'Home renovations',
+            ], [
+                'On-site floor check and layout review',
+                'Labour for the booked flooring variation',
+                'Basic underlay and plank fitting within scope',
+                'Skirting labour when that variation is booked',
+                'Work-area tidy-up and handover tips',
+            ], [
+                'Cost of planks, underlay, skirting, or adhesives',
+                'Furniture shifting unless agreed on site',
+                'Subfloor civil repair, levelling compound, or damp treatment',
+                'Tile flooring (book Masonry) or wall wooden panels',
+            ]),
             'bed-making' => self::making($name, 'custom wooden beds', [
                 'Custom single or double beds', 'Space-saving designs', 'Bedroom woodwork', 'Made-to-measure frames',
             ]),
@@ -102,6 +116,20 @@ class CarpentryContentBuilder
                 'Full door replacement (book Door Installation)',
                 'Custom fabrication or major frame rebuild',
                 'Painting, polishing, or smart-lock electrical work',
+            ]),
+            'wooden-flooring-repair' => self::repair($name, 'wooden and laminate floor faults', [
+                'Loose or lifting planks', 'Scratches and dents', 'Gaps and clicking', 'Water-damaged boards',
+            ], [
+                'On-site diagnosis of the floor fault',
+                'Repair labour for the booked symptom when practical',
+                'Plank refit or gap attention within scope',
+                'Walk-test after repair',
+                'Work-area cleanup',
+            ], [
+                'Cost of replacement planks, underlay, or polish chemicals',
+                'Full floor re-lay (book Wooden Flooring Install)',
+                'Subfloor civil repair or waterproofing',
+                'Furniture shifting unless agreed on site',
             ]),
             'furniture-repair' => self::repair($name, 'wooden furniture', [
                 'Loose joints', 'Wobbly chairs/tables', 'Broken parts', 'Frame reinforcement', 'Home furniture',
@@ -214,6 +242,14 @@ class CarpentryContentBuilder
 
         if (in_array($serviceSlug, $inspectionSlugs, true)) {
             return 'This ₹50 inspection fee is adjusted against your final carpentry bill if you proceed with the full service through Panun Kaergar.';
+        }
+
+        if ($serviceSlug === 'wooden-flooring-repair') {
+            return 'Inspection or visit fee may be adjusted against your final carpentry bill if you proceed with the full service through Panun Kaergar. Planks, underlay, and extra materials are extra unless listed.';
+        }
+
+        if ($serviceSlug === 'wooden-flooring-install') {
+            return 'Final price is based on the selected variation. Cost of planks, underlay, skirting, and extra materials need confirmation before work starts.';
         }
 
         return 'Final price is based on the selected variation. Extra work or materials need confirmation before work starts.';

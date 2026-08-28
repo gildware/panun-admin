@@ -17,6 +17,7 @@ use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\TransactionModule\Entities\LedgerTransaction;
 use Modules\TransactionModule\Entities\Transaction;
+use Modules\BookingModule\Entities\BookingSource;
 
 if (! function_exists('booking_request_cache')) {
     /**
@@ -78,26 +79,45 @@ if (! function_exists('booking_financial_build_preview_cached')) {
     }
 }
 
+if (! function_exists('booking_extra_services_query_for')) {
+    /**
+     * Extra service/spare-part lines for this booking or visit.
+     * One-time and repeat series: all extras on the parent booking.
+     * Repeat visit: extras attached to that visit only.
+     */
+    function booking_extra_services_query_for($booking)
+    {
+        if ($booking instanceof BookingRepeat) {
+            return BookingExtraService::query()->where('booking_repeat_id', $booking->id);
+        }
+
+        return BookingExtraService::query()->where('booking_id', $booking->id ?? null);
+    }
+}
+
+if (! function_exists('booking_extra_services_total')) {
+    function booking_extra_services_total($booking): float
+    {
+        if ($booking instanceof BookingRepeat && $booking->relationLoaded('extra_services')) {
+            return round((float) $booking->extra_services->sum('total'), 2);
+        }
+        if ($booking instanceof Booking && $booking->relationLoaded('extra_services')) {
+            return round((float) $booking->extra_services->sum('total'), 2);
+        }
+
+        return round((float) booking_extra_services_query_for($booking)->sum('total'), 2);
+    }
+}
+
 if (!function_exists('get_booking_total_amount')) {
     /**
-     * Payable grand total for the booking: stored line total (total_booking_amount) + sum(extra_services.total) + extra_fee.
-     * Admin/cart flows store total_booking_amount excluding extra_fee; extra_fee is added here. Use this everywhere
-     * payment due, invoices, and UI totals must agree (do not rebuild from gross subtotal + tax in Blade).
-     * Works for both Booking and BookingRepeat (repeat uses parent booking's extra_services).
+     * Payable grand total: stored line total + extra services/spare parts + extra_fee.
+     * Repeat visits only include extras attached to that visit.
      */
     function get_booking_total_amount($booking): float
     {
         $base = (float) ($booking->total_booking_amount ?? 0);
-        $extraTotal = 0;
-        if ($booking instanceof Booking && $booking->relationLoaded('extra_services')) {
-            $extraTotal = $booking->extra_services->sum('total');
-        } elseif ($booking instanceof Booking) {
-            $extraTotal = (float) BookingExtraService::where('booking_id', $booking->id)->sum('total');
-        } elseif ($booking instanceof BookingRepeat && $booking->relationLoaded('booking')) {
-            $extraTotal = (float) BookingExtraService::where('booking_id', $booking->booking_id)->sum('total');
-        } elseif ($booking instanceof BookingRepeat) {
-            $extraTotal = (float) BookingExtraService::where('booking_id', $booking->booking_id)->sum('total');
-        }
+        $extraTotal = booking_extra_services_total($booking);
         $extraFee = (float) ($booking->extra_fee ?? 0);
         return round($base + $extraTotal + $extraFee, 2);
     }
@@ -384,8 +404,7 @@ if (!function_exists('get_booking_spare_parts_amount')) {
      */
     function get_booking_spare_parts_amount($booking): float
     {
-        $bookingId = $booking instanceof BookingRepeat ? $booking->booking_id : $booking->id;
-        return (float) BookingExtraService::where('booking_id', $bookingId)
+        return (float) booking_extra_services_query_for($booking)
             ->where('type', BookingExtraService::TYPE_SPARE_PART)
             ->sum('total');
     }
@@ -398,18 +417,7 @@ if (!function_exists('get_booking_extra_service_line_discount_total')) {
      */
     function get_booking_extra_service_line_discount_total($booking): float
     {
-        $bookingId = null;
-        if ($booking instanceof BookingRepeat) {
-            $bookingId = $booking->booking_id ?? null;
-        } elseif ($booking instanceof Booking) {
-            $bookingId = $booking->id ?? null;
-        }
-        if (!$bookingId) {
-            return 0.0;
-        }
-
-        return round((float) BookingExtraService::query()
-            ->where('booking_id', $bookingId)
+        return round((float) booking_extra_services_query_for($booking)
             ->where('type', BookingExtraService::TYPE_SERVICE)
             ->sum('discount'), 2);
     }
@@ -1244,6 +1252,26 @@ if (!function_exists('booking_admin_can_open_financial_settlement_modal')) {
     }
 }
 
+if (! function_exists('booking_admin_can_correct_line_items')) {
+    /**
+     * Admin may add, edit, or remove catalog services, extra services, spare parts, and customizable
+     * additional charges — including after the job is completed, so missed or wrong items can be fixed.
+     * Canceled and refunded bookings stay locked.
+     *
+     * @param  \Modules\BookingModule\Entities\Booking|\Modules\BookingModule\Entities\BookingRepeat|object|null  $booking
+     */
+    function booking_admin_can_correct_line_items($booking): bool
+    {
+        if ($booking === null) {
+            return false;
+        }
+
+        $status = strtolower(trim((string) ($booking->booking_status ?? '')));
+
+        return ! in_array($status, ['canceled', 'cancelled', 'refunded'], true);
+    }
+}
+
 if (!function_exists('booking_should_show_admin_revenue_settlement_breakdown')) {
     /**
      * Admin booking details "Revenue & Settlement": show commission-style splits only when there is a real
@@ -1929,6 +1957,114 @@ if (! function_exists('booking_admin_status_css_class')) {
         $key = booking_admin_status_theme_key($booking);
 
         return preg_replace('/[^a-z0-9_-]/', '', $key) ?: 'default';
+    }
+}
+
+if (! function_exists('repeat_admin_detail_chrome_vars')) {
+    /**
+     * Compact header variables for repeat series and visit admin pages.
+     *
+     * @return array<string, mixed>
+     */
+    function repeat_admin_detail_chrome_vars($booking, $customerAddress = null, $canStopRepeatSeries = false, $customerName = null, $customerPhone = null): array
+    {
+        $isVisit = $booking instanceof BookingRepeat;
+        $name = $customerName ?? booking_display_customer_name($booking, $customerAddress);
+        $phone = $customerPhone ?? booking_display_customer_phone($booking, $customerAddress);
+        $schedule = $booking->service_schedule ? date('d-M-Y h:ia', strtotime($booking->service_schedule)) : '';
+
+        if ($isVisit) {
+            $parentId = $booking->booking->readable_id ?? '';
+            $backUrl = route('admin.booking.repeat_details', [$booking->booking_id]);
+
+            return [
+                'repeatChromeEntity' => $booking,
+                'repeatChromeBackUrl' => $backUrl,
+                'repeatChromeParentUrl' => $backUrl,
+                'repeatChromeParentCrumb' => '#' . $parentId,
+                'repeatChromeInvoiceUrl' => route('admin.booking.single_invoice', [$booking->id]),
+                'repeatChromeStatusClass' => preg_replace('/[^a-z0-9_-]/', '', strtolower((string) ($booking->booking_status ?? 'pending'))) ?: 'pending',
+                'repeatChromeTitle' => translate('Visit') . ' #' . $booking->readable_id,
+                'repeatChromeSubtitle' => translate('Repeat_Booking') . ' #' . $parentId,
+                'repeatChromeSchedule' => $schedule,
+                'repeatChromeCustomerName' => $name,
+                'repeatChromeCustomerPhone' => $phone,
+                'repeatChromeCrumb' => '#' . $booking->readable_id,
+                'repeatChromeBackLabel' => translate('Repeat_Booking'),
+                'repeatChromeShowStopSeries' => false,
+            ];
+        }
+
+        return [
+            'repeatChromeEntity' => $booking,
+            'repeatChromeBackUrl' => route('admin.booking.repeat_list', ['booking_status' => 'all', 'service_type' => 'all']),
+            'repeatChromeParentUrl' => '',
+            'repeatChromeParentCrumb' => '',
+            'repeatChromeInvoiceUrl' => route('admin.booking.full_repeat_invoice', [$booking->id]),
+            'repeatChromeStatusClass' => booking_admin_status_css_class($booking),
+            'repeatChromeTitle' => translate('Repeat_Booking') . ' #' . $booking->readable_id,
+            'repeatChromeSubtitle' => '',
+            'repeatChromeSchedule' => $schedule,
+            'repeatChromeCustomerName' => $name,
+            'repeatChromeCustomerPhone' => $phone,
+            'repeatChromeCrumb' => '#' . $booking->readable_id,
+            'repeatChromeBackLabel' => translate('Back_to_Bookings'),
+            'repeatChromeShowStopSeries' => (bool) $canStopRepeatSeries,
+        ];
+    }
+}
+
+if (! function_exists('repeat_admin_detail_chrome_vars')) {
+    /**
+     * Compact header variables for repeat series and visit admin pages.
+     *
+     * @return array<string, mixed>
+     */
+    function repeat_admin_detail_chrome_vars($booking, $customerAddress = null, $canStopRepeatSeries = false, $customerName = null, $customerPhone = null): array
+    {
+        $isVisit = $booking instanceof BookingRepeat;
+        $name = $customerName ?? booking_display_customer_name($booking, $customerAddress);
+        $phone = $customerPhone ?? booking_display_customer_phone($booking, $customerAddress);
+        $schedule = $booking->service_schedule ? date('d-M-Y h:ia', strtotime($booking->service_schedule)) : '';
+
+        if ($isVisit) {
+            $parentId = $booking->booking->readable_id ?? '';
+            $backUrl = route('admin.booking.repeat_details', [$booking->booking_id]);
+
+            return [
+                'repeatChromeEntity' => $booking,
+                'repeatChromeBackUrl' => $backUrl,
+                'repeatChromeParentUrl' => $backUrl,
+                'repeatChromeParentCrumb' => '#' . $parentId,
+                'repeatChromeInvoiceUrl' => route('admin.booking.single_invoice', [$booking->id]),
+                'repeatChromeStatusClass' => preg_replace('/[^a-z0-9_-]/', '', strtolower((string) ($booking->booking_status ?? 'pending'))) ?: 'pending',
+                'repeatChromeTitle' => translate('Visit') . ' #' . $booking->readable_id,
+                'repeatChromeSubtitle' => translate('Repeat_Booking') . ' #' . $parentId,
+                'repeatChromeSchedule' => $schedule,
+                'repeatChromeCustomerName' => $name,
+                'repeatChromeCustomerPhone' => $phone,
+                'repeatChromeCrumb' => '#' . $booking->readable_id,
+                'repeatChromeBackLabel' => translate('Repeat_Booking'),
+                'repeatChromeShowStopSeries' => false,
+            ];
+        }
+
+        return [
+            'repeatChromeEntity' => $booking,
+            'repeatChromeBackUrl' => route('admin.booking.repeat_list', ['booking_status' => 'all', 'service_type' => 'all']),
+            'repeatChromeParentUrl' => '',
+            'repeatChromeParentCrumb' => '',
+            'repeatChromeInvoiceUrl' => route('admin.booking.full_repeat_invoice', [$booking->id]),
+            'repeatChromeStatusClass' => booking_admin_status_css_class($booking),
+            'repeatChromeTitle' => translate('Repeat_Booking') . ' #' . $booking->readable_id,
+            'repeatChromeSubtitle' => '',
+            'repeatChromeSchedule' => $schedule,
+            'repeatChromeCustomerName' => $name,
+            'repeatChromeCustomerPhone' => $phone,
+            'repeatChromeCrumb' => '#' . $booking->readable_id,
+            'repeatChromeBackLabel' => translate('Back_to_Bookings'),
+            'repeatChromeShowStopSeries' => (bool) $canStopRepeatSeries,
+        ];
     }
 }
 
@@ -3824,7 +3960,7 @@ if (!function_exists('get_booking_total_paid')) {
     function get_booking_total_paid($booking): float
     {
         if ($booking instanceof BookingRepeat) {
-            return $booking->is_paid ? round((float) $booking->total_booking_amount, 2) : 0;
+            return $booking->is_paid ? round((float) get_booking_total_amount($booking), 2) : 0;
         }
         if (! $booking instanceof Booking) {
             return 0.0;
@@ -5678,21 +5814,17 @@ if (!function_exists('booking_should_zero_net_revenue_settlement_display')) {
 
 if (!function_exists('booking_can_be_completed')) {
     /**
-     * Booking can only be completed if total_paid >= booking_total.
+     * Repeat visits can be completed with unpaid or partial payment.
+     * Single bookings still require full payment unless a settlement waiver applies.
      */
     function booking_can_be_completed($booking): bool
     {
+        // Repeat visits can be completed even when that visit's payment is still unpaid/partial.
         if ($booking instanceof BookingRepeat) {
-            $parent = $booking->relationLoaded('booking') ? $booking->booking : $booking->booking()->first();
-            if ($parent && (
-                (bool) ($parent->reopen_completion_allowed ?? false)
-                || (!empty($parent->reopen_disputed_snapshot) && is_array($parent->reopen_disputed_snapshot))
-                || (string) ($parent->settlement_outcome ?? '') === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS
-                || (bool) ($parent->allow_complete_without_full_payment ?? false)
-            )) {
-                return true;
-            }
-        } elseif ($booking instanceof Booking) {
+            return true;
+        }
+
+        if ($booking instanceof Booking) {
             if ((bool) ($booking->reopen_completion_allowed ?? false)) {
                 return true;
             }
@@ -5719,6 +5851,28 @@ if (!function_exists('booking_can_be_completed')) {
         }
 
         return $totalPaid >= $bookingTotal;
+    }
+}
+
+if (!function_exists('booking_source_display_label')) {
+    /**
+     * Admin-facing label for bookings.booking_source.
+     * Null / empty / "app" are treated as a customer Direct App Booking.
+     */
+    function booking_source_display_label(?string $source): string
+    {
+        $key = strtolower(trim((string) $source));
+        if ($key === '' || $key === 'app') {
+            $key = strtolower(BookingSource::NAME_DIRECT_APP_BOOKING);
+        }
+
+        return match ($key) {
+            'direct app booking' => translate('Direct_App_Booking'),
+            'call' => translate('Call'),
+            'whatsapp' => translate('Whatsapp'),
+            'social_media' => translate('Social_Media'),
+            default => ucwords(str_replace('_', ' ', $key)),
+        };
     }
 }
 

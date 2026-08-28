@@ -9,6 +9,10 @@
     $detailUrl = $booking->is_repeated
         ? route('admin.booking.repeat_details', [$booking->id, 'web_page' => 'details'])
         : route('admin.booking.details', [$booking->id, 'web_page' => 'details']);
+    $ongoingVisitUrl = $detailUrl;
+    if ($booking->is_repeated && $booking->nextServiceId) {
+        $ongoingVisitUrl .= (str_contains($detailUrl, '?') ? '&' : '?') . 'visit=' . $booking->nextServiceId . '#repeat-service-log';
+    }
 
     if ($booking->is_repeated) {
         if (empty($booking->nextService)) {
@@ -50,13 +54,7 @@
             : null;
     }
 
-    $sourceVal = match (strtolower((string) ($booking->booking_source ?? 'app'))) {
-        'app' => translate('App'),
-        'call' => translate('Call'),
-        'whatsapp' => translate('Whatsapp'),
-        'social_media' => translate('Social_Media'),
-        default => ucfirst(strtolower((string) ($booking->booking_source ?? 'app'))),
-    };
+    $sourceVal = booking_source_display_label($booking->booking_source);
 
     $locationVal = $booking->service_address?->address
         ?? $booking->zone?->name
@@ -138,7 +136,7 @@
                         </li>
                         @if($booking->nextServiceId && $booking->booking_status != 'pending')
                             <li>
-                                <a class="dropdown-item" href="{{ route('admin.booking.repeat_single_details', [$booking->nextServiceId, 'web_page' => 'details']) }}">
+                                <a class="dropdown-item" href="{{ $ongoingVisitUrl }}">
                                     {{ translate('Ongoing_Booking_Details') }}
                                 </a>
                             </li>

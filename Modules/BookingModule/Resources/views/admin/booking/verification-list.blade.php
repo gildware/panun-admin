@@ -254,13 +254,7 @@
                                                 ])
                                             </td>
                                             <td>
-                                                @switch(strtolower((string)($booking->booking_source ?? 'app')))
-                                                    @case('app'){{ translate('App') }}@break
-                                                    @case('call'){{ translate('Call') }}@break
-                                                    @case('whatsapp'){{ translate('Whatsapp') }}@break
-                                                    @case('social_media'){{ translate('Social_Media') }}@break
-                                                    @default{{ ucfirst(strtolower((string)($booking->booking_source ?? 'app'))) }}
-                                                @endswitch
+                                                {{ booking_source_display_label($booking->booking_source) }}
                                             </td>
                                             <td>
                                                 @if($booking->service_location == 'provider')

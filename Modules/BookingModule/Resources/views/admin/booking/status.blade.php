@@ -165,12 +165,11 @@
                             </div>
                         @endif
 
-                        @if (in_array($booking['booking_status'], ['pending', 'accepted', 'ongoing']) &&
-                                $booking->booking_partial_payments->isEmpty() && $booking['payment_method'] == 'cash_after_service' && !$booking['is_paid'] && empty($booking->customizeBooking))
+                        @if (booking_admin_can_correct_line_items($booking) && empty($booking->customizeBooking))
                             @can('booking_edit')
                                 <button class="btn btn--primary" data-bs-toggle="modal"
                                     data-bs-target="#serviceUpdateModal--{{ $booking['id'] }}" data-toggle="tooltip"
-                                    title="{{ translate('Add or remove services') }}">
+                                    title="{{ translate('Correct_missed_or_wrong_items') }}">
                                     <span class="material-symbols-outlined">edit</span>{{ translate('Edit Services') }}
                                 </button>
                             @endcan

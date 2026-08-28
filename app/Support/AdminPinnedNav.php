@@ -11,6 +11,7 @@ class AdminPinnedNav
     {
         $counts = [
             'booking.requests' => (int) ($menuCounts['all_bookings'] ?? 0),
+            'booking.repeat' => (int) ($menuCounts['repeat_bookings'] ?? 0),
             'booking.verify' => (int) ($menuCounts['pending_verify_bookings'] ?? 0),
         ];
 

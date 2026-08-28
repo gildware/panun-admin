@@ -6,6 +6,14 @@
     <div class="party-card__head">
         <span class="party-card__head-text">{{ translate('Schedule_and_Location') }}</span>
         <div class="party-card__head-actions">
+            @can('booking_edit')
+                @if(!$bookingNotEditable && app(\Modules\BookingModule\Services\AdminRepeatBookingScheduleService::class)->canConvert($booking))
+                    <button type="button" class="party-card__head-action" data-bs-toggle="modal"
+                            data-bs-target="#convertToRepeatModal--{{ $booking->id }}">
+                        {{ translate('Convert_to_repeat') }}
+                    </button>
+                @endif
+            @endcan
             @can('booking_can_manage_status')
                 @if(!$bookingNotEditable && !in_array($booking->booking_status, ['ongoing', 'completed']))
                     <button type="button" class="party-card__head-action" id="booking-schedule-edit-toggle-side">

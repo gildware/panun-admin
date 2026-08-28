@@ -14,6 +14,14 @@
                     <div class="row g-3">
                         <div class="col-lg-6">
                             @include('bookingmodule::admin.configuration.partials._booking-config-card', [
+                                'title' => translate('Booking_sources'),
+                                'type' => 'booking_source',
+                                'items' => $bookingSources,
+                                'showResponsible' => false,
+                            ])
+                        </div>
+                        <div class="col-lg-6">
+                            @include('bookingmodule::admin.configuration.partials._booking-config-card', [
                                 'title' => translate('Booking_cancellation_reasons'),
                                 'type' => 'booking_cancellation_reason',
                                 'items' => $bookingCancellationReasons,

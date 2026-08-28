@@ -1070,8 +1070,6 @@ class ProviderController extends Controller
                 ->orderByDesc('created_at')
                 ->get();
 
-            $withdrawnBookingsCount = (int) $this->booking->where('provider_cancelled_by_provider_id', $id)->count();
-
             return view('providermanagement::admin.provider.detail.overview', compact(
                 'provider',
                 'webPage',
@@ -1087,7 +1085,6 @@ class ProviderController extends Controller
                 'additionalDocuments',
                 'additionalDocumentFiles',
                 'pendingShowcaseItems',
-                'withdrawnBookingsCount',
             ));
 
         } //subscribed_services
@@ -1290,18 +1287,60 @@ class ProviderController extends Controller
         elseif ($request->web_page == 'bookings' || $request->web_page == 'special_bookings') {
 
             $webPage = $request->web_page;
-            $search = $request->has('search') ? $request['search'] : '';
-            $queryParam = ['web_page' => $webPage, 'search' => $search];
+            $search = trim((string) $request->input('search', ''));
+            $allowedBookingStatuses = array_merge(['all'], array_column(BOOKING_STATUSES, 'key'));
+            $bookingStatus = (string) $request->input('booking_status', 'all');
+            if (! in_array($bookingStatus, $allowedBookingStatuses, true)) {
+                $bookingStatus = 'all';
+            }
+            $paymentStatus = (string) $request->input('payment_status', 'all');
+            if (! in_array($paymentStatus, ['all', 'paid', 'unpaid'], true)) {
+                $paymentStatus = 'all';
+            }
+            $startDate = trim((string) $request->input('start_date', ''));
+            $endDate = trim((string) $request->input('end_date', ''));
+
+            $queryParam = array_filter([
+                'web_page' => $webPage,
+                'search' => $search !== '' ? $search : null,
+                'booking_status' => $bookingStatus !== 'all' ? $bookingStatus : null,
+                'payment_status' => $paymentStatus !== 'all' ? $paymentStatus : null,
+                'start_date' => $startDate !== '' ? $startDate : null,
+                'end_date' => $endDate !== '' ? $endDate : null,
+            ], fn ($value) => $value !== null && $value !== '');
+
+            $filterCounter = collect([
+                $bookingStatus !== 'all',
+                $paymentStatus !== 'all',
+                $startDate !== '',
+                $endDate !== '',
+            ])->filter()->count();
 
             $provider = $this->provider->with('owner')->find($id);
 
             $bookingsQuery = $this->booking->where('provider_id', $id)
                 ->with(['customer', 'details_amounts', 'booking_partial_payments'])
-                ->where(function ($query) use ($request) {
-                    $keys = explode(' ', $request['search']);
-                    foreach ($keys as $key) {
-                        $query->where('readable_id', 'LIKE', '%' . $key . '%');
-                    }
+                ->when($search !== '', function ($query) use ($search) {
+                    $query->where(function ($inner) use ($search) {
+                        foreach (array_filter(explode(' ', $search)) as $key) {
+                            $inner->where('readable_id', 'LIKE', '%' . $key . '%');
+                        }
+                    });
+                })
+                ->when($bookingStatus !== 'all', function ($query) use ($bookingStatus) {
+                    $query->ofBookingStatus($bookingStatus);
+                })
+                ->when($paymentStatus === 'paid', function ($query) {
+                    $query->where('is_paid', 1);
+                })
+                ->when($paymentStatus === 'unpaid', function ($query) {
+                    $query->where('is_paid', 0);
+                })
+                ->when($startDate !== '', function ($query) use ($startDate) {
+                    $query->whereDate('created_at', '>=', $startDate);
+                })
+                ->when($endDate !== '', function ($query) use ($endDate) {
+                    $query->whereDate('created_at', '<=', $endDate);
                 });
             if ($webPage === 'bookings') {
                 $bookingsQuery->where(function ($q) {
@@ -1314,36 +1353,20 @@ class ProviderController extends Controller
             $bookings = $bookingsQuery->latest()
                 ->paginate(pagination_limit())->appends($queryParam);
 
-            return view('providermanagement::admin.provider.detail.bookings', compact('bookings', 'webPage', 'search', 'provider'));
+            return view('providermanagement::admin.provider.detail.bookings', compact(
+                'bookings',
+                'webPage',
+                'search',
+                'provider',
+                'bookingStatus',
+                'paymentStatus',
+                'startDate',
+                'endDate',
+                'filterCounter'
+            ));
 
         } elseif ($request->web_page == 'withdrawn_bookings') {
-            $webPage = $request->web_page;
-            $search = $request->has('search') ? $request['search'] : '';
-            $queryParam = ['web_page' => $webPage, 'search' => $search];
-
-            $provider = $this->provider->with('owner')->find($id);
-
-            $bookings = $this->booking
-                ->where('provider_cancelled_by_provider_id', $id)
-                ->with([
-                    'customer',
-                    'latestParentProviderCancellationStatusHistory.providerCancellationReason',
-                    'latestProviderRejectionHistory.providerCancellationReason',
-                    'latestPendingCancellationRequestHistory.providerCancellationReason',
-                ])
-                ->when($search, function ($query) use ($search) {
-                    $keys = explode(' ', $search);
-                    foreach ($keys as $key) {
-                        $query->where('readable_id', 'LIKE', '%' . $key . '%');
-                    }
-                })
-                ->orderByDesc('provider_cancelled_at')
-                ->paginate(pagination_limit())
-                ->appends($queryParam);
-
-            $withdrawnCount = (int) $this->booking->where('provider_cancelled_by_provider_id', $id)->count();
-
-            return view('providermanagement::admin.provider.detail.withdrawn-bookings', compact('bookings', 'webPage', 'search', 'provider', 'withdrawnCount'));
+            return redirect()->route('admin.provider.details', [$id, 'web_page' => 'bookings']);
 
         } //serviceman_list
         elseif ($request->web_page == 'serviceman_list') {

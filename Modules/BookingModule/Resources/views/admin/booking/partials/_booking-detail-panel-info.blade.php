@@ -2,7 +2,7 @@
     <div class="party-card__head">
         <span class="party-card__head-text">{{ translate('Booking_Information') }}</span>
         @can('booking_edit')
-            @if(!$bookingNotEditable)
+            @if($bookingCanCorrectLineItems ?? !$bookingNotEditable)
                 <button type="button" class="party-card__head-action" data-bs-toggle="modal"
                         data-bs-target="#bookingInfoModal--{{ $booking->id }}">
                     {{ translate('Update') }}
@@ -29,13 +29,7 @@
             <div class="detail-kv__row">
                 <dt>{{ translate('Source') }}</dt>
                 <dd id="booking-source-display">
-                    @switch(strtolower((string)($booking->booking_source ?? 'app')))
-                        @case('app'){{ translate('App') }}@break
-                        @case('call'){{ translate('Call') }}@break
-                        @case('whatsapp'){{ translate('Whatsapp') }}@break
-                        @case('social_media'){{ translate('Social_Media') }}@break
-                        @default{{ ucfirst(strtolower((string)($booking->booking_source ?? 'app'))) }}
-                    @endswitch
+                    {{ booking_source_display_label($booking->booking_source) }}
                 </dd>
             </div>
             <div class="detail-kv__row">

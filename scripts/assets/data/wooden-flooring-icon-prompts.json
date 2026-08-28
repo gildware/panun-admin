@@ -1,0 +1,76 @@
+{
+  "variants": [
+    {
+      "service_slug": "wooden-flooring-install",
+      "service_name": "Wooden Flooring Install",
+      "variant_key": "laminate-click-lock",
+      "title": "Laminate / Click-lock",
+      "filename": "wooden-flooring-install-laminate-click-lock.png",
+      "prompt": "Variation icon for wooden flooring install: laminate click lock wooden floor plank silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "wooden-flooring-install",
+      "service_name": "Wooden Flooring Install",
+      "variant_key": "engineered-wood",
+      "title": "Engineered Wood",
+      "filename": "wooden-flooring-install-engineered-wood.png",
+      "prompt": "Variation icon for wooden flooring install: engineered wood floor plank layers silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "wooden-flooring-install",
+      "service_name": "Wooden Flooring Install",
+      "variant_key": "solid-wood",
+      "title": "Solid Wood",
+      "filename": "wooden-flooring-install-solid-wood.png",
+      "prompt": "Variation icon for wooden flooring install: solid hardwood floor plank silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "wooden-flooring-install",
+      "service_name": "Wooden Flooring Install",
+      "variant_key": "flooring-with-skirting",
+      "title": "Flooring with Skirting",
+      "filename": "wooden-flooring-install-flooring-with-skirting.png",
+      "prompt": "Variation icon for wooden flooring install: wooden floor with skirting board silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "wooden-flooring-repair",
+      "service_name": "Wooden Flooring Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "wooden-flooring-repair-book-site-inspection.png",
+      "prompt": "Variation icon for wooden flooring repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "wooden-flooring-repair",
+      "service_name": "Wooden Flooring Repair",
+      "variant_key": "loose-lifting-plank",
+      "title": "Loose / lifting plank",
+      "filename": "wooden-flooring-repair-loose-lifting-plank.png",
+      "prompt": "Variation icon for wooden flooring repair: lifting wooden floor plank silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "wooden-flooring-repair",
+      "service_name": "Wooden Flooring Repair",
+      "variant_key": "scratch-dent",
+      "title": "Scratch / dent",
+      "filename": "wooden-flooring-repair-scratch-dent.png",
+      "prompt": "Variation icon for wooden flooring repair: scratched wooden floor plank silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "wooden-flooring-repair",
+      "service_name": "Wooden Flooring Repair",
+      "variant_key": "gap-clicking",
+      "title": "Gap / clicking",
+      "filename": "wooden-flooring-repair-gap-clicking.png",
+      "prompt": "Variation icon for wooden flooring repair: wooden floor gap between planks silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "wooden-flooring-repair",
+      "service_name": "Wooden Flooring Repair",
+      "variant_key": "water-damage",
+      "title": "Water damage",
+      "filename": "wooden-flooring-repair-water-damage.png",
+      "prompt": "Variation icon for wooden flooring repair: water damaged wooden floor plank silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ]
+}

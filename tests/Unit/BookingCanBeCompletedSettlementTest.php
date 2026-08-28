@@ -49,19 +49,18 @@ class BookingCanBeCompletedSettlementTest extends TestCase
         $this->assertTrue(booking_can_be_completed($repeat));
     }
 
-    public function test_repeat_checks_parent_not_repeat_attribute(): void
+    public function test_repeat_visit_can_be_completed_when_unpaid(): void
     {
         $parent = new Booking;
         $parent->allow_complete_without_full_payment = false;
 
         $repeat = new BookingRepeat;
-        $repeat->allow_complete_without_full_payment = true;
         $repeat->setRelation('booking', $parent);
         $repeat->is_paid = false;
         $repeat->total_booking_amount = 100;
         $repeat->booking_id = '00000000-0000-0000-0000-000000000001';
         $repeat->extra_fee = 0;
 
-        $this->assertFalse(booking_can_be_completed($repeat));
+        $this->assertTrue(booking_can_be_completed($repeat));
     }
 }

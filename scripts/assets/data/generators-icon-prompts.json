@@ -1,0 +1,147 @@
+{
+  "categories": [
+    {
+      "slug": "generators",
+      "filename": "generators.png",
+      "prompt": "Category icon: portable petrol generator silhouette with handle and outlet panel, home generator services. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ],
+  "variants": [
+    {
+      "service_slug": "generator-installation",
+      "service_name": "Generator Installation",
+      "variant_key": "petrol-upto-3kva",
+      "title": "Petrol Generator (upto 3 kVA)",
+      "filename": "generator-installation-petrol-upto-3kva.png",
+      "prompt": "Variation icon for generator installation: small portable petrol generator up to 3 kVA silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "generator-installation",
+      "service_name": "Generator Installation",
+      "variant_key": "petrol-3-to-5kva",
+      "title": "Petrol Generator (3 to 5 kVA)",
+      "filename": "generator-installation-petrol-3-to-5kva.png",
+      "prompt": "Variation icon for generator installation: medium petrol generator 3 to 5 kVA silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "generator-installation",
+      "service_name": "Generator Installation",
+      "variant_key": "diesel-upto-10kva",
+      "title": "Diesel Generator (upto 10 kVA)",
+      "filename": "generator-installation-diesel-upto-10kva.png",
+      "prompt": "Variation icon for generator installation: home diesel generator up to 10 kVA silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "generator-installation",
+      "service_name": "Generator Installation",
+      "variant_key": "diesel-10-to-20kva",
+      "title": "Diesel Generator (10 to 20 kVA)",
+      "filename": "generator-installation-diesel-10-to-20kva.png",
+      "prompt": "Variation icon for generator installation: shop diesel generator 10 to 20 kVA silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "generator-installation",
+      "service_name": "Generator Installation",
+      "variant_key": "diesel-above-20kva",
+      "title": "Diesel Generator (above 20 kVA)",
+      "filename": "generator-installation-diesel-above-20kva.png",
+      "prompt": "Variation icon for generator installation: large diesel generator above 20 kVA silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "generator-repair",
+      "service_name": "Generator Repair",
+      "variant_key": "book-site-inspection",
+      "title": "Book Site Inspection",
+      "filename": "generator-repair-book-site-inspection.png",
+      "prompt": "Variation icon for generator repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "generator-repair",
+      "service_name": "Generator Repair",
+      "variant_key": "wont-start",
+      "title": "Won\u2019t start",
+      "filename": "generator-repair-wont-start.png",
+      "prompt": "Variation icon for generator repair: generator that will not start with spark plug silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "generator-repair",
+      "service_name": "Generator Repair",
+      "variant_key": "no-power-output",
+      "title": "No power output",
+      "filename": "generator-repair-no-power-output.png",
+      "prompt": "Variation icon for generator repair: generator with no electricity output plug silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "generator-repair",
+      "service_name": "Generator Repair",
+      "variant_key": "noise-smoke",
+      "title": "Unusual noise/smoke",
+      "filename": "generator-repair-noise-smoke.png",
+      "prompt": "Variation icon for generator repair: generator with noise waves and smoke silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "generator-repair",
+      "service_name": "Generator Repair",
+      "variant_key": "fuel-oil-leak",
+      "title": "Fuel/oil leak",
+      "filename": "generator-repair-fuel-oil-leak.png",
+      "prompt": "Variation icon for generator repair: generator fuel or oil leak drip silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "generator-servicing",
+      "service_name": "Generator Servicing",
+      "variant_key": "petrol-upto-5kva",
+      "title": "Petrol Generator Servicing (upto 5 kVA)",
+      "filename": "generator-servicing-petrol-upto-5kva.png",
+      "prompt": "Variation icon for generator servicing: petrol generator servicing oil can and filter silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "generator-servicing",
+      "service_name": "Generator Servicing",
+      "variant_key": "diesel-upto-10kva",
+      "title": "Diesel Servicing (upto 10 kVA)",
+      "filename": "generator-servicing-diesel-upto-10kva.png",
+      "prompt": "Variation icon for generator servicing: home diesel generator up to 10 kVA silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "generator-servicing",
+      "service_name": "Generator Servicing",
+      "variant_key": "diesel-10-to-20kva",
+      "title": "Diesel Servicing (10 to 20 kVA)",
+      "filename": "generator-servicing-diesel-10-to-20kva.png",
+      "prompt": "Variation icon for generator servicing: shop diesel generator 10 to 20 kVA silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "generator-servicing",
+      "service_name": "Generator Servicing",
+      "variant_key": "diesel-above-20kva",
+      "title": "Diesel Servicing (above 20 kVA)",
+      "filename": "generator-servicing-diesel-above-20kva.png",
+      "prompt": "Variation icon for generator servicing: large diesel generator above 20 kVA silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "generator-uninstallation",
+      "service_name": "Generator Uninstallation",
+      "variant_key": "petrol",
+      "title": "Petrol Generator",
+      "filename": "generator-uninstallation-petrol.png",
+      "prompt": "Variation icon for generator uninstallation: portable petrol generator removal silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "generator-uninstallation",
+      "service_name": "Generator Uninstallation",
+      "variant_key": "diesel-upto-10kva",
+      "title": "Diesel Generator (upto 10 kVA)",
+      "filename": "generator-uninstallation-diesel-upto-10kva.png",
+      "prompt": "Variation icon for generator uninstallation: home diesel generator up to 10 kVA silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "generator-uninstallation",
+      "service_name": "Generator Uninstallation",
+      "variant_key": "diesel-above-10kva",
+      "title": "Diesel Generator (above 10 kVA)",
+      "filename": "generator-uninstallation-diesel-above-10kva.png",
+      "prompt": "Variation icon for generator uninstallation: larger diesel generator uninstall silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    }
+  ]
+}

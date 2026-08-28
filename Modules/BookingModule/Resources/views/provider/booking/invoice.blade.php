@@ -253,7 +253,10 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @php($sub_total=0; $sl = 0)
+                            @php
+                                $sub_total = 0;
+                                $sl = 0;
+                            @endphp
                             @foreach($booking->detail as $index=>$item)
                                 @php($sl++)
                                 <tr>
