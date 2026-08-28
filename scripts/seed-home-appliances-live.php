@@ -570,4 +570,5 @@ if ($prefixSetting && $originalPrefix !== null) {
 }
 
 echo "\nHome Appliances catalog seeded: 1 category, ".count($catalog['sub_categories']).' sub-categories, '.count($catalog['services'])." services.\n";
+echo "Next: cd panun-marketing && npm run sync-catalog   # refresh marketing image URLs\n";
 echo 'Deactivated obsolete services: '.$oldServices->where('is_active', 1)->count()." (plus any already inactive).\n";
