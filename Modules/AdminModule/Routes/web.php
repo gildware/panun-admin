@@ -38,6 +38,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
     Route::get('dashboard/finance', [AdminController::class, 'financeDashboard'])->name('dashboard.finance');
     Route::get('dashboard/operations', [AdminController::class, 'operationsDashboard'])->name('dashboard.operations');
     Route::get('dashboard/rank-marks-chart', [AdminController::class, 'rankMarksChart'])->name('dashboard.rank-marks-chart');
+    Route::get('dashboard/progress-scope', [AdminController::class, 'progressScope'])->name('dashboard.progress-scope');
     Route::get('dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
     Route::get('settings/home-cache', [SettingsHubController::class, 'homeCache'])->name('settings.home-cache');
     Route::get('settings/{section?}', [SettingsHubController::class, 'index'])->name('settings.index');

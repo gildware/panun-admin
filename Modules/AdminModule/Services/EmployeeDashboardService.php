@@ -26,6 +26,12 @@ use Modules\WhatsAppModule\Support\SocialInboxChannel;
 
 class EmployeeDashboardService
 {
+    /** @var Collection<int, User>|null */
+    private ?Collection $dashboardEmployeesCache = null;
+
+    /** @var array<string, array{completed_bookings: int, completed_amount: float, cancelled_bookings: int}> */
+    private array $teamBookingOutcomesCache = [];
+
     public function __construct(
         protected LeadOpenStatusService $leadOpenStatus,
         protected LeadFollowupService $leadFollowupService,
@@ -41,44 +47,11 @@ class EmployeeDashboardService
     {
         $userId = (string) $user->id;
         $today = Carbon::today();
-        $monthStart = Carbon::now()->startOfMonth();
-        $monthEnd = Carbon::now()->endOfMonth();
         $employeeScope = $this->usesEmployeeDashboardScope($user);
-
-        $monthReport = $this->dailyEmployeeReport->buildReport(collect([$user]), $monthStart, $monthEnd);
-        $todayReport = $this->dailyEmployeeReport->buildReport(collect([$user]), $today, $today);
-        $monthTotals = $monthReport['employee_totals'][0] ?? [];
-        $todayTotals = $todayReport['employee_totals'][0] ?? [];
 
         $attentionContext = $this->buildAttentionContext($userId, $today, $employeeScope);
         $workQueue = $this->buildWorkQueue($userId, $attentionContext, $employeeScope);
         $focus = $this->focusLineFromWorkQueue($workQueue);
-
-        $monthlyPerformance = $this->monthlyPerformance($userId, $monthStart, $monthEnd, $monthTotals);
-        $contributionVsAll = [
-            'today' => $this->contributionVsAllForPeriod(
-                $userId,
-                $today,
-                $today,
-                $todayTotals,
-                $this->completedBookingsCount($userId, $today, $today),
-            ),
-            'monthly' => $this->contributionVsAllForPeriod(
-                $userId,
-                $monthStart,
-                $monthEnd,
-                $monthTotals,
-                (int) ($monthlyPerformance['completed_bookings'] ?? 0),
-            ),
-        ];
-        $leaderboard = $this->teamLeaderboardForPeriod($userId, $monthStart, $monthEnd);
-        $teamEmployees = $this->dashboardEmployees();
-        $teamRankDaily = $this->teamOverallRankRows($teamEmployees, $today, $today);
-        $teamRankMonthly = $this->teamOverallRankRows($teamEmployees, $monthStart, $monthEnd);
-        if ($employeeScope) {
-            $teamRankDaily = $this->filterRankRowsForEmployee($teamRankDaily, $userId);
-            $teamRankMonthly = $this->filterRankRowsForEmployee($teamRankMonthly, $userId);
-        }
 
         $payload = [
             'user' => $user,
@@ -89,57 +62,113 @@ class EmployeeDashboardService
             'dashboard_employees' => $employeeScope ? [] : ($attentionContext['employee_options'] ?? []),
             'default_employee_id' => $employeeScope ? '' : (string) ($attentionContext['default_employee_id'] ?? ''),
             'default_dashboard_scope' => $employeeScope ? '' : '__all__',
-            'today_done' => $this->formatTodayDone($todayTotals, $userId),
-            'monthly' => $monthlyPerformance,
-            'contribution_vs_all' => $contributionVsAll,
-            'quality_stats' => $monthlyPerformance['quality_stats'] ?? [],
-            'quality_stats_daily' => $this->buildQualityStatsForUser($userId, $today, $today, $todayTotals),
-            'quality_stats_monthly' => $monthlyPerformance['quality_stats'] ?? [],
-            'leaderboard' => $leaderboard,
-            'progress_side_panel' => 'team_rank',
-            'highlight_employee_id' => $userId,
-            'team_rank_rows' => $teamRankMonthly,
-            'team_rank_rows_daily' => $teamRankDaily,
-            'team_rank_rows_monthly' => $teamRankMonthly,
-            'rank_marks_chart' => $this->rankMarksChartPayload($teamEmployees, $monthStart, $monthEnd, $userId),
+            'contribution_vs_all' => [
+                'today' => [],
+                'monthly' => [],
+            ],
+            'rank_marks_chart' => $this->emptyRankMarksChartPayload(),
         ];
 
-        if (! $employeeScope) {
-            $payload['progress_scopes'] = $this->buildAdminProgressScopes($teamEmployees);
-            $payload['highlight_employee_id'] = '';
-            $payload['team_rank_rows'] = [];
-            $payload['team_rank_rows_daily'] = [];
-            $payload['team_rank_rows_monthly'] = [];
+        if ($employeeScope) {
+            return array_merge($payload, $this->buildSelfProgressPayload($user, $userId, $today));
         }
+
+        $payload['progress_scopes'] = [
+            '__all__' => $this->buildAdminProgressScope('__all__'),
+        ];
+        $payload['highlight_employee_id'] = '';
+        $payload['today_done'] = ['total' => 0, 'items' => []];
+        $payload['monthly'] = [];
+        $payload['quality_stats'] = [];
+        $payload['quality_stats_daily'] = [];
+        $payload['quality_stats_monthly'] = [];
+        $payload['leaderboard'] = [];
+        $payload['team_rank_rows'] = [];
+        $payload['team_rank_rows_daily'] = [];
+        $payload['team_rank_rows_monthly'] = [];
 
         return $payload;
     }
 
     /**
-     * @param  Collection<int, User>  $employees
-     * @return array<string, array<string, mixed>>
+     * Admin Work dashboard progress panel for All or one employee.
+     *
+     * @return array<string, mixed>
      */
-    private function buildAdminProgressScopes(Collection $employees): array
+    public function buildAdminProgressScope(string $scopeId): array
     {
+        $scopeId = $scopeId === '' ? '__all__' : $scopeId;
+        $employees = $this->dashboardEmployees();
         $today = Carbon::today();
         $monthStart = Carbon::now()->startOfMonth();
         $monthEnd = Carbon::now()->endOfMonth();
-        $teamRankDaily = $this->teamOverallRankRows($employees, $today, $today);
-        $teamRankMonthly = $this->teamOverallRankRows($employees, $monthStart, $monthEnd);
 
-        $scopes = [
-            '__all__' => $this->buildTeamProgressScope($employees, $teamRankDaily, $teamRankMonthly),
-        ];
+        if ($scopeId === '__all__') {
+            return AdminDashboardCache::rememberMetrics(
+                'work_team_progress:v4:'.$monthStart->format('Y-m').':'.$today->toDateString(),
+                function () use ($employees, $today, $monthStart, $monthEnd) {
+                    $teamRankDaily = $this->cachedTeamRankRows($employees, $today, $today, 'daily');
+                    $teamRankMonthly = $this->cachedTeamRankRows($employees, $monthStart, $monthEnd, 'monthly');
 
-        foreach ($employees as $employee) {
-            $scopes[(string) $employee->id] = $this->buildEmployeeProgressScope(
-                $employee,
-                $teamRankDaily,
-                $teamRankMonthly,
+                    return $this->buildTeamProgressScope($employees, $teamRankDaily, $teamRankMonthly);
+                },
             );
         }
 
-        return $scopes;
+        $employee = $employees->first(fn (User $user) => (string) $user->id === $scopeId);
+        if (! $employee) {
+            throw new \InvalidArgumentException('Invalid employee.');
+        }
+
+        $teamRankDaily = $this->cachedTeamRankRows($employees, $today, $today, 'daily');
+        $teamRankMonthly = $this->cachedTeamRankRows($employees, $monthStart, $monthEnd, 'monthly');
+
+        return $this->buildEmployeeProgressScope($employee, $teamRankDaily, $teamRankMonthly);
+    }
+
+    /**
+     * @return list<array{id: string, name: string}>
+     */
+    public function dashboardEmployeeOptions(): array
+    {
+        return $this->formatDashboardEmployeeOptions($this->dashboardEmployees());
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildSelfProgressPayload(User $user, string $userId, Carbon $today): array
+    {
+        $monthStart = Carbon::now()->startOfMonth();
+        $monthEnd = Carbon::now()->endOfMonth();
+        $monthReport = $this->dailyEmployeeReport->buildReport(collect([$user]), $monthStart, $monthEnd);
+        $todayReport = $this->dailyEmployeeReport->buildReport(collect([$user]), $today, $today);
+        $monthTotals = $monthReport['employee_totals'][0] ?? [];
+        $todayTotals = $todayReport['employee_totals'][0] ?? [];
+        $monthlyPerformance = $this->monthlyPerformance($userId, $monthStart, $monthEnd, $monthTotals);
+        $teamEmployees = $this->dashboardEmployees();
+        $teamRankDaily = $this->cachedTeamRankRows($teamEmployees, $today, $today, 'daily');
+        $teamRankMonthly = $this->cachedTeamRankRows($teamEmployees, $monthStart, $monthEnd, 'monthly');
+        $highlight = collect($teamRankMonthly)->firstWhere('employee_id', $userId) ?? [];
+
+        return [
+            'today_done' => $this->formatTodayDone($todayTotals, $userId),
+            'monthly' => $monthlyPerformance,
+            'quality_stats' => $monthlyPerformance['quality_stats'] ?? [],
+            'quality_stats_daily' => $this->buildQualityStatsForUser($userId, $today, $today, $todayTotals),
+            'quality_stats_monthly' => $monthlyPerformance['quality_stats'] ?? [],
+            'leaderboard' => [
+                'overall_rank' => (int) ($highlight['rank'] ?? 0),
+                'total_employees' => count($teamRankMonthly),
+                'overall_score' => (int) ($highlight['score'] ?? 0),
+                'metrics' => [],
+            ],
+            'progress_side_panel' => 'team_rank',
+            'highlight_employee_id' => $userId,
+            'team_rank_rows' => $this->filterRankRowsForEmployee($teamRankMonthly, $userId),
+            'team_rank_rows_daily' => $this->filterRankRowsForEmployee($teamRankDaily, $userId),
+            'team_rank_rows_monthly' => $this->filterRankRowsForEmployee($teamRankMonthly, $userId),
+        ];
     }
 
     /**
@@ -162,10 +191,16 @@ class EmployeeDashboardService
         $monthTotals = $monthReport['employee_totals'][0] ?? [];
         $todayTotals = $todayReport['employee_totals'][0] ?? [];
         $monthlyPerformance = $this->monthlyPerformance($userId, $monthStart, $monthEnd, $monthTotals);
-        $leaderboard = $this->teamLeaderboardForPeriod($userId, $monthStart, $monthEnd);
         $teamEmployees = $this->dashboardEmployees();
-        $teamRankDaily ??= $this->teamOverallRankRows($teamEmployees, $today, $today);
-        $teamRankMonthly ??= $this->teamOverallRankRows($teamEmployees, $monthStart, $monthEnd);
+        $teamRankDaily ??= $this->cachedTeamRankRows($teamEmployees, $today, $today, 'daily');
+        $teamRankMonthly ??= $this->cachedTeamRankRows($teamEmployees, $monthStart, $monthEnd, 'monthly');
+        $highlight = collect($teamRankMonthly)->firstWhere('employee_id', $userId) ?? [];
+        $leaderboard = [
+            'overall_rank' => (int) ($highlight['rank'] ?? 0),
+            'total_employees' => count($teamRankMonthly),
+            'overall_score' => (int) ($highlight['score'] ?? 0),
+            'metrics' => [],
+        ];
 
         $name = trim((string) $employee->first_name.' '.(string) $employee->last_name);
         if ($name === '') {
@@ -185,27 +220,13 @@ class EmployeeDashboardService
             'quality_stats_daily' => $this->buildQualityStatsForUser($userId, $today, $today, $todayTotals),
             'quality_stats_monthly' => $monthlyPerformance['quality_stats'] ?? [],
             'quality_stats' => $monthlyPerformance['quality_stats'] ?? [],
-            'contribution_today' => $this->contributionVsAllForPeriod(
-                $userId,
-                $today,
-                $today,
-                $todayTotals,
-                $this->completedBookingsCount($userId, $today, $today),
-            ),
-            'contribution_monthly' => $this->contributionVsAllForPeriod(
-                $userId,
-                $monthStart,
-                $monthEnd,
-                $monthTotals,
-                (int) ($monthlyPerformance['completed_bookings'] ?? 0),
-            ),
             'leaderboard' => $leaderboard,
             'progress_side_panel' => 'team_rank',
             'highlight_employee_id' => $userId,
             'team_rank_rows' => $teamRankMonthly,
             'team_rank_rows_daily' => $teamRankDaily,
             'team_rank_rows_monthly' => $teamRankMonthly,
-            'rank_marks_chart' => $this->rankMarksChartPayload($teamEmployees, $monthStart, $monthEnd, $userId),
+            'rank_marks_chart' => $this->emptyRankMarksChartPayload(),
         ];
     }
 
@@ -232,8 +253,8 @@ class EmployeeDashboardService
         $monthlyPerformance = $this->monthlyPerformanceForTeam($monthStart, $monthEnd, $monthTotals, $employees);
         $qualityDaily = $this->buildTeamQualityStatsForPeriod($employees, $today, $today, $todayTotals);
         $qualityMonthly = $this->buildTeamQualityStatsForPeriod($employees, $monthStart, $monthEnd, $monthTotals);
-        $teamRankDaily ??= $this->teamOverallRankRows($employees, $today, $today);
-        $teamRankMonthly ??= $this->teamOverallRankRows($employees, $monthStart, $monthEnd);
+        $teamRankDaily ??= $this->cachedTeamRankRows($employees, $today, $today, 'daily');
+        $teamRankMonthly ??= $this->cachedTeamRankRows($employees, $monthStart, $monthEnd, 'monthly');
 
         return [
             'title' => translate('Team_Progress'),
@@ -244,18 +265,6 @@ class EmployeeDashboardService
             'quality_stats_daily' => $qualityDaily,
             'quality_stats_monthly' => $qualityMonthly,
             'quality_stats' => $qualityMonthly,
-            'contribution_today' => $this->teamEmployeeShareRows(
-                $todayReport['employee_totals'] ?? [],
-                $todayTotals,
-                $today,
-                $today,
-            ),
-            'contribution_monthly' => $this->teamEmployeeShareRows(
-                $monthReport['employee_totals'] ?? [],
-                $monthTotals,
-                $monthStart,
-                $monthEnd,
-            ),
             'leaderboard' => [
                 'overall_rank' => 0,
                 'total_employees' => $employees->count(),
@@ -267,7 +276,7 @@ class EmployeeDashboardService
             'team_rank_rows' => $teamRankMonthly,
             'team_rank_rows_daily' => $teamRankDaily,
             'team_rank_rows_monthly' => $teamRankMonthly,
-            'rank_marks_chart' => $this->rankMarksChartPayload($employees, $monthStart, $monthEnd, null),
+            'rank_marks_chart' => $this->emptyRankMarksChartPayload(),
         ];
     }
 
@@ -432,6 +441,11 @@ class EmployeeDashboardService
      */
     private function teamBookingOutcomesForPeriod(Carbon $periodStart, Carbon $periodEnd): array
     {
+        $cacheKey = $periodStart->toDateString().'|'.$periodEnd->toDateString();
+        if (isset($this->teamBookingOutcomesCache[$cacheKey])) {
+            return $this->teamBookingOutcomesCache[$cacheKey];
+        }
+
         $rangeStart = $periodStart->copy()->startOfDay();
         $rangeEnd = $periodEnd->copy()->endOfDay();
 
@@ -445,7 +459,7 @@ class EmployeeDashboardService
             ->whereNotNull('assignee_id')
             ->whereBetween('updated_at', [$rangeStart, $rangeEnd]);
 
-        return [
+        return $this->teamBookingOutcomesCache[$cacheKey] = [
             'completed_bookings' => (int) (clone $completed)->count(),
             'completed_amount' => round((float) (clone $completed)->sum('total_booking_amount'), 2),
             'cancelled_bookings' => (int) $cancelled->count(),
@@ -575,6 +589,38 @@ class EmployeeDashboardService
                 'active_assignments' => (int) ($row['active_assignments'] ?? 0),
             ];
         }, $ranked);
+    }
+
+    /**
+     * @param  Collection<int, User>  $employees
+     * @return list<array<string, mixed>>
+     */
+    private function cachedTeamRankRows(Collection $employees, Carbon $periodStart, Carbon $periodEnd, string $period): array
+    {
+        $key = $period === 'daily'
+            ? 'team_rank:daily:'.$periodStart->toDateString()
+            : 'team_rank:monthly:'.$periodStart->format('Y-m');
+
+        return AdminDashboardCache::rememberMetrics(
+            $key,
+            fn () => $this->teamOverallRankRows($employees, $periodStart, $periodEnd),
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function emptyRankMarksChartPayload(): array
+    {
+        $monthStart = Carbon::now()->startOfMonth();
+
+        return [
+            'categories' => [],
+            'series' => [],
+            'period_label' => $monthStart->format('F Y'),
+            'month' => $monthStart->format('Y-m'),
+            'months' => $this->rankMarksMonthOptions(),
+        ];
     }
 
     /**
@@ -728,25 +774,31 @@ class EmployeeDashboardService
             $dayRowsByDate[(string) ($row['date'] ?? '')][(string) ($row['employee_id'] ?? '')] = $row;
         }
 
+        $employeeIds = array_keys($seriesByEmployee);
+        $activeByEmployee = $this->progressScore->activeAssignmentsByEmployee($employeeIds);
+
         $categories = [];
         $cursor = $monthStart->copy()->startOfDay();
         while ($cursor->lte($rangeEnd)) {
             $categories[] = $cursor->format('j');
             $dayStr = $cursor->toDateString();
-            $dayEmployeeTotals = [];
 
             foreach ($seriesByEmployee as $employeeId => $series) {
-                $dayEmployeeTotals[] = $dayRowsByDate[$dayStr][$employeeId]
+                $dayRow = $dayRowsByDate[$dayStr][$employeeId]
                     ?? $this->emptyRankMarksDayRow($employeeId, (string) ($series['name'] ?? $employeeId));
-            }
-
-            $dayStart = $cursor->copy()->startOfDay();
-            $dayEnd = $cursor->copy()->endOfDay();
-            $ranked = $this->progressScore->rankEmployees($dayEmployeeTotals, $employees, $dayStart, $dayEnd);
-            $scoresByEmployee = collect($ranked)->keyBy('employee_id');
-
-            foreach ($seriesByEmployee as $employeeId => $series) {
-                $seriesByEmployee[$employeeId]['data'][] = (int) ($scoresByEmployee[$employeeId]['score'] ?? 0);
+                $scored = $this->progressScore->scoreEmployeeRow(
+                    $dayRow,
+                    (int) ($dayRow['leads_handled'] ?? $dayRow['leads_assigned'] ?? 0),
+                    0,
+                    [],
+                    [],
+                    (int) ($dayRow['bookings_created'] ?? 0),
+                    (int) ($dayRow['bookings_completed'] ?? 0),
+                    [],
+                    $activeByEmployee[$employeeId] ?? [],
+                    (int) ($dayRow['outbound_enquiries'] ?? 0),
+                );
+                $seriesByEmployee[$employeeId]['data'][] = (int) ($scored['score'] ?? 0);
             }
 
             $cursor->addDay();
@@ -1143,7 +1195,7 @@ class EmployeeDashboardService
      */
     private function dashboardEmployees(): Collection
     {
-        return User::query()
+        return $this->dashboardEmployeesCache ??= User::query()
             ->where('user_type', 'admin-employee')
             ->where('is_active', 1)
             ->orderBy('first_name')
