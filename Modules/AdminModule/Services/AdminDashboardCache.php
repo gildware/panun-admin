@@ -23,6 +23,9 @@ class AdminDashboardCache
             'top_customers:v1',
             'operations_dashboard:v1',
             'operations_dashboard:v2',
+            'work_team_progress:v4:'.date('Y-m').':'.date('Y-m-d'),
+            'team_rank:daily:'.date('Y-m-d'),
+            'team_rank:monthly:'.date('Y-m'),
         ];
 
         foreach ($keys as $key) {

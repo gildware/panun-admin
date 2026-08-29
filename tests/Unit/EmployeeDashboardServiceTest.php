@@ -86,12 +86,35 @@ class EmployeeDashboardServiceTest extends TestCase
         $this->assertArrayHasKey('monthly', $data['contribution_vs_all']);
         $this->assertIsArray($data['contribution_vs_all']['today']);
         $this->assertIsArray($data['contribution_vs_all']['monthly']);
+        $this->assertArrayHasKey('leaderboard', $data);
+        $this->assertArrayHasKey('rank_marks_chart', $data);
+        $this->assertSame([], $data['rank_marks_chart']['series'] ?? null);
 
         $this->assertArrayNotHasKey('pulse', $data);
-        $this->assertArrayNotHasKey('leaderboard', $data);
+        $this->assertArrayNotHasKey('progress_scopes', $data);
         $this->assertArrayNotHasKey('attention_widgets', $data);
         $this->assertArrayNotHasKey('priority_followup_boxes', $data);
         $this->assertArrayNotHasKey('lead_followups', $data);
         $this->assertArrayNotHasKey('tasks', $data);
+    }
+
+    public function test_admin_work_dashboard_only_builds_team_progress_scope(): void
+    {
+        try {
+            $user = User::query()->where('user_type', 'super-admin')->first();
+        } catch (\Illuminate\Database\QueryException) {
+            $this->markTestSkipped('Requires application database with a super-admin user.');
+        }
+
+        if (! $user) {
+            $this->markTestSkipped('Super-admin user not seeded.');
+        }
+
+        $data = app(EmployeeDashboardService::class)->build($user);
+
+        $this->assertArrayHasKey('progress_scopes', $data);
+        $this->assertSame(['__all__'], array_keys($data['progress_scopes']));
+        $this->assertArrayHasKey('work_queue', $data);
+        $this->assertSame([], $data['progress_scopes']['__all__']['rank_marks_chart']['series'] ?? null);
     }
 }

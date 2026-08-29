@@ -23,6 +23,9 @@ use Modules\WhatsAppModule\Entities\WhatsAppUser;
 
 class DailyEmployeeReportService
 {
+    /** @var array<string, array{rows: list<array<string, mixed>>, totals: array<string, int|float|string>, employee_totals: list<array<string, mixed>>}> */
+    private array $reportCache = [];
+
     public const METRIC_KEYS = [
         'leads_added',
         'leads_assigned',
@@ -104,6 +107,11 @@ class DailyEmployeeReportService
         }
 
         $employeeIds = $employees->pluck('id')->map(fn ($id) => (string) $id)->all();
+        $cacheKey = $dateFrom->toDateString().'|'.$dateTo->toDateString().'|'.implode(',', collect($employeeIds)->sort()->values()->all());
+        if (isset($this->reportCache[$cacheKey])) {
+            return $this->reportCache[$cacheKey];
+        }
+
         $employeeNames = $this->employeeNameMap($employees);
 
         $rangeStart = $dateFrom->copy()->startOfDay();
@@ -196,7 +204,7 @@ class DailyEmployeeReportService
         $totals['online_hours'] = $this->formatDuration((int) $totals['online_seconds']);
         $totals = self::withDerivedActivityMetrics($totals);
 
-        return [
+        return $this->reportCache[$cacheKey] = [
             'rows' => $rows,
             'totals' => $totals,
             'employee_totals' => $employeeTotals,

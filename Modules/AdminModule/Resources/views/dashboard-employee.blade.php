@@ -10,9 +10,6 @@
 @section('content')
 @php
     $monthly = $employeeData['monthly'] ?? [];
-    $contributionVsAll = $employeeData['contribution_vs_all'] ?? [];
-    $contributionToday = $contributionVsAll['today'] ?? (is_array($contributionVsAll) && ! isset($contributionVsAll['today']) ? $contributionVsAll : []);
-    $contributionMonthly = $contributionVsAll['monthly'] ?? [];
     $todayDone = $employeeData['today_done'] ?? [];
     $workQueue = $employeeData['work_queue'] ?? [];
     $dashboardEmployees = $employeeData['dashboard_employees'] ?? [];
@@ -68,28 +65,20 @@
         @endphp
 
         @if($progressScopes !== [])
-            <div id="section-progress" class="js-progress-scope-wrapper">
+            <div id="section-progress"
+                 class="js-progress-scope-wrapper"
+                 data-scope-url="{{ route('admin.dashboard.progress-scope') }}">
+                <div class="js-progress-scope-loading d-none text-center py-4" role="status">
+                    <div class="spinner-border spinner-border-sm text-primary" aria-hidden="true"></div>
+                    <span class="ms-2">{{ translate('Loading') }}</span>
+                </div>
                 @foreach($progressScopes as $scopeId => $scope)
-                    <div class="js-progress-scope-panel {{ $scopeId !== '__all__' ? 'd-none' : '' }}"
-                         data-scope-id="{{ $scopeId }}">
-                        @include('adminmodule::partials._employee-progress', [
-                            'todayDone' => $scope['today_done'] ?? [],
-                            'monthly' => $scope['monthly'] ?? [],
-                            'qualityStatsDaily' => $scope['quality_stats_daily'] ?? [],
-                            'qualityStatsMonthly' => $scope['quality_stats_monthly'] ?? ($scope['quality_stats'] ?? []),
-                            'leaderboard' => $scope['leaderboard'] ?? [],
-                            'teamRankRowsDaily' => $scope['team_rank_rows_daily'] ?? ($scope['team_rank_rows'] ?? []),
-                            'teamRankRowsMonthly' => $scope['team_rank_rows_monthly'] ?? ($scope['team_rank_rows'] ?? []),
-                            'rankMarksChart' => $scope['rank_marks_chart'] ?? [],
-                            'progressScopeId' => $scopeId,
-                            'highlightEmployeeId' => $scope['highlight_employee_id'] ?? ($scopeId !== '__all__' ? $scopeId : null),
-                            'progressTitle' => $scope['title'] ?? translate('Team_Progress'),
-                            'progressSubtitle' => $scope['subtitle'] ?? translate('Team_progress_sub'),
-                            'viewReportUrl' => $scope['view_report_url'] ?? route('admin.my-progress', ['tab' => 'monthly']),
-                            'progressLayout' => 'admin',
-                            'chartEmployees' => $dashboardEmployees,
-                        ])
-                    </div>
+                    @include('adminmodule::partials._employee-progress-scope-panel', [
+                        'scopeId' => $scopeId,
+                        'scope' => $scope,
+                        'dashboardEmployees' => $dashboardEmployees,
+                        'hidden' => $scopeId !== '__all__',
+                    ])
                 @endforeach
             </div>
         @elseif($showEmployeeProgress ?? is_admin_employee())
@@ -117,26 +106,36 @@
 
 @push('script')
 <script src="{{ asset('assets/admin-module/plugins/apex/apexcharts.min.js') }}"></script>
-<script src="{{ asset('assets/admin-module/js/employee-dashboard-charts.js') }}?v=20260808bm"></script>
+<script src="{{ asset('assets/admin-module/js/employee-dashboard-charts.js') }}?v=20260829dash1"></script>
 <script>
     'use strict';
 
-    document.querySelectorAll('[data-tabs]').forEach(function (group) {
+    document.addEventListener('click', function (event) {
+        var btn = event.target.closest('.work-queue-tab, .progress-tab, .tab-btn, .tab-btn-light');
+        if (! btn) {
+            return;
+        }
+
+        var group = btn.closest('[data-tabs]');
+        if (! group) {
+            return;
+        }
+
         var container = group.closest('.work-queue-box, .card, .progress-card, .progress-shell');
-        group.querySelectorAll('.work-queue-tab, .progress-tab, .tab-btn, .tab-btn-light').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var tab = btn.getAttribute('data-tab');
-                group.querySelectorAll('.work-queue-tab, .progress-tab, .tab-btn, .tab-btn-light').forEach(function (b) {
-                    b.classList.toggle('active', b === btn);
-                });
-                container.querySelectorAll('[data-panel]').forEach(function (panel) {
-                    panel.classList.toggle('active', panel.getAttribute('data-panel') === tab);
-                });
-                if (tab === 'ranking-monthly' && window.PanunDashboardCharts && window.PanunDashboardCharts.refreshVisible) {
-                    window.PanunDashboardCharts.refreshVisible(container);
-                }
-            });
+        if (! container) {
+            return;
+        }
+
+        var tab = btn.getAttribute('data-tab');
+        group.querySelectorAll('.work-queue-tab, .progress-tab, .tab-btn, .tab-btn-light').forEach(function (b) {
+            b.classList.toggle('active', b === btn);
         });
+        container.querySelectorAll('[data-panel]').forEach(function (panel) {
+            panel.classList.toggle('active', panel.getAttribute('data-panel') === tab);
+        });
+        if (tab === 'ranking-monthly' && window.PanunDashboardCharts && window.PanunDashboardCharts.refreshVisible) {
+            window.PanunDashboardCharts.refreshVisible(container);
+        }
     });
 
     function activateWorkQueueTab(box, tabKey) {
@@ -164,6 +163,92 @@
     }
 
     var activeDashboardScope = null;
+    var progressScopeRequests = {};
+
+    function progressScopePanel(scopeValue) {
+        var targetId = (scopeValue === '__all__' || scopeValue === '') ? '__all__' : scopeValue;
+        return document.querySelector('.js-progress-scope-panel[data-scope-id="' + targetId + '"]');
+    }
+
+    function setProgressScopeLoading(isLoading) {
+        var loading = document.querySelector('.js-progress-scope-loading');
+        if (loading) {
+            loading.classList.toggle('d-none', ! isLoading);
+        }
+    }
+
+    function ensureProgressScope(scopeValue) {
+        var existing = progressScopePanel(scopeValue);
+        if (existing) {
+            return Promise.resolve(existing);
+        }
+
+        var wrapper = document.querySelector('.js-progress-scope-wrapper');
+        var url = wrapper ? wrapper.getAttribute('data-scope-url') : '';
+        if (! wrapper || ! url) {
+            return Promise.resolve(null);
+        }
+
+        var targetId = (scopeValue === '__all__' || scopeValue === '') ? '__all__' : scopeValue;
+        if (progressScopeRequests[targetId]) {
+            return progressScopeRequests[targetId];
+        }
+
+        setProgressScopeLoading(true);
+        progressScopeRequests[targetId] = fetch(url + '?employee_id=' + encodeURIComponent(targetId), {
+            headers: {
+                Accept: 'text/html',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+        })
+            .then(function (response) {
+                if (! response.ok) {
+                    throw new Error('Failed to load progress');
+                }
+                return response.text();
+            })
+            .then(function (html) {
+                var already = progressScopePanel(targetId);
+                if (already) {
+                    return already;
+                }
+                wrapper.insertAdjacentHTML('beforeend', html);
+                return progressScopePanel(targetId);
+            })
+            .catch(function (error) {
+                console.warn('Progress scope load failed:', error);
+                return null;
+            })
+            .finally(function () {
+                delete progressScopeRequests[targetId];
+                setProgressScopeLoading(Object.keys(progressScopeRequests).length > 0);
+            });
+
+        return progressScopeRequests[targetId];
+    }
+
+    function showProgressScope(scopeValue) {
+        var isAll = scopeValue === '__all__' || scopeValue === '';
+        document.querySelectorAll('.js-progress-scope-panel').forEach(function (panel) {
+            var panelScope = panel.getAttribute('data-scope-id') || '';
+            var showPanel = isAll ? panelScope === '__all__' : panelScope === scopeValue;
+            panel.classList.toggle('d-none', ! showPanel);
+        });
+    }
+
+    function reloadProgressChart(scopeValue, previousScope) {
+        var scopeChanged = previousScope !== null && previousScope !== scopeValue;
+        var needsInitialChart = previousScope === null;
+
+        if (window.PanunDashboardCharts && window.PanunDashboardCharts.reloadVisibleScopeChart) {
+            if (scopeChanged || needsInitialChart) {
+                window.PanunDashboardCharts.reloadVisibleScopeChart(scopeValue, true);
+            }
+        } else if ((scopeChanged || needsInitialChart) && window.PanunDashboardCharts && window.PanunDashboardCharts.refreshVisible) {
+            window.PanunDashboardCharts.refreshVisible(document);
+        }
+    }
 
     function setDashboardScope(scopeValue) {
         var previousScope = activeDashboardScope;
@@ -255,22 +340,14 @@
             }
         });
 
-        document.querySelectorAll('.js-progress-scope-panel').forEach(function (panel) {
-            var panelScope = panel.getAttribute('data-scope-id') || '';
-            var showPanel = isAll ? panelScope === '__all__' : panelScope === scopeValue;
-            panel.classList.toggle('d-none', ! showPanel);
-        });
-
-        var scopeChanged = previousScope !== null && previousScope !== scopeValue;
-        var needsInitialChart = previousScope === null;
-
-        if (window.PanunDashboardCharts && window.PanunDashboardCharts.reloadVisibleScopeChart) {
-            if (scopeChanged || needsInitialChart) {
-                window.PanunDashboardCharts.reloadVisibleScopeChart(scopeValue, true);
+        ensureProgressScope(scopeValue).then(function () {
+            if (activeDashboardScope !== scopeValue) {
+                return;
             }
-        } else if ((scopeChanged || needsInitialChart) && window.PanunDashboardCharts && window.PanunDashboardCharts.refreshVisible) {
-            window.PanunDashboardCharts.refreshVisible(document);
-        }
+
+            showProgressScope(scopeValue);
+            reloadProgressChart(scopeValue, previousScope);
+        });
 
         try {
             localStorage.setItem('admin_dashboard_scope', scopeValue);

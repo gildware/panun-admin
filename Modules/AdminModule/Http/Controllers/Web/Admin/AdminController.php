@@ -114,6 +114,29 @@ class AdminController extends Controller
         }
     }
 
+    public function progressScope(Request $request): View|Factory|Application
+    {
+        if (is_admin_employee()) {
+            abort(403);
+        }
+
+        $scopeId = (string) $request->query('employee_id', '__all__');
+        $service = app(EmployeeDashboardService::class);
+
+        try {
+            $scope = $service->buildAdminProgressScope($scopeId);
+        } catch (\InvalidArgumentException $exception) {
+            abort(422, $exception->getMessage());
+        }
+
+        return view('adminmodule::partials._employee-progress-scope-panel', [
+            'scopeId' => $scopeId === '' ? '__all__' : $scopeId,
+            'scope' => $scope,
+            'dashboardEmployees' => $service->dashboardEmployeeOptions(),
+            'hidden' => false,
+        ]);
+    }
+
     /**
      * Admin finance overview (revenue, ledger snippets, earning charts).
      *
