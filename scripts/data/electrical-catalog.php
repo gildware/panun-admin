@@ -180,6 +180,15 @@ return [
                 electrical_variant('event-temporary-setup', 'Event / Temporary Setup', 499.0),
             ],
         ],
+        [
+            'name' => 'Electric ACP Sign Board Install',
+            'slug' => 'electric-acp-sign-board-install',
+            'sub_category_slug' => 'electric-installation',
+            'base_price' => 299.0,
+            'variants' => [
+                electrical_variant('book-inspection', 'Book Inspection', 299.0),
+            ],
+        ],
 
         // Electric Repair
         [
@@ -262,6 +271,15 @@ return [
             'base_price' => 299.0,
             'variants' => [
                 electrical_variant('earthing-fix', 'Earthing Fix', 299.0),
+            ],
+        ],
+        [
+            'name' => 'Electric ACP Sign Board Repair',
+            'slug' => 'electric-acp-sign-board-repair',
+            'sub_category_slug' => 'electric-repair',
+            'base_price' => 299.0,
+            'variants' => [
+                electrical_variant('book-inspection', 'Book Inspection', 299.0),
             ],
         ],
 

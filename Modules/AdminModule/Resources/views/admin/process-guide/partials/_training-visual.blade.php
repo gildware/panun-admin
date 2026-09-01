@@ -1,3 +1,56 @@
+@php
+    $pkPos = $slide['hero_position'] ?? 'center 30%';
+    $pkHasPhoto = !empty($slide['hero_image']);
+    $pkFit = ($slide['hero_fit'] ?? 'cover') === 'contain' ? 'contain' : 'cover';
+@endphp
+<div class="pg-pk-visual{{ $pkHasPhoto ? ' pg-pk-visual--with-photo' : '' }}{{ $pkFit === 'contain' ? ' pg-pk-visual--contain' : '' }}">
+@if ($pkHasPhoto)
+    <div class="pg-pk-hero">
+        <img src="{{ process_guide_training_asset($slide['hero_image']) }}" alt="" loading="lazy" class="pg-pk-hero-img pg-pk-hero-img--{{ $pkFit }}" style="object-position: {{ $pkPos }}">
+    </div>
+@endif
+<div class="pg-pk-visual-main">
+
+@if (!empty($slide['tagline']) && !empty($slide['hero_image']))
+    <p class="pg-pk-lede">{{ $slide['tagline'] }}</p>
+@endif
+
+@if (!empty($slide['pills']))
+    <ul class="pg-pk-pills">
+        @foreach ($slide['pills'] as $pill)
+            <li>
+                @if (is_array($pill))
+                    @if (!empty($pill['icon']))
+                        <span class="material-icons" aria-hidden="true">{{ $pill['icon'] }}</span>
+                    @endif
+                    {{ $pill['label'] ?? '' }}
+                @else
+                    {{ $pill }}
+                @endif
+            </li>
+        @endforeach
+    </ul>
+@endif
+
+@include('adminmodule::admin.process-guide.partials._training-pk-icons', ['slide' => $slide])
+
+@if (!empty($slide['chips']))
+    <ul class="pg-pk-chips">
+        @foreach ($slide['chips'] as $chip)
+            <li>
+                @if (is_array($chip))
+                    @if (!empty($chip['icon']))
+                        <span class="material-icons" aria-hidden="true">{{ $chip['icon'] }}</span>
+                    @endif
+                    {{ $chip['label'] ?? '' }}
+                @else
+                    {{ $chip }}
+                @endif
+            </li>
+        @endforeach
+    </ul>
+@endif
+
 @if (!empty($slide['panel_links']))
     <div class="pg-training-panel-links">
         <h5 class="pg-training-panel-links-title">
@@ -120,12 +173,16 @@
 @if (!empty($slide['card_groups']))
     @foreach ($slide['card_groups'] as $group)
         <div class="pg-training-source-group pg-training-source-group--{{ $group['tone'] ?? 'default' }}">
-            <div class="pg-training-source-group-head">
-                <h5 class="pg-training-source-group-title">{{ $group['title'] }}</h5>
-                @if (!empty($group['hint']))
-                    <p class="pg-training-source-group-hint">{{ $group['hint'] }}</p>
-                @endif
-            </div>
+            @if (!empty($group['title']) || !empty($group['hint']))
+                <div class="pg-training-source-group-head">
+                    @if (!empty($group['title']))
+                        <h5 class="pg-training-source-group-title">{{ $group['title'] }}</h5>
+                    @endif
+                    @if (!empty($group['hint']))
+                        <p class="pg-training-source-group-hint">{{ $group['hint'] }}</p>
+                    @endif
+                </div>
+            @endif
             <div class="pg-training-type-grid{{ !empty($group['layout']) ? ' pg-training-type-grid--' . $group['layout'] : '' }}">
                 @foreach ($group['cards'] as $card)
                     <div class="pg-training-type-card pg-training-type-card--{{ $card['color'] ?? 'default' }}{{ !empty($card['points']) ? ' pg-training-type-card--rich' : '' }}">
@@ -354,3 +411,9 @@
 @if (!empty($slide['tab_groups']))
     @include('adminmodule::admin.process-guide.partials._training-tab-grid', ['tabGroups' => $slide['tab_groups']])
 @endif
+
+@if (!empty($slide['highlight']))
+    <p class="pg-pk-highlight">{{ $slide['highlight'] }}</p>
+@endif
+</div>
+</div>

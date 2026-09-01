@@ -14,7 +14,7 @@ class ProcessGuideController extends Controller
 {
     public function index(Request $request): View
     {
-        $guideKey = (string) $request->query('guide', 'lead-qualification');
+        $guideKey = (string) $request->query('guide', 'panun-kaergar');
         $guide = ProcessGuideRegistry::get($guideKey) ?? ProcessGuideRegistry::default();
 
         return view('adminmodule::admin.process-guide.index', [

@@ -139,6 +139,9 @@ class ElectricalContentBuilder
             'electric-solar-inverter-install' => self::inspection($name, 'solar inverter wiring scope', [
                 'Solar inverter wiring quotes', 'ACDB/DCDB connection plans', 'Earthing + DB link checks', 'Home solar electrical readiness',
             ], true),
+            'electric-acp-sign-board-install' => self::inspection($name, 'ACP sign board installation planning', [
+                'New ACP shop sign boards', 'LED letter sign installs', 'Vinyl or 3D letter boards', 'Indoor and outdoor ACP signs',
+            ], true),
             'electric-temporary-wiring' => self::install($name, 'event and temporary power setups', [
                 'Wedding / event wiring', 'Temporary power setups', 'Short-term outdoor points', 'Function lighting feed',
             ], [
@@ -252,6 +255,9 @@ class ElectricalContentBuilder
                 'Major civil excavation packages',
                 'Lightning arrestor systems unless agreed',
             ]),
+            'electric-acp-sign-board-repair' => self::inspection($name, 'ACP sign board repair diagnosis', [
+                'Loose or damaged ACP sign boards', 'LED letter faults on ACP signs', 'Bent or water-damaged sign panels', 'Shop-front ACP sign issues',
+            ], true),
             'electric-site-check' => self::inspection($name, 'electrical fault finding', [
                 'Unknown electrical problems', 'General fault checks', 'No-power diagnosis', 'Intermittent issues',
             ], false),
@@ -290,6 +296,8 @@ class ElectricalContentBuilder
         $inspectionSlugs = [
             'electric-full-house-wiring',
             'electric-solar-inverter-install',
+            'electric-acp-sign-board-install',
+            'electric-acp-sign-board-repair',
             'electric-site-check',
             'electric-safety-check',
             'electric-pre-work-check',

@@ -142,7 +142,7 @@ class WhatsAppAiToolExecutor
             ],
             [
                 'name' => 'upsert_my_draft_booking',
-                'description' => 'Create or update a DRAFT booking for this customer (not confirmed until human confirms in admin).',
+                'description' => 'Create or update a DRAFT booking for this customer (not confirmed until human confirms in admin). Call this BEFORE your customer-visible reply whenever they gave or confirmed any booking field (name, service, address, date/time). Partial saves are required — do not wait for date/time. Chat acknowledgements are not a save.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
