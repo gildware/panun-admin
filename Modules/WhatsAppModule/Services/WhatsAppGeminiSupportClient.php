@@ -21,6 +21,7 @@ class WhatsAppGeminiSupportClient
     /**
      * @param  list<array<string, mixed>>  $contents
      * @param  list<array<string, mixed>>  $functionDeclarations
+     * @param  array{toolCallingConfig?: array{mode?: string, allowedFunctionNames?: list<string>}, temperature?: float}|null  $generateOptions
      * @return array{type: 'text', text: string}|array{type: 'function_calls', calls: list<array{name: string, args: array<string, mixed>}>}|array{type: 'blocked', reason: string}
      */
     public function generateTurn(
@@ -31,10 +32,19 @@ class WhatsAppGeminiSupportClient
         ?string $modelOverride = null,
         ?int $maxOutputTokensOverride = null,
         ?int $httpTimeoutOverride = null,
+        ?array $generateOptions = null,
     ): array {
         $t0 = microtime(true);
         $withTools = $functionDeclarations !== [];
-        $turn = $this->generateTurnInternal($systemText, $contents, $functionDeclarations, $modelOverride, $maxOutputTokensOverride, $httpTimeoutOverride);
+        $turn = $this->generateTurnInternal(
+            $systemText,
+            $contents,
+            $functionDeclarations,
+            $modelOverride,
+            $maxOutputTokensOverride,
+            $httpTimeoutOverride,
+            $generateOptions,
+        );
         $ms = (int) round((microtime(true) - $t0) * 1000);
 
         if ($recorder !== null) {
@@ -145,6 +155,7 @@ class WhatsAppGeminiSupportClient
     /**
      * @param  list<array<string, mixed>>  $contents
      * @param  list<array<string, mixed>>  $functionDeclarations
+     * @param  array{toolCallingConfig?: array{mode?: string, allowedFunctionNames?: list<string>}, temperature?: float}|null  $generateOptions
      * @return array{type: 'text', text: string}|array{type: 'function_calls', calls: list<array{name: string, args: array<string, mixed>}>}|array{type: 'blocked', reason: string}
      */
     private function generateTurnInternal(
@@ -154,6 +165,7 @@ class WhatsAppGeminiSupportClient
         ?string $modelOverride = null,
         ?int $maxOutputTokensOverride = null,
         ?int $httpTimeoutOverride = null,
+        ?array $generateOptions = null,
     ): array {
         $key = (string) config('services.gemini.api_key');
         if ($key === '') {
@@ -161,7 +173,9 @@ class WhatsAppGeminiSupportClient
         }
 
         $maxOut = $maxOutputTokensOverride ?? (int) config('whatsappmodule.gemini_max_output_tokens', 896);
-        $temp = (float) config('whatsappmodule.gemini_temperature', 0.35);
+        $temp = array_key_exists('temperature', $generateOptions ?? [])
+            ? (float) $generateOptions['temperature']
+            : (float) config('whatsappmodule.gemini_temperature', 0.35);
         $gen = [
             'maxOutputTokens' => $maxOut,
             'temperature' => $temp,
@@ -177,10 +191,20 @@ class WhatsAppGeminiSupportClient
             $body['tools'] = [
                 ['functionDeclarations' => $functionDeclarations],
             ];
+            $calling = is_array($generateOptions['toolCallingConfig'] ?? null)
+                ? $generateOptions['toolCallingConfig']
+                : [];
+            $mode = strtoupper(trim((string) ($calling['mode'] ?? 'AUTO')));
+            if (!in_array($mode, ['AUTO', 'ANY', 'NONE'], true)) {
+                $mode = 'AUTO';
+            }
+            $fnConfig = ['mode' => $mode];
+            $allowed = $calling['allowedFunctionNames'] ?? null;
+            if (is_array($allowed) && $allowed !== []) {
+                $fnConfig['allowedFunctionNames'] = array_values(array_filter(array_map('strval', $allowed)));
+            }
             $body['toolConfig'] = [
-                'functionCallingConfig' => [
-                    'mode' => 'AUTO',
-                ],
+                'functionCallingConfig' => $fnConfig,
             ];
         }
 

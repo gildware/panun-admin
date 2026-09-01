@@ -40,6 +40,8 @@ return [
     'ai_gemini_context_char_limit' => max(400, min(8000, (int) env('WHATSAPP_AI_GEMINI_CONTEXT_CHAR_LIMIT', 2200))),
     /** Max model↔tool rounds per inbound message (each round is at least one API call). */
     'ai_gemini_max_tool_rounds' => max(2, min(12, (int) env('WHATSAPP_AI_GEMINI_MAX_TOOL_ROUNDS', 6))),
+    /** After the customer-facing turn, persist a draft (and mark CRM customer) when the thread shows they need a service — even if Gemini forgot to call the tool. */
+    'ai_silent_draft_persist' => filter_var(env('WHATSAPP_AI_SILENT_DRAFT_PERSIST', true), FILTER_VALIDATE_BOOL),
     // IST work hours for human handoff messaging (24h format H:i).
     'support_work_hours_start' => env('WHATSAPP_SUPPORT_HOURS_START', '09:00'),
     'support_work_hours_end' => env('WHATSAPP_SUPPORT_HOURS_END', '18:00'),

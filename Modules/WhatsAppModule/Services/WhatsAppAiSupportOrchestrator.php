@@ -39,6 +39,7 @@ class WhatsAppAiSupportOrchestrator
         protected WhatsAppSessionInteractiveSequence $sessionInteractiveSequence,
         protected WhatsAppAiCustomerMessageLocalizationService $templateLocalization,
         protected WhatsAppAiSupportKnowledgeService $supportKnowledge,
+        protected WhatsAppAiDraftPersistService $draftPersist,
     ) {}
 
     public function handleInboundMessageId(int $messageId, WhatsAppAiExecutionRecorder $recorder): void
@@ -214,18 +215,40 @@ class WhatsAppAiSupportOrchestrator
             if ($iter === 1 && $tools !== [] && $turn['type'] !== 'function_calls') {
                 $reason = $turn['type'] === 'blocked' ? (string) ($turn['reason'] ?? '') : '';
                 $plainEmpty = $turn['type'] === 'text' && trim((string) ($turn['text'] ?? '')) === '';
-                $retryPlain = ($turn['type'] === 'blocked' && $reason !== 'missing_api_key') || $plainEmpty;
-                if ($retryPlain) {
-                    Log::warning('WhatsApp AI: Gemini unusable with tools; retrying without tools', [
+                $retryTools = ($turn['type'] === 'blocked' && $reason !== 'missing_api_key') || $plainEmpty;
+                if ($retryTools) {
+                    Log::warning('WhatsApp AI: Gemini unusable with tools; retrying with tools + save nudge', [
                         'turn_type' => $turn['type'],
                         'reason' => $reason,
                         'plain_empty' => $plainEmpty,
                     ]);
-                    $recorder->step('gemini.retry', 'Retrying Gemini without tools', 'info', [
+                    $recorder->step('gemini.retry', 'Retrying Gemini with tools (save nudge)', 'info', [
                         'prior_reason' => $reason,
                         'plain_empty' => $plainEmpty,
                     ]);
-                    $turn = $this->gemini->generateTurn($system, $contents, [], $recorder);
+                    $nudgeContents = $contents;
+                    $nudgeContents[] = [
+                        'role' => 'user',
+                        'parts' => [[
+                            'text' => 'If the customer already gave any booking field (name, service, address, or date/time), you MUST call upsert_my_draft_booking with those fields before your reply. Partial drafts are OK — do not wait for date/time. Then ask only the next missing field. Saying you noted something is not a save.',
+                        ]],
+                    ];
+                    $turn = $this->gemini->generateTurn($system, $nudgeContents, $tools, $recorder);
+                    if (($turn['type'] ?? '') === 'function_calls') {
+                        $contents = $nudgeContents;
+                    } elseif (
+                        ($turn['type'] ?? '') !== 'function_calls'
+                        && (
+                            ($turn['type'] ?? '') === 'blocked'
+                            || (($turn['type'] ?? '') === 'text' && trim((string) ($turn['text'] ?? '')) === '')
+                        )
+                    ) {
+                        $recorder->step('gemini.retry', 'Retrying Gemini without tools (customer reply only)', 'info', [
+                            'prior_reason' => $reason,
+                            'plain_empty' => true,
+                        ]);
+                        $turn = $this->gemini->generateTurn($system, $contents, [], $recorder);
+                    }
                 }
             }
 
@@ -526,6 +549,8 @@ class WhatsAppAiSupportOrchestrator
                 break;
             }
         }
+
+        $this->draftPersist->persistIfNeeded($phone, $recorder);
 
         if (
             $pendingBookingRequestId !== null
