@@ -10,6 +10,7 @@
     const DEFAULT_ZONE_ID = payload.defaultZoneId || '';
     const CAL_FROM_DT = payload.calendarFromDt || '';
     const CAL_TO_DT = payload.calendarToDt || '';
+    const HORIZON_DAYS = Math.max(1, Number(payload.calendarHorizonDays) || 90);
     const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
     const zoneById = {};
@@ -123,7 +124,7 @@
         for (let d = startOfDay(a); d <= startOfDay(b); d = addDays(d, 1)) {
             out.push(new Date(d));
         }
-        return out.slice(0, 21);
+        return out.slice(0, HORIZON_DAYS + 1);
     }
     function windowForDay(dateObj) {
         const a = parseDateTime(fromEl.value);
