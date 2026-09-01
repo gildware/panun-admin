@@ -10,7 +10,7 @@
     const DEFAULT_ZONE_ID = payload.defaultZoneId || '';
     const CAL_FROM_DT = payload.calendarFromDt || '';
     const CAL_TO_DT = payload.calendarToDt || '';
-    const HORIZON_DAYS = Math.max(1, Number(payload.calendarHorizonDays) || 90);
+    const HORIZON_DAYS = Math.max(1, Number(payload.calendarWindowDays || payload.calendarHorizonDays) || 90);
     const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
     const zoneById = {};
@@ -113,6 +113,44 @@
             return p.categories[0].name;
         }
         return '—';
+    }
+    function toDateTimeLocal(d) {
+        return ymd(d) + 'T' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    }
+    function endOfDay(d) {
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59);
+    }
+    function applyStartCap() {
+        const now = new Date();
+        const todayStart = startOfDay(now);
+        const todayEnd = endOfDay(now);
+        fromEl.min = toDateTimeLocal(todayStart);
+        fromEl.max = toDateTimeLocal(todayEnd);
+        const start = parseDateTime(fromEl.value);
+        if (!start || start < todayStart) {
+            const fallback = new Date(now);
+            fallback.setHours(9, 0, 0, 0);
+            fromEl.value = toDateTimeLocal(fallback);
+        } else if (start > todayEnd) {
+            fromEl.value = toDateTimeLocal(todayEnd);
+        }
+    }
+    function applyEndCap() {
+        const start = parseDateTime(fromEl.value);
+        if (!start) {
+            return;
+        }
+        const endMax = endOfDay(addDays(start, HORIZON_DAYS));
+        toEl.min = fromEl.value;
+        toEl.max = toDateTimeLocal(endMax);
+        const end = parseDateTime(toEl.value);
+        if (!end || end < start) {
+            const fallback = addDays(start, 6);
+            fallback.setHours(18, 0, 0, 0);
+            toEl.value = toDateTimeLocal(fallback > endMax ? endMax : fallback);
+        } else if (end > endMax) {
+            toEl.value = toDateTimeLocal(endMax);
+        }
     }
     function daysInRange() {
         const a = parseDateTime(fromEl.value);
@@ -381,6 +419,10 @@
         [q, fromEl, toEl, zoneEl, catEl, subEl].forEach(function (el) {
             if (el) {
                 el.addEventListener(evt, function () {
+                    if (el === fromEl) {
+                        applyStartCap();
+                        applyEndCap();
+                    }
                     if (el === catEl) {
                         fillSubSelect(subEl, catEl.value);
                     }
@@ -404,6 +446,8 @@
             if (catEl) catEl.value = '';
         }
         fillSubSelect(subEl, '');
+        applyStartCap();
+        applyEndCap();
         kpiFilter = '';
         selected = null;
         render();
@@ -418,6 +462,8 @@
     }
 
     fillSubSelect(subEl, catEl ? catEl.value : '');
+    applyStartCap();
+    applyEndCap();
     window.plvRenderCalendar = render;
     render();
     if (window.location.hash === '#calendar') {

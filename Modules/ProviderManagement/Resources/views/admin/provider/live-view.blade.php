@@ -3,19 +3,21 @@
 @section('title', translate('Provider_Live_View'))
 
 @php
-    $plvAssetV = (@filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time()) . '-plv9';
-    $plvCssV = (@filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time()) . '-plv9';
-    $plvCalJsV = (@filemtime(public_path('assets/admin-module/js/provider-availability-calendar.js')) ?: time()) . '-plv9';
-    $calendarHorizonDays = (int) ($calendarHorizonDays ?? 90);
+    $plvAssetV = (@filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time()) . '-plv11';
+    $plvCssV = (@filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time()) . '-plv11';
+    $plvCalJsV = (@filemtime(public_path('assets/admin-module/js/provider-availability-calendar.js')) ?: time()) . '-plv11';
+    $calendarWindowDays = (int) ($calendarWindowDays ?? 90);
     $calendarFromDt = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->setTime(9, 0)->format('Y-m-d\TH:i');
     $calendarToDefault = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->addDays(6)->setTime(18, 0);
-    $calendarToCap = \Illuminate\Support\Carbon::parse($calendarTo ?? now()->addDays($calendarHorizonDays))->setTime(18, 0);
-    if ($calendarToDefault->gt($calendarToCap)) {
-        $calendarToDefault = $calendarToCap;
+    $calendarStartMax = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->endOfDay();
+    $calendarEndMax = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->addDays($calendarWindowDays)->endOfDay();
+    if ($calendarToDefault->gt($calendarEndMax)) {
+        $calendarToDefault = $calendarEndMax->copy()->setTime(18, 0);
     }
     $calendarToDt = $calendarToDefault->format('Y-m-d\TH:i');
     $calendarMinDt = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->startOfDay()->format('Y-m-d\TH:i');
-    $calendarMaxDt = \Illuminate\Support\Carbon::parse($calendarTo ?? now()->addDays($calendarHorizonDays))->endOfDay()->format('Y-m-d\TH:i');
+    $calendarStartMaxDt = $calendarStartMax->format('Y-m-d\TH:i');
+    $calendarEndMaxDt = $calendarEndMax->format('Y-m-d\TH:i');
     $plvLiveData = [
         'zones' => $zonesJson,
         'providers' => $providersJson,
@@ -24,7 +26,7 @@
         'calendarTo' => $calendarTo ?? null,
         'calendarFromDt' => $calendarFromDt,
         'calendarToDt' => $calendarToDt,
-        'calendarHorizonDays' => $calendarHorizonDays,
+        'calendarWindowDays' => $calendarWindowDays,
         'categories' => $categoriesJson ?? [],
         'subcategories' => $subcategoriesJson ?? [],
     ];
@@ -230,10 +232,10 @@
                         <input id="plc-q" type="search" class="form-control" placeholder="{{ translate('Search_provider_zone_or_address') }}">
                     </label>
                     <label class="fld">{{ translate('Starts') }}
-                        <input id="plc-from" type="datetime-local" class="form-control" value="{{ $calendarFromDt }}" min="{{ $calendarMinDt }}" max="{{ $calendarMaxDt }}" step="60">
+                        <input id="plc-from" type="datetime-local" class="form-control" value="{{ $calendarFromDt }}" min="{{ $calendarMinDt }}" max="{{ $calendarStartMaxDt }}" step="60">
                     </label>
                     <label class="fld">{{ translate('Ends') }}
-                        <input id="plc-to" type="datetime-local" class="form-control" value="{{ $calendarToDt }}" min="{{ $calendarMinDt }}" max="{{ $calendarMaxDt }}" step="60">
+                        <input id="plc-to" type="datetime-local" class="form-control" value="{{ $calendarToDt }}" min="{{ $calendarFromDt }}" max="{{ $calendarEndMaxDt }}" step="60">
                     </label>
                     <label class="fld">{{ translate('Zone') }} / {{ translate('Area') }}
                         <select id="plc-zone" class="form-select">
