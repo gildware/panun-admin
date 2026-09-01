@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
-"""Post-process AI-generated carpentry category + variant icons."""
+"""Post-process prompt-generated curtain rod variant icons (recolor/resize only)."""
 
 from __future__ import annotations
 
-import json
-import subprocess
-import sys
 from pathlib import Path
 
 from PIL import Image
@@ -13,9 +10,14 @@ from PIL import Image
 BRAND = (26, 35, 58)
 SRC = Path("/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets")
 ROOT = Path(__file__).resolve().parent
-CAT_SRC = ROOT / "assets" / "category-icons"
 VARIANT_OUT = ROOT / "assets" / "variant-icons"
-PROMPTS = ROOT / "assets" / "data" / "carpentry-icon-prompts.json"
+FILES = [
+    "curtain-rod-installation-standard-rod.png",
+    "curtain-rod-installation-double-rod.png",
+    "curtain-rod-installation-curtain-track.png",
+    "curtain-rod-installation-rod-uninstall.png",
+    "curtain-rod-installation-uninstall-install.png",
+]
 
 
 def recolor(img: Image.Image) -> Image.Image:
@@ -43,18 +45,6 @@ def recolor(img: Image.Image) -> Image.Image:
     return img
 
 
-def save_category(slug: str) -> None:
-    src = SRC / f"{slug}.png"
-    if not src.is_file():
-        raise SystemExit(f"Missing AI category icon: {src}")
-    dest = CAT_SRC / f"{slug}.png"
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    img = recolor(Image.open(src))
-    img = img.resize((512, 512), Image.Resampling.LANCZOS)
-    img.convert("RGB").save(dest, "PNG", optimize=True)
-    print(f"Wrote {dest}")
-
-
 def save_variant(filename: str) -> None:
     src = SRC / filename
     if not src.is_file():
@@ -68,33 +58,8 @@ def save_variant(filename: str) -> None:
 
 
 def main() -> None:
-    if not PROMPTS.is_file():
-        subprocess.run([sys.executable, str(ROOT / "assets" / "carpentry_icon_prompts.py")], check=True)
-
-    data = json.loads(PROMPTS.read_text())
-    missing: list[str] = []
-
-    for row in data["categories"]:
-        if not (SRC / row["filename"]).is_file():
-            missing.append(row["filename"])
-            continue
-        save_category(row["slug"])
-
-    for row in data["variants"]:
-        if str(row.get("service_slug", "")).startswith("wooden-flooring-"):
-            continue
-        if str(row.get("service_slug", "")) == "curtain-rod-installation":
-            continue
-        if not (SRC / row["filename"]).is_file():
-            missing.append(row["filename"])
-            continue
-        save_variant(row["filename"])
-
-    if missing:
-        print("MISSING AI icons:", ", ".join(missing), file=sys.stderr)
-        sys.exit(2)
-
-    print("Done. Run make_theme_pairs for category light/dark next.")
+    for filename in FILES:
+        save_variant(filename)
 
 
 if __name__ == "__main__":

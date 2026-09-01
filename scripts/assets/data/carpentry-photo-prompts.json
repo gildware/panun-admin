@@ -40,6 +40,26 @@
     "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/table-installation-cover.png"
   },
   {
+    "slug": "wooden-flooring-install",
+    "name": "Wooden Flooring Install",
+    "sub_category_slug": "carpentry-installation",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of wooden flooring install in progress, installing laminate or wooden floor planks in a Kashmir home living room, a clean modern Indian home interior in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing wooden flooring install, installing laminate or wooden floor planks in a Kashmir home living room, a clean modern Indian home interior in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/wooden-flooring-install-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/wooden-flooring-install-cover.png"
+  },
+  {
+    "slug": "curtain-rod-installation",
+    "name": "Curtain Rod Installation",
+    "sub_category_slug": "carpentry-installation",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of curtain rod installation in progress, drilling and fitting a curtain rod bracket above a window with carpentry tools, a clean modern Indian home interior in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing curtain rod installation, drilling and fitting a curtain rod bracket above a window with carpentry tools, a clean modern Indian home interior in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/curtain-rod-installation-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/curtain-rod-installation-cover.png"
+  },
+  {
     "slug": "bed-making",
     "name": "Bed Making",
     "sub_category_slug": "carpentry-making",
@@ -118,6 +138,16 @@
     "cover_prompt": "Wide landscape professional photograph showing door repair, repairing a wooden door hinge and alignment, a lived-in Indian home interior in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
     "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/door-repair-thumbnail.png",
     "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/door-repair-cover.png"
+  },
+  {
+    "slug": "wooden-flooring-repair",
+    "name": "Wooden Flooring Repair",
+    "sub_category_slug": "carpentry-repairs",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of wooden flooring repair in progress, repairing a loose or damaged wooden floor plank, a lived-in Indian home interior in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing wooden flooring repair, repairing a loose or damaged wooden floor plank, a lived-in Indian home interior in Srinagar Kashmir, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/wooden-flooring-repair-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/wooden-flooring-repair-cover.png"
   },
   {
     "slug": "furniture-repair",
