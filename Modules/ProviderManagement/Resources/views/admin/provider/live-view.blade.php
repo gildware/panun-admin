@@ -3,18 +3,19 @@
 @section('title', translate('Provider_Live_View'))
 
 @php
-    $plvAssetV = (@filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time()) . '-plv8';
-    $plvCssV = (@filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time()) . '-plv8';
-    $plvCalJsV = (@filemtime(public_path('assets/admin-module/js/provider-availability-calendar.js')) ?: time()) . '-plv8';
+    $plvAssetV = (@filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time()) . '-plv9';
+    $plvCssV = (@filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time()) . '-plv9';
+    $plvCalJsV = (@filemtime(public_path('assets/admin-module/js/provider-availability-calendar.js')) ?: time()) . '-plv9';
+    $calendarHorizonDays = (int) ($calendarHorizonDays ?? 90);
     $calendarFromDt = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->setTime(9, 0)->format('Y-m-d\TH:i');
     $calendarToDefault = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->addDays(6)->setTime(18, 0);
-    $calendarToCap = \Illuminate\Support\Carbon::parse($calendarTo ?? now()->addDays(20))->setTime(18, 0);
+    $calendarToCap = \Illuminate\Support\Carbon::parse($calendarTo ?? now()->addDays($calendarHorizonDays))->setTime(18, 0);
     if ($calendarToDefault->gt($calendarToCap)) {
         $calendarToDefault = $calendarToCap;
     }
     $calendarToDt = $calendarToDefault->format('Y-m-d\TH:i');
     $calendarMinDt = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->startOfDay()->format('Y-m-d\TH:i');
-    $calendarMaxDt = \Illuminate\Support\Carbon::parse($calendarTo ?? now()->addDays(20))->endOfDay()->format('Y-m-d\TH:i');
+    $calendarMaxDt = \Illuminate\Support\Carbon::parse($calendarTo ?? now()->addDays($calendarHorizonDays))->endOfDay()->format('Y-m-d\TH:i');
     $plvLiveData = [
         'zones' => $zonesJson,
         'providers' => $providersJson,
@@ -23,6 +24,7 @@
         'calendarTo' => $calendarTo ?? null,
         'calendarFromDt' => $calendarFromDt,
         'calendarToDt' => $calendarToDt,
+        'calendarHorizonDays' => $calendarHorizonDays,
         'categories' => $categoriesJson ?? [],
         'subcategories' => $subcategoriesJson ?? [],
     ];
