@@ -354,7 +354,7 @@ trait AdminMenuWithRoutes
                 'uri' => 'admin/provider/live-view',
                 'full_route' => url('admin/provider/live-view'),
                 "page_title" => 'Provider_Live_View',
-                "keywords" => 'Provider Live View, coverage map, zone, availability, Providers',
+                "keywords" => 'Provider Live View, coverage map, zone, availability, availability calendar, Providers',
                 "type" => 'menu',
             ],
             [

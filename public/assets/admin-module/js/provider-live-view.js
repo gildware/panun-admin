@@ -12,6 +12,7 @@
     const payload = JSON.parse(dataEl.textContent || '{}');
     const ZONES = payload.zones || [];
     const PROVIDERS = payload.providers || [];
+    const SUBCATEGORIES = payload.subcategories || [];
     const DEFAULT_ZONE_ID = payload.defaultZoneId || '';
     const zoneById = {};
     ZONES.forEach(function (z) { zoneById[z.id] = z; });
@@ -34,6 +35,7 @@
     const q = document.getElementById('plv-q');
     const zoneSel = document.getElementById('plv-zone');
     const catSel = document.getElementById('plv-cat');
+    const subSel = document.getElementById('plv-sub');
     const availSel = document.getElementById('plv-avail');
     const listEl = document.getElementById('plv-list');
     const listCount = document.getElementById('plv-list-count');
@@ -77,11 +79,47 @@
             .replace(/"/g, '&quot;');
     }
 
+    function fillSubSelect(selectEl, parentCatId) {
+        if (!selectEl) {
+            return;
+        }
+        const enabled = !!parentCatId;
+        const placeholder = selectEl.getAttribute(enabled ? 'data-placeholder-on' : 'data-placeholder-off')
+            || (enabled ? 'All subcategories' : 'Select a category');
+        const rows = enabled
+            ? SUBCATEGORIES.filter(function (s) { return s.parent_id === parentCatId; })
+            : [];
+        selectEl.disabled = !enabled;
+        selectEl.innerHTML = '<option value="">' + escapeHtml(placeholder) + '</option>' + rows.map(function (s) {
+            return '<option value="' + escapeHtml(s.id) + '">' + escapeHtml(s.name) + '</option>';
+        }).join('');
+        selectEl.value = '';
+    }
+
+    function serviceChips(p) {
+        const subs = p.subcategories || [];
+        const names = (subs.length ? subs : (p.categories || [])).map(function (c) {
+            return '<span class="provider-live-chip">' + escapeHtml(c.name) + '</span>';
+        });
+        return names.join('');
+    }
+
+    function primaryServiceName(p) {
+        if (p.subcategories && p.subcategories[0] && p.subcategories[0].name) {
+            return p.subcategories[0].name;
+        }
+        if (p.categories && p.categories[0] && p.categories[0].name) {
+            return p.categories[0].name;
+        }
+        return '—';
+    }
+
     function filters() {
         return {
             q: (q.value || '').trim().toLowerCase(),
             zone: zoneSel.value,
             cat: catSel.value,
+            sub: subSel ? subSel.value : '',
             avail: availSel.value
         };
     }
@@ -98,13 +136,15 @@
         const f = filters();
         if (!zoneHits(p, f.zone)) return false;
         if (f.cat && !(p.categories || []).some(function (c) { return c.id === f.cat; })) return false;
+        if (f.sub && !(p.subcategories || []).some(function (c) { return c.id === f.sub; })) return false;
         if (f.avail && p.avail !== f.avail) return false;
         if (f.q) {
             const zoneNames = (p.zone_ids || []).map(function (id) {
                 return zoneById[id] ? zoneById[id].name : '';
             }).join(' ');
             const catNames = (p.categories || []).map(function (c) { return c.name; }).join(' ');
-            const blob = [p.name, p.address, p.phone, zoneNames, catNames].join(' ').toLowerCase();
+            const subNames = (p.subcategories || []).map(function (c) { return c.name; }).join(' ');
+            const blob = [p.name, p.address, p.phone, zoneNames, catNames, subNames].join(' ').toLowerCase();
             if (blob.indexOf(f.q) === -1) return false;
         }
         return true;
@@ -382,9 +422,7 @@
             return;
         }
         listEl.innerHTML = rows.map(function (p) {
-            const catChips = (p.categories || []).map(function (c) {
-                return '<span class="provider-live-chip">' + escapeHtml(c.name) + '</span>';
-            }).join('');
+            const catChips = serviceChips(p);
             const zones = (p.zone_ids || []).slice(0, 4).map(function (id) {
                 const z = zoneById[id];
                 return z ? '<span class="provider-live-chip">' + escapeHtml(z.name) + '</span>' : '';
@@ -392,7 +430,7 @@
             const img = p.logo
                 ? '<span class="provider-live-avatar-wrap"><img class="provider-live-avatar" src="' + escapeHtml(p.logo) + '" alt=""></span>'
                 : '<span class="provider-live-avatar-wrap provider-live-avatar-wrap--initials">' + escapeHtml(initials(p.name)) + '</span>';
-            const firstCat = (p.categories && p.categories[0] && p.categories[0].name) ? p.categories[0].name : '—';
+            const firstCat = primaryServiceName(p);
             return '<div class="provider-live-row' + (selected === p.id ? ' sel' : '') + '" data-id="' + escapeHtml(p.id) + '">' +
                 img +
                 '<div>' +
@@ -493,24 +531,47 @@
     }
 
     ['input', 'change'].forEach(function (evt) {
-        [q, zoneSel, catSel, availSel].forEach(function (el) {
+        [q, zoneSel, catSel, subSel, availSel].forEach(function (el) {
+            if (!el) {
+                return;
+            }
             el.addEventListener(evt, function () {
+                if (el === catSel) {
+                    fillSubSelect(subSel, catSel.value);
+                }
                 didFit = false;
                 render();
             });
         });
     });
 
-    document.getElementById('plv-reset').addEventListener('click', function () {
-        q.value = '';
-        zoneSel.value = DEFAULT_ZONE_ID || '';
-        catSel.value = '';
-        availSel.value = '';
+    function resetMapFilters(e) {
+        if (e) {
+            e.preventDefault();
+        }
+        const form = (q && q.form) || document.querySelector('#plv-map-ui form');
+        if (form) {
+            form.reset();
+        } else {
+            if (q) q.value = '';
+            if (zoneSel) zoneSel.value = DEFAULT_ZONE_ID || '';
+            if (catSel) catSel.value = '';
+            if (availSel) availSel.value = '';
+        }
+        fillSubSelect(subSel, '');
         selected = null;
         cardOverlay.hide();
         didFit = false;
         render();
-    });
+    }
+    const mapForm = (q && q.form) || document.querySelector('#plv-map-ui form');
+    if (mapForm) {
+        mapForm.addEventListener('click', function (e) {
+            if (e.target.closest('#plv-reset')) {
+                resetMapFilters(e);
+            }
+        });
+    }
 
     document.querySelectorAll('.provider-live-kpi[data-avail]').forEach(function (k) {
         k.addEventListener('click', function () {
@@ -531,8 +592,43 @@
         applyMapMode();
     });
 
+    fillSubSelect(subSel, catSel ? catSel.value : '');
     render();
     google.maps.event.addListenerOnce(map, 'idle', function () {
         google.maps.event.trigger(map, 'resize');
+    });
+
+    const mapUi = document.getElementById('plv-map-ui');
+    const calUi = document.getElementById('plv-cal-ui');
+    const subMap = document.getElementById('plv-subtitle-map');
+    const subCal = document.getElementById('plv-subtitle-cal');
+    function showTab(tab) {
+        document.querySelectorAll('[data-plv-tab]').forEach(function (b) {
+            b.classList.toggle('on', b.getAttribute('data-plv-tab') === tab);
+        });
+        if (mapUi) {
+            mapUi.hidden = tab !== 'map';
+        }
+        if (calUi) {
+            calUi.hidden = tab !== 'cal';
+        }
+        if (subMap) {
+            subMap.hidden = tab !== 'map';
+        }
+        if (subCal) {
+            subCal.hidden = tab !== 'cal';
+        }
+        if (tab === 'map') {
+            google.maps.event.trigger(map, 'resize');
+            didFit = false;
+            render();
+        } else if (typeof window.plvRenderCalendar === 'function') {
+            window.plvRenderCalendar();
+        }
+    }
+    document.querySelectorAll('[data-plv-tab]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            showTab(btn.getAttribute('data-plv-tab'));
+        });
     });
 })();
