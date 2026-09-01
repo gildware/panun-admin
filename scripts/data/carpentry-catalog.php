@@ -41,7 +41,7 @@ return [
         [
             'name' => 'Carpentry Installation',
             'slug' => 'carpentry-installation',
-            'description' => 'Door, window, bed, table, and wooden flooring installation by verified carpenters.',
+            'description' => 'Door, window, bed, table, wooden flooring, and curtain rod installation by verified carpenters.',
             'sort_order' => 1,
         ],
         [
@@ -121,6 +121,19 @@ return [
                 carpentry_variant('engineered-wood', 'Engineered Wood', 699.0),
                 carpentry_variant('solid-wood', 'Solid Wood', 899.0),
                 carpentry_variant('flooring-with-skirting', 'Flooring with Skirting', 999.0),
+            ],
+        ],
+        [
+            'name' => 'Curtain Rod Installation',
+            'slug' => 'curtain-rod-installation',
+            'sub_category_slug' => 'carpentry-installation',
+            'base_price' => 50.0,
+            'variants' => [
+                carpentry_variant('standard-rod', 'Standard Rod'),
+                carpentry_variant('double-rod', 'Double Rod'),
+                carpentry_variant('curtain-track', 'Curtain Track'),
+                carpentry_variant('rod-uninstall', 'Rod Uninstall'),
+                carpentry_variant('uninstall-install', 'Uninstall + Install'),
             ],
         ],
 

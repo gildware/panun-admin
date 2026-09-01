@@ -23,6 +23,7 @@ ACTION = {
     "window-installation": "fitting a wooden window into an opening with careful alignment",
     "bed-installation": "assembling a wooden bed frame with tools",
     "table-installation": "assembling a wooden table with tools",
+    "curtain-rod-installation": "drilling and fitting a curtain rod bracket above a window with carpentry tools",
     "wooden-flooring-install": "installing laminate or wooden floor planks in a Kashmir home living room",
     "wooden-flooring-repair": "repairing a loose or damaged wooden floor plank",
     "bed-making": "measuring and crafting a custom wooden bed frame",

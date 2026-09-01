@@ -47,7 +47,11 @@ def main() -> None:
         print(f"Missing catalog: {CATALOG}", file=sys.stderr)
         sys.exit(1)
 
-    slugs = [slug for slug in load_slugs() if not slug.startswith("wooden-flooring-")]
+    slugs = [
+        slug for slug in load_slugs()
+        if not slug.startswith("wooden-flooring-")
+        and slug != "curtain-rod-installation"
+    ]
     missing = []
     prepared = 0
 

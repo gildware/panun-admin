@@ -68,6 +68,21 @@ class CarpentryContentBuilder
                 'Painting or polishing',
                 'Moving furniture between floors unless agreed',
             ]),
+            'curtain-rod-installation' => self::install($name, 'curtain rods, double rods, and tracks', [
+                'New curtain rods', 'Double rods', 'Curtain tracks', 'Rod uninstall', 'Uninstall and reinstall',
+            ], [
+                'On-site check of wall, window width, and bracket positions',
+                'Secure fixing of brackets and anchors for the booked variation',
+                'Rod or track alignment and centre support where needed',
+                'Hang test and open/close check after fitting',
+                'Work-area tidy-up after installation',
+            ], [
+                'Cost of rod, track, brackets, or curtains',
+                'Fabric stitching, lining, or curtain making',
+                'Major plaster repair or masonry rebuild around failed holes',
+                'Motorised or smart curtain systems unless agreed on site',
+                'Interior decor advice (book Curtains & Soft Furnishing Advice)',
+            ]),
             'wooden-flooring-install' => self::install($name, 'laminate, engineered, and solid wooden floors', [
                 'Laminate / click-lock floors', 'Engineered wood', 'Solid wood planks', 'Flooring with skirting', 'Home renovations',
             ], [
