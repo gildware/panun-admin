@@ -42,17 +42,36 @@
 
     let selected = null;
     let kpiFilter = '';
-    let searchDirty = false;
+    let listQuery = '';
+    let findTimer = null;
+    let findDirty = false;
+    const FIND_DEBOUNCE_MS = 280;
     const findInputs = Array.prototype.slice.call(document.querySelectorAll('.js-plc-find'));
-    function setSearch(value, source) {
-        if (q && q !== source) {
-            q.value = value;
+    function findBlob(p) {
+        return [p.name, p.phone].join(' ').toLowerCase();
+    }
+    function matchesListFind(p) {
+        const fq = listQuery.trim().toLowerCase();
+        if (!fq) {
+            return true;
         }
+        return findBlob(p).indexOf(fq) !== -1;
+    }
+    function syncFindInputs(value, source) {
         findInputs.forEach(function (el) {
             if (el !== source) {
                 el.value = value;
             }
         });
+    }
+    function clearListFind() {
+        if (findTimer) {
+            clearTimeout(findTimer);
+            findTimer = null;
+        }
+        listQuery = '';
+        findDirty = false;
+        syncFindInputs('', null);
     }
 
     function parseDateTime(s) {
@@ -314,11 +333,10 @@
         }
 
         const all = PROVIDERS.filter(baseMatch);
-        const rows = PROVIDERS.filter(matches);
-        if (searchDirty) {
-            searchDirty = false;
-            const query = ((q && q.value) || '').trim();
-            if (query.length >= 2 && rows[0]) {
+        const rows = PROVIDERS.filter(matches).filter(matchesListFind);
+        if (findDirty) {
+            findDirty = false;
+            if (listQuery.trim().length >= 1 && rows[0]) {
                 selected = rows[0].id;
             }
         }
@@ -357,14 +375,18 @@
             listCount.textContent = '(' + rows.length + ')';
         }
         if (!rows.length) {
-            listEl.innerHTML = '<div class="provider-live-empty">No providers match this range. Try another date or time.</div>';
+            listEl.innerHTML = listQuery.trim()
+                ? '<div class="provider-live-empty">No provider in this list matches that name.</div>'
+                : '<div class="provider-live-empty">No providers match this range. Try another date or time.</div>';
         } else {
             listEl.innerHTML = rows.map(function (p) {
                 const v = rangeVerdict(p);
                 const hrs = hoursOf(p);
-                const img = p.logo
-                    ? '<span class="provider-live-avatar-wrap"><img class="provider-live-avatar" src="' + escapeHtml(p.logo) + '" alt=""></span>'
-                    : '<span class="provider-live-avatar-wrap provider-live-avatar-wrap--initials">' + escapeHtml(initials(p.name)) + '</span>';
+                const img = typeof window.plvAvatarHtml === 'function'
+                    ? window.plvAvatarHtml(p)
+                    : (p.logo
+                        ? '<span class="provider-live-avatar-wrap"><img class="provider-live-avatar" src="' + escapeHtml(p.logo) + '" alt=""></span>'
+                        : '<span class="provider-live-avatar-wrap provider-live-avatar-wrap--initials">' + escapeHtml(initials(p.name)) + '</span>');
                 return '<div class="provider-live-row' + (selected === p.id ? ' sel' : '') + '" data-id="' + escapeHtml(p.id) + '">' +
                     img + '<div>' +
                     '<div class="provider-live-name">' + escapeHtml(p.name) + '</div>' +
@@ -400,7 +422,11 @@
                 const kindLabel = st.kind === 'free' ? 'Free' : st.kind === 'partial' ? 'Partial' : st.kind === 'ong' ? 'Ongoing' : st.kind === 'sched' ? 'Scheduled' : 'Off';
                 return '<td class="cell"><div class="provider-cal-block ' + st.kind + '">' + kindLabel + '<small>' + escapeHtml(st.label) + '</small></div></td>';
             }).join('');
-            return '<tr class="' + (selected === p.id ? 'is-sel' : '') + '" data-id="' + escapeHtml(p.id) + '"><td class="name">' + escapeHtml(p.name) + '</td>' + cells + '</tr>';
+            const namePhoto = typeof window.plvAvatarHtml === 'function'
+                ? window.plvAvatarHtml(p)
+                : '';
+            return '<tr class="' + (selected === p.id ? 'is-sel' : '') + '" data-id="' + escapeHtml(p.id) + '"><td class="name"><div class="provider-cal-name">' +
+                namePhoto + '<span>' + escapeHtml(p.name) + '</span></div></td>' + cells + '</tr>';
         }).join('');
         calEl.innerHTML = '<table class="provider-cal-table"><thead><tr>' + head + '</tr></thead><tbody>' +
             (body || '<tr><td colspan="' + (days.length + 1) + '"><div class="provider-live-empty">No rows</div></td></tr>') +
@@ -426,7 +452,9 @@
         });
         const hrs = hoursOf(sel);
         det.hidden = false;
-        det.innerHTML = '<strong>' + escapeHtml(sel.name) + '</strong> in this window' +
+        const detPhoto = typeof window.plvAvatarHtml === 'function' ? window.plvAvatarHtml(sel) : '';
+        det.innerHTML = '<div class="provider-cal-detail-head">' + detPhoto +
+            '<div><strong>' + escapeHtml(sel.name) + '</strong> in this window</div></div>' +
             '<div class="provider-live-thin" style="margin-top:4px">App hours ' + escapeHtml(hrs.start) + '–' + escapeHtml(hrs.end) +
             ((sel.weekends || []).length ? ' · off: ' + escapeHtml((sel.weekends || []).join(', ')) : ' · no weekend off') +
             ' · switch: ' + (sel.appOn ? 'available' : 'unavailable') + '</div>' +
@@ -441,14 +469,23 @@
                 : '<p class="provider-live-thin" style="margin-top:8px">No scheduled or ongoing jobs overlapping this range.</p>');
     }
 
-    [q].concat(findInputs).forEach(function (el) {
-        if (!el) {
-            return;
-        }
-        el.addEventListener('input', function () {
-            setSearch(el.value, el);
-            searchDirty = true;
+    if (q) {
+        q.addEventListener('input', function () {
             render();
+        });
+    }
+    findInputs.forEach(function (el) {
+        el.addEventListener('input', function () {
+            syncFindInputs(el.value, el);
+            if (findTimer) {
+                clearTimeout(findTimer);
+            }
+            findTimer = setTimeout(function () {
+                findTimer = null;
+                listQuery = el.value;
+                findDirty = true;
+                render();
+            }, FIND_DEBOUNCE_MS);
         });
     });
     ['input', 'change'].forEach(function (evt) {
@@ -482,7 +519,7 @@
             if (catEl) catEl.value = '';
         }
         fillSubSelect(subEl, '');
-        setSearch('', null);
+        clearListFind();
         applyStartCap();
         applyEndCap();
         kpiFilter = '';

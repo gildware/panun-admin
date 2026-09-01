@@ -3,9 +3,9 @@
 @section('title', translate('Provider_Live_View'))
 
 @php
-    $plvAssetV = (@filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time()) . '-plv15';
-    $plvCssV = (@filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time()) . '-plv15';
-    $plvCalJsV = (@filemtime(public_path('assets/admin-module/js/provider-availability-calendar.js')) ?: time()) . '-plv15';
+    $plvAssetV = (@filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time()) . '-plv18';
+    $plvCssV = (@filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time()) . '-plv18';
+    $plvCalJsV = (@filemtime(public_path('assets/admin-module/js/provider-availability-calendar.js')) ?: time()) . '-plv18';
     $calendarWindowDays = (int) ($calendarWindowDays ?? 90);
     $calendarStartMaxDays = (int) ($calendarStartMaxDays ?? 365);
     $calendarFromDt = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->setTime(9, 0)->format('Y-m-d\TH:i');
@@ -31,6 +31,7 @@
         'calendarStartMaxDays' => $calendarStartMaxDays,
         'categories' => $categoriesJson ?? [],
         'subcategories' => $subcategoriesJson ?? [],
+        'placeholderPhoto' => asset('assets/provider-module/img/user2x.png'),
     ];
 @endphp
 @push('css_or_js')
@@ -62,10 +63,23 @@
             min-height: 28px !important;
             max-width: 28px !important;
         }
+        .plv-popup-card,
+        .plv-float-card .plv-popup-card {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 12px !important;
+        }
         .plv-popup-photo,
-        .plv-popup-photo img {
-            width: 48px !important;
-            height: 48px !important;
+        .plv-popup-photo img,
+        .plv-float-card .plv-popup-photo,
+        .gm-style .plv-popup-photo {
+            width: 56px !important;
+            height: 56px !important;
+            min-width: 56px !important;
+            min-height: 56px !important;
+            max-width: 56px !important;
+            max-height: 56px !important;
         }
         .gm-style .gm-style-iw-ch {
             display: none !important;

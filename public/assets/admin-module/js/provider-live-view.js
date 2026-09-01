@@ -44,6 +44,76 @@
 })();
 
 (function () {
+    function escapeHtml(str) {
+        return String(str || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+    function initials(name) {
+        return String(name || '')
+            .split(/\s+/)
+            .map(function (w) { return w[0]; })
+            .filter(Boolean)
+            .slice(0, 2)
+            .join('')
+            .toUpperCase() || '?';
+    }
+    let fallback = '';
+    try {
+        const dataEl = document.getElementById('provider-live-data');
+        const payload = JSON.parse((dataEl && dataEl.textContent) || '{}');
+        fallback = payload.placeholderPhoto || '';
+    } catch (e) {
+        fallback = '';
+    }
+    function photoSrc(p) {
+        return p && p.logo ? String(p.logo) : '';
+    }
+    function cssUrl(src) {
+        return String(src || '')
+            .replace(/\\/g, '\\\\')
+            .replace(/'/g, '\\\'')
+            .replace(/[\n\r]/g, '');
+    }
+    function imgHtml(src, className) {
+        const extra = fallback
+            ? ' onerror="this.onerror=null;this.src=\'' + escapeHtml(fallback) + '\'"'
+            : '';
+        return '<img class="' + (className || '') + '" src="' + escapeHtml(src) +
+            '" alt="" width="56" height="56" referrerpolicy="no-referrer"' + extra + '>';
+    }
+    window.plvEscapeHtml = escapeHtml;
+    window.plvInitials = initials;
+    window.plvAvatarHtml = function (p) {
+        const src = photoSrc(p);
+        if (!src) {
+            return '<span class="provider-live-avatar-wrap provider-live-avatar-wrap--initials">' +
+                escapeHtml(initials(p && p.name)) + '</span>';
+        }
+        return '<span class="provider-live-avatar-wrap" style="background-image:url(\'' + cssUrl(src) + '\')">' +
+            imgHtml(src, 'provider-live-avatar') + '</span>';
+    };
+    window.plvPinInnerHtml = function (p) {
+        const src = photoSrc(p);
+        const cls = 'plv-pin plv-pin--' + escapeHtml(p && p.avail);
+        if (!src) {
+            return '<span class="' + cls + '">' + escapeHtml(initials(p && p.name)) + '</span>';
+        }
+        return '<span class="' + cls + '" style="background-image:url(\'' + cssUrl(src) + '\')"></span>';
+    };
+    window.plvPopupPhotoHtml = function (p) {
+        const src = photoSrc(p);
+        if (!src) {
+            return '<div class="plv-popup-photo plv-popup-photo--initials">' +
+                escapeHtml(initials(p && p.name)) + '</div>';
+        }
+        return '<div class="plv-popup-photo" style="background-image:url(\'' + cssUrl(src) + '\')" role="img" aria-hidden="true"></div>';
+    };
+})();
+
+(function () {
     const dataEl = document.getElementById('provider-live-data');
     const mapEl = document.getElementById('providerLiveMap');
     if (!dataEl || !mapEl || mapEl.getAttribute('data-plv-ready') === '1') {
@@ -103,6 +173,7 @@
     let mapMode = 'pins';
     let selected = null;
     let didFit = false;
+    let pinIdsOn = {};
 
     function statusLabel(s) {
         return s === 'available' ? 'Available now' : s === 'onjob' ? 'On a job' : 'Offline';
@@ -200,6 +271,9 @@
     }
 
     function pinInnerHtml(p) {
+        if (typeof window.plvPinInnerHtml === 'function') {
+            return window.plvPinInnerHtml(p);
+        }
         const photo = p.logo
             ? '<img src="' + escapeHtml(p.logo) + '" alt="">'
             : escapeHtml(initials(p.name));
@@ -310,9 +384,11 @@
     cardOverlay.setMap(map);
 
     function popupCard(p) {
-        const photo = p.logo
-            ? '<div class="plv-popup-photo"><img src="' + escapeHtml(p.logo) + '" alt=""></div>'
-            : '<div class="plv-popup-photo">' + escapeHtml(initials(p.name)) + '</div>';
+        const photo = typeof window.plvPopupPhotoHtml === 'function'
+            ? window.plvPopupPhotoHtml(p)
+            : (p.logo
+                ? '<div class="plv-popup-photo"><img src="' + escapeHtml(p.logo) + '" alt=""></div>'
+                : '<div class="plv-popup-photo">' + escapeHtml(initials(p.name)) + '</div>');
         return '<div class="plv-popup-card">' +
             '<button type="button" class="plv-popup-close" aria-label="Close">&times;</button>' +
             photo +
@@ -387,27 +463,51 @@
         }).length;
     }
 
-    function renderPins(rows) {
-        clearMarkers();
-        rows.forEach(function (p) {
-            if (p.lat == null || p.lng == null) {
-                return;
-            }
-            const marker = new PlvHtmlMarker({
+    function ensureMarker(p) {
+        if (p.lat == null || p.lng == null) {
+            return null;
+        }
+        if (!markers[p.id]) {
+            markers[p.id] = new PlvHtmlMarker({
                 position: new google.maps.LatLng(Number(p.lat), Number(p.lng)),
                 provider: p,
-                map: mapMode === 'pins' ? map : null,
+                map: null,
                 onClick: function () {
                     openProviderCard(p);
                 }
             });
-            markers[p.id] = marker;
+        }
+        return markers[p.id];
+    }
+
+    function renderPins(rows) {
+        const show = {};
+        const wantMap = mapMode === 'pins' ? map : null;
+        rows.forEach(function (p) {
+            const marker = ensureMarker(p);
+            if (!marker) {
+                return;
+            }
+            show[p.id] = true;
+            if (marker.getMap() !== wantMap) {
+                marker.setMap(wantMap);
+            } else if (marker.draw) {
+                marker.draw();
+            }
         });
-        if (selected && markers[selected] && mapMode === 'pins') {
+        pinIdsOn = show;
+        Object.keys(markers).forEach(function (id) {
+            if (!show[id] && markers[id].getMap()) {
+                markers[id].setMap(null);
+            }
+        });
+        if (selected && markers[selected] && mapMode === 'pins' && show[selected]) {
             const p = PROVIDERS.find(function (x) { return x.id === selected; });
             if (p) {
                 cardOverlay.show(popupCard(p), markers[selected].getPosition());
             }
+        } else if (!selected || !show[selected]) {
+            cardOverlay.hide();
         }
     }
 
@@ -446,7 +546,8 @@
 
     function applyMapMode() {
         Object.keys(markers).forEach(function (id) {
-            markers[id].setMap(mapMode === 'pins' ? map : null);
+            const on = mapMode === 'pins' && !!pinIdsOn[id];
+            markers[id].setMap(on ? map : null);
         });
         heatPolygons.forEach(function (poly) {
             poly.setOptions({
@@ -463,7 +564,9 @@
     function renderList(rows) {
         listCount.textContent = '(' + rows.length + ')';
         if (!rows.length) {
-            listEl.innerHTML = '<div class="provider-live-empty">No providers match these filters.<br>Try another zone or category.</div>';
+            listEl.innerHTML = listQuery.trim()
+                ? '<div class="provider-live-empty">No provider in this list matches that name.</div>'
+                : '<div class="provider-live-empty">No providers match these filters.<br>Try another zone or category.</div>';
             return;
         }
         listEl.innerHTML = rows.map(function (p) {
@@ -472,9 +575,11 @@
                 const z = zoneById[id];
                 return z ? '<span class="provider-live-chip">' + escapeHtml(z.name) + '</span>' : '';
             }).join('');
-            const img = p.logo
-                ? '<span class="provider-live-avatar-wrap"><img class="provider-live-avatar" src="' + escapeHtml(p.logo) + '" alt=""></span>'
-                : '<span class="provider-live-avatar-wrap provider-live-avatar-wrap--initials">' + escapeHtml(initials(p.name)) + '</span>';
+            const img = typeof window.plvAvatarHtml === 'function'
+                ? window.plvAvatarHtml(p)
+                : (p.logo
+                    ? '<span class="provider-live-avatar-wrap"><img class="provider-live-avatar" src="' + escapeHtml(p.logo) + '" alt=""></span>'
+                    : '<span class="provider-live-avatar-wrap provider-live-avatar-wrap--initials">' + escapeHtml(initials(p.name)) + '</span>');
             const firstCat = primaryServiceName(p);
             return '<div class="provider-live-row' + (selected === p.id ? ' sel' : '') + '" data-id="' + escapeHtml(p.id) + '">' +
                 img +
@@ -559,61 +664,137 @@
         }
     }
 
-    function render() {
-        const rows = filtered();
-        renderKpis(rows);
-        renderList(rows);
-        renderPins(rows);
-        renderHeat(rows);
-        applyMapMode();
-        if (!didFit) {
-            fitIfNeeded(rows);
-            didFit = true;
-        }
-        document.querySelectorAll('.provider-live-kpi[data-avail]').forEach(function (el) {
-            el.classList.toggle('on', el.getAttribute('data-avail') === availSel.value && availSel.value !== '');
-        });
-        focusSearchHit(rows);
-    }
-
     const findInputs = Array.prototype.slice.call(document.querySelectorAll('.js-plv-find'));
-    let searchDirty = false;
-    function setSearch(value, source) {
-        if (q && q !== source) {
-            q.value = value;
+    const FIND_DEBOUNCE_MS = 280;
+    let listQuery = '';
+    let findTimer = null;
+    let findDirty = false;
+
+    function findBlob(p) {
+        return [p.name, p.phone].join(' ').toLowerCase();
+    }
+    function matchesListFind(p) {
+        const fq = listQuery.trim().toLowerCase();
+        if (!fq) {
+            return true;
         }
+        return findBlob(p).indexOf(fq) !== -1;
+    }
+    function syncFindInputs(value, source) {
         findInputs.forEach(function (el) {
             if (el !== source) {
                 el.value = value;
             }
         });
     }
-    function focusSearchHit(rows) {
-        if (!searchDirty) {
+    function clearListFind() {
+        if (findTimer) {
+            clearTimeout(findTimer);
+            findTimer = null;
+        }
+        listQuery = '';
+        findDirty = false;
+        syncFindInputs('', null);
+    }
+    function showPinsMode() {
+        if (mapMode === 'pins') {
             return;
         }
-        searchDirty = false;
-        const query = ((q && q.value) || '').trim();
-        if (query.length < 2 || !rows.length) {
+        mapMode = 'pins';
+        document.querySelectorAll('#plv-map-mode button').forEach(function (b) {
+            b.classList.toggle('on', b.getAttribute('data-mode') === 'pins');
+        });
+    }
+
+    function focusFindHit(rows) {
+        if (!findDirty) {
+            return;
+        }
+        findDirty = false;
+        if (listQuery.trim().length < 1 || !rows.length) {
             return;
         }
         const hit = rows[0];
-        if (hit.lat != null && hit.lng != null && mapMode === 'pins') {
-            map.panTo({ lat: Number(hit.lat), lng: Number(hit.lng) });
-            map.setZoom(Math.max(map.getZoom() || 12, 14));
-            openProviderCard(hit);
-        }
-    }
-
-    [q].concat(findInputs).forEach(function (el) {
-        if (!el) {
+        selected = hit.id;
+        highlightListRow();
+        if (hit.lat == null || hit.lng == null) {
             return;
         }
-        el.addEventListener('input', function () {
-            setSearch(el.value, el);
-            searchDirty = true;
+        showPinsMode();
+        ensureMarker(hit);
+        if (markers[hit.id] && markers[hit.id].getMap() !== map) {
+            markers[hit.id].setMap(map);
+        }
+        const latlng = { lat: Number(hit.lat), lng: Number(hit.lng) };
+        map.panTo(latlng);
+        if ((map.getZoom() || 12) < 14) {
+            map.setZoom(14);
+        }
+        google.maps.event.trigger(map, 'resize');
+        google.maps.event.addListenerOnce(map, 'idle', function () {
+            if (markers[hit.id] && markers[hit.id].draw) {
+                markers[hit.id].draw();
+            }
+            openProviderCard(hit);
+        });
+        openProviderCard(hit);
+    }
+
+    function render(fromFind) {
+        const base = filtered();
+        const rows = base.filter(matchesListFind);
+        renderKpis(base);
+        renderList(rows);
+        renderPins(rows);
+        if (!fromFind) {
+            renderHeat(base);
+        }
+        applyMapMode();
+        if (!didFit) {
+            fitIfNeeded(base);
+            didFit = true;
+        }
+        document.querySelectorAll('.provider-live-kpi[data-avail]').forEach(function (el) {
+            el.classList.toggle('on', el.getAttribute('data-avail') === availSel.value && availSel.value !== '');
+        });
+        focusFindHit(rows);
+    }
+
+    function applyListFind(value) {
+        listQuery = value;
+        findDirty = true;
+        render(true);
+    }
+
+    if (q) {
+        q.addEventListener('input', function () {
             didFit = false;
             render();
+        });
+    }
+    findInputs.forEach(function (el) {
+        function scheduleFind() {
+            syncFindInputs(el.value, el);
+            if (findTimer) {
+                clearTimeout(findTimer);
+            }
+            findTimer = setTimeout(function () {
+                findTimer = null;
+                applyListFind(el.value);
+            }, FIND_DEBOUNCE_MS);
+        }
+        el.addEventListener('input', scheduleFind);
+        el.addEventListener('search', scheduleFind);
+        el.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (findTimer) {
+                    clearTimeout(findTimer);
+                    findTimer = null;
+                }
+                syncFindInputs(el.value, el);
+                applyListFind(el.value);
+            }
         });
     });
 
@@ -646,7 +827,7 @@
             if (availSel) availSel.value = '';
         }
         fillSubSelect(subSel, '');
-        setSearch('', null);
+        clearListFind();
         selected = null;
         cardOverlay.hide();
         didFit = false;
