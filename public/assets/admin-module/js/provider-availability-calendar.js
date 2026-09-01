@@ -371,7 +371,8 @@
             return;
         }
         const head = '<th class="sticky">Provider</th>' + days.map(function (d) {
-            return '<th>' + d.toLocaleDateString('en-IN', { weekday: 'short' }) + '<br>' + d.getDate() + '</th>';
+            return '<th>' + d.toLocaleDateString('en-IN', { weekday: 'short' }) +
+                '<br>' + d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + '</th>';
         }).join('');
         const body = rows.map(function (p) {
             const cells = days.map(function (d) {

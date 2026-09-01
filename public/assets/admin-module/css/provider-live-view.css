@@ -585,7 +585,7 @@
 .provider-cal-legend .sw-off { background: #94a3b8; }
 
 .provider-cal-workspace {
-    grid-template-columns: minmax(260px, .85fr) minmax(0, 1.4fr);
+    grid-template-columns: minmax(200px, 280px) minmax(0, 1fr);
 }
 
 .provider-cal-panel {
@@ -604,7 +604,7 @@
 table.provider-cal-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 640px;
+    min-width: 720px;
 }
 
 table.provider-cal-table th,
@@ -622,6 +622,9 @@ table.provider-cal-table th {
     color: var(--plv-muted);
     font-weight: 700;
     text-align: center;
+    min-width: 72px;
+    white-space: nowrap;
+    line-height: 1.25;
 }
 
 table.provider-cal-table th.sticky,
