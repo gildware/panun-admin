@@ -1,9 +1,13 @@
 (function () {
     const dataEl = document.getElementById('provider-live-data');
     const mapEl = document.getElementById('providerLiveMap');
-    if (!dataEl || !mapEl || typeof google === 'undefined' || !google.maps) {
+    if (!dataEl || !mapEl || mapEl.getAttribute('data-plv-ready') === '1') {
         return;
     }
+    if (typeof google === 'undefined' || !google.maps) {
+        return;
+    }
+    mapEl.setAttribute('data-plv-ready', '1');
 
     const payload = JSON.parse(dataEl.textContent || '{}');
     const ZONES = payload.zones || [];
@@ -46,11 +50,6 @@
         streetViewControl: false,
         mapTypeControl: false,
         fullscreenControl: true
-    });
-    const infoWindow = new google.maps.InfoWindow({
-        maxWidth: 280,
-        headerDisabled: true,
-        pixelOffset: new google.maps.Size(0, -6)
     });
     const markers = {};
     const heatPolygons = [];
@@ -171,6 +170,60 @@
         this.div.style.zIndex = on ? '20' : '1';
     };
 
+    function PlvCardOverlay() {
+        this.position = null;
+        this.div = null;
+    }
+    PlvCardOverlay.prototype = Object.create(google.maps.OverlayView.prototype);
+    PlvCardOverlay.prototype.constructor = PlvCardOverlay;
+    PlvCardOverlay.prototype.onAdd = function () {
+        const div = document.createElement('div');
+        div.className = 'plv-float-card';
+        div.setAttribute('hidden', 'hidden');
+        this.div = div;
+        this.getPanes().floatPane.appendChild(div);
+    };
+    PlvCardOverlay.prototype.draw = function () {
+        if (!this.div || this.div.hasAttribute('hidden') || !this.position || !this.getProjection()) {
+            return;
+        }
+        const pos = this.getProjection().fromLatLngToDivPixel(this.position);
+        this.div.style.left = pos.x + 'px';
+        this.div.style.top = pos.y + 'px';
+    };
+    PlvCardOverlay.prototype.onRemove = function () {
+        if (this.div && this.div.parentNode) {
+            this.div.parentNode.removeChild(this.div);
+        }
+        this.div = null;
+    };
+    PlvCardOverlay.prototype.show = function (html, position) {
+        this.position = position;
+        if (!this.div) {
+            return;
+        }
+        this.div.innerHTML = html;
+        this.div.removeAttribute('hidden');
+        this.draw();
+        const closeBtn = this.div.querySelector('.plv-popup-close');
+        if (closeBtn) {
+            closeBtn.onclick = function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeProviderCard();
+            };
+        }
+    };
+    PlvCardOverlay.prototype.hide = function () {
+        if (this.div) {
+            this.div.setAttribute('hidden', 'hidden');
+            this.div.innerHTML = '';
+        }
+    };
+
+    const cardOverlay = new PlvCardOverlay();
+    cardOverlay.setMap(map);
+
     function popupCard(p) {
         const photo = p.logo
             ? '<div class="plv-popup-photo"><img src="' + escapeHtml(p.logo) + '" alt=""></div>'
@@ -197,6 +250,17 @@
         }
     }
 
+    function closeProviderCard() {
+        selected = null;
+        cardOverlay.hide();
+        Object.keys(markers).forEach(function (id) {
+            if (markers[id] && markers[id].setSelected) {
+                markers[id].setSelected(false);
+            }
+        });
+        highlightListRow();
+    }
+
     function openProviderCard(p) {
         selected = p.id;
         highlightListRow();
@@ -206,9 +270,7 @@
             }
         });
         if (markers[p.id]) {
-            infoWindow.setContent(popupCard(p));
-            infoWindow.setPosition(markers[p.id].getPosition());
-            infoWindow.open(map);
+            cardOverlay.show(popupCard(p), markers[p.id].getPosition());
         }
     }
 
@@ -259,9 +321,7 @@
         if (selected && markers[selected] && mapMode === 'pins') {
             const p = PROVIDERS.find(function (x) { return x.id === selected; });
             if (p) {
-                infoWindow.setContent(popupCard(p));
-                infoWindow.setPosition(markers[selected].getPosition());
-                infoWindow.open(map);
+                cardOverlay.show(popupCard(p), markers[selected].getPosition());
             }
         }
     }
@@ -311,7 +371,7 @@
             });
         });
         if (mapMode !== 'pins') {
-            infoWindow.close();
+            cardOverlay.hide();
         }
     }
 
@@ -447,7 +507,7 @@
         catSel.value = '';
         availSel.value = '';
         selected = null;
-        infoWindow.close();
+        cardOverlay.hide();
         didFit = false;
         render();
     });
@@ -469,25 +529,6 @@
             b.classList.toggle('on', b === btn);
         });
         applyMapMode();
-    });
-
-    infoWindow.addListener('domready', function () {
-        const closeBtn = document.querySelector('.gm-style-iw .plv-popup-close, .plv-popup-close');
-        if (!closeBtn) {
-            return;
-        }
-        closeBtn.onclick = function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            infoWindow.close();
-            selected = null;
-            Object.keys(markers).forEach(function (id) {
-                if (markers[id] && markers[id].setSelected) {
-                    markers[id].setSelected(false);
-                }
-            });
-            highlightListRow();
-        };
     });
 
     render();

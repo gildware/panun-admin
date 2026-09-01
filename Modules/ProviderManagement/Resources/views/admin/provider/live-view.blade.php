@@ -2,8 +2,54 @@
 
 @section('title', translate('Provider_Live_View'))
 
+@php
+    $plvAssetV = (@filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time()) . '-plv5';
+    $plvCssV = (@filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time()) . '-plv5';
+@endphp
 @push('css_or_js')
-    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/provider-live-view.css') }}?v={{ @filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time() }}">
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/provider-live-view.css') }}?v={{ $plvCssV }}">
+    <style>
+        .provider-live-page img.provider-live-avatar,
+        .provider-live-page .provider-live-avatar-wrap,
+        .provider-live-page .plv-popup-photo,
+        .provider-live-page .plv-popup-photo img,
+        .plv-float-card .plv-popup-photo,
+        .plv-float-card .plv-popup-photo img,
+        .plv-pin,
+        .plv-pin img {
+            border-radius: 50% !important;
+            object-fit: cover !important;
+            overflow: hidden !important;
+        }
+        .provider-live-page img.provider-live-avatar,
+        .provider-live-page .provider-live-avatar-wrap {
+            width: 42px !important;
+            height: 42px !important;
+            max-width: 42px !important;
+        }
+        .plv-popup-photo,
+        .plv-popup-photo img {
+            width: 48px !important;
+            height: 48px !important;
+        }
+        .gm-style .gm-style-iw-ch {
+            display: none !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            padding: 0 !important;
+        }
+        .gm-style .gm-style-iw-chr {
+            position: absolute !important;
+            top: 4px !important;
+            right: 4px !important;
+            height: 24px !important;
+            width: 24px !important;
+        }
+        .gm-style .gm-ui-hover-effect {
+            width: 24px !important;
+            height: 24px !important;
+        }
+    </style>
 @endpush
 
 @section('content')
@@ -109,9 +155,7 @@
     </div>
 
     <script type="application/json" id="provider-live-data">@json(['zones' => $zonesJson, 'providers' => $providersJson, 'defaultZoneId' => $defaultZoneId ?? null])</script>
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ business_config('google_map', 'third_party')?->live_values['map_api_key_client'] }}"></script>
+    <script src="{{ asset('assets/admin-module/js/provider-live-view.js') }}?v={{ $plvAssetV }}"></script>
 @endsection
 
-@push('script')
-    <script src="https://maps.googleapis.com/maps/api/js?key={{ business_config('google_map', 'third_party')?->live_values['map_api_key_client'] }}&v=3.45.8"></script>
-    <script src="{{ asset('assets/admin-module/js/provider-live-view.js') }}?v={{ @filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time() }}"></script>
-@endpush

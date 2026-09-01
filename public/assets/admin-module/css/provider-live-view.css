@@ -239,14 +239,25 @@
     background: #fff;
 }
 
-.plv-popup-card {
-    position: relative;
-    display: flex;
-    gap: 12px;
-    padding: 0 32px 0 0;
-    align-items: center;
+.plv-float-card {
+    position: absolute;
+    transform: translate(-50%, calc(-100% - 10px));
     background: #fff;
-    min-height: 0;
+    border-radius: 14px;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, .2);
+    padding: 10px 12px;
+    min-width: 220px;
+    max-width: 280px;
+    z-index: 40;
+    pointer-events: auto;
+}
+
+.plv-float-card[hidden] {
+    display: none !important;
+}
+
+.plv-float-card .plv-popup-card {
+    padding: 0 28px 0 0;
 }
 
 .plv-popup-close {
