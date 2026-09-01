@@ -1,0 +1,117 @@
+@extends('adminmodule::layouts.master')
+
+@section('title', translate('Provider_Live_View'))
+
+@push('css_or_js')
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/provider-live-view.css') }}?v={{ @filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time() }}">
+@endpush
+
+@section('content')
+    <div class="main-content provider-live-page">
+        <div class="container-fluid">
+            <div class="page-title-wrap mb-3 d-flex align-items-start justify-content-between gap-3 flex-wrap">
+                <div>
+                    <h2 class="page-title mb-1">{{ translate('Provider_Live_View') }}</h2>
+                    <p class="mb-0 text-muted fs-12">{{ translate('Find_providers_by_zone_category_availability_or_address') }}</p>
+                </div>
+            </div>
+
+            <form class="provider-live-filters" onsubmit="return false;">
+                <label class="fld">{{ translate('Search_by_name_or_address') }}
+                    <input id="plv-q" type="search" class="form-control" placeholder="{{ translate('Search_provider_zone_or_address') }}">
+                </label>
+                <label class="fld">{{ translate('Zone') }} / {{ translate('Area') }}
+                    <select id="plv-zone" class="form-select">
+                        <option value="">{{ translate('All_zones') }}</option>
+                        @foreach($zoneTreeOptions as $option)
+                            <option value="{{ $option['id'] }}" @selected(($defaultZoneId ?? '') === $option['id'])>{{ $option['label'] }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <label class="fld">{{ translate('Category') }}
+                    <select id="plv-cat" class="form-select">
+                        <option value="">{{ translate('All_categories') }}</option>
+                        @foreach($categories as $category)
+                            <option value="{{ $category->id }}">{{ $category->name }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <label class="fld">{{ translate('Availability') }}
+                    <select id="plv-avail" class="form-select">
+                        <option value="">{{ translate('Any_status') }}</option>
+                        <option value="available">{{ translate('Available_now') }}</option>
+                        <option value="onjob">{{ translate('On_a_job') }}</option>
+                        <option value="offline">{{ translate('Offline') }}</option>
+                    </select>
+                </label>
+                <button class="btn btn-outline-primary" id="plv-reset" type="button">
+                    <span class="material-icons">restart_alt</span> {{ translate('Reset') }}
+                </button>
+            </form>
+
+            <div class="provider-live-kpis">
+                <div class="provider-live-kpi" data-avail="">
+                    <div class="l">{{ translate('Matching_providers') }}</div>
+                    <div class="v" id="plv-k-total">0</div>
+                    <div class="s">{{ translate('After_filters') }}</div>
+                </div>
+                <div class="provider-live-kpi good" data-avail="available">
+                    <div class="l">{{ translate('Available_now') }}</div>
+                    <div class="v" id="plv-k-avail">0</div>
+                    <div class="s">{{ translate('Can_take_a_job') }}</div>
+                </div>
+                <div class="provider-live-kpi warn" data-avail="onjob">
+                    <div class="l">{{ translate('On_a_job') }}</div>
+                    <div class="v" id="plv-k-job">0</div>
+                    <div class="s">{{ translate('Busy_in_field') }}</div>
+                </div>
+                <div class="provider-live-kpi bad" data-avail="offline">
+                    <div class="l">{{ translate('Offline') }}</div>
+                    <div class="v" id="plv-k-off">0</div>
+                    <div class="s">{{ translate('Not_taking_work') }}</div>
+                </div>
+                <div class="provider-live-kpi">
+                    <div class="l">{{ translate('Zones_covered') }}</div>
+                    <div class="v" id="plv-k-zones">0</div>
+                    <div class="s" id="plv-k-cover">{{ translate('Live_areas') }}</div>
+                </div>
+            </div>
+
+            <div class="provider-live-workspace">
+                <div class="provider-live-panel provider-live-panel--list">
+                    <div class="provider-live-head">
+                        <h3 class="provider-live-title">
+                            <span class="material-icons">badge</span>
+                            {{ translate('Providers') }}
+                            <span class="provider-live-thin" id="plv-list-count"></span>
+                        </h3>
+                        <span class="provider-live-thin">{{ translate('Double_click_to_open') }}</span>
+                    </div>
+                    <div class="provider-live-list-body" id="plv-list"></div>
+                </div>
+                <div class="provider-live-panel provider-live-panel--map">
+                    <div class="provider-live-head">
+                        <h3 class="provider-live-title"><span class="material-icons">map</span> {{ translate('Coverage_map') }}</h3>
+                        <div class="provider-live-seg" id="plv-map-mode">
+                            <button type="button" class="on" data-mode="pins">{{ translate('Pins') }}</button>
+                            <button type="button" data-mode="zones">{{ translate('Zone_heat') }}</button>
+                        </div>
+                    </div>
+                    <div id="providerLiveMap"></div>
+                    <div class="provider-live-legend">
+                        <div><span class="provider-live-dot" style="background:#22c55e"></span> {{ translate('Available_now') }}</div>
+                        <div><span class="provider-live-dot" style="background:#d97706"></span> {{ translate('On_a_job') }}</div>
+                        <div><span class="provider-live-dot" style="background:#94a3b8"></span> {{ translate('Offline') }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="application/json" id="provider-live-data">@json(['zones' => $zonesJson, 'providers' => $providersJson, 'defaultZoneId' => $defaultZoneId ?? null])</script>
+@endsection
+
+@push('script')
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ business_config('google_map', 'third_party')?->live_values['map_api_key_client'] }}&v=3.45.8"></script>
+    <script src="{{ asset('assets/admin-module/js/provider-live-view.js') }}?v={{ @filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time() }}"></script>
+@endpush

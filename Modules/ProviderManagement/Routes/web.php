@@ -10,6 +10,7 @@ use Modules\ProviderManagement\Http\Controllers\Web\Provider\Report\TransactionR
 use Modules\ProviderManagement\Http\Controllers\Web\Admin\CollectCashController;
 use Modules\ProviderManagement\Http\Controllers\Web\Admin\FeedbackTagConfigController;
 use Modules\ProviderManagement\Http\Controllers\Web\Admin\ProviderController;
+use Modules\ProviderManagement\Http\Controllers\Web\Admin\ProviderLiveViewController;
 use Modules\ProviderManagement\Http\Controllers\Web\Admin\CustomerPerformanceController;
 use Modules\ProviderManagement\Http\Controllers\Web\Admin\ProviderPerformanceController;
 use Modules\ProviderManagement\Http\Controllers\Web\Admin\SubscriptionController;
@@ -20,6 +21,7 @@ use Modules\ProviderManagement\Http\Controllers\Web\Provider\WithdrawController;
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
     Route::group(['prefix' => 'provider', 'as' => 'provider.'], function () {
         Route::any('list', [ProviderController::class, 'index'])->name('list');
+        Route::get('live-view', [ProviderLiveViewController::class, 'index'])->name('live-view');
         Route::get('top-providers', [ProviderController::class, 'topProviders'])->name('top-providers');
         Route::any('status-update/{id}', [ProviderController::class, 'statusUpdate'])->name('status_update');
         Route::any('service-availability/{id}', [ProviderController::class, 'serviceAvailability'])->name('service_availability');

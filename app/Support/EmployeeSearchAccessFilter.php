@@ -196,6 +196,7 @@ class EmployeeSearchAccessFilter
             [
                 'patterns' => [
                     'admin/provider/list*',
+                    'admin/provider/live-view*',
                     'admin/provider/details*',
                     'admin/provider/edit*',
                     'admin/provider/collect-cash*',
