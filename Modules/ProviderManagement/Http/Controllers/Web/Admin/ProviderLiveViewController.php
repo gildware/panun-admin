@@ -2,11 +2,15 @@
 
 namespace Modules\ProviderManagement\Http\Controllers\Web\Admin;
 
+use Carbon\Carbon;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Collection;
+use Modules\BookingModule\Entities\Booking;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\Provider;
+use Modules\ProviderManagement\Entities\ProviderSetting;
 use Modules\ZoneManagement\Entities\Zone;
 
 class ProviderLiveViewController extends Controller
@@ -38,7 +42,11 @@ class ProviderLiveViewController extends Controller
                 'owner:id,first_name,last_name,phone,email',
                 'zones:id,name',
                 'zone:id,name',
+                'subscribed_services' => function ($query) {
+                    $query->where('is_subscribed', 1);
+                },
                 'subscribed_services.category:id,name',
+                'subscribed_services.sub_category:id,name,parent_id',
                 'storage',
             ])
             ->withCount([
@@ -50,26 +58,53 @@ class ProviderLiveViewController extends Controller
             ->orderBy('company_name')
             ->get();
 
-        $providerPayload = $providers->map(function (Provider $provider) use ($zonePayload) {
-            return $this->serializeProvider($provider, $zonePayload);
+        $calendarFrom = now()->startOfDay();
+        $calendarTo = now()->addDays(20)->endOfDay();
+        $jobsByProvider = $this->calendarJobsByProvider($providers->pluck('id'), $calendarFrom, $calendarTo);
+        $settingsByProvider = $this->scheduleSettingsByProvider($providers->pluck('id'));
+
+        $providerPayload = $providers->map(function (Provider $provider) use ($zonePayload, $jobsByProvider, $settingsByProvider) {
+            $id = (string) $provider->id;
+
+            return $this->serializeProvider(
+                $provider,
+                $zonePayload,
+                $settingsByProvider->get($id, collect()),
+                $jobsByProvider->get($id, collect())
+            );
         })->values()->all();
 
         $categories = Category::ofType('main')->ofStatus(1)->ordered()->get(['id', 'name']);
+        $subcategories = Category::ofType('sub')->ofStatus(1)->ordered()->get(['id', 'name', 'parent_id']);
 
         return view('providermanagement::admin.provider.live-view', [
             'zonesJson' => $zonePayload,
             'providersJson' => $providerPayload,
             'categories' => $categories,
+            'subcategories' => $subcategories,
+            'subcategoriesJson' => $subcategories->map(fn (Category $cat) => [
+                'id' => (string) $cat->id,
+                'name' => (string) $cat->name,
+                'parent_id' => $cat->parent_id ? (string) $cat->parent_id : null,
+            ])->values()->all(),
+            'categoriesJson' => $categories->map(fn (Category $cat) => [
+                'id' => (string) $cat->id,
+                'name' => (string) $cat->name,
+            ])->values()->all(),
             'zoneTreeOptions' => $zoneTreeOptions,
             'defaultZoneId' => $defaultZoneId,
+            'calendarFrom' => $calendarFrom->toDateString(),
+            'calendarTo' => $calendarTo->toDateString(),
         ]);
     }
 
     /**
      * @param  array<int, array<string, mixed>>  $zonePayload
+     * @param  Collection<int, ProviderSetting>  $settings
+     * @param  Collection<int, Booking>  $jobs
      * @return array<string, mixed>
      */
-    private function serializeProvider(Provider $provider, array $zonePayload): array
+    private function serializeProvider(Provider $provider, array $zonePayload, $settings, $jobs): array
     {
         $lat = $this->numericCoord(data_get($provider->coordinates, 'latitude'));
         $lng = $this->numericCoord(data_get($provider->coordinates, 'longitude'));
@@ -97,6 +132,18 @@ class ProviderLiveViewController extends Controller
             ->map(fn ($cat) => [
                 'id' => (string) $cat->id,
                 'name' => (string) $cat->name,
+            ])
+            ->values()
+            ->all();
+
+        $subcategories = $provider->subscribed_services
+            ->map(fn ($row) => $row->sub_category)
+            ->filter()
+            ->unique('id')
+            ->map(fn ($cat) => [
+                'id' => (string) $cat->id,
+                'name' => (string) $cat->name,
+                'parent_id' => $cat->parent_id ? (string) $cat->parent_id : null,
             ])
             ->values()
             ->all();
@@ -131,7 +178,12 @@ class ProviderLiveViewController extends Controller
             'rating' => round((float) ($provider->avg_rating ?? 0), 1),
             'zone_ids' => $zoneIds,
             'categories' => $categories,
+            'subcategories' => $subcategories,
             'details_url' => route('admin.provider.details', [$provider->id, 'web_page' => 'overview']),
+            'appOn' => $availableForJobs,
+            'hours' => $this->hoursFromSettings($settings),
+            'weekends' => $this->weekendsFromSettings($settings),
+            'jobs' => $this->serializeCalendarJobs($jobs),
         ];
     }
 
@@ -300,5 +352,116 @@ class ProviderLiveViewController extends Controller
 
         return in_array($status, ['blacklisted', 'suspended'], true)
             || (int) ($provider->is_suspended ?? 0) === 1;
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, string>  $providerIds
+     * @return Collection<string, Collection<int, Booking>>
+     */
+    private function calendarJobsByProvider($providerIds, Carbon $from, Carbon $to): Collection
+    {
+        if ($providerIds->isEmpty()) {
+            return collect();
+        }
+
+        return Booking::query()
+            ->whereIn('provider_id', $providerIds)
+            ->whereIn('booking_status', ['pending', 'accepted', 'ongoing'])
+            ->whereNotNull('service_schedule')
+            ->where('service_schedule', '>=', $from->toDateTimeString())
+            ->where('service_schedule', '<=', $to->toDateTimeString())
+            ->orderBy('service_schedule')
+            ->get(['id', 'provider_id', 'readable_id', 'booking_status', 'service_schedule'])
+            ->groupBy(fn (Booking $booking) => (string) $booking->provider_id);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, string>  $providerIds
+     * @return Collection<string, Collection<int, ProviderSetting>>
+     */
+    private function scheduleSettingsByProvider($providerIds): Collection
+    {
+        if ($providerIds->isEmpty()) {
+            return collect();
+        }
+
+        return ProviderSetting::query()
+            ->whereIn('provider_id', $providerIds)
+            ->where('settings_type', 'service_schedule')
+            ->whereIn('key_name', ['time_schedule', 'weekends'])
+            ->get()
+            ->groupBy(fn (ProviderSetting $setting) => (string) $setting->provider_id);
+    }
+
+    /**
+     * @param  Collection<int, ProviderSetting>  $settings
+     * @return array{start: string, end: string}
+     */
+    private function hoursFromSettings($settings): array
+    {
+        $row = $settings->firstWhere('key_name', 'time_schedule');
+        $raw = $row?->live_values;
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+        if (! is_array($raw)) {
+            return ['start' => '09:00', 'end' => '18:00'];
+        }
+
+        $start = (string) ($raw['start_time'] ?? $raw['start'] ?? '09:00');
+        $end = (string) ($raw['end_time'] ?? $raw['end'] ?? '18:00');
+
+        return [
+            'start' => substr($start, 0, 5) ?: '09:00',
+            'end' => substr($end, 0, 5) ?: '18:00',
+        ];
+    }
+
+    /**
+     * @param  Collection<int, ProviderSetting>  $settings
+     * @return array<int, string>
+     */
+    private function weekendsFromSettings($settings): array
+    {
+        $row = $settings->firstWhere('key_name', 'weekends');
+        $raw = $row?->live_values;
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(function ($day) {
+            return strtolower(trim((string) $day));
+        }, $raw)));
+    }
+
+    /**
+     * @param  Collection<int, Booking>  $jobs
+     * @return array<int, array<string, mixed>>
+     */
+    private function serializeCalendarJobs($jobs): array
+    {
+        return $jobs->map(function (Booking $booking) {
+            try {
+                $start = Carbon::parse($booking->service_schedule);
+            } catch (\Throwable $e) {
+                return null;
+            }
+            $end = $start->copy()->addHours(2);
+            $status = strtolower((string) $booking->booking_status);
+            $kind = $status === 'ongoing' ? 'ongoing' : 'scheduled';
+            $readable = (string) ($booking->readable_id ?: $booking->id);
+
+            return [
+                'date' => $start->toDateString(),
+                'start' => $start->format('H:i'),
+                'end' => $end->format('H:i'),
+                'status' => $kind,
+                'title' => $readable.' · '.$kind,
+                'url' => route('admin.booking.details', [$booking->id, 'web_page' => 'details']),
+            ];
+        })->filter()->values()->all();
     }
 }

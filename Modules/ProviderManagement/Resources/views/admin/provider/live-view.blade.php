@@ -3,8 +3,29 @@
 @section('title', translate('Provider_Live_View'))
 
 @php
-    $plvAssetV = (@filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time()) . '-plv5';
-    $plvCssV = (@filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time()) . '-plv5';
+    $plvAssetV = (@filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time()) . '-plv7';
+    $plvCssV = (@filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time()) . '-plv7';
+    $plvCalJsV = (@filemtime(public_path('assets/admin-module/js/provider-availability-calendar.js')) ?: time()) . '-plv7';
+    $calendarFromDt = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->setTime(9, 0)->format('Y-m-d\TH:i');
+    $calendarToDefault = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->addDays(6)->setTime(18, 0);
+    $calendarToCap = \Illuminate\Support\Carbon::parse($calendarTo ?? now()->addDays(20))->setTime(18, 0);
+    if ($calendarToDefault->gt($calendarToCap)) {
+        $calendarToDefault = $calendarToCap;
+    }
+    $calendarToDt = $calendarToDefault->format('Y-m-d\TH:i');
+    $calendarMinDt = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->startOfDay()->format('Y-m-d\TH:i');
+    $calendarMaxDt = \Illuminate\Support\Carbon::parse($calendarTo ?? now()->addDays(20))->endOfDay()->format('Y-m-d\TH:i');
+    $plvLiveData = [
+        'zones' => $zonesJson,
+        'providers' => $providersJson,
+        'defaultZoneId' => $defaultZoneId ?? null,
+        'calendarFrom' => $calendarFrom ?? null,
+        'calendarTo' => $calendarTo ?? null,
+        'calendarFromDt' => $calendarFromDt,
+        'calendarToDt' => $calendarToDt,
+        'categories' => $categoriesJson ?? [],
+        'subcategories' => $subcategoriesJson ?? [],
+    ];
 @endphp
 @push('css_or_js')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/css/provider-live-view.css') }}?v={{ $plvCssV }}">
@@ -58,10 +79,16 @@
             <div class="page-title-wrap mb-3 d-flex align-items-start justify-content-between gap-3 flex-wrap">
                 <div>
                     <h2 class="page-title mb-1">{{ translate('Provider_Live_View') }}</h2>
-                    <p class="mb-0 text-muted fs-12">{{ translate('Find_providers_by_zone_category_availability_or_address') }}</p>
+                    <p class="mb-0 text-muted fs-12" id="plv-subtitle-map">{{ translate('Find_providers_by_zone_category_availability_or_address') }}</p>
+                    <p class="mb-0 text-muted fs-12" id="plv-subtitle-cal" hidden>{{ translate('Availability_calendar_help') }}</p>
+                </div>
+                <div class="provider-live-tabs" id="plv-tabs">
+                    <button type="button" class="on" data-plv-tab="map"><span class="material-icons">map</span> {{ translate('Live_map') }}</button>
+                    <button type="button" data-plv-tab="cal"><span class="material-icons">calendar_month</span> {{ translate('Availability_calendar') }}</button>
                 </div>
             </div>
 
+            <div id="plv-map-ui">
             <form class="provider-live-filters" onsubmit="return false;">
                 <label class="fld">{{ translate('Search_by_name_or_address') }}
                     <input id="plv-q" type="search" class="form-control" placeholder="{{ translate('Search_provider_zone_or_address') }}">
@@ -80,6 +107,13 @@
                         @foreach($categories as $category)
                             <option value="{{ $category->id }}">{{ $category->name }}</option>
                         @endforeach
+                    </select>
+                </label>
+                <label class="fld">{{ translate('Sub_Category') }}
+                    <select id="plv-sub" class="form-select" disabled
+                            data-placeholder-off="{{ translate('Select_a_category') }}"
+                            data-placeholder-on="{{ translate('All_sub_categories') }}">
+                        <option value="">{{ translate('Select_a_category') }}</option>
                     </select>
                 </label>
                 <label class="fld">{{ translate('Availability') }}
@@ -151,11 +185,82 @@
                     </div>
                 </div>
             </div>
+            </div>
+
+            <div id="plv-cal-ui" hidden>
+                <form class="provider-cal-filters" onsubmit="return false;">
+                    <label class="fld">{{ translate('Search_by_name_or_address') }}
+                        <input id="plc-q" type="search" class="form-control" placeholder="{{ translate('Search_provider_zone_or_address') }}">
+                    </label>
+                    <label class="fld">{{ translate('Starts') }}
+                        <input id="plc-from" type="datetime-local" class="form-control" value="{{ $calendarFromDt }}" min="{{ $calendarMinDt }}" max="{{ $calendarMaxDt }}" step="60">
+                    </label>
+                    <label class="fld">{{ translate('Ends') }}
+                        <input id="plc-to" type="datetime-local" class="form-control" value="{{ $calendarToDt }}" min="{{ $calendarMinDt }}" max="{{ $calendarMaxDt }}" step="60">
+                    </label>
+                    <label class="fld">{{ translate('Zone') }} / {{ translate('Area') }}
+                        <select id="plc-zone" class="form-select">
+                            <option value="">{{ translate('All_zones') }}</option>
+                            @foreach($zoneTreeOptions as $option)
+                                <option value="{{ $option['id'] }}" @selected(($defaultZoneId ?? '') === $option['id'])>{{ $option['label'] }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                    <label class="fld">{{ translate('Category') }}
+                        <select id="plc-cat" class="form-select">
+                            <option value="">{{ translate('All_categories') }}</option>
+                            @foreach($categories as $category)
+                                <option value="{{ $category->id }}">{{ $category->name }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                    <label class="fld">{{ translate('Sub_Category') }}
+                        <select id="plc-sub" class="form-select" disabled
+                                data-placeholder-off="{{ translate('Select_a_category') }}"
+                                data-placeholder-on="{{ translate('All_sub_categories') }}">
+                            <option value="">{{ translate('Select_a_category') }}</option>
+                        </select>
+                    </label>
+                    <button class="btn btn-outline-primary" id="plc-reset" type="button">
+                        <span class="material-icons">restart_alt</span> {{ translate('Reset') }}
+                    </button>
+                </form>
+                <p class="provider-cal-note">{{ translate('Availability_calendar_note') }}</p>
+                <div class="provider-cal-legend">
+                    <span><i class="sw sw-free"></i> {{ translate('Free_in_window') }}</span>
+                    <span><i class="sw sw-part"></i> {{ translate('Partial_slot') }}</span>
+                    <span><i class="sw sw-sched"></i> {{ translate('Scheduled_job') }}</span>
+                    <span><i class="sw sw-ong"></i> {{ translate('Ongoing_job') }}</span>
+                    <span><i class="sw sw-off"></i> {{ translate('App_off_or_weekend') }}</span>
+                </div>
+                <div class="provider-live-kpis" id="plc-kpis"></div>
+                <div class="provider-live-workspace provider-cal-workspace">
+                    <div class="provider-live-panel provider-live-panel--list">
+                        <div class="provider-live-head">
+                            <h3 class="provider-live-title">
+                                <span class="material-icons">badge</span>
+                                {{ translate('Who_can_take_work') }}
+                                <span class="provider-live-thin" id="plc-list-count"></span>
+                            </h3>
+                        </div>
+                        <div class="provider-live-list-body" id="plc-list"></div>
+                    </div>
+                    <div class="provider-live-panel provider-cal-panel">
+                        <div class="provider-live-head">
+                            <h3 class="provider-live-title"><span class="material-icons">view_week</span> {{ translate('Range_calendar') }}</h3>
+                            <span class="provider-live-thin" id="plc-range-label"></span>
+                        </div>
+                        <div class="provider-cal-table-wrap" id="plc-cal"></div>
+                        <div class="provider-cal-detail" id="plc-detail" hidden></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <script type="application/json" id="provider-live-data">@json(['zones' => $zonesJson, 'providers' => $providersJson, 'defaultZoneId' => $defaultZoneId ?? null])</script>
+    <script type="application/json" id="provider-live-data">{!! json_encode($plvLiveData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) !!}</script>
     <script src="https://maps.googleapis.com/maps/api/js?key={{ business_config('google_map', 'third_party')?->live_values['map_api_key_client'] }}"></script>
     <script src="{{ asset('assets/admin-module/js/provider-live-view.js') }}?v={{ $plvAssetV }}"></script>
+    <script src="{{ asset('assets/admin-module/js/provider-availability-calendar.js') }}?v={{ $plvCalJsV }}"></script>
 @endsection
 
