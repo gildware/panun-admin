@@ -3,9 +3,9 @@
 @section('title', translate('Provider_Live_View'))
 
 @php
-    $plvAssetV = (@filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time()) . '-plv13';
-    $plvCssV = (@filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time()) . '-plv13';
-    $plvCalJsV = (@filemtime(public_path('assets/admin-module/js/provider-availability-calendar.js')) ?: time()) . '-plv13';
+    $plvAssetV = (@filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time()) . '-plv14';
+    $plvCssV = (@filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time()) . '-plv14';
+    $plvCalJsV = (@filemtime(public_path('assets/admin-module/js/provider-availability-calendar.js')) ?: time()) . '-plv14';
     $calendarWindowDays = (int) ($calendarWindowDays ?? 90);
     $calendarStartMaxDays = (int) ($calendarStartMaxDays ?? 365);
     $calendarFromDt = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->setTime(9, 0)->format('Y-m-d\TH:i');
@@ -53,6 +53,14 @@
             width: 42px !important;
             height: 42px !important;
             max-width: 42px !important;
+        }
+        #plc-list .provider-live-avatar-wrap,
+        #plc-list img.provider-live-avatar {
+            width: 28px !important;
+            height: 28px !important;
+            min-width: 28px !important;
+            min-height: 28px !important;
+            max-width: 28px !important;
         }
         .plv-popup-photo,
         .plv-popup-photo img {

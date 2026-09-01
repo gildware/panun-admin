@@ -471,6 +471,38 @@
 .provider-live-status.onjob { background: var(--plv-amber-soft); color: var(--plv-amber); }
 .provider-live-status.offline { background: var(--plv-red-soft); color: var(--plv-red); }
 
+#plc-list .provider-live-row {
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 6px 10px;
+    align-items: center;
+}
+
+#plc-list .provider-live-name {
+    font-size: 12px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#plc-list .provider-live-meta {
+    font-size: 10px;
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#plc-list .provider-live-status {
+    font-size: 9px;
+    padding: 2px 6px;
+    max-width: 72px;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.15;
+}
+
 .provider-live-empty {
     padding: 40px 20px;
     text-align: center;

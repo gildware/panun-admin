@@ -249,6 +249,9 @@
         }
         return 'partial';
     }
+    function compactVerdict(v) {
+        return v === 'free' ? 'Free' : v === 'partial' ? 'Partial' : v === 'busy' ? 'Booked' : 'Off';
+    }
     function verdictLabel(v) {
         return v === 'free' ? 'Can take work' : v === 'partial' ? 'Partial' : v === 'busy' ? 'Booked in window' : 'Not available';
     }
@@ -343,14 +346,12 @@
                 const img = p.logo
                     ? '<span class="provider-live-avatar-wrap"><img class="provider-live-avatar" src="' + escapeHtml(p.logo) + '" alt=""></span>'
                     : '<span class="provider-live-avatar-wrap provider-live-avatar-wrap--initials">' + escapeHtml(initials(p.name)) + '</span>';
-                const weekends = (p.weekends || []).length ? '<span class="provider-live-chip">Off: ' + escapeHtml((p.weekends || []).join(', ')) + '</span>' : '';
                 return '<div class="provider-live-row' + (selected === p.id ? ' sel' : '') + '" data-id="' + escapeHtml(p.id) + '">' +
-                    img + '<div><div class="provider-live-name">' + escapeHtml(p.name) + '</div>' +
-                    '<div class="provider-live-meta">' + escapeHtml(primaryServiceName(p)) + (p.phone ? ' · ' + escapeHtml(p.phone) : '') + '</div>' +
-                    '<div class="provider-live-chips"><span class="provider-live-chip">App ' + (p.appOn ? 'on' : 'off') + '</span>' +
-                    '<span class="provider-live-chip">' + escapeHtml(hrs.start) + '–' + escapeHtml(hrs.end) + '</span>' +
-                    serviceChips(p) + weekends +
-                    '</div></div><span class="provider-live-status ' + v + '">' + verdictLabel(v) + '</span></div>';
+                    img + '<div>' +
+                    '<div class="provider-live-name">' + escapeHtml(p.name) + '</div>' +
+                    '<div class="provider-live-meta">' + escapeHtml(primaryServiceName(p)) +
+                    ' · ' + escapeHtml(hrs.start) + '–' + escapeHtml(hrs.end) + '</div>' +
+                    '</div><span class="provider-live-status ' + v + '">' + compactVerdict(v) + '</span></div>';
             }).join('');
             listEl.querySelectorAll('.provider-live-row').forEach(function (row) {
                 row.addEventListener('click', function () {
