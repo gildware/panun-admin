@@ -2,9 +2,13 @@
     $trainingGuideClass = $trainingGuideClass ?? \Modules\AdminModule\Support\LeadQualificationTrainingGuide::class;
     $flowchartsClass = $flowchartsClass ?? \Modules\AdminModule\Support\LeadQualificationTrainingFlowcharts::class;
     $slides = $trainingGuideClass::slides();
+    $guideKey = $guideKey ?? '';
+    $stageTypes = ['pk-cover', 'pk-close'];
+    $pkDeck = ($guideKey ?? '') === 'panun-kaergar';
+    $pkSkipHeader = ['pk-cover', 'pk-close', 'pk-promise', 'pk-qna', 'pk-who', 'pk-why', 'pk-problem'];
 @endphp
 
-<div class="pg-training-guide" id="pg-training-guide" data-pg-training-total="{{ count($slides) }}">
+<div class="pg-training-guide" id="pg-training-guide" data-pg-training-total="{{ count($slides) }}" data-pg-deck="{{ $guideKey }}">
     <div class="pg-text-guide-header">
         <div class="pg-training-header-row">
             <div class="pg-training-header-copy">
@@ -46,6 +50,7 @@
         </aside>
 
         <div class="pg-training-main">
+            <div class="pg-training-stage-fit">
             <div class="pg-training-stage">
                 <div class="pg-training-body">
         @foreach ($slides as $i => $slide)
@@ -56,6 +61,20 @@
                 data-pg-training-id="{{ $slide['id'] }}"
                 @if ($i !== 0) hidden @endif
             >
+                @if ($pkDeck && !in_array($slide['type'] ?? '', $pkSkipHeader, true))
+                <header class="pg-pk-head">
+                    @if (!empty($slide['kicker']))
+                        <p class="pg-pk-kicker">{{ $slide['kicker'] }}</p>
+                    @endif
+                    <h4 class="pg-pk-title">{{ $slide['title'] }}</h4>
+                    @if (!empty($slide['subtitle']))
+                        <p class="pg-pk-sub">{{ $slide['subtitle'] }}</p>
+                    @endif
+                    @if (!empty($slide['tagline']) && empty($slide['hero_image']))
+                        <p class="pg-pk-tagline">{{ $slide['tagline'] }}</p>
+                    @endif
+                </header>
+                @elseif (!$pkDeck && !in_array($slide['type'] ?? '', $stageTypes, true))
                 <header class="pg-training-slide-header">
                     <div class="pg-training-slide-header-row">
                         @if (!empty($slide['icon']))
@@ -75,8 +94,12 @@
                         <p class="pg-training-slide-footer">{{ $slide['footer'] }}</p>
                     @endif
                 </header>
+                @endif
 
                 <div class="pg-training-slide-body">
+                    @if (in_array($slide['type'] ?? '', $stageTypes, true))
+                        @include('adminmodule::admin.process-guide.partials._training-pk-stage', ['slide' => $slide])
+                    @endif
                     @if (!empty($slide['overview']))
                         <div class="pg-training-overview">
                             <span class="material-icons pg-training-overview-icon" aria-hidden="true">info</span>
@@ -177,6 +200,54 @@
 
                     @if ($slide['type'] === 'visual')
                         @include('adminmodule::admin.process-guide.partials._training-visual', ['slide' => $slide, 'flowchartsClass' => $flowchartsClass ?? null])
+                    @endif
+
+                    @if ($slide['type'] === 'pk-who')
+                        @include('adminmodule::admin.process-guide.partials._training-pk-who', ['slide' => $slide])
+                    @endif
+
+                    @if ($slide['type'] === 'pk-why')
+                        @include('adminmodule::admin.process-guide.partials._training-pk-why', ['slide' => $slide])
+                    @endif
+
+                    @if ($slide['type'] === 'pk-problem')
+                        @include('adminmodule::admin.process-guide.partials._training-pk-problem', ['slide' => $slide])
+                    @endif
+
+                    @if ($slide['type'] === 'pk-compare')
+                        @include('adminmodule::admin.process-guide.partials._training-pk-compare', ['slide' => $slide])
+                    @endif
+
+                    @if ($slide['type'] === 'pk-journey')
+                        @include('adminmodule::admin.process-guide.partials._training-pk-journey', ['slide' => $slide])
+                    @endif
+
+                    @if ($slide['type'] === 'pk-promise')
+                        @include('adminmodule::admin.process-guide.partials._training-pk-promise', ['slide' => $slide])
+                    @endif
+
+                    @if ($slide['type'] === 'pk-process')
+                        @include('adminmodule::admin.process-guide.partials._training-pk-process', ['slide' => $slide])
+                    @endif
+
+                    @if ($slide['type'] === 'pk-split')
+                        @include('adminmodule::admin.process-guide.partials._training-pk-split', ['slide' => $slide])
+                    @endif
+
+                    @if ($slide['type'] === 'pk-mission')
+                        @include('adminmodule::admin.process-guide.partials._training-pk-mission', ['slide' => $slide])
+                    @endif
+
+                    @if ($slide['type'] === 'pk-people')
+                        @include('adminmodule::admin.process-guide.partials._training-pk-people', ['slide' => $slide])
+                    @endif
+
+                    @if ($slide['type'] === 'pk-funnel')
+                        @include('adminmodule::admin.process-guide.partials._training-pk-funnel', ['slide' => $slide])
+                    @endif
+
+                    @if ($slide['type'] === 'pk-qna')
+                        @include('adminmodule::admin.process-guide.partials._training-pk-qna', ['slide' => $slide])
                     @endif
 
                     @if ($slide['type'] === 'sections' && !empty($slide['sections']))
@@ -608,9 +679,16 @@
                         </div>
                     @endif
                 </div>
+                @if ($pkDeck && !in_array($slide['type'] ?? '', ['pk-cover', 'pk-who', 'pk-why', 'pk-problem'], true))
+                    <footer class="pg-pk-foot">
+                        <span>Panun Kaergar</span>
+                        <span>{{ str_pad((string) $slide['number'], 2, '0', STR_PAD_LEFT) }}</span>
+                    </footer>
+                @endif
             </article>
         @endforeach
                 </div>
+            </div>
             </div>
 
             <footer class="pg-training-nav" aria-label="Slide navigation">
@@ -703,31 +781,44 @@
     document.addEventListener('keydown', function (e) {
         var panel = document.getElementById('pg-panel-training');
         if (!panel || panel.hasAttribute('hidden')) return;
-        if (e.key === 'f' || e.key === 'F') {
-            if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
+        var typing = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable);
+        if (e.key === 'Escape' && presenting) {
+            e.preventDefault();
+            exitPresentation();
+            return;
+        }
+        if ((e.key === 'f' || e.key === 'F') && !typing) {
             e.preventDefault();
             toggleTrainingFullscreen();
             return;
         }
-        if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+        if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === 'ArrowDown' || (e.key === ' ' && !typing)) {
             e.preventDefault();
             show(current + 1);
-        } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        } else if (e.key === 'ArrowLeft' || e.key === 'PageUp' || e.key === 'ArrowUp') {
             e.preventDefault();
             show(current - 1);
+        } else if (e.key === 'Home') {
+            e.preventDefault();
+            show(0);
+        } else if (e.key === 'End') {
+            e.preventDefault();
+            show(total - 1);
         }
     });
 
-    var fsTarget = document.getElementById('pg-training-layout');
     var fsBtns = guide.querySelectorAll('[data-pg-training-fullscreen]');
+    var presenting = false;
+    var nativePresenting = false;
 
-    function isTrainingFullscreen() {
-        return document.fullscreenElement === fsTarget;
+    function nativeFsElement() {
+        return document.fullscreenElement || document.webkitFullscreenElement || null;
     }
 
-    function updateFullscreenUi() {
-        var on = isTrainingFullscreen();
+    function setPresentationUi(on) {
+        presenting = on;
         guide.classList.toggle('is-presentation', on);
+        document.body.classList.toggle('pg-training-presenting', on);
         fsBtns.forEach(function (btn) {
             btn.setAttribute('aria-pressed', on ? 'true' : 'false');
             btn.title = on ? 'Exit full screen (Esc)' : 'Full screen presentation (F)';
@@ -736,22 +827,100 @@
             var label = btn.querySelector('.pg-training-present-label');
             if (label) label.textContent = on ? 'Exit' : 'Present';
         });
+        fitPresentationStage();
+    }
+
+    var stageFit = guide.querySelector('.pg-training-stage-fit');
+    var stageEl = guide.querySelector('.pg-training-stage');
+    var SLIDE_RATIO = 16 / 9;
+
+    function fitPresentationStage() {
+        if (!stageEl) return;
+        if (!presenting || !stageFit) {
+            stageEl.style.width = '';
+            stageEl.style.height = '';
+            return;
+        }
+        var availW = stageFit.clientWidth;
+        var availH = stageFit.clientHeight;
+        if (availW < 2 || availH < 2) return;
+        var slideW;
+        var slideH;
+        if (availW / availH > SLIDE_RATIO) {
+            slideH = availH;
+            slideW = availH * SLIDE_RATIO;
+        } else {
+            slideW = availW;
+            slideH = availW / SLIDE_RATIO;
+        }
+        stageEl.style.width = Math.round(slideW) + 'px';
+        stageEl.style.height = Math.round(slideH) + 'px';
+    }
+
+    function enterPresentation() {
+        setPresentationUi(true);
+        var req = guide.requestFullscreen || guide.webkitRequestFullscreen;
+        if (!req) return;
+        try {
+            var pending = req.call(guide);
+            if (pending && pending.then) {
+                pending.then(function () {
+                    nativePresenting = true;
+                    requestAnimationFrame(fitPresentationStage);
+                }).catch(function () {});
+            }
+        } catch (err) {}
+    }
+
+    function exitPresentation() {
+        if (nativeFsElement()) {
+            var exit = document.exitFullscreen || document.webkitExitFullscreen;
+            if (exit) {
+                try { exit.call(document); } catch (err) {}
+            }
+            if (nativePresenting) return;
+        }
+        nativePresenting = false;
+        setPresentationUi(false);
     }
 
     function toggleTrainingFullscreen() {
-        if (!fsTarget) return;
-        if (isTrainingFullscreen()) {
-            if (document.exitFullscreen) document.exitFullscreen();
+        if (presenting) exitPresentation();
+        else enterPresentation();
+    }
+
+    function syncPresentationFromNative() {
+        var el = nativeFsElement();
+        if (el === guide) {
+            nativePresenting = true;
+            if (!presenting) setPresentationUi(true);
             return;
         }
-        var req = fsTarget.requestFullscreen || fsTarget.webkitRequestFullscreen;
-        if (req) req.call(fsTarget);
+        if (!el && nativePresenting) {
+            nativePresenting = false;
+            setPresentationUi(false);
+        }
     }
 
     fsBtns.forEach(function (btn) {
         btn.addEventListener('click', toggleTrainingFullscreen);
     });
-    document.addEventListener('fullscreenchange', updateFullscreenUi);
+    document.addEventListener('fullscreenchange', function () {
+        syncPresentationFromNative();
+        requestAnimationFrame(fitPresentationStage);
+    });
+    document.addEventListener('webkitfullscreenchange', function () {
+        syncPresentationFromNative();
+        requestAnimationFrame(fitPresentationStage);
+    });
+    window.addEventListener('resize', function () {
+        if (presenting) fitPresentationStage();
+    });
+    if (window.ResizeObserver && stageFit) {
+        new ResizeObserver(function () {
+            if (presenting) fitPresentationStage();
+        }).observe(stageFit);
+    }
 
     var activePointDrawer = null;
 

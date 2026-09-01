@@ -10,6 +10,15 @@ class ProcessGuideRegistry
     public static function all(): array
     {
         return [
+            'panun-kaergar' => [
+                'key' => 'panun-kaergar',
+                'title' => 'Panun Kaergar',
+                'training_subtitle' => 'Team induction — 22 slides',
+                'training_guide' => PanunKaergarIntroTrainingGuide::class,
+                'flowcharts' => PanunKaergarIntroTrainingFlowcharts::class,
+                'text_guide' => PanunKaergarIntroTextGuide::class,
+                'has_flowchart_board' => false,
+            ],
             'lead-qualification' => [
                 'key' => 'lead-qualification',
                 'title' => 'Lead Qualification Flow',
@@ -46,6 +55,6 @@ class ProcessGuideRegistry
      */
     public static function default(): array
     {
-        return self::all()['lead-qualification'];
+        return self::all()['panun-kaergar'];
     }
 }
