@@ -648,14 +648,18 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcan
             @canany(['provider_view', 'provider_add'])
-                <li class="has-sub-item  {{(request()->is('admin/provider/list') || request()->is('admin/provider/create') || request()->is('admin/provider/details*') || request()->is('admin/provider/edit*') || request()->is('admin/provider/collect-cash*'))?'sub-menu-opened':''}}">
+                <li class="has-sub-item  {{(request()->is('admin/provider/list') || request()->is('admin/provider/live-view*') || request()->is('admin/provider/create') || request()->is('admin/provider/details*') || request()->is('admin/provider/edit*') || request()->is('admin/provider/collect-cash*'))?'sub-menu-opened':''}}">
                     <a href="#"
-                       class="{{(request()->is('admin/provider/list') || request()->is('admin/provider/create') || request()->is('admin/provider/details*') || request()->is('admin/provider/edit*') || request()->is('admin/provider/collect-cash*'))?'active-menu':''}}">
+                       class="{{(request()->is('admin/provider/list') || request()->is('admin/provider/live-view*') || request()->is('admin/provider/create') || request()->is('admin/provider/details*') || request()->is('admin/provider/edit*') || request()->is('admin/provider/collect-cash*'))?'active-menu':''}}">
                         <span class="material-icons" title="Providers">engineering</span>
                         <span class="link-title">{{translate('providers')}}</span>
                     </a>
                     <ul class="nav sub-menu">
                         @can('provider_view')
+                            <li>
+                                <a href="{{route('admin.provider.live-view')}}"
+                                   class="{{request()->is('admin/provider/live-view*')?'active-menu':''}}">{{translate('Provider_Live_View')}}</a>
+                            </li>
                             <li>
                                 <a href="{{route('admin.provider.list', ['status'=>'all'])}}"
                                    class="{{(request()->is('admin/provider/list') || request()->is('admin/provider/details*') || request()->is('admin/provider/edit*') || request()->is('admin/provider/collect-cash*'))?'active-menu':''}}">{{translate('Provider_List')}}</a>

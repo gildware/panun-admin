@@ -32,6 +32,12 @@
         @endcan
         @can('provider_view')
             @include('adminmodule::layouts.partials.top-nav._link', [
+                'href' => route('admin.provider.live-view'),
+                'label' => translate('Provider_Live_View'),
+                'active' => request()->is('admin/provider/live-view*'),
+                'fullPage' => true,
+            ])
+            @include('adminmodule::layouts.partials.top-nav._link', [
                 'href' => route('admin.provider.list', ['status' => 'all']),
                 'label' => translate('Provider_List'),
                 'active' => request()->is('admin/provider/list') || request()->is('admin/provider/details*') || request()->is('admin/provider/edit*') || request()->is('admin/provider/collect-cash*'),

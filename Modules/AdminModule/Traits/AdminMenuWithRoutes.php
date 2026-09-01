@@ -350,6 +350,14 @@ trait AdminMenuWithRoutes
                 "type" => 'menu',
             ],
             [
+                'route_name' => 'Provider_Live_View',
+                'uri' => 'admin/provider/live-view',
+                'full_route' => url('admin/provider/live-view'),
+                "page_title" => 'Provider_Live_View',
+                "keywords" => 'Provider Live View, coverage map, zone, availability, Providers',
+                "type" => 'menu',
+            ],
+            [
                 'route_name' => 'Feedback_Configuration',
                 'uri' => 'admin/provider/feedback-tags',
                 'full_route' => url('admin/provider/feedback-tags'),
