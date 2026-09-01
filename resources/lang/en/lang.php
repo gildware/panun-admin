@@ -820,7 +820,7 @@
   'Provider_Live_View' => 'Provider Live View',
   'Find_providers_by_zone_category_availability_or_address' => 'Find a kaergar by zone, category, availability, or address — then see coverage on the map.',
   'Search_by_name_or_address' => 'Search by name or address',
-  'Search_provider_zone_or_address' => 'e.g. Rajbagh, Hyderpora, provider name…',
+  'Find_a_provider' => 'Find a provider…',
   'All_zones' => 'All zones',
   'All_categories' => 'All categories',
   'All_sub_categories' => 'All subcategories',

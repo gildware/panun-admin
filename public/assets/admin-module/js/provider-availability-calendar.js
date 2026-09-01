@@ -42,6 +42,18 @@
 
     let selected = null;
     let kpiFilter = '';
+    let searchDirty = false;
+    const findInputs = Array.prototype.slice.call(document.querySelectorAll('.js-plc-find'));
+    function setSearch(value, source) {
+        if (q && q !== source) {
+            q.value = value;
+        }
+        findInputs.forEach(function (el) {
+            if (el !== source) {
+                el.value = value;
+            }
+        });
+    }
 
     function parseDateTime(s) {
         const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
@@ -303,6 +315,13 @@
 
         const all = PROVIDERS.filter(baseMatch);
         const rows = PROVIDERS.filter(matches);
+        if (searchDirty) {
+            searchDirty = false;
+            const query = ((q && q.value) || '').trim();
+            if (query.length >= 2 && rows[0]) {
+                selected = rows[0].id;
+            }
+        }
         const counts = { free: 0, partial: 0, busy: 0, off: 0 };
         all.forEach(function (p) {
             const v = rangeVerdict(p);
@@ -381,11 +400,15 @@
                 const kindLabel = st.kind === 'free' ? 'Free' : st.kind === 'partial' ? 'Partial' : st.kind === 'ong' ? 'Ongoing' : st.kind === 'sched' ? 'Scheduled' : 'Off';
                 return '<td class="cell"><div class="provider-cal-block ' + st.kind + '">' + kindLabel + '<small>' + escapeHtml(st.label) + '</small></div></td>';
             }).join('');
-            return '<tr' + (selected === p.id ? ' style="outline:2px solid #43466e"' : '') + '><td class="name">' + escapeHtml(p.name) + '</td>' + cells + '</tr>';
+            return '<tr class="' + (selected === p.id ? 'is-sel' : '') + '" data-id="' + escapeHtml(p.id) + '"><td class="name">' + escapeHtml(p.name) + '</td>' + cells + '</tr>';
         }).join('');
         calEl.innerHTML = '<table class="provider-cal-table"><thead><tr>' + head + '</tr></thead><tbody>' +
             (body || '<tr><td colspan="' + (days.length + 1) + '"><div class="provider-live-empty">No rows</div></td></tr>') +
             '</tbody></table>';
+        const hitRow = selected ? calEl.querySelector('tr[data-id="' + selected + '"]') : null;
+        if (hitRow) {
+            hitRow.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
 
         const det = document.getElementById('plc-detail');
         const sel = PROVIDERS.find(function (p) { return p.id === selected; });
@@ -418,8 +441,18 @@
                 : '<p class="provider-live-thin" style="margin-top:8px">No scheduled or ongoing jobs overlapping this range.</p>');
     }
 
+    [q].concat(findInputs).forEach(function (el) {
+        if (!el) {
+            return;
+        }
+        el.addEventListener('input', function () {
+            setSearch(el.value, el);
+            searchDirty = true;
+            render();
+        });
+    });
     ['input', 'change'].forEach(function (evt) {
-        [q, fromEl, toEl, zoneEl, catEl, subEl].forEach(function (el) {
+        [fromEl, toEl, zoneEl, catEl, subEl].forEach(function (el) {
             if (el) {
                 el.addEventListener(evt, function () {
                     if (el === fromEl) {
@@ -449,6 +482,7 @@
             if (catEl) catEl.value = '';
         }
         fillSubSelect(subEl, '');
+        setSearch('', null);
         applyStartCap();
         applyEndCap();
         kpiFilter = '';
