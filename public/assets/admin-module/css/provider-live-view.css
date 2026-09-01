@@ -135,21 +135,31 @@
     gap: 8px;
     flex: 0 0 auto;
     flex-wrap: wrap;
+    position: relative;
+    z-index: 5;
+    background: #fff;
 }
 
 .provider-live-find {
     display: flex;
     align-items: center;
     gap: 4px;
-    min-width: 140px;
-    flex: 1 1 160px;
-    max-width: 240px;
+    min-width: 160px;
+    flex: 1 1 180px;
+    max-width: 280px;
     height: 32px;
     padding: 0 8px;
     border: 1px solid var(--plv-border);
     border-radius: 8px;
     background: #f8fafc;
     margin: 0;
+    position: relative;
+    z-index: 6;
+    pointer-events: auto;
+}
+
+.provider-live-panel--map .provider-live-find {
+    max-width: none;
 }
 
 .provider-live-find .material-icons {
@@ -235,7 +245,10 @@
     overflow: hidden;
     border: 3px solid #fff;
     box-shadow: 0 4px 14px rgba(15, 23, 42, .28);
-    background: #eef0f6;
+    background-color: #eef0f6;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -294,9 +307,9 @@
     background: #fff;
     border-radius: 14px;
     box-shadow: 0 12px 32px rgba(15, 23, 42, .2);
-    padding: 10px 12px;
-    min-width: 220px;
-    max-width: 280px;
+    padding: 12px 14px;
+    min-width: 240px;
+    max-width: 320px;
     z-index: 40;
     pointer-events: auto;
 }
@@ -305,14 +318,20 @@
     display: none !important;
 }
 
+.plv-popup-card,
 .plv-float-card .plv-popup-card {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    position: relative;
     padding: 0 28px 0 0;
 }
 
 .plv-popup-close {
     position: absolute;
-    top: -2px;
-    right: -2px;
+    top: -6px;
+    right: -6px;
     width: 28px;
     height: 28px;
     border: 0;
@@ -326,6 +345,7 @@
     align-items: center;
     justify-content: center;
     z-index: 2;
+    flex-shrink: 0;
 }
 
 .plv-popup-close:hover {
@@ -334,13 +354,17 @@
 }
 
 .plv-popup-photo {
-    width: 48px;
-    height: 48px;
+    width: 56px;
+    height: 56px;
+    min-width: 56px;
+    min-height: 56px;
     border-radius: 50%;
     overflow: hidden;
-    object-fit: cover;
     flex-shrink: 0;
-    background: #eef0f6;
+    background-color: #eef0f6;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -349,8 +373,10 @@
 }
 
 .plv-popup-photo img {
-    width: 100%;
-    height: 100%;
+    width: 56px !important;
+    height: 56px !important;
+    max-width: none !important;
+    max-height: none !important;
     object-fit: cover;
     border-radius: 50%;
     display: block;
@@ -432,7 +458,10 @@
     min-height: 42px;
     border-radius: 50%;
     overflow: hidden;
-    background: var(--plv-brand-soft);
+    background-color: var(--plv-brand-soft);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -696,8 +725,32 @@ table.provider-cal-table td.name {
     z-index: 1;
     text-align: left;
     padding: 8px 10px;
-    min-width: 140px;
+    min-width: 180px;
     font-weight: 700;
+}
+
+.provider-cal-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.provider-cal-name .provider-live-avatar-wrap {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+}
+
+.provider-live-page .provider-cal-name img.provider-live-avatar {
+    width: 32px !important;
+    height: 32px !important;
+}
+
+.provider-cal-detail-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 table.provider-cal-table tr.is-sel td {

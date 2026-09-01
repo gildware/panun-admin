@@ -173,7 +173,7 @@ class ProviderLiveViewController extends Controller
             'name' => (string) $provider->company_name,
             'phone' => $phone,
             'address' => (string) ($provider->company_address ?? ''),
-            'logo' => $provider->logo_full_path,
+            'logo' => $provider->list_avatar_full_path,
             'lat' => $lat,
             'lng' => $lng,
             'avail' => $avail,
