@@ -8,6 +8,7 @@
     var FRAME_ID = 'admin-main';
     var FULL_PAGE_PATHS = [
         '/admin/provider/create',
+        '/admin/provider/live-view',
         '/admin/my-progress',
     ];
     var FULL_PAGE_PATH_PREFIXES = [
