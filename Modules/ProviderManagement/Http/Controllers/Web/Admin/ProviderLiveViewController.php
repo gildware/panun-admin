@@ -59,8 +59,9 @@ class ProviderLiveViewController extends Controller
             ->get();
 
         $calendarWindowDays = 90;
+        $calendarStartMaxDays = 365;
         $calendarFrom = now()->startOfDay();
-        $calendarTo = now()->addDays($calendarWindowDays)->endOfDay();
+        $calendarTo = now()->addDays($calendarStartMaxDays + $calendarWindowDays)->endOfDay();
         $jobsByProvider = $this->calendarJobsByProvider($providers->pluck('id'), $calendarFrom, $calendarTo);
         $settingsByProvider = $this->scheduleSettingsByProvider($providers->pluck('id'));
 
@@ -97,6 +98,7 @@ class ProviderLiveViewController extends Controller
             'calendarFrom' => $calendarFrom->toDateString(),
             'calendarTo' => $calendarTo->toDateString(),
             'calendarWindowDays' => $calendarWindowDays,
+            'calendarStartMaxDays' => $calendarStartMaxDays,
         ]);
     }
 

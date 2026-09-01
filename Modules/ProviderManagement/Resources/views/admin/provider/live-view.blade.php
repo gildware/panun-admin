@@ -3,13 +3,14 @@
 @section('title', translate('Provider_Live_View'))
 
 @php
-    $plvAssetV = (@filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time()) . '-plv11';
-    $plvCssV = (@filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time()) . '-plv11';
-    $plvCalJsV = (@filemtime(public_path('assets/admin-module/js/provider-availability-calendar.js')) ?: time()) . '-plv11';
+    $plvAssetV = (@filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time()) . '-plv12';
+    $plvCssV = (@filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time()) . '-plv12';
+    $plvCalJsV = (@filemtime(public_path('assets/admin-module/js/provider-availability-calendar.js')) ?: time()) . '-plv12';
     $calendarWindowDays = (int) ($calendarWindowDays ?? 90);
+    $calendarStartMaxDays = (int) ($calendarStartMaxDays ?? 365);
     $calendarFromDt = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->setTime(9, 0)->format('Y-m-d\TH:i');
     $calendarToDefault = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->addDays(6)->setTime(18, 0);
-    $calendarStartMax = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->endOfDay();
+    $calendarStartMax = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->addDays($calendarStartMaxDays)->endOfDay();
     $calendarEndMax = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->addDays($calendarWindowDays)->endOfDay();
     if ($calendarToDefault->gt($calendarEndMax)) {
         $calendarToDefault = $calendarEndMax->copy()->setTime(18, 0);
@@ -27,6 +28,7 @@
         'calendarFromDt' => $calendarFromDt,
         'calendarToDt' => $calendarToDt,
         'calendarWindowDays' => $calendarWindowDays,
+        'calendarStartMaxDays' => $calendarStartMaxDays,
         'categories' => $categoriesJson ?? [],
         'subcategories' => $subcategoriesJson ?? [],
     ];

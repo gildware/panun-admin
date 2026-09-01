@@ -846,7 +846,7 @@
   'Availability_calendar_help' => 'Pick a start and end date-time. We use each kaergar’s app hours and weekends, then overlay scheduled and ongoing jobs.',
   'Starts' => 'Starts',
   'Ends' => 'Ends',
-  'Availability_calendar_note' => 'Availability uses the provider app switch, daily start–end hours, weekend days off, plus bookings that are pending, accepted (scheduled), or ongoing. Start is today; Ends can be up to 90 days after that start.',
+  'Availability_calendar_note' => 'Availability uses the provider app switch, daily start–end hours, weekend days off, plus bookings that are pending, accepted (scheduled), or ongoing. Start cannot be before today. Ends can be up to 90 days after that start.',
   'From_date' => 'From date',
   'To_date' => 'To date',
   'From_time' => 'From time',
