@@ -3,9 +3,9 @@
 @section('title', translate('Provider_Live_View'))
 
 @php
-    $plvAssetV = (@filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time()) . '-plv7';
-    $plvCssV = (@filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time()) . '-plv7';
-    $plvCalJsV = (@filemtime(public_path('assets/admin-module/js/provider-availability-calendar.js')) ?: time()) . '-plv7';
+    $plvAssetV = (@filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time()) . '-plv8';
+    $plvCssV = (@filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time()) . '-plv8';
+    $plvCalJsV = (@filemtime(public_path('assets/admin-module/js/provider-availability-calendar.js')) ?: time()) . '-plv8';
     $calendarFromDt = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->setTime(9, 0)->format('Y-m-d\TH:i');
     $calendarToDefault = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->addDays(6)->setTime(18, 0);
     $calendarToCap = \Illuminate\Support\Carbon::parse($calendarTo ?? now()->addDays(20))->setTime(18, 0);
@@ -69,6 +69,41 @@
         .gm-style .gm-ui-hover-effect {
             width: 24px !important;
             height: 24px !important;
+        }
+        .provider-live-page #plv-map-ui[hidden],
+        .provider-live-page #plv-cal-ui[hidden],
+        .provider-live-page #plv-subtitle-map[hidden],
+        .provider-live-page #plv-subtitle-cal[hidden] {
+            display: none !important;
+        }
+        .provider-live-page .provider-live-tabs {
+            display: inline-flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 4px !important;
+            background: #f4f6f9 !important;
+            padding: 4px !important;
+            border-radius: 10px !important;
+            border: 0 !important;
+        }
+        .provider-live-page .provider-live-tabs button {
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            border: 0 !important;
+            background: transparent !important;
+            color: #64748b !important;
+            font-size: 12px !important;
+            font-weight: 700 !important;
+            padding: 8px 12px !important;
+            border-radius: 8px !important;
+            box-shadow: none !important;
+            width: auto !important;
+        }
+        .provider-live-page .provider-live-tabs button.on {
+            background: #fff !important;
+            color: #43466e !important;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, .08) !important;
         }
     </style>
 @endpush
@@ -259,8 +294,11 @@
     </div>
 
     <script type="application/json" id="provider-live-data">{!! json_encode($plvLiveData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) !!}</script>
-    <script src="https://maps.googleapis.com/maps/api/js?key={{ business_config('google_map', 'third_party')?->live_values['map_api_key_client'] }}"></script>
-    <script src="{{ asset('assets/admin-module/js/provider-live-view.js') }}?v={{ $plvAssetV }}"></script>
-    <script src="{{ asset('assets/admin-module/js/provider-availability-calendar.js') }}?v={{ $plvCalJsV }}"></script>
 @endsection
+
+@push('script')
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ business_config('google_map', 'third_party')?->live_values['map_api_key_client'] }}"></script>
+    <script src="{{ asset('assets/admin-module/js/provider-live-view.js') }}?v={{ $plvAssetV }}" data-always-activate="1"></script>
+    <script src="{{ asset('assets/admin-module/js/provider-availability-calendar.js') }}?v={{ $plvCalJsV }}" data-always-activate="1"></script>
+@endpush
 

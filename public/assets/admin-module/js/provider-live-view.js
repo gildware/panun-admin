@@ -1,4 +1,49 @@
 (function () {
+    function showPlvTab(tab) {
+        if (tab !== 'map' && tab !== 'cal') {
+            return;
+        }
+        document.querySelectorAll('#plv-tabs [data-plv-tab]').forEach(function (b) {
+            b.classList.toggle('on', b.getAttribute('data-plv-tab') === tab);
+        });
+        const mapUi = document.getElementById('plv-map-ui');
+        const calUi = document.getElementById('plv-cal-ui');
+        const subMap = document.getElementById('plv-subtitle-map');
+        const subCal = document.getElementById('plv-subtitle-cal');
+        if (mapUi) {
+            mapUi.hidden = tab !== 'map';
+        }
+        if (calUi) {
+            calUi.hidden = tab !== 'cal';
+        }
+        if (subMap) {
+            subMap.hidden = tab !== 'map';
+        }
+        if (subCal) {
+            subCal.hidden = tab !== 'cal';
+        }
+        if (tab === 'map' && typeof window.plvResizeMap === 'function') {
+            window.plvResizeMap();
+        }
+        if (tab === 'cal' && typeof window.plvRenderCalendar === 'function') {
+            window.plvRenderCalendar();
+        }
+    }
+    window.plvShowTab = showPlvTab;
+    if (!window.__plvTabsBound) {
+        window.__plvTabsBound = true;
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('#plv-tabs [data-plv-tab]');
+            if (!btn) {
+                return;
+            }
+            e.preventDefault();
+            showPlvTab(btn.getAttribute('data-plv-tab'));
+        });
+    }
+})();
+
+(function () {
     const dataEl = document.getElementById('provider-live-data');
     const mapEl = document.getElementById('providerLiveMap');
     if (!dataEl || !mapEl || mapEl.getAttribute('data-plv-ready') === '1') {
@@ -598,11 +643,21 @@
         google.maps.event.trigger(map, 'resize');
     });
 
+    window.plvResizeMap = function () {
+        google.maps.event.trigger(map, 'resize');
+        didFit = false;
+        render();
+    };
+
     const mapUi = document.getElementById('plv-map-ui');
     const calUi = document.getElementById('plv-cal-ui');
     const subMap = document.getElementById('plv-subtitle-map');
     const subCal = document.getElementById('plv-subtitle-cal');
     function showTab(tab) {
+        if (typeof window.plvShowTab === 'function') {
+            window.plvShowTab(tab);
+            return;
+        }
         document.querySelectorAll('[data-plv-tab]').forEach(function (b) {
             b.classList.toggle('on', b.getAttribute('data-plv-tab') === tab);
         });
@@ -619,16 +674,9 @@
             subCal.hidden = tab !== 'cal';
         }
         if (tab === 'map') {
-            google.maps.event.trigger(map, 'resize');
-            didFit = false;
-            render();
+            window.plvResizeMap();
         } else if (typeof window.plvRenderCalendar === 'function') {
             window.plvRenderCalendar();
         }
     }
-    document.querySelectorAll('[data-plv-tab]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            showTab(btn.getAttribute('data-plv-tab'));
-        });
-    });
 })();
