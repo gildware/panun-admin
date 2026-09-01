@@ -47,16 +47,17 @@
         mapTypeControl: false,
         fullscreenControl: true
     });
-    const infoWindow = new google.maps.InfoWindow();
+    const infoWindow = new google.maps.InfoWindow({
+        maxWidth: 280,
+        headerDisabled: true,
+        pixelOffset: new google.maps.Size(0, -6)
+    });
     const markers = {};
     const heatPolygons = [];
     let mapMode = 'pins';
     let selected = null;
     let didFit = false;
 
-    function statusColor(s) {
-        return s === 'available' ? '#22c55e' : s === 'onjob' ? '#d97706' : '#94a3b8';
-    }
     function statusLabel(s) {
         return s === 'available' ? 'Available now' : s === 'onjob' ? 'On a job' : 'Offline';
     }
@@ -114,32 +115,68 @@
         return PROVIDERS.filter(matches);
     }
 
-    function markerIcon(p, sel) {
-        const size = sel ? 56 : 44;
-        if (p.logo) {
-            return {
-                url: p.logo,
-                scaledSize: new google.maps.Size(size, size),
-                anchor: new google.maps.Point(size / 2, size)
-            };
-        }
-        const color = statusColor(p.avail);
-        const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '">' +
-            '<circle cx="' + (size / 2) + '" cy="' + (size / 2) + '" r="' + ((size / 2) - 2) + '" fill="#fff" stroke="' + color + '" stroke-width="4"/>' +
-            '<text x="' + (size / 2) + '" y="' + (size / 2 + 5) + '" text-anchor="middle" font-size="13" font-weight="800" fill="#43466e" font-family="Arial">' + escapeHtml(initials(p.name)) + '</text>' +
-            '</svg>';
-        return {
-            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
-            scaledSize: new google.maps.Size(size, size),
-            anchor: new google.maps.Point(size / 2, size)
-        };
+    function pinInnerHtml(p) {
+        const photo = p.logo
+            ? '<img src="' + escapeHtml(p.logo) + '" alt="">'
+            : escapeHtml(initials(p.name));
+        return '<span class="plv-pin plv-pin--' + escapeHtml(p.avail) + '">' + photo + '</span>';
     }
+
+    function PlvHtmlMarker(opts) {
+        this.position = opts.position;
+        this.provider = opts.provider;
+        this.onClick = opts.onClick;
+        this.div = null;
+        this.setMap(opts.map || null);
+    }
+    PlvHtmlMarker.prototype = Object.create(google.maps.OverlayView.prototype);
+    PlvHtmlMarker.prototype.constructor = PlvHtmlMarker;
+    PlvHtmlMarker.prototype.onAdd = function () {
+        const div = document.createElement('button');
+        div.type = 'button';
+        div.className = 'plv-html-pin' + (selected === this.provider.id ? ' is-sel' : '');
+        div.title = this.provider.name;
+        div.innerHTML = pinInnerHtml(this.provider);
+        const self = this;
+        div.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            self.onClick();
+        });
+        this.div = div;
+        this.getPanes().overlayMouseTarget.appendChild(div);
+    };
+    PlvHtmlMarker.prototype.draw = function () {
+        if (!this.div || !this.getProjection()) {
+            return;
+        }
+        const pos = this.getProjection().fromLatLngToDivPixel(this.position);
+        this.div.style.left = pos.x + 'px';
+        this.div.style.top = pos.y + 'px';
+    };
+    PlvHtmlMarker.prototype.onRemove = function () {
+        if (this.div && this.div.parentNode) {
+            this.div.parentNode.removeChild(this.div);
+        }
+        this.div = null;
+    };
+    PlvHtmlMarker.prototype.getPosition = function () {
+        return this.position;
+    };
+    PlvHtmlMarker.prototype.setSelected = function (on) {
+        if (!this.div) {
+            return;
+        }
+        this.div.classList.toggle('is-sel', !!on);
+        this.div.style.zIndex = on ? '20' : '1';
+    };
 
     function popupCard(p) {
         const photo = p.logo
             ? '<div class="plv-popup-photo"><img src="' + escapeHtml(p.logo) + '" alt=""></div>'
             : '<div class="plv-popup-photo">' + escapeHtml(initials(p.name)) + '</div>';
         return '<div class="plv-popup-card">' +
+            '<button type="button" class="plv-popup-close" aria-label="Close">&times;</button>' +
             photo +
             '<div class="plv-popup-body">' +
             '<div class="plv-popup-name">' + escapeHtml(p.name) + '</div>' +
@@ -164,15 +201,14 @@
         selected = p.id;
         highlightListRow();
         Object.keys(markers).forEach(function (id) {
-            const row = PROVIDERS.find(function (x) { return x.id === id; });
-            if (row && markers[id]) {
-                markers[id].setIcon(markerIcon(row, id === selected));
-                markers[id].setZIndex(id === selected ? 999 : 1);
+            if (markers[id] && markers[id].setSelected) {
+                markers[id].setSelected(id === selected);
             }
         });
         if (markers[p.id]) {
             infoWindow.setContent(popupCard(p));
-            infoWindow.open({ map: map, anchor: markers[p.id] });
+            infoWindow.setPosition(markers[p.id].getPosition());
+            infoWindow.open(map);
         }
     }
 
@@ -210,15 +246,13 @@
             if (p.lat == null || p.lng == null) {
                 return;
             }
-            const marker = new google.maps.Marker({
-                position: { lat: Number(p.lat), lng: Number(p.lng) },
+            const marker = new PlvHtmlMarker({
+                position: new google.maps.LatLng(Number(p.lat), Number(p.lng)),
+                provider: p,
                 map: mapMode === 'pins' ? map : null,
-                icon: markerIcon(p, selected === p.id),
-                title: p.name,
-                zIndex: selected === p.id ? 999 : 1
-            });
-            marker.addListener('click', function () {
-                openProviderCard(p);
+                onClick: function () {
+                    openProviderCard(p);
+                }
             });
             markers[p.id] = marker;
         });
@@ -226,7 +260,8 @@
             const p = PROVIDERS.find(function (x) { return x.id === selected; });
             if (p) {
                 infoWindow.setContent(popupCard(p));
-                infoWindow.open({ map: map, anchor: markers[selected] });
+                infoWindow.setPosition(markers[selected].getPosition());
+                infoWindow.open(map);
             }
         }
     }
@@ -295,8 +330,8 @@
                 return z ? '<span class="provider-live-chip">' + escapeHtml(z.name) + '</span>' : '';
             }).join('');
             const img = p.logo
-                ? '<img class="provider-live-avatar" src="' + escapeHtml(p.logo) + '" alt="">'
-                : '<div class="provider-live-avatar d-flex align-items-center justify-content-center">' + escapeHtml(initials(p.name)) + '</div>';
+                ? '<span class="provider-live-avatar-wrap"><img class="provider-live-avatar" src="' + escapeHtml(p.logo) + '" alt=""></span>'
+                : '<span class="provider-live-avatar-wrap provider-live-avatar-wrap--initials">' + escapeHtml(initials(p.name)) + '</span>';
             const firstCat = (p.categories && p.categories[0] && p.categories[0].name) ? p.categories[0].name : '—';
             return '<div class="provider-live-row' + (selected === p.id ? ' sel' : '') + '" data-id="' + escapeHtml(p.id) + '">' +
                 img +
@@ -434,6 +469,25 @@
             b.classList.toggle('on', b === btn);
         });
         applyMapMode();
+    });
+
+    infoWindow.addListener('domready', function () {
+        const closeBtn = document.querySelector('.gm-style-iw .plv-popup-close, .plv-popup-close');
+        if (!closeBtn) {
+            return;
+        }
+        closeBtn.onclick = function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            infoWindow.close();
+            selected = null;
+            Object.keys(markers).forEach(function (id) {
+                if (markers[id] && markers[id].setSelected) {
+                    markers[id].setSelected(false);
+                }
+            });
+            highlightListRow();
+        };
     });
 
     render();
