@@ -58,9 +58,9 @@ class ProviderLiveViewController extends Controller
             ->orderBy('company_name')
             ->get();
 
-        $calendarHorizonDays = 90;
+        $calendarWindowDays = 90;
         $calendarFrom = now()->startOfDay();
-        $calendarTo = now()->addDays($calendarHorizonDays)->endOfDay();
+        $calendarTo = now()->addDays($calendarWindowDays)->endOfDay();
         $jobsByProvider = $this->calendarJobsByProvider($providers->pluck('id'), $calendarFrom, $calendarTo);
         $settingsByProvider = $this->scheduleSettingsByProvider($providers->pluck('id'));
 
@@ -96,7 +96,7 @@ class ProviderLiveViewController extends Controller
             'defaultZoneId' => $defaultZoneId,
             'calendarFrom' => $calendarFrom->toDateString(),
             'calendarTo' => $calendarTo->toDateString(),
-            'calendarHorizonDays' => $calendarHorizonDays,
+            'calendarWindowDays' => $calendarWindowDays,
         ]);
     }
 
