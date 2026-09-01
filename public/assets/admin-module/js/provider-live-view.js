@@ -573,10 +573,52 @@
         document.querySelectorAll('.provider-live-kpi[data-avail]').forEach(function (el) {
             el.classList.toggle('on', el.getAttribute('data-avail') === availSel.value && availSel.value !== '');
         });
+        focusSearchHit(rows);
     }
 
+    const findInputs = Array.prototype.slice.call(document.querySelectorAll('.js-plv-find'));
+    let searchDirty = false;
+    function setSearch(value, source) {
+        if (q && q !== source) {
+            q.value = value;
+        }
+        findInputs.forEach(function (el) {
+            if (el !== source) {
+                el.value = value;
+            }
+        });
+    }
+    function focusSearchHit(rows) {
+        if (!searchDirty) {
+            return;
+        }
+        searchDirty = false;
+        const query = ((q && q.value) || '').trim();
+        if (query.length < 2 || !rows.length) {
+            return;
+        }
+        const hit = rows[0];
+        if (hit.lat != null && hit.lng != null && mapMode === 'pins') {
+            map.panTo({ lat: Number(hit.lat), lng: Number(hit.lng) });
+            map.setZoom(Math.max(map.getZoom() || 12, 14));
+            openProviderCard(hit);
+        }
+    }
+
+    [q].concat(findInputs).forEach(function (el) {
+        if (!el) {
+            return;
+        }
+        el.addEventListener('input', function () {
+            setSearch(el.value, el);
+            searchDirty = true;
+            didFit = false;
+            render();
+        });
+    });
+
     ['input', 'change'].forEach(function (evt) {
-        [q, zoneSel, catSel, subSel, availSel].forEach(function (el) {
+        [zoneSel, catSel, subSel, availSel].forEach(function (el) {
             if (!el) {
                 return;
             }
@@ -604,6 +646,7 @@
             if (availSel) availSel.value = '';
         }
         fillSubSelect(subSel, '');
+        setSearch('', null);
         selected = null;
         cardOverlay.hide();
         didFit = false;

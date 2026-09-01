@@ -3,9 +3,9 @@
 @section('title', translate('Provider_Live_View'))
 
 @php
-    $plvAssetV = (@filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time()) . '-plv14';
-    $plvCssV = (@filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time()) . '-plv14';
-    $plvCalJsV = (@filemtime(public_path('assets/admin-module/js/provider-availability-calendar.js')) ?: time()) . '-plv14';
+    $plvAssetV = (@filemtime(public_path('assets/admin-module/js/provider-live-view.js')) ?: time()) . '-plv15';
+    $plvCssV = (@filemtime(public_path('assets/admin-module/css/provider-live-view.css')) ?: time()) . '-plv15';
+    $plvCalJsV = (@filemtime(public_path('assets/admin-module/js/provider-availability-calendar.js')) ?: time()) . '-plv15';
     $calendarWindowDays = (int) ($calendarWindowDays ?? 90);
     $calendarStartMaxDays = (int) ($calendarStartMaxDays ?? 365);
     $calendarFromDt = \Illuminate\Support\Carbon::parse($calendarFrom ?? now())->setTime(9, 0)->format('Y-m-d\TH:i');
@@ -214,13 +214,20 @@
                             {{ translate('Providers') }}
                             <span class="provider-live-thin" id="plv-list-count"></span>
                         </h3>
-                        <span class="provider-live-thin">{{ translate('Double_click_to_open') }}</span>
+                        <label class="provider-live-find">
+                            <span class="material-icons">search</span>
+                            <input id="plv-find-list" class="js-plv-find" type="search" placeholder="{{ translate('Find_a_provider') }}" autocomplete="off">
+                        </label>
                     </div>
                     <div class="provider-live-list-body" id="plv-list"></div>
                 </div>
                 <div class="provider-live-panel provider-live-panel--map">
                     <div class="provider-live-head">
                         <h3 class="provider-live-title"><span class="material-icons">map</span> {{ translate('Coverage_map') }}</h3>
+                        <label class="provider-live-find">
+                            <span class="material-icons">search</span>
+                            <input id="plv-find-map" class="js-plv-find" type="search" placeholder="{{ translate('Find_a_provider') }}" autocomplete="off">
+                        </label>
                         <div class="provider-live-seg" id="plv-map-mode">
                             <button type="button" class="on" data-mode="pins">{{ translate('Pins') }}</button>
                             <button type="button" data-mode="zones">{{ translate('Zone_heat') }}</button>
@@ -291,12 +298,20 @@
                                 {{ translate('Who_can_take_work') }}
                                 <span class="provider-live-thin" id="plc-list-count"></span>
                             </h3>
+                            <label class="provider-live-find">
+                                <span class="material-icons">search</span>
+                                <input id="plc-find-list" class="js-plc-find" type="search" placeholder="{{ translate('Find_a_provider') }}" autocomplete="off">
+                            </label>
                         </div>
                         <div class="provider-live-list-body" id="plc-list"></div>
                     </div>
                     <div class="provider-live-panel provider-cal-panel">
                         <div class="provider-live-head">
                             <h3 class="provider-live-title"><span class="material-icons">view_week</span> {{ translate('Range_calendar') }}</h3>
+                            <label class="provider-live-find">
+                                <span class="material-icons">search</span>
+                                <input id="plc-find-cal" class="js-plc-find" type="search" placeholder="{{ translate('Find_a_provider') }}" autocomplete="off">
+                            </label>
                             <span class="provider-live-thin" id="plc-range-label"></span>
                         </div>
                         <div class="provider-cal-table-wrap" id="plc-cal"></div>
