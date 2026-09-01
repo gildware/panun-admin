@@ -11,6 +11,7 @@
     const CAL_FROM_DT = payload.calendarFromDt || '';
     const CAL_TO_DT = payload.calendarToDt || '';
     const HORIZON_DAYS = Math.max(1, Number(payload.calendarWindowDays || payload.calendarHorizonDays) || 90);
+    const START_MAX_DAYS = Math.max(HORIZON_DAYS, Number(payload.calendarStartMaxDays) || 365);
     const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
     const zoneById = {};
@@ -123,16 +124,16 @@
     function applyStartCap() {
         const now = new Date();
         const todayStart = startOfDay(now);
-        const todayEnd = endOfDay(now);
+        const startMax = endOfDay(addDays(todayStart, START_MAX_DAYS));
         fromEl.min = toDateTimeLocal(todayStart);
-        fromEl.max = toDateTimeLocal(todayEnd);
+        fromEl.max = toDateTimeLocal(startMax);
         const start = parseDateTime(fromEl.value);
         if (!start || start < todayStart) {
             const fallback = new Date(now);
             fallback.setHours(9, 0, 0, 0);
             fromEl.value = toDateTimeLocal(fallback);
-        } else if (start > todayEnd) {
-            fromEl.value = toDateTimeLocal(todayEnd);
+        } else if (start > startMax) {
+            fromEl.value = toDateTimeLocal(startMax);
         }
     }
     function applyEndCap() {
