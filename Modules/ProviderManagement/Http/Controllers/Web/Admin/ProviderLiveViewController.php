@@ -186,23 +186,51 @@ class ProviderLiveViewController extends Controller
     }
 
     /**
+     * Prefer the city service area (Srinagar) over a valley-wide parent like Kashmir Region.
+     *
      * @param  \Illuminate\Support\Collection<int, Zone>  $zones
      * @param  array<int, array<string, mixed>>  $zonePayload
      */
     private function defaultTopLevelZoneId($zones, array $zonePayload): ?string
     {
+        if ($zones->isEmpty()) {
+            return null;
+        }
+
+        $namedCity = $zones->first(function (Zone $zone) {
+            return preg_match('/srinagar\s+(and\s+nearby|district)/i', (string) $zone->name) === 1;
+        });
+        if ($namedCity) {
+            return (string) $namedCity->id;
+        }
+
+        $srinagarNamed = $zones->filter(function (Zone $zone) {
+            return preg_match('/srinagar/i', (string) $zone->name) === 1;
+        });
+        if ($srinagarNamed->isNotEmpty()) {
+            $payloadById = [];
+            foreach ($zonePayload as $row) {
+                $payloadById[(string) $row['id']] = $row;
+            }
+            $best = null;
+            $bestSpan = -1.0;
+            foreach ($srinagarNamed as $zone) {
+                $span = $this->pathSpan($payloadById[(string) $zone->id]['paths'] ?? []) ?? 0.0;
+                if ($span >= $bestSpan) {
+                    $bestSpan = $span;
+                    $best = $zone;
+                }
+            }
+
+            return $best ? (string) $best->id : (string) $srinagarNamed->first()->id;
+        }
+
         $roots = $zones->filter(function (Zone $zone) {
             return $zone->parent_id === null || $zone->parent_id === '';
         })->values();
 
         if ($roots->isEmpty()) {
-            $first = $zones->first();
-
-            return $first ? (string) $first->id : null;
-        }
-
-        if ($roots->count() === 1) {
-            return (string) $roots->first()->id;
+            return (string) $zones->first()->id;
         }
 
         $payloadById = [];
@@ -210,17 +238,28 @@ class ProviderLiveViewController extends Controller
             $payloadById[(string) $row['id']] = $row;
         }
 
+        $candidates = $roots;
+        if ($roots->count() === 1) {
+            $rootId = (string) $roots->first()->id;
+            $children = $zones->filter(function (Zone $zone) use ($rootId) {
+                return (string) $zone->parent_id === $rootId;
+            })->values();
+            if ($children->isNotEmpty()) {
+                $candidates = $children;
+            }
+        }
+
         $bestId = null;
         $bestSpan = null;
-        foreach ($roots as $root) {
-            $paths = $payloadById[(string) $root->id]['paths'] ?? [];
+        foreach ($candidates as $zone) {
+            $paths = $payloadById[(string) $zone->id]['paths'] ?? [];
             $span = $this->pathSpan(is_array($paths) ? $paths : []);
             if ($span === null) {
                 continue;
             }
             if ($bestSpan === null || $span < $bestSpan) {
                 $bestSpan = $span;
-                $bestId = (string) $root->id;
+                $bestId = (string) $zone->id;
             }
         }
 

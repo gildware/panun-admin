@@ -345,7 +345,9 @@
     function fitIfNeeded(rows) {
         const bounds = new google.maps.LatLngBounds();
         let hasPoint = false;
-        visibleZones().forEach(function (z) {
+        const selectedZone = zoneSel.value ? zoneById[zoneSel.value] : null;
+        const zonesToFit = selectedZone ? [selectedZone] : visibleZones();
+        zonesToFit.forEach(function (z) {
             (z.paths || []).forEach(function (pt) {
                 bounds.extend(pt);
                 hasPoint = true;
@@ -355,19 +357,22 @@
                 hasPoint = true;
             }
         });
-        rows.forEach(function (p) {
-            if (p.lat == null || p.lng == null) return;
-            bounds.extend({ lat: Number(p.lat), lng: Number(p.lng) });
-            hasPoint = true;
-        });
+        if (!hasPoint) {
+            rows.forEach(function (p) {
+                if (p.lat == null || p.lng == null) return;
+                bounds.extend({ lat: Number(p.lat), lng: Number(p.lng) });
+                hasPoint = true;
+            });
+        }
+        google.maps.event.trigger(map, 'resize');
         if (hasPoint) {
             map.fitBounds(bounds, 48);
             google.maps.event.addListenerOnce(map, 'idle', function () {
                 if (map.getZoom() > 14) {
                     map.setZoom(14);
                 }
-                if (map.getZoom() < 10 && zoneSel.value) {
-                    map.setZoom(11);
+                if (map.getZoom() < 11 && zoneSel.value) {
+                    map.setZoom(12);
                 }
             });
         } else {

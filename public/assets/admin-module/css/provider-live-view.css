@@ -388,12 +388,12 @@
     .provider-live-kpis {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-    .provider-live-workspace {
-        grid-template-columns: 1fr;
-    }
 }
 
 @media (max-width: 767px) {
+    .provider-live-workspace {
+        grid-template-columns: 1fr;
+    }
     .provider-live-filters,
     .provider-live-kpis {
         grid-template-columns: 1fr;
