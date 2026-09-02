@@ -19,8 +19,35 @@
     function ajaxHeaders() {
         return {
             "X-CSRF-TOKEN": csrf,
+            "X-Requested-With": "XMLHttpRequest",
             Accept: "application/json",
         };
+    }
+
+    function ajaxErrorMessage(xhr, fallback) {
+        var data = xhr && xhr.responseJSON ? xhr.responseJSON : {};
+        if (data.message) {
+            return data.message;
+        }
+        if (data.errors) {
+            var first = Object.values(data.errors)[0];
+            if (Array.isArray(first) && first[0]) {
+                return first[0];
+            }
+            if (typeof first === "string" && first) {
+                return first;
+            }
+        }
+        if (xhr && xhr.status === 413) {
+            return "The comment or attachment is too large";
+        }
+        if (xhr && xhr.status === 419) {
+            return "Session expired. Refresh the page and try again.";
+        }
+        if (xhr && (xhr.status === 401 || xhr.status === 403)) {
+            return "You are not allowed to do this";
+        }
+        return fallback;
     }
 
     function showModal(selector) {
@@ -551,10 +578,10 @@
                 setActivityTab("comments");
                 $("#ticketModal").removeClass("ticket-modal-loading");
             },
-            error: function () {
+            error: function (xhr) {
                 $("#ticketModal").removeClass("ticket-modal-loading");
                 hideTaskBoardModals();
-                toastError("Failed to load ticket");
+                toastError(ajaxErrorMessage(xhr, "Failed to load ticket"));
             },
         });
     }
@@ -835,15 +862,19 @@
                 toastSuccess("Column deleted");
                 window.location.reload();
             },
-            error: function () {
-                toastError("Failed to delete column");
+            error: function (xhr) {
+                toastError(ajaxErrorMessage(xhr, "Failed to delete column"));
             },
         });
     });
 
-    $(document).on("submit", "#ticketForm", function (e) {
+    $(document).off("submit.taskBoard", "#ticketForm").on("submit.taskBoard", "#ticketForm", function (e) {
         e.preventDefault();
         var form = this;
+        var $form = $(form);
+        if ($form.data("submitting")) {
+            return;
+        }
         var fd = new FormData(form);
         var description = resolveMentions($("#ticketDescription").val() || "");
         fd.set("description", description);
@@ -853,6 +884,7 @@
             fd.set("_method", "PUT");
         }
 
+        $form.data("submitting", true);
         $.ajax({
             url: $(form).attr("action"),
             method: "POST",
@@ -865,8 +897,8 @@
                 window.location.reload();
             },
             error: function (xhr) {
-                var msg = (xhr.responseJSON && xhr.responseJSON.message) || "Failed to save ticket";
-                toastError(msg);
+                $form.data("submitting", false);
+                toastError(ajaxErrorMessage(xhr, "Failed to save ticket"));
             },
         });
     });
@@ -883,13 +915,19 @@
                 toastSuccess("Ticket deleted");
                 window.location.reload();
             },
-            error: function () {
-                toastError("Failed to delete ticket");
+            error: function (xhr) {
+                toastError(ajaxErrorMessage(xhr, "Failed to delete ticket"));
             },
         });
     });
 
-    $(document).on("click", "#btnAddComment", function () {
+    $(document).off("click.taskBoard", "#btnAddComment").on("click.taskBoard", "#btnAddComment", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var $btn = $(this);
+        if ($btn.prop("disabled") || $btn.data("submitting")) {
+            return;
+        }
         var ticketId = $("#ticketId").val();
         if (!ticketId) {
             toastError("Save the ticket first");
@@ -907,6 +945,7 @@
             fd.append("files[]", file);
         });
 
+        $btn.data("submitting", true).prop("disabled", true);
         $.ajax({
             url: routes.commentsStore + "/" + ticketId + "/comments",
             method: "POST",
@@ -922,10 +961,16 @@
                 toastSuccess("Comment added");
             },
             error: function (xhr) {
-                var msg =
-                    (xhr.responseJSON && xhr.responseJSON.message) ||
-                    "Failed to add comment";
-                toastError(msg);
+                $btn.data("submitting", false).prop("disabled", false);
+                toastError(ajaxErrorMessage(xhr, "Failed to add comment"));
+            },
+            complete: function (xhr) {
+                if (xhr && xhr.status >= 200 && xhr.status < 300) {
+                    return;
+                }
+                if ($btn.data("submitting")) {
+                    $btn.data("submitting", false).prop("disabled", false);
+                }
             },
         });
     });

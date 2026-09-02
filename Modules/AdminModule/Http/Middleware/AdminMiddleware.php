@@ -24,22 +24,43 @@ class AdminMiddleware
             if ($user->user_type === 'admin-employee') {
                 if ($user->is_active == 0) {
                     auth()->guard('web')->logout();
-                    Toastr::warning(translate('Your account is inactive. Please contact the admin.'));
-                    return redirect('admin/auth/login');
+
+                    return $this->deny(
+                        $request,
+                        translate('Your account is inactive. Please contact the admin.'),
+                        'warning'
+                    );
                 }
 
                 $role = $user->roles->first();
                 if (!$role || $role->is_active == 0) {
                     auth()->guard('web')->logout();
-                    Toastr::warning(translate('Your role is inactive or not assigned. Please contact the admin.'));
-                    return redirect('admin/auth/login');
+
+                    return $this->deny(
+                        $request,
+                        translate('Your role is inactive or not assigned. Please contact the admin.'),
+                        'warning'
+                    );
                 }
             }
 
             return $next($request);
         }
 
-        Toastr::info(ACCESS_DENIED['message']);
+        return $this->deny($request, ACCESS_DENIED['message'] ?? 'Unauthorized', 'info');
+    }
+
+    private function deny(Request $request, string $message, string $toastLevel)
+    {
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => false,
+                'message' => $message,
+            ], 401);
+        }
+
+        Toastr::{$toastLevel}($message);
+
         return redirect('admin/auth/login');
     }
 }
