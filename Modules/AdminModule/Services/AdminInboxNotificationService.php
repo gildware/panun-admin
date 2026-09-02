@@ -6,8 +6,11 @@ use App\Support\AdminHeaderChatCounts;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Modules\AdminModule\Entities\UserNotification;
 use Modules\UserManagement\Entities\User;
+use Throwable;
 
 class AdminInboxNotificationService
 {
@@ -53,30 +56,41 @@ class AdminInboxNotificationService
     ): ?UserNotification {
         $category = $category ?? UserNotification::categoryForType($type);
 
-        if ($referenceType !== null && $referenceId !== null) {
-            $exists = UserNotification::query()
-                ->where('user_id', $userId)
-                ->where('type', $type)
-                ->where('reference_type', $referenceType)
-                ->where('reference_id', $referenceId)
-                ->whereNull('read_at')
-                ->exists();
+        try {
+            if ($referenceType !== null && $referenceId !== null) {
+                $exists = UserNotification::query()
+                    ->where('user_id', $userId)
+                    ->where('type', $type)
+                    ->where('reference_type', $referenceType)
+                    ->where('reference_id', $referenceId)
+                    ->whereNull('read_at')
+                    ->exists();
 
-            if ($exists) {
-                return null;
+                if ($exists) {
+                    return null;
+                }
             }
-        }
 
-        $notification = UserNotification::create([
-            'user_id' => $userId,
-            'type' => $type,
-            'category' => $category,
-            'title' => $title,
-            'body' => $body,
-            'action_url' => $actionUrl,
-            'reference_type' => $referenceType,
-            'reference_id' => $referenceId,
-        ]);
+            $payload = [
+                'user_id' => $userId,
+                'type' => $type,
+                'title' => Str::limit((string) $title, 250, ''),
+                'body' => $body !== null ? Str::limit((string) $body, 5000, '') : null,
+                'action_url' => $actionUrl !== null ? Str::limit((string) $actionUrl, 250, '') : null,
+                'reference_type' => $referenceType,
+                'reference_id' => $referenceId !== null ? Str::limit((string) $referenceId, 250, '') : null,
+            ];
+
+            if (Schema::hasColumn('user_notifications', 'category')) {
+                $payload['category'] = $category;
+            }
+
+            $notification = UserNotification::create($payload);
+        } catch (Throwable $e) {
+            report($e);
+
+            return null;
+        }
 
         $this->clearUserCache($userId);
 
@@ -206,8 +220,12 @@ class AdminInboxNotificationService
 
     public function clearUserCache(string $userId): void
     {
-        Cache::forget("admin_header_counts:{$userId}");
-        Cache::forget("admin_inbox_notifications:{$userId}");
-        AdminHeaderChatCounts::forgetForUser($userId);
+        try {
+            Cache::forget("admin_header_counts:{$userId}");
+            Cache::forget("admin_inbox_notifications:{$userId}");
+            AdminHeaderChatCounts::forgetForUser($userId);
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 }

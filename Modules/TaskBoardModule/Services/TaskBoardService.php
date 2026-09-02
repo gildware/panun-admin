@@ -6,8 +6,10 @@ use App\Support\AdminHeaderTaskBoardCounts;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 use Modules\AdminModule\Entities\UserNotification;
 use Modules\AdminModule\Services\AdminInboxNotificationService;
 use Modules\ChattingModule\Services\StaffChatMessageParser;
@@ -316,12 +318,17 @@ class TaskBoardService
             $this->messageParser->extractStaffMentionIds($body)
         );
 
-        $comment = TaskTicketComment::query()->create([
+        $payload = [
             'ticket_id' => $ticket->id,
             'user_id' => $authorId,
             'body' => $body,
-            'mentioned_user_ids' => $mentionedUserIds,
-        ]);
+        ];
+
+        if (Schema::hasColumn('task_ticket_comments', 'mentioned_user_ids')) {
+            $payload['mentioned_user_ids'] = $mentionedUserIds;
+        }
+
+        $comment = TaskTicketComment::query()->create($payload);
 
         $storedCount = $this->storeAttachments($ticket, $files, $comment->id);
 
@@ -343,11 +350,15 @@ class TaskBoardService
             ],
         );
 
-        $this->notifyCommentRecipients(
-            $ticket->fresh(['assignees']),
-            $comment,
-            $authorId ? (string) $authorId : null,
-        );
+        try {
+            $this->notifyCommentRecipients(
+                $ticket->fresh(['assignees']),
+                $comment,
+                $authorId ? (string) $authorId : null,
+            );
+        } catch (Throwable $e) {
+            report($e);
+        }
 
         return $comment->load(['user', 'attachments']);
     }
@@ -680,7 +691,11 @@ class TaskBoardService
             $actor = auth()->user();
             $freshTicket = $ticket->fresh(['column']);
             foreach ($newAssigneeIds as $assigneeId) {
-                admin_inbox_notify_ticket_assigned($assigneeId, $freshTicket, $actor);
+                try {
+                    admin_inbox_notify_ticket_assigned($assigneeId, $freshTicket, $actor);
+                } catch (Throwable $e) {
+                    report($e);
+                }
             }
         }
     }

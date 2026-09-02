@@ -41,7 +41,11 @@ final class AdminHeaderTaskBoardCounts
 
     public static function forgetForUser(int|string $userId): void
     {
-        Cache::forget('admin_header_task_board_assigned:'.$userId);
+        try {
+            Cache::forget('admin_header_task_board_assigned:'.$userId);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     /**

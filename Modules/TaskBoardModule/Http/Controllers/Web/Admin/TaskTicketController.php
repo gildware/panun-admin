@@ -132,7 +132,7 @@ class TaskTicketController extends Controller
     {
         $ticket = TaskTicket::query()->findOrFail($id);
         $data = $request->validate([
-            'body' => 'nullable|string|max:5000',
+            'body' => 'nullable|string|max:20000',
             'files' => 'nullable|array',
             'files.*' => 'file|max:'.uploadMaxFileSizeInKB('file'),
         ]);
@@ -182,6 +182,12 @@ class TaskTicketController extends Controller
 
     private function validatedTicket(Request $request, bool $updating = false): array
     {
+        $request->merge([
+            'assignee_ids' => $this->cleanIdList($request->input('assignee_ids')),
+            'booking_ids' => $this->cleanIdList($request->input('booking_ids')),
+            'lead_ids' => $this->cleanIdList($request->input('lead_ids')),
+        ]);
+
         $rules = [
             'column_id' => ($updating ? 'nullable' : 'required').'|uuid|exists:task_columns,id',
             'title' => ($updating ? 'nullable' : 'required').'|string|max:255',
@@ -189,15 +195,27 @@ class TaskTicketController extends Controller
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
             'assignee_ids' => 'nullable|array',
-            'assignee_ids.*' => 'uuid',
+            'assignee_ids.*' => 'nullable|uuid',
             'booking_ids' => 'nullable|array',
-            'booking_ids.*' => 'string|max:64',
+            'booking_ids.*' => 'nullable|string|max:64',
             'lead_ids' => 'nullable|array',
-            'lead_ids.*' => 'string|max:64',
+            'lead_ids.*' => 'nullable|string|max:64',
             'images' => 'nullable|array',
             'images.*' => 'image|max:5120',
         ];
 
         return $request->validate($rules);
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return array<int, string>
+     */
+    private function cleanIdList($value): array
+    {
+        return array_values(array_filter(
+            array_map('strval', is_array($value) ? $value : []),
+            fn (string $id) => trim($id) !== ''
+        ));
     }
 }

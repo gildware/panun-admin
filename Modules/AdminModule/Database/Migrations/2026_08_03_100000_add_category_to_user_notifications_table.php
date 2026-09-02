@@ -10,10 +10,12 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('user_notifications', function (Blueprint $table) {
-            $table->string('category', 16)->default(UserNotification::CATEGORY_EXTERNAL)->after('type');
-            $table->index(['user_id', 'category', 'read_at']);
-        });
+        if (! Schema::hasColumn('user_notifications', 'category')) {
+            Schema::table('user_notifications', function (Blueprint $table) {
+                $table->string('category', 16)->default(UserNotification::CATEGORY_EXTERNAL)->after('type');
+                $table->index(['user_id', 'category', 'read_at']);
+            });
+        }
 
         $internalTypes = [
             UserNotification::TYPE_CHAT_MESSAGE,
@@ -31,6 +33,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (! Schema::hasColumn('user_notifications', 'category')) {
+            return;
+        }
+
         Schema::table('user_notifications', function (Blueprint $table) {
             $table->dropIndex(['user_id', 'category', 'read_at']);
             $table->dropColumn('category');
