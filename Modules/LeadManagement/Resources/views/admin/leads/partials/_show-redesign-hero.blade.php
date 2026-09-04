@@ -124,6 +124,63 @@
     @endif
 </section>
 
+@if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER)
+    @php
+        $huntingChecklist = $huntingChecklist ?? ['subcategory' => false, 'zone' => false, 'area' => false, 'datetime' => false, 'job_text' => false];
+        $huntingIsReady = $huntingIsReady ?? false;
+        $huntingMatchingProviderCount = $huntingMatchingProviderCount ?? 0;
+        $isHuntingLive = $lead->isHuntingPublished();
+    @endphp
+    <div class="lead-hunting-alert lead-hunting-alert--{{ $isHuntingLive ? 'live' : ($huntingIsReady ? 'ready' : 'blocked') }}">
+        <div class="lead-followup-alert__content">
+            <span class="material-icons lead-followup-alert__icon">travel_explore</span>
+            <div>
+                @if($isHuntingLive)
+                    <strong>{{ translate('On_hunting_board') }}</strong>
+                    — {{ translate('On_hunting_board_help') }}
+                    @if($lead->hunting_started_at)
+                        <span class="d-block small mt-1">{{ translate('Posted') }} {{ $lead->hunting_started_at->format('d M Y, h:i A') }}</span>
+                    @endif
+                @elseif($huntingIsReady)
+                    <strong>{{ translate('Hunt_ready') }}</strong>
+                    — {{ translate('Hunt_ready_help') }}
+                    <span class="d-block small mt-1">{{ $huntingMatchingProviderCount }} {{ translate('subscribed_providers_would_see_this_job') }}</span>
+                @else
+                    <strong>{{ translate('Not_hunt_ready') }}</strong>
+                    — {{ translate('Not_hunt_ready_help') }}
+                    <ul class="hunting-check mt-1 mb-0">
+                        <li><span class="dot {{ !empty($huntingChecklist['subcategory']) ? 'ok' : 'no' }}"></span>{{ translate('Sub_Category') }}</li>
+                        <li><span class="dot {{ !empty($huntingChecklist['zone']) ? 'ok' : 'no' }}"></span>{{ translate('Zone') }}</li>
+                        <li><span class="dot {{ !empty($huntingChecklist['area']) ? 'ok' : 'no' }}"></span>{{ translate('Area') }}</li>
+                        <li><span class="dot {{ !empty($huntingChecklist['datetime']) ? 'ok' : 'no' }}"></span>{{ translate('Estimated_Date_Time_of_Service') }}</li>
+                        <li><span class="dot {{ !empty($huntingChecklist['job_text']) ? 'ok' : 'no' }}"></span>{{ translate('Service') }} / {{ translate('Service_Additional_Details_(Optional)') }}</li>
+                    </ul>
+                @endif
+            </div>
+        </div>
+        @can('lead_update')
+            @if($isHuntingLive)
+                <div class="d-flex flex-wrap gap-1">
+                    <a href="{{ route('admin.lead.hunting-board.index') }}" class="ld-btn ld-btn-outline">{{ translate('Hunting_Board') }}</a>
+                    <button type="button" class="ld-btn ld-btn-outline text-danger border-danger" data-bs-toggle="modal" data-bs-target="#leadHuntingUnpublishModal">
+                        <span class="material-icons">unpublished</span>
+                        {{ translate('Unpublish_from_board') }}
+                    </button>
+                </div>
+            @else
+                <form method="POST" action="{{ route('admin.lead.hunting.start', $lead->id) }}" class="m-0">
+                    @csrf
+                    @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif
+                    <button type="submit" class="ld-btn ld-btn-hunt" @if(!$huntingIsReady) disabled @endif>
+                        <span class="material-icons">travel_explore</span>
+                        {{ translate('Start_provider_hunting') }}
+                    </button>
+                </form>
+            @endif
+        @endcan
+    </div>
+@endif
+
 @if(!empty($followupNeedsAttention))
     <div class="lead-followup-alert lead-followup-alert--{{ !empty($pendingFollowupIsOverdue) ? 'missed' : 'pending' }}" role="alert">
         <div class="lead-followup-alert__content">

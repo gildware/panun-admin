@@ -9,7 +9,7 @@
             @include('adminmodule::layouts.partials.top-nav._link', [
                 'href' => route('admin.lead.index'),
                 'label' => translate('Leads'),
-                'active' => (request()->is('admin/lead') || request()->is('admin/lead/*')) && !request()->is('admin/lead/create*') && !request()->is('admin/lead/configuration*') && !request()->is('admin/lead/reports*') && !request()->is('admin/lead/outbound-enquiry*'),
+                'active' => (request()->is('admin/lead') || request()->is('admin/lead/*')) && !request()->is('admin/lead/create*') && !request()->is('admin/lead/configuration*') && !request()->is('admin/lead/reports*') && !request()->is('admin/lead/outbound-enquiry*') && !request()->is('admin/lead/hunting-board*'),
             ])
         @endcan
         @can('booking_view')

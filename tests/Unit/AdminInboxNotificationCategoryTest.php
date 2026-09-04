@@ -56,6 +56,7 @@ class AdminInboxNotificationCategoryTest extends TestCase
             UserNotification::TYPE_APP_CUSTOM_REQUEST,
             UserNotification::TYPE_LEAD,
             UserNotification::TYPE_WHATSAPP_HUMAN_SUPPORT,
+            UserNotification::TYPE_HUNTING_INTEREST,
         ];
 
         $internal = [
@@ -141,6 +142,9 @@ class AdminInboxNotificationCategoryTest extends TestCase
             'admin_inbox_notify_booking_pending_cancellation',
             'admin_inbox_notify_whatsapp_human_support_requested',
             'admin_inbox_notify_lead_followup_due',
+            'admin_inbox_notify_hunting_interest',
+            'admin_inbox_notify_hunting_interest_revoked',
+            'admin_inbox_notify_hunting_rejected',
         ];
 
         foreach ($helpers as $helper) {
@@ -184,6 +188,8 @@ class AdminInboxNotificationCategoryTest extends TestCase
             'booking pending cancellation' => ['external', ['admin_inbox_notify_booking_pending_cancellation', 'ProviderBookingWithdrawalService']],
             'whatsapp human support' => ['external', ['admin_inbox_notify_whatsapp_human_support_requested', 'markHumanSupportRequested']],
             'lead followup due' => ['internal', ['admin_inbox_notify_lead_followup_due', 'LeadFollowupReminderNotifier']],
+            'hunting interest' => ['external', ['admin_inbox_notify_hunting_interest', 'TYPE_HUNTING_INTEREST']],
+            'hunting rejected' => ['external', ['admin_inbox_notify_hunting_rejected', 'TYPE_HUNTING_INTEREST']],
         ];
     }
 
@@ -238,6 +244,15 @@ class AdminInboxNotificationCategoryTest extends TestCase
         $source = (string) file_get_contents($path);
 
         $this->assertStringContainsString('TYPE_CHAT_MESSAGE', $source);
+        $this->assertStringContainsString('CATEGORY_EXTERNAL', $source);
+    }
+
+    public function test_hunting_interest_migration_reclassifies_as_external(): void
+    {
+        $path = dirname(__DIR__, 2).'/Modules/AdminModule/Database/Migrations/2026_09_04_200000_reclassify_hunting_interest_notifications_as_external.php';
+        $source = (string) file_get_contents($path);
+
+        $this->assertStringContainsString('TYPE_HUNTING_INTEREST', $source);
         $this->assertStringContainsString('CATEGORY_EXTERNAL', $source);
     }
 }

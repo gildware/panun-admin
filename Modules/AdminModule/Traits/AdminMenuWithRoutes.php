@@ -1037,6 +1037,14 @@ trait AdminMenuWithRoutes
                 "type" => 'menu',
             ],
             [
+                'route_name' => 'Hunting_Board',
+                'uri' => 'admin/lead/hunting-board',
+                'full_route' => url('admin/lead/hunting-board'),
+                "page_title" => 'Hunting_Board',
+                "keywords" => 'Hunting board, unassigned work, provider hunting, open jobs, leads',
+                "type" => 'menu',
+            ],
+            [
                 'route_name' => 'Outbound_Enquiry',
                 'uri' => 'admin/lead/outbound-enquiry',
                 'full_route' => url('admin/lead/outbound-enquiry'),

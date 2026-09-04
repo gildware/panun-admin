@@ -60,8 +60,14 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                     @can('lead_view')
                         <li>
                             <a href="{{ route('admin.lead.index') }}"
-                               class="{{ (request()->is('admin/lead') || request()->is('admin/lead/*')) && !request()->is('admin/lead/create*') && !request()->is('admin/lead/configuration*') && !request()->is('admin/lead/reports*') && !request()->is('admin/lead/outbound-enquiry*') ? 'active-menu' : '' }}">
+                               class="{{ (request()->is('admin/lead') || request()->is('admin/lead/*')) && !request()->is('admin/lead/create*') && !request()->is('admin/lead/configuration*') && !request()->is('admin/lead/reports*') && !request()->is('admin/lead/outbound-enquiry*') && !request()->is('admin/lead/hunting-board*') ? 'active-menu' : '' }}">
                                 <span class="link-title">{{ translate('Leads') }}</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.lead.hunting-board.index') }}"
+                               class="{{ request()->is('admin/lead/hunting-board*') ? 'active-menu' : '' }}">
+                                <span class="link-title">{{ translate('Hunting_Board') }}</span>
                             </a>
                         </li>
                     @endcan

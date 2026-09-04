@@ -777,3 +777,85 @@ if (! function_exists('admin_inbox_notify_lead_followup_due')) {
         );
     }
 }
+
+if (! function_exists('admin_inbox_notify_hunting_interest')) {
+    function admin_inbox_notify_hunting_interest(
+        \Modules\LeadManagement\Entities\Lead $lead,
+        \Modules\ProviderManagement\Entities\Provider $provider,
+        ?string $note = null,
+    ): void {
+        $providerName = trim((string) ($provider->company_name ?? '')) ?: translate('Provider');
+        $leadLabel = trim((string) ($lead->name ?? ''));
+        if ($leadLabel === '') {
+            $leadLabel = translate('Lead') . ' #' . $lead->id;
+        }
+
+        $body = $providerName . ' — ' . $leadLabel . ' #' . $lead->id;
+        if ($note !== null && trim($note) !== '') {
+            $body .= ' · ' . trim($note);
+        }
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_HUNTING_INTEREST,
+            translate('Provider_interested_in_open_request'),
+            $body,
+            route('admin.lead.show', $lead->id),
+            'hunting_interest',
+            (string) $lead->id . ':' . (string) $provider->id,
+            UserNotification::CATEGORY_EXTERNAL,
+        );
+    }
+}
+
+if (! function_exists('admin_inbox_notify_hunting_interest_revoked')) {
+    function admin_inbox_notify_hunting_interest_revoked(
+        \Modules\LeadManagement\Entities\Lead $lead,
+        \Modules\ProviderManagement\Entities\Provider $provider,
+    ): void {
+        $providerName = trim((string) ($provider->company_name ?? '')) ?: translate('Provider');
+        $leadLabel = trim((string) ($lead->name ?? ''));
+        if ($leadLabel === '') {
+            $leadLabel = translate('Lead') . ' #' . $lead->id;
+        }
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_HUNTING_INTEREST,
+            translate('Provider_revoked_open_request_interest'),
+            $providerName . ' — ' . $leadLabel . ' #' . $lead->id,
+            route('admin.lead.show', $lead->id),
+            'hunting_interest_revoked',
+            (string) $lead->id . ':' . (string) $provider->id,
+            UserNotification::CATEGORY_EXTERNAL,
+        );
+    }
+}
+
+if (! function_exists('admin_inbox_notify_hunting_rejected')) {
+    function admin_inbox_notify_hunting_rejected(
+        \Modules\LeadManagement\Entities\Lead $lead,
+        \Modules\ProviderManagement\Entities\Provider $provider,
+        string $reason,
+    ): void {
+        $providerName = trim((string) ($provider->company_name ?? '')) ?: translate('Provider');
+        $leadLabel = trim((string) ($lead->name ?? ''));
+        if ($leadLabel === '') {
+            $leadLabel = translate('Lead') . ' #' . $lead->id;
+        }
+
+        $body = $providerName . ' — ' . $leadLabel . ' #' . $lead->id;
+        $reason = trim($reason);
+        if ($reason !== '') {
+            $body .= ' · ' . $reason;
+        }
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_HUNTING_INTEREST,
+            translate('Provider_rejected_open_request'),
+            $body,
+            route('admin.lead.show', $lead->id),
+            'hunting_rejected',
+            (string) $lead->id . ':' . (string) $provider->id,
+            UserNotification::CATEGORY_EXTERNAL,
+        );
+    }
+}

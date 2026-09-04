@@ -5,6 +5,7 @@ use Modules\LeadManagement\Http\Controllers\Web\Admin\AdSourceController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadCommentController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadConfigurationController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadController;
+use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadHuntingBoardController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadFollowupController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadOutboundEnquiryController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadReportController;
@@ -20,6 +21,10 @@ Route::group([
 ], function () {
     Route::group(['prefix' => 'lead', 'as' => 'lead.'], function () {
         Route::get('/', [LeadController::class, 'index'])->middleware(['can:lead_view'])->name('index');
+        Route::get('hunting-board', [LeadHuntingBoardController::class, 'index'])->middleware(['can:lead_view'])->name('hunting-board.index');
+        Route::post('hunting-board/{id}/remind', [LeadHuntingBoardController::class, 'remind'])->middleware(['can:lead_update'])->name('hunting-board.remind');
+        Route::post('{id}/hunting/start', [LeadHuntingBoardController::class, 'start'])->middleware(['can:lead_update'])->name('hunting.start');
+        Route::post('{id}/hunting/unpublish', [LeadHuntingBoardController::class, 'unpublish'])->middleware(['can:lead_update'])->name('hunting.unpublish');
         Route::get('create', [LeadController::class, 'create'])->middleware(['can:lead_add'])->name('create');
         Route::get('create/from-whatsapp-provider/{lead_id}', [LeadController::class, 'createFromWhatsAppProvider'])->middleware(['can:lead_add'])->name('create-from-whatsapp-provider');
         Route::post('store', [LeadController::class, 'store'])->middleware(['can:lead_add'])->name('store');

@@ -290,7 +290,7 @@
         });
     }
 
-    function scriptSrcIsLoaded(src) {
+    function scriptSrcIsLoaded(src, excludeEl) {
         var absoluteSrc = resolveStylesheetHref(src);
         if (!absoluteSrc) {
             return false;
@@ -298,6 +298,10 @@
 
         var scripts = document.querySelectorAll('script[src]');
         for (var i = 0; i < scripts.length; i++) {
+            if (excludeEl && scripts[i] === excludeEl) {
+                continue;
+            }
+
             if (resolveStylesheetHref(scripts[i].getAttribute('src') || scripts[i].src) === absoluteSrc) {
                 return true;
             }
@@ -316,7 +320,11 @@
             return typeof window.Sortable === 'undefined';
         }
 
-        return !scriptSrcIsLoaded(src);
+        if (absoluteSrc && absoluteSrc.indexOf('fullcalendar.js') !== -1) {
+            return typeof window.FullCalendar === 'undefined';
+        }
+
+        return !scriptSrcIsLoaded(src, oldScript);
     }
 
     function activateOneScript(oldScript) {
@@ -668,6 +676,10 @@
             return false;
         }
 
+        if (link.closest('#hb-calendar, .fc-event, .hb-cal-event, .hb-event-modal, .hb-day-modal')) {
+            return false;
+        }
+
         if (requiresFullPageNavigation(link.href)) {
             return false;
         }
@@ -768,6 +780,10 @@
             }
 
             if (link.getAttribute('data-turbo') === 'false') {
+                return;
+            }
+
+            if (link.closest('#hb-calendar, .fc, .fc-event')) {
                 return;
             }
 

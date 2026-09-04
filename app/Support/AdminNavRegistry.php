@@ -35,6 +35,7 @@ class AdminNavRegistry
             self::dashboardItems(),
             self::operationsItems(),
             self::leadsItems(),
+            self::huntingBoardItems(),
             self::bookingsItems(),
             self::taskBoardItems(),
             self::progressItems(),
@@ -198,7 +199,7 @@ class AdminNavRegistry
         $match = self::match($request);
         $groupKey = $match['group_key'] ?? null;
 
-        if (! $groupKey || $groupKey === 'dashboard' || $groupKey === 'settings' || $groupKey === 'communications' || $groupKey === 'progress') {
+        if (! $groupKey || $groupKey === 'dashboard' || $groupKey === 'settings' || $groupKey === 'communications' || $groupKey === 'progress' || $groupKey === 'hunting_board') {
             return self::$cachedGroupSubmenu = null;
         }
 
@@ -417,6 +418,15 @@ class AdminNavRegistry
             self::entry('leads', $group, null, translate('Outbound_Enquiry'), route('admin.lead.outbound-enquiry.index'), [
                 'admin/lead/outbound-enquiry*',
             ], ['admin.lead.outbound-enquiry.index']),
+        ];
+    }
+
+    private static function huntingBoardItems(): array
+    {
+        return [
+            self::entry('hunting_board', translate('Hunting_Board'), null, translate('Hunting_Board'), route('admin.lead.hunting-board.index'), [
+                'admin/lead/hunting-board*',
+            ], ['admin.lead.hunting-board.index']),
         ];
     }
 

@@ -175,6 +175,55 @@
     @endif
 
     @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER)
+        <div class="action-card" id="lead-hunting-interests-card">
+            <div class="action-card__head d-flex justify-content-between align-items-center">
+                <span class="action-card__title">
+                    <span class="material-icons">how_to_reg</span>
+                    {{ translate('Provider_interest') }}
+                </span>
+                @if($lead->isHuntingPublished())
+                    <a href="{{ route('admin.lead.hunting-board.index') }}" class="panel__edit">{{ translate('Board') }}</a>
+                @endif
+            </div>
+            <div class="action-card__body">
+                @php $huntingInterests = $huntingInterests ?? collect(); @endphp
+                @forelse($huntingInterests as $interest)
+                    @php $p = $interest->provider; @endphp
+                    <div class="assignee mb-2">
+                        <div class="assignee__avatar">{{ strtoupper(mb_substr(trim($p->company_name ?? 'P'), 0, 2)) }}</div>
+                        <div>
+                            <div class="assignee__name">
+                                @if($p)
+                                    <a href="{{ route('admin.provider.details', $p->id) }}" @if(!empty($inModal)) target="_top" @endif>{{ $p->company_name ?? translate('Provider') }}</a>
+                                @else
+                                    {{ translate('Provider') }}
+                                @endif
+                            </div>
+                            <div class="assignee__role">
+                                {{ $interest->note ?: translate('Interested') }}
+                                · {{ $interest->created_at?->format('d M, h:i A') }}
+                            </div>
+                            @can('lead_update')
+                                @if($p)
+                                    <form method="POST" action="{{ route('admin.lead.temporary-provider.update', $lead->id) }}" class="mt-1">
+                                        @csrf
+                                        @method('PUT')
+                                        @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif
+                                        <input type="hidden" name="temporary_provider_id" value="{{ $p->id }}">
+                                        <button type="submit" class="ld-btn ld-btn-outline ld-btn-sm">{{ translate('Assign_as_temporary_provider') }}</button>
+                                    </form>
+                                @endif
+                            @endcan
+                        </div>
+                    </div>
+                @empty
+                    <p class="text-muted small mb-0">{{ translate('No_provider_interest_yet') }}</p>
+                @endforelse
+            </div>
+        </div>
+    @endif
+
+    @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER)
         <div class="action-card" id="customer-lead-tags-card">
             <div class="action-card__head d-flex justify-content-between align-items-center">
                 <span class="action-card__title">

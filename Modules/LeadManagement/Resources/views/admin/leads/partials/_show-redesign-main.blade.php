@@ -152,7 +152,7 @@
                     <dl class="dl-grid dl-grid--3">
                         @foreach(isset($typeHistoryDisplay['rows']) ? $typeHistoryDisplay['rows'] : $typeHistoryDisplay as $row)
                             @if(is_array($row) && isset($row['label']))
-                                <div class="dl-item"><dt>{{ $row['label'] }}</dt><dd>@if(!empty($row['raw'])){!! $row['value'] !!}@else{{ $row['value'] }}@endif</dd></div>
+                                <div class="dl-item{{ !empty($row['full']) ? ' dl-item--full' : '' }}"><dt>{{ $row['label'] }}</dt><dd>@if(!empty($row['raw'])){!! $row['value'] !!}@else{{ $row['value'] }}@endif</dd></div>
                             @endif
                         @endforeach
                     </dl>

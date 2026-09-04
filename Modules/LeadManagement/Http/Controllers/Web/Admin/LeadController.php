@@ -426,14 +426,7 @@ class LeadController extends Controller
                 $subCategoryId = $d['service_subcategory'] ?? null;
                 $cancelReasonId = $d['cancellation_reason_id'] ?? null;
                 $cancelReason = $cancelReasonId ? $cancelReasons->get($cancelReasonId) : null;
-                $estAt = $d['estimated_service_at'] ?? null;
-                $estAtFormatted = $estAt ? (function () use ($estAt) {
-                    try {
-                        return \Carbon\Carbon::parse($estAt)->format('d F Y h:i a');
-                    } catch (\Throwable $e) {
-                        return '—';
-                    }
-                })() : '—';
+                $estAtFormatted = $this->formatEstimatedServiceAtForDisplay($d['estimated_service_at'] ?? null);
 
                 $bookingId = $d['booking_id'] ?? null;
                 $booking = $bookingId ? $bookings->get($bookingId) : null;
@@ -1367,6 +1360,9 @@ class LeadController extends Controller
                 'service_subcategory' => $request->input('service_subcategory') ?: null,
                 'service_name' => $request->input('service_name') ?: null,
                 'customer_lead_status_id' => $request->input('customer_lead_status_id') ?: null,
+                'estimated_service_value' => $request->filled('estimated_service_value')
+                    ? $request->input('estimated_service_value')
+                    : null,
             ]);
             $data = $request->validate([
                 'zone_id' => 'nullable|exists:zones,id',
@@ -1375,59 +1371,66 @@ class LeadController extends Controller
                 'service_name' => 'nullable|exists:services,id',
                 'variant_key' => 'nullable|string|max:255',
                 'service_description' => 'nullable|string|max:1000',
-                'estimated_service_at' => 'nullable|date',
+                'estimated_service_at' => 'nullable|string|max:255',
+                'estimated_service_value' => 'nullable|numeric|min:0|max:99999999',
                 'customer_lead_status_id' => 'nullable|exists:customer_lead_statuses,id',
+                'cancellation_reason_id' => 'nullable|exists:lead_cancellation_reasons,id',
+                'cancellation_remarks' => 'nullable|string|max:1000',
                 'area_id' => 'nullable|string|max:255',
             ]);
 
             $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null);
+            $data['estimated_service_value'] = isset($data['estimated_service_value']) && is_numeric($data['estimated_service_value'])
+                ? round((float) $data['estimated_service_value'], 2)
+                : null;
 
             $isUpdateCustomer = $request->boolean('update_customer') && $lead->lead_type === Lead::TYPE_CUSTOMER;
 
-            if (empty($data['customer_lead_status_id'])) {
-                if ($isUpdateCustomer) {
-                    $prevCustomerHistory = LeadTypeHistory::where('lead_id', $lead->id)
-                        ->where('type', Lead::TYPE_CUSTOMER)
-                        ->latest()
-                        ->first();
-                    $data['customer_lead_status_id'] = $prevCustomerHistory->data['customer_lead_status_id'] ?? CustomerLeadStatus::defaultPendingStatusId();
-                } else {
+            $prevCustomerHistory = LeadTypeHistory::where('lead_id', $lead->id)
+                ->where('type', Lead::TYPE_CUSTOMER)
+                ->latest()
+                ->first();
+            $existingCustomerData = ($prevCustomerHistory && is_array($prevCustomerHistory->data))
+                ? $prevCustomerHistory->data
+                : [];
+
+            if ($isUpdateCustomer) {
+                // Details form must not change status — keep current status/reason as-is.
+                $data['customer_lead_status_id'] = $existingCustomerData['customer_lead_status_id']
+                    ?? CustomerLeadStatus::defaultPendingStatusId();
+                unset($data['cancellation_reason_id'], $data['cancellation_remarks']);
+            } else {
+                if (empty($data['customer_lead_status_id'])) {
                     $data['customer_lead_status_id'] = CustomerLeadStatus::defaultPendingStatusId();
                 }
-            }
 
-            // The customer edit/mark modal has a status dropdown but no cancellation-reason field.
-            // Moving a lead into a cancel status here without an existing reason would leave it
-            // cancelled with no reason, so require the dedicated "Change Status" flow instead.
-            $resolvedCustomerStatus = !empty($data['customer_lead_status_id'])
-                ? CustomerLeadStatus::find($data['customer_lead_status_id'])
-                : null;
-            if (($resolvedCustomerStatus?->base_type ?? null) === 'cancel') {
-                $prevForCancel = LeadTypeHistory::where('lead_id', $lead->id)
-                    ->where('type', Lead::TYPE_CUSTOMER)
-                    ->latest()
-                    ->first();
-                $existingCustomerReason = ($prevForCancel && is_array($prevForCancel->data))
-                    ? ($prevForCancel->data['cancellation_reason_id'] ?? null)
+                $resolvedCustomerStatus = !empty($data['customer_lead_status_id'])
+                    ? CustomerLeadStatus::find($data['customer_lead_status_id'])
                     : null;
-                if (empty($existingCustomerReason)) {
-                    toastr()->error(translate('Please_use_Change_Status_to_cancel_and_provide_a_cancellation_reason'));
-                    $url = route('admin.lead.show', $lead->id);
-                    if ($request->boolean('in_modal')) {
-                        $url .= '?in_modal=1';
-                    }
-                    return redirect($url);
+                $data = $this->mergeCancellationIntoTypeData(
+                    $request,
+                    $data,
+                    $existingCustomerData,
+                    $resolvedCustomerStatus?->base_type,
+                    'cancellation_reason_id',
+                    'cancellation_remarks'
+                );
+                if ($data === null) {
+                    toastr()->error(translate('Customer_cancellation_reasons') . ' ' . translate('is_required'));
+                    return $this->redirectToLeadShow($request, $lead->id);
                 }
             }
 
             if ($isUpdateCustomer) {
-                $customerHistory = LeadTypeHistory::where('lead_id', $lead->id)
-                    ->where('type', 'customer')
-                    ->latest()
-                    ->first();
+                $customerHistory = $prevCustomerHistory;
                 // Preserve existing history keys (cancellation reason/remarks, booking_id, etc.)
                 // and only overwrite the edited fields, so unrelated data is not lost.
-                $existing = $customerHistory && is_array($customerHistory->data) ? $customerHistory->data : [];
+                $existing = $existingCustomerData;
+                if (empty($data['estimated_service_at']) && !empty($existing['estimated_service_at'])) {
+                    $data['estimated_service_at'] = $this->preserveUnparseableEstimatedServiceAt(
+                        $existing['estimated_service_at']
+                    ) ?? $data['estimated_service_at'];
+                }
                 $payload = array_merge($existing, $data);
                 $payload['booking_status'] = $existing['booking_status'] ?? 'pending';
 
@@ -1485,6 +1488,8 @@ class LeadController extends Controller
                 'full_address' => 'nullable|string|max:1000',
                 'service_areas' => 'nullable|string|max:1000',
                 'provider_lead_status_id' => 'nullable|exists:provider_lead_statuses,id',
+                'provider_cancellation_reason_id' => 'nullable|exists:provider_cancellation_reasons,id',
+                'provider_cancellation_remarks' => 'nullable|string|max:1000',
                 'zone_ids' => 'nullable|array',
                 'zone_ids.*' => 'uuid|exists:zones,id',
                 'provider_service_category' => 'nullable|exists:categories,id',
@@ -1499,50 +1504,45 @@ class LeadController extends Controller
 
             $isUpdateProvider = $request->boolean('update_provider') && $lead->lead_type === Lead::TYPE_PROVIDER;
 
-            if (empty($data['provider_lead_status_id'])) {
-                if ($isUpdateProvider) {
-                    $prevProviderHistory = LeadTypeHistory::where('lead_id', $lead->id)
-                        ->where('type', Lead::TYPE_PROVIDER)
-                        ->latest()
-                        ->first();
-                    $data['provider_lead_status_id'] = $prevProviderHistory->data['provider_lead_status_id'] ?? ProviderLeadStatus::defaultPendingStatusId();
-                } else {
+            $prevProviderHistory = LeadTypeHistory::where('lead_id', $lead->id)
+                ->where('type', Lead::TYPE_PROVIDER)
+                ->latest()
+                ->first();
+            $existingProviderData = ($prevProviderHistory && is_array($prevProviderHistory->data))
+                ? $prevProviderHistory->data
+                : [];
+
+            if ($isUpdateProvider) {
+                $data['provider_lead_status_id'] = $existingProviderData['provider_lead_status_id']
+                    ?? ProviderLeadStatus::defaultPendingStatusId();
+                unset($data['provider_cancellation_reason_id'], $data['provider_cancellation_remarks']);
+            } else {
+                if (empty($data['provider_lead_status_id'])) {
                     $data['provider_lead_status_id'] = ProviderLeadStatus::defaultPendingStatusId();
                 }
-            }
 
-            // The provider edit/mark modal has a status dropdown but no cancellation-reason field.
-            // Moving a lead into a cancel status here without an existing reason would leave it
-            // cancelled with no reason, so require the dedicated "Change Status" flow instead.
-            $resolvedProviderStatus = !empty($data['provider_lead_status_id'])
-                ? ProviderLeadStatus::find($data['provider_lead_status_id'])
-                : null;
-            if (($resolvedProviderStatus?->base_type ?? null) === 'cancel') {
-                $prevForCancel = LeadTypeHistory::where('lead_id', $lead->id)
-                    ->where('type', Lead::TYPE_PROVIDER)
-                    ->latest()
-                    ->first();
-                $existingProviderReason = ($prevForCancel && is_array($prevForCancel->data))
-                    ? ($prevForCancel->data['provider_cancellation_reason_id'] ?? null)
+                $resolvedProviderStatus = !empty($data['provider_lead_status_id'])
+                    ? ProviderLeadStatus::find($data['provider_lead_status_id'])
                     : null;
-                if (empty($existingProviderReason)) {
-                    toastr()->error(translate('Please_use_Change_Status_to_cancel_and_provide_a_cancellation_reason'));
-                    $url = route('admin.lead.show', $lead->id);
-                    if ($request->boolean('in_modal')) {
-                        $url .= '?in_modal=1';
-                    }
-                    return redirect($url);
+                $data = $this->mergeCancellationIntoTypeData(
+                    $request,
+                    $data,
+                    $existingProviderData,
+                    $resolvedProviderStatus?->base_type,
+                    'provider_cancellation_reason_id',
+                    'provider_cancellation_remarks'
+                );
+                if ($data === null) {
+                    toastr()->error(translate('Provider_cancellation_reasons') . ' ' . translate('is_required'));
+                    return $this->redirectToLeadShow($request, $lead->id);
                 }
             }
 
             if ($isUpdateProvider) {
-                $providerHistory = LeadTypeHistory::where('lead_id', $lead->id)
-                    ->where('type', 'provider')
-                    ->latest()
-                    ->first();
+                $providerHistory = $prevProviderHistory;
                 // Preserve existing history keys (cancellation reason/remarks, etc.) and only
                 // overwrite the edited fields, so unrelated data is not lost.
-                $existing = $providerHistory && is_array($providerHistory->data) ? $providerHistory->data : [];
+                $existing = $existingProviderData;
                 $payload = array_merge($existing, $data);
 
                 // Drop cancellation details only when the lead is no longer in a cancel status.
@@ -1592,6 +1592,11 @@ class LeadController extends Controller
         $lead->lead_type = $leadType;
         $lead->save();
 
+        if ($oldType === Lead::TYPE_CUSTOMER && $leadType !== Lead::TYPE_CUSTOMER) {
+            app(\Modules\LeadManagement\Services\LeadHuntingBoardService::class)
+                ->clearHuntingIfLeavingCustomer($lead->fresh(), $leadType);
+        }
+
         $changes = $typeHistoryChanges;
         if ($oldType !== $leadType) {
             $changes['lead_type'] = [
@@ -1636,6 +1641,8 @@ class LeadController extends Controller
             'comments.attachments',
             'createdBy',
             'customerLeadTags',
+            'huntingInterests' => fn ($q) => $q->with(['provider:id,company_name,contact_person_name,contact_person_phone'])->latest(),
+            'huntingStartedByUser:id,first_name,last_name,email',
             'outboundEnquiries' => fn ($q) => $q->with(['handledBy', 'createdBy', 'statusConfig', 'relatedLead', 'booking']),
         ])
             ->withCount('outboundEnquiries')
@@ -1791,6 +1798,17 @@ class LeadController extends Controller
         $customerHistoryData = ($lead->lead_type === Lead::TYPE_CUSTOMER && $typeHistory && is_array($typeHistory->data ?? null))
             ? $typeHistory->data
             : [];
+
+        $huntingBoard = app(\Modules\LeadManagement\Services\LeadHuntingBoardService::class);
+        $huntingChecklist = $huntingBoard->huntReadyFlags($customerHistoryData);
+        $huntingIsReady = $huntingBoard->isHuntReady($customerHistoryData);
+        $huntingMatchingProviderCount = $huntingIsReady
+            ? $huntingBoard->matchingProviderCount(
+                $customerHistoryData['service_subcategory'] ?? null,
+                $customerHistoryData['zone_id'] ?? null
+            )
+            : 0;
+        $huntingInterests = $lead->huntingInterests ?? collect();
         $temporaryProvider = !empty($customerHistoryData['temporary_provider_id'])
             ? Provider::find($customerHistoryData['temporary_provider_id'])
             : null;
@@ -1840,6 +1858,10 @@ class LeadController extends Controller
             'followupNeedsAttention',
             'followupDelayMeta',
             'customerHistoryData',
+            'huntingChecklist',
+            'huntingIsReady',
+            'huntingMatchingProviderCount',
+            'huntingInterests',
             'temporaryProvider',
             'temporaryProviderAssignedAt',
             'workflowContext',
@@ -2156,6 +2178,95 @@ class LeadController extends Controller
         return CustomerLeadArea::resolveByName($raw)?->id;
     }
 
+    protected function redirectToLeadShow(Request $request, int $leadId)
+    {
+        $url = route('admin.lead.show', $leadId);
+        if ($request->boolean('in_modal')) {
+            $url .= '?in_modal=1';
+        }
+
+        return redirect($url);
+    }
+
+    /**
+     * Keep free-text service-time preferences when the datetime-local field is empty.
+     */
+    protected function preserveUnparseableEstimatedServiceAt(mixed $existing): mixed
+    {
+        if ($existing === null || $existing === '') {
+            return null;
+        }
+
+        try {
+            \Carbon\Carbon::parse($existing);
+
+            return null;
+        } catch (\Throwable) {
+            return $existing;
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $existing
+     * @return array<string, mixed>|null
+     */
+    protected function mergeCancellationIntoTypeData(
+        Request $request,
+        array $data,
+        array $existing,
+        ?string $baseType,
+        string $reasonKey,
+        string $remarksKey
+    ): ?array {
+        if ($baseType !== 'cancel') {
+            unset($data[$reasonKey], $data[$remarksKey]);
+
+            return $data;
+        }
+
+        $reasonId = $request->input($reasonKey) ?: ($existing[$reasonKey] ?? null);
+        if (empty($reasonId)) {
+            return null;
+        }
+
+        $data[$reasonKey] = $reasonId;
+        $submittedRemarks = $request->input($remarksKey);
+        if ($submittedRemarks !== null && $submittedRemarks !== '') {
+            $data[$remarksKey] = $submittedRemarks;
+        } elseif (array_key_exists($remarksKey, $existing)) {
+            $data[$remarksKey] = $existing[$remarksKey];
+        }
+
+        return $data;
+    }
+
+    /**
+     * Web bookings may store a free-text preference (e.g. "Flexible — any evening")
+     * instead of a parseable datetime.
+     */
+    protected function formatEstimatedServiceAtForDisplay(mixed $est): string
+    {
+        if ($est === null || $est === '') {
+            return '—';
+        }
+
+        if (!is_scalar($est)) {
+            return '—';
+        }
+
+        $est = trim((string) $est);
+        if ($est === '') {
+            return '—';
+        }
+
+        try {
+            return \Carbon\Carbon::parse($est)->format('d F Y h:i a');
+        } catch (\Throwable) {
+            return $est;
+        }
+    }
+
     /**
      * @return array<int, array{label: string, value: string}>
      */
@@ -2198,9 +2309,17 @@ class LeadController extends Controller
             $rows[] = ['label' => translate('Sub_Category'), 'value' => $subCategory?->name ?? '—'];
             $rows[] = ['label' => translate('Service'), 'value' => $service?->name ?? '—'];
             $rows[] = ['label' => translate('Select_Service_Variant'), 'value' => $data['variant_key'] ?? '—'];
-            $rows[] = ['label' => translate('Service_Additional_Details_(Optional)'), 'value' => $data['service_description'] ?? '—'];
-            $est = $data['estimated_service_at'] ?? null;
-            $rows[] = ['label' => translate('Estimated_Date_Time_of_Service'), 'value' => $est ? \Carbon\Carbon::parse($est)->format('d F Y h:i a') : '—'];
+            $rows[] = [
+                'label' => translate('Service_Additional_Details_(Optional)'),
+                'value' => $data['service_description'] ?? '—',
+                'full' => true,
+            ];
+            $rows[] = ['label' => translate('Estimated_Date_Time_of_Service'), 'value' => $this->formatEstimatedServiceAtForDisplay($data['estimated_service_at'] ?? null)];
+            $estValue = $data['estimated_service_value'] ?? null;
+            $rows[] = [
+                'label' => translate('Estimated_Service_Value') . ' (' . translate('optional') . ')',
+                'value' => is_numeric($estValue) ? with_currency_symbol((float) $estValue) : '—',
+            ];
             $rows[] = ['label' => translate('Customer_Lead_Status'), 'value' => $customerStatus?->name ?? '—'];
             if (!empty($data['cancellation_reason_id'])) {
                 $cancelReason = LeadCancellationReason::find($data['cancellation_reason_id']);

@@ -68,6 +68,7 @@ final class AdminChromeViewData
             'web_provider_requests_pending_count' => $menuCounts['web_provider_requests_pending'] ?? 0,
             'app_custom_requests_pending_count' => $menuCounts['app_custom_requests_pending'] ?? 0,
             'unassigned_leads_menu_count' => $menuCounts['unassigned_leads'] ?? 0,
+            'hunting_board_menu_count' => $menuCounts['hunting_board'] ?? 0,
             'pending_bookings_menu_count' => $menuCounts['pending_bookings'] ?? 0,
             'customer_cart_not_contacted_count' => $menuCounts['customer_cart_not_contacted'] ?? 0,
             'new_service_requests_count' => $menuCounts['new_service_requests'] ?? 0,

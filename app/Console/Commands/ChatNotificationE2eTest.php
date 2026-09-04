@@ -145,13 +145,13 @@ class ChatNotificationE2eTest extends Command
             report($e);
 
             return self::FAILURE;
+        } finally {
+            $this->restorePushNotificationConfig();
         }
     }
 
     private function cleanupSeededData(): void
     {
-        $this->restorePushNotificationConfig();
-
         $since = $this->startedAt ?? now()->subHour();
 
         PushNotificationDeliveryLog::query()

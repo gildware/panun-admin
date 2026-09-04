@@ -209,6 +209,39 @@
                 </div>
             </div>
 
+                    <div class="modal fade" id="leadHuntingUnpublishModal" tabindex="-1" aria-labelledby="leadHuntingUnpublishModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <form method="POST" action="{{ route('admin.lead.hunting.unpublish', $lead->id) }}">
+                                    @csrf
+                                    @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif
+                                    <div class="modal-header border-0">
+                                        <h5 class="modal-title" id="leadHuntingUnpublishModalLabel">{{ translate('Unpublish_from_board') }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                                    </div>
+                                    <div class="modal-body pt-0">
+                                        <p class="text-muted small">{{ translate('Unpublish_from_board_help') }}</p>
+                                        <div class="mb-3">
+                                            <label class="form-label" for="hunting_unpublish_reason">{{ translate('Reason') }}</label>
+                                            <select name="hunting_unpublish_reason" id="hunting_unpublish_reason" class="form-select" required>
+                                                <option value="found_provider">{{ translate('Found_provider') }}</option>
+                                                <option value="cancelled">{{ translate('Cancelled') }}</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-0">
+                                            <label class="form-label" for="hunting_unpublish_notes">{{ translate('Notes') }}</label>
+                                            <textarea name="hunting_unpublish_notes" id="hunting_unpublish_notes" class="form-control" rows="3" maxlength="1000"></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer border-0">
+                                        <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Keep_hunting') }}</button>
+                                        <button type="submit" class="btn btn--primary">{{ translate('Unpublish_from_board') }}</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="modal fade" id="leadInvalidModal" tabindex="-1" aria-labelledby="leadInvalidModalLabel" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered">
                             <div class="modal-content">
@@ -331,15 +364,36 @@
                                     @endif
                                     <div class="modal-body pt-0">
                                         <div class="row g-3">
+                                            @if($lead->lead_type !== \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER)
                                             <div class="col-md-6">
                                                 <label class="form-label">{{ translate('Customer_Lead_Status') }}</label>
                                                 <select name="customer_lead_status_id" class="form-select">
                                                     <option value="">{{ translate('Select_Status') }}</option>
                                                     @foreach($customerLeadStatuses as $status)
-                                                        <option value="{{ $status->id }}" {{ ($customerEditData['customer_lead_status_id'] ?? '') == $status->id ? 'selected' : '' }}>{{ $status->name }}</option>
+                                                        <option value="{{ $status->id }}"
+                                                                data-base-type="{{ $status->base_type ?? 'pending' }}"
+                                                                {{ ($customerEditData['customer_lead_status_id'] ?? '') == $status->id ? 'selected' : '' }}>{{ $status->name }}</option>
                                                     @endforeach
                                                 </select>
                                             </div>
+                                            <div class="col-12 js-lead-cancel-fields d-none">
+                                                <div class="row g-3">
+                                                    <div class="col-md-6">
+                                                        <label class="form-label">{{ translate('Customer_cancellation_reasons') }}</label>
+                                                        <select name="cancellation_reason_id" class="form-select" disabled>
+                                                            <option value="">{{ translate('Select') }}</option>
+                                                            @foreach($cancellationReasons as $reason)
+                                                                <option value="{{ $reason->id }}" {{ ($customerEditData['cancellation_reason_id'] ?? '') == $reason->id ? 'selected' : '' }}>{{ $reason->name }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label">{{ translate('Remarks') }} ({{ translate('Optional') }})</label>
+                                                        <textarea name="cancellation_remarks" class="form-control" rows="2" placeholder="{{ translate('Enter_cancellation_remarks') }}" disabled>{{ $customerEditData['cancellation_remarks'] ?? '' }}</textarea>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            @endif
                                             <div class="col-md-6">
                                                 <label class="form-label">{{ translate('Zone') }}</label>
                                                 <select name="zone_id" id="lead-zone-select" class="form-control zone-tree-select">
@@ -382,6 +436,12 @@
                                                 <input type="datetime-local" name="estimated_service_at" class="form-control" value="{{ $estAt }}">
                                             </div>
                                             <div class="col-md-6">
+                                                <label class="form-label">{{ translate('Estimated_Service_Value') }} ({{ translate('optional') }})</label>
+                                                <input type="number" name="estimated_service_value" class="form-control" min="0" step="0.01"
+                                                       value="{{ isset($customerEditData['estimated_service_value']) && is_numeric($customerEditData['estimated_service_value']) ? $customerEditData['estimated_service_value'] : '' }}"
+                                                       placeholder="{{ translate('Estimated_job_value_for_providers') }}">
+                                            </div>
+                                            <div class="col-12">
                                                 <label class="form-label">{{ translate('Service_Additional_Details_(Optional)') }}</label>
                                                 <textarea name="service_description" class="form-control" rows="3" placeholder="{{ translate('Add_any_extra_information_or_requirements_for_this_service') }}">{{ $customerEditData['service_description'] ?? '' }}</textarea>
                                             </div>
@@ -441,15 +501,36 @@
                                                     @endforeach
                                                 </select>
                                             </div>
+                                            @if($lead->lead_type !== \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER)
                                             <div class="col-md-6">
                                                 <label class="form-label">{{ translate('Provider_Lead_Status') }}</label>
                                                 <select name="provider_lead_status_id" class="form-select">
                                                     <option value="">{{ translate('Select_Status') }}</option>
                                                     @foreach($providerLeadStatuses as $status)
-                                                        <option value="{{ $status->id }}" {{ ($providerEditData['provider_lead_status_id'] ?? '') == $status->id ? 'selected' : '' }}>{{ $status->name }}</option>
+                                                        <option value="{{ $status->id }}"
+                                                                data-base-type="{{ $status->base_type ?? 'pending' }}"
+                                                                {{ ($providerEditData['provider_lead_status_id'] ?? '') == $status->id ? 'selected' : '' }}>{{ $status->name }}</option>
                                                     @endforeach
                                                 </select>
                                             </div>
+                                            <div class="col-12 js-lead-cancel-fields d-none">
+                                                <div class="row g-3">
+                                                    <div class="col-md-6">
+                                                        <label class="form-label">{{ translate('Provider_cancellation_reasons') }}</label>
+                                                        <select name="provider_cancellation_reason_id" class="form-select" disabled>
+                                                            <option value="">{{ translate('Select') }}</option>
+                                                            @foreach($providerCancellationReasons as $reason)
+                                                                <option value="{{ $reason->id }}" {{ ($providerEditData['provider_cancellation_reason_id'] ?? '') == $reason->id ? 'selected' : '' }}>{{ $reason->name }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label">{{ translate('Remarks') }} ({{ translate('Optional') }})</label>
+                                                        <textarea name="provider_cancellation_remarks" class="form-control" rows="2" placeholder="{{ translate('Enter_cancellation_remarks') }}" disabled>{{ $providerEditData['provider_cancellation_remarks'] ?? '' }}</textarea>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            @endif
                                             <div class="col-12">
                                                 <label class="form-label">{{ translate('Full_Address') }}</label>
                                                 <textarea name="full_address" class="form-control" rows="2" placeholder="{{ translate('Full_Address') }}">{{ $providerEditData['full_address'] ?? '' }}</textarea>
@@ -2484,6 +2565,28 @@
             $('#leadCustomerModal').on('change', '[name="service_name"]', function () {
                 if (window._customerModalPrefilling) return;
                 loadVariants();
+            });
+        })();
+
+        (function () {
+            function syncLeadCancelFields($modal, statusName) {
+                var $status = $modal.find('[name="' + statusName + '"]');
+                var $fields = $modal.find('.js-lead-cancel-fields');
+                if (!$status.length || !$fields.length) return;
+                var baseType = ($status.find('option:selected').data('base-type') || '').toString();
+                var isCancel = baseType === 'cancel';
+                $fields.toggleClass('d-none', !isCancel);
+                $fields.find('select, textarea').prop('disabled', !isCancel);
+                $fields.find('select').prop('required', isCancel);
+            }
+
+            $('#leadCustomerModal').on('show.bs.modal change', function (e) {
+                if (e.type === 'change' && e.target && e.target.name !== 'customer_lead_status_id') return;
+                syncLeadCancelFields($(this), 'customer_lead_status_id');
+            });
+            $('#leadProviderModal').on('show.bs.modal change', function (e) {
+                if (e.type === 'change' && e.target && e.target.name !== 'provider_lead_status_id') return;
+                syncLeadCancelFields($(this), 'provider_lead_status_id');
             });
         })();
 

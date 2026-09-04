@@ -193,6 +193,15 @@ if (! function_exists('infer_admin_notification_sender_identity')) {
             return ['admin', null];
         }
 
+        if (in_array($referenceType, ['hunting_interest', 'hunting_interest_revoked', 'hunting_rejected'], true) && $referenceId !== '') {
+            $parts = explode(':', $referenceId, 2);
+            $providerId = $parts[1] ?? '';
+
+            return $providerId !== ''
+                ? ['provider', $providerId]
+                : ['admin', null];
+        }
+
         return ['admin', null];
     }
 }
