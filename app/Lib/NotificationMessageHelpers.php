@@ -33,6 +33,8 @@ if (! function_exists('notification_message_variables_for_key')) {
             'onboarding_approve', 'onboarding_deny', 'profile_change_approve', 'profile_change_deny' => ['{{providerName}}', '{{changeType}}'],
             'widthdraw_request_approve', 'widthdraw_request_deny', 'admin_payable', 'settlement_received', 'provider_suspend', 'provider_suspension_remove' => ['{{amount}}', '{{providerName}}'],
             'advertisement_created_by_admin', 'advertisement_approved', 'advertisement_denied', 'advertisement_paused', 'advertisement_resumed', 'advertisement_paused_by_provider', 'advertisement_resumed_by_provider' => ['{{providerName}}'],
+            'open_request_published' => ['{{providerName}}', '{{serviceName}}', '{{subcategoryName}}', '{{areaName}}', '{{zoneName}}', '{{scheduleTime}}'],
+            'open_request_reminder' => ['{{providerName}}', '{{serviceName}}', '{{subcategoryName}}', '{{areaName}}', '{{zoneName}}', '{{scheduleTime}}', '{{reminderMessage}}'],
             default => $common,
         };
     }
@@ -61,6 +63,9 @@ if (! function_exists('notification_message_preview_samples')) {
             'referenceId' => 'CR-1024',
             'categoryName' => 'Plumbing',
             'requestStatus' => 'Accepted',
+            'areaName' => 'Lal Chowk',
+            'subcategoryName' => 'AC Repair',
+            'reminderMessage' => 'Please respond if you can take this job.',
         ];
     }
 }
@@ -412,6 +417,14 @@ if (! function_exists('notification_default_message_templates')) {
                     'title' => 'Profile Update Not Approved',
                     'description' => 'Hi {{providerName}}, your {{changeType}} update request was not approved.',
                 ],
+                'open_request_published' => [
+                    'title' => 'New Open Request – {{serviceName}}',
+                    'description' => 'Hi {{providerName}}, a new {{serviceName}} job is available in {{zoneName}} ({{areaName}}). Category: {{subcategoryName}}. Scheduled: {{scheduleTime}}.',
+                ],
+                'open_request_reminder' => [
+                    'title' => 'Open Request Reminder – {{serviceName}}',
+                    'description' => 'Hi {{providerName}}, this {{serviceName}} job in {{zoneName}} ({{areaName}}) is still waiting for your response. {{reminderMessage}} Scheduled: {{scheduleTime}}.',
+                ],
             ],
         ];
     }
@@ -719,6 +732,13 @@ if (! function_exists('ensure_notification_channel_setups')) {
                 'key' => 'advertisement',
                 'title' => 'Advertisement',
                 'sub_title' => 'Choose how the provider will get notified about advertisement updates',
+                'value' => ['email' => null, 'notification' => 1, 'sms' => null],
+            ],
+            [
+                'user_type' => 'provider',
+                'key' => 'open_requests',
+                'title' => 'Open Jobs',
+                'sub_title' => 'Choose how the provider will get notified about open job posts and reminders',
                 'value' => ['email' => null, 'notification' => 1, 'sms' => null],
             ],
         ];
@@ -1287,6 +1307,36 @@ if (! function_exists('notification_scenario_trigger_map')) {
                 'module' => 'provider_account',
                 'checks' => [
                     ['label' => 'Profile change denied push', 'needles' => ['send_profile_change_provider_notification', "'profile_change_deny'"]],
+                ],
+            ],
+            'open_request_published' => [
+                'module' => 'open_requests',
+                'checks' => [
+                    ['label' => 'Open request published provider push', 'needles' => ['send_open_request_published_notifications', "'open_request_published'"]],
+                ],
+            ],
+            'open_request_reminder' => [
+                'module' => 'open_requests',
+                'checks' => [
+                    ['label' => 'Open request reminder provider push', 'needles' => ['send_open_request_reminder_notifications', "'open_request_reminder'"]],
+                ],
+            ],
+            'open_request_provider_interest' => [
+                'module' => 'open_requests',
+                'checks' => [
+                    ['label' => 'Provider interest admin inbox', 'needles' => ['admin_inbox_notify_hunting_interest']],
+                ],
+            ],
+            'open_request_provider_revoke' => [
+                'module' => 'open_requests',
+                'checks' => [
+                    ['label' => 'Provider revoke interest admin inbox', 'needles' => ['admin_inbox_notify_hunting_interest_revoked']],
+                ],
+            ],
+            'open_request_provider_reject' => [
+                'module' => 'open_requests',
+                'checks' => [
+                    ['label' => 'Provider rejected open request admin inbox', 'needles' => ['admin_inbox_notify_hunting_rejected']],
                 ],
             ],
         ];
@@ -2159,6 +2209,68 @@ if (! function_exists('notification_trigger_scenarios_for_key')) {
                 ],
                 'recipient' => 'Provider',
                 'module' => 'Service Updates',
+                'wired' => true,
+            ] : null,
+
+            'app_custom_request_submitted' => $isCustomer ? [
+                'summary' => 'Sent when the customer submits a custom service request.',
+                'scenarios' => [
+                    'Customer submits a custom request from the mobile app.',
+                ],
+                'recipient' => 'Customer',
+                'module' => 'App Custom Requests',
+                'wired' => true,
+            ] : null,
+
+            'app_custom_request_accepted' => $isCustomer ? [
+                'summary' => 'Sent when admin accepts a custom service request.',
+                'scenarios' => [
+                    'Admin accepts the customer custom request.',
+                ],
+                'recipient' => 'Customer',
+                'module' => 'App Custom Requests',
+                'wired' => true,
+            ] : null,
+
+            'app_custom_request_rejected' => $isCustomer ? [
+                'summary' => 'Sent when admin rejects a custom service request.',
+                'scenarios' => [
+                    'Admin rejects the customer custom request.',
+                ],
+                'recipient' => 'Customer',
+                'module' => 'App Custom Requests',
+                'wired' => true,
+            ] : null,
+
+            'app_custom_request_admin_reply' => $isCustomer ? [
+                'summary' => 'Sent when admin replies on a custom service request.',
+                'scenarios' => [
+                    'Admin sends a reply on the custom request thread.',
+                ],
+                'recipient' => 'Customer',
+                'module' => 'App Custom Requests',
+                'wired' => true,
+            ] : null,
+
+            'open_request_published' => ! $isCustomer ? [
+                'summary' => 'Sent when a matching open job is published on the Open Jobs Board.',
+                'scenarios' => [
+                    'Admin publishes a hunt-ready customer lead to the Open Jobs Board.',
+                    'Provider is subscribed to the job subcategory and covers the job zone.',
+                ],
+                'recipient' => 'Provider',
+                'module' => 'Open Jobs',
+                'wired' => true,
+            ] : null,
+
+            'open_request_reminder' => ! $isCustomer ? [
+                'summary' => 'Sent when admin reminds matching providers who have not responded to an open request.',
+                'scenarios' => [
+                    'Admin sends a reminder from the Open Jobs Board responses modal.',
+                    'Provider has not shown interest or rejected the job yet.',
+                ],
+                'recipient' => 'Provider',
+                'module' => 'Open Jobs',
                 'wired' => true,
             ] : null,
 
@@ -3105,6 +3217,58 @@ if (! function_exists('notification_scenario_registry')) {
                 'title' => 'Customer cancelled booking',
                 'trigger_actor' => 'customer',
                 'trigger_action' => 'Customer cancels booking from the app',
+                'audiences' => [
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
+                ],
+            ],
+
+            // --- Open Requests (hunting board) ---
+            [
+                'id' => 'open_request_published',
+                'module' => 'open_requests',
+                'title' => 'Admin publishes a job to the Open Jobs Board',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Publishes a hunt-ready customer lead so matching providers can pick it up',
+                'audiences' => [
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'open_request_published', 'settings_type' => 'provider_notification', 'wired' => true, 'note' => 'Sent to approved active providers subscribed to the job subcategory in the job zone'],
+                ],
+            ],
+            [
+                'id' => 'open_request_reminder',
+                'module' => 'open_requests',
+                'title' => 'Admin reminds providers who have not responded',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Sends a reminder from the Open Jobs Board to matching providers who have not shown interest or rejected the job',
+                'audiences' => [
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'open_request_reminder', 'settings_type' => 'provider_notification', 'wired' => true, 'note' => 'Includes the admin reminder message in the push body'],
+                ],
+            ],
+            [
+                'id' => 'open_request_provider_interest',
+                'module' => 'open_requests',
+                'title' => 'Provider shows interest in an open request',
+                'trigger_actor' => 'provider',
+                'trigger_action' => 'Provider taps I’m interested on a published hunting-board job',
+                'audiences' => [
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'open_request_provider_revoke',
+                'module' => 'open_requests',
+                'title' => 'Provider revokes interest in an open request',
+                'trigger_actor' => 'provider',
+                'trigger_action' => 'Provider withdraws interest from a published hunting-board job',
+                'audiences' => [
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'open_request_provider_reject',
+                'module' => 'open_requests',
+                'title' => 'Provider rejects an open request',
+                'trigger_actor' => 'provider',
+                'trigger_action' => 'Provider rejects a published hunting-board job',
                 'audiences' => [
                     ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
                 ],
@@ -5058,6 +5222,22 @@ if (! function_exists('send_advertisement_push_notification')) {
             $senderType,
             $senderId,
         );
+    }
+}
+
+if (! function_exists('send_open_request_published_notifications')) {
+    function send_open_request_published_notifications(\Modules\LeadManagement\Entities\Lead $lead): void
+    {
+        app(\Modules\LeadManagement\Services\LeadHuntingNotificationService::class)
+            ->notifyProvidersJobPublished($lead);
+    }
+}
+
+if (! function_exists('send_open_request_reminder_notifications')) {
+    function send_open_request_reminder_notifications(\Modules\LeadManagement\Entities\Lead $lead, string $message): int
+    {
+        return app(\Modules\LeadManagement\Services\LeadHuntingNotificationService::class)
+            ->notifyProvidersJobReminder($lead, $message);
     }
 }
 

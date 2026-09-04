@@ -112,6 +112,7 @@ class LeadChangeLogService
                 'variant_key' => 'Select_Service_Variant',
                 'service_description' => 'Service_Additional_Details_(Optional)',
                 'estimated_service_at' => 'Estimated_Date_Time_of_Service',
+                'estimated_service_value' => 'Estimated_Service_Value',
                 'customer_lead_status_id' => 'Customer_Lead_Status',
                 'temporary_provider_id' => 'Temporary_Provider',
                 'cancellation_reason_id' => 'Customer_cancellation_reasons',
@@ -214,6 +215,7 @@ class LeadChangeLogService
             'district_id' => District::find($value)?->name ?? (string) $value,
             'temporary_provider_id' => Provider::find($value)?->company_name ?? (string) $value,
             'estimated_service_at' => $this->formatDateTime($value),
+            'estimated_service_value' => is_numeric($value) ? with_currency_symbol((float) $value) : (string) $value,
             default => (string) $value,
         };
     }

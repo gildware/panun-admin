@@ -3752,6 +3752,7 @@ const NOTIFICATION_SCENARIO_MODULE_LABELS = [
     'advertisement' => 'Advertisement',
     'provider_work_showcase' => 'Provider Work Showcase',
     'admin_alerts' => 'Admin Alerts',
+    'open_requests' => 'Open Jobs',
 ];
 
 const NOTIFICATION_SCENARIO_ACTOR_LABELS = [
@@ -3853,6 +3854,8 @@ const NOTIFICATION_FOR_PROVIDER = [
     ['key' => 'profile_change_deny', 'value' => 'Profile Update Denied', 'category' => 'service_updates'],
     ['key' => 'review_approved', 'value' => 'New Review Received', 'category' => 'review'],
     ['key' => 'provider_review_published', 'value' => 'Your Review Approved', 'category' => 'review'],
+    ['key' => 'open_request_published', 'value' => 'New Open Request', 'category' => 'service_updates'],
+    ['key' => 'open_request_reminder', 'value' => 'Open Request Reminder', 'category' => 'service_updates'],
 ];
 
 const NOTIFICATION_FOR_SERVICEMAN = [

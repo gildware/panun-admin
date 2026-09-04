@@ -1346,6 +1346,9 @@ if (!function_exists('text_variable_data_format')) {
             '{{referenceId}}' => $templateDataValue('reference_id', 'referenceId'),
             '{{categoryName}}' => $templateDataValue('category_name', 'categoryName'),
             '{{requestStatus}}' => $templateDataValue('request_status', 'requestStatus'),
+            '{{areaName}}' => $templateDataValue('area_name', 'areaName'),
+            '{{subcategoryName}}' => $templateDataValue('subcategory_name', 'subcategoryName'),
+            '{{reminderMessage}}' => $templateDataValue('reminder_message', 'reminderMessage'),
         ];
 
         if ($type == 'booking' || $type == 'offline-payment') {

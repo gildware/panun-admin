@@ -38,7 +38,8 @@ class NotificationScenarioMessagesTest extends TestCase
         $this->assertCount(8, $grouped['advertisement']);
         $this->assertCount(3, $grouped['provider_work_showcase']);
         $this->assertCount(6, $grouped['admin_alerts']);
-        $this->assertCount(82, notification_scenario_registry());
+        $this->assertCount(5, $grouped['open_requests']);
+        $this->assertCount(87, notification_scenario_registry());
     }
 
     public function test_all_config_keys_are_covered_by_scenarios(): void
@@ -72,6 +73,11 @@ class NotificationScenarioMessagesTest extends TestCase
             'compensation_company_to_customer',
             'compensation_company_to_provider',
             'compensation_provider_to_customer',
+            'open_request_published',
+            'open_request_provider_interest',
+            'open_request_provider_revoke',
+            'open_request_provider_reject',
+            'open_request_reminder',
         ] as $scenarioId) {
             $this->assertContains($scenarioId, $ids, "Missing scenario: {$scenarioId}");
         }
@@ -139,6 +145,8 @@ class NotificationScenarioMessagesTest extends TestCase
             'send_provider_settlement_received_notification',
             'send_booking_reminder_notification',
             'send_chat_message_push_notification',
+            'send_open_request_published_notifications',
+            'send_open_request_reminder_notifications',
         ];
 
         foreach ($helperMap as $helper) {

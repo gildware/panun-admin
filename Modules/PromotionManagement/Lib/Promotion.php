@@ -1,17 +1,65 @@
 <?php
 use Illuminate\Support\Facades\Http;
 
+if (! function_exists('fcm_service_account_credentials')) {
+    /**
+     * @return array{project_id: string, client_email: string, private_key: string}|array{}
+     */
+    function fcm_service_account_credentials(): array
+    {
+        $config = business_config('push_notification', 'third_party');
+        $fromDb = data_get(collect($config->live_values ?? []), 'service_file_content');
+        $decoded = is_string($fromDb) ? json_decode($fromDb, true) : (is_array($fromDb) ? $fromDb : null);
+
+        $isPlaceholder = is_array($decoded) && (
+            ($decoded['project_id'] ?? '') === 'chat-e2e-test-project'
+            || str_contains((string) ($decoded['client_email'] ?? ''), 'chat-e2e-test')
+        );
+
+        if ($isPlaceholder || ! is_array($decoded)) {
+            $fromEnv = env('FIREBASE_SERVICE_ACCOUNT_JSON');
+            if (filled($fromEnv)) {
+                $envDecoded = json_decode((string) $fromEnv, true);
+                if (is_array($envDecoded) && filled($envDecoded['private_key'] ?? null)) {
+                    $decoded = $envDecoded;
+                    $isPlaceholder = false;
+                }
+            }
+
+            $path = env('FIREBASE_SERVICE_ACCOUNT_PATH', storage_path('app/firebase-service-account.json'));
+            if (($isPlaceholder || ! is_array($decoded)) && is_string($path) && is_readable($path)) {
+                $fileDecoded = json_decode((string) file_get_contents($path), true);
+                if (is_array($fileDecoded) && filled($fileDecoded['private_key'] ?? null)) {
+                    $decoded = $fileDecoded;
+                }
+            }
+        }
+
+        if (! is_array($decoded)) {
+            return [];
+        }
+
+        $projectId = $decoded['project_id'] ?? null;
+        $clientEmail = $decoded['client_email'] ?? null;
+        $privateKey = $decoded['private_key'] ?? null;
+        if (! filled($projectId) || ! filled($clientEmail) || ! filled($privateKey)) {
+            return [];
+        }
+
+        return [
+            'project_id' => (string) $projectId,
+            'client_email' => (string) $clientEmail,
+            'private_key' => (string) $privateKey,
+        ];
+    }
+}
 
  function sendNotificationToHttp(array|null $data): bool
  {
-    $config = business_config('push_notification', 'third_party');
-    $config = collect($config->live_values);
-
-    $key = data_get($config, 'service_file_content', null);
-    if (is_null($key)) return false;
-    $project_id = data_get(collect(json_decode($key, true)), 'project_id', null);
-    $clientEmail = data_get(collect(json_decode($key, true)), 'client_email', null);
-    $privateKey = data_get(collect(json_decode($key, true)), 'private_key', null);
+    $account = fcm_service_account_credentials();
+    $project_id = $account['project_id'] ?? null;
+    $clientEmail = $account['client_email'] ?? null;
+    $privateKey = $account['private_key'] ?? null;
     if (is_null($project_id) || is_null($clientEmail) || is_null($privateKey)) return false;
 
     $accessToken = getAccessToken($clientEmail, $privateKey);
@@ -25,7 +73,9 @@ use Illuminate\Support\Facades\Http;
             'booking_id' => data_get($data, 'message.data.booking_id') ?: null,
             'status' => 'failed',
             'http_status' => null,
-            'error_message' => 'FCM OAuth access token could not be obtained. Check Firebase service account in admin third-party settings.',
+            'error_message' => ($project_id === 'chat-e2e-test-project')
+                ? 'Firebase is still using the chat E2E dummy service account. Upload the panun-kaergar-a162d service account JSON in Admin → Third Party → Firebase push.'
+                : 'FCM OAuth access token could not be obtained. Check Firebase service account in admin third-party settings.',
         ]);
 
         return false;

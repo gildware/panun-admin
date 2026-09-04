@@ -24,6 +24,12 @@ class Lead extends Model
     /** Filter value for "not assigned to an employee" (AI, empty, or null). */
     public const FILTER_UNASSIGNED_VALUE = '__unassigned__';
 
+    public const HUNTING_OFF = 'off';
+
+    public const HUNTING_PUBLISHED = 'published';
+
+    public const HUNTING_UNPUBLISHED = 'unpublished';
+
     public static function assigneeIsHuman(?string $handledBy): bool
     {
         return $handledBy !== null && $handledBy !== '' && $handledBy !== self::HANDLED_BY_AI;
@@ -57,12 +63,21 @@ class Lead extends Model
         'initial_call_recording_summary',
         'initial_call_recording_transcribed_at',
         'next_followup_at',
+        'hunting_status',
+        'hunting_started_at',
+        'hunting_started_by',
+        'hunting_unpublished_at',
+        'hunting_unpublished_by',
+        'hunting_unpublish_reason',
+        'hunting_unpublish_notes',
         'created_by',
     ];
 
     protected $casts = [
         'date_time_of_lead_received' => 'datetime',
         'next_followup_at' => 'datetime',
+        'hunting_started_at' => 'datetime',
+        'hunting_unpublished_at' => 'datetime',
         'initial_call_recording_transcribed_at' => 'datetime',
     ];
 
@@ -137,6 +152,21 @@ class Lead extends Model
     public function providerChecklist(): HasMany
     {
         return $this->hasMany(LeadProviderChecklist::class);
+    }
+
+    public function huntingInterests(): HasMany
+    {
+        return $this->hasMany(LeadHuntingInterest::class);
+    }
+
+    public function huntingStartedByUser(): BelongsTo
+    {
+        return $this->belongsTo(\Modules\UserManagement\Entities\User::class, 'hunting_started_by', 'id');
+    }
+
+    public function isHuntingPublished(): bool
+    {
+        return ($this->hunting_status ?? self::HUNTING_OFF) === self::HUNTING_PUBLISHED;
     }
 
     public function customerLeadTags(): BelongsToMany

@@ -16,6 +16,7 @@ class RouteServiceProvider extends ServiceProvider
 
     public function map()
     {
+        $this->mapApiV1Routes();
         $this->mapWebRoutes();
     }
 
@@ -24,5 +25,13 @@ class RouteServiceProvider extends ServiceProvider
         Route::middleware('web')
             ->namespace($this->moduleNamespace)
             ->group(module_path('LeadManagement', '/Routes/web.php'));
+    }
+
+    protected function mapApiV1Routes()
+    {
+        Route::prefix('api/v1')
+            ->middleware('api')
+            ->namespace($this->moduleNamespace)
+            ->group(module_path('LeadManagement', '/Routes/api/v1/api.php'));
     }
 }

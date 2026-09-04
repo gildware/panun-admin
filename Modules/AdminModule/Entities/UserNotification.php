@@ -39,6 +39,7 @@ class UserNotification extends Model
     public const TYPE_WHATSAPP_ASSIGNED = 'whatsapp_assigned';
     public const TYPE_WHATSAPP_HUMAN_SUPPORT = 'whatsapp_human_support';
     public const TYPE_LEAD_FOLLOWUP_DUE = 'lead_followup_due';
+    public const TYPE_HUNTING_INTEREST = 'hunting_interest';
 
     protected $fillable = [
         'user_id',
@@ -136,6 +137,7 @@ class UserNotification extends Model
             self::TYPE_WHATSAPP_ASSIGNED => 'forum',
             self::TYPE_WHATSAPP_HUMAN_SUPPORT => 'support_agent',
             self::TYPE_LEAD_FOLLOWUP_DUE => 'event',
+            self::TYPE_HUNTING_INTEREST => 'handshake',
             default => 'notifications',
         };
     }
@@ -167,6 +169,7 @@ class UserNotification extends Model
             self::TYPE_WHATSAPP_ASSIGNED => translate('WhatsApp_Assigned'),
             self::TYPE_WHATSAPP_HUMAN_SUPPORT => translate('Human_support'),
             self::TYPE_LEAD_FOLLOWUP_DUE => translate('Follow_up_due'),
+            self::TYPE_HUNTING_INTEREST => translate('Open_Request'),
             default => translate('Notification'),
         };
     }
@@ -191,7 +194,7 @@ class UserNotification extends Model
             self::TYPE_WEB_BOOKING => translate('View_Details'),
             self::TYPE_WEB_PROVIDER_REQUEST => translate('View_Details'),
             self::TYPE_APP_CUSTOM_REQUEST => translate('View_Details'),
-            self::TYPE_LEAD, self::TYPE_LEAD_COMMENT, self::TYPE_LEAD_ASSIGNED, self::TYPE_LEAD_FOLLOWUP_DUE => translate('View_Lead'),
+            self::TYPE_LEAD, self::TYPE_LEAD_COMMENT, self::TYPE_LEAD_ASSIGNED, self::TYPE_LEAD_FOLLOWUP_DUE, self::TYPE_HUNTING_INTEREST => translate('View_Lead'),
             self::TYPE_TICKET_ASSIGNED, self::TYPE_TICKET_COMMENT => translate('View_Ticket'),
             self::TYPE_WHATSAPP_ASSIGNED, self::TYPE_WHATSAPP_HUMAN_SUPPORT => translate('Go_to_WhatsApp'),
             default => translate('View_Details'),

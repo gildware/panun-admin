@@ -65,6 +65,7 @@ final class EmployeeLeadNav
             && ! $request->is('admin/lead/configuration*')
             && ! $request->is('admin/lead/reports*')
             && ! $request->is('admin/lead/outbound-enquiry*')
-            && ! $request->is('admin/lead/todays-followups*');
+            && ! $request->is('admin/lead/todays-followups*')
+            && ! $request->is('admin/lead/hunting-board*');
     }
 }

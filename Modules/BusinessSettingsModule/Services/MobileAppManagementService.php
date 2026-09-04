@@ -502,6 +502,7 @@ class MobileAppManagementService
                 'provider' => [
                     ['key' => 'bottom_dashboard', 'label' => 'Dashboard (bottom navigation)'],
                     ['key' => 'bottom_requests', 'label' => 'Requests (bottom navigation)'],
+                    ['key' => 'bottom_open_request', 'label' => 'Open Jobs (bottom navigation)'],
                     ['key' => 'post', 'label' => 'Post (bottom navigation)'],
                     ['key' => 'bottom_more', 'label' => 'More (bottom navigation)'],
                 ],
@@ -1347,6 +1348,7 @@ class MobileAppManagementService
             'post' => 'create_post_icon_1.png',
             'bottom_dashboard' => 'dashboard.png',
             'bottom_requests' => 'requests.png',
+            'bottom_open_request' => 'open_jobs_icon.png',
             'bottom_more' => 'moree.png',
             'chat' => 'chat_image.png',
             'settings' => 'settings.png',

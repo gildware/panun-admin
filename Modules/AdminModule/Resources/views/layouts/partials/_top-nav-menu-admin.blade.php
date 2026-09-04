@@ -1,4 +1,5 @@
 @include('adminmodule::layouts.partials.top-nav.group-admin-leads')
+@include('adminmodule::layouts.partials.top-nav.group-hunting-board')
 @include('adminmodule::layouts.partials.top-nav.group-admin-bookings')
 @include('adminmodule::layouts.partials.top-nav.group-employee-task-board')
 @include('adminmodule::layouts.partials.top-nav.group-admin-customers')

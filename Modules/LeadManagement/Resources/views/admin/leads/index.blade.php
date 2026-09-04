@@ -81,9 +81,6 @@
 
                     <div class="d-flex flex-wrap justify-content-between align-items-center border-bottom mx-lg-4 mb-10 gap-3 lead-index-tabs">
                         @php
-                            $baseQuery = request()->only(['tab']);
-                        @endphp
-                        @php
                             $leadTabCounts = $leadTabCounts ?? [
                                 'all' => 0,
                                 'unknown' => 0,

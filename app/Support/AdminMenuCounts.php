@@ -47,6 +47,7 @@ final class AdminMenuCounts
                 'app_custom_requests_pending' => self::safeCountPendingAppCustomRequests(),
                 'pending_verify_bookings' => self::safeCountPendingVerifyBookings(),
                 'unassigned_leads' => self::safeCountUnassignedOpenLeads(),
+                'hunting_board' => self::safeCountHuntingBoard(),
                 'pending_bookings' => self::safeCountPendingBookings(),
                 'customer_cart_not_contacted' => self::safeCountCustomerCartNotContacted(),
                 'new_service_requests' => self::safeCountNewServiceRequests(),
@@ -132,12 +133,17 @@ final class AdminMenuCounts
             }
         }
 
+        if (str_contains($path, 'hunting-board')) {
+            return (int) ($counts['hunting_board'] ?? 0);
+        }
+
         if (
             preg_match('#^admin/lead(/|$)#', $path)
             && ! str_contains($path, 'outbound-enquiry')
             && ! str_contains($path, 'configuration')
             && ! str_contains($path, 'reports')
             && ! str_contains($path, 'todays-followups')
+            && ! str_contains($path, 'hunting-board')
         ) {
             $handledBy = (array) ($query['handled_by'] ?? []);
             if (in_array('__unassigned__', $handledBy, true)) {
@@ -260,6 +266,15 @@ final class AdminMenuCounts
             app(LeadOpenStatusService::class)->restrictQueryToOpenLeads($query);
 
             return $query->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private static function safeCountHuntingBoard(): int
+    {
+        try {
+            return app(\Modules\LeadManagement\Services\LeadHuntingBoardService::class)->publishedCount();
         } catch (\Throwable) {
             return 0;
         }
