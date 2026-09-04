@@ -46,6 +46,12 @@ class EmployeeSearchAccessFilterTest extends TestCase
         $this->assertTrue($filter->isAllowed('admin/customer/list'));
         $this->assertTrue($filter->isAllowed('admin/lead?handled_by[]=__unassigned__'));
         $this->assertTrue($filter->isAllowed('admin/my-progress?tab=daily'));
+        $this->assertTrue($filter->isAllowed('admin/provider/list?status=all'));
+        $this->assertTrue($filter->isAllowed('admin/provider/live-view'));
+        $this->assertTrue($filter->isAllowed('admin/provider/create'));
+        $this->assertTrue($filter->isAllowed('admin/provider/onboarding-request?status=onboarding'));
+        $this->assertTrue($filter->isAllowed('admin/provider/showcase-approval?status=pending'));
+        $this->assertTrue($filter->isAllowed('admin/provider/profile-change-request?status=pending'));
 
         $this->assertFalse($filter->isAllowed('admin/business-settings/get-business-information'));
         $this->assertFalse($filter->isAllowed('admin/employee/list'));

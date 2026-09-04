@@ -342,6 +342,22 @@ trait AdminMenuWithRoutes
                 "type" => 'menu',
             ],
             [
+                'route_name' => 'Work_Showcase_Approvals',
+                'uri' => 'admin/provider/showcase-approval?status=pending',
+                'full_route' => url('admin/provider/showcase-approval?status=pending'),
+                "page_title" => 'Work_Showcase_Approvals',
+                "keywords" => 'Work showcase approvals, Providers',
+                "type" => 'menu',
+            ],
+            [
+                'route_name' => 'Profile_Update_Requests',
+                'uri' => 'admin/provider/profile-change-request?status=pending',
+                'full_route' => url('admin/provider/profile-change-request?status=pending'),
+                "page_title" => 'Profile_Update_Requests',
+                "keywords" => 'Profile update requests, Providers',
+                "type" => 'menu',
+            ],
+            [
                 'route_name' => 'Provider_List',
                 'uri' => 'admin/provider/list?status=all',
                 'full_route' => url('admin/provider/list?status=all'),

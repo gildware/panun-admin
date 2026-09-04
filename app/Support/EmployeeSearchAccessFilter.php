@@ -190,6 +190,13 @@ class EmployeeSearchAccessFilter
                 'gates' => ['onboarding_request_view'],
             ],
             [
+                'patterns' => [
+                    'admin/provider/showcase-approval*',
+                    'admin/provider/profile-change*',
+                ],
+                'gates' => ['onboarding_request_view'],
+            ],
+            [
                 'patterns' => ['admin/provider/create*'],
                 'gates' => ['provider_add'],
             ],
