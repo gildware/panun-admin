@@ -1035,7 +1035,7 @@
 @push('css_or_js')
     @include('zonemanagement::admin.partials._zone-select2-assets')
     <link rel="stylesheet" href="{{ asset('assets/chatting-module/css/staff-chat-entity-badges.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/lead-detail-redesign.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/lead-detail-redesign.css') }}?v={{ (@filemtime(public_path('assets/admin-module/css/lead-detail-redesign.css')) ?: time()) }}-h2">
     @include('leadmanagement::admin.leads.partials._comment-attachments-styles')
     <style>
         .btn-lead-type-invalid:hover:not(:disabled) {

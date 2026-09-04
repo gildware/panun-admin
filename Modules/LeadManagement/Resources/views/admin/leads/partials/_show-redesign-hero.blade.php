@@ -148,12 +148,12 @@
                 @else
                     <strong>{{ translate('Not_hunt_ready') }}</strong>
                     — {{ translate('Not_hunt_ready_help') }}
-                    <ul class="hunting-check mt-1 mb-0">
-                        <li><span class="dot {{ !empty($huntingChecklist['subcategory']) ? 'ok' : 'no' }}"></span>{{ translate('Sub_Category') }}</li>
-                        <li><span class="dot {{ !empty($huntingChecklist['zone']) ? 'ok' : 'no' }}"></span>{{ translate('Zone') }}</li>
-                        <li><span class="dot {{ !empty($huntingChecklist['area']) ? 'ok' : 'no' }}"></span>{{ translate('Area') }}</li>
-                        <li><span class="dot {{ !empty($huntingChecklist['datetime']) ? 'ok' : 'no' }}"></span>{{ translate('Estimated_Date_Time_of_Service') }}</li>
-                        <li><span class="dot {{ !empty($huntingChecklist['job_text']) ? 'ok' : 'no' }}"></span>{{ translate('Service') }} / {{ translate('Service_Additional_Details_(Optional)') }}</li>
+                    <ul class="hunting-check mt-2 mb-0">
+                        <li class="{{ !empty($huntingChecklist['subcategory']) ? 'is-ok' : 'is-missing' }}"><span class="dot"></span>{{ translate('Sub_Category') }}</li>
+                        <li class="{{ !empty($huntingChecklist['zone']) ? 'is-ok' : 'is-missing' }}"><span class="dot"></span>{{ translate('Zone') }}</li>
+                        <li class="{{ !empty($huntingChecklist['area']) ? 'is-ok' : 'is-missing' }}"><span class="dot"></span>{{ translate('Area') }}</li>
+                        <li class="{{ !empty($huntingChecklist['datetime']) ? 'is-ok' : 'is-missing' }}"><span class="dot"></span>{{ translate('Estimated_Date_Time_of_Service') }}</li>
+                        <li class="{{ !empty($huntingChecklist['job_text']) ? 'is-ok' : 'is-missing' }}"><span class="dot"></span>{{ translate('Job_details') }}</li>
                     </ul>
                 @endif
             </div>

@@ -7102,6 +7102,7 @@ _Message' => 'Customer notification for provider bid offer
   'Hunt_ready_help' => 'Job details are complete. Start provider hunting to put this lead on Unassigned work.',
   'Not_hunt_ready' => 'Not hunt-ready',
   'Not_hunt_ready_help' => 'Fill the missing fields before this lead can go on Unassigned work.',
+  'Job_details' => 'Job details',
   'subscribed_providers_would_see_this_job' => 'subscribed providers in this subcategory and zone would see this job.',
   'Unpublish_from_board' => 'Unpublish from board',
   'Unpublish_from_board_help' => 'The lead stays in CRM. It only leaves Unassigned work.',
