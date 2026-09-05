@@ -3217,21 +3217,18 @@
                 const doneVal = isDone ? '1' : '0';
                 row.attr('data-is-done', doneVal);
                 row.data('is-done', doneVal);
-                const badge = row.find('.provider-checklist-status .badge').first();
-                const btn = row.find('.provider-checklist-toggle').first();
-                const icon = row.find('.provider-checklist-icon').first();
+                const chip = row.find('.provider-checklist-status .chip').first();
+                const toggle = row.find('.provider-checklist-toggle').first();
+                toggle.prop('checked', !!isDone);
                 if (isDone) {
-                    badge.removeClass('bg-secondary').addClass('bg-success').text('{{ translate("Done") }}');
-                    btn.removeClass('btn-outline-success').addClass('btn-outline-secondary');
-                    icon.text('check_box');
+                    chip.removeClass('chip--primary').addClass('chip--success').text('{{ translate("Done") }}');
                 } else {
-                    badge.removeClass('bg-success').addClass('bg-secondary').text('{{ translate("Pending") }}');
-                    btn.removeClass('btn-outline-secondary').addClass('btn-outline-success');
-                    icon.text('check_box_outline_blank');
+                    chip.removeClass('chip--success').addClass('chip--primary').text('{{ translate("Pending") }}');
                 }
             }
 
             function exitEditMode(card) {
+                card.removeClass('is-editing');
                 card.find('.provider-checklist-toggle').prop('disabled', true);
                 card.find('#provider-checklist-edit-btn').removeClass('d-none');
                 card.find('.provider-checklist-edit-only').addClass('d-none');
@@ -3239,6 +3236,7 @@
             }
 
             function enterEditMode(card) {
+                card.addClass('is-editing');
                 card.find('.provider-checklist-toggle').prop('disabled', false);
                 card.find('#provider-checklist-edit-btn').addClass('d-none');
                 card.find('.provider-checklist-edit-only').removeClass('d-none');
@@ -3260,14 +3258,13 @@
                 exitEditMode(card);
             });
 
-            $(document).on('click', '.provider-checklist-toggle', function () {
-                const btn = $(this);
-                if (btn.prop('disabled')) return;
-                const row = btn.closest('tr');
+            $(document).on('change', '.provider-checklist-toggle', function () {
+                const toggle = $(this);
+                if (toggle.prop('disabled')) return;
+                const row = toggle.closest('tr');
                 const card = row.closest('#provider-checklist-card');
-                if (!row.length || !card.length) return;
-                const isDone = row.attr('data-is-done') === '1';
-                setRowState(row, !isDone);
+                if (!row.length || !card.length || !card.hasClass('is-editing')) return;
+                setRowState(row, toggle.prop('checked'));
                 card.find('#provider-checklist-update-btn').prop('disabled', false);
             });
 

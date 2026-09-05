@@ -11108,4 +11108,5 @@ _Message' => 'Customer notification for provider bid offer
   'No_providers_pending_action' => 'No matching providers are waiting to respond.',
   'Reminder_wait_before_resend' => 'You can send another reminder in :seconds seconds.',
   'Reminder_message_required' => 'Enter a reminder message of at least 3 characters.',
+  'Provider Added In Admin' => 'Provider Added In Admin',
 );
