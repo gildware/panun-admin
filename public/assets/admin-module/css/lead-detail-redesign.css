@@ -1320,3 +1320,34 @@ outline: none;
             border-color: var(--ld-primary);
             box-shadow: 0 0 0 2px rgba(37,39,77,.1);
 }
+.lead-detail-v2 .provider-checklist-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.lead-detail-v2 .provider-checklist-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1.2rem;
+  height: 1.2rem;
+  margin: 0;
+  border: 2px solid #c5c9d1;
+  border-radius: 4px;
+  background-color: #fff;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 12px;
+  cursor: pointer;
+  opacity: 1 !important;
+  filter: none;
+}
+.lead-detail-v2 .provider-checklist-toggle:checked,
+.lead-detail-v2 .provider-checklist-toggle:checked:disabled {
+  background-color: #198754;
+  border-color: #198754;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23fff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' d='M3.5 8.5l3 3 6-6'/%3E%3C/svg%3E");
+}
+.lead-detail-v2 .provider-checklist-toggle:disabled {
+  cursor: default;
+  pointer-events: none;
+}

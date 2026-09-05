@@ -125,9 +125,14 @@
                                         @endif
                                     </td>
                                     <td class="text-center provider-checklist-action">
-                                        <button type="button" class="btn btn-sm provider-checklist-toggle p-0 border-0 bg-transparent" disabled data-item-id="{{ $item->id }}" title="{{ translate('Edit_to_toggle') }}">
-                                            <span class="material-icons provider-checklist-icon" style="font-size:20px;">{{ $isDone ? 'check_box' : 'check_box_outline_blank' }}</span>
-                                        </button>
+                                        <span class="provider-checklist-check">
+                                            <input type="checkbox"
+                                                   class="provider-checklist-toggle"
+                                                   disabled
+                                                   data-item-id="{{ $item->id }}"
+                                                   title="{{ translate('Edit_to_toggle') }}"
+                                                   {{ $isDone ? 'checked' : '' }}>
+                                        </span>
                                     </td>
                                 </tr>
                             @endforeach
