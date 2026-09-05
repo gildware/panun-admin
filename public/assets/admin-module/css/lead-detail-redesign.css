@@ -271,12 +271,31 @@ width: 44px;
 .lead-detail-v2 .lead-identity {
 flex: 1; min-width: 180px;
 }
+.lead-detail-v2 .lead-name-row {
+            margin: 0 0 .125rem;
+}
+.lead-detail-v2 .lead-name-view {
+            display: inline-flex;
+            align-items: center;
+            gap: .25rem;
+            max-width: 100%;
+}
 .lead-detail-v2 .lead-name {
 font-size: 1.125rem;
             font-weight: 700;
             color: var(--ld-text);
-            margin: 0 0 .125rem;
+            margin: 0;
             line-height: 1.25;
+}
+.lead-detail-v2 .lead-name-form {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: .35rem;
+            max-width: 100%;
+}
+.lead-detail-v2 .lead-name-form .form-control {
+            width: min(16rem, 100%);
 }
 .lead-detail-v2 .lead-contact {
 display: flex;

@@ -16,7 +16,42 @@
     <div class="lead-hero__top">
         <div class="lead-avatar" aria-hidden="true">{{ $leadInitials }}</div>
         <div class="lead-identity">
-            <h1 class="lead-name">{{ $leadNameForDisplay !== '' ? $leadNameForDisplay : translate('Lead_Details') }}</h1>
+            @php $leadNameEditOpen = $errors->has('name'); @endphp
+            <div class="lead-name-row" id="lead-name-row">
+                <div id="lead-name-view" class="lead-name-view{{ $leadNameEditOpen ? ' d-none' : '' }}">
+                    <h1 class="lead-name">{{ $leadNameForDisplay !== '' ? $leadNameForDisplay : translate('Lead_Details') }}</h1>
+                    @can('lead_update')
+                        <button type="button"
+                                id="lead-name-edit-btn"
+                                class="lead-status-edit-btn"
+                                title="{{ translate('Edit') }} {{ translate('Name') }}">
+                            <span class="material-icons" aria-hidden="true">edit</span>
+                        </button>
+                    @endcan
+                </div>
+                @can('lead_update')
+                    <div id="lead-name-edit" class="lead-name-edit{{ $leadNameEditOpen ? '' : ' d-none' }}">
+                        <form method="POST" action="{{ route('admin.lead.update', $lead->id) }}" class="lead-name-form">
+                            @csrf
+                            @method('PUT')
+                            @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif
+                            <label class="visually-hidden" for="lead-name-input">{{ translate('Name') }}</label>
+                            <input type="text"
+                                   name="name"
+                                   id="lead-name-input"
+                                   class="form-control form-control-sm"
+                                   maxlength="255"
+                                   value="{{ old('name', $lead->name) }}"
+                                   placeholder="{{ translate('Name') }}">
+                            <button type="submit" class="ld-btn ld-btn-primary ld-btn-sm">{{ translate('Update') }}</button>
+                            <button type="button" id="lead-name-cancel-btn" class="ld-btn ld-btn-outline ld-btn-sm">{{ translate('Cancel') }}</button>
+                        </form>
+                        @error('name')
+                            <div class="text-danger small mt-1">{{ $message }}</div>
+                        @enderror
+                    </div>
+                @endcan
+            </div>
             <div class="lead-contact">
                 <a href="tel:{{ preg_replace('/\s+/', '', $lead->phone_number) }}" class="phone">
                     <span class="material-icons">phone</span>
