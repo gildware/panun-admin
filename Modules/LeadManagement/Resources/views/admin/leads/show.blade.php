@@ -1035,9 +1035,27 @@
 @push('css_or_js')
     @include('zonemanagement::admin.partials._zone-select2-assets')
     <link rel="stylesheet" href="{{ asset('assets/chatting-module/css/staff-chat-entity-badges.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/lead-detail-redesign.css') }}?v={{ (@filemtime(public_path('assets/admin-module/css/lead-detail-redesign.css')) ?: time()) }}-h2">
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/lead-detail-redesign.css') }}?v={{ (@filemtime(public_path('assets/admin-module/css/lead-detail-redesign.css')) ?: time()) }}-h3">
     @include('leadmanagement::admin.leads.partials._comment-attachments-styles')
     <style>
+        .lead-detail-v2 .lead-name {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: .25rem;
+            max-width: 100%;
+            min-width: 0;
+        }
+        .lead-detail-v2 .lead-name__text {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .lead-detail-v2 .lead-name .lead-status-edit-btn {
+            flex: 0 0 auto;
+        }
+
         .btn-lead-type-invalid:hover:not(:disabled) {
             background-color: #dc3545 !important; /* Bootstrap danger */
             border-color: #dc3545 !important;
