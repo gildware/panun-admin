@@ -1458,6 +1458,24 @@
                 });
             });
 
+            var $nameView = $('#lead-name-view');
+            var $nameEdit = $('#lead-name-edit');
+            var $nameEditBtn = $('#lead-name-edit-btn');
+            var $nameCancelBtn = $('#lead-name-cancel-btn');
+            var $nameInput = $('#lead-name-input');
+
+            if ($nameView.length && $nameEdit.length) {
+                $nameEditBtn.on('click', function () {
+                    $nameView.addClass('d-none');
+                    $nameEdit.removeClass('d-none');
+                    $nameInput.trigger('focus').trigger('select');
+                });
+                $nameCancelBtn.on('click', function () {
+                    $nameEdit.addClass('d-none');
+                    $nameView.removeClass('d-none');
+                });
+            }
+
             var $assigneeView = $('#lead-assignee-view');
             var $assigneeEdit = $('#lead-assignee-edit');
             var $assigneeEditBtn = $('#lead-assignee-edit-btn');
