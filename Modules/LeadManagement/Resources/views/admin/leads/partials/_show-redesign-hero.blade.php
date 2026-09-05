@@ -19,15 +19,17 @@
             @php $leadNameEditOpen = $errors->has('name'); @endphp
             <div class="lead-name-row" id="lead-name-row">
                 <div id="lead-name-view" class="lead-name-view{{ $leadNameEditOpen ? ' d-none' : '' }}">
-                    <h1 class="lead-name">{{ $leadNameForDisplay !== '' ? $leadNameForDisplay : translate('Lead_Details') }}</h1>
-                    @can('lead_update')
-                        <button type="button"
-                                id="lead-name-edit-btn"
-                                class="lead-status-edit-btn"
-                                title="{{ translate('Edit') }} {{ translate('Name') }}">
-                            <span class="material-icons" aria-hidden="true">edit</span>
-                        </button>
-                    @endcan
+                    <h1 class="lead-name">
+                        <span class="lead-name__text">{{ $leadNameForDisplay !== '' ? $leadNameForDisplay : translate('Lead_Details') }}</span>
+                        @can('lead_update')
+                            <button type="button"
+                                    id="lead-name-edit-btn"
+                                    class="lead-status-edit-btn"
+                                    title="{{ translate('Edit') }} {{ translate('Name') }}">
+                                <span class="material-icons" aria-hidden="true">edit</span>
+                            </button>
+                        @endcan
+                    </h1>
                 </div>
                 @can('lead_update')
                     <div id="lead-name-edit" class="lead-name-edit{{ $leadNameEditOpen ? '' : ' d-none' }}">
