@@ -25,14 +25,7 @@ class CustomerCategoryChildesLookupTest extends TestCase
         $favoriteService = Mockery::mock(FavoriteService::class);
 
         $parent = (object) ['id' => 'cat-uuid-123'];
-
-        $categoryModel->shouldReceive('where')
-            ->once()
-            ->with(Mockery::type('Closure'))
-            ->andReturnSelf();
-        $categoryModel->shouldReceive('first')
-            ->once()
-            ->andReturn($parent);
+        $ofStatusCalls = 0;
 
         $childQuery = Mockery::mock();
         $childQuery->shouldReceive('ofStatus')->with(1)->andReturnSelf();
@@ -48,7 +41,19 @@ class CustomerCategoryChildesLookupTest extends TestCase
             ->once()
             ->andReturn(new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20, 1));
 
-        $categoryModel->shouldReceive('ofStatus')->with(1)->andReturn($childQuery);
+        $categoryModel->shouldReceive('ofStatus')->with(1)->andReturnUsing(function () use (&$ofStatusCalls, $categoryModel, $childQuery) {
+            $ofStatusCalls++;
+
+            return $ofStatusCalls === 1 ? $categoryModel : $childQuery;
+        });
+        $categoryModel->shouldReceive('ofType')->with('main')->andReturnSelf();
+        $categoryModel->shouldReceive('where')
+            ->once()
+            ->with(Mockery::type('Closure'))
+            ->andReturnSelf();
+        $categoryModel->shouldReceive('first')
+            ->once()
+            ->andReturn($parent);
 
         $request = Request::create('/api/v1/customer/category/childes', 'GET', [
             'limit' => 20,

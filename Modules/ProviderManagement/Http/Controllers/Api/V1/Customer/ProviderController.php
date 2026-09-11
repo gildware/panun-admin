@@ -439,7 +439,7 @@ class ProviderController extends Controller
         }
 
         $serivces = $this->service
-            ->where('is_active', 1)
+            ->active()
             ->whereIn('id', $request['service_ids'])
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 

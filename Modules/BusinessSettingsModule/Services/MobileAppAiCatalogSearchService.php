@@ -27,11 +27,11 @@ class MobileAppAiCatalogSearchService
     public function catalogStatsSnapshot(): array
     {
         return Cache::remember(self::CATALOG_STATS_CACHE_KEY, self::CATALOG_STATS_TTL, function () {
-            $serviceCount = Service::query()->where('is_active', 1)->count();
+            $serviceCount = Service::query()->active()->count();
             $zoneCount = Zone::query()->where('is_active', 1)->count();
             $categories = Category::query()
-                ->where('is_active', 1)
-                ->where('position', 1)
+                ->ofStatus(1)
+                ->ofType('main')
                 ->orderBy('name')
                 ->limit(25)
                 ->get(['id', 'name']);
@@ -39,7 +39,7 @@ class MobileAppAiCatalogSearchService
             $categorySummaries = [];
             foreach ($categories as $cat) {
                 $n = Service::query()
-                    ->where('is_active', 1)
+                    ->active()
                     ->where('category_id', $cat->id)
                     ->count();
                 if ($n > 0) {
@@ -92,7 +92,7 @@ class MobileAppAiCatalogSearchService
         $limit = min(80, max(1, $limit));
 
         $builder = Service::query()
-            ->where('is_active', 1)
+            ->active()
             ->with(['category:id,name', 'subCategory:id,name'])
             ->orderBy('name');
 
@@ -136,7 +136,7 @@ class MobileAppAiCatalogSearchService
             ];
         }
 
-        $total = Service::query()->where('is_active', 1)->count();
+        $total = Service::query()->active()->count();
         $selectable = $this->buildServiceSelectableOptions($out);
 
         return [
@@ -163,7 +163,7 @@ class MobileAppAiCatalogSearchService
         $limit = min(80, max(10, $limit));
 
         $builder = Service::query()
-            ->where('is_active', 1)
+            ->active()
             ->with(['category:id,name', 'subCategory:id,name'])
             ->orderBy('name');
 
@@ -235,7 +235,7 @@ class MobileAppAiCatalogSearchService
         }
 
         $service = Service::query()
-            ->where('is_active', 1)
+            ->active()
             ->with(['category:id,name', 'subCategory:id,name'])
             ->find($serviceId);
 
@@ -315,21 +315,21 @@ class MobileAppAiCatalogSearchService
         $limit = min(80, max(1, $limit));
 
         $categories = Category::query()
-            ->where('is_active', 1)
-            ->where('position', 1)
+            ->ofStatus(1)
+            ->ofType('main')
             ->orderBy('name')
             ->limit($limit)
             ->get(['id', 'name']);
 
         $subcategories = Category::query()
-            ->where('is_active', 1)
-            ->where('position', 2)
+            ->ofStatus(1)
+            ->ofType('sub')
             ->orderBy('name')
             ->limit($limit * 3)
             ->get(['id', 'name', 'parent_id']);
 
         $withCounts = $categories->map(function ($c) {
-            $count = Service::query()->where('is_active', 1)->where('category_id', $c->id)->count();
+            $count = Service::query()->active()->where('category_id', $c->id)->count();
 
             return [
                 'id' => (string) $c->id,
@@ -340,7 +340,7 @@ class MobileAppAiCatalogSearchService
 
         return [
             'ok' => true,
-            'total_active_services' => Service::query()->where('is_active', 1)->count(),
+            'total_active_services' => Service::query()->active()->count(),
             'categories' => $withCounts,
             'subcategories' => $subcategories->map(fn ($c) => [
                 'id' => (string) $c->id,
