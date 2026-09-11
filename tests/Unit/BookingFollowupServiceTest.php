@@ -75,4 +75,34 @@ class BookingFollowupServiceTest extends TestCase
 
         $this->assertTrue($followUpAt->equalTo(Carbon::parse('2026-08-15 07:00:00')));
     }
+
+    public function test_first_human_assign_pushes_past_due_by_one_hour(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-11 10:30:00'));
+        $currentDue = Carbon::parse('2026-09-11 10:00:00');
+
+        $newDue = $this->service->firstHumanAssignGraceDueAt(null, 'employee-uuid', $currentDue);
+
+        $this->assertTrue($newDue->equalTo(Carbon::parse('2026-09-11 11:30:00')));
+    }
+
+    public function test_first_human_assign_keeps_due_when_more_than_one_hour_remains(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-11 11:00:00'));
+        $currentDue = Carbon::parse('2026-09-11 16:00:00');
+
+        $newDue = $this->service->firstHumanAssignGraceDueAt(null, 'employee-uuid', $currentDue);
+
+        $this->assertNull($newDue);
+    }
+
+    public function test_human_to_human_booking_reassign_does_not_move_due(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-11 10:30:00'));
+        $currentDue = Carbon::parse('2026-09-11 10:00:00');
+
+        $newDue = $this->service->firstHumanAssignGraceDueAt('employee-a', 'employee-b', $currentDue);
+
+        $this->assertNull($newDue);
+    }
 }

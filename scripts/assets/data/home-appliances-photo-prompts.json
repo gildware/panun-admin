@@ -110,6 +110,16 @@
     "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/cctv-repair-cover.png"
   },
   {
+    "slug": "security-door-lock-camera",
+    "name": "Security Door Lock Camera",
+    "sub_category_slug": "cctv",
+    "reference_image": "/Users/kamran/Desktop/panun kaergar/Logo White.png",
+    "thumbnail_prompt": "Professional close-up photograph of security door lock camera in progress, installing a video door lock camera on a main wooden door with indoor monitor nearby, a Kashmir home entrance or shop front with CCTV cameras, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Shallow depth of field.",
+    "cover_prompt": "Wide landscape professional photograph showing security door lock camera, installing a video door lock camera on a main wooden door with indoor monitor nearby, a Kashmir home entrance or shop front with CCTV cameras, Kashmiri male professional in a navy blue work polo uniform with a small white embroidered Panun Kaergar logo on the chest matching the reference logo, only men, natural soft lighting, photorealistic stock photo style. No floating watermarks, no text overlays, no extra logos in the scene. Natural daylight, home service photography composition.",
+    "thumbnail_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/security-door-lock-camera-thumbnail.png",
+    "cover_path": "/Users/kamran/.cursor/projects/Users-kamran-Desktop-panun-kaergar/assets/security-door-lock-camera-cover.png"
+  },
+  {
     "slug": "geyser-installation",
     "name": "Geyser Installation",
     "sub_category_slug": "geysers",

@@ -58,6 +58,8 @@ VARIANT_SUBJECTS = {
     "split-ac": "split AC indoor outdoor unit pair silhouette",
     "window-ac": "window air conditioner unit silhouette",
     "book-site-inspection": "clipboard checklist with magnifying glass site inspection icon",
+    "new-install": "video door lock with camera on a main door silhouette",
+    "lock-camera-repair": "door lock camera with screwdriver repair silhouette",
     "lessno-cooling": "AC with weak cold air arrows silhouette",
     "power-issue": "power plug with warning spark silhouette",
     "unwanted-noisesmell": "AC with sound waves and odor lines silhouette",

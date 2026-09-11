@@ -1147,6 +1147,17 @@ class LeadController extends Controller
             return redirect($url);
         }
 
+        if (array_key_exists('handled_by', $validated) && ! array_key_exists('next_followup_at', $validated)) {
+            $graceLead = clone $lead;
+            if (app(LeadFollowupService::class)->applyFirstHumanAssignFollowupGrace(
+                $graceLead,
+                $lead->handled_by,
+                $validated['handled_by'] ?? null
+            )) {
+                $validated['next_followup_at'] = $graceLead->next_followup_at;
+            }
+        }
+
         $keys = array_keys($validated);
         $oldValues = $lead->only($keys);
 
@@ -1809,6 +1820,8 @@ class LeadController extends Controller
             )
             : 0;
         $huntingInterests = $lead->huntingInterests ?? collect();
+        $huntingPostingPlatforms = $huntingBoard::postingPlatforms();
+        $huntingSelectedPlatforms = $huntingBoard->platformsForLead($lead);
         $temporaryProvider = !empty($customerHistoryData['temporary_provider_id'])
             ? Provider::find($customerHistoryData['temporary_provider_id'])
             : null;
@@ -1862,6 +1875,8 @@ class LeadController extends Controller
             'huntingIsReady',
             'huntingMatchingProviderCount',
             'huntingInterests',
+            'huntingPostingPlatforms',
+            'huntingSelectedPlatforms',
             'temporaryProvider',
             'temporaryProviderAssignedAt',
             'workflowContext',

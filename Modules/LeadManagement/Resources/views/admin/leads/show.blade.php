@@ -1035,7 +1035,7 @@
 @push('css_or_js')
     @include('zonemanagement::admin.partials._zone-select2-assets')
     <link rel="stylesheet" href="{{ asset('assets/chatting-module/css/staff-chat-entity-badges.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/lead-detail-redesign.css') }}?v={{ (@filemtime(public_path('assets/admin-module/css/lead-detail-redesign.css')) ?: time()) }}-h3">
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/css/lead-detail-redesign.css') }}?v={{ (@filemtime(public_path('assets/admin-module/css/lead-detail-redesign.css')) ?: time()) }}-h4">
     @include('leadmanagement::admin.leads.partials._comment-attachments-styles')
     <style>
         .lead-detail-v2 .lead-name {
@@ -1055,6 +1055,40 @@
         .lead-detail-v2 .lead-name .lead-status-edit-btn {
             flex: 0 0 auto;
         }
+        .lead-detail-v2 .lead-hunting-platforms { margin-top: .7rem; }
+        .lead-detail-v2 .lead-hunting-platforms__label { font-weight: 700; font-size: .78rem; margin-bottom: .4rem; }
+        .lead-detail-v2 .lead-hunting-platforms__chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+        .lead-detail-v2 .lead-platform-chip {
+            --chip-color: #25274D;
+            display: inline-flex;
+            align-items: center;
+            gap: .3rem;
+            border: 1.5px solid var(--chip-color);
+            background: #fff;
+            color: var(--chip-color);
+            border-radius: 999px;
+            padding: .28rem .7rem .28rem .45rem;
+            font-size: .78rem;
+            font-weight: 650;
+            cursor: pointer;
+        }
+        .lead-detail-v2 .lead-platform-chip--hunting_board { --chip-color: #ea580c; }
+        .lead-detail-v2 .lead-platform-chip--whatsapp { --chip-color: #128C7E; }
+        .lead-detail-v2 .lead-platform-chip--facebook { --chip-color: #1877F2; }
+        .lead-detail-v2 .lead-platform-chip--instagram { --chip-color: #c13584; }
+        .lead-detail-v2 .lead-platform-chip .material-icons { font-size: 1rem; }
+        .lead-detail-v2 .lead-platform-chip__mark {
+            width: 1.05rem; height: 1.05rem; border-radius: 50%;
+            display: inline-flex; align-items: center; justify-content: center;
+            border: 1.5px solid currentColor;
+        }
+        .lead-detail-v2 .lead-platform-chip__tick,
+        .lead-detail-v2 .lead-platform-chip__cross { display: none; font-size: .85rem !important; }
+        .lead-detail-v2 .lead-platform-chip.is-selected { background: var(--chip-color); color: #fff; }
+        .lead-detail-v2 .lead-platform-chip.is-selected .lead-platform-chip__mark { background: #fff; border-color: #fff; color: var(--chip-color); }
+        .lead-detail-v2 .lead-platform-chip.is-selected .lead-platform-chip__tick { display: block; }
+        .lead-detail-v2 .lead-platform-chip.is-selected:hover .lead-platform-chip__tick { display: none; }
+        .lead-detail-v2 .lead-platform-chip.is-selected:hover .lead-platform-chip__cross { display: block; }
 
         .btn-lead-type-invalid:hover:not(:disabled) {
             background-color: #dc3545 !important; /* Bootstrap danger */
@@ -1491,6 +1525,61 @@
                 $nameCancelBtn.on('click', function () {
                     $nameEdit.addClass('d-none');
                     $nameView.removeClass('d-none');
+                });
+            }
+
+            var $huntingPlatforms = $('.lead-hunting-platforms');
+            if ($huntingPlatforms.length) {
+                var huntingPlatformSaveUrl = $huntingPlatforms.data('save-url');
+                var huntingPlatformCsrf = $('meta[name="csrf-token"]').attr('content') || $('input[name="_token"]').val();
+
+                function selectedHuntingPlatforms() {
+                    return $huntingPlatforms.find('.lead-platform-chip.is-selected').map(function () {
+                        return $(this).data('platform');
+                    }).get();
+                }
+
+                function syncHuntingPlatformInputs(platforms) {
+                    var $box = $('#lead-hunting-platform-inputs');
+                    if (!$box.length) {
+                        return;
+                    }
+                    $box.empty();
+                    platforms.forEach(function (key) {
+                        $box.append($('<input>', { type: 'hidden', name: 'hunting_platforms[]', value: key }));
+                    });
+                }
+
+                function saveHuntingPlatforms(platforms) {
+                    if (!huntingPlatformSaveUrl) {
+                        return;
+                    }
+                    $.ajax({
+                        url: huntingPlatformSaveUrl,
+                        method: 'POST',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                        data: {
+                            _token: huntingPlatformCsrf,
+                            _method: 'PUT',
+                            hunting_platforms: platforms
+                        }
+                    });
+                }
+
+                $huntingPlatforms.on('click', '.lead-platform-chip', function () {
+                    var $chip = $(this);
+                    if ($chip.prop('disabled')) {
+                        return;
+                    }
+                    var selected = $chip.hasClass('is-selected');
+                    if (selected && selectedHuntingPlatforms().length <= 1) {
+                        return;
+                    }
+                    $chip.toggleClass('is-selected', !selected);
+                    $chip.attr('aria-pressed', $chip.hasClass('is-selected') ? 'true' : 'false');
+                    var platforms = selectedHuntingPlatforms();
+                    syncHuntingPlatformInputs(platforms);
+                    saveHuntingPlatforms(platforms);
                 });
             }
 

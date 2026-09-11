@@ -822,7 +822,12 @@ class ServiceController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $subCategoryId = $this->category->withoutGlobalScopes()->where(['slug' => $slug])->ofType('sub')->first()?->id ?? null;
+        $subCategoryId = $this->category
+            ->withoutGlobalScopes()
+            ->where(['slug' => $slug])
+            ->ofType('sub')
+            ->ofStatus(1)
+            ->first()?->id ?? null;
 
         if ($subCategoryId == null) {
             return response()->json(response_formatter(DEFAULT_404, null, [['code' => 'sub-category', 'message' => translate('Sub Category not found')]]), 404);
@@ -831,7 +836,7 @@ class ServiceController extends Controller
         $servicesQuery = $this->service
             ->with(CustomerServicePayloadSlimmer::listEagerRelations())
             ->where('sub_category_id', $subCategoryId)
-            ->where('is_active', 1)
+            ->active()
             ->where(function ($query) {
                 $query->whereDoesntHave('service_discount')
                     ->orWhereHas('service_discount')

@@ -505,6 +505,24 @@ class SubCategoryController extends Controller
         return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
     }
 
+    /**
+     * Toggle customer-app visibility. Hiding a subcategory hides all of its services in the customer app.
+     */
+    public function customerAppVisibilityUpdate(Request $request, $id): JsonResponse
+    {
+        $this->authorize('category_manage_status');
+        $category = $this->category->ofType('sub')->where('id', $id)->first();
+        if (!$category) {
+            return response()->json(response_formatter(DEFAULT_204), 200);
+        }
+
+        $this->category->where('id', $id)->update([
+            'is_visible_in_customer_app' => !$category->is_visible_in_customer_app,
+        ]);
+
+        return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
+    }
+
 
     /**
      * Display a listing of the resource.

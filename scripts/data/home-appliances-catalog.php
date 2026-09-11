@@ -42,7 +42,7 @@ return [
         [
             'name' => 'CCTV',
             'slug' => 'cctv',
-            'description' => 'CCTV camera installation and repair for homes and shops.',
+            'description' => 'CCTV cameras, security door lock cameras, and related install or repair for homes and shops.',
             'sort_order' => 3,
         ],
         [
@@ -206,6 +206,16 @@ return [
             'base_price' => 199.0,
             'variants' => [
                 ha_variant('book-site-inspection', 'Book Site Inspection', 199.0),
+            ],
+        ],
+        [
+            'name' => 'Security Door Lock Camera',
+            'slug' => 'security-door-lock-camera',
+            'sub_category_slug' => 'cctv',
+            'base_price' => 199.0,
+            'variants' => [
+                ha_variant('new-install', 'New Installation', 499.0),
+                ha_variant('lock-camera-repair', 'Repair', 199.0),
             ],
         ],
 

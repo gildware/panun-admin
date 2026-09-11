@@ -305,7 +305,10 @@ class ConfigController extends Controller
         $zone = app(ZoneGeometryService::class)->resolveLeafZoneForPoint($point);
 
         if ($zone) {
-            $services = Service::withoutGlobalScope('zone_wise_data')->where('is_active', 1)->whereHas('category', function ($query) use ($zone) {
+            $services = Service::withoutGlobalScope('zone_wise_data')
+                ->where('is_active', 1)
+                ->visibleInCustomerApp()
+                ->whereHas('category', function ($query) use ($zone) {
                 $query->OfStatus(1)->withoutGlobalScope('zone_wise_data')->whereHas('zones', function ($query) use ($zone) {
                     $query->where('zone_id', $zone->id);
                 });

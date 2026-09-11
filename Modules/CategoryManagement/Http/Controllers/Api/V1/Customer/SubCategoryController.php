@@ -35,11 +35,14 @@ class SubCategoryController extends Controller
 
         $subCategories = $this->category
             ->withCount(['services' => function ($query) {
-                $query->where('is_active', 1);
+                $query->where('is_active', 1)->visibleInCustomerApp();
             }])
             ->with(['parent'])
             ->ofStatus(1)
             ->ofType('sub')
+            ->whereHas('parent', function ($query) {
+                $query->ofStatus(1);
+            })
             ->withActiveServices()
             ->ordered()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])

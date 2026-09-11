@@ -38,6 +38,7 @@ ACTION = {
     "inverter-uninstallation": "safely uninstalling an inverter backup system",
     "cctv-installation": "installing a CCTV camera on a wall with drill and tools",
     "cctv-repair": "repairing a CCTV camera and checking the recorder",
+    "security-door-lock-camera": "installing a video door lock camera on a main wooden door with indoor monitor nearby",
     "geyser-installation": "installing a wall-mounted storage geyser",
     "geyser-repair": "repairing a bathroom geyser heating issue",
     "geyser-cleaning": "cleaning and flushing a bathroom geyser",

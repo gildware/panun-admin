@@ -37,6 +37,14 @@ class LeadHuntingBoardService
 
     public const UNPUBLISH_CANCELLED = 'cancelled';
 
+    public const PLATFORM_HUNTING_BOARD = 'hunting_board';
+
+    public const PLATFORM_WHATSAPP = 'whatsapp';
+
+    public const PLATFORM_FACEBOOK = 'facebook';
+
+    public const PLATFORM_INSTAGRAM = 'instagram';
+
     /**
      * @return list<string>
      */
@@ -46,6 +54,76 @@ class LeadHuntingBoardService
             self::UNPUBLISH_FOUND_PROVIDER,
             self::UNPUBLISH_CANCELLED,
         ];
+    }
+
+    /**
+     * @return array<string, array{label: string, icon: string}>
+     */
+    public static function postingPlatforms(): array
+    {
+        return [
+            self::PLATFORM_HUNTING_BOARD => [
+                'label' => translate('Open_Jobs_Board'),
+                'icon' => 'travel_explore',
+            ],
+            self::PLATFORM_WHATSAPP => [
+                'label' => translate('WhatsApp'),
+                'icon' => 'chat',
+            ],
+            self::PLATFORM_FACEBOOK => [
+                'label' => translate('Facebook'),
+                'icon' => 'thumb_up',
+            ],
+            self::PLATFORM_INSTAGRAM => [
+                'label' => translate('Instagram'),
+                'icon' => 'photo_camera',
+            ],
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function postingPlatformKeys(): array
+    {
+        return array_keys(self::postingPlatforms());
+    }
+
+    /**
+     * @param  mixed  $raw
+     * @return list<string>
+     */
+    public static function normalizePlatforms($raw): array
+    {
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            $raw = is_array($decoded) ? $decoded : (preg_split('/[,\s]+/', $raw) ?: []);
+        }
+
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $allowed = self::postingPlatformKeys();
+        $out = [];
+        foreach ($raw as $value) {
+            $key = strtolower(trim((string) $value));
+            if ($key !== '' && in_array($key, $allowed, true) && ! in_array($key, $out, true)) {
+                $out[] = $key;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function platformsForLead(Lead $lead): array
+    {
+        $saved = self::normalizePlatforms($lead->hunting_platforms ?? []);
+
+        return $saved !== [] ? $saved : [self::PLATFORM_HUNTING_BOARD];
     }
 
     public function schemaReady(): bool
@@ -147,7 +225,12 @@ class LeadHuntingBoardService
     /**
      * @throws \RuntimeException
      */
-    public function startHunting(Lead $lead): Lead
+    /**
+     * @param  list<string>|null  $platforms
+     *
+     * @throws \RuntimeException
+     */
+    public function startHunting(Lead $lead, ?array $platforms = null): Lead
     {
         if ($lead->lead_type !== Lead::TYPE_CUSTOMER) {
             throw new \RuntimeException(translate('Lead_must_be_a_customer_lead'));
@@ -156,6 +239,19 @@ class LeadHuntingBoardService
         $data = $this->latestCustomerData($lead);
         if (! $this->isHuntReady($data)) {
             throw new \RuntimeException(translate('Complete_hunt_ready_fields_before_starting_provider_hunting'));
+        }
+
+        $normalized = $platforms !== null
+            ? self::normalizePlatforms($platforms)
+            : $this->platformsForLead($lead);
+        if ($normalized === []) {
+            throw new \RuntimeException(translate('Select_at_least_one_platform_to_post'));
+        }
+
+        $this->savePlatforms($lead, $normalized);
+
+        if (! in_array(self::PLATFORM_HUNTING_BOARD, $normalized, true)) {
+            return $lead->fresh();
         }
 
         if ($lead->hunting_status === Lead::HUNTING_PUBLISHED) {
@@ -187,6 +283,26 @@ class LeadHuntingBoardService
         } catch (\Throwable $e) {
             report($e);
         }
+
+        return $lead->fresh();
+    }
+
+    /**
+     * @param  list<string>  $platforms
+     */
+    public function savePlatforms(Lead $lead, array $platforms): Lead
+    {
+        $normalized = self::normalizePlatforms($platforms);
+        if ($normalized === []) {
+            throw new \RuntimeException(translate('Select_at_least_one_platform_to_post'));
+        }
+
+        if (! Schema::hasColumn('leads', 'hunting_platforms')) {
+            return $lead;
+        }
+
+        $lead->hunting_platforms = $normalized;
+        $lead->save();
 
         return $lead->fresh();
     }

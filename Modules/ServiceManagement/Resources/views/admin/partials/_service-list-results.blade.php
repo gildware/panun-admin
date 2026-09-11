@@ -80,6 +80,19 @@
                                     <span class="switcher_control"></span>
                                 </label>
                             </div>
+                            <div class="category-card__toggle-row">
+                                <span class="category-card__toggle-label"
+                                      title="{{ translate('When off, this service is hidden from the customer app. Providers are not affected.') }}">{{ translate('Customer App') }}</span>
+                                <label class="switcher category-card__toggle">
+                                    <input class="switcher_input route-alert"
+                                           type="checkbox"
+                                           data-route="{{ route('admin.service.customer-app-visibility-update', [$service->id]) }}"
+                                           data-message="{{ translate('This will hide or show this service in the customer app only. Providers are not affected.') }}"
+                                           {{ $service->is_visible_in_customer_app ? 'checked' : '' }}
+                                           aria-label="{{ translate('Customer App') }}">
+                                    <span class="switcher_control"></span>
+                                </label>
+                            </div>
                         </div>
                     @endcan
 

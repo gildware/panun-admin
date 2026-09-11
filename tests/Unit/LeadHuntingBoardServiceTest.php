@@ -36,6 +36,16 @@ class LeadHuntingBoardServiceTest extends TestCase
         ]));
     }
 
+    public function test_normalize_platforms_keeps_allowed_keys_only(): void
+    {
+        $this->assertSame(
+            ['hunting_board', 'whatsapp'],
+            LeadHuntingBoardService::normalizePlatforms(['hunting_board', 'whatsapp', 'tiktok', 'whatsapp'])
+        );
+        $this->assertSame(['facebook'], LeadHuntingBoardService::normalizePlatforms('facebook, instagramx'));
+        $this->assertSame([], LeadHuntingBoardService::normalizePlatforms(null));
+    }
+
     public function test_unpublish_reasons(): void
     {
         $this->assertSame(

@@ -44,19 +44,22 @@ class CampaignController extends Controller
                 $query->whereDoesntHave('discount.category_types')
                     ->orWhereHas('discount.category_types', function ($query) {
                         $query->whereHas('category', function ($query) {
-                            $query->where('is_active', '!=', 0);
+                            $query->where('is_active', '!=', 0)->visibleInCustomerApp();
                         });
                     });
             })
             ->where(function ($query) {
                 $query->whereDoesntHave('discount.service_types')
                     ->orWhereHas('discount.service_types', function ($query) {
-                        $query->whereHas('service.category', function ($query) {
-                            $query->where('is_active', '!=', 0);
-                        })
-                            ->orWhereHas('service.subCategory', function ($query) {
+                        $query->whereHas('service', function ($serviceQuery) {
+                            $serviceQuery->visibleInCustomerApp();
+                        })->where(function ($query) {
+                            $query->whereHas('service.category', function ($query) {
+                                $query->where('is_active', '!=', 0);
+                            })->orWhereHas('service.subCategory', function ($query) {
                                 $query->where('is_active', '!=', 0);
                             });
+                        });
                     });
             })
             ->ofStatus(1)
@@ -99,10 +102,10 @@ class CampaignController extends Controller
         if (isset($campaign)) {
             $items = $this->discountType->where(['discount_id' => $campaign->discount->id])
                 ->with(['category' => function ($query) {
-                    $query->where('is_active', 1);
+                    $query->where('is_active', 1)->visibleInCustomerApp();
                 }])
                 ->with(['service' => function ($query) {
-                    $query->where('is_active', 1)->with(['variations']);
+                    $query->where('is_active', 1)->visibleInCustomerApp()->with(['variations']);
                 }])
                 ->with(['discount'])
                 ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');

@@ -32,6 +32,10 @@ class HomeAppliancesContentBuilder
             return 'Inspection or visit fee may be adjusted against your final bill if you proceed with the full service through Panun Kaergar. Fuel, oil, filters, and spare parts are extra unless listed.';
         }
 
+        if ($serviceSlug === 'security-door-lock-camera') {
+            return 'Visit fee may be adjusted against your final bill if you proceed with the full job through Panun Kaergar. The lock-camera unit, wiring extras, and spare parts are quoted separately.';
+        }
+
         if (str_contains($serviceSlug, 'repair') || str_contains($serviceSlug, 'service')) {
             return 'Inspection or visit fee may be adjusted against your final bill if you proceed with the full service through Panun Kaergar. Spare parts and consumables are extra unless listed.';
         }
@@ -51,7 +55,7 @@ class HomeAppliancesContentBuilder
         if (str_contains($slug, 'servicing') || str_contains($slug, 'cleaning') || str_contains($slug, 'gas-refill') || $slug === 'gas-refill-check-up') {
             return 'service';
         }
-        if (str_contains($slug, 'installation') || str_ends_with($slug, '-installation')) {
+        if ($slug === 'security-door-lock-camera' || str_contains($slug, 'installation') || str_ends_with($slug, '-installation')) {
             return 'install';
         }
         if (str_contains($slug, 'repair') || $slug === 'ro-service') {
@@ -66,6 +70,7 @@ class HomeAppliancesContentBuilder
         return match (true) {
             str_starts_with($slug, 'ac-') => 'air conditioners',
             str_starts_with($slug, 'inverter-') => 'inverters and batteries',
+            $slug === 'security-door-lock-camera' => 'video door locks and door lock cameras',
             str_starts_with($slug, 'cctv-') => 'CCTV cameras and recorders',
             str_starts_with($slug, 'geyser-') => 'geysers and water heaters',
             str_starts_with($slug, 'tv-') => 'LED and smart TVs',
@@ -83,6 +88,7 @@ class HomeAppliancesContentBuilder
         return match (true) {
             str_starts_with($slug, 'ac-') => ['Homes', 'Offices', 'Split AC', 'Window AC', 'Seasonal care'],
             str_starts_with($slug, 'inverter-') => ['Homes', 'Shops', 'Power backup setups', 'Battery banks'],
+            $slug === 'security-door-lock-camera' => ['Homes', 'Main doors', 'Video door locks', 'Camera lock repair'],
             str_starts_with($slug, 'cctv-') => ['Homes', 'Shops', 'Offices', 'Security upgrades'],
             str_starts_with($slug, 'geyser-') => ['Homes', 'Bathrooms', 'Winter readiness', 'Storage / Instant units'],
             str_starts_with($slug, 'tv-') => ['Homes', 'Wall mounting', 'Living rooms', 'Smart TVs'],
@@ -108,6 +114,16 @@ class HomeAppliancesContentBuilder
             ];
         }
 
+        if ($slug === 'security-door-lock-camera') {
+            return [
+                'On-site check of the door, lock cut-out, power, and camera view',
+                'Labour for new installation or repair as booked',
+                'Fitting, wiring, and app/monitor pairing within practical scope',
+                'Lock and camera function test before handover',
+                'Work-area tidy-up and use tips',
+            ];
+        }
+
         return [
             'On-site placement and install review',
             'Labour for the booked variation',
@@ -126,6 +142,16 @@ class HomeAppliancesContentBuilder
                 'Generator hire or overnight operator',
                 'New changeover, DB, or house wiring (book Electrician)',
                 'Civil foundation or exhaust fabrication unless agreed',
+            ];
+        }
+
+        if ($slug === 'security-door-lock-camera') {
+            return [
+                'Cost of the door lock camera, indoor monitor, or spare parts',
+                'New door, frame, or carpentry changes (book Carpentry if needed)',
+                'Long extra cabling, Wi-Fi extender, or new electrical point unless agreed',
+                'Cloud subscription, SIM data, or brand app accounts',
+                'Full metal-door fabrication unless quoted after inspection',
             ];
         }
 
@@ -433,6 +459,17 @@ class HomeAppliancesContentBuilder
                     ['How do I contact support?', 'Use call, WhatsApp, website, or the app profile and contact sections for booking help.'],
                 ],
             };
+        }
+
+        if ($name === 'Security Door Lock Camera') {
+            return [
+                ['What is Security Door Lock Camera?', 'It is a video door lock / door lock camera job — install or repair of a lock that has a camera, indoor screen, or app view at the main door.'],
+                ['Is the lock camera unit included in the price?', 'No. Labour for the booked variation is included. The device, extra cable, and spare parts are quoted separately.'],
+                ['Should I book New Installation or Repair?', 'Choose New Installation for a first-time or replacement fit. Choose Repair if an existing video door lock or camera lock is not working.'],
+                ['Will the visit fee be adjusted?', 'Often yes if you proceed with the full job through Panun Kaergar after inspection.'],
+                ['Do I need Wi-Fi?', 'App-based locks need a stable Wi-Fi or the indoor monitor that came with the kit. Share the brand and photos when booking.'],
+                ['How do I contact support?', 'Use call, WhatsApp, website, or the app profile and contact sections for booking help.'],
+            ];
         }
 
         return match ($kind) {

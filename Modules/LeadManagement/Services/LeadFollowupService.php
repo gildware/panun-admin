@@ -13,6 +13,13 @@ class LeadFollowupService
     public const FOLLOWUP_DUE_HOURS = 2;
 
     public const FOLLOWUP_DUE_SOON_HOURS = 24;
+
+    /** Default next follow-up hour for AI-created leads (app timezone). */
+    public const DEFAULT_AI_FOLLOWUP_HOUR = 11;
+
+    /** Extra time given when a lead first moves from AI/unassigned to a human. */
+    public const FIRST_HUMAN_ASSIGN_GRACE_HOURS = 1;
+
     /**
      * Default next follow-up: tomorrow at 10:00 (app timezone).
      */
@@ -21,6 +28,47 @@ class LeadFollowupService
         $base = $from ?? Carbon::now();
 
         return $base->copy()->addDay()->setTime(10, 0, 0);
+    }
+
+    /**
+     * Default next follow-up for AI-created leads: tomorrow at 11:00 (app timezone).
+     */
+    public function defaultAiNextFollowupAt(?Carbon $from = null): Carbon
+    {
+        $base = $from ?? Carbon::now();
+
+        return $base->copy()->addDay()->setTime(self::DEFAULT_AI_FOLLOWUP_HOUR, 0, 0);
+    }
+
+    /**
+     * When a lead first moves from AI/unassigned to a human, push {@see Lead::$next_followup_at}
+     * if it is already due or due within the grace window.
+     *
+     * Does not save the model.
+     */
+    public function applyFirstHumanAssignFollowupGrace(
+        Lead $lead,
+        ?string $previousHandledBy,
+        ?string $newHandledBy,
+        ?Carbon $assignedAt = null
+    ): bool {
+        if (! Lead::assigneeIsHuman($newHandledBy) || Lead::assigneeIsHuman($previousHandledBy)) {
+            return false;
+        }
+
+        if (! $lead->next_followup_at) {
+            return false;
+        }
+
+        $now = $assignedAt ?? Carbon::now();
+        $graceUntil = $now->copy()->addHours(self::FIRST_HUMAN_ASSIGN_GRACE_HOURS);
+        if ($lead->next_followup_at->gt($graceUntil)) {
+            return false;
+        }
+
+        $lead->next_followup_at = $graceUntil;
+
+        return true;
     }
 
     public function leadTypeRequiresMandatoryFollowup(string $leadType): bool
