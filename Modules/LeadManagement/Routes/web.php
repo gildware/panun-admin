@@ -24,7 +24,6 @@ Route::group([
         Route::get('hunting-board', [LeadHuntingBoardController::class, 'index'])->middleware(['can:lead_view'])->name('hunting-board.index');
         Route::post('hunting-board/{id}/remind', [LeadHuntingBoardController::class, 'remind'])->middleware(['can:lead_update'])->name('hunting-board.remind');
         Route::post('{id}/hunting/start', [LeadHuntingBoardController::class, 'start'])->middleware(['can:lead_update'])->name('hunting.start');
-        Route::put('{id}/hunting/platforms', [LeadHuntingBoardController::class, 'updatePlatforms'])->middleware(['can:lead_update'])->name('hunting.platforms.update');
         Route::post('{id}/hunting/unpublish', [LeadHuntingBoardController::class, 'unpublish'])->middleware(['can:lead_update'])->name('hunting.unpublish');
         Route::get('create', [LeadController::class, 'create'])->middleware(['can:lead_add'])->name('create');
         Route::get('create/from-whatsapp-provider/{lead_id}', [LeadController::class, 'createFromWhatsAppProvider'])->middleware(['can:lead_add'])->name('create-from-whatsapp-provider');

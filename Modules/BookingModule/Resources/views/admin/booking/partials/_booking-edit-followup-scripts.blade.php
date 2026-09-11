@@ -35,6 +35,23 @@
             $('#booking-edit-followup-next-group').toggleClass('d-none', isScheduled);
             $('#booking-edit-followup-reason-group').toggleClass('d-none', !isScheduled);
             $('#booking-edit-followup-at').prop('required', !isScheduled && status === 'completed');
+            $('#booking-edit-followup-date').toggleClass('js-followup-future-only', isScheduled);
+        }
+
+        function localFollowupScheduleMin() {
+            var now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            return now.toISOString().slice(0, 16);
+        }
+
+        function applyEditFollowupFutureMin() {
+            var min = localFollowupScheduleMin();
+            $modal.find('input.js-followup-future-only').each(function () {
+                this.min = min;
+                if (this.value && this.value < min) {
+                    this.value = min;
+                }
+            });
         }
 
         function configureEditFollowupModal(payload) {
@@ -54,6 +71,7 @@
             $('#booking-edit-followup-remarks').val(payload.remarks || '');
             $('#booking-edit-followup-next').val(payload.nextAt || '');
             toggleEditFollowupFields(payload.status || 'scheduled');
+            applyEditFollowupFutureMin();
 
             $modal.find('input.js-followup-not-future').each(function () {
                 var max = (function () {

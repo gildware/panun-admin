@@ -1573,9 +1573,9 @@ class BookingController extends Controller
                 'repeat_custom_dates' => ['nullable', 'array'],
                 'repeat_custom_dates.*' => ['nullable', 'string', 'max:40'],
                 'repeat_visit_dates_json' => ['nullable', 'string', 'max:20000'],
-            ], [
+            ] + $this->adminCreateBookingFollowupRules(), [
                 'advance_payment_method.required' => translate('Advance_payment_method_is_required_when_advance_amount_is_set'),
-            ]);
+            ] + $this->adminCreateBookingFollowupMessages());
 
             $this->assertAdminAdvancePaymentFollowUpValidation($request);
 
@@ -1809,9 +1809,9 @@ class BookingController extends Controller
             'repeat_custom_dates' => ['nullable', 'array'],
             'repeat_custom_dates.*' => ['nullable', 'string', 'max:40'],
             'repeat_visit_dates_json' => ['nullable', 'string', 'max:20000'],
-        ], [
+        ] + $this->adminCreateBookingFollowupRules(), [
             'advance_payment_method.required' => translate('Advance_payment_method_is_required_when_advance_amount_is_set'),
-        ]);
+        ] + $this->adminCreateBookingFollowupMessages());
 
         $this->assertAdminAdvancePaymentFollowUpValidation($request);
 
@@ -1964,6 +1964,7 @@ class BookingController extends Controller
             $booking->extra_fee = $extraFee;
             $booking->additional_charges_breakdown = count($finalAcLines) ? $finalAcLines : null;
             $booking->lead_id = $data['lead_id'] ?? null;
+            $booking->skipAutoCreatedFollowups = true;
 
             // total_booking_amount = service line totals only; extra services persist separately; get_booking_total_amount adds extra_fee + extras
             $booking->total_booking_amount = round($cartPricing['sum_line_totals'], 2);
@@ -1978,6 +1979,13 @@ class BookingController extends Controller
             }
 
             $booking->save();
+
+            app(BookingFollowupService::class)->scheduleStaffChosenFollowups(
+                $booking,
+                $data['customer_followup_at'],
+                $data['provider_followup_at'],
+                auth()->id()
+            );
 
             if (
                 $booking->assignee_id
@@ -4249,13 +4257,17 @@ class BookingController extends Controller
 
         $validated = $request->validate([
             'for' => ['required', 'in:customer,provider'],
-            'date' => ['required', 'date'],
+            'date' => array_values(array_filter([
+                'required',
+                'date',
+                $followup->status === 'scheduled' ? $this->bookingFollowupFutureDateRule() : null,
+            ])),
             'followup_at' => ['nullable', 'date', $this->bookingFollowupTakenAtRule()],
             'remarks' => ['nullable', 'string', 'max:1000'],
             'reason' => ['nullable', 'string', 'max:1000'],
             'contact_channel' => ['nullable', 'in:'.implode(',', BookingFollowup::CONTACT_CHANNELS)],
             'urgency' => ['nullable', 'in:'.implode(',', BookingFollowup::URGENCIES)],
-            'next_followup_at' => ['nullable', 'date'],
+            'next_followup_at' => ['nullable', 'date', $this->bookingFollowupFutureDateRule()],
         ]);
 
         $payload = [
@@ -4327,6 +4339,30 @@ class BookingController extends Controller
     protected function redirectBackAfterBookingFollowup(Request $request, Booking $booking): RedirectResponse
     {
         return $this->bookingFollowupRedirect($request, $booking);
+    }
+
+    /**
+     * Staff must set follow-up times when creating a booking (system only suggests).
+     *
+     * @return array<string, mixed>
+     */
+    protected function adminCreateBookingFollowupRules(): array
+    {
+        return [
+            'customer_followup_at' => ['required', 'date', $this->bookingFollowupFutureDateRule()],
+            'provider_followup_at' => ['required', 'date', $this->bookingFollowupFutureDateRule()],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function adminCreateBookingFollowupMessages(): array
+    {
+        return [
+            'customer_followup_at.required' => translate('Next_follow_up_date_is_required'),
+            'provider_followup_at.required' => translate('Next_follow_up_date_is_required'),
+        ];
     }
 
     /**
@@ -10194,6 +10230,16 @@ class BookingController extends Controller
                 'type' => 'customer',
                 'data' => $dataHistory,
             ]);
+        }
+
+        try {
+            app(\Modules\LeadManagement\Services\LeadHuntingBoardService::class)->unpublishIfPublished(
+                $lead,
+                \Modules\LeadManagement\Services\LeadHuntingBoardService::UNPUBLISH_FOUND_PROVIDER,
+                'Automatically unpublished when a booking was created.'
+            );
+        } catch (\Throwable $e) {
+            report($e);
         }
     }
 

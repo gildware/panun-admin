@@ -40,6 +40,12 @@ class Booking extends Model
     public const STATUSES_FOR_SCHEDULED_FOLLOWUP_LISTS = ['pending', 'accepted', 'ongoing', 'on_hold'];
 
     /**
+     * When true, {@see created} does not auto-schedule follow-ups (staff chose dates on admin create).
+     * Not a database column.
+     */
+    public bool $skipAutoCreatedFollowups = false;
+
+    /**
      * Active bookings must always have a scheduled next follow-up (except completed / canceled / refunded).
      */
     public function requiresMandatoryNextFollowup(): bool
@@ -885,8 +891,8 @@ class Booking extends Model
                 }
             }
 
-            // Auto-add next follow-up for customer and provider (see BookingFollowupService::defaultFollowupAtForNewBooking).
-            if ($model->service_schedule) {
+            // App/customer checkouts auto-schedule; admin create sets dates explicitly.
+            if (! $model->skipAutoCreatedFollowups && $model->service_schedule) {
                 $scheduledAt = Carbon::parse($model->service_schedule);
                 $bookedAt = Carbon::parse($model->created_at);
                 $followupService = app(BookingFollowupService::class);

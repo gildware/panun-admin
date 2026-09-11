@@ -31,6 +31,12 @@ class BookingFollowupService
     /** Extra time given when a booking first moves from unassigned to a human. */
     public const FIRST_HUMAN_ASSIGN_GRACE_HOURS = 1;
 
+    /** Staff-create suggestion must be at least this far in the future (avoids instant “missed”). */
+    public const STAFF_SUGGEST_MIN_FUTURE_MINUTES = 15;
+
+    /** When the default due is already past, prefer this many minutes before service. */
+    public const STAFF_SUGGEST_BEFORE_SERVICE_MINUTES = 15;
+
     /**
      * Default follow-up datetime when a booking is first created.
      *
@@ -68,6 +74,37 @@ class BookingFollowupService
         }
 
         return $followUpAt;
+    }
+
+    /**
+     * Suggested follow-up for staff booking create. Staff must confirm or change it.
+     * Never suggests a time that would already be missed (or due in under 15 minutes).
+     */
+    public function suggestedFollowupAtForStaffCreate(Carbon $scheduledAt, Carbon $now): Carbon
+    {
+        $suggested = $this->defaultFollowupAtForNewBooking($scheduledAt, $now);
+        $minFuture = $now->copy()->addMinutes(self::STAFF_SUGGEST_MIN_FUTURE_MINUTES);
+        if ($suggested->gte($minFuture)) {
+            return $suggested;
+        }
+
+        $beforeService = $scheduledAt->copy()->subMinutes(self::STAFF_SUGGEST_BEFORE_SERVICE_MINUTES);
+        if ($beforeService->gte($minFuture)) {
+            return $beforeService;
+        }
+
+        return $minFuture;
+    }
+
+    public function scheduleStaffChosenFollowups(
+        Booking $booking,
+        Carbon|string $customerAt,
+        Carbon|string $providerAt,
+        ?string $createdBy = null
+    ): void {
+        $reason = translate('Reminder_before_service');
+        $this->schedule($booking, $customerAt, 'customer', $reason, $createdBy);
+        $this->schedule($booking, $providerAt, 'provider', $reason, $createdBy);
     }
 
     /**

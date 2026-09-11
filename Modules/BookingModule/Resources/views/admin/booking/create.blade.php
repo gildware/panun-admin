@@ -397,10 +397,23 @@
                                 @if($isRepeatCreate)
                                     <p class="text-muted small mb-3">{{ translate('Repeat_booking_admin_create_help') }}</p>
                                 @endif
+                                @php
+                                    $createScheduleRaw = old('service_schedule', request('service_schedule'));
+                                    $toDatetimeLocal = static function ($value) {
+                                        if ($value === null || $value === '') {
+                                            return '';
+                                        }
+                                        try {
+                                            return \Carbon\Carbon::parse($value)->format('Y-m-d\TH:i');
+                                        } catch (\Throwable) {
+                                            return is_string($value) ? $value : '';
+                                        }
+                                    };
+                                @endphp
                                 <div class="mb-0">
                                     <label class="form-label" id="service-schedule-label">{{ $isRepeatCreate ? translate('Starting_date') : translate('Service_Schedule') }}</label>
-                                    <input type="datetime-local" name="service_schedule" class="form-control"
-                                           value="{{ old('service_schedule', request('service_schedule')) }}" required>
+                                    <input type="datetime-local" name="service_schedule" id="service-schedule-input" class="form-control"
+                                           value="{{ $toDatetimeLocal($createScheduleRaw) }}" required>
                                     @if($isRepeatCreate)
                                         <small class="text-muted d-block mt-1">{{ translate('Starting_date_help') }}</small>
                                     @endif
@@ -451,6 +464,62 @@
                                 @endif
                             </div>
                         </div>
+                    </div>
+
+                    @php
+                        $followupScheduleMinAt = now()->format('Y-m-d\TH:i');
+                        $createScheduleRaw = old('service_schedule', request('service_schedule'));
+                        $suggestedFollowupLocal = '';
+                        if (! empty($createScheduleRaw)) {
+                            try {
+                                $suggestedFollowupLocal = app(\Modules\BookingModule\Services\BookingFollowupService::class)
+                                    ->suggestedFollowupAtForStaffCreate(
+                                        \Carbon\Carbon::parse($createScheduleRaw),
+                                        now()
+                                    )
+                                    ->format('Y-m-d\TH:i');
+                            } catch (\Throwable) {
+                                $suggestedFollowupLocal = '';
+                            }
+                        }
+                        $toDatetimeLocalFu = static function ($value) {
+                            if ($value === null || $value === '') {
+                                return '';
+                            }
+                            try {
+                                return \Carbon\Carbon::parse($value)->format('Y-m-d\TH:i');
+                            } catch (\Throwable) {
+                                return is_string($value) ? $value : '';
+                            }
+                        };
+                        $customerFollowupLocal = $toDatetimeLocalFu(old('customer_followup_at', request('customer_followup_at', $suggestedFollowupLocal)));
+                        $providerFollowupLocal = $toDatetimeLocalFu(old('provider_followup_at', request('provider_followup_at', $suggestedFollowupLocal)));
+                    @endphp
+                    <div class="mb-4 border rounded-3 p-3" id="staff-followup-section">
+                        <h4 class="mb-3">{{ translate('Booking_Followups') }} <span class="text-danger">*</span></h4>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label" for="customer-followup-at">{{ translate('Next_Follow_up_Date_Customer') }}</label>
+                                <input type="datetime-local" name="customer_followup_at" id="customer-followup-at"
+                                       class="form-control js-staff-followup-at js-followup-future-only"
+                                       min="{{ $followupScheduleMinAt }}"
+                                       value="{{ $customerFollowupLocal }}" required>
+                                @error('customer_followup_at')
+                                <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="provider-followup-at">{{ translate('Next_Follow_up_Date_Provider') }}</label>
+                                <input type="datetime-local" name="provider_followup_at" id="provider-followup-at"
+                                       class="form-control js-staff-followup-at js-followup-future-only"
+                                       min="{{ $followupScheduleMinAt }}"
+                                       value="{{ $providerFollowupLocal }}" required>
+                                @error('provider_followup_at')
+                                <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
+                        </div>
+                        <small class="text-muted d-block mt-2">{{ translate('Staff_followup_date_suggested_help') }}</small>
                     </div>
 
                     @include('bookingmodule::admin.booking.partials.create._booking-summary-cart')
@@ -1091,6 +1160,8 @@
                 service_address_id: @json(old('service_address_id', request('service_address_id'))) || getUrlParameter('service_address_id'),
                 service_location: @json(old('service_location', request('service_location'))) || getUrlParameter('service_location') || 'customer',
                 service_schedule: @json(old('service_schedule', request('service_schedule'))) || getUrlParameter('service_schedule'),
+                customer_followup_at: @json(old('customer_followup_at', request('customer_followup_at'))),
+                provider_followup_at: @json(old('provider_followup_at', request('provider_followup_at'))),
                 advance_paid_amount: @json(old('advance_paid_amount', request('advance_paid_amount'))),
                 advance_payment_method: @json(old('advance_payment_method', request('advance_payment_method'))),
                 advance_transaction_id: @json(old('advance_transaction_id', request('advance_transaction_id'))),
@@ -1098,6 +1169,126 @@
                 assignee_id: @json(old('assignee_id', request('assignee_id'))) || getUrlParameter('assignee_id'),
                 booking_source: @json(old('booking_source', request('booking_source')))
             };
+
+            function padDatetimeLocal(n) {
+                return String(n).padStart(2, '0');
+            }
+
+            function toDatetimeLocalValue(d) {
+                return d.getFullYear() + '-' + padDatetimeLocal(d.getMonth() + 1) + '-' + padDatetimeLocal(d.getDate())
+                    + 'T' + padDatetimeLocal(d.getHours()) + ':' + padDatetimeLocal(d.getMinutes());
+            }
+
+            function defaultFollowupAtForNewBookingJs(scheduled, booked) {
+                var follow;
+                var sameDay = scheduled.getFullYear() === booked.getFullYear()
+                    && scheduled.getMonth() === booked.getMonth()
+                    && scheduled.getDate() === booked.getDate();
+                var hoursDiff = (scheduled.getTime() - booked.getTime()) / 36e5;
+                if (sameDay) {
+                    follow = new Date(scheduled.getTime() - 3600000);
+                } else if (hoursDiff < 48) {
+                    follow = new Date(scheduled.getTime());
+                    follow.setHours(11, 0, 0, 0);
+                } else {
+                    follow = new Date(scheduled.getTime());
+                    follow.setDate(follow.getDate() - 1);
+                    follow.setHours(10, 0, 0, 0);
+                }
+                var latest = new Date(scheduled.getTime() - 3600000);
+                if (follow > latest) {
+                    follow = latest;
+                }
+                if (follow < booked) {
+                    follow = new Date(booked.getTime());
+                }
+                return follow;
+            }
+
+            function suggestedFollowupAtForStaffCreateJs(scheduled) {
+                var now = new Date();
+                now.setSeconds(0, 0);
+                var suggested = defaultFollowupAtForNewBookingJs(scheduled, now);
+                var minFuture = new Date(now.getTime() + 15 * 60000);
+                if (suggested >= minFuture) {
+                    return suggested;
+                }
+                var beforeService = new Date(scheduled.getTime() - 15 * 60000);
+                if (beforeService >= minFuture) {
+                    return beforeService;
+                }
+                return minFuture;
+            }
+
+            function localFollowupScheduleMin() {
+                var now = new Date();
+                now.setSeconds(0, 0);
+                return toDatetimeLocalValue(now);
+            }
+
+            function applyStaffFollowupFutureMin() {
+                var min = localFollowupScheduleMin();
+                $('.js-staff-followup-at').each(function () {
+                    this.min = min;
+                    if (this.value && this.value < min) {
+                        this.value = min;
+                    }
+                });
+            }
+
+            function applySuggestedStaffFollowups(force) {
+                var scheduleVal = ($('input[name="service_schedule"]').val() || '').trim();
+                if (!scheduleVal) {
+                    applyStaffFollowupFutureMin();
+                    return;
+                }
+                var scheduled = new Date(scheduleVal);
+                if (isNaN(scheduled.getTime())) {
+                    applyStaffFollowupFutureMin();
+                    return;
+                }
+                var suggested = toDatetimeLocalValue(suggestedFollowupAtForStaffCreateJs(scheduled));
+                var min = localFollowupScheduleMin();
+                if (suggested < min) {
+                    suggested = min;
+                }
+                $('.js-staff-followup-at').each(function () {
+                    var $el = $(this);
+                    if (!force && $el.data('userEdited')) {
+                        return;
+                    }
+                    $el.val(suggested);
+                });
+                applyStaffFollowupFutureMin();
+            }
+
+            function initStaffFollowupSuggestions(values) {
+                var $fields = $('.js-staff-followup-at');
+                $fields.on('input change', function () {
+                    $(this).data('userEdited', true);
+                });
+                function normalizeLocal(val) {
+                    if (!val) {
+                        return '';
+                    }
+                    var d = new Date(val);
+                    if (isNaN(d.getTime())) {
+                        d = new Date(String(val).replace(' ', 'T'));
+                    }
+                    return isNaN(d.getTime()) ? String(val) : toDatetimeLocalValue(d);
+                }
+                if (values.customer_followup_at) {
+                    $('#customer-followup-at').val(normalizeLocal(values.customer_followup_at)).data('userEdited', true);
+                }
+                if (values.provider_followup_at) {
+                    $('#provider-followup-at').val(normalizeLocal(values.provider_followup_at)).data('userEdited', true);
+                }
+                applySuggestedStaffFollowups(false);
+                applyStaffFollowupFutureMin();
+                $(document).on('change input', 'input[name="service_schedule"]', function () {
+                    applySuggestedStaffFollowups(false);
+                });
+            }
 
             var adminAdvanceMethodConfig = @json($adminAdvancePaymentMethodFieldConfig ?? []);
 
@@ -2657,6 +2848,7 @@
             if (oldValues.service_schedule) {
                 $('input[name="service_schedule"]').val(oldValues.service_schedule);
             }
+            initStaffFollowupSuggestions(oldValues);
             if (!$('input[name="repeat_booking_type"]:checked').length) {
                 $('#repeat-type-monthly').prop('checked', true);
             }
@@ -3167,6 +3359,20 @@
                         pushError('{{ translate('Service_Schedule') }}', '{{ translate('Please_enter_a_valid_service_schedule') }}', $schedule);
                     }
                 }
+                ['customer_followup_at', 'provider_followup_at'].forEach(function (fieldName) {
+                    var $fu = $('input[name="' + fieldName + '"]');
+                    var fuVal = ($fu.val() || '').trim();
+                    var fuLabel = fieldName === 'customer_followup_at'
+                        ? '{{ translate('Next_Follow_up_Date_Customer') }}'
+                        : '{{ translate('Next_Follow_up_Date_Provider') }}';
+                    if (!fuVal) {
+                        pushError(fuLabel, req, $fu);
+                    } else if (isNaN(Date.parse(fuVal))) {
+                        pushError(fuLabel, '{{ translate('Next_follow_up_date_is_required') }}', $fu);
+                    } else if (Date.parse(fuVal) < (Date.now() - 2 * 60 * 1000)) {
+                        pushError(fuLabel, '{{ translate('Reschedule_date_must_be_in_the_future') }}', $fu);
+                    }
+                });
                 if (isAdminRepeatCreate()) {
                     var rType = $('input[name="repeat_booking_type"]:checked').val();
                     if (!rType) {
