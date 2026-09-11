@@ -36,6 +36,7 @@ use Modules\LeadManagement\Services\LeadChangeLogService;
 use Modules\LeadManagement\Services\LeadFollowupRecordingTranscriptionService;
 use Modules\LeadManagement\Services\LeadInitialCallRecordingTranscriptionService;
 use Modules\LeadManagement\Services\LeadFollowupService;
+use Modules\LeadManagement\Services\LeadHuntingBoardService;
 use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\LeadManagement\Services\ProviderLeadPanelMatchService;
 use Modules\ZoneManagement\Entities\Zone;
@@ -1820,8 +1821,6 @@ class LeadController extends Controller
             )
             : 0;
         $huntingInterests = $lead->huntingInterests ?? collect();
-        $huntingPostingPlatforms = $huntingBoard::postingPlatforms();
-        $huntingSelectedPlatforms = $huntingBoard->platformsForLead($lead);
         $temporaryProvider = !empty($customerHistoryData['temporary_provider_id'])
             ? Provider::find($customerHistoryData['temporary_provider_id'])
             : null;
@@ -1875,8 +1874,6 @@ class LeadController extends Controller
             'huntingIsReady',
             'huntingMatchingProviderCount',
             'huntingInterests',
-            'huntingPostingPlatforms',
-            'huntingSelectedPlatforms',
             'temporaryProvider',
             'temporaryProviderAssignedAt',
             'workflowContext',
@@ -2124,6 +2121,24 @@ class LeadController extends Controller
         $statusName = $statusModel?->name ?? '—';
         $statusColor = $statusModel && !empty($statusModel->color) ? $statusModel->color : '#0d6efd';
         app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
+
+        try {
+            if (in_array($baseType, ['booked', 'completed'], true)) {
+                app(LeadHuntingBoardService::class)->unpublishIfPublished(
+                    $lead->fresh(),
+                    LeadHuntingBoardService::UNPUBLISH_FOUND_PROVIDER,
+                    'Automatically unpublished when the lead was booked.'
+                );
+            } elseif ($baseType === 'cancel') {
+                app(LeadHuntingBoardService::class)->unpublishIfPublished(
+                    $lead->fresh(),
+                    LeadHuntingBoardService::UNPUBLISH_CANCELLED,
+                    'Automatically unpublished when the lead was cancelled.'
+                );
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         return response()->json(['success' => true, 'status_name' => $statusName, 'status_color' => $statusColor]);
     }
@@ -2584,12 +2599,16 @@ class LeadController extends Controller
         $followup = $lead->followups()->findOrFail($followupId);
 
         $validated = $request->validate([
-            'date' => ['required', 'date'],
+            'date' => array_values(array_filter([
+                'required',
+                'date',
+                $followup->isRescheduled() ? $this->leadFollowupFutureDateRule() : null,
+            ])),
             'followup_at' => ['nullable', 'date', $this->leadFollowupTakenAtRule()],
             'remarks' => ['nullable', 'string', 'max:1000'],
             'contact_channel' => ['nullable', 'in:'.implode(',', LeadFollowup::CONTACT_CHANNELS)],
             'urgency' => ['nullable', 'in:'.implode(',', LeadFollowup::URGENCIES)],
-            'next_followup_at' => ['nullable', 'date'],
+            'next_followup_at' => ['nullable', 'date', $this->leadFollowupFutureDateRule()],
         ]);
 
         $payload = [
@@ -2628,6 +2647,23 @@ class LeadController extends Controller
         toastr()->success(translate('Follow_up_deleted_successfully'));
 
         return $this->redirectAfterFollowup($request, $lead);
+    }
+
+    protected function leadFollowupFutureDateRule(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail): void {
+            if ($value === null || $value === '') {
+                return;
+            }
+
+            try {
+                if (\Carbon\Carbon::parse($value)->lt(now()->subMinutes(2))) {
+                    $fail(translate('Reschedule_date_must_be_in_the_future'));
+                }
+            } catch (\Throwable) {
+                $fail(translate('Reschedule_date_must_be_in_the_future'));
+            }
+        };
     }
 
     protected function leadFollowupTakenAtRule(): \Closure

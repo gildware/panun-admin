@@ -31,6 +31,24 @@
             $('#lead-edit-followup-at-group').toggleClass('d-none', isRescheduled);
             $('#lead-edit-followup-channel-group').toggleClass('d-none', isRescheduled);
             $('#lead-edit-followup-at').prop('required', !isRescheduled);
+            $('#lead-edit-followup-date').toggleClass('js-followup-future-only', isRescheduled);
+            $('#lead-edit-followup-next').toggleClass('js-followup-future-only', true);
+        }
+
+        function localFollowupScheduleMin() {
+            var now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            return now.toISOString().slice(0, 16);
+        }
+
+        function applyEditFollowupFutureMin() {
+            var min = localFollowupScheduleMin();
+            $modal.find('input.js-followup-future-only').each(function () {
+                this.min = min;
+                if (this.value && this.value < min) {
+                    this.value = min;
+                }
+            });
         }
 
         function configureEditFollowupModal(payload) {
@@ -48,6 +66,7 @@
             $('#lead-edit-followup-remarks').val(payload.remarks || '');
             $('#lead-edit-followup-next').val(payload.nextAt || '');
             toggleEditFollowupFields(payload.status || '{{ \Modules\LeadManagement\Entities\LeadFollowup::STATUS_TAKEN }}');
+            applyEditFollowupFutureMin();
 
             $modal.find('input.js-followup-not-future').each(function () {
                 var max = (function () {

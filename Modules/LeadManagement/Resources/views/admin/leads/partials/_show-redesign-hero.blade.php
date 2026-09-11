@@ -193,33 +193,6 @@
                         <li class="{{ !empty($huntingChecklist['job_text']) ? 'is-ok' : 'is-missing' }}"><span class="dot"></span>{{ translate('Job_details') }}</li>
                     </ul>
                 @endif
-                @php
-                    $huntingPostingPlatforms = $huntingPostingPlatforms ?? \Modules\LeadManagement\Services\LeadHuntingBoardService::postingPlatforms();
-                    $huntingSelectedPlatforms = $huntingSelectedPlatforms ?? [\Modules\LeadManagement\Services\LeadHuntingBoardService::PLATFORM_HUNTING_BOARD];
-                    $canEditHuntingPlatforms = auth()->user()?->can('lead_update');
-                @endphp
-                <div class="lead-hunting-platforms"
-                     data-save-url="{{ route('admin.lead.hunting.platforms.update', $lead->id) }}"
-                     data-can-edit="{{ $canEditHuntingPlatforms ? '1' : '0' }}">
-                    <div class="lead-hunting-platforms__label">{{ translate('Select_platform_where_you_want_to_post_it') }}</div>
-                    <div class="lead-hunting-platforms__chips" role="group" aria-label="{{ translate('Select_platform_where_you_want_to_post_it') }}">
-                        @foreach($huntingPostingPlatforms as $platformKey => $platformMeta)
-                            @php $platformSelected = in_array($platformKey, $huntingSelectedPlatforms, true); @endphp
-                            <button type="button"
-                                    class="lead-platform-chip lead-platform-chip--{{ $platformKey }}{{ $platformSelected ? ' is-selected' : '' }}"
-                                    data-platform="{{ $platformKey }}"
-                                    aria-pressed="{{ $platformSelected ? 'true' : 'false' }}"
-                                    @if(!$canEditHuntingPlatforms) disabled @endif>
-                                <span class="lead-platform-chip__mark" aria-hidden="true">
-                                    <span class="material-icons lead-platform-chip__tick">check</span>
-                                    <span class="material-icons lead-platform-chip__cross">close</span>
-                                </span>
-                                <span class="material-icons lead-platform-chip__brand" aria-hidden="true">{{ $platformMeta['icon'] }}</span>
-                                <span class="lead-platform-chip__label">{{ $platformMeta['label'] }}</span>
-                            </button>
-                        @endforeach
-                    </div>
-                </div>
             </div>
         </div>
         @can('lead_update')
@@ -235,11 +208,6 @@
                 <form method="POST" action="{{ route('admin.lead.hunting.start', $lead->id) }}" class="m-0" id="lead-hunting-start-form">
                     @csrf
                     @if(!empty($inModal))<input type="hidden" name="in_modal" value="1">@endif
-                    <div id="lead-hunting-platform-inputs">
-                        @foreach($huntingSelectedPlatforms as $selectedPlatform)
-                            <input type="hidden" name="hunting_platforms[]" value="{{ $selectedPlatform }}">
-                        @endforeach
-                    </div>
                     <button type="submit" class="ld-btn ld-btn-hunt" @if(!$huntingIsReady) disabled @endif>
                         <span class="material-icons">travel_explore</span>
                         {{ translate('Start_provider_hunting') }}

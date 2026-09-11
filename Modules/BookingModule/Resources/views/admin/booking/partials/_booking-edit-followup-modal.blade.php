@@ -90,7 +90,8 @@
                         <input type="datetime-local"
                                name="next_followup_at"
                                id="booking-edit-followup-next"
-                               class="form-control">
+                               class="form-control js-followup-future-only"
+                               min="{{ now()->format('Y-m-d\TH:i') }}">
                     </div>
                 </div>
                 <div class="modal-footer border-0 d-flex justify-content-end gap-2 pb-4">

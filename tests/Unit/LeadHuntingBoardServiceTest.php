@@ -36,21 +36,48 @@ class LeadHuntingBoardServiceTest extends TestCase
         ]));
     }
 
-    public function test_normalize_platforms_keeps_allowed_keys_only(): void
-    {
-        $this->assertSame(
-            ['hunting_board', 'whatsapp'],
-            LeadHuntingBoardService::normalizePlatforms(['hunting_board', 'whatsapp', 'tiktok', 'whatsapp'])
-        );
-        $this->assertSame(['facebook'], LeadHuntingBoardService::normalizePlatforms('facebook, instagramx'));
-        $this->assertSame([], LeadHuntingBoardService::normalizePlatforms(null));
-    }
-
     public function test_unpublish_reasons(): void
     {
         $this->assertSame(
             ['found_provider', 'cancelled'],
             LeadHuntingBoardService::unpublishReasons()
+        );
+    }
+
+    public function test_unpublish_if_published_skips_when_not_on_board(): void
+    {
+        $service = $this->getMockBuilder(LeadHuntingBoardService::class)
+            ->onlyMethods(['unpublish', 'schemaReady'])
+            ->getMock();
+        $service->method('schemaReady')->willReturn(true);
+        $service->expects($this->never())->method('unpublish');
+
+        $lead = new \Modules\LeadManagement\Entities\Lead();
+        $lead->hunting_status = \Modules\LeadManagement\Entities\Lead::HUNTING_OFF;
+
+        $this->assertSame(
+            $lead,
+            $service->unpublishIfPublished($lead, LeadHuntingBoardService::UNPUBLISH_FOUND_PROVIDER)
+        );
+    }
+
+    public function test_unpublish_if_published_unpublishes_published_leads(): void
+    {
+        $lead = new \Modules\LeadManagement\Entities\Lead();
+        $lead->hunting_status = \Modules\LeadManagement\Entities\Lead::HUNTING_PUBLISHED;
+
+        $service = $this->getMockBuilder(LeadHuntingBoardService::class)
+            ->onlyMethods(['unpublish', 'schemaReady'])
+            ->getMock();
+        $service->method('schemaReady')->willReturn(true);
+        $service->expects($this->once())
+            ->method('unpublish')
+            ->with($lead, LeadHuntingBoardService::UNPUBLISH_FOUND_PROVIDER, 'booked')
+            ->willReturn($lead);
+
+        $this->assertSame(
+            $lead,
+            $service->unpublishIfPublished($lead, LeadHuntingBoardService::UNPUBLISH_FOUND_PROVIDER, 'booked')
         );
     }
 }

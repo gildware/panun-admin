@@ -105,6 +105,12 @@
                     <div class="mb-4 border rounded-3 p-3">
                         <h4 class="mb-3">{{ translate('Date_&_Time') }}</h4>
                         @include('bookingmodule::admin.booking.partials._preview-repeat-schedule', ['data' => $data, 'repeatPlan' => $repeatPlan ?? ['is_repeat' => false]])
+                        <p class="mb-1 mt-3"><strong>{{ translate('Next_Follow_up_Date_Customer') }}:</strong>
+                            {{ !empty($data['customer_followup_at']) ? \Carbon\Carbon::parse($data['customer_followup_at'])->format('d M Y, h:i A') : '—' }}
+                        </p>
+                        <p class="mb-0"><strong>{{ translate('Next_Follow_up_Date_Provider') }}:</strong>
+                            {{ !empty($data['provider_followup_at']) ? \Carbon\Carbon::parse($data['provider_followup_at'])->format('d M Y, h:i A') : '—' }}
+                        </p>
                     </div>
 
                     {{-- 4. Provider Information --}}

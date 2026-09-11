@@ -198,6 +198,10 @@
             var min = localFollowupScheduleMin();
             ($root && $root.length ? $root : $(document)).find('input.js-followup-future-only').each(function () {
                 this.min = min;
+                if (this.value && this.value < min) {
+                    var fallback = this.getAttribute('data-default');
+                    this.value = (fallback && fallback >= min) ? fallback : min;
+                }
             });
         }
 

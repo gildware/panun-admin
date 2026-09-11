@@ -66,6 +66,40 @@ class BookingFollowupServiceTest extends TestCase
         $this->assertTrue($followUpAt->equalTo($bookedAt));
     }
 
+    public function test_staff_suggestion_uses_default_when_that_time_is_safely_in_the_future(): void
+    {
+        $now = Carbon::parse('2026-08-11 10:00:00');
+        Carbon::setTestNow($now);
+        $scheduledAt = Carbon::parse('2026-08-13 15:00:00');
+
+        $suggested = $this->service->suggestedFollowupAtForStaffCreate($scheduledAt, $now);
+
+        $this->assertTrue($suggested->equalTo(Carbon::parse('2026-08-12 10:00:00')));
+    }
+
+    public function test_staff_suggestion_avoids_instant_missed_on_same_day_late_booking(): void
+    {
+        $now = Carbon::parse('2026-09-11 17:12:54');
+        Carbon::setTestNow($now);
+        $scheduledAt = Carbon::parse('2026-09-11 18:00:00');
+
+        $suggested = $this->service->suggestedFollowupAtForStaffCreate($scheduledAt, $now);
+
+        $this->assertTrue($suggested->equalTo(Carbon::parse('2026-09-11 17:45:00')));
+        $this->assertTrue($suggested->gt($now));
+    }
+
+    public function test_staff_suggestion_falls_back_to_min_future_when_service_is_imminent(): void
+    {
+        $now = Carbon::parse('2026-09-11 17:50:00');
+        Carbon::setTestNow($now);
+        $scheduledAt = Carbon::parse('2026-09-11 18:00:00');
+
+        $suggested = $this->service->suggestedFollowupAtForStaffCreate($scheduledAt, $now);
+
+        $this->assertTrue($suggested->equalTo(Carbon::parse('2026-09-11 18:05:00')));
+    }
+
     public function test_early_morning_service_caps_before_service_hour(): void
     {
         $bookedAt = Carbon::parse('2026-08-14 22:00:00');
