@@ -53,8 +53,8 @@ class MobileAppAiCartService
             return ['ok' => false, 'error' => 'service_not_available_in_zone'];
         }
 
-        $service = Service::query()->with(['category', 'subCategory'])->find($serviceId);
-        if (!$service || (int) $service->is_active !== 1) {
+        $service = Service::query()->with(['category', 'subCategory'])->active()->find($serviceId);
+        if (!$service) {
             return ['ok' => false, 'error' => 'service_not_found'];
         }
 

@@ -183,6 +183,8 @@ class CustomerProviderDetailsService
                 'created_at',
                 'updated_at',
             ])
+            ->ofStatus(1)
+            ->ofType('sub')
             ->whereIn('id', $subscribedSubCategoryIds)
             ->get();
 
@@ -194,9 +196,9 @@ class CustomerProviderDetailsService
             ->withoutGlobalScope('zone_wise_data')
             ->with(CustomerServicePayloadSlimmer::listEagerRelations())
             ->whereIn('sub_category_id', $subscribedSubCategoryIds)
-            ->where('is_active', 1)
+            ->active()
             ->whereHas('subCategory', function ($query) {
-                $query->withoutGlobalScopes()->where('is_active', 1);
+                $query->withoutGlobalScopes()->where('is_active', 1)->where('is_visible_in_customer_app', 1);
             });
 
         $zoneId = Config::get('zone_id');

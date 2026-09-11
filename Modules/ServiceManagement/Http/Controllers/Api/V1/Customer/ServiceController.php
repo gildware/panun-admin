@@ -337,6 +337,7 @@ class ServiceController extends Controller
         $servicesResult = $searchQuery->active()->take(100)->get();
 
         $categoryServices = $this->service->withoutGlobalScopes()->with('category')
+            ->active()
             ->whereHas('category', function ($query) use ($decodedString) {
                 $query->where('name', 'LIKE', "%$decodedString%");
             })
@@ -347,6 +348,7 @@ class ServiceController extends Controller
             ->get();
 
         $subCategoryServices = $this->service->withoutGlobalScopes()->with('subCategory')
+            ->active()
             ->whereHas('subCategory', function ($query) use ($decodedString) {
                 $query->where('name', 'LIKE', "%$decodedString%");
             })
@@ -357,6 +359,7 @@ class ServiceController extends Controller
             ->get();
 
         $tagServices = $this->service->withoutGlobalScopes()
+            ->active()
             ->whereHas('tags', function ($query) use ($decodedString) {
                 $query->where('tag', 'LIKE', "%$decodedString%");
             })

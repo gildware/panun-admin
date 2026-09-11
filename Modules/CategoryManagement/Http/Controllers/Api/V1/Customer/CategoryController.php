@@ -86,6 +86,8 @@ class CategoryController extends Controller
 
         $identifier = trim((string) $request['slug']);
         $categoryId = $this->category
+            ->ofStatus(1)
+            ->ofType('main')
             ->where(function ($query) use ($identifier) {
                 $query->where('slug', $identifier)->orWhere('id', $identifier);
             })
