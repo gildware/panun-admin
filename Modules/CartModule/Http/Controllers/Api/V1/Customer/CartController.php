@@ -438,12 +438,14 @@ class CartController extends Controller
         $provider = $this->provider
             ->where('id', $booking?->provider?->id)
             ->ofStatus(1)
+            ->availableInCustomerApp()
             ->when(business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values, function ($query) {
                 $query->where('is_suspended', 0);
             })
             ->where('zone_id', $request->header('zoneid'))
-            ->whereHas('subscribed_services', function ($query) use ($request, $booking) {
-                $query->where('sub_category_id', $booking->sub_category_id)->where('is_subscribed', 1);
+            ->whereHas('subscribed_services', function ($query) use ($booking) {
+                $query->visibleInCustomerAppCatalog()
+                    ->where('sub_category_id', $booking->sub_category_id);
             })
             ->first();
 

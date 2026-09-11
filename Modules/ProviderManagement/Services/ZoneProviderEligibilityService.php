@@ -10,7 +10,7 @@ class ZoneProviderEligibilityService
 {
     public const CACHE_TTL = 60;
 
-    private const CACHE_VERSION = 'v1';
+    private const CACHE_VERSION = 'v3';
 
     /** @var array<string, array{strict: list<string>, ads_base: list<string>, booking: list<string>, advertisement: list<string>}> */
     private static array $requestCache = [];
@@ -69,6 +69,13 @@ class ZoneProviderEligibilityService
         }
     }
 
+    public static function invalidateCustomerCatalog(): void
+    {
+        self::$requestCache = [];
+        $generation = (int) Cache::get(self::generationCacheKey(), 1);
+        Cache::forever(self::generationCacheKey(), $generation + 1);
+    }
+
     /**
      * @return array{strict: list<string>, ads_base: list<string>, booking: list<string>, advertisement: list<string>}
      */
@@ -79,6 +86,7 @@ class ZoneProviderEligibilityService
             ->ofStatus(1)
             ->where('app_availability', 1)
             ->where('is_suspended', 0)
+            ->hasCustomerAppVisibleSubscription()
             ->pluck('id')
             ->map(fn ($id) => (string) $id)
             ->all();
@@ -86,6 +94,8 @@ class ZoneProviderEligibilityService
         $adsBaseIds = $this->provider
             ->coveringLeafZone($zoneId)
             ->ofStatus(1)
+            ->where('app_availability', 1)
+            ->hasCustomerAppVisibleSubscription()
             ->pluck('id')
             ->map(fn ($id) => (string) $id)
             ->all();
@@ -120,6 +130,13 @@ class ZoneProviderEligibilityService
 
     private static function cacheKey(string $zoneId): string
     {
-        return 'zone_provider_eligibility:'.self::CACHE_VERSION.':'.$zoneId;
+        $generation = (int) Cache::get(self::generationCacheKey(), 1);
+
+        return 'zone_provider_eligibility:'.self::CACHE_VERSION.':'.$generation.':'.$zoneId;
+    }
+
+    private static function generationCacheKey(): string
+    {
+        return 'zone_provider_eligibility:generation';
     }
 }

@@ -52,11 +52,32 @@ class Provider extends Model
     public function scopeOfStatus($query, $status)
     {
         $query->where('is_active', '=', $status);
+        if ((int) $status === 1 && is_customer_api_request()) {
+            $query->availableInCustomerApp();
+        }
+    }
+
+    /**
+     * Customer app discovery: App Availability must be on.
+     */
+    public function scopeAvailableInCustomerApp($query)
+    {
+        $query->where('app_availability', 1);
     }
 
     public function scopeOfApproval($query, $status)
     {
         $query->where('is_approved', '=', $status);
+    }
+
+    /**
+     * Providers subscribed to at least one category/subcategory that is on for the customer app.
+     */
+    public function scopeHasCustomerAppVisibleSubscription($query)
+    {
+        $query->whereHas('subscribed_services', function ($subscription) {
+            $subscription->visibleInCustomerAppCatalog();
+        });
     }
 
     public function owner(): BelongsTo

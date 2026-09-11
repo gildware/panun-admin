@@ -11,6 +11,7 @@ use Illuminate\Support\Str;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\CategoryManagement\Http\Controllers\Web\Admin\CategoryController as AdminCategoryController;
 use Modules\CategoryManagement\Http\Controllers\Web\Admin\SubCategoryController as AdminSubCategoryController;
+use Modules\ProviderManagement\Entities\Provider;
 use Modules\ServiceManagement\Entities\Service;
 use Tests\TestCase;
 
@@ -125,6 +126,33 @@ class CustomerAppVisibilityCatalogTest extends TestCase
                 ->whereKey($this->serviceId)
                 ->exists()
         );
+    }
+
+    public function test_customer_hides_providers_subscribed_only_to_off_categories(): void
+    {
+        $this->createProviderSubscriptionSchema();
+
+        $extra = $this->insertSiblingCategoryWithSub('visible-sibling-cat', 'visible-sibling-sub');
+        $hiddenOnlyId = $this->insertProvider('Hidden Only Provider');
+        $mixedId = $this->insertProvider('Mixed Provider');
+        $visibleOnlyId = $this->insertProvider('Visible Only Provider');
+
+        $this->insertSubscription($hiddenOnlyId, $this->categoryId, $this->subCategoryId);
+        $this->insertSubscription($mixedId, $this->categoryId, $this->subCategoryId);
+        $this->insertSubscription($mixedId, $extra['category_id'], $extra['sub_id']);
+        $this->insertSubscription($visibleOnlyId, $extra['category_id'], $extra['sub_id']);
+
+        $this->asCustomerApi();
+
+        $this->assertTrue($this->providerHasCustomerAppVisibleSubscription($hiddenOnlyId));
+        $this->assertTrue($this->providerHasCustomerAppVisibleSubscription($mixedId));
+        $this->assertTrue($this->providerHasCustomerAppVisibleSubscription($visibleOnlyId));
+
+        DB::table('categories')->where('id', $this->categoryId)->update(['is_visible_in_customer_app' => 0]);
+
+        $this->assertFalse($this->providerHasCustomerAppVisibleSubscription($hiddenOnlyId));
+        $this->assertTrue($this->providerHasCustomerAppVisibleSubscription($mixedId));
+        $this->assertTrue($this->providerHasCustomerAppVisibleSubscription($visibleOnlyId));
     }
 
     public function test_admin_toggles_flip_customer_app_visibility_without_changing_active(): void
@@ -247,6 +275,107 @@ class CustomerAppVisibilityCatalogTest extends TestCase
             $table->string('key');
             $table->text('value')->nullable();
         });
+    }
+
+    private function createProviderSubscriptionSchema(): void
+    {
+        Schema::dropIfExists('subscribed_services');
+        Schema::dropIfExists('providers');
+
+        Schema::create('providers', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->string('company_name')->nullable();
+            $table->boolean('is_active')->default(1);
+            $table->softDeletes();
+            $table->timestamps();
+        });
+
+        Schema::create('subscribed_services', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->uuid('provider_id');
+            $table->uuid('category_id');
+            $table->uuid('sub_category_id');
+            $table->boolean('is_subscribed')->default(1);
+            $table->timestamps();
+        });
+    }
+
+    private function insertProvider(string $name): string
+    {
+        $id = (string) Str::uuid();
+        $now = now();
+
+        DB::table('providers')->insert([
+            'id' => $id,
+            'company_name' => $name,
+            'is_active' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return $id;
+    }
+
+    private function insertSubscription(string $providerId, string $categoryId, string $subCategoryId): void
+    {
+        $now = now();
+
+        DB::table('subscribed_services')->insert([
+            'id' => (string) Str::uuid(),
+            'provider_id' => $providerId,
+            'category_id' => $categoryId,
+            'sub_category_id' => $subCategoryId,
+            'is_subscribed' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+
+    /**
+     * @return array{category_id: string, sub_id: string}
+     */
+    private function insertSiblingCategoryWithSub(string $categorySlug, string $subSlug): array
+    {
+        $now = now();
+        $categoryId = (string) Str::uuid();
+        $subId = (string) Str::uuid();
+
+        DB::table('categories')->insert([
+            [
+                'id' => $categoryId,
+                'parent_id' => null,
+                'name' => $categorySlug,
+                'position' => 1,
+                'is_active' => 1,
+                'is_visible_in_customer_app' => 1,
+                'slug' => $categorySlug,
+                'sort_order' => 2,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'id' => $subId,
+                'parent_id' => $categoryId,
+                'name' => $subSlug,
+                'position' => 2,
+                'is_active' => 1,
+                'is_visible_in_customer_app' => 1,
+                'slug' => $subSlug,
+                'sort_order' => 2,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+        ]);
+
+        return ['category_id' => $categoryId, 'sub_id' => $subId];
+    }
+
+    private function providerHasCustomerAppVisibleSubscription(string $providerId): bool
+    {
+        return Provider::query()
+            ->whereKey($providerId)
+            ->hasCustomerAppVisibleSubscription()
+            ->exists();
     }
 
     private function seedCatalog(): void

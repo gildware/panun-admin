@@ -119,7 +119,8 @@ class MobileAppAiBookingFlowService
             ->with(['owner'])
             ->coveringLeafZone($zoneId)
             ->whereHas('subscribed_services', function ($query) use ($subCategoryId) {
-                $query->where('sub_category_id', $subCategoryId)->where('is_subscribed', 1);
+                $query->visibleInCustomerAppCatalog()
+                    ->where('sub_category_id', $subCategoryId);
             })
             ->where('app_availability', 1)
             ->where('service_availability', 1)

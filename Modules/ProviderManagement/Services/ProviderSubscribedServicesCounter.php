@@ -29,10 +29,19 @@ class ProviderSubscribedServicesCounter
             return [];
         }
 
-        $subscriptions = DB::table('subscribed_services')
-            ->whereIn('provider_id', $providerIds)
-            ->where('is_subscribed', 1)
-            ->select('provider_id', 'sub_category_id')
+        $subscriptions = DB::table('subscribed_services as ss')
+            ->join('categories as cat', 'cat.id', '=', 'ss.category_id')
+            ->join('categories as sub', 'sub.id', '=', 'ss.sub_category_id')
+            ->join('categories as parent', 'parent.id', '=', 'sub.parent_id')
+            ->whereIn('ss.provider_id', $providerIds)
+            ->where('ss.is_subscribed', 1)
+            ->where('cat.is_active', 1)
+            ->where('cat.is_visible_in_customer_app', 1)
+            ->where('sub.is_active', 1)
+            ->where('sub.is_visible_in_customer_app', 1)
+            ->where('parent.is_active', 1)
+            ->where('parent.is_visible_in_customer_app', 1)
+            ->select('ss.provider_id', 'ss.sub_category_id')
             ->get();
 
         $result = array_fill_keys($providerIds, 0);
@@ -51,8 +60,11 @@ class ProviderSubscribedServicesCounter
             ->withoutGlobalScope('zone_wise_data')
             ->whereIn('sub_category_id', $subCategoryIds)
             ->where('is_active', 1)
+            ->where('is_visible_in_customer_app', 1)
             ->whereHas('subCategory', function ($query) {
-                $query->withoutGlobalScopes()->where('is_active', 1);
+                $query->withoutGlobalScopes()
+                    ->where('is_active', 1)
+                    ->where('is_visible_in_customer_app', 1);
             });
 
         $zoneId = Config::get('zone_id');

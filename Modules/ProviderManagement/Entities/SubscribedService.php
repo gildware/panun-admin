@@ -27,6 +27,29 @@ class SubscribedService extends Model
         $query->where('is_subscribed', $status);
     }
 
+    /**
+     * Subscriptions whose category and subcategory are visible in the customer app.
+     */
+    public function scopeVisibleInCustomerAppCatalog($query)
+    {
+        $query->where('is_subscribed', 1)
+            ->whereHas('category', function ($category) {
+                $category->withoutGlobalScopes()
+                    ->where('is_active', 1)
+                    ->where('is_visible_in_customer_app', 1);
+            })
+            ->whereHas('sub_category', function ($subCategory) {
+                $subCategory->withoutGlobalScopes()
+                    ->where('is_active', 1)
+                    ->where('is_visible_in_customer_app', 1)
+                    ->whereHas('parent', function ($parent) {
+                        $parent->withoutGlobalScopes()
+                            ->where('is_active', 1)
+                            ->where('is_visible_in_customer_app', 1);
+                    });
+            });
+    }
+
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class, 'category_id');

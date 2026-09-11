@@ -44,9 +44,12 @@ class FavoriteProviderController extends Controller
         $providers = $this->provider
             ->coveringLeafZone(Config::get('zone_id'))
             ->ofStatus(1)
+            ->availableInCustomerApp()
+            ->hasCustomerAppVisibleSubscription()
             ->when($request->has('category_ids'), function ($query) use($request) {
                 $query->whereHas('subscribed_services', function ($query) use($request) {
-                    if ($request->has('category_ids')) $query->whereIn('category_id', $request['category_ids']);
+                    $query->visibleInCustomerAppCatalog()
+                        ->whereIn('category_id', $request['category_ids']);
                 });
             })
             ->when($request->has('rating'), function ($query) use($request) {
