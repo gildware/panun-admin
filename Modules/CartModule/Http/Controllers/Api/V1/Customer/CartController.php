@@ -116,7 +116,10 @@ class CartController extends Controller
         );
 
         if ($variation !== null) {
-            $service = $this->service->with(['category', 'subCategory'])->find($request['service_id']);
+            $service = $this->service->with(['category', 'subCategory'])->active()->find($request['service_id']);
+            if (! $service) {
+                return response()->json(response_formatter(DEFAULT_404), 404);
+            }
 
             $normalizedSchedule = $request->filled('service_schedule')
                 ? normalize_company_service_schedule(date('Y-m-d H:i:s', strtotime($request['service_schedule'])))

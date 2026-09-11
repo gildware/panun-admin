@@ -98,7 +98,7 @@ class CategoryController extends Controller
         $childes = $this->category->ofStatus(1)->ofType('sub')->withoutGlobalScopes(['zone_wise_data'])
             ->withActiveServices()
             ->withCount(['services' => function ($query) {
-                $query->where('is_active', 1);
+                $query->where('is_active', 1)->visibleInCustomerApp();
             }])
             ->whereHas('parent', function ($query) {
                 $query->ofStatus(1);

@@ -466,6 +466,18 @@
             route_alert(route, @json(translate('want_to_update_status')));
         });
 
+        $(document).on('change', '.sub-category-customer-app-visibility-update', function (event) {
+            event.preventDefault();
+            let $this = $(this);
+            let initialState = $this.prop('checked');
+            let itemId = $this.data('id');
+            let route = '{{ route('admin.sub-category.customer-app-visibility-update', ['id' => ':itemId']) }}'.replace(':itemId', itemId);
+            let message = initialState
+                ? @json(translate('This subcategory and all of its services will be visible in the customer app. Providers are not affected.'))
+                : @json(translate('This subcategory and all of its services will be hidden from the customer app. Providers are not affected.'));
+            route_alert(route, message, $this, initialState);
+        });
+
         $('#sub-category-form button[type="reset"]').on('click', function () {
             $('#category_selector').val('').trigger('change');
         });

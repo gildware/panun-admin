@@ -186,7 +186,7 @@ class WhatsAppLeadLifecycleService
             'date_time_of_lead_received' => now(),
             'handled_by' => 'AI',
             'created_by' => null,
-            'next_followup_at' => app(LeadFollowupService::class)->defaultNextFollowupAt(),
+            'next_followup_at' => app(LeadFollowupService::class)->defaultAiNextFollowupAt(),
         ]);
 
         if (function_exists('admin_inbox_notify_lead_created')) {
@@ -241,7 +241,7 @@ class WhatsAppLeadLifecycleService
             'date_time_of_lead_received' => now(),
             'handled_by' => 'AI',
             'created_by' => null,
-            'next_followup_at' => app(LeadFollowupService::class)->defaultNextFollowupAt(),
+            'next_followup_at' => app(LeadFollowupService::class)->defaultAiNextFollowupAt(),
         ]);
         $this->seedDefaultTypeHistoryForTypedLead($lead);
         $this->reportCtwaLeadSubmittedIfCustomer($whatsAppPhone, $lead);

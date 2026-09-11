@@ -42,6 +42,7 @@ class CustomerCategoryChildesLookupTest extends TestCase
         $childQuery->shouldReceive('withCount')->andReturnSelf();
         $childQuery->shouldReceive('whereHas')->andReturnSelf();
         $childQuery->shouldReceive('where')->with('parent_id', 'cat-uuid-123')->andReturnSelf();
+        $childQuery->shouldReceive('ordered')->andReturnSelf();
         $childQuery->shouldReceive('orderBY')->with('name', 'asc')->andReturnSelf();
         $childQuery->shouldReceive('paginate')
             ->once()

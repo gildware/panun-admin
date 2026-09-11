@@ -16,6 +16,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::put('update/{id}', [CategoryController::class, 'update'])->name('update');
         Route::any('status-update/{id}', [CategoryController::class, 'statusUpdate'])->name('status-update');
         Route::any('featured-update/{id}', [CategoryController::class, 'featuredUpdate'])->name('featured-update');
+        Route::any('customer-app-visibility-update/{id}', [CategoryController::class, 'customerAppVisibilityUpdate'])->name('customer-app-visibility-update');
         Route::delete('delete/{id}', [CategoryController::class, 'destroy'])->name('delete');
         Route::get('childes', [CategoryController::class, 'childes']);
         Route::get('ajax-childes/{id}', [CategoryController::class, 'ajaxChildes'])->name('ajax-childes');
@@ -33,6 +34,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::put('update/{id}/charges-additional', [SubCategoryController::class, 'updateChargesAdditional'])->name('update.charges.additional');
         Route::put('update/{id}', [SubCategoryController::class, 'update'])->name('update');
         Route::any('status-update/{id}', [SubCategoryController::class, 'statusUpdate'])->name('status-update');
+        Route::any('customer-app-visibility-update/{id}', [SubCategoryController::class, 'customerAppVisibilityUpdate'])->name('customer-app-visibility-update');
         Route::delete('delete/{id}', [SubCategoryController::class, 'destroy'])->name('delete');
         Route::get('download', [SubCategoryController::class, 'download'])->name('download');
         Route::get('table', [SubCategoryController::class, 'getTable'])->name('table');

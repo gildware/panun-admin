@@ -482,6 +482,25 @@ class CategoryController extends Controller
     }
 
     /**
+     * Toggle customer-app visibility. Does not change provider catalog or Active status.
+     * Hiding a category hides all of its subcategories and services in the customer app (query-time).
+     */
+    public function customerAppVisibilityUpdate(Request $request, $id): JsonResponse
+    {
+        $this->authorize('category_manage_status');
+        $category = $this->category->where('id', $id)->first();
+        if (!$category) {
+            return response()->json(response_formatter(DEFAULT_204), 200);
+        }
+
+        $this->category->where('id', $id)->update([
+            'is_visible_in_customer_app' => !$category->is_visible_in_customer_app,
+        ]);
+
+        return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
+    }
+
+    /**
      * Display a listing of the resource.
      * @param Request $request
      * @return JsonResponse

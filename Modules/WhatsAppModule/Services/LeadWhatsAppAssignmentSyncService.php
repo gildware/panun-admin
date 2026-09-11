@@ -5,6 +5,7 @@ namespace Modules\WhatsAppModule\Services;
 use Modules\AdminModule\Services\StaffActivityLogger;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadChangeLog;
+use Modules\LeadManagement\Services\LeadFollowupService;
 use Modules\UserManagement\Entities\User;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
@@ -66,6 +67,11 @@ class LeadWhatsAppAssignmentSyncService
         self::$syncing = true;
         try {
             $openLead->handled_by = (string) $chatHandledBy;
+            app(LeadFollowupService::class)->applyFirstHumanAssignFollowupGrace(
+                $openLead,
+                $previousHandler,
+                (string) $chatHandledBy
+            );
             $openLead->save();
             $this->logLeadAssignmentChange($openLead, $previousHandler, (string) $chatHandledBy);
         } finally {

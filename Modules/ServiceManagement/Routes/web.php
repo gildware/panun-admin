@@ -38,6 +38,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::put('update/{id}/charges-additional', [AdminServiceController::class, 'updateChargesAdditional'])->name('update.charges.additional');
         Route::put('update/{id}', [AdminServiceController::class, 'update'])->name('update');
         Route::any('status-update/{id}', [AdminServiceController::class, 'statusUpdate'])->name('status-update');
+        Route::any('customer-app-visibility-update/{id}', [AdminServiceController::class, 'customerAppVisibilityUpdate'])->name('customer-app-visibility-update');
         Route::delete('delete/{id}', [AdminServiceController::class, 'destroy'])->name('delete');
         Route::any('download', [AdminServiceController::class, 'download'])->name('download');
         Route::any('reviews/download', [AdminServiceController::class, 'reviewsDownload'])->name('reviews.download');

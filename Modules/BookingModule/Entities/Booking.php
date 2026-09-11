@@ -904,6 +904,17 @@ class Booking extends Model
             }
         });
 
+        self::updated(function ($model) {
+            if (! $model->wasChanged('assignee_id')) {
+                return;
+            }
+
+            app(BookingFollowupService::class)->applyFirstHumanAssignFollowupGrace(
+                $model,
+                $model->getOriginal('assignee_id'),
+                $model->assignee_id
+            );
+        });
 
         self::updating(function ($model) {
             // Prevent completion unless full payment received (use $model so in-flight settlement_outcome / settlement_config apply — DB row is not updated yet).

@@ -996,6 +996,24 @@ class ServiceController extends Controller
     }
 
     /**
+     * Toggle customer-app visibility. Does not change provider catalog or Active status.
+     */
+    public function customerAppVisibilityUpdate(Request $request, $id): JsonResponse
+    {
+        $this->authorize('service_manage_status');
+        $service = $this->service->where('id', $id)->first();
+        if (!$service) {
+            return response()->json(response_formatter(DEFAULT_204), 200);
+        }
+
+        $this->service->where('id', $id)->update([
+            'is_visible_in_customer_app' => !$service->is_visible_in_customer_app,
+        ]);
+
+        return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
+    }
+
+    /**
      * Update the specified resource in storage.
      * @param Request $request
      * @param $id

@@ -108,6 +108,18 @@
                                     <span class="switcher_control"></span>
                                 </label>
                             </div>
+                            <div class="category-card__toggle-row">
+                                <span class="category-card__toggle-label"
+                                      title="{{ translate('When off, this category and all of its subcategories and services are hidden from the customer app. Providers are not affected.') }}">{{ translate('Customer App') }}</span>
+                                <label class="switcher category-card__toggle">
+                                    <input class="switcher_input customer-app-visibility-update"
+                                           type="checkbox"
+                                           {{ $category->is_visible_in_customer_app ? 'checked' : '' }}
+                                           data-id="{{ $category->id }}"
+                                           aria-label="{{ translate('Customer App') }}">
+                                    <span class="switcher_control"></span>
+                                </label>
+                            </div>
                         </div>
                     @endcan
 

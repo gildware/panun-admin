@@ -28,6 +28,9 @@ class BookingFollowupService
     /** Follow-up time on the day before service for bookings scheduled 48h+ out. */
     public const AUTO_FOLLOWUP_DAY_BEFORE_HOUR = 10;
 
+    /** Extra time given when a booking first moves from unassigned to a human. */
+    public const FIRST_HUMAN_ASSIGN_GRACE_HOURS = 1;
+
     /**
      * Default follow-up datetime when a booking is first created.
      *
@@ -65,6 +68,76 @@ class BookingFollowupService
         }
 
         return $followUpAt;
+    }
+
+    /**
+     * Due time after a booking first moves from unassigned to a human.
+     * Returns null when the existing due should be kept.
+     */
+    public function firstHumanAssignGraceDueAt(
+        mixed $previousAssigneeId,
+        mixed $newAssigneeId,
+        Carbon $currentDue,
+        ?Carbon $assignedAt = null
+    ): ?Carbon {
+        if (! $this->bookingAssigneeIsHuman($newAssigneeId) || $this->bookingAssigneeIsHuman($previousAssigneeId)) {
+            return null;
+        }
+
+        $now = $assignedAt ?? Carbon::now();
+        $graceUntil = $now->copy()->addHours(self::FIRST_HUMAN_ASSIGN_GRACE_HOURS);
+        if ($currentDue->gt($graceUntil)) {
+            return null;
+        }
+
+        return $graceUntil;
+    }
+
+    /**
+     * Push scheduled booking follow-ups when a human first takes an unassigned booking
+     * and the due time is already past or within the grace window.
+     */
+    public function applyFirstHumanAssignFollowupGrace(
+        Booking $booking,
+        mixed $previousAssigneeId,
+        mixed $newAssigneeId,
+        ?Carbon $assignedAt = null
+    ): int {
+        if (! $booking->id) {
+            return 0;
+        }
+
+        $rows = BookingFollowup::query()
+            ->where('booking_id', $booking->id)
+            ->where('status', 'scheduled')
+            ->get();
+
+        $changed = 0;
+        foreach ($rows as $row) {
+            $due = $row->date instanceof Carbon ? $row->date : Carbon::parse($row->date);
+            $newDue = $this->firstHumanAssignGraceDueAt(
+                $previousAssigneeId,
+                $newAssigneeId,
+                $due,
+                $assignedAt
+            );
+            if (! $newDue) {
+                continue;
+            }
+
+            $row->date = $newDue;
+            $row->save();
+            $changed++;
+        }
+
+        return $changed;
+    }
+
+    private function bookingAssigneeIsHuman(mixed $assigneeId): bool
+    {
+        $value = $assigneeId !== null ? trim((string) $assigneeId) : '';
+
+        return $value !== '' && strcasecmp($value, 'AI') !== 0;
     }
 
     /**

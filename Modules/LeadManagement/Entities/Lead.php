@@ -70,6 +70,7 @@ class Lead extends Model
         'hunting_unpublished_by',
         'hunting_unpublish_reason',
         'hunting_unpublish_notes',
+        'hunting_platforms',
         'created_by',
     ];
 
@@ -79,6 +80,7 @@ class Lead extends Model
         'hunting_started_at' => 'datetime',
         'hunting_unpublished_at' => 'datetime',
         'initial_call_recording_transcribed_at' => 'datetime',
+        'hunting_platforms' => 'array',
     ];
 
     public function hasInitialCallRecording(): bool

@@ -25,6 +25,7 @@ class Category extends Model
         'position'  => 'integer',
         'sort_order' => 'integer',
         'is_active' => 'integer',
+        'is_visible_in_customer_app' => 'integer',
         'slug'      => 'string',
         'commission_custom' => 'integer',
         'commission_tier_setup' => 'array',
@@ -39,6 +40,23 @@ class Category extends Model
     public function scopeOfStatus($query, $status)
     {
         $query->where('is_active', '=', $status);
+        if ((int) $status === 1 && is_customer_api_request()) {
+            $query->visibleInCustomerApp();
+        }
+    }
+
+    /**
+     * Hide from the customer app: own flag off, or (for sub-categories) parent flag off.
+     */
+    public function scopeVisibleInCustomerApp($query)
+    {
+        $query->where('is_visible_in_customer_app', 1)
+            ->where(function ($nested) {
+                $nested->where('position', 1)
+                    ->orWhereHas('parent', function ($parent) {
+                        $parent->where('is_visible_in_customer_app', 1);
+                    });
+            });
     }
 
     public function scopeOfFeatured($query, $status)
@@ -59,6 +77,9 @@ class Category extends Model
     {
         return $query->whereHas('services', function ($serviceQuery) {
             $serviceQuery->where('is_active', 1);
+            if (is_customer_api_request()) {
+                $serviceQuery->visibleInCustomerApp();
+            }
         });
     }
 
@@ -79,6 +100,9 @@ class Category extends Model
                 $catalogQuery
                     ->whereHas('services_by_category', function ($serviceQuery) {
                         $serviceQuery->where('is_active', 1);
+                        if (is_customer_api_request()) {
+                            $serviceQuery->visibleInCustomerApp();
+                        }
                     })
                     ->orWhereHas('children', function ($childQuery) {
                         $childQuery->withoutGlobalScope('zone_wise_data')

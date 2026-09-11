@@ -255,7 +255,8 @@ class LeadHuntingBoardController extends Controller
         $lead = Lead::findOrFail($id);
 
         try {
-            $this->huntingBoard->startHunting($lead);
+            $platforms = LeadHuntingBoardService::normalizePlatforms($request->input('hunting_platforms', []));
+            $this->huntingBoard->startHunting($lead, $platforms);
         } catch (\RuntimeException $e) {
             toastr()->error($e->getMessage());
 
@@ -263,6 +264,34 @@ class LeadHuntingBoardController extends Controller
         }
 
         toastr()->success(translate('Provider_hunting_started'));
+
+        return $this->backToLead($request, $lead->id);
+    }
+
+    public function updatePlatforms(Request $request, int $id): JsonResponse|RedirectResponse
+    {
+        $lead = Lead::findOrFail($id);
+        $platforms = LeadHuntingBoardService::normalizePlatforms($request->input('hunting_platforms', []));
+
+        try {
+            $this->huntingBoard->savePlatforms($lead, $platforms);
+        } catch (\RuntimeException $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+            }
+            toastr()->error($e->getMessage());
+
+            return $this->backToLead($request, $lead->id);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'platforms' => $this->huntingBoard->platformsForLead($lead->fresh()),
+            ]);
+        }
+
+        toastr()->success(translate('Posting_platforms_updated'));
 
         return $this->backToLead($request, $lead->id);
     }

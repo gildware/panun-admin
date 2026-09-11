@@ -373,7 +373,7 @@ class MobileAppHomeController extends Controller
             $with = $categoryType === 'sub' ? ['parent'] : ['zones'];
             $matchedCategoryIds = $this->category
                 ->withCount(['services' => function ($query) {
-                    $query->where('is_active', 1);
+                    $query->where('is_active', 1)->visibleInCustomerApp();
                 }])
                 ->with($with)
                 ->ofStatus(1)
@@ -393,7 +393,7 @@ class MobileAppHomeController extends Controller
 
             $collectionQuery = $this->category
                 ->withCount(['services' => function ($query) {
-                    $query->where('is_active', 1);
+                    $query->where('is_active', 1)->visibleInCustomerApp();
                 }])
                 ->with($with)
                 ->ofStatus(1)

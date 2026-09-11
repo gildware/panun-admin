@@ -36,10 +36,10 @@ class BannerController extends Controller
 
         $banners = $this->banner->with(['service', 'category'])->ofStatus(1)
             ->with(['service' => function ($query) {
-                $query->where('is_active', 1);
+                $query->where('is_active', 1)->visibleInCustomerApp();
             }])
             ->with(['category' => function ($query) {
-                $query->where('is_active', 1);
+                $query->where('is_active', 1)->visibleInCustomerApp();
             }])
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 

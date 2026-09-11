@@ -215,6 +215,22 @@
       "prompt": "Variation icon for cctv repair: clipboard checklist with magnifying glass site inspection icon. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
     },
     {
+      "service_slug": "security-door-lock-camera",
+      "service_name": "Security Door Lock Camera",
+      "variant_key": "new-install",
+      "title": "New Installation",
+      "filename": "security-door-lock-camera-new-install.png",
+      "prompt": "Variation icon for security door lock camera: video door lock with camera on a main door silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
+      "service_slug": "security-door-lock-camera",
+      "service_name": "Security Door Lock Camera",
+      "variant_key": "lock-camera-repair",
+      "title": "Repair",
+      "filename": "security-door-lock-camera-lock-camera-repair.png",
+      "prompt": "Variation icon for security door lock camera: door lock camera with screwdriver repair silhouette. Flat filled vector mobile app icon. Solid dark navy blue #1A233A shapes only on pure white background. Bold minimalist geometric style like Urban Company app icons. No text, no gradients, no shadows, centered."
+    },
+    {
       "service_slug": "geyser-installation",
       "service_name": "Geyser Installation",
       "variant_key": "storage-geyser",

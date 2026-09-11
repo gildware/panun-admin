@@ -33,6 +33,7 @@ class Service extends Model
         'tax_label' => 'string',
         'order_count' => 'float',
         'is_active' => 'integer',
+        'is_visible_in_customer_app' => 'integer',
         'sort_order' => 'integer',
         'rating_count' => 'integer',
         'avg_rating' => 'float',
@@ -198,6 +199,23 @@ class Service extends Model
             })->with(['discount'])->latest();
     }
 
+    /**
+     * Hide from the customer app when this service, its category, or its subcategory is off.
+     */
+    public function scopeVisibleInCustomerApp($query)
+    {
+        $query->where('is_visible_in_customer_app', 1)
+            ->whereHas('category', function ($query) {
+                $query->where('is_visible_in_customer_app', 1);
+            })
+            ->whereHas('subCategory', function ($query) {
+                $query->where('is_visible_in_customer_app', 1)
+                    ->whereHas('parent', function ($parent) {
+                        $parent->where('is_visible_in_customer_app', 1);
+                    });
+            });
+    }
+
     public function scopeActive($query)
     {
         $query->where(['is_active' => 1])
@@ -207,6 +225,9 @@ class Service extends Model
             ->whereHas('subCategory', function ($query) {
                 $query->where('is_active', 1);
             });
+        if (is_customer_api_request()) {
+            $query->visibleInCustomerApp();
+        }
     }
 
     public function scopeInActive($query)
@@ -229,6 +250,9 @@ class Service extends Model
                 ->whereHas('subCategory', function ($query) {
                     $query->where('is_active', 1);
                 });
+            if (is_customer_api_request()) {
+                $query->visibleInCustomerApp();
+            }
 
         } else if($status = 0) {
             $query->where(['is_active' => 0]);
