@@ -310,8 +310,8 @@ class ProviderController extends Controller
         $providers = $this->provider->with(['owner'])
             ->coveringZoneOrDescendants(Config::get('zone_id'))
             ->whereHas('subscribed_services', function ($query) use ($request) {
-                $query->where('sub_category_id', $request['sub_category_id'])
-                    ->where('is_subscribed', 1);
+                $query->visibleInCustomerAppCatalog()
+                    ->where('sub_category_id', $request['sub_category_id']);
             })
             ->where('app_availability', 1)
             ->where('service_availability', 1)
@@ -402,8 +402,9 @@ class ProviderController extends Controller
             ->ofStatus(1)
             ->where('app_availability', 1)
             ->when(isset($booking->sub_category_id), function ($query) use ($request, $booking) {
-                $query->whereHas('subscribed_services', function ($query) use ($request, $booking) {
-                    $query->where('sub_category_id', $booking->sub_category_id)->where('is_subscribed', 1);
+                $query->whereHas('subscribed_services', function ($query) use ($booking) {
+                    $query->visibleInCustomerAppCatalog()
+                        ->where('sub_category_id', $booking->sub_category_id);
                 });
             })
             ->when($request->has('rating'), function ($query) use ($request) {
@@ -473,8 +474,9 @@ class ProviderController extends Controller
             ->when(business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values, function ($query) {
                 $query->where('is_suspended', 0);
             })
-            ->whereHas('subscribed_services', function ($query) use ($request, $booking) {
-                $query->where('sub_category_id', $booking->sub_category_id)->where('is_subscribed', 1);
+            ->whereHas('subscribed_services', function ($query) use ($booking) {
+                $query->visibleInCustomerAppCatalog()
+                    ->where('sub_category_id', $booking->sub_category_id);
             })
             ->first();
 

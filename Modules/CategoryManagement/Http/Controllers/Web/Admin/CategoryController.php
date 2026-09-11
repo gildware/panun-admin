@@ -17,6 +17,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Gate;
 use Modules\BusinessSettingsModule\Entities\Translation;
 use Modules\CategoryManagement\Entities\Category;
+use Modules\ProviderManagement\Services\ZoneProviderEligibilityService;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\ServiceManagement\Entities\Variation;
 use Modules\ZoneManagement\Entities\Zone;
@@ -496,6 +497,8 @@ class CategoryController extends Controller
         $this->category->where('id', $id)->update([
             'is_visible_in_customer_app' => !$category->is_visible_in_customer_app,
         ]);
+
+        ZoneProviderEligibilityService::invalidateCustomerCatalog();
 
         return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
     }

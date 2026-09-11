@@ -42,6 +42,7 @@ use Modules\BusinessSettingsModule\Entities\SubscriptionPackage;
 use Modules\PaymentModule\Entities\PaymentRequest;
 use Modules\PaymentModule\Traits\SubscriptionTrait;
 use Modules\ProviderManagement\Services\ProviderManualPerformanceEnforcement;
+use Modules\ProviderManagement\Services\ZoneProviderEligibilityService;
 use Modules\ProviderManagement\Emails\AccountSuspendMail;
 use Modules\ProviderManagement\Emails\AccountUnsuspendMail;
 use Modules\ProviderManagement\Emails\NewJoiningRequestMail;
@@ -2864,6 +2865,8 @@ class ProviderController extends Controller
 
         $provider = $this->provider->where('id', $id)->first();
         $this->provider->where('id', $id)->update(['app_availability' => !$provider->app_availability]);
+        ZoneProviderEligibilityService::invalidateCustomerCatalog();
+
         return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
     }
 

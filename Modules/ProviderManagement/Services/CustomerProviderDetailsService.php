@@ -29,12 +29,18 @@ class CustomerProviderDetailsService
 
     public function providerExists(string $providerId): bool
     {
-        return $this->provider->where('id', $providerId)->exists();
+        return $this->customerAppProviderQuery()
+            ->where('id', $providerId)
+            ->hasCustomerAppVisibleSubscription()
+            ->exists();
     }
 
     public function findProviderForSummary(string $providerId): ?Provider
     {
-        $provider = $this->provider->find($providerId);
+        $provider = $this->customerAppProviderQuery()
+            ->whereKey($providerId)
+            ->hasCustomerAppVisibleSubscription()
+            ->first();
 
         if ($provider !== null) {
             $provider->total_service_served = app(ProviderCompletedServicesCounter::class)
@@ -48,9 +54,11 @@ class CustomerProviderDetailsService
 
     public function findProvider(string $providerId): ?Provider
     {
-        $provider = $this->provider
+        $provider = $this->customerAppProviderQuery()
             ->with('owner')
-            ->find($providerId);
+            ->whereKey($providerId)
+            ->hasCustomerAppVisibleSubscription()
+            ->first();
 
         if ($provider !== null) {
             $provider->total_service_served = app(ProviderCompletedServicesCounter::class)
@@ -99,6 +107,11 @@ class CustomerProviderDetailsService
         $provider['cash_limit_status'] = $limitStatus == false ? 'available' : $limitStatus;
 
         return $provider;
+    }
+
+    private function customerAppProviderQuery()
+    {
+        return $this->provider->availableInCustomerApp();
     }
 
     /**
@@ -156,7 +169,7 @@ class CustomerProviderDetailsService
     public function getSubscribedSubCategoryIds(string $providerId): array
     {
         return $this->subscribedService
-            ->ofStatus(1)
+            ->visibleInCustomerAppCatalog()
             ->where('provider_id', $providerId)
             ->pluck('sub_category_id')
             ->toArray();

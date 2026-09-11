@@ -58,6 +58,12 @@ class CustomerHomeBundleService
             }
         }
 
+        try {
+            $bundle = app(CustomerHomeBundleAppAvailabilityFilter::class)->apply($bundle);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
         return array_merge(
             [
                 'content_version' => $contentVersion,

@@ -18,6 +18,7 @@ use Illuminate\Routing\Controller;
 use Modules\BusinessSettingsModule\Entities\Translation;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\SubscribedService;
+use Modules\ProviderManagement\Services\ZoneProviderEligibilityService;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\DB;
@@ -519,6 +520,8 @@ class SubCategoryController extends Controller
         $this->category->where('id', $id)->update([
             'is_visible_in_customer_app' => !$category->is_visible_in_customer_app,
         ]);
+
+        ZoneProviderEligibilityService::invalidateCustomerCatalog();
 
         return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
     }
