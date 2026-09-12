@@ -264,4 +264,37 @@ class Zone extends Model
 
         return $cache[$zoneId] = array_values(array_unique($match));
     }
+
+    /**
+     * Parse a zone header / address value (single id, comma list, or bracketed list).
+     *
+     * @return list<string>
+     */
+    public static function parseIdCandidates(mixed $raw): array
+    {
+        if (! is_string($raw)) {
+            return [];
+        }
+
+        $cleaned = str_replace(['[', ']', '"', "'"], '', $raw);
+        $parts = array_map('trim', explode(',', $cleaned));
+
+        return array_values(array_filter($parts, static fn (string $id): bool => $id !== ''));
+    }
+
+    /**
+     * Category/service zone links that cover the customer's current zone.
+     * Catalog may be attached to a parent district while GPS resolves to a child leaf.
+     *
+     * @return list<string>
+     */
+    public static function catalogZoneIdsForCustomer(mixed $rawZoneId): array
+    {
+        $match = [];
+        foreach (static::parseIdCandidates($rawZoneId) as $id) {
+            $match = array_merge($match, static::coverageMatchZoneIds($id));
+        }
+
+        return array_values(array_unique($match));
+    }
 }

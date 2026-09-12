@@ -18,6 +18,7 @@ use Modules\BusinessSettingsModule\Entities\Storage;
 use Modules\BusinessSettingsModule\Entities\Translation;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\PromotionManagement\Entities\DiscountType;
+use Modules\ZoneManagement\Entities\Zone;
 use Modules\ReviewModule\Entities\Review;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
@@ -206,12 +207,15 @@ class Service extends Model
     {
         $query->where('is_visible_in_customer_app', 1)
             ->whereHas('category', function ($query) {
-                $query->where('is_visible_in_customer_app', 1);
+                $query->withoutGlobalScope('zone_wise_data')
+                    ->where('is_visible_in_customer_app', 1);
             })
             ->whereHas('subCategory', function ($query) {
-                $query->where('is_visible_in_customer_app', 1)
+                $query->withoutGlobalScope('zone_wise_data')
+                    ->where('is_visible_in_customer_app', 1)
                     ->whereHas('parent', function ($parent) {
-                        $parent->where('is_visible_in_customer_app', 1);
+                        $parent->withoutGlobalScope('zone_wise_data')
+                            ->where('is_visible_in_customer_app', 1);
                     });
             });
     }
@@ -385,8 +389,15 @@ class Service extends Model
     {
         static::addGlobalScope('zone_wise_data', function (Builder $builder) {
             if (is_customer_api_request()) {
-                $builder->whereHas('category.zones', function ($query) {
-                    $query->where('zone_id', Config::get('zone_id'));
+                $zoneIds = Zone::catalogZoneIdsForCustomer(Config::get('zone_id'));
+                if ($zoneIds === []) {
+                    $builder->whereRaw('0 = 1');
+
+                    return;
+                }
+
+                $builder->whereHas('category.zones', function ($query) use ($zoneIds) {
+                    $query->whereIn('category_zone.zone_id', $zoneIds);
                 })->with(['service_discount', 'campaign_discount']);
             } elseif (is_provider_api_request()) {
                 $provider = auth()->user()?->provider;

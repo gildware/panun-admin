@@ -20,6 +20,7 @@ use Modules\ServiceManagement\Entities\FavoriteService;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\ServiceManagement\Entities\Variation;
 use Modules\PromotionManagement\Support\CustomerCampaignApiQuery;
+use Modules\ZoneManagement\Entities\Zone;
 
 class MobileAppHomeController extends Controller
 {
@@ -494,9 +495,7 @@ class MobileAppHomeController extends Controller
      */
     private function customerZoneIds(): array
     {
-        $raw = Config::get('zone_id');
-
-        return Variation::parseZoneIdCandidates(is_string($raw) ? $raw : null);
+        return Zone::catalogZoneIdsForCustomer(Config::get('zone_id'));
     }
 
     private function applyCustomerZoneToServiceQuery($query): void

@@ -6,6 +6,7 @@ use App\Traits\MaintenanceModeTrait;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
@@ -305,12 +306,14 @@ class ConfigController extends Controller
         $zone = app(ZoneGeometryService::class)->resolveLeafZoneForPoint($point);
 
         if ($zone) {
+            Config::set('zone_id', $zone->id);
+            $catalogZoneIds = Zone::catalogZoneIdsForCustomer((string) $zone->id);
             $services = Service::withoutGlobalScope('zone_wise_data')
                 ->where('is_active', 1)
                 ->visibleInCustomerApp()
-                ->whereHas('category', function ($query) use ($zone) {
-                $query->OfStatus(1)->withoutGlobalScope('zone_wise_data')->whereHas('zones', function ($query) use ($zone) {
-                    $query->where('zone_id', $zone->id);
+                ->whereHas('category', function ($query) use ($catalogZoneIds) {
+                $query->OfStatus(1)->withoutGlobalScope('zone_wise_data')->whereHas('zones', function ($query) use ($catalogZoneIds) {
+                    $query->whereIn('category_zone.zone_id', $catalogZoneIds);
                 });
             })->count();
 
