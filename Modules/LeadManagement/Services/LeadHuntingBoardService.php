@@ -673,8 +673,30 @@ class LeadHuntingBoardService
         return true;
     }
 
+    private function isApprovedForOpenJobs(Provider $provider): bool
+    {
+        return (int) $provider->is_approved === 1;
+    }
+
+    private function emptyPublicJobsPayload(int $limit, int $offset): array
+    {
+        return [
+            'data' => [],
+            'filters' => $this->emptyOpenRequestFilters(),
+            'current_page' => $offset,
+            'last_page' => 1,
+            'total' => 0,
+            'per_page' => $limit,
+            'pending_action_count' => 0,
+        ];
+    }
+
     private function isPublishedLeadVisibleToProvider(Lead $lead, Provider $provider): bool
     {
+        if (! $this->isApprovedForOpenJobs($provider)) {
+            return false;
+        }
+
         $subIds = $this->providerSubscribedSubcategoryIds($provider);
         if ($subIds === []) {
             return false;
@@ -694,20 +716,15 @@ class LeadHuntingBoardService
     {
         $limit = max(1, min(50, $limit));
         $offset = max(1, $offset);
-        $emptyFilters = $this->emptyOpenRequestFilters();
+
+        if (! $this->isApprovedForOpenJobs($provider)) {
+            return $this->emptyPublicJobsPayload($limit, $offset);
+        }
 
         $subIds = $this->providerSubscribedSubcategoryIds($provider);
 
         if ($subIds === []) {
-            return [
-                'data' => [],
-                'filters' => $emptyFilters,
-                'current_page' => $offset,
-                'last_page' => 1,
-                'total' => 0,
-                'per_page' => $limit,
-                'pending_action_count' => 0,
-            ];
+            return $this->emptyPublicJobsPayload($limit, $offset);
         }
 
         $zoneIds = $this->providerZoneIds($provider);
@@ -788,6 +805,10 @@ class LeadHuntingBoardService
 
     public function pendingActionCountForProvider(Provider $provider): int
     {
+        if (! $this->isApprovedForOpenJobs($provider)) {
+            return 0;
+        }
+
         $subIds = $this->providerSubscribedSubcategoryIds($provider);
         if ($subIds === []) {
             return 0;

@@ -80,4 +80,18 @@ class LeadHuntingBoardServiceTest extends TestCase
             $service->unpublishIfPublished($lead, LeadHuntingBoardService::UNPUBLISH_FOUND_PROVIDER, 'booked')
         );
     }
+
+    public function test_public_jobs_are_hidden_until_provider_is_approved(): void
+    {
+        $provider = new \Modules\ProviderManagement\Entities\Provider();
+        $provider->is_approved = 2;
+
+        $service = new LeadHuntingBoardService();
+        $result = $service->publicJobsForProvider($provider);
+
+        $this->assertSame([], $result['data']);
+        $this->assertSame(0, $result['total']);
+        $this->assertSame(0, $result['pending_action_count']);
+        $this->assertSame(0, $service->pendingActionCountForProvider($provider));
+    }
 }
