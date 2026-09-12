@@ -180,6 +180,24 @@ class CustomerAppVisibilityCatalogTest extends TestCase
         $this->assertSame(1, (int) $sub->is_active);
     }
 
+    public function test_get_zone_service_count_does_not_require_zone_header(): void
+    {
+        $this->app->instance('request', Request::create('/api/v1/customer/config/get-zone-id', 'GET'));
+        \Illuminate\Support\Facades\Config::set('zone_id', null);
+
+        $count = Service::withoutGlobalScope('zone_wise_data')
+            ->where('is_active', 1)
+            ->visibleInCustomerApp()
+            ->whereHas('category', function ($query) {
+                $query->OfStatus(1)->withoutGlobalScope('zone_wise_data')->whereHas('zones', function ($query) {
+                    $query->where('zone_id', $this->zoneId);
+                });
+            })
+            ->count();
+
+        $this->assertSame(1, $count);
+    }
+
     private function asCustomerApi(): void
     {
         $this->app->instance('request', Request::create('/api/v1/customer/category', 'GET'));

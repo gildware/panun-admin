@@ -54,7 +54,8 @@ class Category extends Model
             ->where(function ($nested) {
                 $nested->where('position', 1)
                     ->orWhereHas('parent', function ($parent) {
-                        $parent->where('is_visible_in_customer_app', 1);
+                        $parent->withoutGlobalScope('zone_wise_data')
+                            ->where('is_visible_in_customer_app', 1);
                     });
             });
     }
@@ -284,8 +285,15 @@ class Category extends Model
     {
         static::addGlobalScope('zone_wise_data', function (Builder $builder) {
             if (request()->is('api/*/customer?*') || request()->is('api/*/customer/*')) {
-                $builder->whereHas('zones', function ($query) {
-                    $query->where('zone_id', Config::get('zone_id'));
+                $zoneIds = Zone::catalogZoneIdsForCustomer(Config::get('zone_id'));
+                if ($zoneIds === []) {
+                    $builder->whereRaw('0 = 1');
+
+                    return;
+                }
+
+                $builder->whereHas('zones', function ($query) use ($zoneIds) {
+                    $query->whereIn('category_zone.zone_id', $zoneIds);
                 })->with(['category_discount', 'campaign_discount']);
             }
         });
