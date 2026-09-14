@@ -255,6 +255,10 @@ class EmployeeSearchAccessFilter
                 'gates' => ['whatsapp_chat_view'],
             ],
             [
+                'patterns' => ['admin/report/geographic*'],
+                'gates' => ['report_view', 'lead_report_view'],
+            ],
+            [
                 'patterns' => ['admin/report/daily-employee*'],
                 'gates' => ['report_view'],
             ],

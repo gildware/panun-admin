@@ -599,6 +599,16 @@ trait AdminMenuWithRoutes
                 "sorting" => 3,
             ],
             [
+                'route_name' => 'Zone_and_Area_Reports',
+                'uri' => 'admin/report/geographic',
+                'full_route' => url('admin/report/geographic'),
+                "page_title" => 'Zone_and_Area_Reports',
+                "keywords" => 'Reports, Zone, Area, Lead Reports, Booking Reports, geographic',
+                "type" => 'menu',
+                "module" => "reports",
+                "sorting" => 3,
+            ],
+            [
                 'route_name' => 'Provider_Reports',
                 'uri' => 'admin/report/provider',
                 'full_route' => url('admin/report/provider'),
