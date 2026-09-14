@@ -74,6 +74,27 @@
         .report-filter-offcanvas .report-filter-form-flex { flex: 1; display: flex; flex-direction: column; min-height: 0; }
         .report-filter-offcanvas .report-filter-body { flex: 1; min-height: 0; }
         .report-filter-offcanvas .report-filter-footer { flex-shrink: 0; }
+        .geo-tt {
+            min-width: 180px;
+            max-width: 280px;
+            padding: 8px 10px;
+            background: #fff;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            box-shadow: 0 8px 20px rgba(0,0,0,.08);
+            font-size: 12px;
+            color: #3a3b45;
+            line-height: 1.4;
+        }
+        .geo-tt-title { font-weight: 600; margin-bottom: 6px; }
+        .geo-tt-line { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+        .geo-tt-swatch { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .geo-tt-total { margin-top: 6px; padding-top: 6px; border-top: 1px solid #edf0f2; font-weight: 600; }
+        .apexcharts-tooltip.apexcharts-theme-light {
+            background: transparent !important;
+            border: 0 !important;
+            box-shadow: none !important;
+        }
         .geo-rec-opportunity { border-left: 4px solid #4e73df; }
         .geo-rec-grow { border-left: 4px solid #1cc88a; }
         .geo-rec-risk { border-left: 4px solid #e74a3b; }
@@ -478,6 +499,90 @@
                 return (values || []).reduce(function (a, b) { return a + (b || 0); }, 0);
             }
 
+            function pct(part, total) {
+                if (!total) return '0';
+                return String(Math.round((part / total) * 1000) / 10);
+            }
+
+            function escapeHtml(value) {
+                return String(value == null ? '' : value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+            }
+
+            function tooltipBox(title, lines, totalText) {
+                var html = '<div class="geo-tt"><div class="geo-tt-title">' + escapeHtml(title) + '</div>';
+                (lines || []).forEach(function (line) {
+                    html += '<div class="geo-tt-line">';
+                    if (line.color) {
+                        html += '<span class="geo-tt-swatch" style="background:' + line.color + '"></span>';
+                    }
+                    html += '<span>' + escapeHtml(line.text) + '</span></div>';
+                });
+                if (totalText) {
+                    html += '<div class="geo-tt-total">' + escapeHtml(totalText) + '</div>';
+                }
+                return html + '</div>';
+            }
+
+            function stackedBarTooltip() {
+                return {
+                    shared: true,
+                    intersect: false,
+                    followCursor: true,
+                    custom: function (opts) {
+                        var idx = opts.dataPointIndex;
+                        var w = opts.w;
+                        var title = w.globals.labels[idx] || '';
+                        var names = w.globals.seriesNames || [];
+                        var colors = w.globals.colors || [];
+                        var series = opts.series || w.globals.series || [];
+                        var total = 0;
+                        var values = series.map(function (s) {
+                            var val = Array.isArray(s) ? (s[idx] || 0) : (s || 0);
+                            total += val;
+                            return val;
+                        });
+                        var lines = [];
+                        values.forEach(function (val, i) {
+                            if (!val) return;
+                            lines.push({
+                                color: colors[i],
+                                text: (names[i] || '') + ': ' + val + ' (' + pct(val, total) + '%)'
+                            });
+                        });
+                        return tooltipBox(title, lines, @json(translate('Total')) + ': ' + total);
+                    }
+                };
+            }
+
+            function groupedBarTooltip() {
+                return {
+                    shared: true,
+                    intersect: false,
+                    followCursor: true,
+                    custom: function (opts) {
+                        var idx = opts.dataPointIndex;
+                        var w = opts.w;
+                        var title = w.globals.labels[idx] || '';
+                        var names = w.globals.seriesNames || [];
+                        var colors = w.globals.colors || [];
+                        var series = opts.series || w.globals.series || [];
+                        var lines = [];
+                        series.forEach(function (s, i) {
+                            var val = Array.isArray(s) ? (s[idx] || 0) : (s || 0);
+                            lines.push({
+                                color: colors[i],
+                                text: (names[i] || '') + ': ' + val
+                            });
+                        });
+                        return tooltipBox(title, lines);
+                    }
+                };
+            }
+
             function showEmpty(el) {
                 if (!el) return;
                 el.innerHTML = '<div class="text-muted text-center py-5 fz-12">' + noData + '</div>';
@@ -523,8 +628,13 @@
                     dataLabels: { enabled: false },
                     stroke: { width: 2, colors: ['#fff'] },
                     tooltip: {
-                        y: {
-                            formatter: function (val) { return val; }
+                        custom: function (opts) {
+                            var i = opts.seriesIndex;
+                            var total = sum(values);
+                            var val = values[i] || 0;
+                            return tooltipBox(labels[i] || '', [
+                                { color: colors[i], text: val + ' · ' + pct(val, total) + '% ' + @json(translate('of')) + ' ' + total }
+                            ]);
                         }
                     },
                     plotOptions: {
@@ -634,7 +744,8 @@
                     dataLabels: { enabled: false },
                     grid: { padding: { left: 8, right: 8, bottom: 8 } },
                     plotOptions: { bar: { horizontal: false, columnWidth: '55%', borderRadius: 2 } },
-                    legend: { show: false }
+                    legend: { show: false },
+                    tooltip: stackedBarTooltip()
                 });
             }
 
@@ -696,7 +807,8 @@
                         colors: ['#4e73df', '#1cc88a'],
                         dataLabels: { enabled: false },
                         plotOptions: { bar: { columnWidth: '55%', borderRadius: 2 } },
-                        legend: { position: 'top' }
+                        legend: { position: 'top' },
+                        tooltip: groupedBarTooltip()
                     });
                 }
             }
@@ -722,7 +834,8 @@
                     colors: palette,
                     dataLabels: { enabled: false },
                     plotOptions: { bar: { columnWidth: '60%', borderRadius: 1 } },
-                    legend: { show: false }
+                    legend: { show: false },
+                    tooltip: stackedBarTooltip()
                 });
             }
 
@@ -752,7 +865,8 @@
                         colors: ['#4e73df', '#1cc88a', '#36b9cc'],
                         dataLabels: { enabled: false },
                         plotOptions: { bar: { horizontal: true, barHeight: '70%' } },
-                        legend: { position: 'top', fontSize: '11px' }
+                        legend: { position: 'top', fontSize: '11px' },
+                        tooltip: stackedBarTooltip()
                     });
                 }
             }
