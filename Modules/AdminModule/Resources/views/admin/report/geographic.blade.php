@@ -16,6 +16,17 @@
             gap: 6px 12px;
             padding-top: 8px;
         }
+        .geo-report-share-legend {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 8px 16px;
+            padding: 0 8px 10px;
+        }
+        .geo-report-share-legend .geo-report-legend-item {
+            font-size: 12px;
+        }
         .geo-report-legend-item {
             display: inline-flex;
             align-items: center;
@@ -33,7 +44,7 @@
         .geo-report-share-scroll {
             overflow-x: auto;
             overflow-y: hidden;
-            height: 400px;
+            height: 320px;
         }
         .geo-report-share-scroll .apexcharts-canvas {
             min-width: 100%;
@@ -263,24 +274,28 @@
                     <p class="text-muted fz-12 mb-3">{{ translate('Geographic_share_help') }}</p>
                     <div class="mb-4">
                         <div class="fz-12 text-muted mb-2">{{ translate('Leads') }}</div>
+                        <div id="geo-lead-share-legend" class="geo-report-share-legend"></div>
                         <div class="geo-report-share-scroll">
                             <div id="geo-lead-share-chart"></div>
                         </div>
                     </div>
                     <div class="mb-4">
                         <div class="fz-12 text-muted mb-2">{{ translate('Customer_Leads') }}</div>
+                        <div id="geo-customer-share-legend" class="geo-report-share-legend"></div>
                         <div class="geo-report-share-scroll">
                             <div id="geo-customer-share-chart"></div>
                         </div>
                     </div>
                     <div class="mb-4">
                         <div class="fz-12 text-muted mb-2">{{ translate('Provider_Leads') }}</div>
+                        <div id="geo-provider-share-legend" class="geo-report-share-legend"></div>
                         <div class="geo-report-share-scroll">
                             <div id="geo-provider-share-chart"></div>
                         </div>
                     </div>
                     <div>
                         <div class="fz-12 text-muted mb-2">{{ translate('Bookings') }}</div>
+                        <div id="geo-booking-share-legend" class="geo-report-share-legend"></div>
                         <div class="geo-report-share-scroll">
                             <div id="geo-booking-share-chart"></div>
                         </div>
@@ -296,10 +311,12 @@
                     @if(!empty($splitDailyByGeo))
                         <div class="mt-4">
                             <div class="fz-12 text-muted mb-2">{{ str_replace(':geo', $geoLabel, translate('Geographic_date_wise_leads_by_geo')) }}</div>
+                            <div id="geo-daily-leads-legend" class="geo-report-share-legend"></div>
                             <div id="geo-daily-leads-by-geo"></div>
                         </div>
                         <div class="mt-4">
                             <div class="fz-12 text-muted mb-2">{{ str_replace(':geo', $geoLabel, translate('Geographic_date_wise_bookings_by_geo')) }}</div>
+                            <div id="geo-daily-bookings-legend" class="geo-report-share-legend"></div>
                             <div id="geo-daily-bookings-by-geo"></div>
                         </div>
                     @endif
@@ -541,7 +558,22 @@
                 fillLegend(legendEl, rows);
             }
 
-            function renderStackedShare(el, rows, seriesDefs, filterKey) {
+            function fillSeriesLegend(legendEl, seriesDefs) {
+                if (!legendEl) return;
+                legendEl.innerHTML = '';
+                (seriesDefs || []).forEach(function (s, i) {
+                    var item = document.createElement('span');
+                    item.className = 'geo-report-legend-item';
+                    var swatch = document.createElement('span');
+                    swatch.className = 'geo-report-legend-swatch';
+                    swatch.style.background = s.color || palette[i % palette.length];
+                    item.appendChild(swatch);
+                    item.appendChild(document.createTextNode(s.name || s.label || '—'));
+                    legendEl.appendChild(item);
+                });
+            }
+
+            function renderStackedShare(el, legendEl, rows, seriesDefs, filterKey) {
                 if (!el) return;
                 rows = (rows || []).filter(function (r) {
                     if (filterKey) {
@@ -554,13 +586,15 @@
                 });
                 if (!rows.length || !seriesDefs.length) {
                     showEmpty(el);
+                    if (legendEl) legendEl.innerHTML = '';
                     return;
                 }
                 var parentWidth = (el.parentElement && el.parentElement.clientWidth) ? el.parentElement.clientWidth : 640;
                 var chartWidth = Math.max(parentWidth, rows.length * 88);
                 el.style.width = chartWidth + 'px';
+                fillSeriesLegend(legendEl, seriesDefs);
                 bindChart(el, {
-                    chart: { type: 'bar', height: 340, width: chartWidth, stacked: true, fontFamily: 'inherit', toolbar: { show: false } },
+                    chart: { type: 'bar', height: 300, width: chartWidth, stacked: true, fontFamily: 'inherit', toolbar: { show: false } },
                     series: seriesDefs.map(function (s) {
                         return { name: s.name, data: rows.map(function (r) { return r[s.key] || 0; }) };
                     }),
@@ -578,7 +612,7 @@
                     dataLabels: { enabled: false },
                     grid: { padding: { left: 8, right: 8, bottom: 8 } },
                     plotOptions: { bar: { horizontal: false, columnWidth: '55%', borderRadius: 2 } },
-                    legend: { position: 'top', fontSize: '12px' }
+                    legend: { show: false }
                 });
             }
 
@@ -600,23 +634,23 @@
                 report.booking_status_breakdown || [],
                 @json(translate('Bookings'))
             );
-            renderStackedShare(document.querySelector('#geo-lead-share-chart'), geoRows, [
+            renderStackedShare(document.querySelector('#geo-lead-share-chart'), document.querySelector('#geo-lead-share-legend'), geoRows, [
                 { key: 'unknown', name: @json(translate('Unknown')), color: '#858796' },
                 { key: 'customer', name: @json(translate('Customer')), color: '#4e73df' },
                 { key: 'provider', name: @json(translate('Provider')), color: '#36b9cc' },
                 { key: 'invalid', name: @json(translate('Invalid')), color: '#e74a3b' },
                 { key: 'future_customer', name: @json(translate('Future_Customer')), color: '#6f42c1' }
             ], 'leads');
-            renderStackedShare(document.querySelector('#geo-customer-share-chart'), geoRows, [
+            renderStackedShare(document.querySelector('#geo-customer-share-chart'), document.querySelector('#geo-customer-share-legend'), geoRows, [
                 { key: 'pending', name: @json(translate('Pending')), color: '#f6c23e' },
                 { key: 'hold', name: @json(translate('Hold')), color: '#fd7e14' },
                 { key: 'booked', name: @json(translate('Booked')), color: '#1cc88a' },
                 { key: 'cancelled', name: @json(translate('Cancelled')), color: '#e74a3b' }
             ], 'customer');
-            renderStackedShare(document.querySelector('#geo-provider-share-chart'), geoRows, [
+            renderStackedShare(document.querySelector('#geo-provider-share-chart'), document.querySelector('#geo-provider-share-legend'), geoRows, [
                 { key: 'provider', name: @json(translate('Provider_Leads')), color: '#36b9cc' }
             ], 'provider');
-            renderStackedShare(document.querySelector('#geo-booking-share-chart'), geoRows, [
+            renderStackedShare(document.querySelector('#geo-booking-share-chart'), document.querySelector('#geo-booking-share-legend'), geoRows, [
                 { key: 'booking_pending', name: @json(translate('Pending')), color: '#f6c23e' },
                 { key: 'booking_completed', name: @json(translate('completed')), color: '#1cc88a' },
                 { key: 'booking_cancelled', name: @json(translate('Cancelled')), color: '#e74a3b' }
@@ -645,16 +679,20 @@
                 }
             }
 
-            function renderStackedGeoDaily(el, seriesRows) {
+            function renderStackedGeoDaily(el, legendEl, seriesRows) {
                 if (!el) return;
                 seriesRows = seriesRows || [];
                 var hasData = seriesRows.some(function (row) { return sum(row.data || []) > 0; });
                 if (!hasData) {
                     showEmpty(el);
+                    if (legendEl) legendEl.innerHTML = '';
                     return;
                 }
+                fillSeriesLegend(legendEl, seriesRows.map(function (row, i) {
+                    return { name: row.label || '—', color: palette[i % palette.length] };
+                }));
                 bindChart(el, {
-                    chart: { type: 'bar', height: 380, stacked: true, fontFamily: 'inherit', toolbar: { show: false } },
+                    chart: { type: 'bar', height: 360, stacked: true, fontFamily: 'inherit', toolbar: { show: false } },
                     series: seriesRows.map(function (row) {
                         return { name: row.label || '—', data: row.data || [] };
                     }),
@@ -662,14 +700,14 @@
                     colors: palette,
                     dataLabels: { enabled: false },
                     plotOptions: { bar: { columnWidth: '60%', borderRadius: 1 } },
-                    legend: { position: 'bottom', fontSize: '11px', height: 72 }
+                    legend: { show: false }
                 });
             }
 
             @if(!empty($splitDailyByGeo))
             var geoDaily = daily[@json($view === 'zone' ? 'by_zone' : 'by_area')] || {};
-            renderStackedGeoDaily(document.querySelector('#geo-daily-leads-by-geo'), geoDaily.lead_series || []);
-            renderStackedGeoDaily(document.querySelector('#geo-daily-bookings-by-geo'), geoDaily.booking_series || []);
+            renderStackedGeoDaily(document.querySelector('#geo-daily-leads-by-geo'), document.querySelector('#geo-daily-leads-legend'), geoDaily.lead_series || []);
+            renderStackedGeoDaily(document.querySelector('#geo-daily-bookings-by-geo'), document.querySelector('#geo-daily-bookings-legend'), geoDaily.booking_series || []);
             @endif
 
             var catEl = document.querySelector('#geo-category-bar');
