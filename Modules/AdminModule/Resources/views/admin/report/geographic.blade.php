@@ -30,8 +30,16 @@
             border-radius: 50%;
             flex-shrink: 0;
         }
-        .geo-report-share-scroll,
-        .geo-report-stack-scroll {
+        .geo-report-share-scroll {
+            overflow-x: auto;
+            overflow-y: hidden;
+            height: 340px;
+        }
+        .geo-report-share-scroll .apexcharts-canvas {
+            min-width: 100%;
+        }
+        .geo-report-stack-scroll,
+        .geo-report-category-scroll {
             max-height: 380px;
             overflow-y: auto;
             overflow-x: hidden;
@@ -253,7 +261,7 @@
                 <div class="card-body">
                     <p class="fw-semibold mb-1">{{ $geoLabel }} {{ translate('Geographic_share_title') }}</p>
                     <p class="text-muted fz-12 mb-3">{{ translate('Geographic_share_help') }}</p>
-                    <div class="row g-3">
+                    <div class="row g-3 flex-lg-nowrap">
                         <div class="col-lg-6">
                             <div class="card geo-report-chart-card border">
                                 <div class="card-body">
@@ -357,7 +365,7 @@
                 <div class="card-body">
                     <p class="fw-semibold mb-1">{{ $geoLabel }} × {{ translate('Category') }}</p>
                     <p class="text-muted fz-12 mb-3">{{ translate('Geographic_category_matrix_help') }}</p>
-                    <div class="geo-report-share-scroll mb-3">
+                    <div class="geo-report-category-scroll mb-3">
                         <div id="geo-category-bar"></div>
                     </div>
                     <div class="table-responsive">
@@ -544,15 +552,29 @@
                     showEmpty(el);
                     return;
                 }
+                var parentWidth = (el.parentElement && el.parentElement.clientWidth) ? el.parentElement.clientWidth : 420;
+                var chartWidth = Math.max(parentWidth, rows.length * 120);
+                el.style.width = chartWidth + 'px';
                 bindChart(el, {
-                    chart: { type: 'bar', height: Math.max(220, rows.length * 32), fontFamily: 'inherit', toolbar: { show: false } },
+                    chart: { type: 'bar', height: 300, width: chartWidth, fontFamily: 'inherit', toolbar: { show: false } },
                     series: [{ name: seriesName, data: rows.map(function (r) { return r.total; }) }],
-                    xaxis: { categories: rows.map(function (r) { return r.label || '—'; }) },
-                    yaxis: { labels: { maxWidth: 180, trim: false, style: { fontSize: '11px' } } },
+                    xaxis: {
+                        categories: rows.map(function (r) { return r.label || '—'; }),
+                        labels: {
+                            rotate: 0,
+                            hideOverlappingLabels: false,
+                            trim: false,
+                            style: { fontSize: '11px' }
+                        }
+                    },
+                    yaxis: {
+                        min: 0,
+                        labels: { style: { fontSize: '11px' } }
+                    },
                     colors: [color],
-                    dataLabels: { enabled: true },
-                    grid: { padding: { left: 8, right: 16 } },
-                    plotOptions: { bar: { horizontal: true, borderRadius: 3, barHeight: '62%' } },
+                    dataLabels: { enabled: true, offsetY: -4 },
+                    grid: { padding: { left: 8, right: 8, bottom: 8 } },
+                    plotOptions: { bar: { horizontal: false, columnWidth: '45%', borderRadius: 3 } },
                     legend: { show: false }
                 });
             }
