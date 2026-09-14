@@ -325,10 +325,21 @@
 
             <div class="card mb-3 border-0 shadow-sm">
                 <div class="card-body">
-                    <p class="fw-semibold mb-1">{{ $geoLabel }} {{ translate('Geographic_performance_title') }}</p>
-                    <p class="text-muted fz-12 mb-3">{{ translate('Geographic_table_help') }}</p>
-                    <div class="table-responsive geo-report-table-scroll">
-                        <table class="table table-sm table-hover align-middle mb-0">
+                    <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-1">
+                        <div>
+                            <p class="fw-semibold mb-1">{{ $geoLabel }} {{ translate('Geographic_performance_title') }}</p>
+                            <p class="text-muted fz-12 mb-0">{{ translate('Geographic_table_help') }}</p>
+                        </div>
+                        <button type="button"
+                                class="btn btn--secondary btn-sm d-inline-flex align-items-center gap-1"
+                                data-geo-export="geo-performance-table"
+                                data-geo-export-name="{{ $view }}-performance-{{ $dateFrom }}-to-{{ $dateTo }}">
+                            <span class="material-icons" style="font-size:18px">file_download</span>
+                            {{ translate('Excel') }}
+                        </button>
+                    </div>
+                    <div class="table-responsive geo-report-table-scroll mt-3">
+                        <table id="geo-performance-table" class="table table-sm table-hover align-middle mb-0">
                             <thead class="table-light">
                             <tr>
                                 <th>{{ $geoLabel }}</th>
@@ -376,13 +387,24 @@
 
             <div class="card mb-3 border-0 shadow-sm">
                 <div class="card-body">
-                    <p class="fw-semibold mb-1">{{ $geoLabel }} × {{ translate('Category') }}</p>
-                    <p class="text-muted fz-12 mb-3">{{ translate('Geographic_category_matrix_help') }}</p>
-                    <div class="geo-report-category-scroll mb-3">
+                    <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-1">
+                        <div>
+                            <p class="fw-semibold mb-1">{{ $geoLabel }} × {{ translate('Category') }}</p>
+                            <p class="text-muted fz-12 mb-0">{{ translate('Geographic_category_matrix_help') }}</p>
+                        </div>
+                        <button type="button"
+                                class="btn btn--secondary btn-sm d-inline-flex align-items-center gap-1"
+                                data-geo-export="geo-category-table"
+                                data-geo-export-name="{{ $view }}-category-{{ $dateFrom }}-to-{{ $dateTo }}">
+                            <span class="material-icons" style="font-size:18px">file_download</span>
+                            {{ translate('Excel') }}
+                        </button>
+                    </div>
+                    <div class="geo-report-category-scroll mb-3 mt-3">
                         <div id="geo-category-bar"></div>
                     </div>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover align-middle mb-0">
+                    <div class="table-responsive geo-report-table-scroll">
+                        <table id="geo-category-table" class="table table-sm table-hover align-middle mb-0">
                             <thead class="table-light">
                             <tr>
                                 <th>{{ $geoLabel }}</th>
@@ -746,7 +768,28 @@
                 var bs = bootstrap.Offcanvas.getInstance(drawerEl);
                 if (bs) bs.hide();
             }
-            $(document).off('submit.geoReportFilter').on('submit.geoReportFilter', '#geoReportFilterDrawer form', closeGeoFilterDrawer);
+            $(document).off('click.geoReportExport').on('click.geoReportExport', '[data-geo-export]', function () {
+                var table = document.getElementById(this.getAttribute('data-geo-export'));
+                if (!table) return;
+                var lines = [];
+                table.querySelectorAll('tr').forEach(function (tr) {
+                    var cells = [];
+                    tr.querySelectorAll('th,td').forEach(function (cell) {
+                        cells.push('"' + String(cell.innerText || '').replace(/"/g, '""').trim() + '"');
+                    });
+                    if (cells.length) {
+                        lines.push(cells.join(','));
+                    }
+                });
+                var blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+                var link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = (this.getAttribute('data-geo-export-name') || 'geographic-report') + '.csv';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+            });
             var geoDrawer = document.getElementById('geoReportFilterDrawer');
             if (geoDrawer) {
                 geoDrawer.addEventListener('shown.bs.offcanvas', function () {
