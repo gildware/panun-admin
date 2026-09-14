@@ -33,7 +33,7 @@
         .geo-report-share-scroll {
             overflow-x: auto;
             overflow-y: hidden;
-            height: 340px;
+            height: 400px;
         }
         .geo-report-share-scroll .apexcharts-canvas {
             min-width: 100%;
@@ -261,26 +261,28 @@
                 <div class="card-body">
                     <p class="fw-semibold mb-1">{{ $geoLabel }} {{ translate('Geographic_share_title') }}</p>
                     <p class="text-muted fz-12 mb-3">{{ translate('Geographic_share_help') }}</p>
-                    <div class="row g-3 flex-lg-nowrap">
-                        <div class="col-lg-6">
-                            <div class="card geo-report-chart-card border">
-                                <div class="card-body">
-                                    <div class="fz-12 text-muted mb-2">{{ translate('Leads') }}</div>
-                                    <div class="geo-report-share-scroll">
-                                        <div id="geo-lead-share-chart"></div>
-                                    </div>
-                                </div>
-                            </div>
+                    <div class="mb-4">
+                        <div class="fz-12 text-muted mb-2">{{ translate('Leads') }}</div>
+                        <div class="geo-report-share-scroll">
+                            <div id="geo-lead-share-chart"></div>
                         </div>
-                        <div class="col-lg-6">
-                            <div class="card geo-report-chart-card border">
-                                <div class="card-body">
-                                    <div class="fz-12 text-muted mb-2">{{ translate('Bookings') }}</div>
-                                    <div class="geo-report-share-scroll">
-                                        <div id="geo-booking-share-chart"></div>
-                                    </div>
-                                </div>
-                            </div>
+                    </div>
+                    <div class="mb-4">
+                        <div class="fz-12 text-muted mb-2">{{ translate('Customer_Leads') }}</div>
+                        <div class="geo-report-share-scroll">
+                            <div id="geo-customer-share-chart"></div>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <div class="fz-12 text-muted mb-2">{{ translate('Provider_Leads') }}</div>
+                        <div class="geo-report-share-scroll">
+                            <div id="geo-provider-share-chart"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="fz-12 text-muted mb-2">{{ translate('Bookings') }}</div>
+                        <div class="geo-report-share-scroll">
+                            <div id="geo-booking-share-chart"></div>
                         </div>
                     </div>
                 </div>
@@ -539,19 +541,29 @@
                 fillLegend(legendEl, rows);
             }
 
-            function renderShareBar(el, rows, seriesName, color) {
+            function renderStackedShare(el, rows, seriesDefs, filterKey) {
                 if (!el) return;
-                rows = (rows || []).filter(function (r) { return (r.total || 0) > 0; });
-                if (!rows.length) {
+                rows = (rows || []).filter(function (r) {
+                    if (filterKey) {
+                        return (r[filterKey] || 0) > 0;
+                    }
+                    return seriesDefs.some(function (s) { return (r[s.key] || 0) > 0; });
+                });
+                seriesDefs = (seriesDefs || []).filter(function (s) {
+                    return rows.some(function (r) { return (r[s.key] || 0) > 0; });
+                });
+                if (!rows.length || !seriesDefs.length) {
                     showEmpty(el);
                     return;
                 }
-                var parentWidth = (el.parentElement && el.parentElement.clientWidth) ? el.parentElement.clientWidth : 420;
-                var chartWidth = Math.max(parentWidth, rows.length * 120);
+                var parentWidth = (el.parentElement && el.parentElement.clientWidth) ? el.parentElement.clientWidth : 640;
+                var chartWidth = Math.max(parentWidth, rows.length * 88);
                 el.style.width = chartWidth + 'px';
                 bindChart(el, {
-                    chart: { type: 'bar', height: 300, width: chartWidth, fontFamily: 'inherit', toolbar: { show: false } },
-                    series: [{ name: seriesName, data: rows.map(function (r) { return r.total; }) }],
+                    chart: { type: 'bar', height: 340, width: chartWidth, stacked: true, fontFamily: 'inherit', toolbar: { show: false } },
+                    series: seriesDefs.map(function (s) {
+                        return { name: s.name, data: rows.map(function (r) { return r[s.key] || 0; }) };
+                    }),
                     xaxis: {
                         categories: rows.map(function (r) { return r.label || '—'; }),
                         labels: {
@@ -561,18 +573,16 @@
                             style: { fontSize: '11px' }
                         }
                     },
-                    yaxis: {
-                        min: 0,
-                        labels: { style: { fontSize: '11px' } }
-                    },
-                    colors: [color],
-                    dataLabels: { enabled: true, offsetY: -4 },
+                    yaxis: { min: 0, labels: { style: { fontSize: '11px' } } },
+                    colors: seriesDefs.map(function (s) { return s.color; }),
+                    dataLabels: { enabled: false },
                     grid: { padding: { left: 8, right: 8, bottom: 8 } },
-                    plotOptions: { bar: { horizontal: false, columnWidth: '45%', borderRadius: 3 } },
-                    legend: { show: false }
+                    plotOptions: { bar: { horizontal: false, columnWidth: '55%', borderRadius: 2 } },
+                    legend: { position: 'top', fontSize: '12px' }
                 });
             }
 
+            var geoRows = geo.rows || [];
             renderDonut(
                 document.querySelector('#geo-lead-type-chart'),
                 document.querySelector('#geo-lead-type-legend'),
@@ -590,8 +600,27 @@
                 report.booking_status_breakdown || [],
                 @json(translate('Bookings'))
             );
-            renderShareBar(document.querySelector('#geo-lead-share-chart'), geo.lead_share || [], @json(translate('Leads')), '#4e73df');
-            renderShareBar(document.querySelector('#geo-booking-share-chart'), geo.booking_share || [], @json(translate('Bookings')), '#1cc88a');
+            renderStackedShare(document.querySelector('#geo-lead-share-chart'), geoRows, [
+                { key: 'unknown', name: @json(translate('Unknown')), color: '#858796' },
+                { key: 'customer', name: @json(translate('Customer')), color: '#4e73df' },
+                { key: 'provider', name: @json(translate('Provider')), color: '#36b9cc' },
+                { key: 'invalid', name: @json(translate('Invalid')), color: '#e74a3b' },
+                { key: 'future_customer', name: @json(translate('Future_Customer')), color: '#6f42c1' }
+            ], 'leads');
+            renderStackedShare(document.querySelector('#geo-customer-share-chart'), geoRows, [
+                { key: 'pending', name: @json(translate('Pending')), color: '#f6c23e' },
+                { key: 'hold', name: @json(translate('Hold')), color: '#fd7e14' },
+                { key: 'booked', name: @json(translate('Booked')), color: '#1cc88a' },
+                { key: 'cancelled', name: @json(translate('Cancelled')), color: '#e74a3b' }
+            ], 'customer');
+            renderStackedShare(document.querySelector('#geo-provider-share-chart'), geoRows, [
+                { key: 'provider', name: @json(translate('Provider_Leads')), color: '#36b9cc' }
+            ], 'provider');
+            renderStackedShare(document.querySelector('#geo-booking-share-chart'), geoRows, [
+                { key: 'booking_pending', name: @json(translate('Pending')), color: '#f6c23e' },
+                { key: 'booking_completed', name: @json(translate('completed')), color: '#1cc88a' },
+                { key: 'booking_cancelled', name: @json(translate('Cancelled')), color: '#e74a3b' }
+            ], 'bookings');
 
             var daily = report.daily || {};
             var dailyEl = document.querySelector('#geo-daily-bar');
