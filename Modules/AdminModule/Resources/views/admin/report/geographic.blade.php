@@ -5,7 +5,52 @@
 @push('css_or_js')
     <style>
         .geo-report-chart-card { background: #fafbfc; min-height: 100%; }
-        .geo-report-donut { min-height: 280px; }
+        .geo-report-donut { height: 220px; min-height: 220px; overflow: hidden; }
+        .geo-report-donut .apexcharts-canvas,
+        .geo-report-donut .apexcharts-inner { overflow: hidden; }
+        .geo-report-legend {
+            max-height: 132px;
+            overflow-y: auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 12px;
+            padding-top: 8px;
+        }
+        .geo-report-legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: #5a5c69;
+            line-height: 1.3;
+        }
+        .geo-report-legend-swatch {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .geo-report-share-scroll,
+        .geo-report-stack-scroll {
+            max-height: 380px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        .geo-report-table-scroll {
+            max-height: 420px;
+            overflow: auto;
+        }
+        .geo-report-table-scroll thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: #f8f9fa;
+            box-shadow: 0 1px 0 #e9ecef;
+        }
+        .geo-report-stack-scroll .apexcharts-legend {
+            max-height: 96px !important;
+            overflow-y: auto !important;
+        }
         .report-filter-offcanvas { display: flex; flex-direction: column; }
         .report-filter-offcanvas .report-filter-form-flex { flex: 1; display: flex; flex-direction: column; min-height: 0; }
         .report-filter-offcanvas .report-filter-body { flex: 1; min-height: 0; }
@@ -178,6 +223,7 @@
                                 <div class="card-body">
                                     <div class="fz-12 text-muted mb-2">{{ translate('Lead_types') }}</div>
                                     <div id="geo-lead-type-chart" class="geo-report-donut"></div>
+                                    <div id="geo-lead-type-legend" class="geo-report-legend"></div>
                                 </div>
                             </div>
                         </div>
@@ -186,6 +232,7 @@
                                 <div class="card-body">
                                     <div class="fz-12 text-muted mb-2">{{ translate('Customer_Lead_Status') }}</div>
                                     <div id="geo-customer-status-chart" class="geo-report-donut"></div>
+                                    <div id="geo-customer-status-legend" class="geo-report-legend"></div>
                                 </div>
                             </div>
                         </div>
@@ -194,6 +241,7 @@
                                 <div class="card-body">
                                     <div class="fz-12 text-muted mb-2">{{ translate('Booking_status') }}</div>
                                     <div id="geo-booking-status-chart" class="geo-report-donut"></div>
+                                    <div id="geo-booking-status-legend" class="geo-report-legend"></div>
                                 </div>
                             </div>
                         </div>
@@ -210,7 +258,9 @@
                             <div class="card geo-report-chart-card border">
                                 <div class="card-body">
                                     <div class="fz-12 text-muted mb-2">{{ translate('Leads') }}</div>
-                                    <div id="geo-lead-share-chart" class="geo-report-donut"></div>
+                                    <div class="geo-report-share-scroll">
+                                        <div id="geo-lead-share-chart"></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -218,7 +268,9 @@
                             <div class="card geo-report-chart-card border">
                                 <div class="card-body">
                                     <div class="fz-12 text-muted mb-2">{{ translate('Bookings') }}</div>
-                                    <div id="geo-booking-share-chart" class="geo-report-donut"></div>
+                                    <div class="geo-report-share-scroll">
+                                        <div id="geo-booking-share-chart"></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -235,11 +287,15 @@
                         <div class="row g-3 mt-1">
                             <div class="col-lg-6">
                                 <div class="fz-12 text-muted mb-2">{{ str_replace(':geo', $geoLabel, translate('Geographic_date_wise_leads_by_geo')) }}</div>
-                                <div id="geo-daily-leads-by-geo"></div>
+                                <div class="geo-report-stack-scroll">
+                                    <div id="geo-daily-leads-by-geo"></div>
+                                </div>
                             </div>
                             <div class="col-lg-6">
                                 <div class="fz-12 text-muted mb-2">{{ str_replace(':geo', $geoLabel, translate('Geographic_date_wise_bookings_by_geo')) }}</div>
-                                <div id="geo-daily-bookings-by-geo"></div>
+                                <div class="geo-report-stack-scroll">
+                                    <div id="geo-daily-bookings-by-geo"></div>
+                                </div>
                             </div>
                         </div>
                     @endif
@@ -250,7 +306,7 @@
                 <div class="card-body">
                     <p class="fw-semibold mb-1">{{ $geoLabel }} {{ translate('Geographic_performance_title') }}</p>
                     <p class="text-muted fz-12 mb-3">{{ translate('Geographic_table_help') }}</p>
-                    <div class="table-responsive">
+                    <div class="table-responsive geo-report-table-scroll">
                         <table class="table table-sm table-hover align-middle mb-0">
                             <thead class="table-light">
                             <tr>
@@ -301,7 +357,9 @@
                 <div class="card-body">
                     <p class="fw-semibold mb-1">{{ $geoLabel }} × {{ translate('Category') }}</p>
                     <p class="text-muted fz-12 mb-3">{{ translate('Geographic_category_matrix_help') }}</p>
-                    <div id="geo-category-bar" class="mb-3"></div>
+                    <div class="geo-report-share-scroll mb-3">
+                        <div id="geo-category-bar"></div>
+                    </div>
                     <div class="table-responsive">
                         <table class="table table-sm table-hover align-middle mb-0">
                             <thead class="table-light">
@@ -364,7 +422,7 @@
             var report = {!! json_encode($report) !!};
             var geo = {!! json_encode($geo) !!};
             var noData = @json(translate('Data_not_available'));
-            var palette = ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796', '#fd7e14', '#6f42c1'];
+            var palette = ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796', '#fd7e14', '#6f42c1', '#20c997', '#0dcaf0', '#d63384', '#5a5c69'];
             var initFlag = document.getElementById('geo-lead-type-chart');
             if (initFlag && initFlag.getAttribute('data-geo-charts-bound') === '1') {
                 return;
@@ -394,82 +452,128 @@
                 chart.render();
             }
 
-            function renderDonut(el, rows, centerLabel) {
-                if (!el) return;
-                rows = (rows || []).filter(function (r) { return (r.total || 0) > 0; });
-                if (!rows.length) {
-                    showEmpty(el);
-                    return;
-                }
-                var values = rows.map(function (r) { return r.total; });
-                var labels = rows.map(function (r) { return (r.label || '—') + ' (' + r.total + ')'; });
-                var colors = rows.map(function (r, i) { return r.color || palette[i % palette.length]; });
-                bindChart(el, {
-                    series: values,
-                    chart: { type: 'donut', height: 320, fontFamily: 'inherit' },
-                    labels: labels,
-                    colors: colors,
-                    legend: { position: 'bottom', fontSize: '11px' },
-                    dataLabels: { enabled: false },
-                    stroke: { width: 1, colors: ['#fff'] },
-                    plotOptions: {
-                        pie: {
-                            donut: {
-                                size: '62%',
-                                labels: {
-                                    show: true,
-                                    total: {
-                                        show: true,
-                                        label: centerLabel,
-                                        fontSize: '11px',
-                                        formatter: function () { return String(sum(values)); }
-                                    }
-                                }
-                            }
-                        }
-                    }
+            function fillLegend(legendEl, rows) {
+                if (!legendEl) return;
+                legendEl.innerHTML = '';
+                (rows || []).forEach(function (r, i) {
+                    var item = document.createElement('span');
+                    item.className = 'geo-report-legend-item';
+                    var swatch = document.createElement('span');
+                    swatch.className = 'geo-report-legend-swatch';
+                    swatch.style.background = r.color || palette[i % palette.length];
+                    item.appendChild(swatch);
+                    item.appendChild(document.createTextNode((r.label || '—') + ' (' + r.total + ')'));
+                    legendEl.appendChild(item);
                 });
             }
 
-            function renderPie(el, rows) {
+            function pieOptions(type, rows, centerLabel) {
+                var values = rows.map(function (r) { return r.total; });
+                var labels = rows.map(function (r) { return r.label || '—'; });
+                var colors = rows.map(function (r, i) { return r.color || palette[i % palette.length]; });
+                var options = {
+                    series: values,
+                    chart: { type: type, height: 220, width: '100%', fontFamily: 'inherit', toolbar: { show: false } },
+                    labels: labels,
+                    colors: colors,
+                    legend: { show: false },
+                    dataLabels: { enabled: false },
+                    stroke: { width: 2, colors: ['#fff'] },
+                    tooltip: {
+                        y: {
+                            formatter: function (val) { return val; }
+                        }
+                    },
+                    plotOptions: {
+                        pie: {
+                            startAngle: 0,
+                            endAngle: 360,
+                            expandOnClick: false,
+                            offsetY: 0,
+                            customScale: 0.92
+                        }
+                    }
+                };
+                if (type === 'donut') {
+                    options.plotOptions.pie.donut = {
+                        size: '62%',
+                        labels: {
+                            show: true,
+                            name: { fontSize: '11px' },
+                            value: { fontSize: '18px', fontWeight: 600 },
+                            total: {
+                                show: true,
+                                label: centerLabel,
+                                fontSize: '11px',
+                                formatter: function () { return String(sum(values)); }
+                            }
+                        }
+                    };
+                }
+                return options;
+            }
+
+            function renderDonut(el, legendEl, rows, centerLabel) {
                 if (!el) return;
                 rows = (rows || []).filter(function (r) { return (r.total || 0) > 0; });
                 if (!rows.length) {
                     showEmpty(el);
+                    if (legendEl) legendEl.innerHTML = '';
                     return;
                 }
-                bindChart(el, {
-                    series: rows.map(function (r) { return r.total; }),
-                    chart: { type: 'pie', height: 320, fontFamily: 'inherit' },
-                    labels: rows.map(function (r) { return (r.label || '—') + ' (' + r.total + ')'; }),
-                    colors: rows.map(function (r, i) { return r.color || palette[i % palette.length]; }),
-                    legend: { position: 'bottom', fontSize: '11px' },
-                    dataLabels: { enabled: false },
-                    stroke: { width: 1, colors: ['#fff'] }
-                });
+                bindChart(el, pieOptions('donut', rows, centerLabel));
+                fillLegend(legendEl, rows);
+            }
+
+            function renderPie(el, legendEl, rows) {
+                if (!el) return;
+                rows = (rows || []).filter(function (r) { return (r.total || 0) > 0; });
+                if (!rows.length) {
+                    showEmpty(el);
+                    if (legendEl) legendEl.innerHTML = '';
+                    return;
+                }
+                bindChart(el, pieOptions('pie', rows, ''));
+                fillLegend(legendEl, rows);
             }
 
             function renderShareBar(el, rows, seriesName, color) {
                 if (!el) return;
-                rows = (rows || []).filter(function (r) { return (r.total || 0) > 0; }).slice(0, 12);
+                rows = (rows || []).filter(function (r) { return (r.total || 0) > 0; });
                 if (!rows.length) {
                     showEmpty(el);
                     return;
                 }
                 bindChart(el, {
-                    chart: { type: 'bar', height: Math.max(280, rows.length * 28), fontFamily: 'inherit', toolbar: { show: false } },
+                    chart: { type: 'bar', height: Math.max(220, rows.length * 32), fontFamily: 'inherit', toolbar: { show: false } },
                     series: [{ name: seriesName, data: rows.map(function (r) { return r.total; }) }],
                     xaxis: { categories: rows.map(function (r) { return r.label || '—'; }) },
+                    yaxis: { labels: { maxWidth: 180, trim: false, style: { fontSize: '11px' } } },
                     colors: [color],
                     dataLabels: { enabled: true },
-                    plotOptions: { bar: { horizontal: true, borderRadius: 3, barHeight: '70%' } },
+                    grid: { padding: { left: 8, right: 16 } },
+                    plotOptions: { bar: { horizontal: true, borderRadius: 3, barHeight: '62%' } },
                     legend: { show: false }
                 });
             }
 
-            renderDonut(document.querySelector('#geo-lead-type-chart'), report.lead_type_breakdown || [], @json(translate('Leads')));
-            renderPie(document.querySelector('#geo-customer-status-chart'), report.customer_status_breakdown || []);
-            renderDonut(document.querySelector('#geo-booking-status-chart'), report.booking_status_breakdown || [], @json(translate('Bookings')));
+            renderDonut(
+                document.querySelector('#geo-lead-type-chart'),
+                document.querySelector('#geo-lead-type-legend'),
+                report.lead_type_breakdown || [],
+                @json(translate('Leads'))
+            );
+            renderPie(
+                document.querySelector('#geo-customer-status-chart'),
+                document.querySelector('#geo-customer-status-legend'),
+                report.customer_status_breakdown || []
+            );
+            renderDonut(
+                document.querySelector('#geo-booking-status-chart'),
+                document.querySelector('#geo-booking-status-legend'),
+                report.booking_status_breakdown || [],
+                @json(translate('Bookings'))
+            );
             renderShareBar(document.querySelector('#geo-lead-share-chart'), geo.lead_share || [], @json(translate('Leads')), '#4e73df');
             renderShareBar(document.querySelector('#geo-booking-share-chart'), geo.booking_share || [], @json(translate('Bookings')), '#1cc88a');
 
@@ -513,7 +617,7 @@
                     colors: palette,
                     dataLabels: { enabled: false },
                     plotOptions: { bar: { columnWidth: '60%', borderRadius: 1 } },
-                    legend: { position: 'top', fontSize: '11px' }
+                    legend: { position: 'bottom', fontSize: '11px', height: 88 }
                 });
             }
 
@@ -527,26 +631,23 @@
             if (catEl) {
                 var matrix = (geo.matrix || []).filter(function (r) {
                     return (r.leads || 0) + (r.bookings || 0) > 0;
-                }).slice(0, 12);
+                });
                 if (!matrix.length) {
                     showEmpty(catEl);
                 } else {
                     bindChart(catEl, {
-                        chart: { type: 'bar', height: 360, stacked: true, fontFamily: 'inherit', toolbar: { show: false } },
+                        chart: { type: 'bar', height: Math.max(280, matrix.length * 28), stacked: true, fontFamily: 'inherit', toolbar: { show: false } },
                         series: [
                             { name: @json(translate('Leads')), data: matrix.map(function (r) { return r.leads || 0; }) },
                             { name: @json(translate('Booked')), data: matrix.map(function (r) { return r.booked || 0; }) },
                             { name: @json(translate('completed')), data: matrix.map(function (r) { return r.booking_completed || 0; }) }
                         ],
-                        xaxis: {
-                            categories: matrix.map(function (r) {
-                                return (r.label || '') + ' / ' + (r.category_label || '');
-                            }),
-                            labels: { rotate: -35, trim: true }
-                        },
+                        xaxis: { categories: matrix.map(function (r) { return (r.label || '') + ' / ' + (r.category_label || ''); }) },
+                        yaxis: { labels: { maxWidth: 220, trim: false, style: { fontSize: '11px' } } },
                         colors: ['#4e73df', '#1cc88a', '#36b9cc'],
                         dataLabels: { enabled: false },
-                        legend: { position: 'top' }
+                        plotOptions: { bar: { horizontal: true, barHeight: '70%' } },
+                        legend: { position: 'top', fontSize: '11px' }
                     });
                 }
             }
