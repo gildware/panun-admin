@@ -8,11 +8,13 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Modules\BookingModule\Entities\Booking;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadOutboundEnquiry;
 use Modules\LeadManagement\Entities\LeadOutboundEnquiryStatus;
+use Modules\LeadManagement\Services\LeadOutboundEnquiryRecordingTranscriptionService;
 use Modules\UserManagement\Entities\User;
 
 class LeadOutboundEnquiryController extends Controller
@@ -50,7 +52,15 @@ class LeadOutboundEnquiryController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $this->validateOutboundEnquiry($request);
-        $this->createOutboundEnquiry($validated);
+        $recordingData = $this->resolveRecordingUpload($request);
+        if ($recordingData === false) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->withErrors(['recording' => translate('Failed_to_upload_voice_recording')]);
+        }
+
+        $this->createOutboundEnquiry(array_merge($validated, $recordingData ?? []));
 
         toastr()->success(translate('Outbound enquiry created successfully'));
 
@@ -70,7 +80,15 @@ class LeadOutboundEnquiryController extends Controller
         $validated['customer_name'] = $validated['customer_name'] ?? $lead->name ?? '';
         $validated['phone_number'] = $validated['phone_number'] ?? $lead->phone_number;
 
-        $this->createOutboundEnquiry($validated);
+        $recordingData = $this->resolveRecordingUpload($request);
+        if ($recordingData === false) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->withErrors(['recording' => translate('Failed_to_upload_voice_recording')]);
+        }
+
+        $this->createOutboundEnquiry(array_merge($validated, $recordingData ?? []));
 
         toastr()->success(translate('Outbound enquiry created successfully'));
 
@@ -80,6 +98,101 @@ class LeadOutboundEnquiryController extends Controller
         }
 
         return redirect()->route('admin.lead.show', array_merge(['id' => $lead->id], $redirectParams));
+    }
+
+    public function edit(Request $request, LeadOutboundEnquiry $enquiry): View
+    {
+        $this->authorizeWrite();
+
+        $employees = $this->activeEmployees();
+        $currentEmployeeId = $enquiry->handled_by ?: Auth::id();
+        $statuses = LeadOutboundEnquiryStatus::active()->orderBy('name')->get(['id', 'name', 'link_type']);
+        $fromLead = $request->boolean('from_lead');
+
+        return view('leadmanagement::admin.outbound-enquiries.edit', compact(
+            'enquiry',
+            'employees',
+            'currentEmployeeId',
+            'statuses',
+            'fromLead'
+        ));
+    }
+
+    public function update(Request $request, LeadOutboundEnquiry $enquiry): RedirectResponse
+    {
+        $this->authorizeWrite();
+
+        $validated = $this->validateOutboundEnquiry($request);
+        $recordingData = $this->resolveRecordingUpload($request, $enquiry);
+        if ($recordingData === false) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->withErrors(['recording' => translate('Failed_to_upload_voice_recording')]);
+        }
+
+        $status = LeadOutboundEnquiryStatus::find($validated['status_id']);
+        $validated['status'] = $status?->name ?? $validated['status_id'];
+        unset($validated['lead_id']);
+
+        $enquiry->update(array_merge($validated, $recordingData ?? []));
+
+        toastr()->success(translate('Outbound enquiry updated successfully'));
+
+        if ($request->boolean('from_lead') && $enquiry->lead_id) {
+            $redirectParams = [];
+            if ($request->boolean('in_modal')) {
+                $redirectParams['in_modal'] = 1;
+            }
+
+            return redirect()->route('admin.lead.show', array_merge(['id' => $enquiry->lead_id], $redirectParams));
+        }
+
+        return redirect()->route('admin.lead.outbound-enquiry.index');
+    }
+
+    public function transcribeRecording(Request $request, LeadOutboundEnquiry $enquiry): JsonResponse
+    {
+        $this->authorizeWrite();
+        @set_time_limit(300);
+
+        if (! $enquiry->hasRecording()) {
+            return response()->json([
+                'success' => false,
+                'message' => translate('No_outbound_enquiry_recording_for_transcription'),
+            ], 422);
+        }
+
+        try {
+            $result = app(LeadOutboundEnquiryRecordingTranscriptionService::class)
+                ->transcribeAndSummarize($enquiry, $request->boolean('force'));
+
+            return response()->json([
+                'success' => true,
+                'message' => $result['from_cache']
+                    ? translate('Transcript_loaded_from_saved_copy')
+                    : translate('Recording_transcribed_successfully'),
+                'transcript' => $result['transcript'],
+                'summary' => $result['summary'],
+                'transcribed_at' => $result['transcribed_at'],
+                'from_cache' => $result['from_cache'],
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Outbound enquiry recording transcription failed', [
+                'enquiry_id' => $enquiry->id,
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage() ?: translate('Failed_to_transcribe_recording'),
+            ], 500);
+        }
     }
 
     public function searchLeads(Request $request): JsonResponse
@@ -168,13 +281,18 @@ class LeadOutboundEnquiryController extends Controller
             'phone_number' => 'required|string|max:32',
             'contacted_through' => 'required|in:message,call',
             'remarks' => 'nullable|string|max:1000',
+            'recording' => voice_recording_file_rules(),
             'status_id' => 'required|exists:lead_outbound_enquiry_statuses,id',
             'handled_by' => 'required|string|max:64',
             'contacted_at' => 'required|date',
             'lead_id' => 'nullable|exists:leads,id',
             'related_lead_id' => 'nullable|exists:leads,id',
             'booking_id' => 'nullable|exists:bookings,id',
+        ], [
+            'recording.mimetypes' => translate('Please_upload_a_valid_audio_recording'),
         ]);
+
+        unset($validated['recording']);
 
         $status = LeadOutboundEnquiryStatus::find($validated['status_id']);
         if ($status?->requiresLeadLink() && empty($validated['related_lead_id'])) {
@@ -190,11 +308,11 @@ class LeadOutboundEnquiryController extends Controller
         }
 
         if (!$status?->requiresLeadLink()) {
-            unset($validated['related_lead_id']);
+            $validated['related_lead_id'] = null;
         }
 
         if (!$status?->requiresBookingLink()) {
-            unset($validated['booking_id']);
+            $validated['booking_id'] = null;
         }
 
         return $validated;
@@ -211,6 +329,50 @@ class LeadOutboundEnquiryController extends Controller
         $validated['status'] = $status?->name ?? $validated['status_id'];
 
         return LeadOutboundEnquiry::create($validated);
+    }
+
+    protected function authorizeWrite(): void
+    {
+        abort_unless(Gate::any(['lead_outbound_enquiry_add', 'lead_outbound_enquiry_update']), 403);
+    }
+
+    /**
+     * @return array<string, mixed>|false|null false when upload failed, null when no new file
+     */
+    protected function resolveRecordingUpload(Request $request, ?LeadOutboundEnquiry $existing = null): array|false|null
+    {
+        if (! $request->hasFile('recording')) {
+            return null;
+        }
+
+        if ($request->input('contacted_through') !== 'call') {
+            throw ValidationException::withMessages([
+                'recording' => translate('Voice_recording_is_only_allowed_for_call_follow_ups'),
+            ]);
+        }
+
+        $recording = $request->file('recording');
+        $extension = $recording->getClientOriginalExtension() ?: 'webm';
+        $storedName = file_uploader(
+            'lead-outbound-enquiries/',
+            $extension,
+            $recording,
+            $existing?->recording_path
+        );
+
+        if ($storedName === 'def.png') {
+            return false;
+        }
+
+        return [
+            'recording_path' => $storedName,
+            'recording_disk' => getDisk(),
+            'recording_mime' => $recording->getMimeType(),
+            'recording_original_name' => $recording->getClientOriginalName(),
+            'recording_transcript' => null,
+            'recording_summary' => null,
+            'transcribed_at' => null,
+        ];
     }
 
     /**

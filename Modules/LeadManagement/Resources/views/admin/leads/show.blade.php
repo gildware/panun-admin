@@ -890,7 +890,7 @@
                                             <h5 class="modal-title" id="addOutboundEnquiryModalLabel">{{ translate('Add_Outbound_Enquiry') }}</h5>
                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
                                         </div>
-                                        <form method="POST" action="{{ route('admin.lead.outbound-enquiry.store-from-lead', $lead->id) }}">
+                                        <form method="POST" action="{{ route('admin.lead.outbound-enquiry.store-from-lead', $lead->id) }}" enctype="multipart/form-data">
                                             @csrf
                                             @if(!empty($inModal))
                                                 <input type="hidden" name="in_modal" value="1">
@@ -3321,7 +3321,7 @@
             });
         })();
 
-        @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER && $errors->hasAny(['customer_name', 'phone_number', 'contacted_through', 'status_id', 'handled_by', 'contacted_at', 'remarks', 'related_lead_id', 'booking_id']))
+        @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER && $errors->hasAny(['customer_name', 'phone_number', 'contacted_through', 'status_id', 'handled_by', 'contacted_at', 'remarks', 'related_lead_id', 'booking_id', 'recording']))
             $(function () {
                 const modalEl = document.getElementById('addOutboundEnquiryModal');
                 if (modalEl && window.bootstrap?.Modal) {
@@ -3659,5 +3659,6 @@
 
 @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER)
     @include('leadmanagement::admin.outbound-enquiries.partials._form_script')
+    @include('leadmanagement::admin.outbound-enquiries.partials._recording_script')
 @endif
 
