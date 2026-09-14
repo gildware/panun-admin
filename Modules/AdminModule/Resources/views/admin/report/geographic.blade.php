@@ -292,19 +292,13 @@
                     <p class="text-muted fz-12 mb-3">{{ translate('Geographic_date_wise_help') }}</p>
                     <div id="geo-daily-bar"></div>
                     @if(!empty($splitDailyByGeo))
-                        <div class="row g-3 mt-1">
-                            <div class="col-lg-6">
-                                <div class="fz-12 text-muted mb-2">{{ str_replace(':geo', $geoLabel, translate('Geographic_date_wise_leads_by_geo')) }}</div>
-                                <div class="geo-report-stack-scroll">
-                                    <div id="geo-daily-leads-by-geo"></div>
-                                </div>
-                            </div>
-                            <div class="col-lg-6">
-                                <div class="fz-12 text-muted mb-2">{{ str_replace(':geo', $geoLabel, translate('Geographic_date_wise_bookings_by_geo')) }}</div>
-                                <div class="geo-report-stack-scroll">
-                                    <div id="geo-daily-bookings-by-geo"></div>
-                                </div>
-                            </div>
+                        <div class="mt-4">
+                            <div class="fz-12 text-muted mb-2">{{ str_replace(':geo', $geoLabel, translate('Geographic_date_wise_leads_by_geo')) }}</div>
+                            <div id="geo-daily-leads-by-geo"></div>
+                        </div>
+                        <div class="mt-4">
+                            <div class="fz-12 text-muted mb-2">{{ str_replace(':geo', $geoLabel, translate('Geographic_date_wise_bookings_by_geo')) }}</div>
+                            <div id="geo-daily-bookings-by-geo"></div>
                         </div>
                     @endif
                 </div>
@@ -631,7 +625,7 @@
                     return;
                 }
                 bindChart(el, {
-                    chart: { type: 'bar', height: 320, stacked: true, fontFamily: 'inherit', toolbar: { show: false } },
+                    chart: { type: 'bar', height: 380, stacked: true, fontFamily: 'inherit', toolbar: { show: false } },
                     series: seriesRows.map(function (row) {
                         return { name: row.label || '—', data: row.data || [] };
                     }),
@@ -639,7 +633,7 @@
                     colors: palette,
                     dataLabels: { enabled: false },
                     plotOptions: { bar: { columnWidth: '60%', borderRadius: 1 } },
-                    legend: { position: 'bottom', fontSize: '11px', height: 88 }
+                    legend: { position: 'bottom', fontSize: '11px', height: 72 }
                 });
             }
 
