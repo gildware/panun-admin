@@ -940,7 +940,7 @@ class GeographicBusinessReportAnalyticsService
      * @param  list<string>  $dayKeys
      * @return array{lead_series: list<array{key: string, label: string, data: list<int>}>, booking_series: list<array{key: string, label: string, data: list<int>}>}
      */
-    private function dailyGeoSeries(array $leadByGeo, array $bookingByGeo, array $labels, array $dayKeys, int $limit = 8): array
+    private function dailyGeoSeries(array $leadByGeo, array $bookingByGeo, array $labels, array $dayKeys): array
     {
         $keys = array_values(array_unique(array_merge(array_keys($leadByGeo), array_keys($bookingByGeo))));
         $scored = [];
@@ -949,14 +949,10 @@ class GeographicBusinessReportAnalyticsService
         }
         arsort($scored);
 
-        $ranked = array_keys($scored);
-        $top = array_slice($ranked, 0, $limit);
-        $rest = array_slice($ranked, $limit);
         $zeros = array_fill_keys($dayKeys, 0);
-
         $leadSeries = [];
         $bookingSeries = [];
-        foreach ($top as $key) {
+        foreach (array_keys($scored) as $key) {
             $label = $labels[$key] ?? translate('Not_Specified');
             $leadSeries[] = [
                 'key' => $key,
@@ -967,27 +963,6 @@ class GeographicBusinessReportAnalyticsService
                 'key' => $key,
                 'label' => $label,
                 'data' => array_values(array_replace($zeros, $bookingByGeo[$key] ?? [])),
-            ];
-        }
-
-        if ($rest !== []) {
-            $leadOthers = $zeros;
-            $bookingOthers = $zeros;
-            foreach ($rest as $key) {
-                foreach ($dayKeys as $day) {
-                    $leadOthers[$day] += $leadByGeo[$key][$day] ?? 0;
-                    $bookingOthers[$day] += $bookingByGeo[$key][$day] ?? 0;
-                }
-            }
-            $leadSeries[] = [
-                'key' => '__others__',
-                'label' => translate('Others'),
-                'data' => array_values($leadOthers),
-            ];
-            $bookingSeries[] = [
-                'key' => '__others__',
-                'label' => translate('Others'),
-                'data' => array_values($bookingOthers),
             ];
         }
 
