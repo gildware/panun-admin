@@ -90,11 +90,12 @@
         .geo-tt-line { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
         .geo-tt-swatch { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
         .geo-tt-total { margin-top: 6px; padding-top: 6px; border-top: 1px solid #edf0f2; font-weight: 600; }
-        .apexcharts-tooltip.apexcharts-theme-light {
-            background: transparent !important;
-            border: 0 !important;
-            box-shadow: none !important;
+        .geo-graph-detail {
+            position: fixed;
+            z-index: 2000;
+            pointer-events: none;
         }
+        .geo-graph-detail.is-pinned { pointer-events: auto; }
         .geo-rec-opportunity { border-left: 4px solid #4e73df; }
         .geo-rec-grow { border-left: 4px solid #1cc88a; }
         .geo-rec-risk { border-left: 4px solid #e74a3b; }
@@ -477,6 +478,7 @@
             </div>
         </div>
     </div>
+    <div id="geo-graph-detail" class="geo-graph-detail" hidden></div>
 @endsection
 
 @push('script')
@@ -527,60 +529,124 @@
                 return html + '</div>';
             }
 
-            function stackedBarTooltip() {
-                return {
-                    shared: true,
-                    intersect: false,
-                    followCursor: true,
-                    custom: function (opts) {
-                        var idx = opts.dataPointIndex;
-                        var w = opts.w;
-                        var title = w.globals.labels[idx] || '';
-                        var names = w.globals.seriesNames || [];
-                        var colors = w.globals.colors || [];
-                        var series = opts.series || w.globals.series || [];
-                        var total = 0;
-                        var values = series.map(function (s) {
-                            var val = Array.isArray(s) ? (s[idx] || 0) : (s || 0);
-                            total += val;
-                            return val;
-                        });
-                        var lines = [];
-                        values.forEach(function (val, i) {
-                            if (!val) return;
-                            lines.push({
-                                color: colors[i],
-                                text: (names[i] || '') + ': ' + val + ' (' + pct(val, total) + '%)'
-                            });
-                        });
-                        return tooltipBox(title, lines, @json(translate('Total')) + ': ' + total);
-                    }
-                };
+            var totalLabel = @json(translate('Total'));
+            var detailCard = document.getElementById('geo-graph-detail');
+
+            function placeDetail(event) {
+                if (!detailCard || !event) return;
+                var x = event.clientX || 0;
+                var y = event.clientY || 0;
+                var width = detailCard.offsetWidth || 220;
+                var height = detailCard.offsetHeight || 120;
+                detailCard.style.left = Math.max(8, Math.min(x + 14, window.innerWidth - width - 8)) + 'px';
+                detailCard.style.top = Math.max(8, Math.min(y + 14, window.innerHeight - height - 8)) + 'px';
             }
 
-            function groupedBarTooltip() {
-                return {
-                    shared: true,
-                    intersect: false,
-                    followCursor: true,
-                    custom: function (opts) {
-                        var idx = opts.dataPointIndex;
-                        var w = opts.w;
-                        var title = w.globals.labels[idx] || '';
-                        var names = w.globals.seriesNames || [];
-                        var colors = w.globals.colors || [];
-                        var series = opts.series || w.globals.series || [];
-                        var lines = [];
-                        series.forEach(function (s, i) {
-                            var val = Array.isArray(s) ? (s[idx] || 0) : (s || 0);
-                            lines.push({
-                                color: colors[i],
-                                text: (names[i] || '') + ': ' + val
-                            });
-                        });
-                        return tooltipBox(title, lines);
+            function hideDetail(force) {
+                if (!detailCard) return;
+                if (!force && detailCard.classList.contains('is-pinned')) return;
+                detailCard.hidden = true;
+                detailCard.classList.remove('is-pinned');
+            }
+
+            function openDetail(event, title, lines, totalText, pin) {
+                if (!detailCard) return;
+                detailCard.innerHTML = tooltipBox(title, lines, totalText);
+                detailCard.hidden = false;
+                if (pin) {
+                    detailCard.classList.add('is-pinned');
+                } else {
+                    detailCard.classList.remove('is-pinned');
+                }
+                placeDetail(event);
+            }
+
+            function countsFromChart(w, idx) {
+                var series = (w.config && w.config.series) || [];
+                var colors = (w.globals && w.globals.colors) || [];
+                return series.map(function (s, i) {
+                    var point = (s.data || [])[idx];
+                    var val = 0;
+                    if (typeof point === 'number') {
+                        val = point;
+                    } else if (point && typeof point === 'object') {
+                        val = point.y || point.value || 0;
                     }
-                };
+                    return { name: s.name || '', color: colors[i], val: val };
+                });
+            }
+
+            function showBarCounts(event, ctx, idx, stacked, pin) {
+                if (idx == null || idx < 0 || !ctx || !ctx.w) return;
+                var w = ctx.w;
+                var title = ((w.globals && w.globals.labels) || [])[idx] || '';
+                var counts = countsFromChart(w, idx);
+                var total = counts.reduce(function (a, c) { return a + (c.val || 0); }, 0);
+                var lines = counts.map(function (c) {
+                    return {
+                        color: c.color,
+                        text: stacked
+                            ? (c.name + ': ' + c.val + ' (' + pct(c.val, total) + '%)')
+                            : (c.name + ': ' + c.val)
+                    };
+                });
+                openDetail(event, title, lines, stacked ? (totalLabel + ': ' + total) : '', pin);
+            }
+
+            function attachBarDetails(options, stacked) {
+                options = options || {};
+                options.tooltip = { enabled: false };
+                options.chart = options.chart || {};
+                var prev = options.chart.events || {};
+                options.chart.events = Object.assign({}, prev, {
+                    dataPointMouseEnter: function (e, ctx, cfg) {
+                        showBarCounts(e, ctx, cfg.dataPointIndex, stacked, false);
+                    },
+                    dataPointMouseLeave: function () {
+                        hideDetail(false);
+                    },
+                    dataPointSelection: function (e, ctx, cfg) {
+                        showBarCounts(e, ctx, cfg.dataPointIndex, stacked, true);
+                    },
+                    mouseLeave: function () {
+                        hideDetail(false);
+                    }
+                });
+                return options;
+            }
+
+            function attachPieDetails(options, rows) {
+                options = options || {};
+                options.tooltip = { enabled: false };
+                options.chart = options.chart || {};
+                var prev = options.chart.events || {};
+                options.chart.events = Object.assign({}, prev, {
+                    dataPointMouseEnter: function (e, ctx, cfg) {
+                        showPieCounts(e, rows, cfg.seriesIndex, false);
+                    },
+                    dataPointMouseLeave: function () {
+                        hideDetail(false);
+                    },
+                    dataPointSelection: function (e, ctx, cfg) {
+                        showPieCounts(e, rows, cfg.seriesIndex, true);
+                    },
+                    mouseLeave: function () {
+                        hideDetail(false);
+                    }
+                });
+                return options;
+            }
+
+            function showPieCounts(event, rows, index, pin) {
+                var total = sum(rows.map(function (r) { return r.total || 0; }));
+                var active = rows[index] || {};
+                var lines = rows.map(function (r, i) {
+                    return {
+                        color: r.color || palette[i % palette.length],
+                        text: (r.label || '—') + ': ' + (r.total || 0) + ' (' + pct(r.total || 0, total) + '%)'
+                    };
+                });
+                openDetail(event, active.label || '', lines, totalLabel + ': ' + total, pin);
             }
 
             function showEmpty(el) {
@@ -663,7 +729,7 @@
                         }
                     };
                 }
-                return options;
+                return attachPieDetails(options, rows);
             }
 
             function renderDonut(el, legendEl, rows, centerLabel) {
@@ -725,7 +791,7 @@
                 var chartWidth = Math.max(parentWidth, rows.length * 88);
                 el.style.width = chartWidth + 'px';
                 fillSeriesLegend(legendEl, seriesDefs);
-                bindChart(el, {
+                bindChart(el, attachBarDetails({
                     chart: { type: 'bar', height: 300, width: chartWidth, stacked: true, fontFamily: 'inherit', toolbar: { show: false } },
                     series: seriesDefs.map(function (s) {
                         return { name: s.name, data: rows.map(function (r) { return r[s.key] || 0; }) };
@@ -744,9 +810,8 @@
                     dataLabels: { enabled: false },
                     grid: { padding: { left: 8, right: 8, bottom: 8 } },
                     plotOptions: { bar: { horizontal: false, columnWidth: '55%', borderRadius: 2 } },
-                    legend: { show: false },
-                    tooltip: stackedBarTooltip()
-                });
+                    legend: { show: false }
+                }, true));
             }
 
             var geoRows = geo.rows || [];
@@ -797,7 +862,7 @@
                 if (!sum(leadSeries) && !sum(bookingSeries)) {
                     showEmpty(dailyEl);
                 } else {
-                    bindChart(dailyEl, {
+                    bindChart(dailyEl, attachBarDetails({
                         chart: { type: 'bar', height: 320, stacked: false, fontFamily: 'inherit', toolbar: { show: false } },
                         series: [
                             { name: @json(translate('Leads')), data: leadSeries },
@@ -807,9 +872,8 @@
                         colors: ['#4e73df', '#1cc88a'],
                         dataLabels: { enabled: false },
                         plotOptions: { bar: { columnWidth: '55%', borderRadius: 2 } },
-                        legend: { position: 'top' },
-                        tooltip: groupedBarTooltip()
-                    });
+                        legend: { position: 'top' }
+                    }, false));
                 }
             }
 
@@ -825,7 +889,7 @@
                 fillSeriesLegend(legendEl, seriesRows.map(function (row, i) {
                     return { name: row.label || '—', color: palette[i % palette.length] };
                 }));
-                bindChart(el, {
+                bindChart(el, attachBarDetails({
                     chart: { type: 'bar', height: 360, stacked: true, fontFamily: 'inherit', toolbar: { show: false } },
                     series: seriesRows.map(function (row) {
                         return { name: row.label || '—', data: row.data || [] };
@@ -834,9 +898,8 @@
                     colors: palette,
                     dataLabels: { enabled: false },
                     plotOptions: { bar: { columnWidth: '60%', borderRadius: 1 } },
-                    legend: { show: false },
-                    tooltip: stackedBarTooltip()
-                });
+                    legend: { show: false }
+                }, true));
             }
 
             @if(!empty($splitDailyByGeo))
@@ -853,7 +916,7 @@
                 if (!matrix.length) {
                     showEmpty(catEl);
                 } else {
-                    bindChart(catEl, {
+                    bindChart(catEl, attachBarDetails({
                         chart: { type: 'bar', height: Math.max(280, matrix.length * 28), stacked: true, fontFamily: 'inherit', toolbar: { show: false } },
                         series: [
                             { name: @json(translate('Leads')), data: matrix.map(function (r) { return r.leads || 0; }) },
@@ -865,9 +928,8 @@
                         colors: ['#4e73df', '#1cc88a', '#36b9cc'],
                         dataLabels: { enabled: false },
                         plotOptions: { bar: { horizontal: true, barHeight: '70%' } },
-                        legend: { position: 'top', fontSize: '11px' },
-                        tooltip: stackedBarTooltip()
-                    });
+                        legend: { position: 'top', fontSize: '11px' }
+                    }, true));
                 }
             }
             function closeGeoFilterDrawer() {
@@ -912,6 +974,11 @@
                     }
                 });
             }
+            document.addEventListener('click', function (e) {
+                if (!detailCard || detailCard.hidden) return;
+                if (e.target.closest('#geo-graph-detail') || e.target.closest('.apexcharts-canvas')) return;
+                hideDetail(true);
+            });
         })();
     </script>
 @endpush
