@@ -5,18 +5,7 @@
 @push('css_or_js')
     <style>
         .geo-report-chart-card { background: #fafbfc; min-height: 100%; }
-        .geo-report-donut .apexcharts-legend {
-            overflow-y: auto !important;
-            overflow-x: hidden;
-            align-content: flex-start;
-            max-height: 240px;
-        }
-        .geo-report-donut .apexcharts-legend.apexcharts-align-left {
-            flex-direction: column !important;
-            flex-wrap: nowrap !important;
-            justify-content: flex-start !important;
-            align-items: flex-start !important;
-        }
+        .geo-report-donut { min-height: 280px; }
         .report-filter-offcanvas { display: flex; flex-direction: column; }
         .report-filter-offcanvas .report-filter-form-flex { flex: 1; display: flex; flex-direction: column; min-height: 0; }
         .report-filter-offcanvas .report-filter-body { flex: 1; min-height: 0; }
@@ -376,6 +365,13 @@
             var geo = {!! json_encode($geo) !!};
             var noData = @json(translate('Data_not_available'));
             var palette = ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796', '#fd7e14', '#6f42c1'];
+            var initFlag = document.getElementById('geo-lead-type-chart');
+            if (initFlag && initFlag.getAttribute('data-geo-charts-bound') === '1') {
+                return;
+            }
+            if (initFlag) {
+                initFlag.setAttribute('data-geo-charts-bound', '1');
+            }
 
             function sum(values) {
                 return (values || []).reduce(function (a, b) { return a + (b || 0); }, 0);
@@ -384,6 +380,18 @@
             function showEmpty(el) {
                 if (!el) return;
                 el.innerHTML = '<div class="text-muted text-center py-5 fz-12">' + noData + '</div>';
+            }
+
+            function bindChart(el, options) {
+                if (!el) return;
+                if (el._pkChart) {
+                    try { el._pkChart.destroy(); } catch (e) {}
+                    el._pkChart = null;
+                }
+                el.innerHTML = '';
+                var chart = new ApexCharts(el, options);
+                el._pkChart = chart;
+                chart.render();
             }
 
             function renderDonut(el, rows, centerLabel) {
@@ -396,12 +404,12 @@
                 var values = rows.map(function (r) { return r.total; });
                 var labels = rows.map(function (r) { return (r.label || '—') + ' (' + r.total + ')'; });
                 var colors = rows.map(function (r, i) { return r.color || palette[i % palette.length]; });
-                new ApexCharts(el, {
+                bindChart(el, {
                     series: values,
-                    chart: { type: 'donut', height: 280, fontFamily: 'inherit' },
+                    chart: { type: 'donut', height: 320, fontFamily: 'inherit' },
                     labels: labels,
                     colors: colors,
-                    legend: { position: 'left', fontSize: '11px', height: 260 },
+                    legend: { position: 'bottom', fontSize: '11px' },
                     dataLabels: { enabled: false },
                     stroke: { width: 1, colors: ['#fff'] },
                     plotOptions: {
@@ -420,7 +428,7 @@
                             }
                         }
                     }
-                }).render();
+                });
             }
 
             function renderPie(el, rows) {
@@ -430,22 +438,40 @@
                     showEmpty(el);
                     return;
                 }
-                new ApexCharts(el, {
+                bindChart(el, {
                     series: rows.map(function (r) { return r.total; }),
-                    chart: { type: 'pie', height: 280, fontFamily: 'inherit' },
+                    chart: { type: 'pie', height: 320, fontFamily: 'inherit' },
                     labels: rows.map(function (r) { return (r.label || '—') + ' (' + r.total + ')'; }),
                     colors: rows.map(function (r, i) { return r.color || palette[i % palette.length]; }),
-                    legend: { position: 'left', fontSize: '11px', height: 260 },
+                    legend: { position: 'bottom', fontSize: '11px' },
                     dataLabels: { enabled: false },
                     stroke: { width: 1, colors: ['#fff'] }
-                }).render();
+                });
+            }
+
+            function renderShareBar(el, rows, seriesName, color) {
+                if (!el) return;
+                rows = (rows || []).filter(function (r) { return (r.total || 0) > 0; }).slice(0, 12);
+                if (!rows.length) {
+                    showEmpty(el);
+                    return;
+                }
+                bindChart(el, {
+                    chart: { type: 'bar', height: Math.max(280, rows.length * 28), fontFamily: 'inherit', toolbar: { show: false } },
+                    series: [{ name: seriesName, data: rows.map(function (r) { return r.total; }) }],
+                    xaxis: { categories: rows.map(function (r) { return r.label || '—'; }) },
+                    colors: [color],
+                    dataLabels: { enabled: true },
+                    plotOptions: { bar: { horizontal: true, borderRadius: 3, barHeight: '70%' } },
+                    legend: { show: false }
+                });
             }
 
             renderDonut(document.querySelector('#geo-lead-type-chart'), report.lead_type_breakdown || [], @json(translate('Leads')));
             renderPie(document.querySelector('#geo-customer-status-chart'), report.customer_status_breakdown || []);
             renderDonut(document.querySelector('#geo-booking-status-chart'), report.booking_status_breakdown || [], @json(translate('Bookings')));
-            renderDonut(document.querySelector('#geo-lead-share-chart'), geo.lead_share || [], @json(translate('Leads')));
-            renderDonut(document.querySelector('#geo-booking-share-chart'), geo.booking_share || [], @json(translate('Bookings')));
+            renderShareBar(document.querySelector('#geo-lead-share-chart'), geo.lead_share || [], @json(translate('Leads')), '#4e73df');
+            renderShareBar(document.querySelector('#geo-booking-share-chart'), geo.booking_share || [], @json(translate('Bookings')), '#1cc88a');
 
             var daily = report.daily || {};
             var dailyEl = document.querySelector('#geo-daily-bar');
@@ -455,7 +481,7 @@
                 if (!sum(leadSeries) && !sum(bookingSeries)) {
                     showEmpty(dailyEl);
                 } else {
-                    new ApexCharts(dailyEl, {
+                    bindChart(dailyEl, {
                         chart: { type: 'bar', height: 320, stacked: false, fontFamily: 'inherit', toolbar: { show: false } },
                         series: [
                             { name: @json(translate('Leads')), data: leadSeries },
@@ -466,7 +492,7 @@
                         dataLabels: { enabled: false },
                         plotOptions: { bar: { columnWidth: '55%', borderRadius: 2 } },
                         legend: { position: 'top' }
-                    }).render();
+                    });
                 }
             }
 
@@ -478,7 +504,7 @@
                     showEmpty(el);
                     return;
                 }
-                new ApexCharts(el, {
+                bindChart(el, {
                     chart: { type: 'bar', height: 320, stacked: true, fontFamily: 'inherit', toolbar: { show: false } },
                     series: seriesRows.map(function (row) {
                         return { name: row.label || '—', data: row.data || [] };
@@ -488,7 +514,7 @@
                     dataLabels: { enabled: false },
                     plotOptions: { bar: { columnWidth: '60%', borderRadius: 1 } },
                     legend: { position: 'top', fontSize: '11px' }
-                }).render();
+                });
             }
 
             @if(!empty($splitDailyByGeo))
@@ -505,7 +531,7 @@
                 if (!matrix.length) {
                     showEmpty(catEl);
                 } else {
-                    new ApexCharts(catEl, {
+                    bindChart(catEl, {
                         chart: { type: 'bar', height: 360, stacked: true, fontFamily: 'inherit', toolbar: { show: false } },
                         series: [
                             { name: @json(translate('Leads')), data: matrix.map(function (r) { return r.leads || 0; }) },
@@ -521,7 +547,7 @@
                         colors: ['#4e73df', '#1cc88a', '#36b9cc'],
                         dataLabels: { enabled: false },
                         legend: { position: 'top' }
-                    }).render();
+                    });
                 }
             }
             function closeGeoFilterDrawer() {
@@ -536,7 +562,7 @@
                 var bs = bootstrap.Offcanvas.getInstance(drawerEl);
                 if (bs) bs.hide();
             }
-            $(document).on('submit', '#geoReportFilterDrawer form', closeGeoFilterDrawer);
+            $(document).off('submit.geoReportFilter').on('submit.geoReportFilter', '#geoReportFilterDrawer form', closeGeoFilterDrawer);
             var geoDrawer = document.getElementById('geoReportFilterDrawer');
             if (geoDrawer) {
                 geoDrawer.addEventListener('shown.bs.offcanvas', function () {
