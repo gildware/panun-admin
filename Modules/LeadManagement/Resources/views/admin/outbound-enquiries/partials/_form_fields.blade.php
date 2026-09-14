@@ -1,18 +1,20 @@
 @php
     $formId = $formId ?? 'outbound-enquiry-form';
     $formPrefix = $formPrefix ?? 'outbound';
-    $defaultCustomerName = $defaultCustomerName ?? old('customer_name');
-    $defaultPhoneNumber = $defaultPhoneNumber ?? old('phone_number');
-    $defaultRelatedLeadId = $defaultRelatedLeadId ?? old('related_lead_id');
-    $defaultBookingId = $defaultBookingId ?? old('booking_id');
-    $defaultContactedThrough = old('contacted_through', 'call');
-    $defaultHandledBy = old('handled_by', $currentEmployeeId ?? auth()->id());
-    $defaultStatusId = old('status_id');
-    $defaultContactedAt = old('contacted_at', now()->format('Y-m-d\TH:i'));
-    $defaultRemarks = old('remarks');
+    $enquiry = $enquiry ?? null;
+    $defaultCustomerName = $defaultCustomerName ?? old('customer_name', $enquiry?->customer_name);
+    $defaultPhoneNumber = $defaultPhoneNumber ?? old('phone_number', $enquiry?->phone_number);
+    $defaultRelatedLeadId = $defaultRelatedLeadId ?? old('related_lead_id', $enquiry?->related_lead_id);
+    $defaultBookingId = $defaultBookingId ?? old('booking_id', $enquiry?->booking_id);
+    $defaultContactedThrough = old('contacted_through', $enquiry?->contacted_through ?? 'call');
+    $defaultHandledBy = old('handled_by', $enquiry?->handled_by ?? ($currentEmployeeId ?? auth()->id()));
+    $defaultStatusId = old('status_id', $enquiry?->status_id);
+    $defaultContactedAt = old('contacted_at', optional($enquiry?->contacted_at)->format('Y-m-d\TH:i') ?? now()->format('Y-m-d\TH:i'));
+    $defaultRemarks = old('remarks', $enquiry?->remarks);
     $statusLinkTypes = collect($statuses ?? [])->mapWithKeys(fn ($status) => [
         (string) $status->id => $status->effectiveLinkType(),
     ])->all();
+    $showRecordingField = $defaultContactedThrough === 'call';
 @endphp
 
 <div class="row g-3 outbound-enquiry-form-fields" data-form-prefix="{{ $formPrefix }}">
@@ -42,7 +44,7 @@
     </div>
     <div class="col-md-6">
         <label class="form-label">{{ translate('Contacted_Through') }} *</label>
-        <select class="form-select js-select" name="contacted_through" required>
+        <select class="form-select js-select outbound-enquiry-contact-select" name="contacted_through" required>
             <option value="call" {{ $defaultContactedThrough === 'call' ? 'selected' : '' }}>
                 {{ translate('Call') }}
             </option>
@@ -140,6 +142,33 @@
                   rows="{{ $remarksRows ?? 3 }}"
                   placeholder="{{ translate('Remarks') }}">{{ $defaultRemarks }}</textarea>
         @error('remarks')
+        <div class="text-danger small mt-1">{{ $message }}</div>
+        @enderror
+    </div>
+    <div class="col-12 outbound-enquiry-recording-wrap {{ $showRecordingField ? '' : 'd-none' }}">
+        <label class="form-label">{{ translate('Voice_Recording') }}</label>
+        @if($enquiry && $enquiry->hasRecording())
+            <div class="small text-muted mb-2">
+                {{ translate('Current_recording') }}
+                @if($enquiry->recording_original_name)
+                    — {{ $enquiry->recording_original_name }}
+                @endif
+                @if($enquiry->recording_url)
+                    <audio controls preload="none" class="d-block mt-2" style="height: 36px; max-width: 320px;">
+                        <source src="{{ $enquiry->recording_url }}" type="{{ $enquiry->recording_mime ?: 'audio/mpeg' }}">
+                    </audio>
+                @endif
+            </div>
+        @endif
+        <input type="file"
+               name="recording"
+               class="form-control outbound-enquiry-recording-input"
+               accept="audio/*,video/mp4,.mp3,.wav,.webm,.ogg,.m4a,.aac,.mp4">
+        <div class="form-text">{{ translate('Upload_call_recording_optional_max_10MB') }}</div>
+        @if($enquiry && $enquiry->hasRecording())
+            <div class="form-text">{{ translate('Upload_new_recording_to_replace_existing') }}</div>
+        @endif
+        @error('recording')
         <div class="text-danger small mt-1">{{ $message }}</div>
         @enderror
     </div>

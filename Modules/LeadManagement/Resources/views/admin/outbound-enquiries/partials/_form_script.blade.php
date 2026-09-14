@@ -117,10 +117,25 @@
                     }
                 });
                 applyOutboundEnquiryStatusLinks($scope);
+                applyOutboundEnquiryRecordingVisibility($scope);
+            }
+
+            function applyOutboundEnquiryRecordingVisibility($scope) {
+                const channel = $scope.find('.outbound-enquiry-contact-select').val();
+                const $wrap = $scope.find('.outbound-enquiry-recording-wrap');
+                const show = channel === 'call';
+                $wrap.toggleClass('d-none', !show);
+                if (!show) {
+                    $scope.find('.outbound-enquiry-recording-input').val('');
+                }
             }
 
             $(document).on('change', '.outbound-enquiry-status-select', function () {
                 applyOutboundEnquiryStatusLinks($(this).closest('.outbound-enquiry-form-fields'));
+            });
+
+            $(document).on('change', '.outbound-enquiry-contact-select', function () {
+                applyOutboundEnquiryRecordingVisibility($(this).closest('.outbound-enquiry-form-fields'));
             });
 
             $(function () {

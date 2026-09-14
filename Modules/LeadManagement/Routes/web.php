@@ -33,9 +33,12 @@ Route::group([
         Route::group(['prefix' => 'outbound-enquiry', 'as' => 'outbound-enquiry.', 'middleware' => ['can:lead_outbound_enquiry_view']], function () {
             Route::get('/', [LeadOutboundEnquiryController::class, 'index'])->name('index');
             Route::get('create', [LeadOutboundEnquiryController::class, 'create'])->middleware(['can:lead_outbound_enquiry_add'])->name('create');
-            Route::get('search-leads', [LeadOutboundEnquiryController::class, 'searchLeads'])->middleware(['can:lead_outbound_enquiry_add'])->name('search-leads');
-            Route::get('search-bookings', [LeadOutboundEnquiryController::class, 'searchBookings'])->middleware(['can:lead_outbound_enquiry_add'])->name('search-bookings');
+            Route::get('search-leads', [LeadOutboundEnquiryController::class, 'searchLeads'])->name('search-leads');
+            Route::get('search-bookings', [LeadOutboundEnquiryController::class, 'searchBookings'])->name('search-bookings');
             Route::post('store', [LeadOutboundEnquiryController::class, 'store'])->middleware(['can:lead_outbound_enquiry_add'])->name('store');
+            Route::get('{enquiry}/edit', [LeadOutboundEnquiryController::class, 'edit'])->name('edit');
+            Route::put('{enquiry}', [LeadOutboundEnquiryController::class, 'update'])->name('update');
+            Route::post('{enquiry}/transcribe', [LeadOutboundEnquiryController::class, 'transcribeRecording'])->name('transcribe');
         });
 
         // Reports routes should come before parameterized {id} routes

@@ -80,7 +80,9 @@
                                         <th>{{ translate('Booking_ID') }}</th>
                                         <th>{{ translate('Date_Time') }}</th>
                                         <th>{{ translate('Handled_By') }}</th>
+                                        <th>{{ translate('Recording') }}</th>
                                         <th>{{ translate('Remarks') }}</th>
+                                        <th>{{ translate('Action') }}</th>
                                     </tr>
                                     </thead>
                                     <tbody>
@@ -123,11 +125,41 @@
                                                 {{ $enquiry->contacted_at ? $enquiry->contacted_at->format('d M Y, h:i A') : '—' }}
                                             </td>
                                             <td>{{ $employeeName }}</td>
+                                            <td>
+                                                @if($enquiry->hasRecording() && $enquiry->recording_url)
+                                                    <div class="d-flex flex-column align-items-start gap-1">
+                                                        <audio controls preload="none" style="height: 32px; max-width: 180px;">
+                                                            <source src="{{ $enquiry->recording_url }}" type="{{ $enquiry->recording_mime ?: 'audio/mpeg' }}">
+                                                        </audio>
+                                                        <button type="button"
+                                                                class="btn btn-sm btn-outline-secondary outbound-enquiry-recording-toggle"
+                                                                data-target="#outbound-enquiry-recording-{{ $enquiry->id }}">
+                                                            {{ translate('View') }}
+                                                        </button>
+                                                    </div>
+                                                @else
+                                                    —
+                                                @endif
+                                            </td>
                                             <td>{{ \Illuminate\Support\Str::limit($enquiry->remarks ?? '—', 40) }}</td>
+                                            <td>
+                                                @canany(['lead_outbound_enquiry_add', 'lead_outbound_enquiry_update'])
+                                                    <a href="{{ route('admin.lead.outbound-enquiry.edit', $enquiry) }}" class="btn btn--primary btn-sm">
+                                                        {{ translate('Edit') }}
+                                                    </a>
+                                                @endcanany
+                                            </td>
                                         </tr>
+                                        @if($enquiry->hasRecording() && $enquiry->recording_url)
+                                            <tr id="outbound-enquiry-recording-{{ $enquiry->id }}" class="d-none">
+                                                <td colspan="11" class="bg-light">
+                                                    @include('leadmanagement::admin.outbound-enquiries.partials._recording_details_panel', ['enquiry' => $enquiry])
+                                                </td>
+                                            </tr>
+                                        @endif
                                     @empty
                                         <tr>
-                                            <td colspan="9" class="text-center text-muted py-3">
+                                            <td colspan="11" class="text-center text-muted py-3">
                                                 {{ translate('No_data_found') }}
                                             </td>
                                         </tr>
@@ -145,4 +177,7 @@
             </div>
         </div>
     </div>
+    @include('bookingmodule::admin.booking.partials._booking-followup-styles')
 @endsection
+
+@include('leadmanagement::admin.outbound-enquiries.partials._recording_script')
