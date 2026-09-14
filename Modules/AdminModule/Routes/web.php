@@ -7,6 +7,7 @@ use Modules\AdminModule\Http\Controllers\Web\Admin\RoleController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\EmployeeController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\Analytics\SearchController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\Report\BookingReportController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\Report\GeographicReportController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\Report\DailyEmployeeReportController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\Report\Business\EarningReportController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\Report\Business\ExpenseReportController;
@@ -139,6 +140,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('booking', [BookingReportController::class, 'getBookingReport'])->name('booking');
         Route::any('booking/download', [BookingReportController::class, 'getBookingReportDownload'])->name('booking.download');
         Route::post('booking/drilldown', [BookingReportController::class, 'getBookingReportDrilldown'])->name('booking.drilldown');
+
+        Route::get('geographic', [GeographicReportController::class, 'index'])->name('geographic');
 
         Route::any('provider', [ProviderReportController::class, 'getProviderReport'])->name('provider');
         Route::any('provider/download', [ProviderReportController::class, 'getProviderReportDownload'])->name('provider.download');
