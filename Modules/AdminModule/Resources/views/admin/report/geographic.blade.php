@@ -492,7 +492,7 @@
             }
 
             @if(!empty($splitDailyByGeo))
-            var geoDaily = daily[{{ $view === 'zone' ? "'by_zone'" : "'by_area'" }}] || {};
+            var geoDaily = daily[@json($view === 'zone' ? 'by_zone' : 'by_area')] || {};
             renderStackedGeoDaily(document.querySelector('#geo-daily-leads-by-geo'), geoDaily.lead_series || []);
             renderStackedGeoDaily(document.querySelector('#geo-daily-bookings-by-geo'), geoDaily.booking_series || []);
             @endif
