@@ -2667,6 +2667,9 @@ class BookingWhatsAppNotificationService
 
     /**
      * Human-readable service date/time for all booking WhatsApp placeholders (booking_datetime, previous_service_schedule, dedupe keys).
+     *
+     * Bookings store a naive wall-clock schedule (same value admin shows via strtotime).
+     * Do not convert that clock into app UTC — that made IST 11:40 AM appear as 6:10 AM.
      */
     protected function formatServiceDateTimeForMessages(?string $raw): string
     {
@@ -2674,7 +2677,13 @@ class BookingWhatsAppNotificationService
             return '—';
         }
         try {
-            $dt = \Carbon\Carbon::parse($raw)->timezone(config('app.timezone'));
+            $displayTz = (string) config('whatsappmodule.message_timezone', 'Asia/Kolkata');
+            $trimmed = trim($raw);
+            $hasExplicitOffset = (bool) preg_match('/(?:Z|[+-]\d{2}:?\d{2})$/i', $trimmed);
+
+            $dt = $hasExplicitOffset
+                ? \Carbon\Carbon::parse($trimmed)->timezone($displayTz)
+                : \Carbon\Carbon::parse($trimmed, $displayTz);
 
             return $dt->format('jS F Y g:i A');
         } catch (\Throwable) {
