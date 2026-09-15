@@ -274,4 +274,20 @@ class WhatsAppBookingAutomationFlowsTest extends TestCase
             'language' => [],
         ]));
     }
+
+    public function test_booking_datetime_placeholder_keeps_ist_wall_clock_not_utc(): void
+    {
+        config(['app.timezone' => 'UTC']);
+        config(['whatsappmodule.message_timezone' => 'Asia/Kolkata']);
+
+        $svc = new BookingWhatsAppNotificationService(
+            $this->createStub(WhatsAppCloudService::class),
+            $this->createStub(WhatsAppMessagePersistenceService::class)
+        );
+
+        $this->assertSame('15th September 2026 11:40 AM', $svc->formatScheduleToken('2026-09-15 11:40:00'));
+        $this->assertSame('15th September 2026 11:40 AM', $svc->formatScheduleToken('2026-09-15T11:40'));
+        $this->assertSame('15th September 2026 11:40 AM', $svc->formatScheduleToken('2026-09-15T11:40:00+05:30'));
+        $this->assertSame('15th September 2026 11:40 AM', $svc->formatScheduleToken('2026-09-15T06:10:00.000000Z'));
+    }
 }
