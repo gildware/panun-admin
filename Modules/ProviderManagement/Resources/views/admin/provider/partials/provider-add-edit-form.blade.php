@@ -204,16 +204,37 @@
         height: 200px;
         position: relative;
     }
-    .provider-add-edit-form-root .provider-zones-card > .card-body {
+    #create-provider-form.wizard > .content,
+    #create-provider-form.wizard > .content > .body {
+        overflow: visible !important;
+        position: relative !important;
+        height: auto !important;
+        float: none !important;
+    }
+    .provider-add-edit-form-root .provider-zones-card {
         display: flex;
         flex-direction: column;
         min-height: 0;
     }
+    .provider-add-edit-form-root .provider-zones-card > .card-body {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
+    }
     .provider-add-edit-form-root .provider-zone-tree {
         flex: 1 1 auto;
-        min-height: 22rem;
-        max-height: none;
-        overflow: auto;
+        min-height: 12rem;
+        max-height: min(36rem, calc(100vh - 12rem));
+        overflow-x: hidden;
+        overflow-y: auto !important;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-gutter: stable;
+    }
+    .provider-add-edit-form-root .provider-zone-tree-toggle {
+        position: relative;
+        z-index: 3;
     }
     .provider-add-edit-form-root .provider-map-zone-path {
         margin-top: .75rem;
@@ -1311,26 +1332,46 @@
                 );
             }
 
+            function setProviderZonePanelOpen(panel, open) {
+                if (!panel) {
+                    return;
+                }
+                panel.classList.toggle("d-none", !open);
+                var item = panel.parentElement;
+                var toggle = item ? item.querySelector(":scope > .d-flex .provider-zone-tree-toggle") : null;
+                if (!toggle && item) {
+                    toggle = item.querySelector(".provider-zone-tree-toggle");
+                }
+                if (!toggle) {
+                    return;
+                }
+                toggle.setAttribute("aria-expanded", open ? "true" : "false");
+                var icon = toggle.querySelector(".provider-zone-chevron");
+                if (icon) {
+                    icon.textContent = open ? "remove" : "add";
+                }
+            }
+
+            function expandProviderZoneAncestors(fromEl) {
+                var panel = fromEl && fromEl.closest ? fromEl.closest(".provider-zone-tree-children") : null;
+                while (panel) {
+                    setProviderZonePanelOpen(panel, true);
+                    panel = panel.parentElement && panel.parentElement.closest
+                        ? panel.parentElement.closest(".provider-zone-tree-children")
+                        : null;
+                }
+            }
+
             function expandProviderZoneAncestorsOfChecked() {
                 document.querySelectorAll(".provider-zone-leaf-cb:checked").forEach(function (cb) {
-                    var panel = cb.closest(".provider-zone-tree-children");
-                    while (panel) {
-                        panel.classList.remove("d-none");
-                        var toggle = panel.parentElement ? panel.parentElement.querySelector(".provider-zone-tree-toggle") : null;
-                        if (toggle) {
-                            toggle.setAttribute("aria-expanded", "true");
-                        }
-                        panel = panel.parentElement && panel.parentElement.closest
-                            ? panel.parentElement.closest(".provider-zone-tree-children")
-                            : null;
-                    }
+                    expandProviderZoneAncestors(cb);
                 });
             }
 
             function syncProviderZoneParentsFromLeaves() {
                 document.querySelectorAll("input.provider-zone-parent-cb").forEach(function (cb) {
                     var item = cb.closest(".provider-zone-tree-item");
-                    var panel = item ? item.querySelector(".provider-zone-tree-children") : null;
+                    var panel = item ? item.querySelector(":scope > .provider-zone-tree-children") : null;
                     var leaves = panel ? panel.querySelectorAll("input.provider-zone-leaf-cb") : [];
                     var leavesArr = Array.from(leaves);
 
@@ -1350,7 +1391,6 @@
             }
 
             function syncProviderZoneLabelStyles() {
-                // Leaf labels are "selected" (blue) only when checked
                 document.querySelectorAll("input.provider-zone-leaf-cb").forEach(function (cb) {
                     var label = cb.id ? document.querySelector('label[for="' + cb.id + '"]') : null;
                     if (!label) return;
@@ -1359,7 +1399,6 @@
                     label.classList.toggle("text-muted", !isSelected);
                 });
 
-                // Parent labels are "selected" (blue) only when fully checked (not indeterminate)
                 document.querySelectorAll("input.provider-zone-parent-cb").forEach(function (cb) {
                     var label = cb.id ? document.querySelector('label[for="' + cb.id + '"]') : null;
                     if (!label) return;
@@ -1375,74 +1414,73 @@
                 expandProviderZoneAncestorsOfChecked();
             }
 
-            document.addEventListener("click", function (e) {
-                var t = e.target && e.target.closest ? e.target.closest(".provider-zone-tree-toggle") : null;
-                if (!t) {
+            function bindProviderZoneTreeEvents() {
+                if (window.__pkProviderZoneTreeEventsBound) {
                     return;
                 }
-                e.preventDefault();
-                var item = t.closest(".provider-zone-tree-item");
-                if (!item) {
-                    return;
-                }
-                var ch = null;
-                var kids = item.children;
-                for (var i = 0; i < kids.length; i++) {
-                    if (kids[i].classList && kids[i].classList.contains("provider-zone-tree-children")) {
-                        ch = kids[i];
-                        break;
-                    }
-                }
-                if (!ch) {
-                    return;
-                }
-                var open = ch.classList.toggle("d-none") === false;
-                t.setAttribute("aria-expanded", open ? "true" : "false");
-                var icon = t.querySelector(".provider-zone-chevron");
-                if (icon) {
-                    icon.textContent = open ? "remove" : "add";
-                }
-            });
+                window.__pkProviderZoneTreeEventsBound = true;
 
+                document.addEventListener("click", function (e) {
+                    var t = e.target && e.target.closest ? e.target.closest(".provider-zone-tree-toggle") : null;
+                    if (!t || !t.closest(".provider-zone-tree")) {
+                        return;
+                    }
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var item = t.closest(".provider-zone-tree-item");
+                    var ch = item ? item.querySelector(":scope > .provider-zone-tree-children") : null;
+                    if (!ch) {
+                        return;
+                    }
+                    setProviderZonePanelOpen(ch, ch.classList.contains("d-none"));
+                }, true);
+
+                document.addEventListener("change", function (e) {
+                    var input = e.target;
+                    if (!(input && input.matches && input.matches("input.provider-zone-parent-cb"))) {
+                        return;
+                    }
+
+                    var item = input.closest(".provider-zone-tree-item");
+                    if (!item) {
+                        return;
+                    }
+
+                    item.querySelectorAll("input.provider-zone-leaf-cb").forEach(function (l) {
+                        l.checked = input.checked;
+                    });
+
+                    syncProviderZoneParentsFromLeaves();
+                    syncProviderZoneLabelStyles();
+                    if (input.checked) {
+                        expandProviderZoneAncestors(input);
+                    }
+                });
+
+                document.addEventListener("change", function (e) {
+                    var input = e.target;
+                    if (!(input && input.matches && input.matches("input.provider-zone-leaf-cb"))) {
+                        return;
+                    }
+
+                    syncProviderZoneParentsFromLeaves();
+                    syncProviderZoneLabelStyles();
+                    if (input.checked) {
+                        expandProviderZoneAncestors(input);
+                    }
+                });
+            }
+
+            bindProviderZoneTreeEvents();
             if (document.readyState === "loading") {
                 document.addEventListener("DOMContentLoaded", initProviderZoneTreeSelection);
             } else {
                 initProviderZoneTreeSelection();
             }
-
-            // Parent checkbox controls all descendant leaves
-            document.addEventListener("change", function (e) {
-                var input = e.target;
-                if (!(input && input.matches && input.matches("input.provider-zone-parent-cb"))) {
-                    return;
-                }
-
-                var item = input.closest(".provider-zone-tree-item");
-                if (!item) {
-                    return;
-                }
-
-                var leaves = item.querySelectorAll("input.provider-zone-leaf-cb");
-                leaves.forEach(function (l) {
-                    l.checked = input.checked;
-                });
-
-                syncProviderZoneParentsFromLeaves();
-                syncProviderZoneLabelStyles();
-                expandProviderZoneAncestorsOfChecked();
-            });
-
-            // Leaf checkbox controls its parents (checked/indeterminate)
-            document.addEventListener("change", function (e) {
-                var input = e.target;
-                if (!(input && input.matches && input.matches("input.provider-zone-leaf-cb"))) {
-                    return;
-                }
-
-                syncProviderZoneParentsFromLeaves();
-                syncProviderZoneLabelStyles();
-                expandProviderZoneAncestorsOfChecked();
-            });
+            if (!window.__pkProviderZoneTreeInitBound) {
+                window.__pkProviderZoneTreeInitBound = true;
+                document.addEventListener("admin:page-loaded", initProviderZoneTreeSelection);
+            }
 
             document.addEventListener("click", function (e) {
                 const btn = e.target.closest(".provider-upload-remove-btn");
