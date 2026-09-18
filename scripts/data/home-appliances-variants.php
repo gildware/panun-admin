@@ -274,6 +274,20 @@ return [
         'description' => 'Verified technician inspects inlet, drain, spin, and electrical faults on site.',
         'note' => 'This inspection fee will be adjusted against your final washing machine repair bill if you proceed with the full service through Panun Kaergar.',
     ],
+    'stabilizer-repair' => [
+        'old_keys' => [
+            'Book-at-Home-Consultation',
+            'Book--at-Home-Consultation',
+            'Book-At-Home-Consultation',
+            'General-Inspection',
+            'Site-Inspection',
+            'Inspection',
+        ],
+        'variant_key' => 'book-site-inspection',
+        'title' => 'Book Site Inspection',
+        'description' => 'Verified technician inspects stabilizer input/output voltage, relay behaviour, heating, and repair scope on site.',
+        'note' => 'This inspection fee will be adjusted against your final stabilizer repair bill if you proceed with the full service through Panun Kaergar.',
+    ],
     'ro-service' => [
         'old_keys' => [
             'book-at-home-_-consulation',

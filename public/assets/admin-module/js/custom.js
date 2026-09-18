@@ -129,7 +129,8 @@
 
         return (
             $(el).hasClass("zone-tree-select") ||
-            $(el).hasClass("js-select-manual")
+            $(el).hasClass("js-select-manual") ||
+            $(el).hasClass("lead-area-select")
         );
     }
 

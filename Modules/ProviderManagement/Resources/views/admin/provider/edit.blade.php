@@ -977,6 +977,9 @@
                     setProviderEditSaveEnabled(providerEditAllowSave);
                     syncProviderEditFooterBar();
                     scheduleProviderEditInitialSnapshot();
+                    if (typeof window.initProviderAreaSelect === "function") {
+                        window.initProviderAreaSelect();
+                    }
                 },
                 onStepChanging: function (event, currentIndex, newIndex) {
                     if (newIndex < currentIndex) {

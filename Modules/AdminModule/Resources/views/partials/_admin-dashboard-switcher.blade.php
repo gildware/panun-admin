@@ -58,5 +58,10 @@
            {!! $turboAttrs !!}>
             {{ translate('Finance') }}
         </a>
+        <a href="{{ route('admin.dashboard.operating-system') }}"
+           class="admin-dashboard-switcher-pill {{ $active === 'operating-system' ? 'is-active' : '' }}"
+           data-turbo="false">
+            {{ translate('Operating_System') }}
+        </a>
     </nav>
 </div>

@@ -68,6 +68,19 @@
     if (! is_array($selectedZoneIds)) {
         $selectedZoneIds = [];
     }
+    $customerLeadAreas = $customerLeadAreas ?? collect();
+    if (old('area_ids') !== null) {
+        $selectedAreaIds = old('area_ids');
+    } elseif ($provider) {
+        $selectedAreaIds = $provider->relationLoaded('areas')
+            ? $provider->areas->pluck('id')->all()
+            : $provider->areas()->pluck('customer_lead_areas.id')->all();
+    } else {
+        $selectedAreaIds = [];
+    }
+    if (! is_array($selectedAreaIds)) {
+        $selectedAreaIds = filled($selectedAreaIds) ? [$selectedAreaIds] : [];
+    }
     $companyAddress = old('company_address', $provider?->company_address ?? '');
 
     $defaultAddProviderMapLat = 34.0573181;
@@ -512,6 +525,24 @@
                 @else
                     <div class="alert alert-info mb-0 mx-1">{{ translate('no_data_found') }}</div>
                 @endif
+                <div class="provider-service-areas mx-1 mt-4">
+                    <style>
+                        .provider-service-areas .select2-container {
+                            width: 100% !important;
+                        }
+                        .provider-service-areas .select2-container--default .select2-selection--multiple {
+                            min-height: 42px;
+                            border-radius: .5rem;
+                        }
+                    </style>
+                    @include('leadmanagement::admin.leads.partials._area-select', [
+                        'areaSelectId' => 'provider-service-area-select',
+                        'areaFieldName' => 'area_ids[]',
+                        'areaMultiple' => true,
+                        'areaSelected' => $selectedAreaIds,
+                        'areaList' => $customerLeadAreas,
+                    ])
+                </div>
                 <div id="provider-create-zone-error" class="alert alert-danger py-2 px-3 mb-0 mt-3 d-none" role="alert"></div>
             </div>
         </div>
@@ -823,6 +854,48 @@
     <script>
         "use strict";
         (function () {
+            var areaSelectInitTimer = null;
+            function initProviderAreaSelect() {
+                if (areaSelectInitTimer) {
+                    clearTimeout(areaSelectInitTimer);
+                }
+                areaSelectInitTimer = setTimeout(function () {
+                    areaSelectInitTimer = null;
+                    if (typeof jQuery === "undefined" || !jQuery.fn || !jQuery.fn.select2) {
+                        return;
+                    }
+                    jQuery(".lead-area-select").each(function () {
+                        var $el = jQuery(this);
+                        if ($el.data("select2")) {
+                            try {
+                                $el.select2("destroy");
+                            } catch (e) {}
+                        }
+                    });
+                    jQuery(".provider-service-areas .select2-container").remove();
+                    jQuery(".lead-area-select").each(function () {
+                        var $el = jQuery(this);
+                        $el.select2({
+                            width: "100%",
+                            tags: true,
+                            placeholder: $el.data("placeholder") || "",
+                            allowClear: ! $el.prop("multiple"),
+                            closeOnSelect: ! $el.prop("multiple"),
+                            dropdownParent: jQuery(document.body)
+                        });
+                    });
+                }, 50);
+            }
+            window.initProviderAreaSelect = initProviderAreaSelect;
+            if (typeof jQuery !== "undefined") {
+                jQuery(initProviderAreaSelect);
+            } else if (document.readyState === "loading") {
+                document.addEventListener("DOMContentLoaded", initProviderAreaSelect);
+            } else {
+                initProviderAreaSelect();
+            }
+            document.addEventListener("admin:page-loaded", initProviderAreaSelect);
+
             /**
              * intl-tel-input stores the submitted value in a hidden sibling; the visible <input type="tel"> has no name.
              * Flush E.164 (or best-effort) into that hidden before native submit or before programmatic form.submit().

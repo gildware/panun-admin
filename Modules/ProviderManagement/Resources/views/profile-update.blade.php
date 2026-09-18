@@ -92,6 +92,18 @@
                                             </select>
                                             <small class="d-block mt-1 text-danger">* {{translate('Update your latitude & longitude according to the selected zone')}}</small>
                                         </div>
+                                        @php
+                                            $selectedAreaIds = old('area_ids', $provider->relationLoaded('areas') ? $provider->areas->pluck('id')->all() : []);
+                                        @endphp
+                                        <div class="mb-30">
+                                            @include('leadmanagement::admin.leads.partials._area-select', [
+                                                'areaSelectId' => 'provider-profile-area-select',
+                                                'areaFieldName' => 'area_ids[]',
+                                                'areaMultiple' => true,
+                                                'areaSelected' => $selectedAreaIds,
+                                                'areaList' => $customerLeadAreas ?? collect(),
+                                            ])
+                                        </div>
                                         <div class="form-floating mb-30">
                                             <textarea class="form-control resize-none" name="company_address"
                                                       placeholder="{{translate('Company_Address')}}">{!! $provider->company_address !!}</textarea>
@@ -312,6 +324,25 @@
 
     <script>
         "use strict";
+
+        if (typeof jQuery !== "undefined" && jQuery.fn && jQuery.fn.select2) {
+            jQuery(".lead-area-select").each(function () {
+                var $el = jQuery(this);
+                if ($el.data("select2")) {
+                    try {
+                        $el.select2("destroy");
+                    } catch (e) {}
+                }
+                $el.select2({
+                    width: "100%",
+                    tags: true,
+                    placeholder: $el.data("placeholder") || "",
+                    allowClear: ! $el.prop("multiple"),
+                    closeOnSelect: ! $el.prop("multiple"),
+                    dropdownParent: jQuery(document.body)
+                });
+            });
+        }
 
         $('.provider-delete').on('click', function () {
             let provider = $(this).data('provider');

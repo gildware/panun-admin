@@ -88,6 +88,7 @@ class EmployeeSearchAccessFilter
                     'admin/system-maintenance/*',
                     'admin/system-logs/*',
                     'admin/mobile-app-management/*',
+                    'admin/dashboard/operating-system*',
                 ],
                 'deny' => true,
             ],

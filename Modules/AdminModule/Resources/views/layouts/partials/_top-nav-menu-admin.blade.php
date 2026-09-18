@@ -8,4 +8,5 @@
 @include('adminmodule::layouts.partials.top-nav.group-employee-progress-report')
 @include('adminmodule::layouts.partials.top-nav._admin-divider')
 @include('adminmodule::layouts.partials.top-nav.group-finance')
+@include('adminmodule::layouts.partials.top-nav.group-admin-operating-system')
 @include('adminmodule::layouts.partials.top-nav.group-employee-process-guides')

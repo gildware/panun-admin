@@ -57,6 +57,23 @@ class EmployeeSearchAccessFilterTest extends TestCase
         $this->assertFalse($filter->isAllowed('admin/employee/list'));
         $this->assertFalse($filter->isAllowed('admin/transaction/list?trx_type=all'));
         $this->assertFalse($filter->isAllowed('admin/discount/list'));
+        $this->assertFalse($filter->isAllowed('admin/dashboard/operating-system'));
+    }
+
+    public function test_employees_cannot_search_operating_system(): void
+    {
+        $user = new User();
+        $user->forceFill([
+            'id' => 'emp-os-filter',
+            'user_type' => 'admin-employee',
+        ]);
+        $this->actingAs($user);
+
+        $filter = app(EmployeeSearchAccessFilter::class);
+
+        $this->assertTrue($filter->applies());
+        $this->assertTrue($filter->isAllowed('admin/dashboard'));
+        $this->assertFalse($filter->isAllowed('admin/dashboard/operating-system'));
     }
 
     public function test_filter_grouped_results_removes_disallowed_items(): void

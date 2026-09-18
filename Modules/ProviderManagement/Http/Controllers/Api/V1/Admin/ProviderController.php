@@ -230,6 +230,8 @@ class ProviderController extends Controller
             'zone_ids.*' => 'uuid',
             'zone_excluded_ids' => 'nullable|array',
             'zone_excluded_ids.*' => 'uuid',
+            'area_ids' => 'nullable|array',
+            'area_ids.*' => 'nullable|string|max:255',
         ]);
 
         $validator->after(function ($v) use ($request) {
@@ -307,8 +309,8 @@ class ProviderController extends Controller
         app(ProviderContactUniquenessGuard::class)->run(
             (string) $request->contact_person_phone,
             (string) $request->contact_person_email,
-            function () use ($provider, $owner, $leafZoneIds) {
-                DB::transaction(function () use ($provider, $owner, $leafZoneIds) {
+            function () use ($provider, $owner, $leafZoneIds, $request) {
+                DB::transaction(function () use ($provider, $owner, $leafZoneIds, $request) {
                     $owner->save();
                     $owner->zones()->sync($leafZoneIds);
                     $provider->user_id = $owner->id;
@@ -316,6 +318,7 @@ class ProviderController extends Controller
                     $provider->zones()->sync(
                         collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
                     );
+                    $provider->syncServiceAreasFromInput($request->input('area_ids'));
                 });
             }
         );
@@ -407,6 +410,8 @@ class ProviderController extends Controller
             'zone_ids.*' => 'uuid',
             'zone_excluded_ids' => 'nullable|array',
             'zone_excluded_ids.*' => 'uuid',
+            'area_ids' => 'nullable|array',
+            'area_ids.*' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -461,13 +466,14 @@ class ProviderController extends Controller
         }
         $owner->user_type = 'provider-admin';
 
-        DB::transaction(function () use ($provider, $owner, $leafZoneIds) {
+        DB::transaction(function () use ($provider, $owner, $leafZoneIds, $request) {
             $owner->save();
             $owner->zones()->sync($leafZoneIds);
             $provider->save();
             $provider->zones()->sync(
                 collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
             );
+            $provider->syncServiceAreasFromInput($request->input('area_ids'));
         });
 
         return response()->json(response_formatter(PROVIDER_STORE_200), 200);
