@@ -79,6 +79,7 @@ class HomeAppliancesContentBuilder
             str_starts_with($slug, 'washing-machine-') => 'washing machines',
             str_starts_with($slug, 'ro-') => 'RO water purifiers',
             str_starts_with($slug, 'generator-') => 'petrol and diesel generators',
+            str_starts_with($slug, 'stabilizer-') => 'voltage stabilizers',
             default => strtolower($name),
         };
     }
@@ -97,6 +98,7 @@ class HomeAppliancesContentBuilder
             str_starts_with($slug, 'washing-machine-') => ['Homes', 'Front load', 'Top load', 'Semi-automatic'],
             str_starts_with($slug, 'ro-') => ['Homes', 'Kitchens', 'RO systems', 'Filter care'],
             str_starts_with($slug, 'generator-') => ['Homes', 'Shops', 'Petrol generators', 'Diesel generators', 'Power cuts'],
+            str_starts_with($slug, 'stabilizer-') => ['Homes', 'Shops', 'Fridge / AC stabilizers', 'TV / servo units', 'Voltage fluctuation'],
             str_contains($slug, 'chimney') || str_contains($slug, 'hob') => ['Kitchens', 'Cooking areas', 'Home upgrades'],
             default => ['Homes', 'Appliance faults', 'Quick diagnosis', 'Verified technicians'],
         };
@@ -176,6 +178,17 @@ class HomeAppliancesContentBuilder
             ];
         }
 
+        if (str_starts_with($slug, 'stabilizer-')) {
+            return [
+                'On-site stabilizer diagnosis',
+                'Input and output voltage check',
+                'Relay, auto-cut, and heating inspection',
+                'Repair labour for the booked variation when practical',
+                'Test run after repair where power is available',
+                'Clear briefing before major parts work',
+            ];
+        }
+
         return [
             'On-site fault diagnosis',
             'Repair labour for the booked variation when practical',
@@ -194,6 +207,16 @@ class HomeAppliancesContentBuilder
                 'Generator hire or overnight operator',
                 'New changeover or house wiring (book Electrician)',
                 'Full engine overhaul unless quoted after inspection',
+            ];
+        }
+
+        if (str_starts_with($slug, 'stabilizer-')) {
+            return [
+                'Cost of relays, transformers, PCBs, or a replacement stabilizer',
+                'New electrical point or house wiring (book Electrician)',
+                'Full stabilizer replacement unless quoted after inspection',
+                'Brand warranty claim processing with the manufacturer',
+                'Civil, plaster, or paint corrections',
             ];
         }
 
@@ -459,6 +482,17 @@ class HomeAppliancesContentBuilder
                     ['How do I contact support?', 'Use call, WhatsApp, website, or the app profile and contact sections for booking help.'],
                 ],
             };
+        }
+
+        if (str_contains($name, 'Stabilizer')) {
+            return [
+                ['What if I am unsure why the stabilizer failed?', 'Choose Book Site Inspection. The technician checks input/output voltage, relay behaviour, and heating before recommending the repair.'],
+                ['Do you repair fridge, AC, and TV stabilizers?', 'Yes. Share the appliance type, brand, kVA/VA rating, and symptom while booking.'],
+                ['Are spare parts or a new stabilizer included?', 'No. Relays, transformers, PCBs, and a replacement unit are quoted after inspection and used only with your approval.'],
+                ['Will inspection fee be adjusted?', 'Often yes if you proceed with the full repair through Panun Kaergar.'],
+                ['How long does a repair visit take?', 'Most visits take about 1 to 2 hours depending on access, fault type, and parts.'],
+                ['How do I contact support?', 'Use call, WhatsApp, website, or the app profile and contact sections for booking help.'],
+            ];
         }
 
         if ($name === 'Security Door Lock Camera') {

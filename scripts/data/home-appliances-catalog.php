@@ -93,6 +93,12 @@ return [
             'description' => 'Petrol and diesel generator installation, repair, servicing, and uninstallation.',
             'sort_order' => 11,
         ],
+        [
+            'name' => 'Stabilizers',
+            'slug' => 'stabilizers',
+            'description' => 'Voltage stabilizer repair for fridge, AC, TV, and servo or relay units.',
+            'sort_order' => 12,
+        ],
     ],
     'deactivate_sub_slugs' => [],
     'services' => [
@@ -633,6 +639,17 @@ return [
                 ha_variant('petrol', 'Petrol Generator', 399.0),
                 ha_variant('diesel-upto-10kva', 'Diesel Generator (upto 10 kVA)', 699.0),
                 ha_variant('diesel-above-10kva', 'Diesel Generator (above 10 kVA)', 999.0),
+            ],
+        ],
+
+        // Stabilizers
+        [
+            'name' => 'Stabilizer Repair',
+            'slug' => 'stabilizer-repair',
+            'sub_category_slug' => 'stabilizers',
+            'base_price' => 199.0,
+            'variants' => [
+                ha_variant('book-site-inspection', 'Book Site Inspection', 199.0),
             ],
         ],
     ],

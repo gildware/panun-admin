@@ -723,8 +723,9 @@ class ProviderController extends Controller
      */
     public function profileInfo(Request $request): Renderable
     {
-        $provider = $this->provider->with(['owner.addresses', 'zone', 'zones'])->where('user_id', $request->user()->id)->first();
+        $provider = $this->provider->with(['owner.addresses', 'zone', 'zones', 'areas'])->where('user_id', $request->user()->id)->first();
         $zones = $this->zone->ofStatus(1)->select('id', 'name')->get();
+        $customerLeadAreas = \Modules\LeadManagement\Entities\CustomerLeadArea::activeOrdered();
         $maxBookingAmount = business_config('max_booking_amount', 'booking_setup')->live_values;
 
         $ongoingBookings = $this->booking
@@ -739,7 +740,7 @@ class ProviderController extends Controller
 
         $account = $this->account->where('user_id', $request->user()->id)->first();
 
-        return view('providermanagement::profile-update', compact('provider', 'zones', 'acceptedBookings', 'ongoingBookings', 'account'));
+        return view('providermanagement::profile-update', compact('provider', 'zones', 'customerLeadAreas', 'acceptedBookings', 'ongoingBookings', 'account'));
     }
 
     /**
@@ -778,6 +779,8 @@ class ProviderController extends Controller
             'contact_person_email' => 'required|email|unique:users,email,' . $request->user()->id,
             'zone_ids' => 'required|array|min:1',
             'zone_ids.*' => 'uuid',
+            'area_ids' => 'nullable|array',
+            'area_ids.*' => 'nullable|string|max:255',
 
             'password' => isset($request->password) ? 'string|min:8' : '',
             'confirm_password' => isset($request->password) ? 'required|same:password' : '',
@@ -847,13 +850,14 @@ class ProviderController extends Controller
             $owner->password = bcrypt($request->password);
         }
 
-        DB::transaction(function () use ($provider, $owner, $leafZoneIds) {
+        DB::transaction(function () use ($provider, $owner, $leafZoneIds, $request) {
             $owner->zones()->sync($leafZoneIds);
             $owner->save();
             $provider->save();
             $provider->zones()->sync(
                 collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
             );
+            $provider->syncServiceAreasFromInput($request->input('area_ids'));
         });
 
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));

@@ -361,6 +361,7 @@ class AdminNavRegistry
             self::entry('dashboard', translate('dashboard'), translate('Work'), translate('Work'), route('admin.dashboard'), ['admin/dashboard'], ['admin.dashboard']),
             self::entry('dashboard', translate('dashboard'), translate('Operations'), translate('Operations'), route('admin.dashboard.operations'), ['admin/dashboard/operations'], ['admin.dashboard.operations']),
             self::entry('dashboard', translate('dashboard'), translate('Finance'), translate('Finance'), route('admin.dashboard.finance'), ['admin/dashboard/finance'], ['admin.dashboard.finance']),
+            self::entry('dashboard', translate('dashboard'), translate('Operating_System'), translate('Operating_System'), route('admin.dashboard.operating-system'), ['admin/dashboard/operating-system*'], ['admin.dashboard.operating-system']),
         ];
     }
 

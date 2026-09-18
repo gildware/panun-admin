@@ -50,6 +50,7 @@ use Modules\ProviderManagement\Emails\RegistrationApprovedMail;
 use Modules\ProviderManagement\Emails\RegistrationDeniedMail;
 use Modules\ProviderManagement\Entities\BankDetail;
 use Modules\CategoryManagement\Entities\Category;
+use Modules\LeadManagement\Entities\CustomerLeadArea;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderChangeRequest;
 use Modules\ProviderManagement\Entities\ProviderSetting;
@@ -348,8 +349,9 @@ class ProviderController extends Controller
             return formatSubscriptionPackage($subscriptionPackage, PACKAGE_FEATURES);
         });
         $providerFormDraft = $this->getProviderFormDraftManifest('create');
+        $customerLeadAreas = CustomerLeadArea::activeOrdered();
 
-        return view('providermanagement::admin.provider.create', compact('zones', 'zoneTree', 'commission', 'subscription', 'formattedPackages', 'duration', 'freeTrialStatus', 'providerFormDraft'));
+        return view('providermanagement::admin.provider.create', compact('zones', 'zoneTree', 'commission', 'subscription', 'formattedPackages', 'duration', 'freeTrialStatus', 'providerFormDraft', 'customerLeadAreas'));
     }
 
     /**
@@ -639,6 +641,8 @@ class ProviderController extends Controller
             'zone_ids.*' => 'uuid',
             'zone_excluded_ids' => 'nullable|array',
             'zone_excluded_ids.*' => 'uuid',
+            'area_ids' => 'nullable|array',
+            'area_ids.*' => 'nullable|string|max:255',
 
             'subscribed_sub_category_ids' => 'nullable|array',
             'subscribed_sub_category_ids.*' => 'uuid',
@@ -826,6 +830,7 @@ class ProviderController extends Controller
                     $provider->zones()->sync(
                         collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
                     );
+                    $provider->syncServiceAreasFromInput($request->input('area_ids'));
 
                     $serviceLocation = ['customer'];
                     ProviderSetting::create([
@@ -1000,7 +1005,7 @@ class ProviderController extends Controller
 
         //overview (no payment widgets; those are on the Payment tab)
         if ($request->web_page == 'overview') {
-            $provider = $this->provider->with('owner.account', 'zone')->withCount(['bookings'])->find($id);
+            $provider = $this->provider->with('owner.account', 'zone', 'areas')->withCount(['bookings'])->find($id);
             $bookingOverview = DB::table('bookings')->where('provider_id', $id)
                 ->select('booking_status', DB::raw('count(*) as total'))
                 ->groupBy('booking_status')
@@ -2274,7 +2279,7 @@ class ProviderController extends Controller
 
         $zones = $this->zone->ofStatus(1)->get();
         $zoneTree = $this->zoneTreeForProviderForm();
-        $provider = $this->provider->with(['owner', 'zone', 'zones', 'storage'])->find($id);
+        $provider = $this->provider->with(['owner', 'zone', 'zones', 'areas', 'storage'])->find($id);
         $commission = (int)((business_config('provider_commision', 'provider_config'))->live_values ?? null);
         $subscription = (int)((business_config('provider_subscription', 'provider_config'))->live_values ?? null);
         $duration = (int)((business_config('free_trial_period', 'subscription_Setting'))->live_values ?? null);
@@ -2297,6 +2302,7 @@ class ProviderController extends Controller
                 ->get()
                 ->groupBy('document_id');
         }
+        $customerLeadAreas = CustomerLeadArea::activeOrdered();
 
         return view('providermanagement::admin.provider.edit', compact(
             'provider',
@@ -2310,7 +2316,8 @@ class ProviderController extends Controller
             'packageSubscription',
             'providerFormDraft',
             'existingAdditionalDocuments',
-            'existingAdditionalDocumentFiles'
+            'existingAdditionalDocumentFiles',
+            'customerLeadAreas'
         ));
     }
 
@@ -2405,6 +2412,8 @@ class ProviderController extends Controller
             'zone_ids.*' => 'uuid',
             'zone_excluded_ids' => 'nullable|array',
             'zone_excluded_ids.*' => 'uuid',
+            'area_ids' => 'nullable|array',
+            'area_ids.*' => 'nullable|string|max:255',
         ], [
             'contact_person_phone.unique' => translate('The contact person phone has already been taken.'),
         ])->validate();
@@ -2582,13 +2591,14 @@ class ProviderController extends Controller
 
         }
 
-        DB::transaction(function () use ($provider, $owner, $leafZoneIds) {
+        DB::transaction(function () use ($provider, $owner, $leafZoneIds, $request) {
             $owner->save();
             $owner->zones()->sync($leafZoneIds);
             $provider->save();
             $provider->zones()->sync(
                 collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
             );
+            $provider->syncServiceAreasFromInput($request->input('area_ids'));
         });
 
         // Upload additional documents (optional) - replace existing on edit.
@@ -3059,7 +3069,7 @@ class ProviderController extends Controller
     {
         $this->authorize('onboarding_request_view');
         $provider = $this->provider
-            ->with(['owner', 'owner.account', 'zone', 'zones.parentZone', 'storage'])
+            ->with(['owner', 'owner.account', 'zone', 'zones.parentZone', 'areas', 'storage'])
             ->withCount(['bookings'])
             ->findOrFail($id);
 

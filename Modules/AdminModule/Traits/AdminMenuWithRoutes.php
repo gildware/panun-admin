@@ -17,6 +17,16 @@ trait AdminMenuWithRoutes
                 'sorting' => 0,
             ],
             [
+                'route_name' => 'Operating_System',
+                'uri' => 'admin/dashboard/operating-system',
+                'full_route' => url('admin/dashboard/operating-system'),
+                'page_title' => 'Operating_System',
+                'keywords' => 'operating system, master OS, SOP, KPI, Head of Operations, modules',
+                'type' => 'menu',
+                'module' => 'main',
+                'sorting' => 0.2,
+            ],
+            [
                 'route_name' => 'Customized_Requests',
                 'uri' => 'admin/booking/post?type=all',
                 'full_route' => url('admin/booking/post?type=all'),

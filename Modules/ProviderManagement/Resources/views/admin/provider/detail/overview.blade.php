@@ -527,6 +527,16 @@
                                             @endif
                                         </div>
 
+                                        <div class="overview-muted-label">{{ translate('Area') }}</div>
+                                        <div class="overview-value">
+                                            @php
+                                                $providerAreaNames = $provider->relationLoaded('areas')
+                                                    ? $provider->areas->pluck('name')->filter()->values()->all()
+                                                    : [];
+                                            @endphp
+                                            {{ $providerAreaNames ? implode(', ', $providerAreaNames) : '-' }}
+                                        </div>
+
                                         <div class="overview-muted-label">{{ translate('Address') }}</div>
                                         <div class="overview-value">{{ $provider->company_address ?: '-' }}</div>
 

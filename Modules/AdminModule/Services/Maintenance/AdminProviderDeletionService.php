@@ -203,6 +203,7 @@ class AdminProviderDeletionService
       'provider_notification_setups',
       'providers_withdraw_methods_data',
       'provider_zone',
+      'provider_area',
       'provider_incidents',
       'provider_change_requests',
       'provider_showcase_items',

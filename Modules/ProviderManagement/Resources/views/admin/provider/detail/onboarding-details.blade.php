@@ -352,6 +352,17 @@
                                         <span class="text-muted small">{{ $provider?->zone?->name ?: translate('No_data_found') }}</span>
                                     @endif
                                 </div>
+                                @php
+                                    $onboardingAreaNames = $provider->relationLoaded('areas')
+                                        ? $provider->areas->pluck('name')->filter()->values()->all()
+                                        : [];
+                                @endphp
+                                @if($onboardingAreaNames)
+                                    <div class="ob-kv mt-3 mb-0">
+                                        <div class="k">{{ translate('Area') }}</div>
+                                        <div class="v">{{ implode(', ', $onboardingAreaNames) }}</div>
+                                    </div>
+                                @endif
                             </div>
                         </div>
 

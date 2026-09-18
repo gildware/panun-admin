@@ -170,6 +170,18 @@ class AdminController extends Controller
     }
 
     /**
+     * Master operating system explorer (admin only).
+     */
+    public function operatingSystem(): View|Factory|Application
+    {
+        if (is_admin_employee()) {
+            abort(403);
+        }
+
+        return view('adminmodule::admin.operating-system.index');
+    }
+
+    /**
      * @return array{data: array<int, array<string, mixed>>, chart_data: array<string, mixed>}
      */
     private function buildFinanceDashboardPayload(Request $request): array

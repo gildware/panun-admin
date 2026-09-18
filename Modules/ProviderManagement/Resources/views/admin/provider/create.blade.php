@@ -1075,6 +1075,9 @@
                             $actions.prepend($resetLi);
                         }
                     }
+                    if (typeof window.initProviderAreaSelect === "function") {
+                        window.initProviderAreaSelect();
+                    }
                 },
                 onStepChanged: function (event, currentIndex, priorIndex) {
                     $("#provider-create-reset-li").toggle(currentIndex === 0);

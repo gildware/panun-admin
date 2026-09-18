@@ -10,6 +10,7 @@
         '/admin/provider/create',
         '/admin/provider/live-view',
         '/admin/my-progress',
+        '/admin/dashboard/operating-system',
     ];
     var FULL_PAGE_PATH_PREFIXES = [
         '/admin/booking/details',
@@ -854,6 +855,11 @@
 
     window.addEventListener('popstate', function () {
         if (!window.location.pathname.startsWith('/admin')) {
+            return;
+        }
+
+        // Hash-only changes inside the Master OS explorer must not reload the page.
+        if (document.getElementById('os-explorer')) {
             return;
         }
 

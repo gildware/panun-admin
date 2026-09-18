@@ -41,11 +41,21 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
             <li class="nav-category">{{translate('main')}}</li>
 
             <li>
-                <a href="{{route('admin.dashboard')}}" class="{{request()->is('admin/dashboard')?'active-menu':''}}">
+                <a href="{{route('admin.dashboard')}}" class="{{request()->is('admin/dashboard') && ! request()->is('admin/dashboard/*')?'active-menu':''}}">
                     <span class="material-icons" title="{{translate('dashboard')}}">dashboard</span>
                     <span class="link-title">{{translate('dashboard')}}</span>
                 </a>
             </li>
+            @if(! is_admin_employee())
+            <li>
+                <a href="{{ route('admin.dashboard.operating-system') }}"
+                   class="{{ request()->is('admin/dashboard/operating-system*') ? 'active-menu' : '' }}"
+                   data-turbo="false">
+                    <span class="material-icons" title="{{ translate('Operating_System') }}">account_tree</span>
+                    <span class="link-title">{{ translate('Operating_System') }}</span>
+                </a>
+            </li>
+            @endif
 
             @canany(['lead_view', 'lead_outbound_enquiry_view', 'lead_configuration_view'])
                 <li class="nav-category" title="{{ translate('Lead_Management') }}">

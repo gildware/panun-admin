@@ -6,8 +6,8 @@
  * - Upserts main category (`home-appliance`) + 10 sub-categories
  * - Creates/refreshes services with overview, FAQs, images, priced variants
  * - Deactivates old home-appliance services not in the new catalog (no hard delete)
- * - Skips Generators unless `scripts/assets/category-icons/generators.png` exists
- *   (use `scripts/seed-generators-live.php` for that subcategory)
+ * - Skips Generators / Stabilizers unless their category icons exist
+ *   (use `scripts/seed-generators-live.php` / `scripts/seed-stabilizers-live.php`)
  *
  * Prerequisites:
  *   python3 scripts/assets/home_appliances_icon_prompts.py
@@ -51,16 +51,19 @@ $categoryIconDir = base_path('scripts/assets/category-icons');
 $serviceImageDir = base_path('scripts/assets/service-images');
 $variantIconDir = base_path('scripts/assets/variant-icons');
 
-if (! is_file($categoryIconDir.'/generators.png')) {
+foreach (['generators' => 'seed-generators-live.php', 'stabilizers' => 'seed-stabilizers-live.php'] as $optionalSlug => $optionalScript) {
+    if (is_file($categoryIconDir.'/'.$optionalSlug.'.png')) {
+        continue;
+    }
     $catalog['sub_categories'] = array_values(array_filter(
         $catalog['sub_categories'],
-        static fn (array $sub): bool => ($sub['slug'] ?? '') !== 'generators'
+        static fn (array $sub): bool => ($sub['slug'] ?? '') !== $optionalSlug
     ));
     $catalog['services'] = array_values(array_filter(
         $catalog['services'],
-        static fn (array $service): bool => ($service['sub_category_slug'] ?? '') !== 'generators'
+        static fn (array $service): bool => ($service['sub_category_slug'] ?? '') !== $optionalSlug
     ));
-    echo "Skipping Generators (assets not prepared). Use seed-generators-live.php.\n";
+    echo "Skipping {$optionalSlug} (assets not prepared). Use {$optionalScript}.\n";
 }
 
 if ($onlySlugs !== []) {
@@ -547,6 +550,9 @@ if ($onlySlugs === []) {
             'generator-servicing',
             'generator-uninstallation',
         ]);
+    }
+    if (! in_array('stabilizer-repair', $protectedSlugs, true)) {
+        $protectedSlugs[] = 'stabilizer-repair';
     }
 
     $oldServices = Service::on($liveConnection)->withoutGlobalScopes()

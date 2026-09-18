@@ -14,6 +14,7 @@ use Modules\BookingModule\Entities\BookingIgnore;
 use Modules\BusinessSettingsModule\Entities\PackageSubscriber;
 use Modules\BusinessSettingsModule\Entities\Storage;
 use Modules\ReviewModule\Entities\Review;
+use Modules\LeadManagement\Entities\CustomerLeadArea;
 use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
 use App\Traits\HasUuid;
@@ -100,6 +101,22 @@ class Provider extends Model
     public function zones(): BelongsToMany
     {
         return $this->belongsToMany(Zone::class, 'provider_zone')->withTimestamps();
+    }
+
+    /**
+     * Neighbourhood / locality areas this provider covers (same catalog as leads).
+     */
+    public function areas(): BelongsToMany
+    {
+        return $this->belongsToMany(CustomerLeadArea::class, 'provider_area', 'provider_id', 'area_id')->withTimestamps();
+    }
+
+    /**
+     * Sync coverage areas from form/API input (existing ids or free-typed names).
+     */
+    public function syncServiceAreasFromInput(mixed $raw): void
+    {
+        $this->areas()->sync(CustomerLeadArea::resolveIds($raw));
     }
 
     public function scopeCoveringLeafZone($query, ?string $leafZoneId)

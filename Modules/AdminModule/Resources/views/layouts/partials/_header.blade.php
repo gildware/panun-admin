@@ -91,6 +91,15 @@
                     <ul class="nav justify-content-end align-items-center gap-3 gap-md-4">
                         @if(!is_admin_employee())
                         <li class="nav-item max-sm-m-0">
+                            <a href="{{ route('admin.dashboard.operating-system') }}"
+                               class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none"
+                               data-turbo="false"
+                               title="{{ translate('Operating_System') }}">
+                                <span class="material-symbols-outlined" aria-hidden="true">account_tree</span>
+                                <span class="d-none d-md-block">{{ translate('Operating_System') }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item max-sm-m-0">
                             <a href="{{ route('admin.process-guides.index') }}"
                                class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none"
                                @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif
