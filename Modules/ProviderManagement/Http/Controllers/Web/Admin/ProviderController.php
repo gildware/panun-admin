@@ -678,8 +678,7 @@ class ProviderController extends Controller
             'zone_ids.*' => 'uuid',
             'zone_excluded_ids' => 'nullable|array',
             'zone_excluded_ids.*' => 'uuid',
-            'area_ids' => 'nullable|array',
-            'area_ids.*' => 'nullable|string|max:255',
+            'area_id' => 'nullable|string|max:255',
 
             'subscribed_sub_category_ids' => 'nullable|array',
             'subscribed_sub_category_ids.*' => 'uuid',
@@ -867,7 +866,7 @@ class ProviderController extends Controller
                     $provider->zones()->sync(
                         collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
                     );
-                    $provider->syncServiceAreasFromInput($request->input('area_ids'));
+                    $provider->syncServiceAreasFromInput($request->input('area_id', $request->input('area_ids')));
 
                     $serviceLocation = ['customer'];
                     ProviderSetting::create([
@@ -2449,8 +2448,7 @@ class ProviderController extends Controller
             'zone_ids.*' => 'uuid',
             'zone_excluded_ids' => 'nullable|array',
             'zone_excluded_ids.*' => 'uuid',
-            'area_ids' => 'nullable|array',
-            'area_ids.*' => 'nullable|string|max:255',
+            'area_id' => 'nullable|string|max:255',
         ], [
             'contact_person_phone.unique' => translate('The contact person phone has already been taken.'),
         ])->validate();
@@ -2635,7 +2633,7 @@ class ProviderController extends Controller
             $provider->zones()->sync(
                 collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
             );
-            $provider->syncServiceAreasFromInput($request->input('area_ids'));
+            $provider->syncServiceAreasFromInput($request->input('area_id', $request->input('area_ids')));
         });
 
         // Upload additional documents (optional) - replace existing on edit.

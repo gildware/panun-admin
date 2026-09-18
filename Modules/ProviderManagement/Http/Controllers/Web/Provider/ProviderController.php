@@ -779,8 +779,7 @@ class ProviderController extends Controller
             'contact_person_email' => 'required|email|unique:users,email,' . $request->user()->id,
             'zone_ids' => 'required|array|min:1',
             'zone_ids.*' => 'uuid',
-            'area_ids' => 'nullable|array',
-            'area_ids.*' => 'nullable|string|max:255',
+            'area_id' => 'nullable|string|max:255',
 
             'password' => isset($request->password) ? 'string|min:8' : '',
             'confirm_password' => isset($request->password) ? 'required|same:password' : '',
@@ -857,7 +856,7 @@ class ProviderController extends Controller
             $provider->zones()->sync(
                 collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
             );
-            $provider->syncServiceAreasFromInput($request->input('area_ids'));
+            $provider->syncServiceAreasFromInput($request->input('area_id', $request->input('area_ids')));
         });
 
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));

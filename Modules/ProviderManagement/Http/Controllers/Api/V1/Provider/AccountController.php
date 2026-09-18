@@ -72,7 +72,9 @@ class AccountController extends Controller
         $limitStatus = provider_warning_amount_calculate_for_provider($provider);
         $provider['cash_limit_status'] = $limitStatus == false ? 'available' : $limitStatus;
         $provider['zone_ids'] = $provider->coveredLeafZoneIds();
-        $provider['area_ids'] = $provider->areas()->pluck('customer_lead_areas.id')->map(fn ($id) => (int) $id)->values()->all();
+        $areaId = $provider->areas()->value('customer_lead_areas.id');
+        $provider['area_id'] = $areaId !== null ? (int) $areaId : null;
+        $provider['area_ids'] = $areaId !== null ? [(int) $areaId] : [];
         $bookingOverview = DB::table('bookings')->where('provider_id', $request->user()->provider->id)
             ->select('booking_status', DB::raw('count(*) as total'))
             ->groupBy('booking_status')

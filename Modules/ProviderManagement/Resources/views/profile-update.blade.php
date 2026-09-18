@@ -98,14 +98,14 @@
                                             <label>{{translate('Company_Address')}}</label>
                                         </div>
                                         @php
-                                            $selectedAreaIds = old('area_ids', $provider->relationLoaded('areas') ? $provider->areas->pluck('id')->all() : []);
+                                            $selectedAreaId = old('area_id', $provider->relationLoaded('areas') ? $provider->areas->pluck('id')->first() : '');
                                         @endphp
                                         <div class="provider-service-areas mb-30">
                                             @include('leadmanagement::admin.leads.partials._area-select', [
                                                 'areaSelectId' => 'provider-profile-area-select',
-                                                'areaFieldName' => 'area_ids[]',
-                                                'areaMultiple' => true,
-                                                'areaSelected' => $selectedAreaIds,
+                                                'areaFieldName' => 'area_id',
+                                                'areaMultiple' => false,
+                                                'areaSelected' => $selectedAreaId,
                                                 'areaList' => $customerLeadAreas ?? collect(),
                                             ])
                                         </div>

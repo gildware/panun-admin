@@ -69,17 +69,17 @@
         $selectedZoneIds = [];
     }
     $customerLeadAreas = $customerLeadAreas ?? collect();
-    if (old('area_ids') !== null) {
-        $selectedAreaIds = old('area_ids');
+    if (old('area_id') !== null) {
+        $selectedAreaId = old('area_id');
+    } elseif (old('area_ids') !== null) {
+        $oldAreas = old('area_ids');
+        $selectedAreaId = is_array($oldAreas) ? ($oldAreas[0] ?? '') : $oldAreas;
     } elseif ($provider) {
-        $selectedAreaIds = $provider->relationLoaded('areas')
-            ? $provider->areas->pluck('id')->all()
-            : $provider->areas()->pluck('customer_lead_areas.id')->all();
+        $selectedAreaId = $provider->relationLoaded('areas')
+            ? $provider->areas->pluck('id')->first()
+            : $provider->areas()->value('customer_lead_areas.id');
     } else {
-        $selectedAreaIds = [];
-    }
-    if (! is_array($selectedAreaIds)) {
-        $selectedAreaIds = filled($selectedAreaIds) ? [$selectedAreaIds] : [];
+        $selectedAreaId = '';
     }
     $companyAddress = old('company_address', $provider?->company_address ?? '');
 
@@ -689,16 +689,16 @@
                         .provider-service-areas .select2-container {
                             width: 100% !important;
                         }
-                        .provider-service-areas .select2-container--default .select2-selection--multiple {
+                        .provider-service-areas .select2-container--default .select2-selection--single {
                             min-height: 42px;
                             border-radius: .5rem;
                         }
                     </style>
                     @include('leadmanagement::admin.leads.partials._area-select', [
                         'areaSelectId' => 'provider-service-area-select',
-                        'areaFieldName' => 'area_ids[]',
-                        'areaMultiple' => true,
-                        'areaSelected' => $selectedAreaIds,
+                        'areaFieldName' => 'area_id',
+                        'areaMultiple' => false,
+                        'areaSelected' => $selectedAreaId,
                         'areaList' => $customerLeadAreas,
                     ])
                 </div>
