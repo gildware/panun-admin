@@ -87,6 +87,8 @@
     $defaultAddProviderMapLng = 74.806267;
     $latitude = old('latitude', $provider?->coordinates['latitude'] ?? (! $isEdit ? $defaultAddProviderMapLat : null));
     $longitude = old('longitude', $provider?->coordinates['longitude'] ?? (! $isEdit ? $defaultAddProviderMapLng : null));
+    $mapZonePath = app(\Modules\ZoneManagement\Services\ZoneGeometryService::class)
+        ->resolveZonePathForLatLng($latitude, $longitude);
 
     $zoneTree = $zoneTree ?? [];
 
@@ -102,42 +104,173 @@
         || (! $isEdit && filled(old('logo')) && ! $logoRemoveRequested);
 @endphp
 
+<style>
+    #create-provider-form .page-title-wrap { margin-bottom: .75rem !important; }
+    #create-provider-form .page-title { font-size: 1.2rem; margin-bottom: 0; }
+    #create-provider-form .create-provider-item { margin-bottom: .75rem !important; }
+    #create-provider-form section > .card > .card-body:has(.provider-add-edit-form-root) {
+        padding: 1rem;
+    }
+    .provider-add-edit-form-root {
+        --bs-gutter-x: 1rem;
+        --bs-gutter-y: 1rem;
+    }
+    .provider-add-edit-form-root > [class*="col-"] > .card {
+        box-shadow: none;
+        border: 1px solid #e6edf5;
+    }
+    .provider-add-edit-form-root > [class*="col-"] > .card > .card-body {
+        padding: 1rem 1.1rem;
+        overflow: visible;
+    }
+    .provider-add-edit-form-root h4.c1 {
+        font-size: .95rem;
+        font-weight: 700;
+        line-height: 1.3;
+    }
+    .provider-add-edit-form-root h3,
+    .provider-add-edit-form-root h5.c1 {
+        font-size: .8rem;
+        font-weight: 600;
+        line-height: 1.3;
+        margin-bottom: .4rem;
+    }
+    .provider-add-edit-form-root .mb-30 {
+        margin-bottom: .85rem !important;
+        margin-block-end: .85rem !important;
+    }
+    .provider-add-edit-form-root .mb-20 {
+        margin-bottom: .65rem !important;
+        margin-block-end: .65rem !important;
+    }
+    .provider-add-edit-form-root .pf-upload-row {
+        display: grid;
+        grid-template-columns: 5.5rem minmax(0, 1fr);
+        column-gap: 1rem;
+        row-gap: .85rem;
+        align-items: start;
+    }
+    .provider-add-edit-form-root .pf-upload {
+        min-width: 0;
+    }
+    .provider-add-edit-form-root .pf-fields {
+        min-width: 0;
+    }
+    .provider-add-edit-form-root .upload-file__img {
+        max-inline-size: 5.5rem;
+        width: 5.5rem;
+    }
+    .provider-add-edit-form-root .upload-file__img img {
+        width: 5.5rem;
+        height: 5.5rem;
+        object-fit: cover;
+    }
+    .provider-add-edit-form-root .pf-upload-hint {
+        display: none;
+    }
+    .provider-add-edit-form-root .form-floating > label,
+    .provider-add-edit-form-root .form-floting-fix > label {
+        max-width: calc(100% - 2.75rem);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .provider-add-edit-form-root .form-floting-fix > label {
+        z-index: 2;
+        pointer-events: none;
+    }
+    .provider-add-edit-form-root .form-floating,
+    .provider-add-edit-form-root .form-floting-fix,
+    .provider-add-edit-form-root .form-error-wrap,
+    .provider-add-edit-form-root .iti {
+        width: 100%;
+        max-width: 100%;
+        display: block;
+    }
+    .provider-add-edit-form-root .form-control,
+    .provider-add-edit-form-root .select-identity {
+        max-width: 100%;
+        min-width: 0;
+    }
+    .provider-add-edit-form-root .form-floating > textarea.form-control {
+        height: 4.25rem;
+        min-height: 4.25rem;
+    }
+    .provider-add-edit-form-root .select2-container {
+        width: 100% !important;
+        max-width: 100%;
+    }
+    .provider-add-edit-form-root .location_map_class {
+        height: 200px;
+        position: relative;
+    }
+    .provider-add-edit-form-root .provider-zone-tree {
+        max-height: 280px;
+        overflow: auto;
+    }
+    .provider-add-edit-form-root .provider-map-zone-path {
+        margin-top: .75rem;
+        padding: .65rem .8rem;
+    }
+    .provider-add-edit-form-root #multi_image_picker img,
+    .provider-add-edit-form-root #company_multi_image_picker img {
+        height: 80px !important;
+        width: auto;
+        object-fit: cover;
+    }
+    .provider-add-edit-form-root .additional-document-row {
+        padding: .75rem !important;
+    }
+    .provider-add-edit-form-root .border-top.pt-4 {
+        padding-top: .9rem !important;
+        margin-top: .35rem !important;
+    }
+    @media (max-width: 575.98px) {
+        .provider-add-edit-form-root .pf-upload-row {
+            grid-template-columns: 1fr;
+        }
+        .provider-add-edit-form-root .pf-upload {
+            display: flex;
+            justify-content: center;
+        }
+    }
+</style>
+
 <div class="provider-add-edit-form-root row g-3">
     {{-- Box 1 (Full Width) --}}
     <div class="col-12">
         <div class="card h-100">
-            <div class="card-body">
-                <div class="d-flex flex-wrap gap-3 align-items-center justify-content-between mb-20">
+            <div class="card-body py-2">
+                <div class="d-flex flex-wrap gap-3 align-items-center">
                     <h4 class="c1 mb-0">{{ translate('Provider_Type') }}</h4>
-                </div>
+                    <div class="d-flex flex-wrap gap-3">
+                        <div class="form-check mb-0">
+                            <input
+                                class="form-check-input"
+                                type="radio"
+                                name="provider_type"
+                                id="provider_type_individual"
+                                value="individual"
+                                required
+                                {{ $providerType === 'individual' ? 'checked' : '' }}>
+                            <label class="form-check-label" for="provider_type_individual">
+                                {{ translate('Individual') }}
+                            </label>
+                        </div>
 
-                <div class="d-flex flex-wrap gap-3">
-                    <div class="form-check">
-                        <input
-                            class="form-check-input"
-                            type="radio"
-                            name="provider_type"
-                            id="provider_type_individual"
-                            value="individual"
-                            required
-                            {{ $providerType === 'individual' ? 'checked' : '' }}>
-                        <label class="form-check-label" for="provider_type_individual">
-                            {{ translate('Individual') }}
-                        </label>
-                    </div>
-
-                    <div class="form-check">
-                        <input
-                            class="form-check-input"
-                            type="radio"
-                            name="provider_type"
-                            id="provider_type_company"
-                            value="company"
-                            required
-                            {{ $providerType === 'company' ? 'checked' : '' }}>
-                        <label class="form-check-label" for="provider_type_company">
-                            {{ translate('Company') }}
-                        </label>
+                        <div class="form-check mb-0">
+                            <input
+                                class="form-check-input"
+                                type="radio"
+                                name="provider_type"
+                                id="provider_type_company"
+                                value="company"
+                                required
+                                {{ $providerType === 'company' ? 'checked' : '' }}>
+                            <label class="form-check-label" for="provider_type_company">
+                                {{ translate('Company') }}
+                            </label>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -152,16 +285,17 @@
                     <h4 class="c1 mb-0">{{ translate('Company_Information') }}</h4>
                 </div>
 
+                <div class="pf-upload-row">
                 {{-- Logo first (requested) --}}
-                <div class="mb-30 provider-logo-fields">
-                    <div class="d-flex flex-column align-items-center gap-3">
-                        <h3 class="mb-0">{{ translate('Company_Logo') }}</h3>
-
+                <div class="provider-logo-fields pf-upload">
+                    <div class="d-flex flex-column align-items-center">
+                        <h3 class="visually-hidden">{{ translate('Company_Logo') }}</h3>
                         <div class="form-error-wrap d-flex align-items-center flex-column">
                             <div
                                 class="provider-upload-wrapper"
                                 data-remove-field="logo_remove"
-                                data-hide-remove-until-upload="1">
+                                data-hide-remove-until-upload="1"
+                                title="{{ translate('Image format -') }} {{ implode(', ', array_column(IMAGEEXTENSION, 'key')) }} · {{ translate('Image Size') }} {{ readableUploadMaxFileSize('image') }} · 1:1">
                                 <div class="upload-file">
                                     <input
                                         type="file"
@@ -188,13 +322,12 @@
                                 <input type="hidden" name="logo_remove" value="{{ $logoRemoveRequested ? '1' : '0' }}">
                                 <button
                                     type="button"
-                                    class="btn btn--secondary btn-sm mt-2 provider-upload-remove-btn {{ $companyLogoHasFile ? '' : 'd-none' }}">
+                                    class="btn btn--secondary btn-sm mt-1 provider-upload-remove-btn {{ $companyLogoHasFile ? '' : 'd-none' }}">
                                     {{ translate('Remove') }}
                                 </button>
                             </div>
                         </div>
-
-                        <p class="opacity-75 max-w220">
+                        <p class="pf-upload-hint opacity-75">
                             {{ translate('Image format -') }} {{ implode(', ', array_column(IMAGEEXTENSION, 'key')) }}
                             {{ translate('Image Size') }} - {{ translate('maximum size') }} {{ readableUploadMaxFileSize('image') }}
                             {{ translate('Image Ratio') }} - 1:1
@@ -202,6 +335,7 @@
                     </div>
                 </div>
 
+                <div class="pf-fields">
                 <div class="mb-30">
                     <div class="form-floating form-floating__icon">
                         <input
@@ -231,7 +365,7 @@
                     </div>
                 </div>
 
-                <div class="mb-30">
+                <div class="mb-0">
                     <div class="form-floating form-floating__icon">
                         <input
                             type="text"
@@ -245,6 +379,8 @@
                         <label>{{ translate('Email') }}</label>
                         <span class="material-icons">mail</span>
                     </div>
+                </div>
+                </div>
                 </div>
             </div>
         </div>
@@ -286,7 +422,7 @@
                 </div>
 
                 <div class="upload-file w-100 mb-30">
-                    <h3 class="mb-3">{{ translate('Identification_Image') }}</h3>
+                    <h3 class="mb-2">{{ translate('Identification_Image') }}</h3>
                     <div id="company_multi_image_picker" data-company-identity-draft-count="{{ (int) $companyIdentityDraftCount }}">
                         @if($isEdit)
                             @foreach($provider?->company_identity_images_full_path ?? [] as $image)
@@ -296,13 +432,13 @@
                                 @if($ext === 'pdf')
                                     <a class="p-1 text-decoration-none" href="{{ $image }}" target="_blank" rel="noopener">PDF</a>
                                 @else
-                                    <img class="p-1" height="150" src="{{ $image }}" alt="{{ translate('image') }}">
+                                    <img class="p-1" height="80" src="{{ $image }}" alt="{{ translate('image') }}">
                                 @endif
                             @endforeach
                         @elseif(is_array($providerFormDraft) && ! empty($providerFormDraft['files']['company_identity_images']))
                             @foreach($providerFormDraft['files']['company_identity_images'] as $cDraft)
                                 @if(! empty($cDraft['rel']))
-                                    <img class="p-1 border rounded" height="120" src="{{ $draftDisk->url($cDraft['rel']) }}" alt="">
+                                    <img class="p-1 border rounded" height="72" src="{{ $draftDisk->url($cDraft['rel']) }}" alt="">
                                 @endif
                             @endforeach
                         @endif
@@ -320,16 +456,16 @@
                     <h4 class="c1 mb-0">{{ translate('Contact_Person') }}</h4>
                 </div>
 
-                {{-- Contact photo: centered like company logo; Remove only when an image exists --}}
-                <div class="mb-30">
-                    <div class="d-flex flex-column align-items-center gap-3">
-                        <h3 class="mb-0">{{ translate('Contact_Person_Photo') }}</h3>
-
+                <div class="pf-upload-row">
+                <div class="pf-upload">
+                    <div class="d-flex flex-column align-items-center">
+                        <h3 class="visually-hidden">{{ translate('Contact_Person_Photo') }}</h3>
                         <div class="form-error-wrap d-flex align-items-center flex-column">
                             <div
                                 class="provider-upload-wrapper"
                                 data-remove-field="contact_person_photo_remove"
-                                data-hide-remove-until-upload="1">
+                                data-hide-remove-until-upload="1"
+                                title="{{ translate('Image format -') }} {{ implode(', ', array_column(IMAGEEXTENSION, 'key')) }} · {{ translate('Image Size') }} {{ readableUploadMaxFileSize('image') }} · 1:1">
                                 <div class="upload-file">
                                     <input
                                         type="file"
@@ -362,13 +498,12 @@
                                 <input type="hidden" name="contact_person_photo_remove" value="0">
                                 <button
                                     type="button"
-                                    class="btn btn--secondary btn-sm mt-2 provider-upload-remove-btn {{ $contactPersonPhotoHasFile ? '' : 'd-none' }}">
+                                    class="btn btn--secondary btn-sm mt-1 provider-upload-remove-btn {{ $contactPersonPhotoHasFile ? '' : 'd-none' }}">
                                     {{ translate('Remove') }}
                                 </button>
                             </div>
                         </div>
-
-                        <p class="opacity-75 max-w220 text-center">
+                        <p class="pf-upload-hint opacity-75 text-center">
                             {{ translate('Image format -') }} {{ implode(', ', array_column(IMAGEEXTENSION, 'key')) }}
                             {{ translate('Image Size') }} - {{ translate('maximum size') }} {{ readableUploadMaxFileSize('image') }}
                             {{ translate('Image Ratio') }} - 1:1
@@ -376,6 +511,7 @@
                     </div>
                 </div>
 
+                <div class="pf-fields">
                 <div class="mb-30">
                     <div class="form-floating form-floating__icon">
                         <input
@@ -391,52 +527,50 @@
                     </div>
                 </div>
 
-                <div class="row gx-2">
-                    <div class="col-lg-6">
-                        <div class="form-floating form-floting-fix mb-30">
-                            <label for="contact_person_phone">{{ translate('Phone') }}</label>
-                            <input
-                                type="tel"
-                                class="form-control"
-                                name="contact_person_phone"
-                                id="contact_person_phone"
-                                value="{{ $contactPhone }}"
-                                placeholder="{{ translate('Phone') }}"
-                                required
-                                pattern="^([0-9\s\-\+\(\)]*)$"
-                                minlength="8">
-                        </div>
+                <div class="mb-30">
+                    <div class="form-floating form-floting-fix">
+                        <label for="contact_person_phone">{{ translate('Phone') }}</label>
+                        <input
+                            type="tel"
+                            class="form-control"
+                            name="contact_person_phone"
+                            id="contact_person_phone"
+                            value="{{ $contactPhone }}"
+                            placeholder="{{ translate('Phone') }}"
+                            required
+                            pattern="^([0-9\s\-\+\(\)]*)$"
+                            minlength="8">
                     </div>
+                </div>
 
-                    <div class="col-lg-6">
-                        <div class="mb-30">
-                            <div class="form-floating form-floating__icon">
-                                <input
-                                    type="text"
-                                    class="form-control"
-                                    name="contact_person_email"
-                                    id="contact_person_email"
-                                    value="{{ $contactEmail }}"
-                                    placeholder="{{ translate('Email') }}"
-                                    autocomplete="email"
-                                    autocapitalize="off"
-                                    spellcheck="false"
-                                    data-lpignore="true"
-                                    data-1p-ignore
-                                    @if($mode === 'add')
-                                        readonly
-                                        onfocus="this.removeAttribute('readonly')"
-                                    @endif>
-                                <label>{{ translate('Email') }}</label>
-                                <span class="material-symbols-outlined">mail</span>
-                            </div>
-                        </div>
+                <div class="mb-30">
+                    <div class="form-floating form-floating__icon">
+                        <input
+                            type="text"
+                            class="form-control"
+                            name="contact_person_email"
+                            id="contact_person_email"
+                            value="{{ $contactEmail }}"
+                            placeholder="{{ translate('Email') }}"
+                            autocomplete="email"
+                            autocapitalize="off"
+                            spellcheck="false"
+                            data-lpignore="true"
+                            data-1p-ignore
+                            @if($mode === 'add')
+                                readonly
+                                onfocus="this.removeAttribute('readonly')"
+                            @endif>
+                        <label>{{ translate('Email') }}</label>
+                        <span class="material-symbols-outlined">mail</span>
                     </div>
                 </div>
 
                 @if($mode === 'add')
                     <p class="text-muted small mb-0">{{ translate('New_providers_use_contact_phone_as_login_password') }}</p>
                 @endif
+                </div>
+                </div>
             </div>
         </div>
     </div>
@@ -475,7 +609,7 @@
                 </div>
 
                 <div class="upload-file w-100 mb-30">
-                    <h3 class="mb-3">{{ translate('Identification_Image') }}</h3>
+                    <h3 class="mb-2">{{ translate('Identification_Image') }}</h3>
                     <div id="multi_image_picker" data-identity-draft-count="{{ (int) $identityDraftCount }}">
                         @if($isEdit)
                             @foreach($provider?->owner?->identification_image_full_path as $image)
@@ -485,13 +619,13 @@
                                 @if($ext === 'pdf')
                                     <a class="p-1 text-decoration-none" href="{{ $image }}" target="_blank" rel="noopener">PDF</a>
                                 @else
-                                    <img class="p-1" height="150" src="{{ $image }}" alt="{{ translate('image') }}">
+                                    <img class="p-1" height="80" src="{{ $image }}" alt="{{ translate('image') }}">
                                 @endif
                             @endforeach
                         @elseif(is_array($providerFormDraft) && ! empty($providerFormDraft['files']['identity_images']))
                             @foreach($providerFormDraft['files']['identity_images'] as $idDraft)
                                 @if(! empty($idDraft['rel']))
-                                    <img class="p-1 border rounded" height="120" src="{{ $draftDisk->url($idDraft['rel']) }}" alt="">
+                                    <img class="p-1 border rounded" height="72" src="{{ $draftDisk->url($idDraft['rel']) }}" alt="">
                                 @endif
                             @endforeach
                         @endif
@@ -525,24 +659,6 @@
                 @else
                     <div class="alert alert-info mb-0 mx-1">{{ translate('no_data_found') }}</div>
                 @endif
-                <div class="provider-service-areas mx-1 mt-4">
-                    <style>
-                        .provider-service-areas .select2-container {
-                            width: 100% !important;
-                        }
-                        .provider-service-areas .select2-container--default .select2-selection--multiple {
-                            min-height: 42px;
-                            border-radius: .5rem;
-                        }
-                    </style>
-                    @include('leadmanagement::admin.leads.partials._area-select', [
-                        'areaSelectId' => 'provider-service-area-select',
-                        'areaFieldName' => 'area_ids[]',
-                        'areaMultiple' => true,
-                        'areaSelected' => $selectedAreaIds,
-                        'areaList' => $customerLeadAreas,
-                    ])
-                </div>
                 <div id="provider-create-zone-error" class="alert alert-danger py-2 px-3 mb-0 mt-3 d-none" role="alert"></div>
             </div>
         </div>
@@ -562,9 +678,29 @@
                             class="form-control resize-none"
                             placeholder="{{ translate('Full_Address') }}"
                             name="company_address"
+                            rows="2"
                             required>{{ $companyAddress }}</textarea>
                         <label>{{ translate('Full_Address') }}</label>
                     </div>
+                </div>
+
+                <div class="provider-service-areas mb-30">
+                    <style>
+                        .provider-service-areas .select2-container {
+                            width: 100% !important;
+                        }
+                        .provider-service-areas .select2-container--default .select2-selection--multiple {
+                            min-height: 42px;
+                            border-radius: .5rem;
+                        }
+                    </style>
+                    @include('leadmanagement::admin.leads.partials._area-select', [
+                        'areaSelectId' => 'provider-service-area-select',
+                        'areaFieldName' => 'area_ids[]',
+                        'areaMultiple' => true,
+                        'areaSelected' => $selectedAreaIds,
+                        'areaList' => $customerLeadAreas,
+                    ])
                 </div>
 
                 <div class="border-top pt-4 mt-2">
@@ -627,6 +763,11 @@
                             <div id="location_map_canvas" class="overflow-hidden rounded canvas_class"></div>
                         </div>
                     </div>
+
+                    @include('providermanagement::admin.provider.partials._map-zone-path', [
+                        'mapZonePath' => $mapZonePath,
+                        'mapZonePathLive' => true,
+                    ])
                 </div>
             </div>
         </div>
@@ -895,6 +1036,91 @@
                 initProviderAreaSelect();
             }
             document.addEventListener("admin:page-loaded", initProviderAreaSelect);
+
+            var mapZonePathTimer = null;
+            function renderProviderMapZonePath(path, emptyText) {
+                var box = document.getElementById("provider-map-zone-path");
+                if (!box) {
+                    return;
+                }
+                var valueEl = box.querySelector("[data-role='path-value']");
+                if (!valueEl) {
+                    return;
+                }
+                var crumbs = Array.isArray(path) ? path : [];
+                if (crumbs.length === 0) {
+                    valueEl.innerHTML = '<span class="text-muted"></span>';
+                    valueEl.querySelector("span").textContent = emptyText || "";
+                    return;
+                }
+                var html = "";
+                crumbs.forEach(function (crumb, i) {
+                    if (i > 0) {
+                        html += '<span class="provider-map-zone-path__sep" aria-hidden="true">→</span>';
+                    }
+                    html += '<span class="provider-map-zone-path__crumb"></span>';
+                });
+                valueEl.innerHTML = html;
+                var nodes = valueEl.querySelectorAll(".provider-map-zone-path__crumb");
+                crumbs.forEach(function (crumb, i) {
+                    if (nodes[i]) {
+                        nodes[i].textContent = (crumb && crumb.name) ? crumb.name : "";
+                    }
+                });
+            }
+            function refreshProviderMapZonePath() {
+                var box = document.getElementById("provider-map-zone-path");
+                if (!box) {
+                    return;
+                }
+                var url = box.getAttribute("data-url");
+                var latEl = document.getElementById("latitude");
+                var lngEl = document.getElementById("longitude");
+                var lat = latEl ? String(latEl.value || "").trim() : "";
+                var lng = lngEl ? String(lngEl.value || "").trim() : "";
+                var emptyText = box.getAttribute("data-empty") || "";
+                var checkingText = box.getAttribute("data-checking") || "";
+                if (!url || lat === "" || lng === "" || !isFinite(Number(lat)) || !isFinite(Number(lng))) {
+                    renderProviderMapZonePath([], emptyText);
+                    return;
+                }
+                if (mapZonePathTimer) {
+                    clearTimeout(mapZonePathTimer);
+                }
+                mapZonePathTimer = setTimeout(function () {
+                    mapZonePathTimer = null;
+                    renderProviderMapZonePath([], checkingText);
+                    var sep = url.indexOf("?") >= 0 ? "&" : "?";
+                    fetch(url + sep + "lat=" + encodeURIComponent(lat) + "&lng=" + encodeURIComponent(lng), {
+                        headers: {
+                            "Accept": "application/json",
+                            "X-Requested-With": "XMLHttpRequest"
+                        },
+                        credentials: "same-origin"
+                    }).then(function (res) {
+                        return res.json().then(function (body) {
+                            return { ok: res.ok, body: body };
+                        });
+                    }).then(function (result) {
+                        var path = result.body && Array.isArray(result.body.path) ? result.body.path : [];
+                        renderProviderMapZonePath(path, emptyText);
+                    }).catch(function () {
+                        renderProviderMapZonePath([], emptyText);
+                    });
+                }, 180);
+            }
+            window.refreshProviderMapZonePath = refreshProviderMapZonePath;
+            if (typeof jQuery !== "undefined") {
+                jQuery(document).on("change", "#latitude, #longitude", refreshProviderMapZonePath);
+            } else {
+                document.addEventListener("change", function (e) {
+                    var t = e.target;
+                    if (t && (t.id === "latitude" || t.id === "longitude")) {
+                        refreshProviderMapZonePath();
+                    }
+                });
+            }
+            document.addEventListener("admin:page-loaded", refreshProviderMapZonePath);
 
             /**
              * intl-tel-input stores the submitted value in a hidden sibling; the visible <input type="tel"> has no name.

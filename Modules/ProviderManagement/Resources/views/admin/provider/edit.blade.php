@@ -1579,6 +1579,16 @@
                             }
                         });
                         map.fitBounds(bounds);
+                        if (places.length > 0 && places[0].geometry && places[0].geometry.location) {
+                            var loc0 = places[0].geometry.location;
+                            marker.setPosition(loc0);
+                            map.panTo(loc0);
+                            document.getElementById('latitude').value = loc0.lat();
+                            document.getElementById('longitude').value = loc0.lng();
+                            if (typeof jQuery !== "undefined") {
+                                jQuery("#latitude, #longitude").trigger("change");
+                            }
+                        }
                     });
                 };
                 initAutocomplete();

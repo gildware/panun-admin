@@ -1890,6 +1890,31 @@
                             }
                         });
                         map.fitBounds(bounds);
+                        if (places.length > 0 && places[0].geometry && places[0].geometry.location) {
+                            var loc0 = places[0].geometry.location;
+                            marker.setPosition(loc0);
+                            map.panTo(loc0);
+                            document.getElementById('latitude').value = loc0.lat();
+                            document.getElementById('longitude').value = loc0.lng();
+                            if (typeof jQuery !== "undefined") {
+                                jQuery("#latitude, #longitude").trigger("change");
+                                var $pfPlace = jQuery("#create-provider-form");
+                                var vPlace = $pfPlace.data("validator");
+                                if (vPlace) {
+                                    var latElP = document.getElementById("latitude");
+                                    var lngElP = document.getElementById("longitude");
+                                    if (latElP) {
+                                        vPlace.element(latElP);
+                                    }
+                                    if (lngElP) {
+                                        vPlace.element(lngElP);
+                                    }
+                                }
+                                if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                                    window.refreshProviderCreateStep0ValidationSummary();
+                                }
+                            }
+                        }
                     });
                 };
                 initAutocomplete();

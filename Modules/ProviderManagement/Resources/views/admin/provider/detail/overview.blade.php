@@ -527,6 +527,9 @@
                                             @endif
                                         </div>
 
+                                        <div class="overview-muted-label">{{ translate('Address') }}</div>
+                                        <div class="overview-value">{{ $provider->company_address ?: '-' }}</div>
+
                                         <div class="overview-muted-label">{{ translate('Area') }}</div>
                                         <div class="overview-value">
                                             @php
@@ -536,9 +539,6 @@
                                             @endphp
                                             {{ $providerAreaNames ? implode(', ', $providerAreaNames) : '-' }}
                                         </div>
-
-                                        <div class="overview-muted-label">{{ translate('Address') }}</div>
-                                        <div class="overview-value">{{ $provider->company_address ?: '-' }}</div>
 
                                         <div class="overview-muted-label">{{ translate('latitude') }}</div>
                                         <div class="overview-value">{{ data_get($provider->coordinates, 'latitude', '-') }}</div>
@@ -550,6 +550,8 @@
                                         @php
                                             $lat = data_get($provider->coordinates, 'latitude');
                                             $lng = data_get($provider->coordinates, 'longitude');
+                                            $mapZonePath = app(\Modules\ZoneManagement\Services\ZoneGeometryService::class)
+                                                ->resolveZonePathForLatLng($lat, $lng);
                                         @endphp
                                         @if(filled($lat) && filled($lng))
                                             <iframe
@@ -562,6 +564,10 @@
                                                 {{ translate('No_data_found') }}
                                             </div>
                                         @endif
+                                        @include('providermanagement::admin.provider.partials._map-zone-path', [
+                                            'mapZonePath' => $mapZonePath,
+                                            'mapZonePathLive' => false,
+                                        ])
                                     </div>
                                 </div>
                             </div>

@@ -352,17 +352,6 @@
                                         <span class="text-muted small">{{ $provider?->zone?->name ?: translate('No_data_found') }}</span>
                                     @endif
                                 </div>
-                                @php
-                                    $onboardingAreaNames = $provider->relationLoaded('areas')
-                                        ? $provider->areas->pluck('name')->filter()->values()->all()
-                                        : [];
-                                @endphp
-                                @if($onboardingAreaNames)
-                                    <div class="ob-kv mt-3 mb-0">
-                                        <div class="k">{{ translate('Area') }}</div>
-                                        <div class="v">{{ implode(', ', $onboardingAreaNames) }}</div>
-                                    </div>
-                                @endif
                             </div>
                         </div>
 
@@ -376,6 +365,17 @@
                                     <div class="k">{{ translate('Address') }}</div>
                                     <div class="v">{{ $provider->company_address ?: '-' }}</div>
                                 </div>
+                                @php
+                                    $onboardingAreaNames = $provider->relationLoaded('areas')
+                                        ? $provider->areas->pluck('name')->filter()->values()->all()
+                                        : [];
+                                @endphp
+                                @if($onboardingAreaNames)
+                                    <div class="ob-kv mb-2">
+                                        <div class="k">{{ translate('Area') }}</div>
+                                        <div class="v">{{ implode(', ', $onboardingAreaNames) }}</div>
+                                    </div>
+                                @endif
                                 <div class="ob-kv-grid mb-2">
                                     <div class="ob-kv">
                                         <div class="k">{{ translate('latitude') }}</div>
@@ -394,6 +394,14 @@
                                         {{ translate('No_data_found') }}
                                     </div>
                                 @endif
+                                @php
+                                    $mapZonePath = app(\Modules\ZoneManagement\Services\ZoneGeometryService::class)
+                                        ->resolveZonePathForLatLng($lat, $lng);
+                                @endphp
+                                @include('providermanagement::admin.provider.partials._map-zone-path', [
+                                    'mapZonePath' => $mapZonePath,
+                                    'mapZonePathLive' => false,
+                                ])
                             </div>
                         </div>
 

@@ -76,6 +76,7 @@ use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
 use Modules\ZoneManagement\Entities\Zone;
 use Modules\ZoneManagement\Services\ZoneCoverageNormalizationService;
+use Modules\ZoneManagement\Services\ZoneGeometryService;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -455,6 +456,42 @@ class ProviderController extends Controller
         return response()->json([
             'valid' => count($fieldErrors) === 0,
             'field_errors' => $fieldErrors,
+        ]);
+    }
+
+    /**
+     * Resolve the map pin to leaf → parent → root zone names.
+     */
+    public function zoneFromLocation(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'lat' => 'required|numeric',
+            'lng' => 'required|numeric',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'ok' => false,
+                'path' => [],
+                'label' => '',
+            ], 422);
+        }
+
+        $path = app(ZoneGeometryService::class)->resolveZonePathForLatLng(
+            $request->input('lat'),
+            $request->input('lng')
+        );
+        $names = [];
+        foreach ($path as $crumb) {
+            $name = trim((string) ($crumb['name'] ?? ''));
+            if ($name !== '') {
+                $names[] = $name;
+            }
+        }
+
+        return response()->json([
+            'ok' => $path !== [],
+            'path' => $path,
+            'label' => implode(' → ', $names),
         ]);
     }
 
