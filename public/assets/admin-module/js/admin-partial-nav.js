@@ -19,6 +19,7 @@
         '/admin/booking/success',
         '/admin/booking/preview',
         '/admin/my-progress',
+        '/admin/provider/edit',
     ];
     var progressEl = null;
     var activeController = null;
