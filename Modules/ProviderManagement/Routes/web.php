@@ -51,6 +51,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('create', [ProviderController::class, 'create'])->name('create');
         Route::post('create/subcategories-for-zone', [ProviderController::class, 'subcategoriesForCreateWizard'])->name('create.subcategories-for-zone');
         Route::post('check-owner-contact-unique', [ProviderController::class, 'checkOwnerContactUnique'])->name('check-owner-contact-unique');
+        Route::get('zone-from-location', [ProviderController::class, 'zoneFromLocation'])->name('zone-from-location');
         Route::post('store', [ProviderController::class, 'store'])->name('store');
         Route::get('edit/{id}', [ProviderController::class, 'edit'])->name('edit');
         Route::put('update/{id}', [ProviderController::class, 'update'])->name('update');

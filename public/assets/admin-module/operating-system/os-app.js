@@ -332,8 +332,12 @@ const DATA = window.PK_SYSTEM;
       });
     }
 
+    function navPane() {
+      return byId("os-sidebar-col") || byId("os-sidebar");
+    }
     function closeNav() {
-      byId("os-sidebar").classList.remove("open");
+      const pane = navPane();
+      if (pane) pane.classList.remove("open");
       byId("os-scrim").classList.remove("on");
       byId("os-results").classList.remove("open");
     }
@@ -1345,7 +1349,8 @@ const DATA = window.PK_SYSTEM;
       renderedKey = view;
       byId("os-main").innerHTML = html;
       if (!view.startsWith("pack-")) byId("os-main").scrollTop = 0;
-      byId("os-progress-chip").textContent = "Master OS";
+      const chip = byId("os-progress-chip");
+      if (chip) chip.textContent = "Master OS";
       renderSidebar();
 
       byId("os-main").querySelectorAll("[data-go]").forEach((el) => el.addEventListener("click", () => go(el.dataset.go)));
@@ -1429,10 +1434,14 @@ const DATA = window.PK_SYSTEM;
       q.focus();
       q.select();
     });
-    byId("os-menu-btn").addEventListener("click", () => {
-      const open = byId("os-sidebar").classList.toggle("open");
-      byId("os-scrim").classList.toggle("on", open);
-    });
+    const menuBtn = byId("os-menu-btn");
+    if (menuBtn) {
+      menuBtn.addEventListener("click", () => {
+        const pane = navPane();
+        const open = pane ? pane.classList.toggle("open") : false;
+        byId("os-scrim").classList.toggle("on", open);
+      });
+    }
     byId("os-scrim").addEventListener("click", closeNav);
     window.addEventListener("hashchange", render);
     render();

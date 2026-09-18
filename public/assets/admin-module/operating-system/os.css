@@ -983,15 +983,89 @@ body.nav-top .main-area:has(.os-operating-system-page),
 .os-explorer table {
   caption-side: top;
 }
-.os-explorer .topbar,
-.os-explorer .topbar h1,
-.os-explorer .topbar .brand,
-.os-explorer .topbar .menu-btn,
-.os-explorer .topbar .mso {
-  color: #fff;
+.os-explorer .app {
+  grid-template-columns: var(--sidebar) 1fr;
+  grid-template-rows: minmax(0, 1fr);
 }
-.os-explorer .topbar .brand h1 span {
-  color: rgba(255, 255, 255, 0.5);
+.os-explorer .topbar {
+  display: none !important;
+}
+.os-explorer .scrim {
+  inset: 0;
+}
+.os-explorer .sidebar-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--sheet);
+  border-right: 1px solid var(--line);
+  z-index: 20;
+}
+.os-explorer .os-search-dock {
+  flex-shrink: 0;
+  padding: 10px 10px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.os-explorer .os-search-dock .search-wrap {
+  flex: none;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+.os-explorer .os-search-dock .search-wrap input {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+}
+.os-explorer .os-search-dock .search-wrap input::placeholder {
+  color: var(--muted);
+}
+.os-explorer .os-search-dock .search-wrap input:focus {
+  background: #fff;
+  border-color: var(--gold-2);
+}
+.os-explorer .os-search-dock .search-wrap .mso {
+  color: var(--muted);
+}
+.os-explorer .sidebar-col .sidebar {
+  flex: 1 1 auto;
+  min-height: 0;
+  border-right: 0;
+}
+.os-explorer .menu-btn {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 25;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+}
+@media (max-width: 720px) {
+  .os-explorer .sidebar-col {
+    display: none;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(86vw, 320px);
+    z-index: 20;
+    box-shadow: var(--shadow);
+  }
+  .os-explorer .sidebar-col.open {
+    display: flex;
+  }
+  .os-explorer .sidebar {
+    display: block;
+    position: static;
+    width: auto;
+    top: auto;
+    box-shadow: none;
+  }
 }
 .os-explorer .main,
 .os-explorer .sidebar {

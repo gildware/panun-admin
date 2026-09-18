@@ -104,7 +104,7 @@ class Provider extends Model
     }
 
     /**
-     * Neighbourhood / locality areas this provider covers (same catalog as leads).
+     * Neighbourhood / locality for this provider (same catalog as leads). One area only.
      */
     public function areas(): BelongsToMany
     {
@@ -112,11 +112,12 @@ class Provider extends Model
     }
 
     /**
-     * Sync coverage areas from form/API input (existing ids or free-typed names).
+     * Sync the provider's single area from form/API input (existing id or free-typed name).
      */
     public function syncServiceAreasFromInput(mixed $raw): void
     {
-        $this->areas()->sync(CustomerLeadArea::resolveIds($raw));
+        $ids = CustomerLeadArea::resolveIds($raw);
+        $this->areas()->sync(array_slice($ids, 0, 1));
     }
 
     public function scopeCoveringLeafZone($query, ?string $leafZoneId)

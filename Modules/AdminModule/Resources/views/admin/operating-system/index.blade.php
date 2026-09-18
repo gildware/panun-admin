@@ -26,24 +26,19 @@
     <div class="main-content os-operating-system-page">
         <div class="os-explorer" id="os-explorer" data-art-base="{{ $osAssetBase }}/art" data-version="{{ $osVersion }}">
             <div class="app">
-                <header class="topbar">
-                    <button class="menu-btn" id="os-menu-btn" type="button" aria-label="Open navigation"><span class="mso">menu</span></button>
-                    <div class="brand">
-                        <div class="mark">PK</div>
-                        <h1>Panun Kaergar <span>Master operating system</span></h1>
-                    </div>
-                    <div class="search-wrap">
-                        <span class="mso">search</span>
-                        <input id="os-q" type="search" placeholder="Search modules, SOPs, KPIs…" autocomplete="off">
-                        <div class="search-results" id="os-results"></div>
-                    </div>
-                    <div class="top-meta">
-                        <span class="chip chip-gold" id="os-progress-chip">11 modules</span>
-                        <span class="chip chip-ghost">Press / to search</span>
-                    </div>
-                </header>
+                <button class="menu-btn" id="os-menu-btn" type="button" aria-label="Open navigation"><span class="mso">menu</span></button>
                 <div class="scrim" id="os-scrim"></div>
-                <aside class="sidebar" id="os-sidebar"></aside>
+                <aside class="sidebar-col" id="os-sidebar-col">
+                    <div class="os-search-dock">
+                        <div class="search-wrap">
+                            <span class="mso">search</span>
+                            <input id="os-q" type="search" placeholder="Search modules, SOPs, KPIs…" autocomplete="off">
+                            <div class="search-results" id="os-results"></div>
+                        </div>
+                        <span id="os-progress-chip" hidden>Master OS</span>
+                    </div>
+                    <div class="sidebar" id="os-sidebar"></div>
+                </aside>
                 <div class="main" id="os-main"></div>
             </div>
         </div>

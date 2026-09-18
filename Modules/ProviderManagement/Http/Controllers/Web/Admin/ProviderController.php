@@ -76,6 +76,7 @@ use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
 use Modules\ZoneManagement\Entities\Zone;
 use Modules\ZoneManagement\Services\ZoneCoverageNormalizationService;
+use Modules\ZoneManagement\Services\ZoneGeometryService;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -459,6 +460,42 @@ class ProviderController extends Controller
     }
 
     /**
+     * Resolve the map pin to leaf → parent → root zone names.
+     */
+    public function zoneFromLocation(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'lat' => 'required|numeric',
+            'lng' => 'required|numeric',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'ok' => false,
+                'path' => [],
+                'label' => '',
+            ], 422);
+        }
+
+        $path = app(ZoneGeometryService::class)->resolveZonePathForLatLng(
+            $request->input('lat'),
+            $request->input('lng')
+        );
+        $names = [];
+        foreach ($path as $crumb) {
+            $name = trim((string) ($crumb['name'] ?? ''));
+            if ($name !== '') {
+                $names[] = $name;
+            }
+        }
+
+        return response()->json([
+            'ok' => $path !== [],
+            'path' => $path,
+            'label' => implode(' → ', $names),
+        ]);
+    }
+
+    /**
      * True if another user already owns this phone (exact, digits-only, or normalized match on MySQL).
      */
     private function ownerContactPhoneTaken(string $phone, ?string $excludeUserId): bool
@@ -641,8 +678,7 @@ class ProviderController extends Controller
             'zone_ids.*' => 'uuid',
             'zone_excluded_ids' => 'nullable|array',
             'zone_excluded_ids.*' => 'uuid',
-            'area_ids' => 'nullable|array',
-            'area_ids.*' => 'nullable|string|max:255',
+            'area_id' => 'nullable|string|max:255',
 
             'subscribed_sub_category_ids' => 'nullable|array',
             'subscribed_sub_category_ids.*' => 'uuid',
@@ -830,7 +866,7 @@ class ProviderController extends Controller
                     $provider->zones()->sync(
                         collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
                     );
-                    $provider->syncServiceAreasFromInput($request->input('area_ids'));
+                    $provider->syncServiceAreasFromInput($request->input('area_id', $request->input('area_ids')));
 
                     $serviceLocation = ['customer'];
                     ProviderSetting::create([
@@ -2412,8 +2448,7 @@ class ProviderController extends Controller
             'zone_ids.*' => 'uuid',
             'zone_excluded_ids' => 'nullable|array',
             'zone_excluded_ids.*' => 'uuid',
-            'area_ids' => 'nullable|array',
-            'area_ids.*' => 'nullable|string|max:255',
+            'area_id' => 'nullable|string|max:255',
         ], [
             'contact_person_phone.unique' => translate('The contact person phone has already been taken.'),
         ])->validate();
@@ -2598,7 +2633,7 @@ class ProviderController extends Controller
             $provider->zones()->sync(
                 collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
             );
-            $provider->syncServiceAreasFromInput($request->input('area_ids'));
+            $provider->syncServiceAreasFromInput($request->input('area_id', $request->input('area_ids')));
         });
 
         // Upload additional documents (optional) - replace existing on edit.

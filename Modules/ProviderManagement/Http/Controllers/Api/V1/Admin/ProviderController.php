@@ -230,8 +230,7 @@ class ProviderController extends Controller
             'zone_ids.*' => 'uuid',
             'zone_excluded_ids' => 'nullable|array',
             'zone_excluded_ids.*' => 'uuid',
-            'area_ids' => 'nullable|array',
-            'area_ids.*' => 'nullable|string|max:255',
+            'area_id' => 'nullable|string|max:255',
         ]);
 
         $validator->after(function ($v) use ($request) {
@@ -318,7 +317,7 @@ class ProviderController extends Controller
                     $provider->zones()->sync(
                         collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
                     );
-                    $provider->syncServiceAreasFromInput($request->input('area_ids'));
+                    $provider->syncServiceAreasFromInput($request->input('area_id', $request->input('area_ids')));
                 });
             }
         );
@@ -410,8 +409,7 @@ class ProviderController extends Controller
             'zone_ids.*' => 'uuid',
             'zone_excluded_ids' => 'nullable|array',
             'zone_excluded_ids.*' => 'uuid',
-            'area_ids' => 'nullable|array',
-            'area_ids.*' => 'nullable|string|max:255',
+            'area_id' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -473,7 +471,7 @@ class ProviderController extends Controller
             $provider->zones()->sync(
                 collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
             );
-            $provider->syncServiceAreasFromInput($request->input('area_ids'));
+            $provider->syncServiceAreasFromInput($request->input('area_id', $request->input('area_ids')));
         });
 
         return response()->json(response_formatter(PROVIDER_STORE_200), 200);

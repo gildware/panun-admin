@@ -92,22 +92,22 @@
                                             </select>
                                             <small class="d-block mt-1 text-danger">* {{translate('Update your latitude & longitude according to the selected zone')}}</small>
                                         </div>
-                                        @php
-                                            $selectedAreaIds = old('area_ids', $provider->relationLoaded('areas') ? $provider->areas->pluck('id')->all() : []);
-                                        @endphp
-                                        <div class="mb-30">
-                                            @include('leadmanagement::admin.leads.partials._area-select', [
-                                                'areaSelectId' => 'provider-profile-area-select',
-                                                'areaFieldName' => 'area_ids[]',
-                                                'areaMultiple' => true,
-                                                'areaSelected' => $selectedAreaIds,
-                                                'areaList' => $customerLeadAreas ?? collect(),
-                                            ])
-                                        </div>
                                         <div class="form-floating mb-30">
                                             <textarea class="form-control resize-none" name="company_address"
                                                       placeholder="{{translate('Company_Address')}}">{!! $provider->company_address !!}</textarea>
                                             <label>{{translate('Company_Address')}}</label>
+                                        </div>
+                                        @php
+                                            $selectedAreaId = old('area_id', $provider->relationLoaded('areas') ? $provider->areas->pluck('id')->first() : '');
+                                        @endphp
+                                        <div class="provider-service-areas mb-30">
+                                            @include('leadmanagement::admin.leads.partials._area-select', [
+                                                'areaSelectId' => 'provider-profile-area-select',
+                                                'areaFieldName' => 'area_id',
+                                                'areaMultiple' => false,
+                                                'areaSelected' => $selectedAreaId,
+                                                'areaList' => $customerLeadAreas ?? collect(),
+                                            ])
                                         </div>
                                     </div>
                                     <div class="col-md-6">
@@ -251,6 +251,17 @@
                                                     <div id="location_map_canvas"
                                                          class="overflow-hidden rounded location_map_canvas"></div>
                                                 </div>
+                                                @php
+                                                    $mapZonePath = app(\Modules\ZoneManagement\Services\ZoneGeometryService::class)
+                                                        ->resolveZonePathForLatLng(
+                                                            $provider->coordinates['latitude'] ?? null,
+                                                            $provider->coordinates['longitude'] ?? null
+                                                        );
+                                                @endphp
+                                                @include('providermanagement::admin.provider.partials._map-zone-path', [
+                                                    'mapZonePath' => $mapZonePath,
+                                                    'mapZonePathLive' => false,
+                                                ])
                                             </div>
                                         </div>
                                     </div>
