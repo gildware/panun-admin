@@ -204,8 +204,15 @@
         height: 200px;
         position: relative;
     }
+    .provider-add-edit-form-root .provider-zones-card > .card-body {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
     .provider-add-edit-form-root .provider-zone-tree {
-        max-height: 280px;
+        flex: 1 1 auto;
+        min-height: 22rem;
+        max-height: none;
         overflow: auto;
     }
     .provider-add-edit-form-root .provider-map-zone-path {
@@ -637,7 +644,7 @@
 
     {{-- Service zones (left) | Address + map (right) --}}
     <div class="col-12 col-md-6">
-        <div class="card h-100">
+        <div class="card h-100 provider-zones-card">
             <div class="card-body">
                 <div class="d-flex flex-wrap justify-content-between gap-3 mb-20">
                     <h4 class="c1 mb-0">{{ translate('Service_Zones') }}</h4>
@@ -645,7 +652,7 @@
                 <p class="text-muted fz-12 mb-20 mx-1 mt-1" style="line-height: 1.55;">{{ translate('provider_form_zone_tree_hint') }}</p>
 
                 @if(count($zoneTree) > 0)
-                    <div class="provider-zone-tree border rounded overflow-hidden mx-1 px-2">
+                    <div class="provider-zone-tree border rounded overflow-auto mx-1 px-2">
                         @foreach($zoneTree as $rootNode)
                             <div class="provider-zone-tree-root border-bottom border-light">
                                 @include('providermanagement::admin.provider.partials.provider-zone-tree-branch', [
