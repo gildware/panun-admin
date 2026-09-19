@@ -23,6 +23,8 @@ use Modules\WhatsAppModule\Entities\WhatsAppChatThreadMeta;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
 use Modules\WhatsAppModule\Support\SocialInboxChannel;
+use Modules\WhatsAppModule\Support\WhatsAppChatHandler;
+use Modules\WhatsAppModule\Support\WhatsAppThreadPhoneKeys;
 
 class EmployeeDashboardService
 {
@@ -31,6 +33,9 @@ class EmployeeDashboardService
 
     /** @var array<string, array{completed_bookings: int, completed_amount: float, cancelled_bookings: int}> */
     private array $teamBookingOutcomesCache = [];
+
+    /** @var array<string, true>|null */
+    private ?array $closedWhatsAppPhoneKeySet = null;
 
     public function __construct(
         protected LeadOpenStatusService $leadOpenStatus,
@@ -1451,50 +1456,6 @@ class EmployeeDashboardService
         return implode(', ', $parts) . ', and ' . $last;
     }
 
-    private function whatsappOpenCount(?string $handledByUserId, bool $unassignedOnly = false): int
-    {
-        if (! Schema::hasTable('whatsapp_users')) {
-            return 0;
-        }
-
-        $query = WhatsAppUser::query();
-        if ($unassignedOnly) {
-            $query->where(function ($q) {
-                $q->whereNull('handled_by')
-                    ->orWhere('handled_by', '')
-                    ->orWhere('handled_by', Lead::HANDLED_BY_AI);
-            });
-        } elseif ($handledByUserId !== null) {
-            $query->where('handled_by', $handledByUserId);
-        }
-
-        $assigned = $query->get(['phone']);
-        if ($assigned->isEmpty()) {
-            return 0;
-        }
-
-        $closedStatusIds = [];
-        if (Schema::hasTable('whatsapp_chat_statuses')) {
-            $closedStatusIds = WhatsAppChatStatus::query()
-                ->where('bucket', 'closed')
-                ->pluck('id')
-                ->map(fn ($id) => (int) $id)
-                ->all();
-        }
-
-        if ($closedStatusIds === [] || ! Schema::hasTable('whatsapp_chat_thread_meta')) {
-            return $assigned->count();
-        }
-
-        $phones = $assigned->pluck('phone')->filter()->values()->all();
-        $closedCount = WhatsAppChatThreadMeta::query()
-            ->whereIn('phone', $phones)
-            ->whereIn('whatsapp_chat_status_id', $closedStatusIds)
-            ->count();
-
-        return max(0, $assigned->count() - $closedCount);
-    }
-
     /**
      * @return array{leads: int, bookings: int}
      */
@@ -2522,11 +2483,7 @@ class EmployeeDashboardService
                 'icon' => 'forum',
                 'tone' => 'whatsapp',
                 'total' => $context['whatsapp_unassigned']['total'],
-                'url' => route('admin.whatsapp.conversations.index', [
-                    'channel' => 'whatsapp',
-                    'tab' => 'chats',
-                    'handlers' => ['ai'],
-                ]),
+                'url' => $this->unassignedWhatsAppInboxUrl(),
                 'scroll_to' => 'inbox-box-whatsapp_unassigned',
                 'requires_permission' => 'whatsapp_chat_view',
             ],
@@ -2795,18 +2752,11 @@ class EmployeeDashboardService
                         'items' => $context['whatsapp_unassigned']['items'],
                     ],
                 ],
-                'view_all_yours_url' => route('admin.whatsapp.conversations.index', [
-                    'channel' => 'whatsapp',
-                    'tab' => 'chats',
-                    'handlers' => ['ai'],
-                ]),
-                'view_all_all_url' => route('admin.whatsapp.conversations.index', [
-                    'channel' => 'whatsapp',
-                    'tab' => 'chats',
-                    'handlers' => ['ai'],
-                ]),
+                'view_all_yours_url' => $this->unassignedWhatsAppInboxUrl(),
+                'view_all_all_url' => $this->unassignedWhatsAppInboxUrl(),
                 'footer_yours_label' => translate('View_unassigned_whatsapp_chats'),
                 'footer_all_label' => translate('View_unassigned_whatsapp_chats'),
+                'footer_full_page' => true,
             ],
             [
                 'key' => 'whatsapp_assigned_unread',
@@ -2935,7 +2885,7 @@ class EmployeeDashboardService
             $query->where(function ($q) {
                 $q->whereNull('handled_by')
                     ->orWhere('handled_by', '')
-                    ->orWhere('handled_by', Lead::HANDLED_BY_AI);
+                    ->orWhereRaw('LOWER(TRIM(handled_by)) = ?', ['ai']);
             });
         } elseif ($handledByUserId !== null) {
             $query->where('handled_by', $handledByUserId);
@@ -2954,14 +2904,13 @@ class EmployeeDashboardService
             userId: $handledByUserId ?? '',
             requireUnread: false,
             previewLimit: $previewLimit,
-            totalCounter: fn () => $this->whatsappOpenCount($handledByUserId, $unassignedOnly),
+            unassignedOnly: $unassignedOnly,
         );
     }
 
     /**
      * @param  Collection<int, WhatsAppUser>  $users
      * @param  Collection<string, int>  $unreadByDigits
-     * @param  (callable(): int)|null  $totalCounter
      * @return array{total: int, items: Collection<int, array<string, mixed>>}
      */
     private function buildWhatsAppPickupThreadList(
@@ -2970,11 +2919,11 @@ class EmployeeDashboardService
         string $userId,
         bool $requireUnread,
         int $previewLimit,
-        ?callable $totalCounter = null,
+        bool $unassignedOnly = false,
     ): array {
-        $closedStatusIds = $this->closedWhatsAppStatusIds();
         $candidates = collect();
         $openCount = 0;
+        $defaultOpenStatus = $this->defaultOpenWhatsAppStatusName();
 
         foreach ($users as $waUser) {
             $phone = (string) $waUser->phone;
@@ -2982,12 +2931,24 @@ class EmployeeDashboardService
                 continue;
             }
 
-            if ($this->isWhatsAppThreadClosed($phone, $closedStatusIds)) {
+            if ($unassignedOnly && ! WhatsAppChatHandler::isUnassigned($waUser->handled_by ?? null)) {
+                continue;
+            }
+
+            if ($this->isWhatsAppThreadClosed($phone)) {
                 continue;
             }
 
             $digits = $this->normalizeWaPhoneDigits($phone);
             $unreadCount = (int) ($unreadByDigits->get($digits) ?? 0);
+            if ($unreadCount <= 0) {
+                foreach (WhatsAppThreadPhoneKeys::keys($phone) as $key) {
+                    $unreadCount = (int) ($unreadByDigits->get($this->normalizeWaPhoneDigits($key)) ?? 0);
+                    if ($unreadCount > 0) {
+                        break;
+                    }
+                }
+            }
 
             if ($requireUnread && $unreadCount <= 0) {
                 continue;
@@ -2995,12 +2956,13 @@ class EmployeeDashboardService
 
             $openCount++;
 
-            $lastMessage = Schema::hasTable('whatsapp_messages')
-                ? WhatsAppMessage::query()
-                    ->where('phone', $digits)
+            $lastMessage = null;
+            if (Schema::hasTable('whatsapp_messages')) {
+                $lastMessage = WhatsAppMessage::query()
+                    ->whereIn('phone', WhatsAppThreadPhoneKeys::keys($phone))
                     ->orderByDesc('created_at')
-                    ->first(['message_text', 'created_at'])
-                : null;
+                    ->first(['message_text', 'created_at']);
+            }
 
             $candidates->push([
                 'phone' => $phone,
@@ -3012,7 +2974,7 @@ class EmployeeDashboardService
         }
 
         $phonesForLookup = $candidates
-            ->flatMap(fn (array $candidate) => array_values(array_unique([$candidate['phone'], $candidate['digits']])))
+            ->flatMap(fn (array $candidate) => WhatsAppThreadPhoneKeys::keys($candidate['phone']))
             ->filter()
             ->unique()
             ->values()
@@ -3021,17 +2983,31 @@ class EmployeeDashboardService
         $tagsByPhone = $this->whatsappTagsByPhones($phonesForLookup);
         $statusByPhone = $this->whatsappStatusByPhones($phonesForLookup);
 
-        $openThreads = $candidates->map(function (array $candidate) use ($tagsByPhone, $statusByPhone, $userId) {
+        $openThreads = $candidates->map(function (array $candidate) use ($tagsByPhone, $statusByPhone, $userId, $unassignedOnly, $defaultOpenStatus) {
             $phone = $candidate['phone'];
             $digits = $candidate['digits'];
             /** @var WhatsAppUser $waUser */
             $waUser = $candidate['waUser'];
             $lastMessage = $candidate['last_message'];
-            $tags = $tagsByPhone->get($phone, $tagsByPhone->get($digits, []));
-            $statusLabel = $statusByPhone->get($phone) ?? $statusByPhone->get($digits);
+            $tags = [];
+            $statusLabel = $defaultOpenStatus;
+            foreach (WhatsAppThreadPhoneKeys::keys($phone) as $key) {
+                if ($tags === [] && $tagsByPhone->has($key)) {
+                    $tags = $tagsByPhone->get($key, []);
+                }
+                $matchedStatus = $statusByPhone->get($key);
+                if (is_string($matchedStatus) && $matchedStatus !== '') {
+                    $statusLabel = $matchedStatus;
+                    break;
+                }
+            }
+
+            $url = $unassignedOnly
+                ? $this->unassignedWhatsAppInboxUrl($digits)
+                : $this->whatsappThreadInboxUrl($digits);
 
             return $this->formatWhatsAppChatCard(
-                route('admin.whatsapp.conversations.chat', ['channel' => 'whatsapp', 'phone' => $digits]),
+                $url,
                 $phone,
                 $waUser->name ?: $phone,
                 $lastMessage?->created_at ? Carbon::parse($lastMessage->created_at) : null,
@@ -3046,7 +3022,7 @@ class EmployeeDashboardService
         });
 
         return [
-            'total' => $totalCounter !== null ? $totalCounter() : $openCount,
+            'total' => $openCount,
             'items' => $openThreads
                 ->sortByDesc(fn (array $thread) => $thread['datetime'] instanceof Carbon ? $thread['datetime']->timestamp : 0)
                 ->take($previewLimit)
@@ -3097,14 +3073,20 @@ class EmployeeDashboardService
             return collect();
         }
 
-        return WhatsAppChatThreadMeta::query()
-            ->with('status:id,name')
-            ->whereIn('phone', $phones)
-            ->get()
-            ->mapWithKeys(fn (WhatsAppChatThreadMeta $meta) => [
-                (string) $meta->phone => (string) ($meta->status?->name ?? ''),
-            ])
-            ->filter(fn (string $name) => $name !== '');
+        $lookup = WhatsAppThreadPhoneKeys::expand($phones);
+
+        $map = collect();
+        foreach (WhatsAppChatThreadMeta::query()->with('status:id,name,bucket')->whereIn('phone', $lookup)->get() as $meta) {
+            $name = (string) ($meta->status?->name ?? '');
+            if ($name === '') {
+                continue;
+            }
+            foreach (WhatsAppThreadPhoneKeys::keys((string) $meta->phone) as $key) {
+                $map[$key] ??= $name;
+            }
+        }
+
+        return $map;
     }
 
     private function whatsAppHandlerLabel(?string $handledBy, string $currentUserId): string
@@ -3164,17 +3146,77 @@ class EmployeeDashboardService
     }
 
     /**
-     * @param  list<int>  $closedStatusIds
+     * Inbox URL for AI / unassigned chats that are still open.
      */
-    private function isWhatsAppThreadClosed(string $phone, array $closedStatusIds): bool
+    private function unassignedWhatsAppInboxUrl(?string $phone = null): string
     {
-        if ($closedStatusIds === [] || ! Schema::hasTable('whatsapp_chat_thread_meta')) {
-            return false;
+        $params = [
+            'channel' => 'whatsapp',
+            'tab' => 'chats',
+            'handlers' => ['ai'],
+            'chat_status_buckets' => ['open'],
+        ];
+        if ($phone !== null && $phone !== '') {
+            $params['phone'] = $phone;
         }
 
-        $meta = WhatsAppChatThreadMeta::query()->where('phone', $phone)->first();
+        return route('admin.whatsapp.conversations.index', $params);
+    }
 
-        return $meta && in_array((int) $meta->whatsapp_chat_status_id, $closedStatusIds, true);
+    private function defaultOpenWhatsAppStatusName(): string
+    {
+        if (! Schema::hasTable('whatsapp_chat_statuses')) {
+            return 'Open';
+        }
+
+        $name = WhatsAppChatStatus::query()
+            ->where('bucket', 'open')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->value('name');
+
+        return $name ? (string) $name : 'Open';
+    }
+
+    /**
+     * Open the WhatsApp inbox with this thread selected (not the standalone chat page).
+     */
+    private function whatsappThreadInboxUrl(string $phone): string
+    {
+        return route('admin.whatsapp.conversations.index', [
+            'channel' => 'whatsapp',
+            'tab' => 'chats',
+            'phone' => $phone,
+        ]);
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private function closedWhatsAppPhoneKeySet(): array
+    {
+        if ($this->closedWhatsAppPhoneKeySet !== null) {
+            return $this->closedWhatsAppPhoneKeySet;
+        }
+
+        $closedStatusIds = $this->closedWhatsAppStatusIds();
+        if ($closedStatusIds === [] || ! Schema::hasTable('whatsapp_chat_thread_meta')) {
+            return $this->closedWhatsAppPhoneKeySet = [];
+        }
+
+        $keys = [];
+        foreach (WhatsAppChatThreadMeta::query()->whereIn('whatsapp_chat_status_id', $closedStatusIds)->pluck('phone') as $phone) {
+            foreach (WhatsAppThreadPhoneKeys::keys((string) $phone) as $key) {
+                $keys[$key] = true;
+            }
+        }
+
+        return $this->closedWhatsAppPhoneKeySet = $keys;
+    }
+
+    private function isWhatsAppThreadClosed(string $phone): bool
+    {
+        return WhatsAppThreadPhoneKeys::isClosed($phone, $this->closedWhatsAppPhoneKeySet());
     }
 
     private function normalizeWaPhoneDigits(?string $phone): string

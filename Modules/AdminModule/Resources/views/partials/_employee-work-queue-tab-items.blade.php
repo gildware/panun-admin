@@ -35,7 +35,7 @@
     @elseif($listDisplay === 'whatsapp_cards')
         <div class="work-queue-whatsapp-card-list">
             @foreach($items as $item)
-                <a href="{{ $item['url'] ?? '#' }}" class="work-queue-whatsapp-card {{ ($item['unread_count'] ?? 0) > 0 ? 'has-unread' : '' }}">
+                <a href="{{ $item['url'] ?? '#' }}" class="work-queue-whatsapp-card {{ ($item['unread_count'] ?? 0) > 0 ? 'has-unread' : '' }}" data-turbo="false">
                     <div class="work-queue-whatsapp-card-head">
                         <div class="work-queue-whatsapp-card-user">
                             <span class="work-queue-whatsapp-avatar material-symbols-outlined">person</span>

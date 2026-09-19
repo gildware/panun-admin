@@ -95,7 +95,7 @@
         </div>
         <div class="work-queue-box-footer">
             @if($singleTab)
-                <a href="{{ $box['view_all_all_url'] ?? '#' }}" class="work-queue-footer-link is-single">{{ $box['footer_all_label'] ?? translate('view_all') }}</a>
+                <a href="{{ $box['view_all_all_url'] ?? '#' }}" class="work-queue-footer-link is-single" @if(! empty($box['footer_full_page'])) data-turbo="false" @endif>{{ $box['footer_all_label'] ?? translate('view_all') }}</a>
             @else
                 <a href="{{ $box['view_all_yours_url'] ?? '#' }}"
                    class="work-queue-footer-link is-primary js-work-queue-employee-footer-link {{ $hasEmployeeTab ? 'd-none' : '' }}"

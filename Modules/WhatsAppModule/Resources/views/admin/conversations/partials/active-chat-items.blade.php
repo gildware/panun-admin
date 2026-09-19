@@ -13,5 +13,6 @@
         'chat' => $chat,
         'displayPhone' => $displayPhone,
         'humanSupportTab' => $humanSupportTab ?? false,
+        'selectedPhone' => $selectedPhone ?? '',
     ])
 @endforeach

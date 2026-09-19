@@ -22,12 +22,16 @@
     $lastMessageAt = \Modules\WhatsAppModule\Support\WhatsAppMessageTime::formatListLabel($created);
     $chatSt = isset($chat->chat_status) && is_array($chat->chat_status) ? $chat->chat_status : null;
     $chatTagList = isset($chat->chat_tags) && is_array($chat->chat_tags) ? $chat->chat_tags : [];
+    $selectedPhone = $selectedPhone ?? request()->query('phone', '');
+    $isSelected = $selectedPhone !== '' && $phone !== ''
+        && \Modules\WhatsAppModule\Support\WhatsAppThreadPhoneKeys::matches($selectedPhone, $phone);
 @endphp
-<div class="whatsapp-chat-item border-bottom p-3 cursor-pointer{{ $hasUnread ? ' bg-primary text-white' : '' }}"
+<div class="whatsapp-chat-item border-bottom p-3 cursor-pointer{{ $hasUnread ? ' bg-primary text-white' : '' }}{{ $isSelected ? ' is-selected' : '' }}"
      data-phone="{{ e($phone) }}"
      data-wa-display-line="{{ e($displayLine) }}"
      title="{{ e($phone) }}"
-     role="button">
+     role="button"
+     @if($isSelected) aria-current="true" @endif>
     <div class="d-flex justify-content-between align-items-center gap-2">
         <strong class="text-truncate min-w-0{{ $hasUnread ? ' text-white' : '' }}" title="{{ e($displayLine) }}">{{ $displayLine }}</strong>
         <div class="flex-shrink-0">

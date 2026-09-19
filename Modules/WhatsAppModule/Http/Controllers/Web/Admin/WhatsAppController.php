@@ -37,7 +37,10 @@ use Modules\AdminModule\Services\StaffActivityLogger;
 use Modules\WhatsAppModule\Support\SocialInboxChannel;
 use Modules\WhatsAppModule\Support\WhatsAppActiveChatsListCache;
 use Modules\WhatsAppModule\Support\WhatsAppAdminUnread;
+use Modules\WhatsAppModule\Support\WhatsAppChatHandler;
+use Modules\WhatsAppModule\Support\WhatsAppChatStatusBucket;
 use Modules\WhatsAppModule\Support\WhatsAppMessageTime;
+use Modules\WhatsAppModule\Support\WhatsAppThreadPhoneKeys;
 
 class WhatsAppController extends Controller
 {
@@ -139,6 +142,7 @@ class WhatsAppController extends Controller
                     ->get(['id', 'name', 'color']);
             }
             $chatStatusIdsFilter = $this->normalizeWaIntIdArray($request, 'chat_status_ids', $request->get('chat_status_id'));
+            $chatStatusBucketsFilter = $this->normalizeWaChatStatusBuckets($request);
             $chatTagIdsFilter = $request->get('chat_tag_ids', []);
             if (!is_array($chatTagIdsFilter)) {
                 $chatTagIdsFilter = $chatTagIdsFilter !== null && $chatTagIdsFilter !== '' ? [(int) $chatTagIdsFilter] : [];
@@ -175,6 +179,7 @@ class WhatsAppController extends Controller
                 'chatTagsForFilter',
                 'chatStatusFilterId',
                 'chatStatusIdsFilter',
+                'chatStatusBucketsFilter',
                 'chatTagIdsFilter',
                 'unreadStateFilter',
                 'systemKindsFilter'
@@ -441,67 +446,26 @@ class WhatsAppController extends Controller
     }
 
     /**
-     * Active chat: messages for a phone + reply box.
+     * Legacy standalone chat URL. Always open the inbox with that thread selected.
      */
-    public function chat(Request $request): View|RedirectResponse
+    public function chat(Request $request): RedirectResponse
     {
         $this->authorize('whatsapp_chat_view');
 
-        $phone = $request->get('phone');
-        if (empty($phone)) {
-            Toastr::warning('Phone is required.');
-            return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'chats']);
+        $params = [
+            'channel' => SocialInboxChannel::current(),
+            'tab' => 'chats',
+        ];
+        $phone = trim((string) $request->get('phone', ''));
+        if ($phone !== '') {
+            $params['phone'] = $phone;
+        }
+        $focusMessageId = trim((string) $request->get('focus_message_id', ''));
+        if ($focusMessageId !== '') {
+            $params['focus_message_id'] = $focusMessageId;
         }
 
-        try {
-            $messages = WhatsAppMessage::where('phone', $phone)->orderBy('created_at')->get();
-            $conversationState = WhatsAppConversation::where('phone', $phone)->first();
-            $bookingLink = $this->resolveBookingLinkForPhone($phone);
-            $waUserChat = WhatsAppUser::where('phone', $phone)->first();
-            $systemLinkChat = $this->resolveSystemLinkForRawPhone($phone);
-            $waCustomerNameForTemplates = $this->resolveContactNameForTemplates($waUserChat, $systemLinkChat);
-        } catch (\Throwable $e) {
-            Toastr::error('Could not load chat.');
-            return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'chats']);
-        }
-
-        try {
-            $messagesTable = config('whatsappmodule.tables.messages', 'whatsapp_messages');
-            DB::table($messagesTable)
-                ->where('phone', $phone)
-                ->where('direction', 'IN')
-                ->whereNull('admin_seen_at')
-                ->update([
-                    'admin_seen_at' => now(),
-                ]);
-            WhatsAppActiveChatsListCache::forgetAll();
-            WhatsAppAdminUnread::forgetCache();
-        } catch (\Throwable $e) {
-            // non-fatal: header unread may lag until next poll
-        }
-
-        $conversationQuickTemplates = $this->conversationQuickTemplatesForChat();
-        $waAgentDisplayNameForTemplates = auth()->check()
-            ? $this->waAgentDisplayNameForTemplates(auth()->user())
-            : '';
-        $chatMetaPayload = $this->buildChatMetaPayloadForPhone($phone);
-        $messagingWindow = $this->buildMessagingWindowPayloadForThreadPhone($phone);
-        $waInboxCh = SocialInboxChannel::current();
-        $socialInboxChannel = $waInboxCh;
-
-        return view('whatsappmodule::admin.conversations.chat', compact(
-            'phone',
-            'messages',
-            'conversationState',
-            'bookingLink',
-            'conversationQuickTemplates',
-            'waAgentDisplayNameForTemplates',
-            'waCustomerNameForTemplates',
-            'chatMetaPayload',
-            'messagingWindow',
-            'waInboxCh',
-            'socialInboxChannel'
-        ));
+        return redirect()->route('admin.whatsapp.conversations.index', $params);
     }
 
     /**
@@ -966,13 +930,33 @@ class WhatsAppController extends Controller
         $raw = trim($rawSubmitted);
         $table = config('whatsappmodule.tables.messages', 'whatsapp_messages');
         $ch = SocialInboxChannel::current();
-        foreach (array_unique(array_filter([$raw, $normalizedDigits])) as $candidate) {
+        $candidates = WhatsAppThreadPhoneKeys::keys($raw);
+        if ($normalizedDigits !== '') {
+            $candidates = array_values(array_unique(array_merge(
+                $candidates,
+                WhatsAppThreadPhoneKeys::keys($normalizedDigits)
+            )));
+        }
+        foreach ($candidates as $candidate) {
             if (DB::table($table)->where('phone', $candidate)->where('channel', $ch)->exists()) {
                 return $candidate;
             }
         }
 
-        return $normalizedDigits;
+        $digits = preg_replace('/\D+/', '', $raw) ?: '';
+        $last10 = strlen($digits) >= 10 ? substr($digits, -10) : $digits;
+        if ($last10 !== '') {
+            $hit = DB::table($table)
+                ->where('channel', $ch)
+                ->where('phone', 'like', '%'.$last10)
+                ->orderByDesc('created_at')
+                ->value('phone');
+            if (is_string($hit) && $hit !== '') {
+                return $hit;
+            }
+        }
+
+        return $normalizedDigits !== '' ? $normalizedDigits : $raw;
     }
 
     /**
@@ -2013,6 +1997,7 @@ class WhatsAppController extends Controller
             $html = view('whatsappmodule::admin.conversations.partials.active-chat-items', [
                 'chats' => $slice,
                 'humanSupportTab' => $humanSupportTab,
+                'selectedPhone' => $request->get('phone', ''),
             ])->render();
 
             return response()->json([
@@ -2297,10 +2282,18 @@ class WhatsAppController extends Controller
     private function enrichActiveChatRows(\Illuminate\Support\Collection $result): \Illuminate\Support\Collection
     {
         $phones = $result->pluck('phone')->unique()->filter()->values()->all();
-        $names = [];
-        $handledByMap = [];
-        $humanSupportAt = [];
-        $adAttributionByPhone = [];
+        $usersByKey = [];
+        $adAttributionByUserPhone = [];
+        $emptyAdAttribution = [
+            'from_ad' => false,
+            'ctwa_clid' => null,
+            'source_id' => null,
+            'source_type' => null,
+            'source_url' => null,
+            'headline' => null,
+            'body' => null,
+            'captured_at' => null,
+        ];
         if (! empty($phones)) {
             $userCols = ['phone', 'name', 'handled_by', 'human_support_requested_at'];
             if (\Illuminate\Support\Facades\Schema::hasColumn(
@@ -2318,58 +2311,52 @@ class WhatsAppController extends Controller
                     'referral_json',
                 ]);
             }
-            $waUsers = WhatsAppUser::whereIn('phone', $phones)->get($userCols);
+            $waUsers = WhatsAppUser::whereIn('phone', WhatsAppThreadPhoneKeys::expand($phones))->get($userCols);
+            $usersByKey = WhatsAppThreadPhoneKeys::indexByPhoneKeys($waUsers);
             $ctwa = app(\Modules\WhatsAppModule\Services\WhatsAppCtwaAttributionService::class);
             foreach ($waUsers as $u) {
-                $names[$u->phone] = $u->name;
-                $handledByMap[$u->phone] = $u->handled_by ?: 'AI';
-                if ($u->human_support_requested_at) {
-                    $humanSupportAt[$u->phone] = $u->human_support_requested_at;
-                }
-                $adAttributionByPhone[$u->phone] = $ctwa->payloadForUi($u);
+                $adAttributionByUserPhone[(string) $u->phone] = $ctwa->payloadForUi($u);
             }
         }
         $adminNamesById = [];
-        if (! empty($handledByMap)) {
-            $adminIds = collect($handledByMap)
-                ->filter(fn ($v) => $v && $v !== 'AI')
-                ->unique()
-                ->values()
-                ->all();
-            if (! empty($adminIds)) {
-                $adminRows = DB::table('users')
-                    ->whereIn('id', $adminIds)
-                    ->get(['id', 'first_name', 'last_name']);
-                foreach ($adminRows as $admin) {
-                    $fullName = trim(($admin->first_name ?? '') . ' ' . ($admin->last_name ?? ''));
-                    $adminNamesById[$admin->id] = $fullName ?: 'Agent';
-                }
+        $adminIds = [];
+        foreach ($usersByKey as $u) {
+            $handledBy = WhatsAppChatHandler::normalizeKey($u->handled_by ?? null);
+            if ($handledBy !== WhatsAppChatHandler::AI) {
+                $adminIds[] = $handledBy;
+            }
+        }
+        $adminIds = array_values(array_unique($adminIds));
+        if ($adminIds !== []) {
+            $adminRows = DB::table('users')
+                ->whereIn('id', $adminIds)
+                ->get(['id', 'first_name', 'last_name']);
+            foreach ($adminRows as $admin) {
+                $fullName = trim(($admin->first_name ?? '') . ' ' . ($admin->last_name ?? ''));
+                $adminNamesById[$admin->id] = $fullName ?: 'Agent';
             }
         }
 
         $leadTypeCountsByNormalized = $this->resolveLeadTypeCountsByNormalizedPhone($phones);
 
-        $result = $result->map(function ($row) use ($names, $handledByMap, $adminNamesById, $humanSupportAt, $leadTypeCountsByNormalized, $adAttributionByPhone) {
+        $result = $result->map(function ($row) use ($usersByKey, $adminNamesById, $leadTypeCountsByNormalized, $adAttributionByUserPhone, $emptyAdAttribution) {
             $phone = $row->phone ?? null;
-            $row->name = $names[$phone] ?? null;
-            $handledBy = $handledByMap[$phone] ?? 'AI';
-            $row->handled_by_key = $handledBy;
-            if ($handledBy === 'AI') {
-                $row->handled_by_label = 'AI';
+            $u = WhatsAppThreadPhoneKeys::lookup($usersByKey, $phone);
+            $row->name = $u?->name;
+            if ($u) {
+                $handledBy = WhatsAppChatHandler::normalizeKey($u->handled_by ?? null);
+                $row->handled_by_key = $handledBy;
+                $row->handled_by_label = $handledBy === WhatsAppChatHandler::AI
+                    ? 'AI'
+                    : ($adminNamesById[$handledBy] ?? 'Agent');
+                $row->human_support_requested_at = $u->human_support_requested_at ?? null;
+                $row->ad_attribution = $adAttributionByUserPhone[(string) $u->phone] ?? $emptyAdAttribution;
             } else {
-                $row->handled_by_label = $adminNamesById[$handledBy] ?? 'Agent';
+                $row->handled_by_key = WhatsAppChatHandler::UNMATCHED;
+                $row->handled_by_label = '—';
+                $row->human_support_requested_at = null;
+                $row->ad_attribution = $emptyAdAttribution;
             }
-            $row->human_support_requested_at = $humanSupportAt[$phone] ?? null;
-            $row->ad_attribution = $adAttributionByPhone[$phone] ?? [
-                'from_ad' => false,
-                'ctwa_clid' => null,
-                'source_id' => null,
-                'source_type' => null,
-                'source_url' => null,
-                'headline' => null,
-                'body' => null,
-                'captured_at' => null,
-            ];
             $systemLink = $this->resolveSystemLinkForRawPhone($phone);
             $row->system_link = $systemLink;
             $waName = isset($row->name) ? trim((string) $row->name) : '';
@@ -2392,7 +2379,47 @@ class WhatsAppController extends Controller
      */
     private function getActiveChatsList(): \Illuminate\Support\Collection
     {
-        return $this->enrichActiveChatRows($this->fetchActiveChatRows());
+        return $this->enrichActiveChatRows(
+            $this->mergeWhatsAppUsersWithoutMessages($this->fetchActiveChatRows())
+        );
+    }
+
+    /**
+     * Inbox list is message-based; dashboard pickup includes WhatsApp users with no messages yet.
+     *
+     * @param  \Illuminate\Support\Collection<int, object>  $rows
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    private function mergeWhatsAppUsersWithoutMessages(\Illuminate\Support\Collection $rows): \Illuminate\Support\Collection
+    {
+        $existing = [];
+        foreach ($rows as $row) {
+            foreach (WhatsAppThreadPhoneKeys::keys((string) ($row->phone ?? '')) as $key) {
+                $existing[$key] = true;
+            }
+        }
+
+        $extras = WhatsAppUser::query()->get(['phone', 'updated_at', 'created_at']);
+        foreach ($extras as $user) {
+            $phone = (string) $user->phone;
+            if ($phone === '' || WhatsAppThreadPhoneKeys::matchesKeySet($phone, $existing)) {
+                continue;
+            }
+
+            $rows->push((object) [
+                'phone' => $phone,
+                'direction' => '',
+                'status' => '',
+                'message_text' => '',
+                'created_at' => $user->updated_at ?? $user->created_at,
+                'unread_count' => 0,
+            ]);
+            foreach (WhatsAppThreadPhoneKeys::keys($phone) as $key) {
+                $existing[$key] = true;
+            }
+        }
+
+        return $rows->values();
     }
 
     /**
@@ -2475,6 +2502,9 @@ class WhatsAppController extends Controller
     private function hasBlockingActiveChatListFilters(Request $request): bool
     {
         if ($this->normalizeWaHandlerFilters($request) !== []) {
+            return true;
+        }
+        if ($this->normalizeWaChatStatusBuckets($request) !== []) {
             return true;
         }
         if ($this->chatConfigurationTablesPresent()) {
@@ -3182,8 +3212,17 @@ class WhatsAppController extends Controller
             $unreadState = $this->normalizeWaUnreadStateFilterForSql($request);
             $offset = ($page - 1) * $perPage;
 
+            $chats = $this->enrichActiveChatRows($this->fetchActiveChatRows($offset, $perPage, $unreadState));
+            if ($page === 1) {
+                try {
+                    $chats = $this->pinRequestedPhoneInChatPage($request, $chats, $humanSupportTab);
+                } catch (\Throwable $e) {
+                    \Log::warning('WhatsApp pinRequestedPhoneInChatPage failed.', ['error' => $e->getMessage()]);
+                }
+            }
+
             return [
-                'chats' => $this->enrichActiveChatRows($this->fetchActiveChatRows($offset, $perPage, $unreadState)),
+                'chats' => $chats,
                 'chatHandlers' => $chatHandlers,
                 'handlerFilters' => $handlerFilters,
                 'handlerFilter' => $handlerFilter,
@@ -3196,19 +3235,7 @@ class WhatsAppController extends Controller
             : $this->getActiveChatsList();
 
         $chats = $baseChats->filter(function ($chat) use ($handlerFilters) {
-            if ($handlerFilters === []) {
-                return true;
-            }
-            foreach ($handlerFilters as $hf) {
-                if ($hf === 'ai' && ($chat->handled_by_key ?? '') === 'AI') {
-                    return true;
-                }
-                if ($hf !== 'ai' && (string) ($chat->handled_by_key ?? '') === (string) $hf) {
-                    return true;
-                }
-            }
-
-            return false;
+            return WhatsAppChatHandler::matchesFilters($chat->handled_by_key ?? null, $handlerFilters);
         })->values();
 
         $facetChats = $this->applyWhatsAppConversationFacetFilters($chats, $request);
@@ -3229,12 +3256,127 @@ class WhatsAppController extends Controller
             $chats = $chats->slice($offset, $perPage)->values();
         }
 
+        if ($page === null || $page === 1) {
+            try {
+                $chats = $this->pinRequestedPhoneInChatPage($request, $chats, $humanSupportTab);
+            } catch (\Throwable $e) {
+                \Log::warning('WhatsApp pinRequestedPhoneInChatPage failed.', ['error' => $e->getMessage()]);
+            }
+        }
+
         return [
             'chats' => $chats,
             'chatHandlers' => $chatHandlers,
             'handlerFilters' => $handlerFilters,
             'handlerFilter' => $handlerFilter,
             'list_counts' => $listCounts,
+        ];
+    }
+
+    /**
+     * Keep the open thread on page 1 of the left list (deep-link / currently open chat).
+     *
+     * @param  \Illuminate\Support\Collection<int, object>  $chats
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    private function pinRequestedPhoneInChatPage(Request $request, \Illuminate\Support\Collection $chats, bool $humanSupportTab): \Illuminate\Support\Collection
+    {
+        $want = trim((string) $request->get('phone', ''));
+        if ($want === '') {
+            return $chats;
+        }
+
+        $matched = $chats->first(fn ($chat) => WhatsAppThreadPhoneKeys::matches($want, (string) ($chat->phone ?? '')));
+        if ($matched) {
+            if ($request->ajax()) {
+                return $chats;
+            }
+
+            return $chats
+                ->reject(fn ($chat) => (string) ($chat->phone ?? '') === (string) ($matched->phone ?? ''))
+                ->prepend($matched)
+                ->values();
+        }
+
+        if ($humanSupportTab) {
+            return $chats;
+        }
+
+        $row = $this->fetchActiveChatRowForPhone($want);
+        if ($row === null) {
+            return $chats;
+        }
+
+        $enriched = $this->enrichActiveChatRows(collect([$row]))->first();
+        if ($enriched === null) {
+            return $chats;
+        }
+
+        return $chats->prepend($enriched)->values();
+    }
+
+    private function fetchActiveChatRowForPhone(string $phone): ?object
+    {
+        $keys = WhatsAppThreadPhoneKeys::keys($phone);
+        $digits = preg_replace('/\D+/', '', $phone) ?: '';
+        $last10 = strlen($digits) >= 10 ? substr($digits, -10) : $digits;
+        $table = config('whatsappmodule.tables.messages', 'whatsapp_messages');
+        $channel = SocialInboxChannel::current();
+
+        $messageQuery = DB::table($table)->where('channel', $channel);
+        $messageQuery->where(function ($q) use ($keys, $last10) {
+            if ($keys !== []) {
+                $q->whereIn('phone', $keys);
+            }
+            if ($last10 !== '') {
+                if ($keys !== []) {
+                    $q->orWhere('phone', 'like', '%'.$last10);
+                } else {
+                    $q->where('phone', 'like', '%'.$last10);
+                }
+            }
+        });
+        $latest = $messageQuery
+            ->orderByDesc('created_at')
+            ->first(['phone', 'direction', 'status', 'message_text', 'created_at']);
+
+        if ($latest !== null) {
+            $latest->message_text = substr((string) ($latest->message_text ?? ''), 0, 80);
+            $latest->unread_count = (int) DB::table($table)
+                ->where('channel', $channel)
+                ->where('phone', $latest->phone)
+                ->where('direction', 'IN')
+                ->whereNull('admin_seen_at')
+                ->count();
+
+            return $latest;
+        }
+
+        $userQuery = WhatsAppUser::query();
+        $userQuery->where(function ($q) use ($keys, $last10) {
+            if ($keys !== []) {
+                $q->whereIn('phone', $keys);
+            }
+            if ($last10 !== '') {
+                if ($keys !== []) {
+                    $q->orWhere('phone', 'like', '%'.$last10);
+                } else {
+                    $q->where('phone', 'like', '%'.$last10);
+                }
+            }
+        });
+        $user = $userQuery->first(['phone', 'updated_at', 'created_at']);
+        if ($user === null) {
+            return null;
+        }
+
+        return (object) [
+            'phone' => (string) $user->phone,
+            'direction' => '',
+            'status' => '',
+            'message_text' => '',
+            'created_at' => $user->updated_at ?? $user->created_at,
+            'unread_count' => 0,
         ];
     }
 
@@ -3309,6 +3451,34 @@ class WhatsAppController extends Controller
     }
 
     /**
+     * @return list<string>
+     */
+    private function normalizeWaChatStatusBuckets(Request $request): array
+    {
+        $raw = $request->get('chat_status_buckets', $request->get('chat_status_bucket'));
+        if (! is_array($raw)) {
+            $raw = $raw !== null && $raw !== '' ? [$raw] : [];
+        }
+
+        $out = [];
+        foreach ($raw as $v) {
+            $bucket = strtolower(trim((string) $v));
+            if (in_array($bucket, [WhatsAppChatStatusBucket::OPEN, WhatsAppChatStatusBucket::CLOSED], true)) {
+                $out[] = $bucket;
+            }
+        }
+
+        $out = array_values(array_unique($out));
+        if (in_array(WhatsAppChatStatusBucket::OPEN, $out, true)
+            && in_array(WhatsAppChatStatusBucket::CLOSED, $out, true)
+        ) {
+            return [];
+        }
+
+        return $out;
+    }
+
+    /**
      * @return array<int, string> e.g. ["unread","read"]
      */
     private function normalizeWaUnreadStateFilter(Request $request): array
@@ -3372,6 +3542,15 @@ class WhatsAppController extends Controller
                 $id = is_array($st) ? (int) ($st['id'] ?? 0) : 0;
 
                 return in_array($id, $statusIds, true);
+            })->values();
+        }
+
+        $statusBuckets = $this->normalizeWaChatStatusBuckets($request);
+        if ($statusBuckets !== []) {
+            $chats = $chats->filter(function ($chat) use ($statusBuckets) {
+                $st = is_array($chat->chat_status ?? null) ? $chat->chat_status : null;
+
+                return WhatsAppChatStatusBucket::matches($st, $statusBuckets);
             })->values();
         }
 
@@ -3664,17 +3843,26 @@ class WhatsAppController extends Controller
             return $rows;
         }
 
+        $lookupPhones = [];
+        foreach ($phones as $phone) {
+            foreach (WhatsAppThreadPhoneKeys::keys((string) $phone) as $key) {
+                $lookupPhones[] = $key;
+            }
+        }
+        $lookupPhones = array_values(array_unique($lookupPhones));
+
         $defaultOpen = WhatsAppChatStatus::query()
             ->where('bucket', 'open')
             ->orderBy('sort_order')
             ->orderBy('id')
             ->first();
 
-        $metas = WhatsAppChatThreadMeta::query()
-            ->whereIn('phone', $phones)
-            ->with('status')
-            ->get()
-            ->keyBy('phone');
+        $metasByKey = [];
+        foreach (WhatsAppChatThreadMeta::query()->whereIn('phone', $lookupPhones)->with('status')->get() as $meta) {
+            foreach (WhatsAppThreadPhoneKeys::keys((string) $meta->phone) as $key) {
+                $metasByKey[$key] ??= $meta;
+            }
+        }
 
         $ch = SocialInboxChannel::current();
         $pivotTags = DB::table('whatsapp_chat_thread_tags as tt')
@@ -3682,16 +3870,22 @@ class WhatsAppController extends Controller
                 $join->on('tt.phone', '=', 'tm.phone');
             })
             ->join('whatsapp_chat_tags as t', 'tt.whatsapp_chat_tag_id', '=', 't.id')
-            ->whereIn('tt.phone', $phones)
+            ->whereIn('tt.phone', $lookupPhones)
             ->where('tm.channel', $ch)
             ->whereColumn('t.channel', 'tm.channel')
             ->orderBy('t.sort_order')
             ->orderBy('t.id')
             ->get(['tt.phone', 't.id', 't.name', 't.color']);
 
-        $tagsByPhone = $pivotTags->groupBy('phone');
+        $tagsByPhone = collect();
+        foreach ($pivotTags as $tag) {
+            foreach (WhatsAppThreadPhoneKeys::keys((string) $tag->phone) as $key) {
+                $existing = $tagsByPhone->get($key, collect());
+                $tagsByPhone[$key] = $existing->push($tag);
+            }
+        }
 
-        return $rows->map(function ($row) use ($metas, $tagsByPhone, $defaultOpen) {
+        return $rows->map(function ($row) use ($metasByKey, $tagsByPhone, $defaultOpen) {
             $phone = $row->phone ?? null;
             if ($phone === null || $phone === '') {
                 $row->chat_status = null;
@@ -3700,7 +3894,13 @@ class WhatsAppController extends Controller
                 return $row;
             }
 
-            $meta = $metas->get($phone);
+            $meta = null;
+            foreach (WhatsAppThreadPhoneKeys::keys((string) $phone) as $key) {
+                if (isset($metasByKey[$key])) {
+                    $meta = $metasByKey[$key];
+                    break;
+                }
+            }
             $appliedId = $meta?->whatsapp_chat_status_id;
             $statusModel = $meta?->status ?? $defaultOpen;
 
@@ -3715,7 +3915,13 @@ class WhatsAppController extends Controller
                 $row->chat_status = null;
             }
 
-            $row->chat_tags = collect($tagsByPhone->get($phone, collect()))
+            $tagRows = collect();
+            foreach (WhatsAppThreadPhoneKeys::keys((string) $phone) as $key) {
+                $tagRows = $tagRows->merge($tagsByPhone->get($key, collect()));
+            }
+
+            $row->chat_tags = $tagRows
+                ->unique(static fn ($t) => (int) ($t->id ?? 0))
                 ->map(static fn ($t) => [
                     'id' => (int) $t->id,
                     'name' => (string) $t->name,
