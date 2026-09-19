@@ -281,6 +281,18 @@
             }
             .wa-whatsapp-chats-split-page .whatsapp-chat-item {
                 padding: 0.55rem 0.65rem !important;
+                transition: background-color 0.12s ease, box-shadow 0.12s ease;
+            }
+            .wa-whatsapp-chats-split-page .whatsapp-chat-item:hover:not(.is-selected):not(.bg-primary) {
+                background-color: rgba(var(--bs-primary-rgb, 13, 110, 253), 0.06);
+            }
+            .wa-whatsapp-chats-split-page .whatsapp-chat-item.is-selected {
+                background-color: rgba(var(--bs-primary-rgb, 13, 110, 253), 0.16) !important;
+                box-shadow: inset 4px 0 0 var(--bs-primary);
+            }
+            .wa-whatsapp-chats-split-page .whatsapp-chat-item.is-selected.bg-primary {
+                background-color: var(--bs-primary) !important;
+                box-shadow: inset 4px 0 0 #fff;
             }
             .wa-whatsapp-chats-split-page .whatsapp-chat-item .mt-2 {
                 margin-top: 0.35rem !important;
@@ -1001,10 +1013,12 @@
                 if (in_array($tab ?? '', ['chats', 'human_support'], true)) {
                     $_hf = $handlerFilters ?? [];
                     $_st = $chatStatusIdsFilter ?? [];
+                    $_bk = $chatStatusBucketsFilter ?? [];
                     $_ur = array_unique($unreadStateFilter ?? []);
                     $_sk = $systemKindsFilter ?? [];
                     $waFacetCount = (int) (count($_hf) > 0)
                         + (int) (count($_st) > 0)
+                        + (int) (count($_bk) === 1)
                         + (int) (count($chatTagIdsFilter ?? []) > 0)
                         + (int) (count($_ur) === 1)
                         + (int) (count($_sk) > 0)
@@ -1151,6 +1165,7 @@
                         $chatTagsForFilter = $chatTagsForFilter ?? collect();
                         $chatTagIdsFilter = $chatTagIdsFilter ?? [];
                         $chatStatusIdsFilter = $chatStatusIdsFilter ?? [];
+                        $chatStatusBucketsFilter = $chatStatusBucketsFilter ?? [];
                         $handlerFilters = $handlerFilters ?? [];
                         $unreadStateFilter = $unreadStateFilter ?? [];
                         $systemKindsFilter = $systemKindsFilter ?? [];
@@ -1275,6 +1290,20 @@
                                 @endif
 
                                 <div>
+                                    <label class="form-label fw-semibold" for="wa-filter-bucket">{{ translate('whatsapp_chat_filters_bucket') }}</label>
+                                    <p class="small text-muted mb-2">{{ translate('whatsapp_chat_filters_bucket_hint') }}</p>
+                                    <select class="form-select wa-chats-filter-select2"
+                                            id="wa-filter-bucket"
+                                            name="chat_status_buckets[]"
+                                            multiple
+                                            data-placeholder="{{ translate('All') }}"
+                                            data-allow-clear="1">
+                                        <option value="open" {{ in_array('open', $chatStatusBucketsFilter, true) ? 'selected' : '' }}>{{ translate('whatsapp_bucket_open') }}</option>
+                                        <option value="closed" {{ in_array('closed', $chatStatusBucketsFilter, true) ? 'selected' : '' }}>{{ translate('whatsapp_bucket_closed') }}</option>
+                                    </select>
+                                </div>
+
+                                <div>
                                     <label class="form-label fw-semibold" for="wa-filter-unread">{{ translate('whatsapp_chat_filters_read_state') }}</label>
                                     <p class="small text-muted mb-2">{{ translate('whatsapp_chat_filters_read_hint') }}</p>
                                     <select class="form-select wa-chats-filter-select2"
@@ -1392,6 +1421,7 @@
                                         'chats' => $chatCollection,
                                         'displayPhone' => $displayPhone,
                                         'humanSupportTab' => $humanSupportTab ?? false,
+                                        'selectedPhone' => request()->query('phone', ''),
                                     ])
                                 <?php else: ?>
                                     <div class="p-4 text-center text-muted wa-no-chats-msg">{{ !empty($humanSupportTab ?? false) ? translate('No human support requests') : translate('No active chats') }}</div>
@@ -1645,6 +1675,43 @@
                 @push('script')
                 <script>
 (function() {
+    if (typeof window.__waDestroyChatsInbox === 'function') {
+        try {
+            window.__waDestroyChatsInbox();
+        } catch (e) {}
+    }
+    window.__waInboxGen = (window.__waInboxGen || 0) + 1;
+    var waInboxGen = window.__waInboxGen;
+    window.__waChatsInboxTimers = { poll: null, list: null };
+    window.__waDestroyChatsInbox = function () {
+        var t = window.__waChatsInboxTimers;
+        if (t) {
+            if (t.poll) {
+                clearInterval(t.poll);
+                t.poll = null;
+            }
+            if (t.list) {
+                clearInterval(t.list);
+                t.list = null;
+            }
+        }
+        window.__waInboxGen = (window.__waInboxGen || 0) + 1;
+    };
+    function waInboxAlive() {
+        return waInboxGen === window.__waInboxGen;
+    }
+    (function waPrimeOpenPhoneFromQuery() {
+        var hidden = document.getElementById('wa-initial-open-phone');
+        var fromInput = hidden && hidden.value ? String(hidden.value).trim() : '';
+        var fromUrl = '';
+        try {
+            fromUrl = new URLSearchParams(window.location.search).get('phone') || '';
+        } catch (e) {}
+        var raw = (fromInput || fromUrl || '').trim();
+        if (raw) {
+            window.__waOpenPhone = raw;
+        }
+    })();
     (function initWaChatsFilterSelect2() {
         var oc = document.getElementById('wa-chats-filters-offcanvas');
         if (!oc || typeof jQuery === 'undefined' || !jQuery.fn.select2) {
@@ -1688,6 +1755,8 @@
     var pollTimer = null;
     var currentHandler = null;
     var activeListTimer = null;
+    var waLoadMessagesSeq = 0;
+    var waQueryChatOpened = false;
     /** When set, loads a window around this message id and keeps it highlighted until another chat opens. */
     var stickyFocusMessageId = null;
     var waLastMessagesFingerprint = null;
@@ -2219,13 +2288,11 @@
     function bindActiveChatListClicks(scope) {
         var root = scope || document;
         root.querySelectorAll('.whatsapp-chat-item').forEach(function(el) {
-            if (el.dataset.waClickBound === '1') {
-                return;
-            }
-            el.dataset.waClickBound = '1';
-            el.addEventListener('click', function() {
-                openChat(this.getAttribute('data-phone'));
-            });
+            el.onclick = function() {
+                if (typeof window.__waOpenChat === 'function') {
+                    window.__waOpenChat(this.getAttribute('data-phone'));
+                }
+            };
         });
     }
 
@@ -2335,6 +2402,9 @@
         });
         url.searchParams.set('page', String(page || 1));
         url.searchParams.set('per_page', String(perPage || waChatListPerPage));
+        if (currentPhone) {
+            url.searchParams.set('phone', currentPhone);
+        }
         if (waHumanSupportTab) {
             url.searchParams.set('human_support', '1');
         }
@@ -2364,6 +2434,10 @@
         })
             .then(function(r) { return r.json(); })
             .then(function(data) {
+                if (!waInboxAlive()) {
+                    waChatListLoading = false;
+                    return null;
+                }
                 waChatListLoading = false;
                 if (!data || data.error) {
                     waUpdateActiveChatRemainingFooter({ remaining: 0 });
@@ -2375,19 +2449,26 @@
                     return data;
                 }
                 if (mode === 'replace') {
-                    if (data.html) {
-                        itemsEl.innerHTML = data.html;
-                    } else if ((data.total || 0) === 0) {
-                        itemsEl.innerHTML = '<div class="p-4 text-center text-muted wa-no-chats-msg">' + (waHumanSupportTab ? 'No human support requests' : 'No active chats') + '</div>';
+                    if (!currentPhone) {
+                        if (data.html) {
+                            itemsEl.innerHTML = data.html;
+                        } else if ((data.total || 0) === 0) {
+                            itemsEl.innerHTML = '<div class="p-4 text-center text-muted wa-no-chats-msg">' + (waHumanSupportTab ? 'No human support requests' : 'No active chats') + '</div>';
+                        }
+                        bindActiveChatListClicks(listContainer);
+                        waChatListCurrentPage = Math.max(1, Math.ceil((data.loaded || 0) / waChatListPerPage));
+                        listContainer.dataset.page = String(waChatListCurrentPage);
                     }
-                    bindActiveChatListClicks(listContainer);
-                    waChatListCurrentPage = Math.max(1, Math.ceil((data.loaded || 0) / waChatListPerPage));
-                    listContainer.dataset.page = String(waChatListCurrentPage);
+                    waMarkSelectedChatInList(currentPhone);
                 } else if (mode === 'append' && data.html) {
                     var wrap = document.createElement('div');
                     wrap.innerHTML = data.html;
                     var appended = [];
                     wrap.querySelectorAll('.whatsapp-chat-item').forEach(function(node) {
+                        var ph = node.getAttribute('data-phone') || '';
+                        if (ph && waFindChatListItem(ph)) {
+                            return;
+                        }
                         itemsEl.appendChild(node);
                         appended.push(node);
                     });
@@ -2396,6 +2477,7 @@
                     }
                     waChatListCurrentPage = data.page || page;
                     listContainer.dataset.page = String(waChatListCurrentPage);
+                    waMarkSelectedChatInList(currentPhone);
                 }
                 waUpdateActiveChatCounts(listContainer, data);
                 waUpdateActiveChatRemainingFooter(data);
@@ -2460,23 +2542,136 @@
     function waNormalizeWaDigits(p) {
         return String(p || '').replace(/\D+/g, '');
     }
-    function waResolvePhoneToListKey(wantPhone) {
-        var want = waNormalizeWaDigits(wantPhone);
-        if (!want) {
-            return wantPhone;
+    function waChatPhonesMatch(a, b) {
+        var da = waNormalizeWaDigits(a);
+        var db = waNormalizeWaDigits(b);
+        if (!da || !db) {
+            return String(a || '') === String(b || '');
         }
-        var found = null;
-        document.querySelectorAll('.whatsapp-chat-item').forEach(function (el) {
-            var p = el.getAttribute('data-phone') || '';
-            var d = waNormalizeWaDigits(p);
-            if (!d) {
-                return;
+        if (da === db) {
+            return true;
+        }
+        if (da.length >= 10 && db.length >= 10) {
+            return da.slice(-10) === db.slice(-10);
+        }
+        var shorter = da.length <= db.length ? da : db;
+        var longer = da.length <= db.length ? db : da;
+        return shorter.length >= 10 && longer.endsWith(shorter);
+    }
+    if (!window.__waHistoryPhoneGuard) {
+        window.__waHistoryPhoneGuard = true;
+        var waOrigReplaceState = history.replaceState.bind(history);
+        history.replaceState = function (state, title, url) {
+            if (url != null && String(url) !== '' && window.__waOpenPhone) {
+                try {
+                    var next = new URL(String(url), window.location.origin);
+                    if (next.pathname.indexOf('/social-inbox/') !== -1) {
+                        var nextPhone = next.searchParams.get('phone') || '';
+                        if (nextPhone && !waChatPhonesMatch(nextPhone, window.__waOpenPhone)) {
+                            return;
+                        }
+                    }
+                } catch (e) {}
             }
-            if (d === want || d.slice(-10) === want.slice(-10) || want.endsWith(d) || d.endsWith(want)) {
-                found = p;
+            return waOrigReplaceState(state, title, url);
+        };
+    }
+    function waFindChatListItem(phone) {
+        var found = null;
+        document.querySelectorAll('#wa-active-chat-items .whatsapp-chat-item').forEach(function (el) {
+            if (waChatPhonesMatch(el.getAttribute('data-phone'), phone)) {
+                if (!found) {
+                    found = el;
+                }
             }
         });
-        return found || wantPhone;
+        return found;
+    }
+    function waMarkSelectedChatInList(phone, options) {
+        if (!waInboxAlive()) {
+            return null;
+        }
+        if (phone && window.__waOpenPhone && !waChatPhonesMatch(phone, window.__waOpenPhone)) {
+            return null;
+        }
+        options = options || {};
+        var selected = null;
+        document.querySelectorAll('#wa-active-chat-items .whatsapp-chat-item').forEach(function (el) {
+            var match = !!(phone && waChatPhonesMatch(el.getAttribute('data-phone'), phone));
+            el.classList.toggle('is-selected', match);
+            if (match) {
+                el.setAttribute('aria-current', 'true');
+                if (!selected) {
+                    selected = el;
+                }
+            } else {
+                el.removeAttribute('aria-current');
+            }
+        });
+        if (selected && options.scroll) {
+            try {
+                selected.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            } catch (e) {}
+        }
+        return selected;
+    }
+    function waSyncOpenChatInUrl(phone) {
+        if (!waInboxAlive()) {
+            return;
+        }
+        try {
+            var url = new URL(window.location.href);
+            if (phone) {
+                url.searchParams.set('phone', phone);
+            } else {
+                url.searchParams.delete('phone');
+            }
+            if (!url.searchParams.get('tab')) {
+                url.searchParams.set('tab', 'chats');
+            }
+            window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+        } catch (e) {}
+    }
+    function waEnsureOpenChatListItem(phone) {
+        if (!phone) {
+            return null;
+        }
+        var existing = waFindChatListItem(phone);
+        if (existing) {
+            return existing;
+        }
+        var itemsEl = document.getElementById('wa-active-chat-items');
+        if (!itemsEl) {
+            return null;
+        }
+        var empty = itemsEl.querySelector('.wa-no-chats-msg');
+        if (empty) {
+            empty.remove();
+        }
+        var line = formatPhoneDisplay(phone);
+        var el = document.createElement('div');
+        el.className = 'whatsapp-chat-item border-bottom p-3 cursor-pointer is-selected';
+        el.setAttribute('data-phone', phone);
+        el.setAttribute('data-wa-display-line', line);
+        el.setAttribute('title', phone);
+        el.setAttribute('role', 'button');
+        el.setAttribute('aria-current', 'true');
+        el.innerHTML = '<div class="d-flex justify-content-between align-items-center gap-2">' +
+            '<strong class="text-truncate min-w-0"></strong></div>' +
+            '<div class="d-flex justify-content-between align-items-start gap-2 mt-2">' +
+            '<div class="wa-chat-preview fz-12 flex-grow-1 min-w-0 text-muted"></div></div>';
+        var titleEl = el.querySelector('strong');
+        if (titleEl) {
+            titleEl.textContent = line;
+            titleEl.setAttribute('title', line);
+        }
+        itemsEl.insertBefore(el, itemsEl.firstChild);
+        bindActiveChatListClicks(itemsEl);
+        return el;
+    }
+    function waResolvePhoneToListKey(wantPhone) {
+        var found = waFindChatListItem(wantPhone);
+        return found ? (found.getAttribute('data-phone') || wantPhone) : wantPhone;
     }
 
     function waMobileExitChat() {
@@ -2494,6 +2689,9 @@
             chatPanel.classList.remove('d-flex');
         }
         currentPhone = null;
+        window.__waOpenPhone = null;
+        waMarkSelectedChatInList(null);
+        waSyncOpenChatInUrl('');
         waLastMessagesFingerprint = null;
         waLastHandlerFingerprint = null;
         waLastPollPhone = null;
@@ -2507,6 +2705,17 @@
         if (activeListTimer) {
             clearInterval(activeListTimer);
             activeListTimer = null;
+        }
+        var exitTimers = window.__waChatsInboxTimers;
+        if (exitTimers) {
+            if (exitTimers.poll) {
+                clearInterval(exitTimers.poll);
+                exitTimers.poll = null;
+            }
+            if (exitTimers.list) {
+                clearInterval(exitTimers.list);
+                exitTimers.list = null;
+            }
         }
         waClearReplyTarget();
         var emPan = document.getElementById('wa-emoji-panel');
@@ -2634,12 +2843,8 @@
         var replyPhoneEl = document.getElementById('whatsapp-reply-phone');
         if (replyPhoneEl) replyPhoneEl.value = phone;
         var headerLine = document.getElementById('whatsapp-chat-phone-line');
-        var displayLine = '';
-        document.querySelectorAll('.whatsapp-chat-item').forEach(function(el) {
-            if (el.getAttribute('data-phone') === phone) {
-                displayLine = el.getAttribute('data-wa-display-line') || '';
-            }
-        });
+        var listItem = waFindChatListItem(phone);
+        var displayLine = listItem ? (listItem.getAttribute('data-wa-display-line') || '') : '';
         if (headerLine) {
             headerLine.textContent = displayLine || formatPhoneDisplay(phone);
             headerLine.setAttribute('title', phone);
@@ -2657,9 +2862,8 @@
             splitLayout.classList.add('wa-mobile-thread-open');
         }
         waSetMobileThreadPageState(true);
-        // Clear unread styling immediately when opening this chat
         document.querySelectorAll('.whatsapp-chat-item').forEach(function(el) {
-            var isCurrent = el.getAttribute('data-phone') === phone;
+            var isCurrent = waChatPhonesMatch(el.getAttribute('data-phone'), phone);
             if (!isCurrent) {
                 el.classList.remove('bg-light');
             }
@@ -2667,10 +2871,6 @@
                 el.classList.remove('bg-primary', 'text-white');
                 el.querySelectorAll('.text-white, .text-white-50').forEach(function(node) {
                     node.classList.remove('text-white', 'text-white-50');
-                });
-                el.querySelectorAll('.text-muted, .fz-12, .fz-11').forEach(function(node) {
-                    // ensure normal muted styling
-                    if (!node.classList.contains('fz-11') && !node.classList.contains('fz-12')) return;
                 });
                 var unreadBadge = el.querySelector('.wa-unread-count-badge');
                 if (unreadBadge && unreadBadge.parentNode) {
@@ -2686,11 +2886,20 @@
             waLastPollPhone = null;
         }
         currentPhone = phone;
+        window.__waOpenPhone = phone;
+        var initialOpen = document.getElementById('wa-initial-open-phone');
+        if (initialOpen) {
+            initialOpen.value = phone;
+        }
+        waEnsureOpenChatListItem(phone);
+        waMarkSelectedChatInList(phone, { scroll: true });
+        waSyncOpenChatInUrl(phone);
         waCustomerName = '';
         startPolling();
         loadMessages(phone, false);
         waInitConvTemplatePicker();
     }
+    window.__waOpenChat = openChat;
 
     function waFormatReactionsStrip(isOut, rx) {
         rx = rx || {};
@@ -3704,6 +3913,8 @@
         if (!panel) {
             return;
         }
+        var seq = ++waLoadMessagesSeq;
+        var requestedPhone = phone;
         var inner = waChatMessagesInner(panel);
         var wasNearBottom = true;
         if (isPoll && panel) {
@@ -3720,14 +3931,32 @@
         fetch(url)
             .then(function(r) { return r.json(); })
             .then(function(res) {
+                if (seq !== waLoadMessagesSeq || !waInboxAlive()) {
+                    return;
+                }
+                if (currentPhone && !waChatPhonesMatch(currentPhone, requestedPhone) && !(res.thread_phone && waChatPhonesMatch(currentPhone, res.thread_phone))) {
+                    return;
+                }
                 if (res.thread_phone) {
                     var ctp = String(res.thread_phone).trim();
                     if (ctp) {
-                        phone = ctp;
-                        currentPhone = ctp;
                         var rpeSync = document.getElementById('whatsapp-reply-phone');
-                        if (rpeSync) {
-                            rpeSync.value = ctp;
+                        if (currentPhone && waChatPhonesMatch(currentPhone, ctp)) {
+                            if (rpeSync) {
+                                rpeSync.value = currentPhone;
+                            }
+                        } else {
+                            phone = ctp;
+                            if (rpeSync) {
+                                rpeSync.value = ctp;
+                            }
+                            if (!currentPhone || !waChatPhonesMatch(currentPhone, ctp)) {
+                                currentPhone = ctp;
+                                window.__waOpenPhone = ctp;
+                                waEnsureOpenChatListItem(ctp);
+                                waMarkSelectedChatInList(ctp);
+                                waSyncOpenChatInUrl(ctp);
+                            }
                         }
                     }
                 }
@@ -4103,30 +4332,32 @@
     }
 
     function startPolling() {
+        var t = window.__waChatsInboxTimers || (window.__waChatsInboxTimers = { poll: null, list: null });
+        if (t.poll) {
+            clearInterval(t.poll);
+            t.poll = null;
+        }
+        if (t.list) {
+            clearInterval(t.list);
+            t.list = null;
+        }
         if (pollTimer) {
             clearInterval(pollTimer);
+            pollTimer = null;
         }
         if (activeListTimer) {
             clearInterval(activeListTimer);
+            activeListTimer = null;
         }
-        if (!currentPhone) return;
+        if (!currentPhone || !waInboxAlive()) return;
+        window.__waOpenPhone = currentPhone;
         pollTimer = setInterval(function() {
-            if (currentPhone) {
-                loadMessages(currentPhone, true);
+            if (!waInboxAlive() || !currentPhone) {
+                return;
             }
+            loadMessages(currentPhone, true);
         }, 2000);
-        // Also refresh active chats list (left column)
-        activeListTimer = setInterval(function() {
-            try {
-                var listContainer = document.querySelector('.whatsapp-active-list-container');
-                if (!listContainer || !activeChatsListUrl) {
-                    return;
-                }
-                var loaded = parseInt(listContainer.dataset.loaded || String(waChatListPerPage), 10) || waChatListPerPage;
-                var perPage = Math.max(waChatListPerPage, loaded);
-                waFetchActiveChatsPage(1, perPage, 'replace');
-            } catch (e) {}
-        }, 5000);
+        t.poll = pollTimer;
     }
 
     var listCol = document.querySelector('.whatsapp-active-list-container');
@@ -4217,6 +4448,12 @@
     }
 
     function waOpenChatFromQuery() {
+        if (!waInboxAlive()) {
+            return false;
+        }
+        if (waQueryChatOpened) {
+            return !!(currentPhone);
+        }
         var hidden = document.getElementById('wa-initial-open-phone');
         var fromInput = hidden && hidden.value ? String(hidden.value).trim() : '';
         var fromUrl = new URLSearchParams(window.location.search).get('phone');
@@ -4224,6 +4461,7 @@
         if (!raw) {
             return;
         }
+        waQueryChatOpened = true;
         var key = waResolvePhoneToListKey(raw);
         var focusHidden = document.getElementById('wa-initial-focus-message-id');
         var focusRaw = (focusHidden && focusHidden.value ? String(focusHidden.value).trim() : '') || (new URLSearchParams(window.location.search).get('focus_message_id') || '').trim();
@@ -4234,6 +4472,8 @@
         } catch (e) {
             console.error('waOpenChatFromQuery', e);
         }
+        var panel = document.getElementById('whatsapp-chat-panel');
+        return !!(panel && !panel.classList.contains('d-none') && currentPhone);
     }
 
     window.waOpenChatFromSearch = function (phone, messageId) {

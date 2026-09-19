@@ -98,6 +98,20 @@ class EmployeeDashboardServiceTest extends TestCase
         $this->assertArrayNotHasKey('tasks', $data);
     }
 
+    public function test_unassigned_whatsapp_inbox_url_filters_ai_and_open(): void
+    {
+        $service = app(EmployeeDashboardService::class);
+        $method = new \ReflectionMethod($service, 'unassignedWhatsAppInboxUrl');
+        $method->setAccessible(true);
+        $url = (string) $method->invoke($service);
+        $query = [];
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+
+        $this->assertSame('chats', $query['tab'] ?? null);
+        $this->assertSame(['ai'], $query['handlers'] ?? null);
+        $this->assertSame(['open'], $query['chat_status_buckets'] ?? null);
+    }
+
     public function test_admin_work_dashboard_only_builds_team_progress_scope(): void
     {
         try {

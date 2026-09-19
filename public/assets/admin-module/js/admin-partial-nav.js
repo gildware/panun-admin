@@ -20,6 +20,7 @@
         '/admin/booking/preview',
         '/admin/my-progress',
         '/admin/provider/edit',
+        '/admin/social-inbox/whatsapp/conversations',
     ];
     var progressEl = null;
     var activeController = null;
@@ -708,6 +709,11 @@
         activeController = new AbortController();
         showProgress();
         cleanupModalBackdrops();
+        if (typeof window.__waDestroyChatsInbox === 'function') {
+            try {
+                window.__waDestroyChatsInbox();
+            } catch (e) {}
+        }
 
         try {
             var response = await fetch(url, {
