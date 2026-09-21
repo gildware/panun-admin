@@ -31,7 +31,7 @@ trait AdminMenuWithRoutes
                 'uri' => 'admin/dashboard/business-system',
                 'full_route' => url('admin/dashboard/business-system'),
                 'page_title' => 'Business_System',
-                'keywords' => 'business system, organisation structure, org chart, CEO, Head of Growth, seats',
+                'keywords' => 'business system, organisation structure, org chart, CEO, Head of Growth, Marketing Manager, Digital Marketing, Field Marketing, Market Intelligence, Offer, Expansion, Partnerships, seats',
                 'type' => 'menu',
                 'module' => 'main',
                 'sorting' => 0.3,
