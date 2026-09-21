@@ -699,7 +699,7 @@
   font-size: 15px;
   color: var(--ink);
 }
-.os-explorer .rd-flow-col p > span {
+.os-explorer .rd-flow-col p > span:not(.rd-term) {
   display: block;
   font-weight: 600;
   color: var(--muted);
@@ -938,7 +938,7 @@
   font-weight: 800;
   color: var(--ink);
 }
-.os-explorer .rd-chart-col p > span {
+.os-explorer .rd-chart-col p > span:not(.rd-term) {
   display: block;
 }
 .os-explorer .rd-chart-col article:last-child {
@@ -1129,12 +1129,17 @@
   font-weight: 800;
   color: var(--ink);
 }
-.os-explorer .rd-list li > span {
+.os-explorer .rd-list li > span.rd-list-why {
   display: block;
   font-size: 14px;
   font-weight: 600;
   line-height: 1.45;
   color: var(--muted);
+}
+.os-explorer .rd-list li > span.rd-list-line {
+  display: inline;
+  font: inherit;
+  color: inherit;
 }
 .os-explorer .rd-list li::before {
   content: "";
@@ -1251,7 +1256,7 @@
   font-weight: 800;
   color: var(--ink);
 }
-.os-explorer .rd-std-tile-copy > span {
+.os-explorer .rd-std-tile-copy > span:not(.rd-term) {
   font-size: 13px;
   line-height: 1.4;
   font-weight: 600;
@@ -1428,7 +1433,7 @@
   font-weight: 800;
   color: var(--ink);
 }
-.os-explorer .rd-acc-copy > span {
+.os-explorer .rd-acc-copy > span:not(.rd-term) {
   font-size: 13px;
   line-height: 1.4;
   font-weight: 600;
@@ -1678,7 +1683,7 @@
   font-size: 14px;
   font-weight: 800;
 }
-.os-explorer .wf-steps span {
+.os-explorer .wf-steps span:not(.rd-term) {
   display: block;
   margin-top: 3px;
   font-size: 14px;
@@ -2001,15 +2006,19 @@
   }
 }
 .os-explorer .rd-term {
-  display: inline;
+  display: inline !important;
+  width: auto !important;
+  max-width: none;
   margin: 0;
   padding: 0;
   border: 0;
+  float: none;
   background: none;
   color: inherit;
   font: inherit;
   line-height: inherit;
   letter-spacing: inherit;
+  white-space: nowrap;
   cursor: pointer;
   border-bottom: 1px dotted var(--gold-2);
   box-decoration-break: clone;
