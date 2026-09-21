@@ -5,14 +5,13 @@
 @php
     $osAssetBase = asset('assets/admin-module/operating-system');
     $bsAssetBase = asset('assets/admin-module/business-system');
-    $bsVersion = max(
+    $bsVersion = (string) ((max(
         (int) @filemtime(public_path('assets/admin-module/business-system/bs-app.js')),
         (int) @filemtime(public_path('assets/admin-module/business-system/bs-growth-data.js')),
         (int) @filemtime(public_path('assets/admin-module/business-system/bs-growth-reports.js')),
         (int) @filemtime(public_path('assets/admin-module/business-system/bs.css')),
-        (int) @filemtime(public_path('assets/admin-module/operating-system/os.css')),
-        2026092142
-    ) ?: time();
+        (int) @filemtime(public_path('assets/admin-module/operating-system/os.css'))
+    ) ?: time()) . 'u2');
 @endphp
 
 @push('css_or_js')
