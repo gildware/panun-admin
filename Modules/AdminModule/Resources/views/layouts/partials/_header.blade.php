@@ -100,6 +100,15 @@
                             </a>
                         </li>
                         <li class="nav-item max-sm-m-0">
+                            <a href="{{ route('admin.dashboard.business-system') }}"
+                               class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none"
+                               data-turbo="false"
+                               title="{{ translate('Business_System') }}">
+                                <span class="material-symbols-outlined" aria-hidden="true">lan</span>
+                                <span class="d-none d-md-block">{{ translate('Business_System') }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item max-sm-m-0">
                             <a href="{{ route('admin.process-guides.index') }}"
                                class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none"
                                @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif
