@@ -11156,4 +11156,6 @@ _Message' => 'Customer notification for provider bid offer
   'When off, this service is hidden from the customer app. Providers are not affected.' => 'When off, this service is hidden from the customer app. Providers are not affected.',
   'This will hide or show this service in the customer app only. Providers are not affected.' => 'This will hide or show this service in the customer app only. Providers are not affected.',
   'Operating_System' => 'Operating System',
+  'Business_System' => 'Business System',
+  'Organisation_Structure' => 'Organisation Structure',
 );

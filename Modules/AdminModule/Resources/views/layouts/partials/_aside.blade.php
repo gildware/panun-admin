@@ -55,6 +55,14 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                     <span class="link-title">{{ translate('Operating_System') }}</span>
                 </a>
             </li>
+            <li>
+                <a href="{{ route('admin.dashboard.business-system') }}"
+                   class="{{ request()->is('admin/dashboard/business-system*') ? 'active-menu' : '' }}"
+                   data-turbo="false">
+                    <span class="material-icons" title="{{ translate('Business_System') }}">device_hub</span>
+                    <span class="link-title">{{ translate('Business_System') }}</span>
+                </a>
+            </li>
             @endif
 
             @canany(['lead_view', 'lead_outbound_enquiry_view', 'lead_configuration_view'])

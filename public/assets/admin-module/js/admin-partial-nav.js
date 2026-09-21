@@ -11,6 +11,7 @@
         '/admin/provider/live-view',
         '/admin/my-progress',
         '/admin/dashboard/operating-system',
+        '/admin/dashboard/business-system',
     ];
     var FULL_PAGE_PATH_PREFIXES = [
         '/admin/booking/details',

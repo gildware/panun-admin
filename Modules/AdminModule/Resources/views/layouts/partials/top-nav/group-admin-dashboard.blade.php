@@ -4,6 +4,7 @@
     $operationsActive = request()->is('admin/dashboard/operations');
     $financeActive = request()->is('admin/dashboard/finance');
     $operatingSystemActive = request()->is('admin/dashboard/operating-system*');
+    $businessSystemActive = request()->is('admin/dashboard/business-system*');
 @endphp
 <div class="top-nav-item">
     <button type="button" class="top-nav-trigger {{ $groupActive ? 'is-active' : '' }}">
@@ -33,6 +34,12 @@
             'href' => route('admin.dashboard.operating-system'),
             'label' => translate('Operating_System'),
             'active' => $operatingSystemActive,
+            'fullPage' => true,
+        ])
+        @include('adminmodule::layouts.partials.top-nav._link', [
+            'href' => route('admin.dashboard.business-system'),
+            'label' => translate('Business_System'),
+            'active' => $businessSystemActive,
             'fullPage' => true,
         ])
     </div>

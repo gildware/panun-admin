@@ -63,5 +63,10 @@
            data-turbo="false">
             {{ translate('Operating_System') }}
         </a>
+        <a href="{{ route('admin.dashboard.business-system') }}"
+           class="admin-dashboard-switcher-pill {{ $active === 'business-system' ? 'is-active' : '' }}"
+           data-turbo="false">
+            {{ translate('Business_System') }}
+        </a>
     </nav>
 </div>

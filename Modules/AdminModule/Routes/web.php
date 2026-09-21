@@ -39,6 +39,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
     Route::get('dashboard/finance', [AdminController::class, 'financeDashboard'])->name('dashboard.finance');
     Route::get('dashboard/operations', [AdminController::class, 'operationsDashboard'])->name('dashboard.operations');
     Route::get('dashboard/operating-system', [AdminController::class, 'operatingSystem'])->name('dashboard.operating-system');
+    Route::get('dashboard/business-system', [AdminController::class, 'businessSystem'])->name('dashboard.business-system');
     Route::get('dashboard/rank-marks-chart', [AdminController::class, 'rankMarksChart'])->name('dashboard.rank-marks-chart');
     Route::get('dashboard/progress-scope', [AdminController::class, 'progressScope'])->name('dashboard.progress-scope');
     Route::get('dashboard', [AdminController::class, 'dashboard'])->name('dashboard');

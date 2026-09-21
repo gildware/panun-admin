@@ -27,6 +27,16 @@ trait AdminMenuWithRoutes
                 'sorting' => 0.2,
             ],
             [
+                'route_name' => 'Business_System',
+                'uri' => 'admin/dashboard/business-system',
+                'full_route' => url('admin/dashboard/business-system'),
+                'page_title' => 'Business_System',
+                'keywords' => 'business system, organisation structure, org chart, CEO, Head of Growth, seats',
+                'type' => 'menu',
+                'module' => 'main',
+                'sorting' => 0.3,
+            ],
+            [
                 'route_name' => 'Customized_Requests',
                 'uri' => 'admin/booking/post?type=all',
                 'full_route' => url('admin/booking/post?type=all'),

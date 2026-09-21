@@ -58,6 +58,7 @@ class EmployeeSearchAccessFilterTest extends TestCase
         $this->assertFalse($filter->isAllowed('admin/transaction/list?trx_type=all'));
         $this->assertFalse($filter->isAllowed('admin/discount/list'));
         $this->assertFalse($filter->isAllowed('admin/dashboard/operating-system'));
+        $this->assertFalse($filter->isAllowed('admin/dashboard/business-system'));
     }
 
     public function test_employees_cannot_search_operating_system(): void
@@ -74,6 +75,7 @@ class EmployeeSearchAccessFilterTest extends TestCase
         $this->assertTrue($filter->applies());
         $this->assertTrue($filter->isAllowed('admin/dashboard'));
         $this->assertFalse($filter->isAllowed('admin/dashboard/operating-system'));
+        $this->assertFalse($filter->isAllowed('admin/dashboard/business-system'));
     }
 
     public function test_filter_grouped_results_removes_disallowed_items(): void
