@@ -7,9 +7,11 @@
     $bsAssetBase = asset('assets/admin-module/business-system');
     $bsVersion = max(
         (int) @filemtime(public_path('assets/admin-module/business-system/bs-app.js')),
+        (int) @filemtime(public_path('assets/admin-module/business-system/bs-growth-data.js')),
+        (int) @filemtime(public_path('assets/admin-module/business-system/bs-growth-reports.js')),
         (int) @filemtime(public_path('assets/admin-module/business-system/bs.css')),
         (int) @filemtime(public_path('assets/admin-module/operating-system/os.css')),
-        2026092110
+        2026092142
     ) ?: time();
 @endphp
 
@@ -34,5 +36,7 @@
 @endsection
 
 @push('script')
+    <script src="{{ $bsAssetBase }}/bs-growth-data.js?v={{ $bsVersion }}"></script>
+    <script src="{{ $bsAssetBase }}/bs-growth-reports.js?v={{ $bsVersion }}"></script>
     <script src="{{ $bsAssetBase }}/bs-app.js?v={{ $bsVersion }}"></script>
 @endpush
