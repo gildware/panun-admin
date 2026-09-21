@@ -263,9 +263,9 @@
       if (item && typeof item === "object") {
         const title = item.title || item.item || item.field || "";
         const why = item.why || item.detail || "";
-        return `<li>${why ? `<strong>${glossLink(title)}</strong><span>${glossLink(why)}</span>` : glossLink(title)}</li>`;
+        return `<li>${why ? `<strong>${glossLink(title)}</strong><span class="rd-list-why">${glossLink(why)}</span>` : `<span class="rd-list-line">${glossLink(title)}</span>`}</li>`;
       }
-      return `<li>${glossLink(item)}</li>`;
+      return `<li><span class="rd-list-line">${glossLink(item)}</span></li>`;
     }).join("")}</ul>`;
   }
 
