@@ -90,13 +90,13 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         objective: "Show whether the signed calendar produced tagged enquiries inside budget — and name the one or two moves for next week.",
         collect: [
           field("Spend vs plan, digital and field separate", "Variance without a name is technician spend."),
-          field("Enquiries and qualified enquiries by channel and campaign / town", "So we can kill what is dead."),
+          field("Enquiries by paid ads, by search (SEO), and by stalls", "So we can kill what is dead. Do not mix search into ads."),
           field("Source tag rate (target 95% or more)", "Sales cannot convert a nameless lead."),
           field("Bookings from marketing leads, if Sales has closed them", "Enquiries are not the result. Bookings are."),
           field("Creatives that failed the brand or fact check", "Trust dies when ads promise what the job cannot do."),
           field("One or two changes for next week — not ten", "A list of wishes is not a plan.")
         ],
-        mustHave: ["Week dates", "Spend vs plan by channel", "Enquiries by source", "Tag rate", "Bookings from marketing", "Off-plan items", "Next-week actions", "Owner of each action"],
+        mustHave: ["Week dates", "Spend vs plan by channel", "Enquiries by paid ads / search / stalls", "Tag rate", "Bookings from marketing", "Off-plan items", "Next-week actions", "Owner of each action"],
         passTo: [
           pass("Head of Growth", "This is the marketing page of the weekly Growth review."),
           pass("Digital Marketing Manager", "Their slice: keep, pause, change."),
@@ -111,7 +111,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         owner: "Marketing Manager drafts. Head of Growth signs. Digital and Field do not set their own month.",
         objective: "Turn the signed Growth plan into days, creatives, budgets, and targets both channels can run without inventing the company.",
         collect: [
-          field("Who, offer, town, channel, budget, KPI for each line", "A calendar without a target is decoration."),
+          field("Who, offer, town, paid ads or stall, SEO pages, budget, KPI for each line", "A calendar without a target is decoration. Search sits on its own line."),
           field("Approved creatives only — or a dated request for a new one", "No live file without brand and fact check."),
           field("What we will not promote", "Stops Digital ‘testing’ an unapproved service."),
           field("Field days named: town, date, materials", "Random Saturdays cannot be measured."),
@@ -127,12 +127,12 @@ window.PK_GROWTH = window.PK_GROWTH || {};
       {
         id: "MKT-R3",
         name: "Untagged-lead exception list",
-        when: "Every working day if Sales received a marketing lead with no source. Empty list is the goal.",
-        owner: "Marketing Manager. Digital or Field must name the source the same day.",
-        objective: "Never let an untagged lead sit. If you cannot tag it, pause that campaign.",
+        when: "Every working day if Operations has a person with no answer for where they found us. Empty list is the goal.",
+        owner: "Marketing Manager. Operations asks today. Digital reads the answers. Digital does not ask the customer.",
+        objective: "Never let a person sit with no answer. Operations asks. Operations writes.",
         collect: [
-          field("Lead time, channel guess, campaign if known", "So you can find the hole."),
-          field("Who will tag it, by when today", "Same day or it did not happen."),
+          field("Call, WhatsApp, app, form, stall, or other — and whether Operations asked", "So you can see who still has no answer."),
+          field("Who in Operations will ask, by when today", "Same day or it did not happen."),
           field("Pause decision if the source cannot be found", "A campaign you cannot measure must stop.")
         ],
         mustHave: ["Date", "Lead id or phone", "Missing tag", "Owner", "Tagged by (time)", "Paused? yes/no"],
@@ -603,24 +603,28 @@ window.PK_GROWTH = window.PK_GROWTH || {};
       bullet("The five function owners and their weekly numbers", "People fill boxes. Boxes do not follow people.")
     ],
     mkm: [
-      bullet("Monthly marketing plan and calendar", "Digital and Field work from one calendar, not two companies."),
-      bullet("Brand look, words, and allowed claims", "Trust dies when ads promise what the job cannot do."),
-      bullet("Budget split across digital and field", "Money needs one owner."),
-      bullet("Source on every marketing enquiry", "Untagged leads cannot be improved."),
-      bullet("Digital and Field managers", "They run channels. You run the plan.")
+      bullet("The monthly marketing plan and day-by-day calendar", "A written plan Head of Growth signs before the month starts. It names which services we may talk about, which towns we may work in, which days ads and stalls run, how much money each gets, which website pages Digital must keep true for search (SEO), and what we will not advertise. Digital and Field work from this one plan. They do not make a different month for themselves."),
+      bullet("The marketing kit — logo, colours, sentences, prices, towns, and faces", "The instruction book for every ad, search page, post, flyer, and stall board. You write it and put your name and the month on it. Digital and Field may only use what is in this book. If they want a new sentence, price, town, or face, they stop and ask you first."),
+      bullet("How the money is split — ads budget and stall budget", "You decide how much the Digital Marketing Manager may spend on paid ads, and how much the Field Marketing Manager may spend on stalls and printed materials. They cannot take each other’s money. SEO (search) is Digital’s work too, but those enquiries sit on their own line — not inside ads spend."),
+      bullet("A note of where every marketing enquiry came from", "Operations asks every new person — call, WhatsApp, app, website form, or any other way — ‘How did you find us?’ and writes the answer from a short list you gave them: paid ad, search, stall, WhatsApp, app, form, or other. That is how we know. Digital cannot see it from the phone number. Digital reads what Operations wrote. If the answer is missing, Operations asks today. If Field met the person at a stall, Field also writes town and date."),
+      bullet("The Digital Marketing Manager job", "You give them their part of the calendar, the ads budget, the marketing kit, which website pages SEO must cover this month, and where a call, WhatsApp, app, or form must land. Paid ads and SEO are both in this job. If nobody sits there, you cover it yourself and write that down."),
+      bullet("The Field Marketing Manager job", "You give them which towns, which days, which boards and flyers, and the stall budget. If nobody sits in that job, you cover it yourself and write that down.")
     ],
     hom: [
-      bullet("All paid ads — Meta, Google, and any other paid ads", "A live ad with no owner is a leak."),
-      bullet("Website search and the app store listing", "Search is not ‘free ads’. It still needs the same promise."),
-      bullet("Social, Reddit, Quora, and other online pipes", "Same words. Same tags. No booking in the thread."),
-      bullet("The content library and the Content Maker box", "If that box is empty, you are the acting owner — write it down."),
-      bullet("Digital lead tags", "Every lead has a source or that pipe pauses.")
+      bullet("Paid ads — Meta, Google, and any other paid ads on the plan", "A live ad with no owner is a leak. Only this seat spends ads money."),
+      bullet("Organic — website search, app store, unpaid social, Reddit, Quora, other sites", "Same promise as the ads. Counted on their own line, not mixed into ads spend."),
+      bullet("The company library — files this seat has approved", "Content Maker makes and edits. You write the yes. Only then a file may go live."),
+      bullet("The Content Maker box — file list, kit, review path, acting owner if empty", "If that box is empty, you are the acting owner and must write it down."),
+      bullet("Answers Operations wrote — how many people said they found us from your ads or search pages", "You do not ask the customer. Operations asks and writes paid ad or search. You read those answers. A person with no answer is Marketing Manager’s missing-source list, not a guess you invent."),
+      bullet("Daily and weekly truth packs to Marketing Manager", "Spend, tagged leads, pauses, 3 wins, 3 fails, 1 ask. Wins-only packs hide leaks.")
     ],
     cmc: [
-      bullet("Making AI, brand, and founder videos from the kit", "The Digital Marketing Manager approves, then publishes."),
-      bullet("Collecting customer-feedback and provider videos from Operations, then editing them", "Those videos are captured on the job."),
-      bullet("Sending every finished file to the Digital Marketing Manager for approval the same day", "A file enters the library only after the Digital Marketing Manager says yes."),
-      bullet("A simple list of what is waiting, approved, and in the library", "The Digital Marketing Manager must see gaps.")
+      bullet("AI videos and AI still posts from the signed kit", "Generated videos (.mp4) and still images (.jpg or .png) from kit words, look, and scenes. Not live footage."),
+      bullet("Brand films from the signed kit", "Company films: who Panun Kaergar is, what a customer can expect, and how a job is done. The founder does not have to appear."),
+      bullet("Founder films when the face is already in the kit", "Personal-brand films with the founder or another named kit face on camera. A new face is a kit change."),
+      bullet("Customer-feedback and provider job films, edited from Operations footage", "Operations captures those videos on the job. This seat collects the raw files and cuts them to the kit."),
+      bullet("Every finished file named and sent for approval the same working day", "The finished .mp4 or still goes in the review path. Only a written yes from the Digital Marketing Manager puts it in the library."),
+      bullet("The production list: waiting, sent back, approved, in the library, blocked", "So the Digital Marketing Manager can see gaps without a meeting.")
     ],
     fmm: [
       bullet("Field calendar for approved towns", "Random stalls cannot be measured."),
@@ -662,11 +666,12 @@ window.PK_GROWTH = window.PK_GROWTH || {};
       bullet("Sign partners or hire providers", "Partnerships and Provider Operations own those results.")
     ],
     mkm: [
-      bullet("Invent a service, a price, or a new town", "Offer, Finance, and Expansion own those."),
-      bullet("Convert the enquiry into a booking", "Sales converts. You generate."),
-      bullet("Change Intelligence findings", "You may not advertise a guess."),
-      bullet("Spend off the signed plan", "Variance needs Head of Growth."),
-      bullet("Let Digital or Field skip source tags", "Then the weekly report is fiction.")
+      bullet("Invent a new service, a new price, or a new town", "Offer writes what we sell. Finance signs the price. Expansion opens a town. Head of Growth says yes. You may ask them in writing. You may not put a new service or town on the marketing calendar yourself."),
+      bullet("Turn the enquiry into a booking", "Your job is to bring the person to Sales. Sales books the job. You do not take the booking on a chat, a comment, or a stall."),
+      bullet("Change what Intelligence found, or advertise a guess", "Market Intelligence writes facts with a source and a date. You may not put a rumour on the calendar as if it were a real service or town."),
+      bullet("Spend more than the signed plan allows", "If the month must change, Head of Growth signs the change first. You do not let ads or stalls keep spending while you wait for a meeting."),
+      bullet("Run the ads or stand at the stall as if that were your main job", "Those jobs belong to Digital Marketing Manager and Field Marketing Manager. If nobody sits there, you cover that job for now and write: you are covering it because the seat is empty. Otherwise nobody owns that result."),
+      bullet("Let Operations skip asking where they found us, or let Digital or Field make their own month", "Then Head of Growth cannot tell which paid ads, search pages, or stalls work, and the weekly report is not true.")
     ],
     hom: [
       bullet("Invent a service, a price, or a new town", "That comes down the plan. You do not skip to Head of Growth."),
@@ -677,6 +682,13 @@ window.PK_GROWTH = window.PK_GROWTH || {};
       bullet("Move Field’s money without Marketing Manager", "One plan, two channels.")
     ],
     cmc: [
+      bullet("Publish, schedule, or go live with a file", "You make and edit. The Digital Marketing Manager approves, then publishes."),
+      bullet("Spend ads money or boost a post", "Spend sits in Digital. This box has no budget."),
+      bullet("Capture customer or provider footage on the job", "Operations captures those videos. You collect and edit."),
+      bullet("Add a claim, price, town, or face that is not in the signed kit", "That is a kit change. Stop. The Digital Marketing Manager asks Marketing Manager."),
+      bullet("Put a file in the library before a written yes", "The library is the company copy. A draft is not a company copy."),
+      bullet("Keep masters only on a personal phone or private chat", "If it is not in review or the library, it did not happen."),
+      bullet("Book the customer or sit on a sales chat", "Sales owns the customer.")
     ],
     fmm: [
       bullet("Take bookings or money at the stall", "The stall is a door, not a shop."),
