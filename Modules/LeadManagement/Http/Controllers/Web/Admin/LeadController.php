@@ -251,6 +251,7 @@ class LeadController extends Controller
         }
 
         $leads = $query->paginate(pagination_limit())->appends($queryParams);
+        $this->rememberLeadIndexReturnUrl($queryParams, $leads->currentPage());
 
         // handled_by stores the user ID (string/UUID). Build a map id => display name.
         $handledByIds = $leads->pluck('handled_by')
@@ -1821,6 +1822,7 @@ class LeadController extends Controller
             )
             : 0;
         $huntingInterests = $lead->huntingInterests ?? collect();
+        $leadIndexBackUrl = $this->resolveLeadIndexBackUrl($lead->lead_type);
         $temporaryProvider = !empty($customerHistoryData['temporary_provider_id'])
             ? Provider::find($customerHistoryData['temporary_provider_id'])
             : null;
@@ -1874,6 +1876,7 @@ class LeadController extends Controller
             'huntingIsReady',
             'huntingMatchingProviderCount',
             'huntingInterests',
+            'leadIndexBackUrl',
             'temporaryProvider',
             'temporaryProviderAssignedAt',
             'workflowContext',
@@ -3256,6 +3259,86 @@ class LeadController extends Controller
 
         toastr()->success(translate('Lead_deleted_successfully'));
 
-        return redirect()->route('admin.lead.index');
+        return redirect($this->resolveLeadIndexBackUrl($lead->lead_type));
+    }
+
+    protected function rememberLeadIndexReturnUrl(array $queryParams, int $page = 1): void
+    {
+        if ($page > 1) {
+            $queryParams['page'] = $page;
+        } else {
+            unset($queryParams['page']);
+        }
+
+        session(['lead_index_return_url' => $this->leadIndexUrlFromParams($queryParams)]);
+    }
+
+    protected function resolveLeadIndexBackUrl(?string $leadType = null): string
+    {
+        $fromRequest = $this->sanitizeLeadIndexReturnUrl(request()->input('lead_list'));
+        if ($fromRequest) {
+            session(['lead_index_return_url' => $fromRequest]);
+
+            return $fromRequest;
+        }
+
+        $fromSession = $this->sanitizeLeadIndexReturnUrl(session('lead_index_return_url'));
+        if ($fromSession) {
+            return $fromSession;
+        }
+
+        return $this->leadIndexUrlFromParams(['tab' => $this->leadIndexTabForType($leadType)]);
+    }
+
+    protected function leadIndexTabForType(?string $leadType): string
+    {
+        $validTabs = ['all', 'unknown', 'customer', 'future_customer', 'provider', 'invalid'];
+
+        return in_array($leadType, $validTabs, true) ? $leadType : 'all';
+    }
+
+    protected function leadIndexUrlFromParams(array $queryParams): string
+    {
+        $absolute = route('admin.lead.index', $queryParams);
+        $path = rtrim((string) parse_url($absolute, PHP_URL_PATH), '/') ?: '/admin/lead';
+        $query = parse_url($absolute, PHP_URL_QUERY);
+
+        return $path.($query ? '?'.$query : '');
+    }
+
+    protected function sanitizeLeadIndexReturnUrl(mixed $candidate): ?string
+    {
+        if (! is_string($candidate) || trim($candidate) === '') {
+            return null;
+        }
+
+        $candidate = trim($candidate);
+        $indexPath = rtrim((string) parse_url(route('admin.lead.index'), PHP_URL_PATH), '/') ?: '/admin/lead';
+
+        $path = '';
+        $query = '';
+
+        if (str_starts_with($candidate, 'http://') || str_starts_with($candidate, 'https://')) {
+            $parts = parse_url($candidate);
+            $path = (string) ($parts['path'] ?? '');
+            $query = isset($parts['query']) && $parts['query'] !== '' ? '?'.$parts['query'] : '';
+        } elseif (str_starts_with($candidate, '/')) {
+            $qPos = strpos($candidate, '?');
+            if ($qPos === false) {
+                $path = $candidate;
+            } else {
+                $path = substr($candidate, 0, $qPos);
+                $query = substr($candidate, $qPos);
+            }
+        } else {
+            return null;
+        }
+
+        $path = rtrim($path, '/') ?: '/';
+        if ($path !== $indexPath) {
+            return null;
+        }
+
+        return $path.$query;
     }
 }

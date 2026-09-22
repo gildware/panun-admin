@@ -1,11 +1,14 @@
 @if(empty($inModal))
+    @php
+        $leadIndexBackUrl = $leadIndexBackUrl ?? route('admin.lead.index');
+    @endphp
     <div class="lead-detail-topbar">
         <nav class="breadcrumb-bar" aria-label="breadcrumb">
-            <a href="{{ route('admin.lead.index') }}">{{ translate('Leads') }}</a>
+            <a href="{{ $leadIndexBackUrl }}">{{ translate('Leads') }}</a>
             <span class="material-icons">chevron_right</span>
             <span class="breadcrumb-bar__current">#{{ $lead->id }}@if($leadNameForDisplay !== '') — {{ $leadNameForDisplay }}@endif</span>
         </nav>
-        <a href="{{ route('admin.lead.index') }}" class="lead-detail-topbar__back">
+        <a href="{{ $leadIndexBackUrl }}" class="lead-detail-topbar__back">
             <span class="material-icons">arrow_back</span>
             {{ translate('Back_to_Leads') }}
         </a>

@@ -490,6 +490,12 @@
   color: var(--gold);
   border-color: var(--navy);
 }
+.os-explorer .rd-lane-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 0;
+}
 .os-explorer .rd-back.is-gold:hover {
   background: var(--gold);
   color: var(--navy);
@@ -1427,6 +1433,11 @@
   gap: 4px;
   min-width: 0;
 }
+.os-explorer .rd-acc-copy > .rd-kicker {
+  margin: 0;
+  color: var(--gold-2);
+  white-space: nowrap;
+}
 .os-explorer .rd-acc-copy strong {
   font-size: 15px;
   line-height: 1.3;
@@ -1873,6 +1884,29 @@
   line-height: 1.5;
   font-weight: 600;
   color: #2a2940;
+}
+.os-explorer .page.rd-page.is-compact .rd-result {
+  font-size: 17px;
+  line-height: 1.4;
+}
+.os-explorer .rd-acting {
+  margin: 12px 0 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px dashed var(--line);
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 700;
+  color: #2a2940;
+}
+.os-explorer .page.rd-page.is-detailed .rd-sops {
+  margin: 0 0 16px;
+}
+@media (min-width: 900px) {
+  .os-explorer .page.rd-page.is-detailed .rd-sops {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
 }
 .os-explorer .rd-def-stack,
 .os-explorer .rd-details,

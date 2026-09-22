@@ -1430,6 +1430,18 @@
         (function ($) {
             "use strict";
 
+            (function restoreLeadIndexBackLinks() {
+                try {
+                    var stored = sessionStorage.getItem('admin_lead_index_return_url');
+                    if (!stored || stored.indexOf('/admin/lead') === -1 || /\/admin\/lead\/\d+/.test(stored.split('?')[0])) {
+                        return;
+                    }
+                    document.querySelectorAll('.lead-detail-topbar a[href]').forEach(function (link) {
+                        link.setAttribute('href', stored);
+                    });
+                } catch (e) {}
+            })();
+
             $(function () {
                 var $customerModal = $('#leadCustomerModal');
                 if (typeof initZoneTreeSelect2 === 'function') {

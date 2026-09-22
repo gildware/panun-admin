@@ -180,7 +180,12 @@
                             </td>
                         @endif
                         <td class="text-center">
-                            <a href="{{ $leadDetailUrl }}" class="btn btn-sm btn--primary btn-lead-view" data-lead-url="{{ $leadDetailUrl }}">
+                            <a href="{{ $leadDetailUrl }}"
+                               class="btn btn-sm btn--primary btn-lead-view"
+                               data-lead-url="{{ $leadDetailUrl }}"
+                               data-turbo="false"
+                               target="_blank"
+                               rel="noopener noreferrer">
                                 {{ translate('view') }}
                             </a>
                         </td>

@@ -76,7 +76,7 @@
           {
             id: "mkm",
             name: "Marketing Manager",
-            line: "Owns the monthly plan: who, offer, area, channel, budget and brand. Turns an approved offer into tagged demand.",
+            line: "Writes the monthly marketing plan Head of Growth signs: paid ads, SEO (search), stalls, money, and the words they may use. Holds Digital and Field. Makes sure Operations asked each person where they found us and wrote the answer.",
             iconFile: "mkt",
             scene: "mkt",
             reports: [
@@ -87,7 +87,7 @@
                 iconFile: "mkt",
                 scene: "mkt",
                 reports: [
-                  { id: "cmc", name: "Content Maker", line: "Produces the company's marketing videos and posts for the Digital Marketing Manager to approve and publish.", iconFile: "mkt", scene: "mkt" }
+                  { id: "cmc", name: "Content Maker", line: "Produces AI videos, AI still posts, brand films, and founder films, plus edited Operations footage, for the Digital Marketing Manager to approve and publish.", iconFile: "mkt", scene: "mkt" }
                 ]
               },
               { id: "fmm", name: "Field Marketing Manager", line: "Owns towns, stalls and local presence. Delivers tagged local enquiries from named towns on the calendar.", iconFile: "me", scene: "me" }
@@ -420,13 +420,16 @@
     ["rd-esc", "Escalations"]
   ];
   const DETAILED_JUMPS = [
-    ["rd-role", "The role"],
+    ["rd-role", "Your job"],
+    ["rd-owns", "Owns"],
     ["rd-def", "Definition"],
+    ["rd-lanes", "Lanes"],
     ["rd-do", "Responsibilities"],
     ["rd-hand", "Handoffs"],
     ["rd-how", "Work flow"],
     ["rd-rpt", "Reporting"],
     ["rd-std", "Standards"],
+    ["rd-look", "Tuesday"],
     ["rd-kpi", "KPIs"],
     ["rd-esc", "Escalations"],
     ["rd-gloss", "Glossary"]
@@ -437,6 +440,8 @@
       if (id === "rd-lanes") return !!(role && role.lanes && role.lanes.length);
       if (id === "rd-given") return !!(role && ((role.given && role.given.length) || (role.sentBack && role.sentBack.length)));
       if (id === "rd-graph") return !!(role && role.graph);
+      if (id === "rd-owns") return !!(role && ((role.owns && role.owns.length) || (role.mustNot && role.mustNot.length)));
+      if (id === "rd-look") return !!(role && ((role.good && role.good.length) || (role.bad && role.bad.length) || (role.records && role.records.length) || (role.rules && role.rules.length)));
       if (id === "rd-gloss") return !!(role && role.detailed && role.detailed.glossary && role.detailed.glossary.length);
       return true;
     });
@@ -531,6 +536,7 @@
   }
 
   function renderHandoffChart(incoming, outgoing, role) {
+    const hub = (role && role.detailed && role.detailed.hub) || {};
     const box = (item) => `<article>
       <p><strong>${glossLink(item.title)}</strong>${item.lead ? `<span>${glossLink(item.lead)}</span>` : ""}</p>
     </article>`;
@@ -542,9 +548,9 @@
       <div class="rd-chart-mid">
         <div class="rd-chart-join" aria-hidden="true"><span class="mso">arrow_forward</span></div>
         <div class="rd-chart-hub">
-          <span class="mso">movie</span>
+          <span class="mso">${esc(hub.icon || "account_tree")}</span>
           <b>${glossLink((role && role.name) || "This seat")}</b>
-          <p>${glossLink("Collect, make, edit. The Digital Marketing Manager approves.")}</p>
+          <p>${glossLink(hub.line || "Work in as a pack. Work out as a pack.")}</p>
         </div>
         <div class="rd-chart-join" aria-hidden="true"><span class="mso">arrow_forward</span></div>
       </div>
@@ -665,6 +671,7 @@
           <button type="button" class="rd-acc-head" aria-expanded="false">
             ${item.art ? `<span class="rd-acc-art"><img src="${art(item.art)}" alt=""></span>` : ""}
             <span class="rd-acc-copy">
+              ${item.kicker ? `<span class="rd-kicker">${esc(item.kicker)}</span>` : ""}
               <strong>${glossLink(accordionTitle(item))}</strong>
               ${item.lead ? `<span>${glossLink(item.lead)}</span>` : ""}
             </span>
@@ -703,14 +710,64 @@
       </section>`;
   }
 
+  function renderOwnsMustNot(role, artFile) {
+    const owns = role.owns || [];
+    const mustNot = role.mustNot || [];
+    if (!owns.length && !mustNot.length) return "";
+    const lede = (role.detailed && role.detailed.copy && role.detailed.copy.owns) ||
+      "If you do someone else’s job, nobody owns a result. Own the box. Do not steal the next box.";
+    return `<section class="rd-section" id="rd-owns">
+      ${secHead(artFile || "", artFile ? "Boundaries" : "", "What you own, and what you must not do", lede)}
+      <div class="rd-split">
+        <div>
+          <h3>You own</h3>
+          ${listHtml(owns)}
+        </div>
+        <div class="is-not">
+          <h3>You must not</h3>
+          ${listHtml(mustNot)}
+        </div>
+      </div>
+      ${role.acting ? `<p class="rd-acting">${glossLink(role.acting)}</p>` : ""}
+    </section>`;
+  }
+
+  function renderSopStrip(procedures) {
+    if (!procedures || !procedures.length) return "";
+    return `<div class="rd-sops">${procedures.map((item) => `
+      <article class="rd-sop">
+        <p class="rd-sop-id">${esc(item.id)}</p>
+        <h3>${glossLink(item.title)}</h3>
+        ${item.when ? `<p class="rd-when-line"><b>When.</b> ${glossLink(item.when)}</p>` : ""}
+      </article>
+    `).join("")}</div>`;
+  }
+
+  function renderTuesdayShelf(role) {
+    const good = listHtml(role.good);
+    const bad = listHtml(role.bad);
+    const records = (role.records || []).map((item) => `<div class="rd-record">${glossLink(item)}</div>`).join("");
+    const rules = role.rules || [];
+    if (!good && !bad && !records && !rules.length) return "";
+    return `<section class="rd-section" id="rd-look">
+      ${secHead("", "", "Tuesday test — records and rules", "Walk in on a Tuesday. You should know if this box is working without a meeting. These are the files, and the lines you do not cross even when it would be faster.")}
+      ${good || bad ? `<div class="rd-looks">
+        <article class="is-good"><h3>Good</h3>${good}</article>
+        <article class="is-bad"><h3>Bad</h3>${bad}</article>
+      </div>` : ""}
+      ${records ? `<h3 class="rd-group">Records this role keeps</h3><div class="rd-records">${records}</div>` : ""}
+      ${rules.length ? `<h3 class="rd-group">Rules</h3>${listHtml(rules, "rd-list is-rule")}` : ""}
+    </section>`;
+  }
+
   function renderDetailedRole(role) {
     const seat = SEATS[role.id] || {};
     const reports = reportsToName(seat.reportsTo || role.reportsTo);
     const d = role.detailed || {};
+    const copy = d.copy || {};
     setGlossary(d.glossary);
     const incoming = (d.handoffs || []).filter((item) => item.side === "in");
     const outgoing = (d.handoffs || []).filter((item) => item.side === "out");
-    const brief = role.brief || role.story || role.result || "";
     return `
       <div class="page rd-page is-compact is-detailed">
         <div class="rd-top">
@@ -723,25 +780,33 @@
         <header class="rd-hero" id="rd-role">
           <div class="rd-hero-art"><img src="${art(role.hero)}" alt=""></div>
           <div class="rd-copy">
-            <p class="rd-kicker">Role playbook</p>
+            <p class="rd-kicker">${esc(copy.heroKicker || "Your job")}</p>
             <h1 class="serif">${glossLink(role.name)}</h1>
-            <p class="rd-reports">Reports to ${glossLink(reports)}</p>
-            <p class="rd-brief">${glossLink(brief)}</p>
+            <p class="rd-reports">You report to ${glossLink(reports)}</p>
+            <p class="rd-result">${glossLink(role.result || "")}</p>
           </div>
         </header>
+        ${renderOwnsMustNot(role)}
         <section class="rd-section" id="rd-def">
-          ${secHead("", "", "Role definition", "The Content Maker produces Panun Kaergar’s marketing videos and posts. The Digital Marketing Manager approves each finished file before it enters the company library.")}
+          ${secHead("", "", copy.defTitle || "What this job is", copy.definition || "")}
           <div class="rd-def-stack">
             ${renderDefCol("What this role is", d.definition && d.definition.what)}
             ${renderDefCol("Why this role exists", d.definition && d.definition.why)}
           </div>
         </section>
+        ${role.lanes && role.lanes.length ? `<section class="rd-section" id="rd-lanes">
+          ${secHead("", "", copy.lanesTitle || "How this job is split", copy.lanes || "One result. Named lanes. If a lane’s box is empty, this seat is the acting owner — and must say so in writing.")}
+          ${renderLanes(role.lanes)}
+          ${(role.laneLinks || []).length ? `<p class="rd-lane-links">${role.laneLinks.map((link) =>
+            `<button type="button" class="rd-back is-gold" data-go-hash="${esc(link.hash)}">${esc(link.label)}</button>`
+          ).join("")}</p>` : ""}
+        </section>` : ""}
         <section class="rd-section" id="rd-do">
-          ${secHead("", "", "Responsibilities", "These are the five pieces of production this seat owns: files from the Digital Marketing Manager's list made to the kit, AI video and posts, brand and founder films, customer and provider films collected from Operations then edited, and sending finished work to the Digital Marketing Manager for approval into the library. Click a row to open the full card.")}
+          ${secHead("", "", "Responsibilities", copy.responsibilities || "Click a row to open the full card.")}
           ${renderAccordions(d.responsibilities)}
         </section>
         <section class="rd-section" id="rd-hand">
-          ${secHead("", "", "Handoffs — what you get, what you give", "Work arrives as a written pack and leaves as a written pack. The chart shows the flow. Click a row for the full pack.")}
+          ${secHead("", "", "Handoffs — what you get, what you give", copy.handoffs || "Work arrives as a written pack and leaves as a written pack. Chat is not a pack.")}
           ${renderHandoffChart(incoming, outgoing, role)}
           <h3 class="rd-group">What you receive</h3>
           ${renderAccordions(incoming)}
@@ -749,24 +814,26 @@
           ${renderAccordions(outgoing)}
         </section>
         <section class="rd-section" id="rd-how">
-          ${secHead("", "", "Work flow", "Follow these steps in order for every file-list line that is ready: check the list and the kit, make the file, send it for approval. If it is accepted, put it in the library. If it is rejected, change it and send it again. AI, brand, and Operations films are kinds of lines on the list — not later steps. Click a step to open the full card.")}
+          ${secHead("", "", "Work flow", copy.workflow || "Follow these steps in order. Click a step to open the full card.")}
+          ${renderSopStrip(role.procedures)}
           ${renderStepChart(d.workflow)}
           ${renderAccordions(d.workflow)}
         </section>
         <section class="rd-section" id="rd-rpt">
-          ${secHead("", "", "Reporting — daily, weekly, monthly", "Three packs this seat must write. Daily: what was sent for approval, what the Digital Marketing Manager approved into the library, what they sent back, and what is waiting on Operations. Weekly: file list versus delivered, including misses and approval rates. Monthly: the films next month will need and which Operations files must be sent first. Click a row to open the full pack.")}
+          ${secHead("", "", "Reporting — daily, weekly, monthly", copy.reporting || "Packs this seat must write. Click a row to open the full pack.")}
           ${renderAccordions(d.reporting, renderReportCard)}
         </section>
         <section class="rd-section" id="rd-std">
-          ${secHead("", "", "Standards", "Four bars this seat is measured against. Click a card for the full standard.")}
+          ${secHead("", "", "Standards", copy.standards || "The bar this seat is measured against. Click a card for the full standard.")}
           ${renderStdGrid(d.standards)}
         </section>
+        ${renderTuesdayShelf(role)}
         <section class="rd-section" id="rd-kpi">
-          ${secHead("", "", "KPIs", "How the Digital Marketing Manager knows this box is working. Each measure has a target, a reason it matters to Panun Kaergar, and a counting rule so two people cannot argue about the number.")}
-          ${renderKpiTable(d.kpis)}
+          ${secHead("", "", "KPIs", copy.kpis || "Numbers that prove the one result. Each measure has a target, a reason, and a counting rule.")}
+          ${renderKpiTable(d.kpis && d.kpis.length ? d.kpis : role.kpis)}
         </section>
         <section class="rd-section" id="rd-esc">
-          ${secHead("", "", "Escalations", "What to do when the Digital Marketing Manager sends a file back, when the kit cannot cover a line, when Operations footage is late, or when a file or the library fails. Click a row to open the full steps.")}
+          ${secHead("", "", "Escalations", copy.escalations || "Who gets the problem, how fast, and with what. Do not sit on it.")}
           ${renderAccordions(d.escalations)}
         </section>
         ${renderGlossary(d.glossary)}
@@ -854,21 +921,11 @@
         ${role.lanes && role.lanes.length ? `<section class="rd-section" id="rd-lanes">
           ${secHead("sec-lanes.png", "Three lanes", "How this seat is split", "One result. Three kinds of work. If Content Maker is empty, you are the acting owner — and must say so in writing.")}
           ${renderLanes(role.lanes)}
-          ${role.id === "hom" ? `<p><button type="button" class="rd-back is-gold" data-go-hash="role-cmc">View Content Maker</button></p>` : ""}
+          ${(role.laneLinks || []).length ? `<p class="rd-lane-links">${role.laneLinks.map((link) =>
+            `<button type="button" class="rd-back is-gold" data-go-hash="${esc(link.hash)}">${esc(link.label)}</button>`
+          ).join("")}</p>` : ""}
         </section>` : ""}
-        <section class="rd-section" id="rd-owns">
-          ${secHead("sec-owns.png", "Boundaries", "What you own — and must not", "If you do someone else’s job, nobody owns a result. Own the box. Do not steal the next box.")}
-          <div class="rd-split">
-            <div>
-              <h3>You own</h3>
-              ${listHtml(role.owns)}
-            </div>
-            <div class="is-not">
-              <h3>You must not</h3>
-              ${listHtml(role.mustNot)}
-            </div>
-          </div>
-        </section>
+        ${renderOwnsMustNot(role, "sec-owns.png")}
         ${(role.given || role.sentBack) ? `<section class="rd-section" id="rd-given">
           ${secHead("sec-hand.png", "In and out", "What you are given — and what you send back", "Work arrives as a pack. Work leaves as a pack. Chat is not a pack.")}
           ${renderGivenSent(role.given, role.sentBack)}
