@@ -754,6 +754,11 @@
             initPageWidgets(frame);
             markFullPageLinks();
             markPartialNavLinks(frame);
+            if (typeof window.ensureZoneMap === 'function') {
+                window.setTimeout(window.ensureZoneMap, 0);
+                window.setTimeout(window.ensureZoneMap, 120);
+                window.setTimeout(window.ensureZoneMap, 400);
+            }
 
             if (options.advance !== false) {
                 window.history.pushState({ adminPartialNav: true }, '', url);
@@ -894,6 +899,11 @@
             activateScripts(initialFrame).finally(function () {
                 markPartialNavLinks(initialFrame);
                 initPageWidgets(initialFrame);
+                if (typeof window.ensureZoneMap === 'function') {
+                    window.setTimeout(window.ensureZoneMap, 0);
+                    window.setTimeout(window.ensureZoneMap, 120);
+                    window.setTimeout(window.ensureZoneMap, 400);
+                }
             });
         });
     } else {

@@ -207,6 +207,7 @@ class AdminProviderDeletionService
       'provider_incidents',
       'provider_change_requests',
       'provider_showcase_items',
+      'provider_questionnaires',
     ] as $table) {
       if (Schema::hasTable($table)) {
         DB::table($table)->where('provider_id', $providerId)->delete();

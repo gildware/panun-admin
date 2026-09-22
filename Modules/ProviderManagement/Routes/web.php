@@ -57,6 +57,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::put('update/{id}', [ProviderController::class, 'update'])->name('update');
         Route::delete('delete/{id}', [ProviderController::class, 'destroy'])->name('delete');
         Route::any('details/{id}', [ProviderController::class, 'details'])->name('details');
+        Route::post('details/{id}/questionnaire', [ProviderController::class, 'updateQuestionnaire'])->name('details.questionnaire.update');
         Route::post('details/{id}/add-payment', [ProviderController::class, 'addPaymentToProvider'])->name('details.add_payment');
         Route::post('details/{id}/collect-amount', [ProviderController::class, 'collectAmountFromProvider'])->name('details.collect_amount');
         Route::post('details/{id}/whatsapp/provider-payment-reminder/preview', [ProviderController::class, 'whatsappProviderPaymentReminderPreview'])->name('details.whatsapp.provider_payment_reminder.preview');

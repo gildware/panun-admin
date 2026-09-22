@@ -205,15 +205,238 @@
     display: none;
 }
 .search_area{
-    height: 3em;
-    width:fit-content;
+    height: 2.5em;
+    width: fit-content;
 }
-.map_canvas{
-    height: 310px;
+.zone-setup-instructions.card {
+    margin-bottom: 1rem;
+}
+.zone-setup-instructions > .card-body {
+    padding: 1rem 1.25rem !important;
+}
+.zone-setup-hint {
+    font-size: 13px;
+    line-height: 1.35;
+    color: var(--bs-secondary-color, #6c757d);
+}
+.zone-setup-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-shrink: 0;
+    margin-bottom: 0.75rem;
+}
+.zone-setup-toolbar .zone-setup-hint {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.zone-setup-layout {
+    --zone-field-gap: 0.7rem;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+.zone-form-col {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.zone-form-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--zone-field-gap);
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+}
+.zone-form-stack .form-floating,
+.zone-form-stack .zone-parent-select2-wrap,
+.zone-form-stack .form-group,
+.zone-form-stack .nav--tabs,
+.zone-form-stack .lang-form {
+    margin-bottom: 0 !important;
+}
+.zone-form-stack .input-label {
+    margin-bottom: 0.3rem;
+}
+.zone-form-stack .select2-container .select2-selection--single {
+    height: 45px;
+    min-height: 45px;
+    display: flex;
+    align-items: center;
+}
+.zone-form-stack .form-control,
+.zone-form-stack .form-select,
+.zone-form-stack .select2-container {
+    width: 100% !important;
+}
+.zone-form-grow {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.zone-form-grow #zone-description {
+    flex: 1 1 auto;
+    min-height: 78px;
+    height: auto !important;
+    resize: vertical;
+}
+.zone-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    flex-shrink: 0;
+}
+.zone-map-col {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.map_canvas,
+#map-canvas{
+    height: 100%;
+    min-height: 280px;
+    width: 100%;
+    position: relative;
+    z-index: 0;
+    pointer-events: auto;
+    flex: 1 1 auto;
 }
 .map_area{
     border-radius: 5px;
 }
-.map_canvas{
-    height: 310px;
+.map-warper.map__zone-setup,
+.map-warper.map_area {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 280px;
+    height: 100%;
+}
+
+/* Stretch the zone card from page title down to the footer */
+.main-area:has(.zone-setup-page) {
+    max-height: 100vh;
+    max-height: 100dvh;
+    overflow: hidden;
+}
+.main-area:has(.zone-setup-page) .admin-main-frame,
+.main-area:has(.zone-setup-page) {
+    min-height: 0;
+}
+.zone-setup-page {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+}
+.zone-setup-page > .container-fluid,
+.zone-setup-page > .container-fluid > .row,
+.zone-setup-page > .container-fluid > .row > .col-12 {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.zone-setup-page .page-title-wrap,
+.zone-setup-page > .container-fluid > .row > .col-12 > .d-flex {
+    flex-shrink: 0;
+}
+.zone-setup-fill.card {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+.zone-setup-page:has(#zone-form-wrapper.d-none) .zone-setup-fill {
+    flex: 0 0 auto;
+}
+.zone-setup-page:has(#zone-form-wrapper:not(.d-none)) #zone-form-wrapper {
+    flex: 1 0 auto;
+    min-height: calc(100dvh - 16rem);
+}
+.zone-setup-fill > .card-body,
+.zone-setup-fill form {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.zone-setup-fill .zone-map-col .map-warper,
+.zone-setup-fill .zone-setup-layout .map-warper {
+    height: auto !important;
+    min-height: 280px !important;
+    flex: 1 1 auto;
+}
+@media (max-width: 767.98px) {
+    .zone-setup-toolbar {
+        flex-wrap: wrap;
+    }
+    .zone-setup-page,
+    .zone-setup-page > .container-fluid,
+    .zone-setup-page > .container-fluid > .row,
+    .zone-setup-page > .container-fluid > .row > .col-12,
+    .zone-setup-fill.card,
+    .zone-setup-fill > .card-body,
+    .zone-setup-fill form {
+        display: block;
+        min-height: 0;
+        flex: none;
+        height: auto;
+    }
+    .zone-map-col .map-warper {
+        min-height: 260px;
+        height: 260px;
+    }
+}
+.map_canvas img,
+#map-canvas img,
+.gm-style img,
+.gm-style svg {
+    max-width: none !important;
+    max-height: none !important;
+}
+
+/* Keep search above the map so it does not cover tiles or Map/Satellite */
+.map-warper > #pac-input {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    right: auto !important;
+    width: min(280px, calc(100% - 16px)) !important;
+    max-width: 280px;
+    height: 40px !important;
+    margin: 8px 8px 0;
+    opacity: 1;
+    pointer-events: auto;
+    z-index: 2;
+    align-self: flex-start;
+}
+
+#map-canvas #pac-input,
+.gm-style #pac-input {
+    position: relative !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    width: 220px !important;
+    max-width: 50%;
+    height: 40px !important;
+    opacity: 1;
+    pointer-events: auto;
+    z-index: 5;
+}
+
+/* Instruction GIF looks like a real map and hides the Google Map below the fold */
+.zone-setup-instructions .map-img {
+    display: none !important;
+}
+.map-warper .gmnoprint,
+#map-canvas .gmnoprint {
+    display: block !important;
 }

@@ -32,4 +32,7 @@
     <li class="nav-item">
         <a class="nav-link {{ ($webPage ?? '') == 'settings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=settings">{{ translate('Settings') }}</a>
     </li>
+    <li class="nav-item">
+        <a class="nav-link {{ ($webPage ?? '') == 'questionnaire' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=questionnaire">{{ translate('Questionnaire') }}</a>
+    </li>
 </ul>

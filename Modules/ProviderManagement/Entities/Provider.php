@@ -234,6 +234,11 @@ class Provider extends Model
         return $this->hasMany(ProviderShowcaseItem::class, 'provider_id', 'id');
     }
 
+    public function questionnaire(): HasOne
+    {
+        return $this->hasOne(ProviderQuestionnaire::class, 'provider_id');
+    }
+
     public function storage()
     {
         return $this->hasOne(Storage::class, 'model_id');

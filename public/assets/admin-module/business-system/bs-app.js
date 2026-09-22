@@ -68,7 +68,7 @@
       {
         id: "hog",
         name: "Head of Growth",
-        line: "Owns who the customer is, the promise, and the numbers. Holds Marketing, Intelligence, Offer, Expansion and Partnerships to their results.",
+        line: "Owns who we sell to, what we may promise, and the numbers. Holds Marketing, Intelligence, Offer, Expansion, and Partnerships to one result each. Says yes or no on a new service, a new town, and a new kind of partner.",
         iconFile: "growth",
         scene: "growth",
         tint: "g-growth",
@@ -104,10 +104,10 @@
               }
             ]
           },
-          { id: "mim", name: "Market Intelligence Manager", line: "Owns demand truth, competitors and go / no-go. Growth decides from evidence, not opinion.", iconFile: "mi", scene: "mi" },
-          { id: "osd", name: "Offer & Service Development Manager", line: "Owns the catalogue: what Panun Kaergar can sell and deliver. Scope, inclusions and launch readiness.", iconFile: "sd", scene: "sd" },
-          { id: "mem", name: "Market Expansion Manager", line: "Owns enter, pause or exit for a named area. Does not market before operations can fulfil.", iconFile: "me", scene: "me" },
-          { id: "pcm", name: "Partnerships & Channels Manager", line: "Owns partner and referral channels. Sends tagged leads to Sales, never straight to a provider.", iconFile: "pc", scene: "pc" }
+          { id: "mim", name: "Market Intelligence Manager", line: "Writes demand, competitors, and ideas with a source and a date. Closes each idea as go, no-go, or more research. Does not run ads, write the service, or open a town.", iconFile: "mi", scene: "mi" },
+          { id: "osd", name: "Offer & Service Development Manager", line: "Writes what Panun Kaergar can sell and finish: what is in, what is out, how the job should run. Finance prices. Operations says they can do it. Head of Growth says Marketing may talk.", iconFile: "sd", scene: "sd" },
+          { id: "mem", name: "Market Expansion Manager", line: "Writes enter, wait, or leave for a named town after Provider Operations can finish the first jobs. Does not hire workers, and does not market before we can do the work.", iconFile: "me", scene: "me" },
+          { id: "pcm", name: "Partnerships & Channels Manager", line: "Signs hotel desks and shops that send us their customers. Sends named leads to Sales the same day. Does not book the customer, and does not write office maintenance contracts.", iconFile: "pc", scene: "pc" }
         ]
       },
       {
@@ -223,9 +223,9 @@
     hom: "role-hom.png",
     cmc: "role-cmc.png",
     fmm: "role-fmm.png",
-    fve: "role-fmm.png",
-    fpo: "role-fmm.png",
-    flc: "role-fmm.png",
+    fve: "role-fve.png",
+    fpo: "role-fpo.png",
+    flc: "role-flc.png",
     mim: "role-mim.png",
     osd: "role-osd.png",
     mem: "role-mem.png",
@@ -443,7 +443,7 @@
     ["rd-how", "Work flow"],
     ["rd-rpt", "Reporting"],
     ["rd-std", "Standards"],
-    ["rd-look", "Tuesday"],
+    ["rd-look", "Good / bad"],
     ["rd-kpi", "KPIs"],
     ["rd-esc", "Escalations"],
     ["rd-gloss", "Glossary"]
@@ -733,7 +733,7 @@
     const mustNot = role.mustNot || [];
     if (!owns.length && !mustNot.length) return "";
     const lede = (role.detailed && role.detailed.copy && role.detailed.copy.owns) ||
-      "If you do someone else’s job, nobody owns a result. Own the box. Do not steal the next box.";
+      "If you do someone else’s job, nobody owns a result. Do your job. Do not take the next person’s job.";
     return `<section class="rd-section" id="rd-owns">
       ${secHead(artFile || "", artFile ? "Boundaries" : "", "What you own, and what you must not do", lede)}
       <div class="rd-split">
@@ -761,14 +761,14 @@
     `).join("")}</div>`;
   }
 
-  function renderTuesdayShelf(role) {
+  function renderLookShelf(role) {
     const good = listHtml(role.good);
     const bad = listHtml(role.bad);
     const records = (role.records || []).map((item) => `<div class="rd-record">${glossLink(item)}</div>`).join("");
     const rules = role.rules || [];
     if (!good && !bad && !records && !rules.length) return "";
     return `<section class="rd-section" id="rd-look">
-      ${secHead("", "", "Tuesday test — records and rules", "Walk in on a Tuesday. You should know if this box is working without a meeting. These are the files, and the lines you do not cross even when it would be faster.")}
+      ${secHead("", "", "What good looks like — and what bad looks like", "You should know if this job is working without a meeting. These are the files, and the lines you do not cross even when it would be faster.")}
       ${good || bad ? `<div class="rd-looks">
         <article class="is-good"><h3>Good</h3>${good}</article>
         <article class="is-bad"><h3>Bad</h3>${bad}</article>
@@ -834,7 +834,7 @@
         </section>
         <section class="rd-section" id="rd-how">
           ${secHead("", "", "Work flow", copy.workflow || "Follow these steps in order. Click a step to open the full card.")}
-          ${renderSopStrip(role.procedures)}
+          ${(d.workflow && d.workflow.length) ? "" : renderSopStrip(role.procedures)}
           ${renderStepChart(d.workflow)}
           ${renderAccordions(d.workflow)}
         </section>
@@ -846,7 +846,7 @@
           ${secHead("", "", "Standards", copy.standards || "The bar this seat is measured against. Click a card for the full standard.")}
           ${renderStdGrid(d.standards)}
         </section>
-        ${renderTuesdayShelf(role)}
+        ${renderLookShelf(role)}
         <section class="rd-section" id="rd-kpi">
           ${secHead("", "", "KPIs", copy.kpis || "Numbers that prove the one result. Each measure has a target, a reason, and a counting rule.")}
           ${renderKpiTable(d.kpis && d.kpis.length ? d.kpis : role.kpis)}
@@ -1000,7 +1000,7 @@
           </div>
         </section>
         ${good || bad ? `<section class="rd-section" id="rd-look">
-          ${secHead("sec-look.png", "Tuesday test", "What good looks like — and what bad looks like", "You should be able to walk in on a Tuesday and know if this box is working.")}
+          ${secHead("sec-look.png", "How you know", "What good looks like — and what bad looks like", "You should know if this box is working without asking someone.")}
           <div class="rd-looks">
             <article class="is-good"><h3>Good</h3>${good}</article>
             <article class="is-bad"><h3>Bad</h3>${bad}</article>

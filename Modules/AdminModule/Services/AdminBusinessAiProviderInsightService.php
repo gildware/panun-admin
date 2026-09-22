@@ -10,6 +10,7 @@ use Modules\LeadManagement\Entities\Lead;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderIncident;
 use Modules\ProviderManagement\Services\ProviderPerformanceService;
+use Modules\ProviderManagement\Support\ProviderOnboardingQuestionnaire;
 use Modules\ReviewModule\Entities\Review;
 
 class AdminBusinessAiProviderInsightService
@@ -68,6 +69,7 @@ class AdminBusinessAiProviderInsightService
             'subscribed_services.sub_category',
             'servicemen.user',
             'incidents.booking',
+            'questionnaire',
         ]);
 
         $perf = $this->metricsArray(
@@ -159,6 +161,7 @@ class AdminBusinessAiProviderInsightService
                 'created_at' => $b->created_at?->toIso8601String(),
             ])->values()->all(),
             'linked_crm_leads' => $linkedLeads,
+            'questionnaire' => $this->questionnaireAnswers($provider),
             'created_at' => $provider->created_at?->toIso8601String(),
         ];
     }
@@ -274,5 +277,24 @@ class AdminBusinessAiProviderInsightService
         }
 
         return [];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function questionnaireAnswers(Provider $provider): ?array
+    {
+        $row = $provider->questionnaire;
+        $answers = is_array($row?->answers) ? $row->answers : [];
+        if ($row === null && $answers === []) {
+            return null;
+        }
+
+        return [
+            'answered_count' => ProviderOnboardingQuestionnaire::answeredCount($answers),
+            'total_count' => ProviderOnboardingQuestionnaire::questionCount(),
+            'updated_at' => $row?->updated_at?->toIso8601String(),
+            'answers' => ProviderOnboardingQuestionnaire::displayAll($answers),
+        ];
     }
 }

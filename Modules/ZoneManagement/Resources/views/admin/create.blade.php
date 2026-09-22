@@ -6,7 +6,7 @@
     <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/dataTables/jquery.dataTables.min.css')}}"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/dataTables/select.dataTables.min.css')}}"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/select2/select2.min.css')}}"/>
-    <link rel="stylesheet" href="{{asset('assets/admin-module/css/zone-module.css')}}"/>
+    <link rel="stylesheet" href="{{asset('assets/admin-module/css/zone-module.css')}}?v={{ @filemtime(public_path('assets/admin-module/css/zone-module.css')) ?: time() }}"/>
     <style>
         .zone-parent-select2-wrap .select2-container {
             width: 100% !important;
@@ -15,7 +15,7 @@
 @endpush
 
 @section('content')
-    <div class="main-content">
+    <div class="main-content zone-setup-page">
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
@@ -25,57 +25,36 @@
 
                     @can('zone_add')
                         <div class="d-flex justify-content-end mb-3">
-                            <button type="button" class="btn btn--primary" id="add-zone-form-btn">
+                            <button type="button" class="btn btn--primary @if($errors->any()) d-none @endif" id="add-zone-form-btn">
                                 {{translate('add_new')}} {{translate('zone')}}
                             </button>
                         </div>
                     @endcan
 
                     @can('zone_add')
-                        <div class="card zone-setup-instructions mb-30 d-none" id="zone-form-wrapper">
+                        <div class="card zone-setup-instructions zone-setup-fill mb-30 @if(!$errors->any()) d-none @endif" id="zone-form-wrapper">
                             <div class="card-body p-30">
                                 <form id="zone-form" action="{{route('admin.zone.store')}}"
                                       enctype="multipart/form-data"
                                       method="POST">
                                     @csrf
-                                    <div class="row justify-content-between">
-                                        <div class="col-lg-5 col-xl-4 mb-5 mb-lg-0">
-                                            <h4 class="mb-3 c1">{{translate('instructions')}}</h4>
-                                            <div class="d-flex flex-column">
-                                                <p>{{translate('create_zone_by_click_on_map_and_connect_the_dots_together')}}</p>
-
-                                                <div class="media mb-2 gap-3 align-items-center">
-                                                    <img
-                                                        src="{{asset('assets/admin-module/img/icons/map-drag.png')}}"
-                                                        alt="{{ translate('image') }}" class="map-icon-global">
-                                                    <div class="media-body ">
-                                                        <p>{{translate('use_this_to_drag_map_to_find_proper_area')}}</p>
-                                                    </div>
-                                                </div>
-
-                                                <div class="media gap-3 align-items-center">
-                                                    <img
-                                                        src="{{asset('assets/admin-module/img/icons/map-draw.png')}}"
-                                                        alt="{{ translate('image') }}" class="map-icon-global">
-                                                    <div class="media-body ">
-                                                        <p>{{translate('click_this_icon_to_start_pin_points_in_the_map_and_connect_them_to_draw_a_
-                                                        zone_._Minimum_3_points_required')}}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <div class="map-img mt-4">
-                                                    <img class="dark-support"
-                                                         src="{{asset('assets/admin-module/img/instructions.gif')}}"
-                                                         alt="{{ translate('image') }}">
-                                                </div>
-                                            </div>
+                                    <div class="zone-setup-toolbar">
+                                        <p class="zone-setup-hint mb-0">{{translate('create_zone_by_click_on_map_and_connect_the_dots_together')}}</p>
+                                        <div class="zone-form-actions">
+                                            <button class="btn btn--secondary" type="reset"
+                                                    id="reset_btn">{{translate('reset')}}</button>
+                                            <button class="btn btn--primary"
+                                                    type="submit">{{translate('submit')}}</button>
                                         </div>
-                                        <div class="col-lg-7">
+                                    </div>
+                                    <div class="row zone-setup-layout g-3 align-items-stretch">
+                                        <div class="col-md-5 zone-form-col">
+                                            <div class="zone-form-stack">
                                             @php
                                                 $language = \Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name', 'system_language')->first();
                                             @endphp
                                             @if($language)
-                                                <ul class="nav nav--tabs border-color-primary mb-4">
+                                                <ul class="nav nav--tabs border-color-primary">
                                                     <li class="nav-item">
                                                         <a class="nav-link lang_link active"
                                                            href="#"
@@ -91,7 +70,7 @@
                                                 </ul>
                                             @endif
                                             @if($language)
-                                                <div class="form-floating form-floating__icon mb-30 lang-form"
+                                                <div class="form-floating form-floating__icon lang-form"
                                                      id="default-form">
                                                     <input type="text" name="name[]" class="form-control"
                                                            placeholder="{{translate('zone_name')}}" required>
@@ -102,7 +81,7 @@
                                                 <input type="hidden" name="lang[]" value="default">
                                                 @foreach ($language?->live_values as $lang)
                                                     <div
-                                                        class="form-floating form-floating__icon mb-30 d-none lang-form"
+                                                        class="form-floating form-floating__icon d-none lang-form"
                                                         id="{{$lang['code']}}-form">
                                                         <input type="text" name="name[]" class="form-control"
                                                                placeholder="{{translate('zone_name')}}">
@@ -114,7 +93,7 @@
                                                 @endforeach
                                             @else
                                                 <div class="lang-form">
-                                                    <div class="mb-30">
+                                                    <div class="mb-0">
                                                         <div class="form-floating form-floating__icon">
                                                             <input type="text" class="form-control" name="name[]"
                                                                    placeholder="{{translate('zone_name')}} *"
@@ -128,7 +107,7 @@
                                             @endif
 
                                             @if(isset($parentZoneTreeOptions))
-                                                <div class="mb-30 zone-parent-select2-wrap">
+                                                <div class="zone-parent-select2-wrap">
                                                     <label class="input-label d-block mb-2">{{ translate('Parent_zone') }}</label>
                                                     <select name="parent_id" id="zone-parent-select" class="form-select theme-input-style w-100">
                                                         <option value="">{{ translate('No_parent_root_zone') }}</option>
@@ -139,13 +118,12 @@
                                                 </div>
                                             @endif
 
-                                            <div class="form-group mb-30">
-                                                <label class="input-label d-block mb-2" for="zone-description">{{ translate('Zone_description') }}</label>
-                                                <span class="input-label-secondary d-block mb-2 fs-12">{{ translate('Zone_description_hint') }}</span>
+                                            <div class="form-group mb-0 zone-form-grow">
+                                                <label class="input-label d-block mb-1" for="zone-description">{{ translate('Zone_description') }}</label>
                                                 <textarea name="description"
                                                           id="zone-description"
                                                           class="form-control theme-input-style"
-                                                          rows="5"
+                                                          rows="3"
                                                           placeholder="{{ translate('Zone_description_placeholder') }}">{{ old('description') }}</textarea>
                                             </div>
 
@@ -158,20 +136,14 @@
                                                 <textarea type="text" rows="8" name="coordinates" id="coordinates"
                                                           class="form-control" readonly></textarea>
                                             </div>
-
+                                            </div>
+                                        </div>
+                                        <div class="col-md-7 zone-map-col">
                                             <div class="map-warper map__zone-setup dark-support rounded overflow-hidden">
                                                 <input id="pac-input" class="controls rounded search_area"
                                                        title="{{translate('search_your_location_here')}}" type="text"
                                                        placeholder="{{translate('search_here')}}"/>
                                                 <div class="map_canvas" id="map-canvas"></div>
-                                            </div>
-                                        </div>
-                                        <div class="col-12">
-                                            <div class="d-flex justify-content-end gap-3 mt-30">
-                                                <button class="btn btn--secondary" type="reset"
-                                                        id="reset_btn">{{translate('reset')}}</button>
-                                                <button class="btn btn--primary"
-                                                        type="submit">{{translate('submit')}}</button>
                                             </div>
                                         </div>
                                     </div>
@@ -244,10 +216,21 @@
         $api_key = optional(business_config('google_map', 'third_party'))->live_values ?? [];
         $zoneVectorMapId = trim((string) ($api_key['map_id'] ?? ''));
     @endphp
-    <script src="https://maps.googleapis.com/maps/api/js?key={{$api_key['map_api_key_client'] ?? ''}}&libraries=drawing,places,geometry&v=3.64"></script>
+    <script>
+        window.initZoneGoogleMap = function () {
+            window.__zoneGoogleMapsReady = true;
+            if (typeof window.ensureZoneMap === 'function') {
+                window.ensureZoneMap();
+            }
+        };
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key={{$api_key['map_api_key_client'] ?? ''}}&libraries=drawing,places,geometry&v=3.64&callback=initZoneGoogleMap"></script>
 
     <script>
+    (function () {
         "use strict";
+        const ZONE_MAP_PAGE_ID = 'create-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+        window.__zoneMapPageId = ZONE_MAP_PAGE_ID;
 
         const ZONE_PARENT_GEO_URL = "{{ url('/admin/zone/parent-geometry') }}";
         const ZONE_BOUNDARY_FROM_PLACE_URL = "{{ route('admin.zone.boundary-from-place') }}";
@@ -568,6 +551,14 @@
         }
 
         function initialize() {
+            const canvas = document.getElementById('map-canvas');
+            if (!canvas) {
+                return;
+            }
+            if (map && canvas.querySelector('.gm-style') && canvas.offsetHeight >= 120) {
+                return;
+            }
+            map = null;
             let myLatLng = {
                 lat: 23.757989,
                 lng: 90.360587
@@ -577,6 +568,8 @@
                 zoom: 10,
                 center: myLatLng,
                 mapTypeId: google.maps.MapTypeId.ROADMAP,
+                gestureHandling: 'greedy',
+                clickableIcons: false,
             };
             if (ZONE_VECTOR_MAP_ID) {
                 myOptions.mapId = ZONE_VECTOR_MAP_ID;
@@ -584,13 +577,13 @@
             map = new google.maps.Map(document.getElementById("map-canvas"), myOptions);
             const geocoder = new google.maps.Geocoder();
             drawingManager = new google.maps.drawing.DrawingManager({
-                drawingMode: google.maps.drawing.OverlayType.POLYGON,
+                drawingMode: null,
                 drawingControl: true,
                 drawingControlOptions: {
                     position: google.maps.ControlPosition.TOP_CENTER,
                     drawingModes: [google.maps.drawing.OverlayType.POLYGON]
                 },
-                polygonOptions: Object.assign({}, ZONE_GREEN_STYLE, { editable: true })
+                polygonOptions: Object.assign({}, ZONE_GREEN_STYLE, { editable: true, clickable: true })
             });
             drawingManager.setMap(map);
             // Try HTML5 geolocation.
@@ -620,6 +613,7 @@
                 lastPolygon = overlay;
                 attachChildPolygonPathListeners(lastPolygon);
                 auto_grow();
+                drawingManager.setDrawingMode(null);
             });
 
             const resetDiv = document.createElement("div");
@@ -634,10 +628,16 @@
                 loadParentBoundary(initialParent);
             }
 
+            google.maps.event.addListenerOnce(map, 'idle', function () {
+                refreshZoneMapLayout();
+                if (drawingManager) {
+                    drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+                }
+            });
+
             // Create the search box and link it to the UI element.
             const input = document.getElementById("pac-input");
             const searchBox = new google.maps.places.SearchBox(input);
-            map.controls[google.maps.ControlPosition.TOP_CENTER].push(input);
             // Bias the SearchBox results towards current map's viewport.
             map.addListener("bounds_changed", () => {
                 searchBox.setBounds(map.getBounds());
@@ -785,13 +785,182 @@
             }
         }
 
-        // Some pages load this script after the window `load` event.
-        // Calling initialize immediately (when possible) avoids a broken drawing manager.
-        if (typeof google !== 'undefined' && google.maps && document.getElementById("map-canvas")) {
-            safeInitialize();
-        } else {
-            window.addEventListener('load', safeInitialize);
+        function zoneMapContainerIsVisible() {
+            const wrapper = document.getElementById('zone-form-wrapper');
+            const canvas = document.getElementById('map-canvas');
+            if (!canvas) {
+                return false;
+            }
+            if (wrapper && wrapper.classList.contains('d-none')) {
+                return false;
+            }
+            return canvas.offsetWidth >= 120 && canvas.offsetHeight >= 120;
         }
+
+        function googleMapsIsReady() {
+            return typeof google !== 'undefined' && google.maps && typeof google.maps.Map === 'function';
+        }
+
+        function fitZoneSetupToFooter() {
+            const wrapper = document.getElementById('zone-form-wrapper');
+            const footer = document.querySelector('footer.footer');
+            if (!wrapper || wrapper.classList.contains('d-none') || !footer) {
+                return;
+            }
+            const top = wrapper.getBoundingClientRect().top;
+            const foot = footer.getBoundingClientRect().top;
+            const h = Math.max(360, Math.floor(foot - top - 8));
+            wrapper.style.minHeight = h + 'px';
+            wrapper.style.height = h + 'px';
+        }
+        window.addEventListener('resize', function () {
+            fitZoneSetupToFooter();
+            if (typeof window.ensureZoneMap === 'function') {
+                window.ensureZoneMap();
+            }
+        });
+
+        function refreshZoneMapLayout() {
+            if (!map || !googleMapsIsReady() || !google.maps.event) {
+                return;
+            }
+            try {
+                google.maps.event.trigger(map, 'resize');
+                if (window.__zoneFitBoundsPending && window.__zoneFitBounds && !window.__zoneFitBounds.isEmpty()) {
+                    window.__zoneFitBoundsPending = false;
+                    map.fitBounds(window.__zoneFitBounds);
+                    return;
+                }
+                const center = map.getCenter();
+                if (center) {
+                    map.setCenter(center);
+                }
+            } catch (e) {
+                console.error('Zone map resize failed:', e);
+            }
+        }
+
+        function sizeZoneMapCanvas() {
+            fitZoneSetupToFooter();
+            const wrap = document.querySelector('.zone-map-col .map-warper');
+            const canvas = document.getElementById('map-canvas');
+            if (!wrap || !canvas) {
+                return false;
+            }
+            const input = wrap.querySelector('#pac-input');
+            const inputH = input ? (input.offsetHeight + 16) : 48;
+            const wrapH = wrap.getBoundingClientRect().height || wrap.clientHeight;
+            const height = Math.max(280, Math.floor(wrapH - inputH));
+            canvas.style.width = '100%';
+            canvas.style.height = height + 'px';
+            canvas.style.minHeight = height + 'px';
+            return canvas.offsetWidth >= 120 && canvas.offsetHeight >= 120;
+        }
+
+        let zoneMapWait = 0;
+        function ensureZoneMap() {
+            if (window.__zoneMapPageId !== ZONE_MAP_PAGE_ID) {
+                return;
+            }
+            const canvas = document.getElementById('map-canvas');
+            if (!canvas) {
+                return;
+            }
+            const wrapper = document.getElementById('zone-form-wrapper');
+            if (wrapper && wrapper.classList.contains('d-none')) {
+                return;
+            }
+            if (!googleMapsIsReady()) {
+                if (zoneMapWait++ < 100) {
+                    setTimeout(ensureZoneMap, 80);
+                }
+                return;
+            }
+            sizeZoneMapCanvas();
+            if (!zoneMapContainerIsVisible()) {
+                if (zoneMapWait++ < 100) {
+                    setTimeout(ensureZoneMap, 80);
+                }
+                return;
+            }
+            zoneMapWait = 0;
+            if (map && !canvas.querySelector('.gm-style')) {
+                map = null;
+            }
+            if (!map) {
+                safeInitialize();
+            }
+            requestAnimationFrame(function () {
+                if (window.__zoneMapPageId !== ZONE_MAP_PAGE_ID) {
+                    return;
+                }
+                sizeZoneMapCanvas();
+                refreshZoneMapLayout();
+                setTimeout(function () {
+                    if (window.__zoneMapPageId !== ZONE_MAP_PAGE_ID) {
+                        return;
+                    }
+                    sizeZoneMapCanvas();
+                    refreshZoneMapLayout();
+                }, 80);
+                setTimeout(function () {
+                    if (window.__zoneMapPageId !== ZONE_MAP_PAGE_ID) {
+                        return;
+                    }
+                    sizeZoneMapCanvas();
+                    refreshZoneMapLayout();
+                    const live = document.getElementById('map-canvas');
+                    if (live && !live.querySelector('.gm-style')) {
+                        map = null;
+                        safeInitialize();
+                        refreshZoneMapLayout();
+                    }
+                }, 350);
+            });
+        }
+        window.ensureZoneMap = ensureZoneMap;
+
+        function bindZoneMapVisibilityWatch() {
+            const canvas = document.getElementById('map-canvas');
+            if (!canvas) {
+                return;
+            }
+            if (canvas.dataset.zoneMapWatch !== '1' && typeof ResizeObserver !== 'undefined') {
+                canvas.dataset.zoneMapWatch = '1';
+                new ResizeObserver(function () {
+                    if (!map || !canvas.querySelector('.gm-style')) {
+                        ensureZoneMap();
+                        return;
+                    }
+                    sizeZoneMapCanvas();
+                    refreshZoneMapLayout();
+                }).observe(canvas);
+            }
+            if (window.__zoneMapPageHandler) {
+                ['turbo:load', 'turbo:frame-load', 'turbo:render', 'admin:page-loaded'].forEach(function (evt) {
+                    document.removeEventListener(evt, window.__zoneMapPageHandler);
+                });
+            }
+            window.__zoneMapPageHandler = function () {
+                zoneMapWait = 0;
+                ensureZoneMap();
+                setTimeout(ensureZoneMap, 100);
+                setTimeout(ensureZoneMap, 400);
+            };
+            ['turbo:load', 'turbo:frame-load', 'turbo:render', 'admin:page-loaded'].forEach(function (evt) {
+                document.addEventListener(evt, window.__zoneMapPageHandler);
+            });
+        }
+
+        bindZoneMapVisibilityWatch();
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', ensureZoneMap);
+        } else {
+            ensureZoneMap();
+        }
+        setTimeout(ensureZoneMap, 80);
+        setTimeout(ensureZoneMap, 250);
+        window.addEventListener('load', ensureZoneMap);
 
 
         $('#reset_btn').click(function (e) {
@@ -1139,11 +1308,14 @@
         });
 
         // Toggle zone form visibility (default: list only)
-        document.addEventListener('DOMContentLoaded', function () {
+        function bindAddZoneFormToggle() {
             const btn = document.getElementById('add-zone-form-btn');
             const wrapper = document.getElementById('zone-form-wrapper');
 
-            if (!btn || !wrapper) return;
+            if (!btn || !wrapper || btn.dataset.zoneFormBound === '1') {
+                return;
+            }
+            btn.dataset.zoneFormBound = '1';
 
             btn.addEventListener('click', function () {
                 wrapper.classList.remove('d-none');
@@ -1151,12 +1323,22 @@
                 if (typeof window.initZoneParentSelect2Once === 'function') {
                     window.initZoneParentSelect2Once();
                 }
-                // Google Maps sometimes renders incorrectly when initialized while hidden.
-                if (typeof google !== 'undefined' && google?.maps?.event && typeof map !== 'undefined' && map) {
-                    google.maps.event.trigger(map, 'resize');
-                }
-                wrapper.scrollIntoView({behavior: 'smooth', block: 'start'});
+                zoneMapWait = 0;
+                fitZoneSetupToFooter();
+                ensureZoneMap();
+                setTimeout(function () {
+                    fitZoneSetupToFooter();
+                    ensureZoneMap();
+                }, 80);
+                setTimeout(ensureZoneMap, 250);
             });
-        });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', bindAddZoneFormToggle);
+        } else {
+            bindAddZoneFormToggle();
+        }
+    })();
     </script>
 @endpush
