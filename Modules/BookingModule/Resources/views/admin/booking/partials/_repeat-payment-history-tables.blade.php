@@ -24,6 +24,9 @@
     $refundDisplayRows = [];
     foreach ($refundLedgerRows as $idx => $lt) {
         $note = trim((string) ($lt->reference_note ?? ''));
+        if ($note === 'wallet_refund') {
+            $note = '';
+        }
         $refundDisplayRows[] = [
             'serial' => $idx + 1,
             'date_label' => $lt->created_at ? $lt->created_at->format('d M Y, H:i:s') : '—',
@@ -33,6 +36,10 @@
         ];
     }
     $hasRefundLedger = count($refundDisplayRows) > 0;
+    $canRevertWalletRefund = auth()->check() && auth()->user()->can('booking_can_manage_status');
+    $showWalletRefundRevertColumn = $canRevertWalletRefund && $refundLedgerRows->contains(function ($lt) {
+        return function_exists('booking_wallet_refund_is_revertible') && booking_wallet_refund_is_revertible($lt);
+    });
     $snap = booking_provider_api_payment_snapshot($booking);
     $showRefundSnapshot = array_key_exists('refundable_amount', $snap) && (float) ($snap['refundable_amount'] ?? 0) > 0.009;
     $showRefundHistoryBlock = $hasRefundLedger || $showRefundSnapshot;
@@ -86,17 +93,42 @@
                         <th class="text-nowrap">{{ translate('Amount') }}</th>
                         <th class="text-nowrap">{{ translate('transaction_id') }}</th>
                         <th class="text-nowrap">{{ translate('Reference_Note') }}</th>
+                        @if($showWalletRefundRevertColumn)
+                            <th class="text-nowrap text-end">{{ translate('Action') }}</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($refundDisplayRows as $rr)
+                    @foreach($refundLedgerRows as $idx => $lt)
+                        @php
+                            $rr = $refundDisplayRows[$idx] ?? null;
+                            $ltIsWalletRevertible = function_exists('booking_wallet_refund_is_revertible')
+                                && booking_wallet_refund_is_revertible($lt);
+                        @endphp
+                        @if($rr)
                         <tr>
                             <td>{{ $rr['serial'] }}</td>
                             <td class="text-nowrap">{{ $rr['date_label'] }}</td>
                             <td class="text-end fw-medium text-danger">-{{ with_currency_symbol($rr['amount']) }}</td>
                             <td class="text-break">{{ $rr['transaction_id'] }}</td>
                             <td class="text-break">{{ $rr['note'] }}</td>
+                            @if($showWalletRefundRevertColumn)
+                                <td class="text-end text-nowrap">
+                                    @if($ltIsWalletRevertible)
+                                        <button type="button"
+                                            class="btn btn-outline-danger btn-sm py-0 px-2 fz-11"
+                                            title="{{ translate('Revert_wallet_refund') }}"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#revertWalletRefundConfirm-{{ $booking->id }}"
+                                            data-ledger-id="{{ $lt->id }}"
+                                            data-amount-line="{{ e(translate('Refunded_to_wallet')) }}: {{ e(with_currency_symbol($rr['amount'])) }}">{{ translate('Revert_wallet_refund') }}</button>
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
+                            @endif
                         </tr>
+                        @endif
                     @endforeach
                 </tbody>
             </table>

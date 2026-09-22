@@ -1865,17 +1865,28 @@
   grid-template-columns: 260px minmax(0, 1fr);
   align-items: stretch;
 }
-.os-explorer.bs-full .page.rd-page.is-compact .rd-hero-art img,
-.os-explorer .page.rd-page.is-compact .rd-hero-art img {
-  min-height: 168px;
-  height: 188px;
-  object-position: center 32%;
-}
 .os-explorer .page.rd-page.is-compact .rd-copy {
-  padding: 16px 28px 18px 24px;
+  padding: 18px 28px 22px 24px;
 }
 .os-explorer .page.rd-page.is-compact .rd-hero h1 {
   font-size: clamp(26px, 3vw, 34px);
+}
+.os-explorer .rd-job {
+  margin: 12px 0 0;
+  max-width: none;
+  font-size: 16px;
+  line-height: 1.55;
+  font-weight: 500;
+  color: #2a2940;
+}
+.os-explorer .page.rd-page.is-compact .rd-job {
+  font-size: 15px;
+  line-height: 1.55;
+}
+.os-explorer.bs-full .page.rd-page.is-compact .rd-hero-art img,
+.os-explorer .page.rd-page.is-compact .rd-hero-art img {
+  min-height: 240px;
+  height: 100%;
 }
 .os-explorer .rd-brief {
   margin: 10px 0 0;
@@ -2035,6 +2046,7 @@
   color: var(--navy);
 }
 @media (min-width: 900px) {
+  .os-explorer .rd-def-stack,
   .os-explorer .rd-kpi-cards {
     grid-template-columns: 1fr 1fr;
   }

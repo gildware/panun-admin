@@ -67,5 +67,58 @@ class CancelAutoRefundPartialsTest extends TestCase
 
         $this->assertSame('wallet', booking_refund_ledger_method_key($walletEntry));
         $this->assertSame('transfer', booking_refund_ledger_method_key($transferEntry));
+
+        $walletByPaymentMethod = new \Modules\TransactionModule\Entities\LedgerTransaction;
+        $walletByPaymentMethod->transaction_id = 'should-not-matter';
+        $walletByPaymentMethod->payment_method = 'wallet';
+        $this->assertSame('wallet', booking_refund_ledger_method_key($walletByPaymentMethod));
+    }
+
+    public function test_wallet_refund_is_revertible_only_for_customer_wallet_out_rows(): void
+    {
+        if (! function_exists('booking_wallet_refund_is_revertible')) {
+            $this->markTestSkipped('Helper not loaded');
+        }
+
+        $wallet = new \Modules\TransactionModule\Entities\LedgerTransaction;
+        $wallet->reason = \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND;
+        $wallet->type = \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_OUT;
+        $wallet->amount = 100;
+        $wallet->transaction_id = null;
+        $this->assertTrue(booking_wallet_refund_is_revertible($wallet));
+
+        $transfer = new \Modules\TransactionModule\Entities\LedgerTransaction;
+        $transfer->reason = \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND;
+        $transfer->type = \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_OUT;
+        $transfer->amount = 100;
+        $transfer->transaction_id = 'BANK-1';
+        $this->assertFalse(booking_wallet_refund_is_revertible($transfer));
+
+        $disputed = new \Modules\TransactionModule\Entities\LedgerTransaction;
+        $disputed->reason = \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND;
+        $disputed->type = \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_OUT;
+        $disputed->amount = 100;
+        $disputed->received_by = \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_PROVIDER;
+        $this->assertFalse(booking_wallet_refund_is_revertible($disputed));
+
+        $companyPool = new \Modules\TransactionModule\Entities\LedgerTransaction;
+        $companyPool->reason = \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND;
+        $companyPool->type = \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_OUT;
+        $companyPool->amount = 100;
+        $companyPool->received_by = \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY;
+        $this->assertFalse(booking_wallet_refund_is_revertible($companyPool));
+    }
+
+    public function test_wallet_refund_ledger_trx_reference_round_trips(): void
+    {
+        if (! function_exists('booking_wallet_refund_ledger_trx_reference')) {
+            $this->markTestSkipped('Helper not loaded');
+        }
+
+        $ref = booking_wallet_refund_ledger_trx_reference('abc-123');
+        $this->assertTrue(is_wallet_refund_ledger_trx_reference($ref));
+        $this->assertSame('', sanitize_wallet_transaction_reference_note($ref));
+        $this->assertSame('', sanitize_wallet_transaction_reference_note('wallet_refund'));
+        $this->assertSame('keep this', sanitize_wallet_transaction_reference_note('keep this'));
     }
 }

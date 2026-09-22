@@ -3547,9 +3547,101 @@ if (! function_exists('booking_refund_ledger_method_key')) {
      */
     function booking_refund_ledger_method_key(LedgerTransaction $entry): string
     {
+        $pm = strtolower(trim((string) ($entry->payment_method ?? '')));
+        if ($pm === 'wallet') {
+            return 'wallet';
+        }
         $transactionId = trim((string) ($entry->transaction_id ?? ''));
 
         return $transactionId !== '' ? 'transfer' : 'wallet';
+    }
+}
+
+if (! function_exists('booking_wallet_refund_ledger_trx_prefix')) {
+    function booking_wallet_refund_ledger_trx_prefix(): string
+    {
+        return 'wallet_refund_ledger:';
+    }
+}
+
+if (! function_exists('booking_wallet_refund_ledger_trx_reference')) {
+    function booking_wallet_refund_ledger_trx_reference(string $ledgerId): string
+    {
+        return booking_wallet_refund_ledger_trx_prefix() . $ledgerId;
+    }
+}
+
+if (! function_exists('is_wallet_refund_ledger_trx_reference')) {
+    function is_wallet_refund_ledger_trx_reference(?string $note): bool
+    {
+        $note = trim((string) $note);
+
+        return $note !== '' && str_starts_with($note, booking_wallet_refund_ledger_trx_prefix());
+    }
+}
+
+if (! function_exists('sanitize_wallet_transaction_reference_note')) {
+    function sanitize_wallet_transaction_reference_note(?string $note): string
+    {
+        $note = trim((string) $note);
+        if ($note === '' || $note === 'wallet_refund' || is_wallet_refund_ledger_trx_reference($note)) {
+            return '';
+        }
+
+        return $note;
+    }
+}
+
+if (! function_exists('booking_wallet_refund_is_revertible')) {
+    /**
+     * Admin can revert a customer-facing wallet refund once. Bank transfers and dispute-pool legs are excluded.
+     */
+    function booking_wallet_refund_is_revertible(LedgerTransaction $entry): bool
+    {
+        if ((string) ($entry->reason ?? '') !== LedgerTransaction::REASON_REFUND) {
+            return false;
+        }
+        if ((string) ($entry->type ?? '') !== LedgerTransaction::TYPE_OUT) {
+            return false;
+        }
+        if (round((float) ($entry->amount ?? 0), 2) < 0.01) {
+            return false;
+        }
+        if (booking_refund_ledger_method_key($entry) !== 'wallet') {
+            return false;
+        }
+        $receivedBy = strtolower(trim((string) ($entry->received_by ?? '')));
+        if (in_array($receivedBy, [
+            LedgerTransaction::RECEIVED_BY_COMPANY,
+            LedgerTransaction::RECEIVED_BY_PROVIDER,
+        ], true)) {
+            return false;
+        }
+
+        return true;
+    }
+}
+
+if (! function_exists('booking_revertible_wallet_refund_ledgers')) {
+    /**
+     * @return \Illuminate\Support\Collection<int, LedgerTransaction>
+     */
+    function booking_revertible_wallet_refund_ledgers(Booking $booking): \Illuminate\Support\Collection
+    {
+        $bid = (string) ($booking->id ?? '');
+        if ($bid === '') {
+            return collect();
+        }
+
+        return LedgerTransaction::query()
+            ->where('booking_id', $bid)
+            ->where('reason', LedgerTransaction::REASON_REFUND)
+            ->where('type', LedgerTransaction::TYPE_OUT)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get()
+            ->filter(fn (LedgerTransaction $row) => booking_wallet_refund_is_revertible($row))
+            ->values();
     }
 }
 

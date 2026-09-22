@@ -13,6 +13,8 @@ use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingPartialPayment;
 use Modules\TransactionModule\Entities\LoyaltyPointTransaction;
+use Modules\TransactionModule\Entities\LedgerTransaction;
+use Modules\BookingModule\Services\AdminBookingDeletionService;
 
 if (!function_exists('booking_amount_proportional_share')) {
     /**
@@ -2813,13 +2815,17 @@ if (!function_exists('processBookingWalletRefund')) {
 
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
         DB::transaction(function () use ($booking, $admin_user_id, $refundAmount, $referenceNote) {
-            ledger_record_out([
+            $ledger = ledger_record_out([
                 'amount' => $refundAmount,
                 'booking_id' => $booking['id'],
-                'reason' => \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND,
+                'reason' => LedgerTransaction::REASON_REFUND,
                 'date' => now()->toDateString(),
                 'reference_note' => $referenceNote,
+                'payment_method' => 'wallet',
             ]);
+            $trxReference = function_exists('booking_wallet_refund_ledger_trx_reference')
+                ? booking_wallet_refund_ledger_trx_reference((string) $ledger->id)
+                : ('wallet_refund_ledger:' . $ledger->id);
 
             $account = Account::where('user_id', $admin_user_id)->first();
             if ($account->balance_pending >= $refundAmount) {
@@ -2838,6 +2844,7 @@ if (!function_exists('processBookingWalletRefund')) {
                 'to_user_id' => $admin_user_id,
                 'from_user_account' => ACCOUNT_STATES[0]['value'],
                 'to_user_account' => null,
+                'reference_note' => $trxReference,
             ]);
 
             $user = lock_customer_user_for_wallet((string) $booking['customer_id']);
@@ -2854,10 +2861,165 @@ if (!function_exists('processBookingWalletRefund')) {
                 'to_user_id' => $booking->customer_id,
                 'from_user_account' => null,
                 'to_user_account' => 'user_wallet',
+                'reference_note' => $trxReference,
             ]);
 
             send_customer_refund_notification($booking->fresh(['customer']), $refundAmount, 'refund');
         });
+    }
+}
+
+if (!function_exists('revertBookingWalletRefund')) {
+    /**
+     * Reverse one wallet refund exactly once: debit customer wallet, restore company pending,
+     * delete the ledger row and linked booking_refund transactions.
+     *
+     * @throws \RuntimeException wallet_refund_not_found|wallet_refund_already_reverted|wallet_refund_not_revertible|insufficient_wallet_balance|wallet_refund_transactions_missing|customer_not_found
+     */
+    function revertBookingWalletRefund($booking, string $ledgerId): void
+    {
+        $ledgerId = trim($ledgerId);
+        if ($ledgerId === '') {
+            throw new \RuntimeException('wallet_refund_not_found');
+        }
+
+        DB::transaction(function () use ($booking, $ledgerId) {
+            $ledger = LedgerTransaction::query()
+                ->where('booking_id', $booking['id'])
+                ->whereKey($ledgerId)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $ledger) {
+                throw new \RuntimeException('wallet_refund_already_reverted');
+            }
+            if (! booking_wallet_refund_is_revertible($ledger)) {
+                throw new \RuntimeException('wallet_refund_not_revertible');
+            }
+
+            $amount = round((float) $ledger->amount, 2);
+            $customer = lock_customer_user_for_wallet((string) $booking['customer_id']);
+            if ((float) $customer->wallet_balance + 0.00001 < $amount) {
+                throw new \RuntimeException('insufficient_wallet_balance');
+            }
+
+            $transactions = booking_wallet_refund_transactions_for_ledger($ledger);
+            if ($transactions->isEmpty()) {
+                throw new \RuntimeException('wallet_refund_transactions_missing');
+            }
+
+            debit_customer_wallet_or_fail($customer, $amount, (string) $booking['id']);
+
+            $hasAdminPendingDebit = $transactions->contains(function ($tx) {
+                return (float) ($tx->debit ?? 0) > 0.009
+                    && (string) ($tx->from_user_account ?? '') === ACCOUNT_STATES[0]['value'];
+            });
+
+            app(AdminBookingDeletionService::class)->reverseAccountsAndDeleteTransactions($transactions);
+
+            if (! $hasAdminPendingDebit) {
+                $adminUserId = User::where('user_type', ADMIN_USER_TYPES[0])->first()?->id;
+                if ($adminUserId) {
+                    $account = Account::where('user_id', $adminUserId)->lockForUpdate()->first();
+                    if ($account) {
+                        $account->balance_pending = round((float) $account->balance_pending + $amount, 2);
+                        $account->save();
+                    }
+                }
+            }
+
+            $ledger->delete();
+        });
+    }
+}
+
+if (!function_exists('booking_wallet_refund_transactions_for_ledger')) {
+    /**
+     * Linked booking_refund transactions for a wallet-refund ledger row.
+     * Prefers explicit reference_note link; falls back to chronological pairing for older rows.
+     *
+     * @return \Illuminate\Support\Collection<int, Transaction>
+     */
+    function booking_wallet_refund_transactions_for_ledger(LedgerTransaction $ledger): \Illuminate\Support\Collection
+    {
+        $bookingId = (string) ($ledger->booking_id ?? '');
+        $amount = round((float) ($ledger->amount ?? 0), 2);
+        if ($bookingId === '' || $amount < 0.01) {
+            return collect();
+        }
+
+        $linked = Transaction::query()
+            ->where('booking_id', $bookingId)
+            ->where('trx_type', TRX_TYPE['booking_refund'])
+            ->where('reference_note', booking_wallet_refund_ledger_trx_reference((string) $ledger->id))
+            ->lockForUpdate()
+            ->get();
+        if ($linked->isNotEmpty()) {
+            return $linked->unique('id')->values();
+        }
+
+        $walletLedgers = LedgerTransaction::query()
+            ->where('booking_id', $bookingId)
+            ->where('reason', LedgerTransaction::REASON_REFUND)
+            ->where('type', LedgerTransaction::TYPE_OUT)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get()
+            ->filter(function (LedgerTransaction $row) use ($amount) {
+                return booking_wallet_refund_is_revertible($row)
+                    && round((float) $row->amount, 2) === $amount
+                    && ! Transaction::query()
+                        ->where('booking_id', $row->booking_id)
+                        ->where('trx_type', TRX_TYPE['booking_refund'])
+                        ->where('reference_note', booking_wallet_refund_ledger_trx_reference((string) $row->id))
+                        ->exists();
+            })
+            ->values();
+
+        $index = $walletLedgers->search(fn (LedgerTransaction $row) => (string) $row->id === (string) $ledger->id);
+        if ($index === false) {
+            return collect();
+        }
+
+        $credits = Transaction::query()
+            ->where('booking_id', $bookingId)
+            ->where('trx_type', TRX_TYPE['booking_refund'])
+            ->where('to_user_account', 'user_wallet')
+            ->where('credit', $amount)
+            ->where(function ($query) {
+                $query->whereNull('reference_note')
+                    ->orWhere('reference_note', '')
+                    ->orWhere('reference_note', 'wallet_refund');
+            })
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+
+        $credit = $credits->get($index);
+        if (! $credit) {
+            return collect();
+        }
+
+        $rows = collect([$credit]);
+        if (! empty($credit->ref_trx_id)) {
+            $primary = Transaction::query()->whereKey($credit->ref_trx_id)->lockForUpdate()->first();
+            if ($primary) {
+                $rows->prepend($primary);
+            }
+            $siblings = Transaction::query()
+                ->where('ref_trx_id', $credit->ref_trx_id)
+                ->lockForUpdate()
+                ->get();
+            foreach ($siblings as $sibling) {
+                if (! $rows->contains(fn ($row) => (string) $row->id === (string) $sibling->id)) {
+                    $rows->push($sibling);
+                }
+            }
+        }
+
+        return $rows->unique('id')->values();
     }
 }
 

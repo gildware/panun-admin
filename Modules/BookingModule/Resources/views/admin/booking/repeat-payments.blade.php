@@ -27,6 +27,7 @@
             </div>
 
             @include('bookingmodule::admin.booking.partials._repeat-payments-board')
+            @include('bookingmodule::admin.booking.partials._wallet-refund-revert-modal', ['booking' => $booking])
                     </div>
                 </div>
             </div>

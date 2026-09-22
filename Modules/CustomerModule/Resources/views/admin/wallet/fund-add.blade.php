@@ -23,8 +23,8 @@
                                             <select class="js-select" name="user_id" id="user_id" required>
                                                 <option selected disabled>{{translate('Select_customer')}}</option>
                                                 @foreach($users as $user)
-                                                    <option
-                                                        value="{{$user->id}}" {{$user->id == old('user_id') ? 'selected' : ''}}>
+                                                <option
+                                                    value="{{$user->id}}" {{$user->id == old('user_id', request('user_id')) ? 'selected' : ''}}>
                                                         {{$user->first_name.' '.$user->last_name}} ({{$user->phone}})
                                                     </option>
                                                 @endforeach

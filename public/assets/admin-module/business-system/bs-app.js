@@ -76,21 +76,32 @@
           {
             id: "mkm",
             name: "Marketing Manager",
-            line: "Writes the monthly marketing plan Head of Growth signs: paid ads, SEO (search), stalls, money, and the words they may use. Holds Digital and Field. Makes sure Operations asked each person where they found us and wrote the answer.",
+            line: "Writes the monthly marketing plan Head of Growth signs: paid ads, SEO (search), stalls, first local workers, office and society contracts, money, and the words they may use. Gives Digital and Field their written work and checks the result. Makes sure Operations asked each person where they found us and wrote the answer.",
             iconFile: "mkt",
             scene: "mkt",
             reports: [
               {
                 id: "hom",
                 name: "Digital Marketing Manager",
-                line: "Owns all online work: paid ads, website and app search, social, other sites, videos and posts. Sends tagged digital leads to Sales.",
+                line: "Owns all online work: paid ads, website and app search, social, other sites, videos and posts. Sends digital enquiries to Sales after Operations has written how they found us.",
                 iconFile: "mkt",
                 scene: "mkt",
                 reports: [
                   { id: "cmc", name: "Content Maker", line: "Produces AI videos, AI still posts, brand films, and founder films, plus edited Operations footage, for the Digital Marketing Manager to approve and publish.", iconFile: "mkt", scene: "mkt" }
                 ]
               },
-              { id: "fmm", name: "Field Marketing Manager", line: "Owns towns, stalls and local presence. Delivers tagged local enquiries from named towns on the calendar.", iconFile: "me", scene: "me" }
+              {
+                id: "fmm",
+                name: "Field Marketing Manager",
+                line: "Runs three ground jobs: people who visit stalls, people who get the first local workers to sign papers, and people who write office and society maintenance contracts. Visitors may be full-time employees or people we pay on a written contract.",
+                iconFile: "me",
+                scene: "me",
+                reports: [
+                  { id: "fve", name: "Field Visitor", line: "Actually visits the market — stall, street, or follow-up. May be a full-time employee or someone we pay on a written contract. Collects names for Sales the same day. Does not take the booking or money.", iconFile: "me", scene: "me" },
+                  { id: "fpo", name: "First Provider Onboarding", line: "Goes in person to the first local workers and gets them to sign the papers so they can work with Panun Kaergar. Sends the signed file to Provider Operations so they can put those people on customer jobs.", iconFile: "me", scene: "me" },
+                  { id: "flc", name: "Office and Society Contracts", line: "Writes maintenance contracts with offices and housing societies from the signed papers Offer and Finance already approved. A verbal yes is not a contract.", iconFile: "me", scene: "me" }
+                ]
+              }
             ]
           },
           { id: "mim", name: "Market Intelligence Manager", line: "Owns demand truth, competitors and go / no-go. Growth decides from evidence, not opinion.", iconFile: "mi", scene: "mi" },
@@ -212,6 +223,9 @@
     hom: "role-hom.png",
     cmc: "role-cmc.png",
     fmm: "role-fmm.png",
+    fve: "role-fmm.png",
+    fpo: "role-fmm.png",
+    flc: "role-fmm.png",
     mim: "role-mim.png",
     osd: "role-osd.png",
     mem: "role-mem.png",
@@ -420,9 +434,9 @@
     ["rd-esc", "Escalations"]
   ];
   const DETAILED_JUMPS = [
-    ["rd-role", "Your job"],
+    ["rd-role", "What this job is"],
+    ["rd-def", "What / Why"],
     ["rd-owns", "Owns"],
-    ["rd-def", "Definition"],
     ["rd-lanes", "Lanes"],
     ["rd-do", "Responsibilities"],
     ["rd-hand", "Handoffs"],
@@ -441,6 +455,10 @@
       if (id === "rd-given") return !!(role && ((role.given && role.given.length) || (role.sentBack && role.sentBack.length)));
       if (id === "rd-graph") return !!(role && role.graph);
       if (id === "rd-owns") return !!(role && ((role.owns && role.owns.length) || (role.mustNot && role.mustNot.length)));
+      if (id === "rd-def") {
+        const def = role && role.detailed && role.detailed.definition;
+        return !!(def && ((def.what && def.what.length) || (def.why && def.why.length)));
+      }
       if (id === "rd-look") return !!(role && ((role.good && role.good.length) || (role.bad && role.bad.length) || (role.records && role.records.length) || (role.rules && role.rules.length)));
       if (id === "rd-gloss") return !!(role && role.detailed && role.detailed.glossary && role.detailed.glossary.length);
       return true;
@@ -768,6 +786,8 @@
     setGlossary(d.glossary);
     const incoming = (d.handoffs || []).filter((item) => item.side === "in");
     const outgoing = (d.handoffs || []).filter((item) => item.side === "out");
+    const jobIs = copy.definition || role.what || "";
+    const hasWhatWhy = !!(d.definition && ((d.definition.what && d.definition.what.length) || (d.definition.why && d.definition.why.length)));
     return `
       <div class="page rd-page is-compact is-detailed">
         <div class="rd-top">
@@ -780,20 +800,19 @@
         <header class="rd-hero" id="rd-role">
           <div class="rd-hero-art"><img src="${art(role.hero)}" alt=""></div>
           <div class="rd-copy">
-            <p class="rd-kicker">${esc(copy.heroKicker || "Your job")}</p>
+            <p class="rd-kicker">${esc(copy.defTitle || "What this job is")}</p>
             <h1 class="serif">${glossLink(role.name)}</h1>
             <p class="rd-reports">You report to ${glossLink(reports)}</p>
-            <p class="rd-result">${glossLink(role.result || "")}</p>
+            ${jobIs ? `<p class="rd-job">${glossLink(jobIs)}</p>` : ""}
           </div>
         </header>
-        ${renderOwnsMustNot(role)}
-        <section class="rd-section" id="rd-def">
-          ${secHead("", "", copy.defTitle || "What this job is", copy.definition || "")}
+        ${hasWhatWhy ? `<section class="rd-section" id="rd-def">
           <div class="rd-def-stack">
             ${renderDefCol("What this role is", d.definition && d.definition.what)}
             ${renderDefCol("Why this role exists", d.definition && d.definition.why)}
           </div>
-        </section>
+        </section>` : ""}
+        ${renderOwnsMustNot(role)}
         ${role.lanes && role.lanes.length ? `<section class="rd-section" id="rd-lanes">
           ${secHead("", "", copy.lanesTitle || "How this job is split", copy.lanes || "One result. Named lanes. If a lane’s box is empty, this seat is the acting owner — and must say so in writing.")}
           ${renderLanes(role.lanes)}

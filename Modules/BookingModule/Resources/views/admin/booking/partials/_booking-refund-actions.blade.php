@@ -9,18 +9,25 @@
     $__adminRefundShowDeliveredBreakdown = ($__adminRefundDeliveredBreakdown['has_any'] ?? false)
         || $__adminRefundWalletRefunded > 0.009
         || $__adminRefundTransferRefunded > 0.009;
+    $walletRefundLedgers = $walletRefundLedgers ?? (function_exists('booking_revertible_wallet_refund_ledgers')
+        ? booking_revertible_wallet_refund_ledgers($booking)
+        : collect());
+    $showRefundProcessActions = $showRefundProcessActions ?? (round((float) $maxRefundAmount, 2) > 0);
+    $canRevertWalletRefund = auth()->check() && auth()->user()->can('booking_can_manage_status');
 @endphp
 <div class="card booking-refund-actions-card mb-0 h-100">
     <div class="card-body">
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border-bottom pb-2 mb-3">
-            <h4 class="mb-0">{{ translate('Process_refund') }}</h4>
+            <h4 class="mb-0">{{ $showRefundProcessActions ? translate('Process_refund') : translate('Wallet_refunds') }}</h4>
         </div>
-        <div class="alert alert-warning d-flex align-items-start gap-2 py-2 px-3 mb-3">
-            <span class="material-icons fz-18 flex-shrink-0">info</span>
-            <span class="fz-12">{{ translate('Refund_of') }} <strong>{{ with_currency_symbol($maxRefundAmount) }}</strong> {{ translate('is_pending') }}</span>
-        </div>
+        @if($showRefundProcessActions)
+            <div class="alert alert-warning d-flex align-items-start gap-2 py-2 px-3 mb-3">
+                <span class="material-icons fz-18 flex-shrink-0">info</span>
+                <span class="fz-12">{{ translate('Refund_of') }} <strong>{{ with_currency_symbol($maxRefundAmount) }}</strong> {{ translate('is_pending') }}</span>
+            </div>
+        @endif
         <div class="booking-refund-actions-card__body py-2 px-3">
-            @if($__adminRefundShowChannelBreakdown)
+            @if($showRefundProcessActions && $__adminRefundShowChannelBreakdown)
                 <div class="border-bottom pb-2 mb-2">
                     <p class="text-uppercase text-muted fz-11 mb-2 fw-semibold">{{ translate('Customer_paid') }}</p>
                     @if($__adminRefundWalletPaid > 0.009)
@@ -37,10 +44,31 @@
                     @endif
                 </div>
             @endif
-            @if($__adminRefundShowDeliveredBreakdown)
+            @if($__adminRefundShowDeliveredBreakdown || $walletRefundLedgers->isNotEmpty())
                 <div class="border-bottom pb-2 mb-2">
                     <p class="text-uppercase text-muted fz-11 mb-2 fw-semibold">{{ translate('Refunds_already_processed') }}</p>
-                    @if($__adminRefundWalletRefunded > 0.009)
+                    @if($walletRefundLedgers->isNotEmpty())
+                        @foreach($walletRefundLedgers as $walletRefundLedger)
+                            <div class="d-flex justify-content-between align-items-center gap-2 fz-12 mb-1">
+                                <span class="title-color">
+                                    {{ translate('Refunded_to_wallet') }}
+                                    <span class="text-muted">{{ $walletRefundLedger->created_at ? $walletRefundLedger->created_at->format('d M Y, H:i') : '' }}</span>
+                                </span>
+                                <span class="d-flex align-items-center gap-2">
+                                    <strong class="text-break text-success">-{{ with_currency_symbol((float) $walletRefundLedger->amount) }}</strong>
+                                    @if($canRevertWalletRefund)
+                                        <button type="button"
+                                            class="btn btn-outline-danger btn-sm py-0 px-2 fz-11"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#revertWalletRefundConfirm-{{ $booking->id }}"
+                                            data-ledger-id="{{ $walletRefundLedger->id }}"
+                                            data-amount-line="{{ e(translate('Refunded_to_wallet')) }}: {{ e(with_currency_symbol((float) $walletRefundLedger->amount)) }}">{{ translate('Revert_wallet_refund') }}</button>
+                                    @endif
+                                </span>
+                            </div>
+                        @endforeach
+                        <p class="text-muted fz-11 mb-1">{{ translate('Revert_wallet_refund_once_hint') }}</p>
+                    @elseif($__adminRefundWalletRefunded > 0.009)
                         <div class="d-flex justify-content-between align-items-baseline gap-2 fz-12 mb-1">
                             <span class="title-color">{{ translate('Refunded_to_wallet') }}</span>
                             <strong class="text-break text-success">-{{ with_currency_symbol($__adminRefundWalletRefunded) }}</strong>
@@ -54,22 +82,25 @@
                     @endif
                 </div>
             @endif
-            <div class="d-flex flex-column gap-2">
-                <div class="d-flex justify-content-end align-items-baseline gap-2">
-                    <span class="text-muted text-break fz-12">{{ translate('Remaining_refundable') }}: <strong>{{ with_currency_symbol($maxRefundAmount) }}</strong></span>
-                </div>
-                <div class="row g-2">
-                    <div class="col-6">
-                        <button type="button" class="btn btn--primary booking-refund-action-btn w-100 text-nowrap px-2" data-bs-toggle="modal" data-bs-target="#refundWalletModal-{{ $booking->id }}">{{ translate('Refund_to_wallet') }}</button>
+            @if($showRefundProcessActions)
+                <div class="d-flex flex-column gap-2">
+                    <div class="d-flex justify-content-end align-items-baseline gap-2">
+                        <span class="text-muted text-break fz-12">{{ translate('Remaining_refundable') }}: <strong>{{ with_currency_symbol($maxRefundAmount) }}</strong></span>
                     </div>
-                    <div class="col-6">
-                        <button type="button" class="btn btn--danger booking-refund-action-btn w-100 text-nowrap px-2" data-bs-toggle="modal" data-bs-target="#refundTransferModal-{{ $booking->id }}">{{ translate('Transfer_to_customer') }}</button>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <button type="button" class="btn btn--primary booking-refund-action-btn w-100 text-nowrap px-2" data-bs-toggle="modal" data-bs-target="#refundWalletModal-{{ $booking->id }}">{{ translate('Refund_to_wallet') }}</button>
+                        </div>
+                        <div class="col-6">
+                            <button type="button" class="btn btn--danger booking-refund-action-btn w-100 text-nowrap px-2" data-bs-toggle="modal" data-bs-target="#refundTransferModal-{{ $booking->id }}">{{ translate('Transfer_to_customer') }}</button>
+                        </div>
                     </div>
                 </div>
-            </div>
+            @endif
         </div>
     </div>
 </div>
+@if($showRefundProcessActions)
 <div class="modal fade" id="refundWalletModal-{{ $booking->id }}" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -134,3 +165,4 @@
         </div>
     </div>
 </div>
+@endif

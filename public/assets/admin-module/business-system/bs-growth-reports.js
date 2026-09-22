@@ -87,7 +87,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         name: "Weekly marketing report",
         when: "Same weekday every week, the day before the Growth review.",
         owner: "Marketing Manager. Digital and Field send their numbers the day before this report.",
-        objective: "Show whether the signed calendar produced tagged enquiries inside budget — and name the one or two moves for next week.",
+        objective: "Show whether the signed calendar produced enquiries where Operations wrote how they found us, inside budget — and name the one or two moves for next week.",
         collect: [
           field("Spend vs plan, digital and field separate", "Variance without a name is technician spend."),
           field("Enquiries by paid ads, by search (SEO), and by stalls", "So we can kill what is dead. Do not mix search into ads."),
@@ -101,7 +101,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
           pass("Head of Growth", "This is the marketing page of the weekly Growth review."),
           pass("Digital Marketing Manager", "Their slice: keep, pause, change."),
           pass("Field Marketing Manager", "Their slice: which towns, which days."),
-          pass("Sales", "What will arrive next week and how it is tagged.")
+          pass("Sales", "What will arrive next week and how Operations wrote they found us.")
         ]
       },
       {
@@ -121,12 +121,12 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         passTo: [
           pass("Head of Growth", "To sign. Spend does not start without this."),
           pass("Digital and Field", "Their working calendar the same day it is signed."),
-          pass("Sales", "How leads will arrive and how they are tagged.")
+          pass("Sales", "How leads will arrive and how Operations wrote they found us.")
         ]
       },
       {
         id: "MKT-R3",
-        name: "Untagged-lead exception list",
+        name: "List of enquiries with no source",
         when: "Every working day if Operations has a person with no answer for where they found us. Empty list is the goal.",
         owner: "Marketing Manager. Operations asks today. Digital reads the answers. Digital does not ask the customer.",
         objective: "Never let a person sit with no answer. Operations asks. Operations writes.",
@@ -151,14 +151,14 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         objective: "Catch a leak the same day — not in next week’s meeting.",
         collect: [
           field("Spend today and month-to-date vs the ads line", "The plan is the boss, not the ad account."),
-          field("New digital leads, all tagged with the pipe (Meta, Google, search, social, other)", "Untagged means pause that pipe."),
+          field("New digital leads, all with a named online place (Meta, Google, search, social, other)", "If Operations did not write how they found us, pause that online place."),
           field("Anything paused, and why", "Marketing Manager must not discover a pause by accident."),
           field("Files that went live today, filed in the library?", "If it is not filed, it did not happen.")
         ],
-        mustHave: ["Date", "Spend today", "Spend vs plan", "New tagged leads by pipe", "Pauses", "Tracking broken?", "Library same day?"],
+        mustHave: ["Date", "Spend today", "Spend vs plan", "New enquiries by named online place", "Pauses", "Tracking broken?", "Library same day?"],
         passTo: [
           pass("Marketing Manager", "Every working day when something moved. This is how they unblock you."),
-          pass("Sales", "Only the new tagged leads — not the commentary.")
+          pass("Sales", "Only the new enquiries — not the commentary.")
         ]
       },
       {
@@ -166,17 +166,17 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         name: "Weekly digital pack",
         when: "The day before the marketing weekly report. Must include fails, not only wins.",
         owner: "Digital Marketing Manager.",
-        objective: "Show, by pipe, whether the signed plan produced tagged leads — and name 3 things that worked, 3 that failed, and 1 ask.",
+        objective: "Show, by named online place, whether the signed plan produced enquiries where Operations wrote how they found us — and name 3 things that worked, 3 that failed, and one written request.",
         collect: [
           field("Meta, Google, search, social, other — each on its own line: spend, enquiries, cost, tag rate", "Do not hide a dead pipe inside one lump called digital."),
           field("3 things that worked", "So we do more of them."),
           field("3 things that failed", "A report with only wins hides bad spend."),
-          field("1 ask for next week", "More money, a new video, or pause a town — not ten wishes."),
+          field("One written request for next week", "More money, a new video, or pause a town — not ten wishes."),
           field("Content log: what went live, where, service, town", "The library is how we learn."),
           field("Bookings from digital leads, if Sales has closed them", "Enquiries are not the result. Bookings are."),
           field("Sales chats handed over from comments or threads", "You generate. You do not close.")
         ],
-        mustHave: ["Week dates", "Table by pipe", "Spend vs plan", "Cost vs ceiling", "Tag rate", "3 wins", "3 fails", "1 ask", "Content log", "Owner of the ask"],
+        mustHave: ["Week dates", "Table by named online place", "Spend vs plan", "Cost vs ceiling", "Tag rate", "3 wins", "3 fails", "one written request", "Content log", "Owner of the written request"],
         passTo: [
           pass("Marketing Manager", "This is the digital page of the weekly marketing report. They send it up to Growth."),
           pass("Intelligence", "Only the ‘people keep asking for X’ lines — as a signal, not a new ad."),
@@ -204,7 +204,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
       {
         id: "DIG-R4",
         name: "Content library log",
-        when: "Same day a file is made or goes live. Roll up in the weekly pack.",
+        when: "Same day a file is made or goes live. Roll up in the weekly written report.",
         owner: "Digital Marketing Manager. Content Maker files the raw finished file. You own that the log is true.",
         objective: "One dated list of every video and post: what it is, where it came from, where it went, what it did.",
         collect: [
@@ -278,55 +278,159 @@ window.PK_GROWTH = window.PK_GROWTH || {};
     fmm: [
       {
         id: "FLD-R1",
-        name: "Same-day stall list",
-        when: "Before you leave the town. Same day as the stall. Not the next morning.",
+        name: "Weekly field report",
+        when: "The day before the marketing weekly report.",
         owner: "Field Marketing Manager.",
-        objective: "Hand Sales a complete, tagged list so they can call. The stall is a door, not a shop.",
+        objective: "Show visits, first local workers, and contracts separately. Name towns that produced nothing after three visits.",
         collect: [
-          field("Name, phone, service wanted, town", "A missing phone is not an enquiry. Do not pretend."),
-          field("Source = field + town + date", "So we can score the town, not just ‘marketing’."),
-          field("Anything people kept asking that we do not sell", "Send as a signal to Intelligence — not as a new offer you invented.")
+          field("Visit days vs calendar (completed / did not happen)", "A day that did not happen is a missed town. Write it."),
+          field("Names to Sales, by town", "Towns that produced nothing must be named so the plan can change."),
+          field("First local workers who signed and whose files went to Provider Operations", "A town with a stall and nobody who can do the jobs is a brand problem."),
+          field("Office and society contracts signed, waiting, or failed", "A verbal yes is not a contract."),
+          field("Empty jobs you covered this week", "A job with no named person has no owner.")
         ],
-        mustHave: ["Date", "Town", "Pitch", "Each row: name, phone, service, town, source=field", "Count of complete rows", "Sales received? time"],
+        mustHave: ["Week", "Visits × town", "First local workers", "Contracts", "Days that did not happen", "Towns that produced nothing", "Notes of empty jobs you covered", "One or two written requests"],
         passTo: [
-          pass("Sales", "The list the same day. Confirm they received it."),
-          pass("Marketing Manager", "The count, not the phone numbers."),
-          pass("Market Intelligence", "Only the repeated unmet requests.")
+          pass("Marketing Manager", "This is the field page of the weekly marketing report."),
+          pass("Head of Growth", "Only if a town is dead three visits and still on next month’s draft — through Marketing Manager.")
         ]
       },
       {
         id: "FLD-R2",
-        name: "Weekly field report",
-        when: "The day before the marketing weekly report.",
+        name: "Covering-empty-job note",
+        when: "Any day Field Visitor, First Provider Onboarding, or Office and Society Contracts is empty, and you are doing that job.",
         owner: "Field Marketing Manager.",
-        objective: "Show which planned towns produced enquiries, and name towns that are dead three visits in a row.",
+        objective: "Write which box is empty, that you are covering it, and the same-day checks you did in that job’s name.",
         collect: [
-          field("Field days vs calendar (completed / missed)", "A missed day is a missed town. Write it."),
-          field("Enquiries per planned field day, by town", "Dead towns must be named so the plan can change."),
-          field("Materials used and what needs reprinting", "A flyer with last year’s price becomes a fight."),
-          field("Any stall in a town not on the plan — there should be none", "Random Saturdays cannot be measured.")
+          field("Which job is empty", "Visitor, first providers, or contracts — name it."),
+          field("What you did today in that job’s name", "The same-day list, the signed file, or the contract visit.")
         ],
-        mustHave: ["Week", "Town × day × enquiries", "Missed days", "Dead-town flag", "Material needs"],
+        mustHave: ["Date", "Which job", "You are covering it", "Same-day checks"],
         passTo: [
-          pass("Marketing Manager", "This is the field page of the weekly marketing report."),
-          pass("Head of Growth", "Only if a town is dead three visits and still on next month’s draft.")
+          pass("File", "Every day the seat is empty."),
+          pass("Marketing Manager", "On the weekly field report.")
+        ]
+      }
+    ],
+    fve: [
+      {
+        id: "VIS-R1",
+        name: "Same-day stall list",
+        when: "Before you leave the town. Same day as the visit. Not the next morning.",
+        owner: "Field Visitor.",
+        objective: "Hand Sales a complete list so they can call. You collect names at the stall. Sales books the job. You do not take money or book the job yourself.",
+        collect: [
+          field("Name, phone, service wanted, town", "A missing phone is not an enquiry. Do not pretend."),
+          field("Source = stall + town + date", "So we can score the town, not just ‘marketing’. You write this because you met the person."),
+          field("Anything people kept asking that we do not sell", "Send as a signal through Field Marketing Manager — not as a new offer you invented.")
+        ],
+        mustHave: ["Date", "Town", "Pitch", "Each row: name, phone, service, town, source=stall + town + date", "Count of complete rows", "Sales received? time"],
+        passTo: [
+          pass("Sales", "The list the same day. Confirm they received it."),
+          pass("Field Marketing Manager", "The count, not the phone numbers.")
         ]
       },
       {
-        id: "FLD-R3",
+        id: "VIS-R2",
+        name: "Weekly visit note",
+        when: "The day before Field Marketing Manager’s weekly field report.",
+        owner: "Field Visitor.",
+        objective: "Show which planned towns produced enquiries, and name towns that are dead three visits in a row.",
+        collect: [
+          field("Visit days vs calendar (completed / missed)", "A missed day is a missed town. Write it."),
+          field("Enquiries per planned visit day, by town", "Dead towns must be named so the plan can change."),
+          field("Materials used and what needs reprinting", "A flyer with last year’s price becomes a fight.")
+        ],
+        mustHave: ["Week", "Town × day × enquiries", "Missed days", "Dead-town flag", "Material needs"],
+        passTo: [
+          pass("Field Marketing Manager", "This is the stall page of the weekly field report.")
+        ]
+      },
+      {
+        id: "VIS-R3",
         name: "Stall log",
-        when: "Every field day, packed with the same-day list.",
-        owner: "Field Marketing Manager.",
+        when: "Every visit day, packed with the same-day list.",
+        owner: "Field Visitor.",
         objective: "Prove we stood where the plan said, with approved materials, and did not take money or bookings.",
         collect: [
           field("Town, pitch, start and end", "If it is not written, it did not happen."),
-          field("Materials used (current approved pack only)", "Wrong price on a board is a brand problem."),
+          field("Materials used (this month’s approved boards and flyers only)", "Wrong price on a board is a brand problem."),
           field("Incidents: fight, false claim, someone taking bookings in our name", "Stop. Write. Escalate the same day.")
         ],
         mustHave: ["Date", "Town", "Times", "Materials", "Enquiry count", "Incidents", "No-cash / no-booking confirmation"],
         passTo: [
-          pass("Marketing Manager", "Filed. Incidents the same day."),
+          pass("Field Marketing Manager", "Filed. Incidents the same day."),
           pass("Sales", "Do not send the stall log — send the lead list.")
+        ]
+      }
+    ],
+    fpo: [
+      {
+        id: "FPO-R1",
+        name: "Signed first-provider file",
+        when: "The same week as the signature.",
+        owner: "First Provider Onboarding.",
+        objective: "Hand Provider Operations a complete signed pack file so they can put the person on the roster. You do not assign the first job.",
+        collect: [
+          field("Name, phone, services they can do, towns they can cover, start date", "Incomplete is not signed. Do not pretend they can work with us yet."),
+          field("Signed first-worker papers", "A verbal yes is not a signed file."),
+          field("Provider Operations received? date", "If they did not receive it, it did not happen.")
+        ],
+        mustHave: ["Date", "Town", "Complete signed file", "Received date"],
+        passTo: [
+          pass("Provider Operations", "The signed file the same week."),
+          pass("Field Marketing Manager", "The count.")
+        ]
+      },
+      {
+        id: "FPO-R2",
+        name: "Weekly first-worker note",
+        when: "The day before Field Marketing Manager’s weekly field report.",
+        owner: "First Provider Onboarding.",
+        objective: "Show visits vs calendar, files signed, files handed over, and towns with a gap.",
+        collect: [
+          field("Visits vs calendar", "A missed visit is a missed town."),
+          field("Files signed and handed to Provider Operations", "A private list is not a system."),
+          field("Towns with a gap", "Field Marketing Manager must stop the stall if nobody will sign.")
+        ],
+        mustHave: ["Week", "Visits", "Signed", "Handed", "Gaps", "Asks"],
+        passTo: [
+          pass("Field Marketing Manager", "This is the first-provider page of the weekly field report.")
+        ]
+      }
+    ],
+    flc: [
+      {
+        id: "OSC-R1",
+        name: "Signed contract file",
+        when: "The same week as the signature.",
+        owner: "Office and Society Contracts.",
+        objective: "File the contract and tell Operations they can plan the jobs. Finance invoices. You do not take cash.",
+        collect: [
+          field("Named building, town, services, signed price, start date, who signed", "A WhatsApp yes is not a contract."),
+          field("Operations told? date", "If Operations does not know, the jobs will not happen.")
+        ],
+        mustHave: ["Date", "Building", "Town", "Signed pack file", "Operations told?"],
+        passTo: [
+          pass("File", "The signed contract."),
+          pass("Operations", "The building is live."),
+          pass("Field Marketing Manager", "The count.")
+        ]
+      },
+      {
+        id: "OSC-R2",
+        name: "Weekly contract note",
+        when: "The day before Field Marketing Manager’s weekly field report.",
+        owner: "Office and Society Contracts.",
+        objective: "Show visits vs calendar, contracts signed, waiting, or failed, and buildings Operations can now serve.",
+        collect: [
+          field("Visits vs calendar", "A missed visit is a missed building."),
+          field("Contracts signed, waiting, or failed", "A verbal yes is not a contract."),
+          field("Buildings Operations can now serve", "A signed file nobody told Operations about is not live.")
+        ],
+        mustHave: ["Week", "Visits", "Signed", "Waiting", "Failed", "Asks"],
+        passTo: [
+          pass("Field Marketing Manager", "This is the contracts page of the weekly field report.")
         ]
       }
     ],
@@ -544,7 +648,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         owner: "Partnerships & Channels Manager.",
         objective: "Written terms, how a lead is sent, what we pay if we pay. Test one lead into Sales before go-live.",
         collect: [
-          field("How a lead is sent (form, WhatsApp group with Sales, desk card)", "You never skip Sales. You never hand a lead to a provider."),
+          field("How a lead is sent (form, WhatsApp group with Sales, desk card)", "You never book the customer yourself. Send them to Sales. You never hand a lead to a provider."),
           field("What we pay, if we pay — Finance must see money we did not plan", "Do not promise payment yourself."),
           field("Approved materials only", "They must not invent a price or a service."),
           field("Test lead into Sales — pass/fail", "Only then call them live.")
@@ -603,34 +707,60 @@ window.PK_GROWTH = window.PK_GROWTH || {};
       bullet("The five function owners and their weekly numbers", "People fill boxes. Boxes do not follow people.")
     ],
     mkm: [
-      bullet("The monthly marketing plan and day-by-day calendar", "A written plan Head of Growth signs before the month starts. It names which services we may talk about, which towns we may work in, which days ads and stalls run, how much money each gets, which website pages Digital must keep true for search (SEO), and what we will not advertise. Digital and Field work from this one plan. They do not make a different month for themselves."),
-      bullet("The marketing kit — logo, colours, sentences, prices, towns, and faces", "The instruction book for every ad, search page, post, flyer, and stall board. You write it and put your name and the month on it. Digital and Field may only use what is in this book. If they want a new sentence, price, town, or face, they stop and ask you first."),
-      bullet("How the money is split — ads budget and stall budget", "You decide how much the Digital Marketing Manager may spend on paid ads, and how much the Field Marketing Manager may spend on stalls and printed materials. They cannot take each other’s money. SEO (search) is Digital’s work too, but those enquiries sit on their own line — not inside ads spend."),
-      bullet("A note of where every marketing enquiry came from", "Operations asks every new person — call, WhatsApp, app, website form, or any other way — ‘How did you find us?’ and writes the answer from a short list you gave them: paid ad, search, stall, WhatsApp, app, form, or other. That is how we know. Digital cannot see it from the phone number. Digital reads what Operations wrote. If the answer is missing, Operations asks today. If Field met the person at a stall, Field also writes town and date."),
-      bullet("The Digital Marketing Manager job", "You give them their part of the calendar, the ads budget, the marketing kit, which website pages SEO must cover this month, and where a call, WhatsApp, app, or form must land. Paid ads and SEO are both in this job. If nobody sits there, you cover it yourself and write that down."),
-      bullet("The Field Marketing Manager job", "You give them which towns, which days, which boards and flyers, and the stall budget. If nobody sits in that job, you cover it yourself and write that down.")
+      bullet("You write the monthly marketing plan and the day-by-day calendar", "Head of Growth signs this plan before the month starts. It names which services we may talk about, which towns we may work in, which days ads and stalls run, how much money each gets, which website pages Digital must keep true for search (SEO), and what we will not advertise. Digital and Field work only from this one written plan. They do not write a different month for themselves."),
+      bullet("You write the marketing kit — the instruction book for ads, pages, and stalls", "This book holds the logo, colours, sentences, prices, towns, and faces that may appear this month. You put your name and the month on it. Digital and Field may only use what is in this book. If they want a new sentence, price, town, or face, they stop and ask you first."),
+      bullet("You split the money: ads money for Digital, stall money for Field", "You decide how much Digital Marketing Manager may spend on paid ads, and how much Field Marketing Manager may spend on stalls and printed boards. They cannot take each other’s money. Search (SEO) is also Digital’s work, but people who found us on Google without a paid ad are counted on their own line — not mixed into ads spend."),
+      bullet("You make sure Operations asked every new person how they found us, and wrote the answer", "Operations asks on the call, WhatsApp, app, website form, or any other way the person arrived: ‘How did you find us?’ and writes one name from a short list you gave them: paid ad, search, stall, WhatsApp, app, form, or other. You do not write that answer yourself. You check it is there the same day. Digital cannot see it from the phone number. Digital reads what Operations wrote. If the answer is missing, Operations asks today. If Field met the person at a stall, Field also writes the town and the date."),
+      bullet("You give Digital Marketing Manager their written work for the month", "You give them which days, how much ads money, the marketing kit, which website pages search (SEO) must cover this month, and where a call, WhatsApp, app, or form must land. Paid ads and search are both in that job. If nobody sits in Digital, you do that work yourself and write: you are covering it because the seat is empty."),
+      bullet("You give Field Marketing Manager their written work for the month", "You give them which towns, which days, which boards and flyers, how much stall money, which towns need first local workers signed onto us, which offices and housing societies, and the signed papers they may use. If nobody sits in Field, you do that work yourself and write: you are covering it because the seat is empty.")
     ],
     hom: [
-      bullet("Paid ads — Meta, Google, and any other paid ads on the plan", "A live ad with no owner is a leak. Only this seat spends ads money."),
-      bullet("Organic — website search, app store, unpaid social, Reddit, Quora, other sites", "Same promise as the ads. Counted on their own line, not mixed into ads spend."),
-      bullet("The company library — files this seat has approved", "Content Maker makes and edits. You write the yes. Only then a file may go live."),
-      bullet("The Content Maker box — file list, kit, review path, acting owner if empty", "If that box is empty, you are the acting owner and must write it down."),
-      bullet("Answers Operations wrote — how many people said they found us from your ads or search pages", "You do not ask the customer. Operations asks and writes paid ad or search. You read those answers. A person with no answer is Marketing Manager’s missing-source list, not a guess you invent."),
-      bullet("Daily and weekly truth packs to Marketing Manager", "Spend, tagged leads, pauses, 3 wins, 3 fails, 1 ask. Wins-only packs hide leaks.")
+      bullet("You run the paid ads that are on this month’s plan", "Facebook/Instagram (Meta), Google ads, and any other paid ads the plan named. Only this job spends ads money. A live ad with nobody watching it is wasted money."),
+      bullet("You run unpaid online work: website search, the app store, social posts that are not paid, Reddit, Quora, and other sites", "These pages and posts must use the same words as the ads. People who found us this way are counted on their own line. They are not mixed into ads spend."),
+      bullet("You keep the company folder of videos and posts that you have said yes to", "Content Maker makes and edits the files. You write yes. Only then may a file go live on ads, social, search, or other sites. A file only on a phone is not the company copy."),
+      bullet("You give Content Maker a written list of files to make, and you say yes or no on each finished file", "If nobody sits in Content Maker, you make the files yourself and write: you are covering that job because the seat is empty."),
+      bullet("You read the answers Operations wrote: how many people said they found us from your ads or search pages", "You do not ask the customer. Operations asks and writes paid ad or search. You read those answers. If a person has no answer, that is Marketing Manager’s missing-answer list. You do not guess."),
+      bullet("You send Marketing Manager a daily note when something moved, and a weekly written report", "The weekly report names money spent, how many people enquired, what you paused, three things that worked, three that failed, and one written request for next week. A report with only good news hides wasted spend.")
     ],
     cmc: [
-      bullet("AI videos and AI still posts from the signed kit", "Generated videos (.mp4) and still images (.jpg or .png) from kit words, look, and scenes. Not live footage."),
-      bullet("Brand films from the signed kit", "Company films: who Panun Kaergar is, what a customer can expect, and how a job is done. The founder does not have to appear."),
-      bullet("Founder films when the face is already in the kit", "Personal-brand films with the founder or another named kit face on camera. A new face is a kit change."),
-      bullet("Customer-feedback and provider job films, edited from Operations footage", "Operations captures those videos on the job. This seat collects the raw files and cuts them to the kit."),
-      bullet("Every finished file named and sent for approval the same working day", "The finished .mp4 or still goes in the review path. Only a written yes from the Digital Marketing Manager puts it in the library."),
-      bullet("The production list: waiting, sent back, approved, in the library, blocked", "So the Digital Marketing Manager can see gaps without a meeting.")
+      bullet("You make AI videos and still images from this month’s instruction book", "These are generated videos (.mp4) and still images (.jpg or .png) using only the allowed words, look, and scenes. They are not live footage from a job."),
+      bullet("You make company films from this month’s instruction book", "These films show who Panun Kaergar is, what a customer can expect, and how a job is done. The founder does not have to appear."),
+      bullet("You make films with the founder or another named person only when that face is already allowed this month", "If a new face is needed, that is a change to the instruction book. Stop. The Digital Marketing Manager asks Marketing Manager."),
+      bullet("You collect customer and provider videos from Operations, then edit them to the instruction book", "Operations records those videos on the job. You do not go on the job to film. You collect the raw files, cut them, and send them for approval."),
+      bullet("You name every finished file and send it for approval the same working day", "Put the finished video or still in the review folder the Digital Marketing Manager named. Only a written yes puts it in the company folder."),
+      bullet("You keep a production list so Digital Marketing Manager can see each file without a meeting", "Each line is waiting, sent back, approved, in the company folder, or waiting on Operations footage. ‘Waiting on Operations’ means the raw job video has not arrived yet.")
     ],
     fmm: [
-      bullet("Field calendar for approved towns", "Random stalls cannot be measured."),
-      bullet("Stalls, local materials, local activity", "Only the current approved pack."),
-      bullet("Field enquiry volume and source tags", "Same day or it did not happen."),
-      bullet("A simple log of where we stood and what we collected", "If it is not written, it did not happen.")
+      bullet("You write which town, which day, and which of the three jobs goes", "Marketing Manager writes the month. Head of Growth signs it. You turn that into days for Field Visitor, First Provider Onboarding, and Office and Society Contracts. You do not pick a new town yourself."),
+      bullet("You give Field Visitor their towns and days, and you check they actually went", "Field Visitor is the person who stands at a stall or walks the street. They may be a full-time employee, or an outside person paid on a written contract. The work is the same. A verbal yes with no written contract is not a Field Visitor. If nobody sits in that job, you go yourself and write that you are covering it."),
+      bullet("You send First Provider Onboarding to sign the first local workers in a named town", "Those workers are the first plumbers, electricians, or other service people in that town who will do jobs for Panun Kaergar. After they sign, the file goes to Provider Operations, who puts them on customer jobs. You do not keep those people as your own private list."),
+      bullet("You send Office and Society Contracts to write maintenance contracts with named offices and housing societies", "They use only the signed contract papers. A verbal yes is not a contract. Hotel desks and shops that send us their customers belong to Partnerships, not this job."),
+      bullet("You give out only the signed first-worker papers and the signed office-contract papers", "Offer and Finance have already signed those papers. Nobody on the ground invents a price or a payment. If a price is missing, you stop and tell Marketing Manager."),
+      bullet("You send Marketing Manager a weekly field report that names visits, first local workers, and office contracts", "Write which planned days happened, how many names went to Sales, how many first local workers signed and were sent to Provider Operations, how many office or society contracts signed, which days were missed, which towns produced nothing, and one or two written requests. Name what failed, not only what worked.")
+    ],
+    fve: [
+      bullet("You stand in the named town on the named day, with only this month’s boards and flyers", "The stall place on that street is the place Field Marketing Manager named. Use only the words, prices, and faces in this month’s instruction book. A new sentence, price, town, or face waits for a written yes from Field Marketing Manager."),
+      bullet("You write a list of every person you met: name, phone, service wanted, and town", "Because you met them, you also write stall, plus the town, plus the date. Send this list to Sales before you leave the town. A name with no phone is not an enquiry. Sales will call. You do not."),
+      bullet("You write a stall log before you leave: where you stood, the times, the boards you used, how many names you collected, and any incident", "Write that you took no cash and took no booking. If it is not written, the company cannot prove you stood there."),
+      bullet("You send that list to Sales the same day, before you leave the town", "Confirm Sales received it. Field Marketing Manager gets the count of names, not the phone numbers."),
+      bullet("You send Field Marketing Manager a weekly visit note", "Write which planned days happened, how many people enquired in each town, which days you missed, which town produced no names after three visits, which boards need reprinting, and one or two written requests."),
+      bullet("If you cannot go that day, you write it the same day", "If you write nothing, the company will think the stall happened.")
+    ],
+    fpo: [
+      bullet("You go in person to the first local workers in a named town", "These are the first plumbers, electricians, or other service people in that town who will do jobs for Panun Kaergar. You meet them at their shop or workplace. You do not add people from a WhatsApp chat, a forwarded list, or a group you never visited. If you did not sit with that person, they are not signed onto us."),
+      bullet("You take only the signed first-worker papers with you", "Those papers already say who Panun Kaergar is, what work this person may do, what they must not do, and what we pay them. Offer, Finance, and Provider Operations have already signed that pack. You do not invent a new payment or a new service on the spot. If a price is missing, you stop and tell Field Marketing Manager."),
+      bullet("You get a signed paper from that person before you leave", "The paper must have their name, phone, which services they can do, which towns they can cover, the start date, and both signatures. A verbal yes or a WhatsApp “yes” is not enough. If a line is missing, they are not yet with us."),
+      bullet("You send that signed paper to Provider Operations the same week", "Provider Operations is the team that puts them on jobs for customers. You do not give them a customer job yourself. You do not keep their name as your own private list. You write the date Provider Operations received the file."),
+      bullet("You send Field Marketing Manager a weekly note of visits, signed papers, and towns where nobody signed", "Write which planned visits happened, how many papers were signed, how many were sent to Provider Operations, which towns had nobody who would sign, and one or two written requests."),
+      bullet("If a town on this month’s list has nobody who will sign, you write that down", "Write the town, the dates you visited, who you met, and why they said no. Send that to Field Marketing Manager. Do not keep visiting just to look busy. Do not pick a different town yourself.")
+    ],
+    flc: [
+      bullet("You go to the named office or housing society and meet the person who is allowed to sign", "That person is the office manager, the society secretary, or the named owner. Talking to the watchman at the gate is not a contract. You are there to get a written maintenance contract, not a verbal yes."),
+      bullet("You take only the signed contract papers with you", "Those papers already name which services are included, which are not, the signed price, and how we invoice. Offer and Finance have already signed them. If the office or society wants a different price, you stop and tell Field Marketing Manager. You do not write a new number yourself."),
+      bullet("You get a signed maintenance contract before you call the building done", "The contract must name the building, the town, the start date, the services, the price, who signs for them, and who signs for us. A WhatsApp “yes” is not a contract."),
+      bullet("After both sides sign, you file the contract and tell Operations they can start sending workers to that building", "Write the start date, which services are included, and which are not. Finance sends the invoice. You do not take cash in the office."),
+      bullet("You send Field Marketing Manager a weekly note of visits, signed contracts, waiting buildings, and buildings that said no", "Write which planned visits happened, which contracts signed, which are still waiting, which failed, which buildings Operations can now serve, and one or two written requests."),
+      bullet("If the named building will not sign, you write that down the same week", "Write the building, the dates you visited, who you met, and why they said no. Do not keep visiting just to look busy. Do not pick a different building yourself.")
     ],
     mim: [
       bullet("Demand trackers by service and area", "Chat is not a tracker."),
@@ -666,36 +796,61 @@ window.PK_GROWTH = window.PK_GROWTH || {};
       bullet("Sign partners or hire providers", "Partnerships and Provider Operations own those results.")
     ],
     mkm: [
-      bullet("Invent a new service, a new price, or a new town", "Offer writes what we sell. Finance signs the price. Expansion opens a town. Head of Growth says yes. You may ask them in writing. You may not put a new service or town on the marketing calendar yourself."),
-      bullet("Turn the enquiry into a booking", "Your job is to bring the person to Sales. Sales books the job. You do not take the booking on a chat, a comment, or a stall."),
-      bullet("Change what Intelligence found, or advertise a guess", "Market Intelligence writes facts with a source and a date. You may not put a rumour on the calendar as if it were a real service or town."),
-      bullet("Spend more than the signed plan allows", "If the month must change, Head of Growth signs the change first. You do not let ads or stalls keep spending while you wait for a meeting."),
-      bullet("Run the ads or stand at the stall as if that were your main job", "Those jobs belong to Digital Marketing Manager and Field Marketing Manager. If nobody sits there, you cover that job for now and write: you are covering it because the seat is empty. Otherwise nobody owns that result."),
-      bullet("Let Operations skip asking where they found us, or let Digital or Field make their own month", "Then Head of Growth cannot tell which paid ads, search pages, or stalls work, and the weekly report is not true.")
+      bullet("Do not invent a new service, a new price, or a new town", "Offer writes what we sell. Finance signs the price. Expansion opens a town. Head of Growth says yes. You may ask them in writing. You may not put a new service or town on the marketing calendar yourself."),
+      bullet("Do not turn the enquiry into a booking", "Your job is to bring the person to Sales. Sales books the job. You do not take the booking on a chat, a comment, or a stall."),
+      bullet("Do not change what Intelligence found, or advertise a guess", "Market Intelligence writes facts with a source and a date. You may not put a rumour on the calendar as if it were a real service or town."),
+      bullet("Do not spend more than the signed plan allows", "If the month must change, Head of Growth signs the change first. You do not let ads or stalls keep spending while you wait for a meeting."),
+      bullet("Do not run the ads or stand at the stall as if that were your main job", "Those jobs belong to Digital Marketing Manager and Field Marketing Manager. If nobody sits there, you do that work for now and write: you are covering it because the seat is empty. Otherwise nobody owns that result."),
+      bullet("Do not let Operations skip asking where they found us, and do not let Digital or Field write their own month", "Then Head of Growth cannot tell which paid ads, search pages, or stalls work, and the weekly report is not true.")
     ],
     hom: [
-      bullet("Invent a service, a price, or a new town", "That comes down the plan. You do not skip to Head of Growth."),
-      bullet("Publish a new claim that is not in the kit", "Ask Marketing Manager. Then publish."),
-      bullet("Publish a customer or provider video that did not come from Operations through the library", "Operations captures those videos. Content Maker edits them."),
-      bullet("Book the customer or sit on a chat", "Hand it to Sales the same day."),
-      bullet("Run ads with no tracking", "Spend without a path to Sales is waste."),
-      bullet("Move Field’s money without Marketing Manager", "One plan, two channels.")
+      bullet("Do not invent a service, a price, or a new town", "Those come down on the signed plan from Marketing Manager. You do not go around them to Head of Growth."),
+      bullet("Do not publish a new sentence that is not already in this month’s instruction book", "Write what you want to say and why. Ask Marketing Manager. Wait for a written yes. Then publish."),
+      bullet("Do not publish a customer or provider video that did not come from Operations through the company folder", "Operations records those videos on the job. Content Maker edits them. You say yes. Then they may go live."),
+      bullet("Do not book the customer, and do not keep talking to them in a comment or chat yourself", "Send the person to Sales the same day. Sales books the job."),
+      bullet("Do not run paid ads when you cannot prove a test enquiry reached Operations", "Spend with no path to Operations is wasted money. Pause that ad the same day."),
+      bullet("Do not take Field’s stall money without Marketing Manager", "Ads money and stall money are two different lines on one plan.")
     ],
     cmc: [
-      bullet("Publish, schedule, or go live with a file", "You make and edit. The Digital Marketing Manager approves, then publishes."),
-      bullet("Spend ads money or boost a post", "Spend sits in Digital. This box has no budget."),
-      bullet("Capture customer or provider footage on the job", "Operations captures those videos. You collect and edit."),
-      bullet("Add a claim, price, town, or face that is not in the signed kit", "That is a kit change. Stop. The Digital Marketing Manager asks Marketing Manager."),
-      bullet("Put a file in the library before a written yes", "The library is the company copy. A draft is not a company copy."),
-      bullet("Keep masters only on a personal phone or private chat", "If it is not in review or the library, it did not happen."),
-      bullet("Book the customer or sit on a sales chat", "Sales owns the customer.")
+      bullet("Do not publish, schedule, or go live with a file", "You make and edit. The Digital Marketing Manager says yes, then publishes."),
+      bullet("Do not spend ads money or boost a post", "Spend sits with Digital Marketing Manager. This job has no ads budget."),
+      bullet("Do not go on the job to film customers or providers", "Operations records those videos. You collect the files and edit them."),
+      bullet("Do not add a sentence, price, town, or face that is not in this month’s instruction book", "That is a change to the book. Stop. The Digital Marketing Manager asks Marketing Manager."),
+      bullet("Do not put a file in the company folder before a written yes", "The company folder holds only files the Digital Marketing Manager has said yes to. A draft on a laptop is not the company copy."),
+      bullet("Do not keep master files only on a personal phone or private chat", "If it is not in the review folder or the company folder, it did not happen for the company."),
+      bullet("Do not book the customer or keep talking to them in a comment or chat yourself", "Sales talks to the customer and books the job.")
     ],
     fmm: [
-      bullet("Take bookings or money at the stall", "The stall is a door, not a shop."),
-      bullet("Promise a price that is not approved", "A wrong price becomes a fight."),
-      bullet("Pick a new town Expansion has not opened", "No providers, no stall."),
-      bullet("Sign partners", "That is Partnerships."),
-      bullet("Run digital ads", "That is Digital.")
+      bullet("Do not take a booking or money at a stall, and do not let Field Visitor do that", "Field Visitor collects names. Sales books the job. Field Visitor says Sales will call. Money at the stall has no owner in the books."),
+      bullet("Do not invent a price, a service, or a town", "A wrong price on a board or a contract becomes a fight later. Stop and ask Marketing Manager."),
+      bullet("Do not keep the first local workers as your own team, and do not skip Provider Operations", "First Provider Onboarding gets them to sign. Provider Operations puts them on customer jobs. You do not give them a job yourself."),
+      bullet("Do not sign hotel desks or shops that send us their customers", "That is Partnerships. Offices and housing societies that buy ongoing maintenance are Office and Society Contracts."),
+      bullet("Do not run digital ads", "That is Digital Marketing Manager. You run the ground jobs. You do not boost a post."),
+      bullet("Do not let Field Visitor skip the same-day list to Sales, and do not let them visit a town that is not on the plan", "A list that arrives tomorrow is a person nobody called. A random Saturday stall cannot be measured.")
+    ],
+    fve: [
+      bullet("Do not take a booking or money at the stall", "You collect names. Sales books the job. You say Sales will call. Money at the stall has no owner in the books."),
+      bullet("Do not promise a price that is not in this month’s instruction book", "A wrong price on a board becomes a fight later. Stop and ask Field Marketing Manager."),
+      bullet("Do not pick a new town yourself", "If the town has no workers who can do the jobs, you should not stand there. Field Marketing Manager changes the calendar. You do not."),
+      bullet("Do not sign hotel-desk partners, first local workers, or office maintenance contracts", "Those are other jobs under Field Marketing Manager. Your job is to visit the market and collect names for Sales."),
+      bullet("Do not run digital ads", "That is Digital Marketing Manager. You stand at the stall. You do not boost a post."),
+      bullet("Do not skip sending the list to Sales the same day, and do not visit a town that is not on your written list", "A list that arrives tomorrow is a person nobody called. A random Saturday stall cannot be measured.")
+    ],
+    fpo: [
+      bullet("Do not keep the first local workers as your own list, and do not skip Provider Operations", "You get them to sign the papers. Provider Operations puts them on customer jobs."),
+      bullet("Do not give them a customer job yourself", "That is Provider Operations. A private first job is not how the company runs."),
+      bullet("Do not invent a payment, a service, or a town", "The signed papers are the rule. If a price is missing, stop and tell Field Marketing Manager."),
+      bullet("Do not hire them as company employees", "People & HR owns employees. You sign the first local workers onto Panun Kaergar so they can do jobs as providers, not as office staff."),
+      bullet("Do not start work in a town Expansion has not opened", "Expansion already decided we can serve that town. You do not pick a new town yourself."),
+      bullet("Do not stand at a stall, and do not write an office maintenance contract, as if that were this job", "Standing at stalls is Field Visitor. Office and society contracts is Office and Society Contracts.")
+    ],
+    flc: [
+      bullet("Do not invent a price, a service, or a town", "The signed contract papers are the rule. If they want a different price, stop and tell Field Marketing Manager."),
+      bullet("Do not take cash in the office or society", "Finance sends the invoice. Cash you collect on site has no owner in the company books."),
+      bullet("Do not sign hotel desks or shops that send us their customers", "That is Partnerships. This job is the office or housing society that buys ongoing maintenance from us."),
+      bullet("Do not book a one-off job for a person in that building yourself", "If someone in the building wants a single job that the maintenance contract does not cover, that person goes to Sales. Sales books one-off work."),
+      bullet("Do not do the maintenance jobs yourself", "That is Operations. You write the contract. Operations sends the workers."),
+      bullet("Do not visit a building that is not on this month’s written list", "Field Marketing Manager named the buildings. You do not pick a new one because you were nearby.")
     ],
     mim: [
       bullet("Run campaigns", "You discover. Marketing generates."),

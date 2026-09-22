@@ -766,6 +766,7 @@
         'booking' => $booking,
         'repeatPaymentHistoryModalId' => $repeatPaymentHistoryModalId,
     ])
+    @include('bookingmodule::admin.booking.partials._wallet-refund-revert-modal', ['booking' => $booking])
 
     @if(!empty($canEditSeriesDates))
         @can('booking_edit')

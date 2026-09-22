@@ -26,6 +26,7 @@ use Modules\ProviderManagement\Services\CustomerPerformanceService;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ReviewModule\Entities\ProviderCustomerReview;
 use Modules\TransactionModule\Entities\LedgerTransaction;
+use Modules\TransactionModule\Entities\Transaction;
 use Modules\UserManagement\Entities\User;
 use Modules\UserManagement\Entities\UserAddress;
 use Modules\UserManagement\Entities\UserVerification;
@@ -823,7 +824,7 @@ class CustomerController extends Controller
     {
         $this->authorize('customer_view');
         $request->validate([
-            'web_page' => 'nullable|in:overview,bookings,reviews,performance,payments',
+            'web_page' => 'nullable|in:overview,bookings,reviews,performance,payments,wallet',
         ]);
 
         $webPage = $request->has('web_page') ? $request['web_page'] : 'overview';
@@ -1115,6 +1116,68 @@ class CustomerController extends Controller
                 'lossMakingBadDebtNotDueTotal',
                 'customerCompFromCompanyTotal',
                 'customerCompFromProviderTotal'
+            ));
+        } elseif ($webPage == 'wallet') {
+            $customer = $this->user->inCustomerDirectory()->find($id);
+            if (! $customer) {
+                abort(404);
+            }
+            $walletType = (string) $request->input('wallet_type', 'all');
+            if (! in_array($walletType, ['all', 'debit', 'credit'], true)) {
+                $walletType = 'all';
+            }
+            $search = trim((string) $request->input('search', ''));
+
+            $queryParam = array_filter([
+                'web_page' => $webPage,
+                'wallet_type' => $walletType !== 'all' ? $walletType : null,
+                'search' => $search !== '' ? $search : null,
+            ], fn ($value) => $value !== null && $value !== '');
+
+            $walletBaseQuery = function () use ($id) {
+                return Transaction::query()
+                    ->where('to_user_id', $id)
+                    ->whereIn('trx_type', array_values(WALLET_TRX_TYPE))
+                    ->where(function ($query) {
+                        $query->where('trx_type', '!=', WALLET_TRX_TYPE['booking_compensation'])
+                            ->orWhere('credit', '>', 0);
+                    });
+            };
+
+            $totalCredit = (float) $walletBaseQuery()
+                ->where('to_user_account', '!=', 'balance_pending')
+                ->sum('credit');
+            $totalDebit = (float) $walletBaseQuery()
+                ->where('to_user_account', '!=', 'balance_pending')
+                ->sum('debit');
+
+            $walletTransactions = $walletBaseQuery()
+                ->with(['booking'])
+                ->when($walletType === 'debit', fn ($query) => $query->where('debit', '!=', 0))
+                ->when($walletType === 'credit', fn ($query) => $query->where('credit', '!=', 0))
+                ->when($search !== '', function ($query) use ($search) {
+                    $query->where(function ($inner) use ($search) {
+                        $inner->where('id', 'LIKE', '%' . $search . '%')
+                            ->orWhere('reference_note', 'LIKE', '%' . $search . '%')
+                            ->orWhere('trx_type', 'LIKE', '%' . $search . '%')
+                            ->orWhereHas('booking', fn ($bookingQuery) => $bookingQuery->where('readable_id', 'LIKE', '%' . $search . '%'));
+                    });
+                })
+                ->latest()
+                ->paginate(pagination_limit())
+                ->appends($queryParam);
+
+            $walletBalance = (float) ($customer->wallet_balance ?? 0);
+
+            return view('customermodule::admin.detail.wallet', compact(
+                'customer',
+                'webPage',
+                'walletBalance',
+                'totalCredit',
+                'totalDebit',
+                'walletTransactions',
+                'walletType',
+                'search'
             ));
         }
 

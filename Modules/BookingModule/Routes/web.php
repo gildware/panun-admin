@@ -110,6 +110,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('loss-writeoff/{id}/revert', [BookingController::class, 'revertWriteOffScaledLoss'])->name('loss_writeoff.revert');
         Route::post('refund/{id}', [BookingController::class, 'refund'])->name('refund');
         Route::post('refund-to-wallet/{id}', [BookingController::class, 'refundToWallet'])->name('refund_to_wallet');
+        Route::post('refund-to-wallet/{id}/revert', [BookingController::class, 'revertWalletRefund'])->name('refund_to_wallet.revert');
         Route::post('compensation/{id}', [BookingController::class, 'addCompensation'])->name('compensation');
         Route::post('reopen/{id}', [BookingController::class, 'reopenFromCompleted'])->name('reopen');
         Route::post('reopen-resolve/{id}', [BookingController::class, 'resolveReopenTicket'])->name('reopen-resolve');
