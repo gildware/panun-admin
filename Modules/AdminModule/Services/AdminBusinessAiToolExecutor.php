@@ -310,7 +310,7 @@ class AdminBusinessAiToolExecutor
             ],
             [
                 'name' => 'get_provider_details',
-                'description' => 'Complete provider dossier (admin provider tabs): owner, zones, bank, subscribed services, servicemen, performance, incidents, bookings, ratings, linked CRM leads.',
+                'description' => 'Complete provider dossier (admin provider tabs): owner, zones, bank, subscribed services, servicemen, performance, incidents, bookings, ratings, onboarding questionnaire, linked CRM leads.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [

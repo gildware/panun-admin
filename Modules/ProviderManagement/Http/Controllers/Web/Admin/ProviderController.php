@@ -59,6 +59,8 @@ use Modules\ProviderManagement\Services\ProviderProfileChangeDiffService;
 use Modules\ProviderManagement\Services\ProviderProfileChangeRequestService;
 use Modules\ProviderManagement\Entities\ProviderIncident;
 use Modules\ProviderManagement\Entities\SubscribedService;
+use Modules\ProviderManagement\Services\ProviderQuestionnaireService;
+use Modules\ProviderManagement\Support\ProviderOnboardingQuestionnaire;
 use Modules\ProviderManagement\Support\ProviderPhoneUpdateNormalizer;
 use Modules\ProviderManagement\Traits\PreservesAdminProviderFormDrafts;
 use Modules\ReviewModule\Entities\Review;
@@ -1028,7 +1030,7 @@ class ProviderController extends Controller
     {
         $this->authorize('provider_view');
         $request->validate([
-            'web_page' => 'in:overview,subscribed_services,bookings,withdrawn_bookings,special_bookings,serviceman_list,settings,bank_information,reviews,subscription,payment,performance',
+            'web_page' => 'in:overview,questionnaire,subscribed_services,bookings,withdrawn_bookings,special_bookings,serviceman_list,settings,bank_information,reviews,subscription,payment,performance',
         ]);
 
         $webPage = $request->has('web_page') ? $request['web_page'] : 'overview';
@@ -1423,6 +1425,29 @@ class ProviderController extends Controller
                 ->paginate(pagination_limit())->appends($queryParam);
 
             return view('providermanagement::admin.provider.detail.serviceman-list', compact('servicemen', 'webPage', 'provider'));
+
+        } //questionnaire
+        elseif ($request->web_page == 'questionnaire') {
+            $provider = $this->provider->with(['owner', 'questionnaire.recorder', 'questionnaire.updater'])->find($id);
+            $questionnaire = $provider?->questionnaire;
+            $answers = is_array($questionnaire?->answers) ? $questionnaire->answers : [];
+            $sections = ProviderOnboardingQuestionnaire::sections();
+            $canEdit = Gate::allows('provider_update');
+            $editing = $canEdit && ($questionnaire === null || $request->boolean('edit'));
+            $answeredCount = ProviderOnboardingQuestionnaire::answeredCount($answers);
+            $totalCount = ProviderOnboardingQuestionnaire::questionCount();
+
+            return view('providermanagement::admin.provider.detail.questionnaire', compact(
+                'webPage',
+                'provider',
+                'questionnaire',
+                'answers',
+                'sections',
+                'canEdit',
+                'editing',
+                'answeredCount',
+                'totalCount'
+            ));
 
         } //settings
         elseif ($request->web_page == 'settings') {
@@ -2019,6 +2044,31 @@ class ProviderController extends Controller
             ));
         }
         return back();
+    }
+
+    /**
+     * Record or update onboarding questionnaire answers for a provider.
+     */
+    public function updateQuestionnaire(string $id, Request $request): RedirectResponse
+    {
+        $this->authorize('provider_update');
+
+        $provider = $this->provider->find($id);
+        if (! $provider) {
+            Toastr::error(translate('Provider_or_account_not_found'));
+
+            return redirect()->route('admin.provider.list');
+        }
+
+        app(ProviderQuestionnaireService::class)->save(
+            $provider,
+            $request->input('answers', []),
+            auth()->id() ? (string) auth()->id() : null
+        );
+
+        Toastr::success(translate('Questionnaire_saved_successfully'));
+
+        return redirect()->route('admin.provider.details', [$id, 'web_page' => 'questionnaire']);
     }
 
     /**
