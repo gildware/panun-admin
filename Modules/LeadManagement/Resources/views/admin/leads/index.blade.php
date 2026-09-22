@@ -93,6 +93,7 @@
                         <ul class="nav nav--tabs nav--tabs__style2 nav--tabs__booking-tally flex-wrap gap-2">
                             <li class="nav-item">
                                 <a class="nav-link {{ $tab == 'all' ? 'active' : '' }}"
+                                   data-lead-tab="all"
                                    href="{{ route('admin.lead.index', ['tab' => 'all']) }}">
                                     {{ translate('All_Leads') }}
                                     <span class="count js-lead-tab-count" data-tab="all">{{ $leadTabCounts['all'] }}</span>
@@ -100,6 +101,7 @@
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{ $tab == 'unknown' ? 'active' : '' }}"
+                                   data-lead-tab="unknown"
                                    href="{{ route('admin.lead.index', ['tab' => 'unknown']) }}">
                                     {{ translate('Unknown_Leads') }}
                                     <span class="count js-lead-tab-count" data-tab="unknown">{{ $leadTabCounts['unknown'] }}</span>
@@ -107,6 +109,7 @@
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{ $tab == 'customer' ? 'active' : '' }}"
+                                   data-lead-tab="customer"
                                    href="{{ route('admin.lead.index', ['tab' => 'customer']) }}">
                                     {{ translate('Customer_Lead') }}
                                     <span class="count js-lead-tab-count" data-tab="customer">{{ $leadTabCounts['customer'] }}</span>
@@ -114,6 +117,7 @@
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{ $tab == 'future_customer' ? 'active' : '' }}"
+                                   data-lead-tab="future_customer"
                                    href="{{ route('admin.lead.index', ['tab' => 'future_customer']) }}">
                                     {{ translate('Future_Customer_Lead') }}
                                     <span class="count js-lead-tab-count" data-tab="future_customer">{{ $leadTabCounts['future_customer'] }}</span>
@@ -121,6 +125,7 @@
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{ $tab == 'provider' ? 'active' : '' }}"
+                                   data-lead-tab="provider"
                                    href="{{ route('admin.lead.index', ['tab' => 'provider']) }}">
                                     {{ translate('Provider_Leads') }}
                                     <span class="count js-lead-tab-count" data-tab="provider">{{ $leadTabCounts['provider'] }}</span>
@@ -128,6 +133,7 @@
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{ $tab == 'invalid' ? 'active' : '' }}"
+                                   data-lead-tab="invalid"
                                    href="{{ route('admin.lead.index', ['tab' => 'invalid']) }}">
                                     {{ translate('Invalid_Leads') }}
                                     <span class="count js-lead-tab-count" data-tab="invalid">{{ $leadTabCounts['invalid'] }}</span>
@@ -403,7 +409,7 @@
                             </div>
                             <div class="lead-filter-footer border-top bg-body p-3 flex-shrink-0">
                                 <div class="d-flex gap-2">
-                                    <a href="{{ route('admin.lead.index', ['tab' => $tab]) }}" class="btn btn--secondary flex-grow-1">{{ translate('Reset') }}</a>
+                                    <a href="{{ route('admin.lead.index', ['tab' => $tab]) }}" class="btn btn--secondary flex-grow-1 js-lead-filter-reset">{{ translate('Reset') }}</a>
                                     <button type="submit" class="btn btn--primary flex-grow-1">{{ translate('Filter') }}</button>
                                 </div>
                             </div>
@@ -605,11 +611,190 @@
                 }
             }
 
-            function reloadLeads() {
+            function currentLeadListLocation(page) {
+                const $form = $('#lead-filter-form');
+                const url = new URL($form.attr('action') || window.location.href, window.location.origin);
+                const searchVal = ($('#lead-search-input').val() || '').trim();
+                const params = new URLSearchParams($form.serialize());
+                params.delete('ajax');
+                if (searchVal) {
+                    params.set('search', searchVal);
+                } else {
+                    params.delete('search');
+                }
+                ['lead_status', 'customer_has_booking', 'outbound_enquiry_filter'].forEach(function (key) {
+                    if (params.get(key) === 'all') {
+                        params.delete(key);
+                    }
+                });
+                Array.from(params.keys()).forEach(function (key) {
+                    if (params.get(key) === '') {
+                        params.delete(key);
+                    }
+                });
+                if (page && String(page) !== '1') {
+                    params.set('page', String(page));
+                } else {
+                    params.delete('page');
+                }
+                url.search = params.toString();
+                return url.pathname + url.search;
+            }
+
+            const LEAD_TAB_FILTERS_KEY = 'admin_lead_tab_filters';
+            const LEAD_TABS = ['all', 'unknown', 'customer', 'future_customer', 'provider', 'invalid'];
+
+            function currentLeadTab() {
+                return ($('#lead-filter-form input[name="tab"]').val()
+                    || new URLSearchParams(window.location.search).get('tab')
+                    || 'all');
+            }
+
+            function isBareLeadTabUrl(locationUrl) {
+                try {
+                    const url = new URL(locationUrl, window.location.origin);
+                    const params = new URLSearchParams(url.search);
+                    let hasExtra = false;
+                    params.forEach(function (value, key) {
+                        if (key === 'tab' || key === 'ajax') {
+                            return;
+                        }
+                        if (value === '' || value === 'all') {
+                            return;
+                        }
+                        if (key === 'page' && value === '1') {
+                            return;
+                        }
+                        hasExtra = true;
+                    });
+                    return !hasExtra;
+                } catch (e) {
+                    return true;
+                }
+            }
+
+            function readLeadTabFilters() {
+                try {
+                    const parsed = JSON.parse(sessionStorage.getItem(LEAD_TAB_FILTERS_KEY) || '{}');
+                    return parsed && typeof parsed === 'object' ? parsed : {};
+                } catch (e) {
+                    return {};
+                }
+            }
+
+            function getLeadTabFilter(tab) {
+                const stored = readLeadTabFilters()[tab];
+                return typeof stored === 'string' && stored !== '' ? stored : '';
+            }
+
+            function saveLeadTabFilter(tab, locationUrl) {
+                if (LEAD_TABS.indexOf(tab) === -1 || !locationUrl) {
+                    return;
+                }
+                const all = readLeadTabFilters();
+                all[tab] = locationUrl;
+                try {
+                    sessionStorage.setItem(LEAD_TAB_FILTERS_KEY, JSON.stringify(all));
+                } catch (e) {}
+            }
+
+            function stampLeadTabLinks() {
+                $('.lead-index-tabs a.nav-link[data-lead-tab]').each(function () {
+                    const tab = this.getAttribute('data-lead-tab');
+                    if (!this.getAttribute('data-tab-base-href')) {
+                        this.setAttribute('data-tab-base-href', this.getAttribute('href'));
+                    }
+                    const baseHref = this.getAttribute('data-tab-base-href');
+                    const stored = getLeadTabFilter(tab);
+                    this.setAttribute('href', stored || baseHref);
+                });
+            }
+
+            function persistLeadListLocation(page, options) {
+                options = options || {};
+                const locationUrl = currentLeadListLocation(page);
+                if (window.history && window.history.replaceState) {
+                    window.history.replaceState(window.history.state, '', locationUrl);
+                }
+                try {
+                    sessionStorage.setItem('admin_lead_index_return_url', locationUrl);
+                } catch (e) {}
+                if (options.rememberTab !== false) {
+                    saveLeadTabFilter(currentLeadTab(), locationUrl);
+                }
+                stampLeadTabLinks();
+                return locationUrl;
+            }
+
+            function restoreSavedLeadTabFilters() {
+                const tab = currentLeadTab();
+                const current = window.location.pathname + window.location.search;
+                if (!isBareLeadTabUrl(current)) {
+                    return false;
+                }
+                const stored = getLeadTabFilter(tab);
+                if (!stored || isBareLeadTabUrl(stored)) {
+                    return false;
+                }
+                const storedUrl = new URL(stored, window.location.origin);
+                if (storedUrl.pathname + storedUrl.search === current) {
+                    return false;
+                }
+                if (typeof window.adminPartialNavLoad === 'function') {
+                    window.history.replaceState(window.history.state || { adminPartialNav: true }, '', storedUrl.pathname + storedUrl.search);
+                    window.adminPartialNavLoad(storedUrl.href, { advance: false });
+                } else {
+                    window.location.replace(storedUrl.pathname + storedUrl.search);
+                }
+                return true;
+            }
+
+            function withLeadListReturn(url) {
+                if (!url) {
+                    return url;
+                }
+                const dest = new URL(url, window.location.origin);
+                dest.searchParams.set('lead_list', window.location.pathname + window.location.search);
+                return dest.pathname + dest.search;
+            }
+
+            function stampLeadReturnUrls() {
+                const returnUrl = window.location.pathname + window.location.search;
+                $('#lead-list-wrapper .lead-table-row').each(function () {
+                    const $row = $(this);
+                    let base = $row.attr('data-lead-url-base');
+                    if (!base) {
+                        const current = $row.attr('data-lead-url') || '';
+                        try {
+                            const parsed = new URL(current, window.location.origin);
+                            parsed.searchParams.delete('lead_list');
+                            base = parsed.pathname + (parsed.search || '');
+                        } catch (e) {
+                            base = current;
+                        }
+                        $row.attr('data-lead-url-base', base);
+                    }
+                    const dest = new URL(base, window.location.origin);
+                    dest.searchParams.set('lead_list', returnUrl);
+                    const stamped = dest.pathname + dest.search;
+                    $row.attr('data-lead-url', stamped);
+                    $row.find('a.btn-lead-view')
+                        .attr('href', stamped)
+                        .attr('data-turbo', 'false')
+                        .attr('target', '_blank')
+                        .attr('rel', 'noopener noreferrer');
+                });
+                $('#lead-list-wrapper .pagination a').attr('data-turbo', 'false');
+            }
+
+            function reloadLeads(page) {
                 const $form = $('#lead-filter-form');
                 const url = $form.attr('action');
                 const searchVal = ($('#lead-search-input').val() || '').trim();
-                const data = $form.serialize() + '&ajax=1&search=' + encodeURIComponent(searchVal);
+                let data = $form.serialize() + '&ajax=1&search=' + encodeURIComponent(searchVal);
+                if (page && String(page) !== '1') {
+                    data += '&page=' + encodeURIComponent(page);
+                }
 
                 $.get(url, data, function (response) {
                     if (response.html) {
@@ -635,38 +820,111 @@
                     } else {
                         $badge.remove();
                     }
+                    persistLeadListLocation(page || 1);
+                    stampLeadReturnUrls();
                 });
             }
 
-            $(document).on('submit', '#lead-filter-form', function (e) {
+            $(document).off('.leadIndexNav');
+            $(document).on('submit.leadIndexNav', '#lead-filter-form', function (e) {
                 e.preventDefault();
                 closeLeadFilterDrawer();
-                reloadLeads();
+                reloadLeads(1);
             });
 
-            $(document).on('keyup', '#lead-search-input', function () {
-                const value = $(this).val().trim();
-
+            $(document).on('keyup.leadIndexNav', '#lead-search-input', function () {
                 if (leadSearchTimeout) {
                     clearTimeout(leadSearchTimeout);
                 }
 
                 leadSearchTimeout = setTimeout(function () {
-                    reloadLeads();
+                    reloadLeads(1);
                 }, 400);
             });
 
-            $(document).on('click', '.lead-table-row', function (e) {
+            $(document).on('mousedown.leadIndexNav', '#lead-list-wrapper .lead-table-row, #lead-list-wrapper a.btn-lead-view', function () {
+                persistLeadListLocation(new URLSearchParams(window.location.search).get('page') || 1, {
+                    rememberTab: !isBareLeadTabUrl(window.location.pathname + window.location.search)
+                });
+                stampLeadReturnUrls();
+            });
+
+            function openLeadInNewTab(url) {
+                if (!url) {
+                    return;
+                }
+                const dest = new URL(withLeadListReturn(url), window.location.origin);
+                window.open(dest.href, '_blank', 'noopener,noreferrer');
+            }
+
+            $(document).on('click.leadIndexNav', '.lead-table-row', function (e) {
                 if ($(e.target).closest('a, button, input, select, textarea, label').length) {
                     return;
                 }
-                var url = $(this).data('lead-url');
-                if (url && typeof window.adminPartialNavLoad === 'function') {
-                    window.adminPartialNavLoad(url, { advance: true });
-                } else if (url) {
-                    window.location.href = url;
-                }
+                openLeadInNewTab($(this).attr('data-lead-url') || $(this).data('lead-url'));
             });
+
+            if (typeof window.__leadIndexNavOnClick === 'function') {
+                window.removeEventListener('click', window.__leadIndexNavOnClick, true);
+            }
+            window.__leadIndexNavOnClick = function (e) {
+                const resetLink = e.target.closest && e.target.closest('#lead-filter-form .js-lead-filter-reset');
+                if (resetLink) {
+                    const dest = new URL(resetLink.getAttribute('href') || resetLink.href, window.location.origin);
+                    saveLeadTabFilter(currentLeadTab(), dest.pathname + dest.search);
+                    stampLeadTabLinks();
+                    return;
+                }
+
+                const tabLink = e.target.closest && e.target.closest('.lead-index-tabs a.nav-link[data-lead-tab]');
+                if (tabLink) {
+                    const tab = tabLink.getAttribute('data-lead-tab');
+                    const baseHref = tabLink.getAttribute('data-tab-base-href') || tabLink.getAttribute('href');
+                    if (!baseHref) {
+                        return;
+                    }
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    persistLeadListLocation(new URLSearchParams(window.location.search).get('page') || 1);
+                    const dest = new URL(baseHref, window.location.origin);
+                    const stored = getLeadTabFilter(tab);
+                    const targetUrl = new URL(stored || (dest.pathname + dest.search), window.location.origin);
+                    if (targetUrl.pathname + targetUrl.search === window.location.pathname + window.location.search) {
+                        return;
+                    }
+                    if (typeof window.adminPartialNavLoad === 'function') {
+                        window.adminPartialNavLoad(targetUrl.href, { advance: true });
+                    } else {
+                        window.location.href = targetUrl.pathname + targetUrl.search;
+                    }
+                    return;
+                }
+
+                const paginationLink = e.target.closest && e.target.closest('#lead-list-wrapper .pagination a');
+                if (!paginationLink) {
+                    return;
+                }
+                const href = paginationLink.getAttribute('href');
+                if (!href || href === '#') {
+                    return;
+                }
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                let page = '1';
+                try {
+                    page = new URL(href, window.location.origin).searchParams.get('page') || '1';
+                } catch (err) {}
+                reloadLeads(page);
+            };
+            window.addEventListener('click', window.__leadIndexNavOnClick, true);
+
+            if (!restoreSavedLeadTabFilters()) {
+                persistLeadListLocation(new URLSearchParams(window.location.search).get('page') || 1, {
+                    rememberTab: !isBareLeadTabUrl(window.location.pathname + window.location.search)
+                });
+                stampLeadReturnUrls();
+                stampLeadTabLinks();
+            }
 
             const TYPE_INVALID_MODAL = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_INVALID }}';
             const TYPE_FUTURE_MODAL = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER }}';
