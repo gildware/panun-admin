@@ -1649,6 +1649,12 @@
                                             $showInstallmentPaymentDeleteColumn = $allowDeleteAdminBookingPartialPayments
                                                 && auth()->check()
                                                 && auth()->user()->can('booking_can_manage_status');
+                                            $showWalletRefundRevertColumn = auth()->check()
+                                                && auth()->user()->can('booking_can_manage_status')
+                                                && $refundLedgerRowsForPaymentModal->contains(function ($lt) {
+                                                    return function_exists('booking_wallet_refund_is_revertible')
+                                                        && booking_wallet_refund_is_revertible($lt);
+                                                });
                                         @endphp
                                         <p class="text-uppercase text-muted fz-11 mb-2 fw-semibold">{{ translate('Installment_payments') }}</p>
                                         <div class="table-responsive">
@@ -1721,16 +1727,38 @@
                                                                 <th class="text-nowrap">{{ translate('Amount') }}</th>
                                                                 <th class="text-nowrap">{{ translate('transaction_id') }}</th>
                                                                 <th class="text-nowrap">{{ translate('Reference_Note') }}</th>
+                                                                @if($showWalletRefundRevertColumn)
+                                                                    <th class="text-nowrap text-end">{{ translate('Action') }}</th>
+                                                                @endif
                                                             </tr>
                                                         </thead>
                                                         <tbody>
                                                             @foreach($refundLedgerRowsForPaymentModal as $idx => $lt)
+                                                                @php
+                                                                    $ltIsWalletRevertible = function_exists('booking_wallet_refund_is_revertible')
+                                                                        && booking_wallet_refund_is_revertible($lt);
+                                                                @endphp
                                                                 <tr>
                                                                     <td>{{ $idx + 1 }}</td>
                                                                     <td class="text-nowrap">{{ $lt->created_at ? $lt->created_at->format('d M Y, H:i:s') : '—' }}</td>
                                                                     <td class="text-end fw-medium text-danger">-{{ with_currency_symbol((float) ($lt->amount ?? 0)) }}</td>
                                                                     <td class="text-break">{{ $lt->transaction_id ? $lt->transaction_id : '—' }}</td>
-                                                                    <td class="text-break">{{ filled($lt->reference_note) ? Str::limit((string) $lt->reference_note, 120) : '—' }}</td>
+                                                                    <td class="text-break">{{ filled($lt->reference_note) && $lt->reference_note !== 'wallet_refund' ? Str::limit((string) $lt->reference_note, 120) : '—' }}</td>
+                                                                    @if($showWalletRefundRevertColumn)
+                                                                        <td class="text-end text-nowrap">
+                                                                            @if($ltIsWalletRevertible)
+                                                                                <button type="button"
+                                                                                    class="btn btn-outline-danger btn-sm py-0 px-2 fz-11"
+                                                                                    title="{{ translate('Revert_wallet_refund') }}"
+                                                                                    data-bs-toggle="modal"
+                                                                                    data-bs-target="#revertWalletRefundConfirm-{{ $booking->id }}"
+                                                                                    data-ledger-id="{{ $lt->id }}"
+                                                                                    data-amount-line="{{ e(translate('Refunded_to_wallet')) }}: {{ e(with_currency_symbol((float) ($lt->amount ?? 0))) }}">{{ translate('Revert_wallet_refund') }}</button>
+                                                                            @else
+                                                                                <span class="text-muted">—</span>
+                                                                            @endif
+                                                                        </td>
+                                                                    @endif
                                                                 </tr>
                                                             @endforeach
                                                         </tbody>
@@ -1794,6 +1822,7 @@
                                 })();
                             </script>
                         @endif
+                        @include('bookingmodule::admin.booking.partials._wallet-refund-revert-modal', ['booking' => $booking])
                 </div>{{-- col payment --}}
             </div>{{-- row overview trio --}}
 
@@ -3678,6 +3707,12 @@
                 toastr.error('{{ translate('Refund amount cannot exceed amount paid by customer. Max') }}: ' + maxAmount.toFixed(2));
                 return false;
             }
+            var $btn = $form.find('button[type=submit]');
+            if ($btn.prop('disabled')) {
+                e.preventDefault();
+                return false;
+            }
+            $btn.prop('disabled', true);
         });
 
         function update_booking_details(route, message, componentId, updatedValue, revertValue) {

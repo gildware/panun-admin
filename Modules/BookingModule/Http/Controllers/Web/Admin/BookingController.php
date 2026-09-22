@@ -9400,18 +9400,44 @@ class BookingController extends Controller
 
         $fullyRefundedAfter = false;
         $refundNote = trim((string) $request->input('reference_note', ''));
-        DB::transaction(function () use ($booking, $amount, $refundNote, &$fullyRefundedAfter) {
-            processBookingWalletRefund($booking, $amount, $refundNote !== '' ? $refundNote : null);
+        try {
+            DB::transaction(function () use ($id, $amount, $refundNote, &$fullyRefundedAfter) {
+                $locked = $this->booking->whereKey($id)->lockForUpdate()->first();
+                if (! $locked) {
+                    throw ValidationException::withMessages(['amount' => [translate('Booking not found')]]);
+                }
 
-            $booking->refresh();
-            $afterTotals = get_booking_refund_display_totals($booking);
-            $fullyRefundedAfter = round((float) ($afterTotals['refundable_remaining'] ?? 0), 2) <= 0;
+                $refundTotals = get_booking_refund_display_totals($locked);
+                $remainingRefundable = round((float) ($refundTotals['refundable_remaining'] ?? 0), 2);
+                if ($remainingRefundable <= 0) {
+                    throw ValidationException::withMessages(['amount' => [translate('This booking has already been fully refunded.')]]);
+                }
+                if ($amount > $remainingRefundable) {
+                    throw ValidationException::withMessages([
+                        'amount' => [translate('Refund amount cannot exceed amount paid by customer. Max') . ': ' . with_currency_symbol($remainingRefundable)],
+                    ]);
+                }
 
-            if (! in_array((string) $booking->booking_status, ['canceled', 'cancelled'], true)) {
-                $booking->booking_status = 'canceled';
+                processBookingWalletRefund($locked, $amount, $refundNote !== '' ? $refundNote : null);
+
+                $locked->refresh();
+                $afterTotals = get_booking_refund_display_totals($locked);
+                $fullyRefundedAfter = round((float) ($afterTotals['refundable_remaining'] ?? 0), 2) <= 0;
+
+                if (! in_array((string) $locked->booking_status, ['canceled', 'cancelled'], true)) {
+                    $locked->booking_status = 'canceled';
+                }
+                $locked->save();
+            });
+        } catch (ValidationException $e) {
+            $message = collect($e->errors())->flatten()->implode(' ');
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, $e->errors()), 400);
             }
-            $booking->save();
-        });
+            Toastr::error($message);
+
+            return back();
+        }
 
         if ($request->wantsJson()) {
             return response()->json(response_formatter(DEFAULT_UPDATE_200, null), 200);
@@ -9420,6 +9446,72 @@ class BookingController extends Controller
             ? translate('Refund_to_wallet_success')
             : translate('Refund_to_wallet_partial_success');
         Toastr::success($successMessage);
+
+        return back();
+    }
+
+    /**
+     * Admin: revert one wallet refund exactly once (delete ledger + refund transactions, debit customer wallet).
+     */
+    public function revertWalletRefund(Request $request, string $id): JsonResponse|RedirectResponse
+    {
+        $this->authorize('booking_can_manage_status');
+        $validator = Validator::make($request->all(), [
+            'ledger_id' => 'required|uuid',
+        ]);
+        if ($validator->fails()) {
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+            }
+            Toastr::error(implode(' ', $validator->errors()->all()));
+
+            return back();
+        }
+
+        $booking = $this->booking->find($id);
+        if (! $booking) {
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_404, 'Booking not found'), 404);
+            }
+            Toastr::error(translate('Booking not found'));
+
+            return back();
+        }
+
+        if (! $booking->customer_id) {
+            $message = translate('Booking not found');
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, ['ledger_id' => [$message]]), 400);
+            }
+            Toastr::error($message);
+
+            return back();
+        }
+
+        try {
+            revertBookingWalletRefund($booking, (string) $request->input('ledger_id'));
+        } catch (\RuntimeException $e) {
+            $message = match ($e->getMessage()) {
+                'wallet_refund_already_reverted' => translate('Wallet_refund_already_reverted'),
+                'wallet_refund_not_found' => translate('Wallet_refund_not_found'),
+                'wallet_refund_not_revertible' => translate('Wallet_refund_not_revertible'),
+                'insufficient_wallet_balance' => translate('Wallet_refund_revert_insufficient_balance'),
+                'wallet_refund_transactions_missing' => translate('Wallet_refund_transactions_missing'),
+                'customer_not_found' => translate('Booking not found'),
+                default => translate('Wallet_refund_not_revertible'),
+            };
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, ['ledger_id' => [$message]]), 400);
+            }
+            Toastr::error($message);
+
+            return back();
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json(response_formatter(DEFAULT_UPDATE_200, null), 200);
+        }
+        Toastr::success(translate('Revert_wallet_refund_success'));
 
         return back();
     }

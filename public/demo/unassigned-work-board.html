@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unassigned work — Provider hunting board (demo)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #25274D;
+            --primary-dark: #1A1C38;
+            --primary-soft: rgba(37, 39, 77, 0.06);
+            --bg: #EFF1F4;
+            --surface: #ffffff;
+            --border: #E2E5EB;
+            --text: #18181a;
+            --muted: #5E6472;
+            --faint: #A1A5AF;
+            --radius: 10px;
+            --radius-sm: 6px;
+            --shadow: 0 1px 3px rgba(0,0,0,.05);
+            --hunt: #c2410c;
+            --hunt-bg: #fff7ed;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--muted);
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            font-size: 0.8125rem;
+            line-height: 1.45;
+            margin: 0;
+        }
+
+        a { color: var(--primary); text-decoration: none; }
+        a:hover { color: var(--primary-dark); }
+
+        .demo-notice {
+            background: linear-gradient(90deg, #25274D, #3d4078);
+            color: rgba(255,255,255,.9);
+            padding: .45rem 1rem;
+            font-size: .75rem;
+            text-align: center;
+        }
+        .demo-notice strong { color: #fff; }
+
+        .page-wrap {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: .875rem 1rem 5rem;
+        }
+
+        .view-switch {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .375rem;
+            margin: .75rem 0 1rem;
+        }
+        .view-switch button {
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--muted);
+            font-size: .75rem;
+            font-weight: 600;
+            padding: .4rem .75rem;
+            border-radius: 50rem;
+            cursor: pointer;
+        }
+        .view-switch button.is-on {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+        }
+
+        .view { display: none; }
+        .view.is-on { display: block; }
+
+        .breadcrumb-bar {
+            display: flex;
+            align-items: center;
+            gap: .375rem;
+            font-size: .75rem;
+            color: var(--faint);
+            margin-bottom: .625rem;
+        }
+        .breadcrumb-bar .material-icons-outlined { font-size: 14px; }
+
+        .page-head {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: .75rem;
+            margin-bottom: .75rem;
+        }
+        .page-head h1 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .page-head p { margin: .2rem 0 0; color: var(--muted); font-size: .8125rem; }
+
+        .stat-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: .625rem;
+            margin-bottom: .75rem;
+        }
+        @media (max-width: 800px) {
+            .stat-row { grid-template-columns: 1fr 1fr; }
+        }
+
+        .stat {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: .75rem .875rem;
+            box-shadow: var(--shadow);
+        }
+        .stat__label { font-size: .6875rem; font-weight: 600; color: var(--faint); text-transform: uppercase; letter-spacing: .03em; }
+        .stat__value { font-size: 1.35rem; font-weight: 700; color: var(--text); line-height: 1.2; }
+        .stat__hint { font-size: .6875rem; color: var(--muted); }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .5rem;
+            align-items: center;
+            padding: .75rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .toolbar input, .toolbar select {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: .4rem .6rem;
+            font-size: .75rem;
+            color: var(--text);
+            background: #fff;
+        }
+        .toolbar input { min-width: 180px; }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: .2rem;
+            font-size: .6875rem;
+            font-weight: 600;
+            padding: .2em .55em;
+            border-radius: 50rem;
+            line-height: 1.3;
+        }
+        .chip--success { background: #d1e7dd; color: #0f5132; }
+        .chip--danger  { background: #f8d7da; color: #842029; }
+        .chip--warning { background: #fff3cd; color: #664d03; }
+        .chip--primary { background: var(--primary-soft); color: var(--primary); }
+        .chip--hunt { background: #ffedd5; color: #9a3412; }
+        .chip--muted { background: #e9ecef; color: #495057; }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: .25rem;
+            font-size: .75rem;
+            font-weight: 600;
+            padding: .4rem .75rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid transparent;
+            cursor: pointer;
+            line-height: 1.3;
+            white-space: nowrap;
+            font-family: inherit;
+        }
+        .btn .material-icons-outlined { font-size: 16px; }
+        .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-hunt { background: #ea580c; color: #fff; border-color: #ea580c; }
+        .btn-hunt:hover { background: #c2410c; }
+        .btn-outline { background: #fff; color: var(--muted); border-color: var(--border); }
+        .btn-outline:hover { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
+        .btn-ghost { background: transparent; color: var(--muted); border-color: var(--border); }
+        .btn-danger { background: #fff; color: #842029; border-color: #f1aeb5; }
+        .btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+        table.board {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .8125rem;
+        }
+        table.board th {
+            text-align: left;
+            font-size: .75rem;
+            font-weight: 600;
+            color: var(--faint);
+            background: #f8f9fa;
+            padding: .65rem .85rem;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        table.board td {
+            padding: .7rem .85rem;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+            color: var(--text);
+        }
+        table.board tr { cursor: pointer; }
+        table.board tbody tr:hover { background: rgba(37, 39, 77, 0.04); }
+        table.board .sub { display: block; font-size: .6875rem; color: var(--muted); font-weight: 400; }
+        .job-id { font-weight: 700; color: var(--primary); }
+
+        .bid-pills { display: flex; gap: .25rem; }
+        .bid-avatar {
+            width: 22px; height: 22px; border-radius: 50%;
+            background: var(--primary); color: #fff;
+            font-size: .625rem; font-weight: 700;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+
+        .staff-note {
+            font-size: .6875rem;
+            color: var(--muted);
+            padding: .65rem 1rem;
+            border-top: 1px solid var(--border);
+            background: #fafbfc;
+        }
+
+        /* Lead detail */
+        .lead-hero {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: .875rem 1rem;
+            margin-bottom: .625rem;
+        }
+        .lead-hero__top { display: flex; gap: .75rem; }
+        .lead-avatar {
+            width: 44px; height: 44px; border-radius: 50%;
+            background: var(--primary); color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; flex-shrink: 0;
+        }
+        .lead-name { font-size: 1.125rem; font-weight: 700; color: var(--text); margin: 0; }
+        .lead-hero__actions {
+            display: flex; flex-wrap: wrap; gap: .375rem; align-items: center;
+            margin-top: .75rem; padding-top: .75rem; border-top: 1px solid var(--border);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1.4fr .8fr;
+            gap: .625rem;
+        }
+        @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+
+        .panel { padding: .875rem 1rem; }
+        .panel h2 {
+            margin: 0 0 .75rem;
+            font-size: .8125rem;
+            font-weight: 700;
+            color: var(--text);
+            display: flex; align-items: center; gap: .35rem;
+        }
+        .dl { display: grid; grid-template-columns: 140px 1fr; gap: .35rem .75rem; font-size: .8125rem; }
+        .dl dt { color: var(--faint); font-weight: 500; }
+        .dl dd { margin: 0; color: var(--text); }
+
+        .checklist { list-style: none; padding: 0; margin: 0; }
+        .checklist li {
+            display: flex; align-items: center; gap: .5rem;
+            padding: .35rem 0; border-bottom: 1px solid var(--border);
+            color: var(--text);
+        }
+        .checklist li:last-child { border: 0; }
+        .dot { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; }
+        .dot.ok { background: #198754; }
+        .dot.no { background: #dc3545; }
+
+        .banner {
+            border-radius: var(--radius);
+            padding: .75rem 1rem;
+            margin-bottom: .625rem;
+            font-size: .8125rem;
+        }
+        .banner--ready { background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; }
+        .banner--hunting { background: #ecfdf5; border: 1px solid #6ee7b7; color: #065f46; }
+        .banner--blocked { background: #f8d7da; border: 1px solid #f1aeb5; color: #842029; }
+
+        /* Provider masked card */
+        .phone-frame {
+            max-width: 390px;
+            margin: 0 auto;
+            background: #111;
+            border-radius: 28px;
+            padding: 12px;
+            box-shadow: 0 12px 40px rgba(0,0,0,.18);
+        }
+        .phone-screen {
+            background: #f4f6f9;
+            border-radius: 20px;
+            overflow: hidden;
+            min-height: 640px;
+        }
+        .phone-bar {
+            background: var(--primary);
+            color: #fff;
+            padding: .85rem 1rem .75rem;
+        }
+        .phone-bar h2 { margin: 0; font-size: .95rem; font-weight: 700; }
+        .phone-bar p { margin: .15rem 0 0; font-size: .7rem; opacity: .8; }
+        .job-card {
+            background: #fff;
+            margin: .75rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: .85rem;
+        }
+        .job-card h3 { margin: 0 0 .35rem; font-size: .9rem; color: var(--text); }
+        .job-meta { display: flex; flex-direction: column; gap: .4rem; margin: .65rem 0; }
+        .job-meta span { display: flex; align-items: center; gap: .4rem; color: var(--text); font-size: .8rem; }
+        .job-meta .material-icons-outlined { font-size: 16px; color: var(--primary); }
+        .privacy {
+            font-size: .6875rem;
+            color: var(--muted);
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: .5rem .6rem;
+        }
+
+        /* Drawer */
+        .drawer-backdrop {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(24,24,26,.35);
+            z-index: 40;
+        }
+        .drawer-backdrop.is-on { display: block; }
+        .drawer {
+            position: fixed; top: 0; right: 0; bottom: 0;
+            width: min(440px, 100%);
+            background: #fff;
+            z-index: 50;
+            transform: translateX(100%);
+            transition: transform .2s ease;
+            box-shadow: -8px 0 24px rgba(0,0,0,.08);
+            display: flex; flex-direction: column;
+        }
+        .drawer.is-on { transform: translateX(0); }
+        .drawer__head {
+            padding: .85rem 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: flex-start;
+        }
+        .drawer__body { padding: 1rem; overflow: auto; flex: 1; }
+        .interest {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: .65rem .75rem;
+            margin-bottom: .5rem;
+        }
+        .interest strong { color: var(--text); display: block; }
+        .interest small { color: var(--muted); }
+
+        .modal-demo {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(24,24,26,.4);
+            z-index: 60;
+            align-items: center; justify-content: center;
+            padding: 1rem;
+        }
+        .modal-demo.is-on { display: flex; }
+        .modal-box {
+            background: #fff;
+            border-radius: var(--radius);
+            width: min(420px, 100%);
+            padding: 1.1rem 1.2rem;
+            box-shadow: 0 12px 40px rgba(0,0,0,.15);
+        }
+        .modal-box h3 { margin: 0 0 .35rem; color: var(--text); font-size: 1rem; }
+        .modal-box label { display: block; font-size: .75rem; font-weight: 600; color: var(--muted); margin: .65rem 0 .25rem; }
+        .modal-box select, .modal-box textarea {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: .45rem .55rem;
+            font-size: .8125rem;
+            font-family: inherit;
+        }
+
+        .callout {
+            background: #fff;
+            border: 1px dashed var(--border);
+            border-radius: var(--radius);
+            padding: .75rem 1rem;
+            margin-top: .75rem;
+            font-size: .75rem;
+            color: var(--muted);
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-notice">
+        <strong>Static demo</strong> — Unassigned work (provider hunting). Not wired to live data.
+        Staff see full customer details. Providers later see only job, area, date/time.
+    </div>
+
+    <div class="page-wrap">
+        <div class="view-switch">
+            <button type="button" class="is-on" data-view="board">1. Hunting board (staff)</button>
+            <button type="button" data-view="lead-ready">2. Lead — start hunting</button>
+            <button type="button" data-view="lead-blocked">3. Lead — data incomplete</button>
+            <button type="button" data-view="provider">4. Provider card later (app)</button>
+        </div>
+
+        <!-- 1. BOARD -->
+        <section class="view is-on" id="view-board">
+            <div class="breadcrumb-bar">
+                <span>Dashboard</span>
+                <span class="material-icons-outlined">chevron_right</span>
+                <span>Leads and bookings</span>
+                <span class="material-icons-outlined">chevron_right</span>
+                <span>Unassigned work</span>
+            </div>
+
+            <div class="page-head">
+                <div>
+                    <h1>Unassigned work</h1>
+                    <p>Customer leads with complete job data where staff has started provider hunting. Same lead — not a separate job record.</p>
+                </div>
+            </div>
+
+            <div class="stat-row">
+                <div class="stat">
+                    <div class="stat__label">Hunting now</div>
+                    <div class="stat__value">6</div>
+                    <div class="stat__hint">Published on the board</div>
+                </div>
+                <div class="stat">
+                    <div class="stat__label">With interest</div>
+                    <div class="stat__value">3</div>
+                    <div class="stat__hint">At least one provider bid</div>
+                </div>
+                <div class="stat">
+                    <div class="stat__label">No bids yet</div>
+                    <div class="stat__value">3</div>
+                    <div class="stat__hint">Still chasing / group post</div>
+                </div>
+                <div class="stat">
+                    <div class="stat__label">Oldest open</div>
+                    <div class="stat__value">4h</div>
+                    <div class="stat__hint">Rajbagh · Plumbing</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="toolbar">
+                    <input type="search" placeholder="Search lead ID, area, service…" aria-label="Search">
+                    <select aria-label="Subcategory">
+                        <option>All subcategories</option>
+                        <option selected>Plumbing</option>
+                        <option>Electrician</option>
+                        <option>AC repair</option>
+                    </select>
+                    <select aria-label="Zone">
+                        <option>All zones</option>
+                        <option selected>Srinagar</option>
+                        <option>Budgam</option>
+                    </select>
+                    <select aria-label="Bids">
+                        <option>Any bids</option>
+                        <option>Has interest</option>
+                        <option>No interest yet</option>
+                    </select>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table class="board">
+                        <thead>
+                            <tr>
+                                <th>Lead</th>
+                                <th>Job (what providers see)</th>
+                                <th>Area / zone</th>
+                                <th>When</th>
+                                <th>Interest</th>
+                                <th>Posted</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr data-open-drawer>
+                                <td>
+                                    <span class="job-id">#2425</span>
+                                    <span class="sub">Staff only · Farooq Ahmad · 9797••••12</span>
+                                </td>
+                                <td>
+                                    Kitchen sink blocked, water backing up
+                                    <span class="sub">Plumbing · Drain unblock</span>
+                                </td>
+                                <td>Rajbagh <span class="sub">Srinagar</span></td>
+                                <td>Sat 6 Apr · 10:00 AM</td>
+                                <td>
+                                    <span class="chip chip--hunt">3 bids</span>
+                                    <span class="bid-pills" style="margin-top:.25rem;">
+                                        <span class="bid-avatar">HK</span>
+                                        <span class="bid-avatar">SM</span>
+                                        <span class="bid-avatar">AB</span>
+                                    </span>
+                                </td>
+                                <td>Today 8:12 AM <span class="sub">by Aisha</span></td>
+                                <td><button type="button" class="btn btn-outline" data-open-drawer>Open</button></td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <span class="job-id">#2431</span>
+                                    <span class="sub">Staff only · Sara Bhat · 7006••••90</span>
+                                </td>
+                                <td>
+                                    Whole house MCB tripping
+                                    <span class="sub">Electrician · MCB / wiring</span>
+                                </td>
+                                <td>Lal Chowk <span class="sub">Srinagar</span></td>
+                                <td>Today · ASAP / HOT</td>
+                                <td><span class="chip chip--muted">0 bids</span></td>
+                                <td>Today 11:40 AM <span class="sub">by Rahul</span></td>
+                                <td><button type="button" class="btn btn-outline">Open</button></td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <span class="job-id">#2418</span>
+                                    <span class="sub">Staff only · Hina Mir · 8899••••44</span>
+                                </td>
+                                <td>
+                                    Split AC not cooling, 1.5 ton
+                                    <span class="sub">Home appliances · AC</span>
+                                </td>
+                                <td>Hyderpora <span class="sub">Srinagar</span></td>
+                                <td>Sun 7 Apr · 2:00 PM</td>
+                                <td><span class="chip chip--warning">1 bid</span></td>
+                                <td>Yesterday 4:02 PM <span class="sub">by Fatima</span></td>
+                                <td><button type="button" class="btn btn-outline">Open</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="staff-note">
+                    Name and phone stay on this staff table. The provider app later shows only the Job / Area / When columns.
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. LEAD READY -->
+        <section class="view" id="view-lead-ready">
+            <div class="breadcrumb-bar">
+                <span>Leads</span>
+                <span class="material-icons-outlined">chevron_right</span>
+                <span>Lead #2425</span>
+            </div>
+
+            <div class="banner banner--ready">
+                <strong>Hunt-ready.</strong> Subcategory, zone, area, date/time, and job text are filled. Staff can start provider hunting — this lead will appear on Unassigned work.
+            </div>
+
+            <div class="lead-hero">
+                <div class="lead-hero__top">
+                    <div class="lead-avatar">FA</div>
+                    <div>
+                        <h1 class="lead-name">Farooq Ahmad</h1>
+                        <div style="margin-top:.2rem;">
+                            <span class="chip chip--success">Customer</span>
+                            <span class="chip chip--primary">Pending</span>
+                            <span class="chip chip--warning">Open</span>
+                        </div>
+                        <div style="margin-top:.35rem; color: var(--text); font-weight: 600;">9797 123 412</div>
+                    </div>
+                </div>
+                <div class="lead-hero__actions">
+                    <button type="button" class="btn btn-hunt" id="btn-start-hunt">
+                        <span class="material-icons-outlined">travel_explore</span>
+                        Start provider hunting
+                    </button>
+                    <button type="button" class="btn btn-outline">Create booking</button>
+                    <button type="button" class="btn btn-ghost">Add follow-up</button>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="card panel">
+                    <h2><span class="material-icons-outlined" style="font-size:18px;">handyman</span> Customer lead information</h2>
+                    <dl class="dl">
+                        <dt>Zone</dt><dd>Srinagar</dd>
+                        <dt>Area</dt><dd>Rajbagh</dd>
+                        <dt>Category</dt><dd>Plumbing</dd>
+                        <dt>Subcategory</dt><dd>Drain / blockage</dd>
+                        <dt>Service</dt><dd>Kitchen sink unblock</dd>
+                        <dt>When</dt><dd>Saturday 6 Apr 2026, 10:00 AM</dd>
+                        <dt>Job details</dt><dd>Kitchen sink blocked, water backing up. Ground floor. Prefer morning.</dd>
+                    </dl>
+                </div>
+                <div class="card panel">
+                    <h2>Hunt-ready checklist</h2>
+                    <ul class="checklist">
+                        <li><span class="dot ok"></span> Subcategory</li>
+                        <li><span class="dot ok"></span> Zone</li>
+                        <li><span class="dot ok"></span> Area (shown as address)</li>
+                        <li><span class="dot ok"></span> Date / time</li>
+                        <li><span class="dot ok"></span> Job text</li>
+                    </ul>
+                    <p class="staff-note" style="border:0; padding:.75rem 0 0;">12 subscribed plumbers in Srinagar would see this job once hunting starts.</p>
+                </div>
+            </div>
+
+            <div class="card panel" id="hunting-live" style="display:none; margin-top:.625rem;">
+                <div class="banner banner--hunting" style="margin:0 0 .75rem;">
+                    <strong>On the hunting board.</strong> This is the same lead. Unpublish when you found a provider or cancelled.
+                </div>
+                <div style="display:flex; gap:.375rem; flex-wrap:wrap;">
+                    <button type="button" class="btn btn-danger" id="btn-unpublish">
+                        <span class="material-icons-outlined">unpublished</span>
+                        Unpublish from board
+                    </button>
+                    <button type="button" class="btn btn-outline" data-open-drawer>View 3 interested providers</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. LEAD BLOCKED -->
+        <section class="view" id="view-lead-blocked">
+            <div class="breadcrumb-bar">
+                <span>Leads</span>
+                <span class="material-icons-outlined">chevron_right</span>
+                <span>Lead #2402</span>
+            </div>
+
+            <div class="banner banner--blocked">
+                <strong>Not hunt-ready.</strong> Fill missing fields before this lead can go on Unassigned work. Open customer lead alone is not enough.
+            </div>
+
+            <div class="lead-hero">
+                <div class="lead-hero__top">
+                    <div class="lead-avatar">ZK</div>
+                    <div>
+                        <h1 class="lead-name">Zain Khan</h1>
+                        <div style="margin-top:.2rem;">
+                            <span class="chip chip--success">Customer</span>
+                            <span class="chip chip--primary">Pending</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="lead-hero__actions">
+                    <button type="button" class="btn btn-hunt" disabled title="Complete hunt-ready fields first">
+                        <span class="material-icons-outlined">travel_explore</span>
+                        Start provider hunting
+                    </button>
+                    <span style="font-size:.75rem; color: var(--muted);">Disabled until area and date/time are saved</span>
+                </div>
+            </div>
+
+            <div class="card panel">
+                <h2>Hunt-ready checklist</h2>
+                <ul class="checklist">
+                    <li><span class="dot ok"></span> Subcategory — Electrician</li>
+                    <li><span class="dot ok"></span> Zone — Srinagar</li>
+                    <li><span class="dot no"></span> Area — missing</li>
+                    <li><span class="dot no"></span> Date / time — missing</li>
+                    <li><span class="dot ok"></span> Job text — “Fan not working”</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- 4. PROVIDER APP -->
+        <section class="view" id="view-provider">
+            <div class="page-head">
+                <div>
+                    <h1>Provider app — later</h1>
+                    <p>Not in v1. Same hunting leads, filtered by subscribed subcategory + zone. No customer name or phone.</p>
+                </div>
+            </div>
+            <div class="phone-frame">
+                <div class="phone-screen">
+                    <div class="phone-bar">
+                        <h2>Open work</h2>
+                        <p>Jobs matching your services · Plumbing · Srinagar</p>
+                    </div>
+                    <div class="job-card">
+                        <span class="chip chip--hunt">Open</span>
+                        <h3 style="margin-top:.5rem;">Kitchen sink blocked, water backing up</h3>
+                        <p style="margin:0; color: var(--muted); font-size:.75rem;">Plumbing · Drain unblock</p>
+                        <div class="job-meta">
+                            <span><span class="material-icons-outlined">place</span> Rajbagh, Srinagar</span>
+                            <span><span class="material-icons-outlined">schedule</span> Sat 6 Apr · 10:00 AM</span>
+                        </div>
+                        <div class="privacy">Customer name and phone are hidden until staff assigns you.</div>
+                        <button type="button" class="btn btn-primary" style="width:100%; justify-content:center; margin-top:.75rem;">I’m interested</button>
+                    </div>
+                    <div class="job-card">
+                        <span class="chip chip--muted">Open</span>
+                        <h3 style="margin-top:.5rem;">Bathroom tap leaking</h3>
+                        <p style="margin:0; color: var(--muted); font-size:.75rem;">Plumbing · Tap / mixer</p>
+                        <div class="job-meta">
+                            <span><span class="material-icons-outlined">place</span> Jawahar Nagar, Srinagar</span>
+                            <span><span class="material-icons-outlined">schedule</span> Tomorrow · 4:00 PM</span>
+                        </div>
+                        <button type="button" class="btn btn-outline" style="width:100%; justify-content:center; margin-top:.75rem;">I’m interested</button>
+                    </div>
+                </div>
+            </div>
+            <div class="callout">v1 is admin only. This screen is the later Provider app. Several providers can tap interested; staff still assign.</div>
+        </section>
+    </div>
+
+    <div class="drawer-backdrop" id="drawer-backdrop"></div>
+    <aside class="drawer" id="drawer" aria-label="Lead hunting detail">
+        <div class="drawer__head">
+            <div>
+                <div class="job-id">Lead #2425</div>
+                <div style="font-weight:700; color:var(--text); margin-top:.15rem;">Kitchen sink blocked</div>
+                <div style="font-size:.75rem;">Rajbagh · Sat 10:00 AM</div>
+            </div>
+            <button type="button" class="btn btn-ghost" id="drawer-close">Close</button>
+        </div>
+        <div class="drawer__body">
+            <p style="font-size:.75rem; color:var(--muted); margin-top:0;">Staff view — customer details stay here. Bids do not auto-assign.</p>
+            <div class="interest">
+                <strong>Farooq Ahmad · 9797 123 412</strong>
+                <small>Staff only · not shown to providers</small>
+            </div>
+            <h2 style="font-size:.8125rem; color:var(--text); margin:1rem 0 .5rem;">Interested providers (3)</h2>
+            <div class="interest">
+                <strong>Hakeem Plumbing</strong>
+                <small>Subscribed: Drain / blockage · “Can do 10 AM”</small>
+                <div style="margin-top:.4rem;"><button type="button" class="btn btn-primary">Assign as temporary provider</button></div>
+            </div>
+            <div class="interest">
+                <strong>Shah Maintenance</strong>
+                <small>Subscribed: Plumbing · “Available after 11”</small>
+                <div style="margin-top:.4rem;"><button type="button" class="btn btn-outline">Assign as temporary provider</button></div>
+            </div>
+            <div class="interest">
+                <strong>A. Bhat Works</strong>
+                <small>Subscribed: Plumbing · no note</small>
+                <div style="margin-top:.4rem;"><button type="button" class="btn btn-outline">Assign as temporary provider</button></div>
+            </div>
+            <button type="button" class="btn btn-danger" style="margin-top:.5rem;" id="btn-unpublish-2">Unpublish from board</button>
+        </div>
+    </aside>
+
+    <div class="modal-demo" id="unpublish-modal" role="dialog" aria-labelledby="unpub-title">
+        <div class="modal-box">
+            <h3 id="unpub-title">Unpublish from hunting board</h3>
+            <p style="margin:0; font-size:.8125rem;">The lead stays in CRM. It only leaves Unassigned work.</p>
+            <label for="unpub-reason">Reason</label>
+            <select id="unpub-reason">
+                <option>Found provider</option>
+                <option>Cancelled</option>
+            </select>
+            <label for="unpub-notes">Notes (optional)</label>
+            <textarea id="unpub-notes" rows="3" placeholder="e.g. Assigned Hakeem Plumbing as temporary provider"></textarea>
+            <div style="display:flex; gap:.4rem; justify-content:flex-end; margin-top:1rem;">
+                <button type="button" class="btn btn-ghost" data-close-modal>Keep hunting</button>
+                <button type="button" class="btn btn-primary" data-close-modal>Unpublish</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const views = document.querySelectorAll('.view');
+        document.querySelectorAll('.view-switch button').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.view-switch button').forEach((b) => b.classList.remove('is-on'));
+                btn.classList.add('is-on');
+                views.forEach((v) => v.classList.toggle('is-on', v.id === 'view-' + btn.dataset.view));
+            });
+        });
+
+        const drawer = document.getElementById('drawer');
+        const backdrop = document.getElementById('drawer-backdrop');
+        function openDrawer() {
+            drawer.classList.add('is-on');
+            backdrop.classList.add('is-on');
+        }
+        function closeDrawer() {
+            drawer.classList.remove('is-on');
+            backdrop.classList.remove('is-on');
+        }
+        document.querySelectorAll('[data-open-drawer]').forEach((el) => el.addEventListener('click', openDrawer));
+        document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+        backdrop.addEventListener('click', closeDrawer);
+
+        document.getElementById('btn-start-hunt').addEventListener('click', function () {
+            document.getElementById('hunting-live').style.display = 'block';
+            this.disabled = true;
+            this.innerHTML = '<span class="material-icons-outlined">check</span> Hunting started';
+            const banner = document.querySelector('#view-lead-ready .banner--ready');
+            banner.className = 'banner banner--hunting';
+            banner.innerHTML = '<strong>Hunting started.</strong> This lead is now on Unassigned work. Same lead — no extra job record.';
+        });
+
+        const modal = document.getElementById('unpublish-modal');
+        function openModal() { modal.classList.add('is-on'); }
+        document.getElementById('btn-unpublish').addEventListener('click', openModal);
+        document.getElementById('btn-unpublish-2').addEventListener('click', openModal);
+        document.querySelectorAll('[data-close-modal]').forEach((el) => {
+            el.addEventListener('click', () => modal.classList.remove('is-on'));
+        });
+    </script>
+</body>
+</html>

@@ -20,5 +20,9 @@
             <a class="nav-link {{ ($webPage ?? '') === 'payments' ? 'active' : '' }}"
                href="{{ url()->current() }}?web_page=payments">{{ translate('Payment') }}</a>
         </li>
+        <li class="nav-item">
+            <a class="nav-link {{ ($webPage ?? '') === 'wallet' ? 'active' : '' }}"
+               href="{{ url()->current() }}?web_page=wallet">{{ translate('Wallet') }}</a>
+        </li>
     </ul>
 </div>

@@ -152,7 +152,9 @@ class WalletController extends Controller
             ->latest()->get();
 
         return (new FastExcel($filteredTransactions))->download(time() . '-provider-report.xlsx', function ($transaction) {
-            $reference = $transaction->reference_note;
+            $reference = function_exists('sanitize_wallet_transaction_reference_note')
+                ? sanitize_wallet_transaction_reference_note($transaction->reference_note)
+                : $transaction->reference_note;
             if (empty($reference) && isset($transaction->booking) && $transaction->booking?->readable_id) {
                 $reference = translate('Booking') . ' #' . $transaction->booking->readable_id;
             }
