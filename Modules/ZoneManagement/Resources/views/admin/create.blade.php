@@ -211,6 +211,183 @@
     <script src="{{asset('assets/admin-module/plugins/dataTables/jquery.dataTables.min.js')}}"></script>
     <script src="{{asset('assets/admin-module/plugins/dataTables/dataTables.select.min.js')}}"></script>
     <script src="{{asset('assets/admin-module/plugins/select2/select2.min.js')}}"></script>
+    <script>
+    (function ($) {
+        'use strict';
+        if (!$) {
+            return;
+        }
+
+        function zoneListCssEscape(value) {
+            if (value == null) {
+                return '';
+            }
+            return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        }
+
+        function zoneListRowId($row) {
+            return $row.attr('data-zone-id') || '';
+        }
+
+        function zoneListRowHasChildren($row) {
+            const raw = $row.attr('data-has-children');
+            return raw === '1' || raw === 'true';
+        }
+
+        function zoneListToggleButtonSetCollapsed($btn) {
+            if (!$btn || !$btn.length) {
+                return;
+            }
+            $btn.attr('aria-expanded', 'false');
+            $btn.removeClass('zone-toggle-children--hide').addClass('zone-toggle-children--view');
+            $btn.find('.zone-toggle-children__icon').text('expand_more');
+            $btn.find('.zone-toggle-children__label').text($btn.attr('data-label-show') || '');
+        }
+
+        function zoneListToggleButtonSetExpanded($btn) {
+            if (!$btn || !$btn.length) {
+                return;
+            }
+            $btn.attr('aria-expanded', 'true');
+            $btn.removeClass('zone-toggle-children--view').addClass('zone-toggle-children--hide');
+            $btn.find('.zone-toggle-children__icon').text('expand_less');
+            $btn.find('.zone-toggle-children__label').text($btn.attr('data-label-hide') || '');
+        }
+
+        function zoneListNestContiguousRuns(parentZoneId) {
+            const $rows = $('tr.zone-list-tree-row[data-child-of="' + zoneListCssEscape(parentZoneId) + '"]').filter(':not(.d-none)');
+            const runs = [];
+            let run = [];
+            $rows.each(function () {
+                const el = this;
+                if (run.length === 0) {
+                    run.push(el);
+                    return;
+                }
+                const last = run[run.length - 1];
+                if (last.nextElementSibling === el) {
+                    run.push(el);
+                } else {
+                    runs.push(run);
+                    run = [el];
+                }
+            });
+            if (run.length) {
+                runs.push(run);
+            }
+            return runs;
+        }
+
+        function zoneListRefreshBranchHighlight() {
+            $('tr.zone-list-tree-row').removeClass(
+                'zone-branch-subtree zone-branch-nest zone-branch-nest--l1 zone-branch-nest--l2 zone-branch-nest--l3 zone-branch-nest--l4 zone-branch-nest-first zone-branch-nest-last'
+            );
+            const $openTop = $('tr.zone-list-top-level.zone-list-expandable.zone-children-open').first();
+            if (!$openTop.length) {
+                return;
+            }
+            const rootId = $openTop.attr('data-branch-root');
+            if (!rootId) {
+                return;
+            }
+            const $subtree = $('tr.zone-list-tree-row[data-branch-root="' + zoneListCssEscape(rootId) + '"]').filter(function () {
+                if ($(this).hasClass('d-none')) {
+                    return false;
+                }
+                const co = $(this).attr('data-child-of');
+                return co !== undefined && co !== '';
+            });
+            $subtree.addClass('zone-branch-subtree');
+
+            $('tr.zone-list-expandable.zone-children-open').each(function () {
+                const $p = $(this);
+                const pid = zoneListRowId($p);
+                if (!pid) {
+                    return;
+                }
+                const pDepth = parseInt($p.attr('data-depth'), 10);
+                const depth = Number.isNaN(pDepth) ? 0 : pDepth;
+                const lvl = Math.min(depth + 1, 4);
+                const runs = zoneListNestContiguousRuns(pid);
+                runs.forEach(function (elements) {
+                    const $r = $(elements);
+                    $r.addClass('zone-branch-nest zone-branch-nest--l' + lvl);
+                    $r.first().addClass('zone-branch-nest-first');
+                    $r.last().addClass('zone-branch-nest-last');
+                });
+            });
+        }
+
+        function zoneListCloseBranch($row) {
+            const id = zoneListRowId($row);
+            $row.removeClass('zone-children-open');
+            zoneListToggleButtonSetCollapsed($row.find('.zone-toggle-children'));
+            $('tr.zone-list-tree-row[data-child-of="' + zoneListCssEscape(id) + '"]').each(function () {
+                const $child = $(this);
+                if ($child.hasClass('zone-list-expandable') && $child.hasClass('zone-children-open')) {
+                    zoneListCloseBranch($child);
+                }
+                $child.addClass('d-none');
+            });
+            zoneListRefreshBranchHighlight();
+        }
+
+        function zoneListOpenBranch($row) {
+            const parentId = $row.attr('data-child-of');
+            const hasParent = parentId !== undefined && parentId !== '';
+
+            if (!hasParent) {
+                $('tr.zone-list-top-level.zone-list-expandable.zone-children-open').not($row).each(function () {
+                    zoneListCloseBranch($(this));
+                });
+            } else {
+                $('tr.zone-list-expandable.zone-children-open[data-child-of="' + zoneListCssEscape(parentId) + '"]').not($row).each(function () {
+                    zoneListCloseBranch($(this));
+                });
+            }
+
+            const id = zoneListRowId($row);
+            $row.addClass('zone-children-open');
+            $('tr.zone-list-tree-row[data-child-of="' + zoneListCssEscape(id) + '"]').removeClass('d-none');
+            zoneListToggleButtonSetExpanded($row.find('.zone-toggle-children'));
+            zoneListRefreshBranchHighlight();
+        }
+
+        function zoneListToggleBranch($row) {
+            if (!$row || !$row.length || !zoneListRowHasChildren($row)) {
+                return;
+            }
+            if ($row.hasClass('zone-children-open')) {
+                zoneListCloseBranch($row);
+            } else {
+                zoneListOpenBranch($row);
+            }
+        }
+
+        $(document)
+            .off('click', '.zone-toggle-children')
+            .off('click.zoneListTree', '.zone-toggle-children')
+            .on('click.zoneListTree', '.zone-toggle-children', function (e) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                zoneListToggleBranch($(this).closest('tr.zone-list-tree-row'));
+            });
+
+        $(document)
+            .off('click', '.zone-list-expandable')
+            .off('click', 'tr.zone-list-expandable')
+            .off('click.zoneListTreeRow', 'tr.zone-list-expandable')
+            .on('click.zoneListTreeRow', 'tr.zone-list-expandable', function (e) {
+                if ($(e.target).closest('a, button, label, input, .switcher').length) {
+                    return;
+                }
+                zoneListToggleBranch($(this));
+            });
+
+        window.zoneListRefreshBranchHighlight = zoneListRefreshBranchHighlight;
+        zoneListRefreshBranchHighlight();
+    })(window.jQuery);
+    </script>
 
     @php
         $api_key = optional(business_config('google_map', 'third_party'))->live_values ?? [];
@@ -1116,153 +1293,6 @@
             });
         }
 
-        function zoneListToggleButtonSetCollapsed($btn) {
-            if (!$btn || !$btn.length) {
-                return;
-            }
-            $btn.attr('aria-expanded', 'false');
-            $btn.removeClass('zone-toggle-children--hide').addClass('zone-toggle-children--view');
-            $btn.find('.zone-toggle-children__icon').text('expand_more');
-            $btn.find('.zone-toggle-children__label').text($btn.data('label-show'));
-        }
-
-        function zoneListToggleButtonSetExpanded($btn) {
-            if (!$btn || !$btn.length) {
-                return;
-            }
-            $btn.attr('aria-expanded', 'true');
-            $btn.removeClass('zone-toggle-children--view').addClass('zone-toggle-children--hide');
-            $btn.find('.zone-toggle-children__icon').text('expand_less');
-            $btn.find('.zone-toggle-children__label').text($btn.data('label-hide'));
-        }
-
-        function zoneListNestContiguousRuns(parentZoneId) {
-            const $rows = $('tr.zone-list-tree-row[data-child-of="' + parentZoneId + '"]').filter(':not(.d-none)');
-            const runs = [];
-            let run = [];
-            $rows.each(function () {
-                const el = this;
-                if (run.length === 0) {
-                    run.push(el);
-                    return;
-                }
-                const last = run[run.length - 1];
-                if (last.nextElementSibling === el) {
-                    run.push(el);
-                } else {
-                    runs.push(run);
-                    run = [el];
-                }
-            });
-            if (run.length) {
-                runs.push(run);
-            }
-            return runs;
-        }
-
-        function zoneListRefreshBranchHighlight() {
-            $('tr.zone-list-tree-row').removeClass(
-                'zone-branch-subtree zone-branch-nest zone-branch-nest--l1 zone-branch-nest--l2 zone-branch-nest--l3 zone-branch-nest--l4 zone-branch-nest-first zone-branch-nest-last'
-            );
-            const $openTop = $('tr.zone-list-top-level.zone-list-expandable.zone-children-open').first();
-            if (!$openTop.length) {
-                return;
-            }
-            const rootId = $openTop.attr('data-branch-root');
-            if (!rootId) {
-                return;
-            }
-            const $subtree = $('tr.zone-list-tree-row[data-branch-root="' + rootId + '"]').filter(function () {
-                if ($(this).hasClass('d-none')) {
-                    return false;
-                }
-                const co = $(this).attr('data-child-of');
-                return co !== undefined && co !== '';
-            });
-            $subtree.addClass('zone-branch-subtree');
-
-            $('tr.zone-list-expandable.zone-children-open').each(function () {
-                const $p = $(this);
-                const pid = $p.data('zone-id');
-                if (!pid) {
-                    return;
-                }
-                const pDepth = parseInt($p.attr('data-depth'), 10);
-                const depth = Number.isNaN(pDepth) ? 0 : pDepth;
-                const lvl = Math.min(depth + 1, 4);
-                const runs = zoneListNestContiguousRuns(pid);
-                runs.forEach(function (elements) {
-                    const $r = $(elements);
-                    $r.addClass('zone-branch-nest zone-branch-nest--l' + lvl);
-                    $r.first().addClass('zone-branch-nest-first');
-                    $r.last().addClass('zone-branch-nest-last');
-                });
-            });
-        }
-
-        function zoneListCloseBranch($row) {
-            const id = $row.data('zone-id');
-            $row.removeClass('zone-children-open');
-            const $btn = $row.find('.zone-toggle-children');
-            zoneListToggleButtonSetCollapsed($btn);
-            $('tr.zone-list-tree-row[data-child-of="' + id + '"]').each(function () {
-                const $child = $(this);
-                if ($child.hasClass('zone-list-expandable') && $child.hasClass('zone-children-open')) {
-                    zoneListCloseBranch($child);
-                }
-                $child.addClass('d-none');
-            });
-            zoneListRefreshBranchHighlight();
-        }
-
-        function zoneListOpenBranch($row) {
-            const parentId = $row.attr('data-child-of');
-            const hasParent = parentId !== undefined && parentId !== '';
-
-            if (!hasParent) {
-                $('tr.zone-list-top-level.zone-list-expandable.zone-children-open').not($row).each(function () {
-                    zoneListCloseBranch($(this));
-                });
-            } else {
-                $('tr.zone-list-expandable.zone-children-open[data-child-of="' + parentId + '"]').not($row).each(function () {
-                    zoneListCloseBranch($(this));
-                });
-            }
-
-            const id = $row.data('zone-id');
-            $row.addClass('zone-children-open');
-            $('tr.zone-list-tree-row[data-child-of="' + id + '"]').removeClass('d-none');
-            const $openBtn = $row.find('.zone-toggle-children');
-            zoneListToggleButtonSetExpanded($openBtn);
-            zoneListRefreshBranchHighlight();
-        }
-
-        function zoneListToggleBranch($row) {
-            const has = $row.data('has-children') === 1 || $row.attr('data-has-children') === '1';
-            if (!has) {
-                return;
-            }
-            if ($row.hasClass('zone-children-open')) {
-                zoneListCloseBranch($row);
-            } else {
-                zoneListOpenBranch($row);
-            }
-        }
-
-        $(document).on('click', '.zone-toggle-children', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            const $expandRow = $(this).closest('tr.zone-list-expandable');
-            zoneListToggleBranch($expandRow);
-        });
-
-        $(document).on('click', '.zone-list-expandable', function (e) {
-            if ($(e.target).closest('a, button, label, input, .switcher').length) {
-                return;
-            }
-            zoneListToggleBranch($(this));
-        });
-
         function reloadTable(page) {
             let search = $('.zone-search-input').val();
             $.ajax({
@@ -1283,7 +1313,9 @@
 
                     $('#totalListCount').html(response.totalCount)
                     $('#ListTableContainer').empty().html(response.view);
-                    zoneListRefreshBranchHighlight();
+                    if (typeof window.zoneListRefreshBranchHighlight === 'function') {
+                        window.zoneListRefreshBranchHighlight();
+                    }
                 },
                 error: function () {
                     toastr.error('Failed to update table. Please reload the page.', {
@@ -1302,10 +1334,6 @@
             const newUrl = `${window.location.pathname}?${params.toString()}`;
             window.history.replaceState({}, '', newUrl);
         }
-
-        $(function () {
-            zoneListRefreshBranchHighlight();
-        });
 
         // Toggle zone form visibility (default: list only)
         function bindAddZoneFormToggle() {
