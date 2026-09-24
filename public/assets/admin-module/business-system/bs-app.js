@@ -417,7 +417,7 @@
 
   const ROLE_JUMPS = [
     ["rd-role", "The role"],
-    ["rd-lanes", "Lanes"],
+    ["rd-lanes", "Three parts"],
     ["rd-owns", "Owns"],
     ["rd-given", "Given"],
     ["rd-graph", "Connects"],
@@ -437,7 +437,7 @@
     ["rd-role", "What this job is"],
     ["rd-def", "What / Why"],
     ["rd-owns", "Owns"],
-    ["rd-lanes", "Lanes"],
+    ["rd-lanes", "Three parts"],
     ["rd-do", "Responsibilities"],
     ["rd-hand", "Handoffs"],
     ["rd-how", "Work flow"],
@@ -470,12 +470,14 @@
 
   function renderLanes(lanes) {
     return `<div class="rd-lanes">${(lanes || []).map((lane) => `
-      <article class="rd-duty">
-        <p class="rd-sop-id">${esc(lane.kicker)}</p>
-        <h3>${esc(lane.title)}</h3>
-        <p><b>Work.</b> ${esc(lane.work)}</p>
-        <p><b>Result.</b> ${esc(lane.result)}</p>
-        ${lane.who ? `<p><b>Who.</b> ${esc(lane.who)}</p>` : ""}
+      <article class="rd-duty rd-lane-card">
+        ${lane.art ? `<div class="rd-lane-art"><img src="${art(lane.art)}" alt=""></div>` : ""}
+        <div class="rd-lane-copy">
+          <h3>${esc(lane.title)}</h3>
+          <p><b>What you do.</b> ${esc(lane.work)}</p>
+          <p><b>When this part is done.</b> ${esc(lane.result)}</p>
+          ${lane.who ? `<p><b>Who does it.</b> ${esc(lane.who)}</p>` : ""}
+        </div>
       </article>
     `).join("")}</div>`;
   }
@@ -814,11 +816,8 @@
         </section>` : ""}
         ${renderOwnsMustNot(role)}
         ${role.lanes && role.lanes.length ? `<section class="rd-section" id="rd-lanes">
-          ${secHead("", "", copy.lanesTitle || "How this job is split", copy.lanes || "One result. Named lanes. If a lane’s box is empty, this seat is the acting owner — and must say so in writing.")}
+          ${secHead("", "", copy.lanesTitle || "This job has three parts", copy.lanes || "This job has one result. The work is in three parts. Each part says what you do, when it is done, and who does it. If Who is another job and that job is empty, you do that work today. Write that down.")}
           ${renderLanes(role.lanes)}
-          ${(role.laneLinks || []).length ? `<p class="rd-lane-links">${role.laneLinks.map((link) =>
-            `<button type="button" class="rd-back is-gold" data-go-hash="${esc(link.hash)}">${esc(link.label)}</button>`
-          ).join("")}</p>` : ""}
         </section>` : ""}
         <section class="rd-section" id="rd-do">
           ${secHead("", "", "Responsibilities", copy.responsibilities || "Click a row to open the full card.")}
@@ -938,11 +937,8 @@
           </div>
         </section>
         ${role.lanes && role.lanes.length ? `<section class="rd-section" id="rd-lanes">
-          ${secHead("sec-lanes.png", "Three lanes", "How this seat is split", "One result. Three kinds of work. If Content Maker is empty, you are the acting owner — and must say so in writing.")}
+          ${secHead("sec-lanes.png", "", "This job has three parts", "This job has one result. The work is in three parts. Each part says what you do, when it is done, and who does it. If Who is another job and that job is empty, you do that work today. Write that down.")}
           ${renderLanes(role.lanes)}
-          ${(role.laneLinks || []).length ? `<p class="rd-lane-links">${role.laneLinks.map((link) =>
-            `<button type="button" class="rd-back is-gold" data-go-hash="${esc(link.hash)}">${esc(link.label)}</button>`
-          ).join("")}</p>` : ""}
         </section>` : ""}
         ${renderOwnsMustNot(role, "sec-owns.png")}
         ${(role.given || role.sentBack) ? `<section class="rd-section" id="rd-given">

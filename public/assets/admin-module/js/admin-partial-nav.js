@@ -331,6 +331,57 @@
         return !scriptSrcIsLoaded(src, oldScript);
     }
 
+    function googleMapsApiIsReady() {
+        return typeof window.google !== 'undefined'
+            && window.google.maps
+            && typeof window.google.maps.Map === 'function';
+    }
+
+    function isGoogleMapsApiScript(src) {
+        return !!(src && src.indexOf('maps.googleapis.com/maps/api/js') !== -1);
+    }
+
+    function findGoogleMapsApiScript(excludeEl) {
+        var scripts = document.querySelectorAll('script[src*="maps.googleapis.com/maps/api/js"]');
+        for (var i = 0; i < scripts.length; i++) {
+            if (excludeEl && scripts[i] === excludeEl) {
+                continue;
+            }
+            return scripts[i];
+        }
+        return null;
+    }
+
+    function waitForExistingGoogleMapsScript(el) {
+        return new Promise(function (resolve) {
+            if (!el || googleMapsApiIsReady()) {
+                resolve();
+                return;
+            }
+            var settled = false;
+            var done = function () {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                resolve();
+            };
+            el.addEventListener('load', done, { once: true });
+            el.addEventListener('error', done, { once: true });
+            window.setTimeout(done, 8000);
+        });
+    }
+
+    function scheduleEnsureZoneMap() {
+        [0, 80, 250, 500].forEach(function (ms) {
+            window.setTimeout(function () {
+                if (typeof window.ensureZoneMap === 'function') {
+                    window.ensureZoneMap();
+                }
+            }, ms);
+        });
+    }
+
     function activateOneScript(oldScript) {
         return new Promise(function (resolve) {
             var script = document.createElement('script');
@@ -339,6 +390,37 @@
             });
 
             var src = oldScript.getAttribute('src');
+            if (src && isGoogleMapsApiScript(src)) {
+                if (googleMapsApiIsReady()) {
+                    window.__zoneGoogleMapsReady = true;
+                    oldScript.remove();
+                    resolve();
+                    return;
+                }
+
+                var existingMaps = findGoogleMapsApiScript(oldScript);
+                if (existingMaps) {
+                    oldScript.remove();
+                    waitForExistingGoogleMapsScript(existingMaps).then(function () {
+                        window.__zoneGoogleMapsReady = googleMapsApiIsReady();
+                        resolve();
+                    });
+                    return;
+                }
+
+                script.addEventListener('load', function () {
+                    script.setAttribute('data-admin-maps-loaded', '1');
+                    window.__zoneGoogleMapsReady = true;
+                    resolve();
+                }, { once: true });
+                script.addEventListener('error', function () {
+                    resolve();
+                }, { once: true });
+                oldScript.remove();
+                document.head.appendChild(script);
+                return;
+            }
+
             if (src) {
                 if (!externalScriptShouldExecute(src, oldScript)) {
                     oldScript.remove();
@@ -754,11 +836,7 @@
             initPageWidgets(frame);
             markFullPageLinks();
             markPartialNavLinks(frame);
-            if (typeof window.ensureZoneMap === 'function') {
-                window.setTimeout(window.ensureZoneMap, 0);
-                window.setTimeout(window.ensureZoneMap, 120);
-                window.setTimeout(window.ensureZoneMap, 400);
-            }
+            scheduleEnsureZoneMap();
 
             if (options.advance !== false) {
                 window.history.pushState({ adminPartialNav: true }, '', url);
@@ -899,11 +977,7 @@
             activateScripts(initialFrame).finally(function () {
                 markPartialNavLinks(initialFrame);
                 initPageWidgets(initialFrame);
-                if (typeof window.ensureZoneMap === 'function') {
-                    window.setTimeout(window.ensureZoneMap, 0);
-                    window.setTimeout(window.ensureZoneMap, 120);
-                    window.setTimeout(window.ensureZoneMap, 400);
-                }
+                scheduleEnsureZoneMap();
             });
         });
     } else {
