@@ -17,16 +17,9 @@ window.PK_GROWTH = (function () {
       why: "If nobody owns who we sell to and what we may say, Marketing, Intelligence, Offer, Expansion, and Partnerships start acting like five companies. Money is spent with no owner. The CEO cannot tell what is working.",
       how: "The CEO tells you the company’s priorities and the money ceiling. You turn that into one monthly Growth plan. The five people work only from that written plan. You do not run the ads, stand at a stall, write the service sheet, open a town, or sign a hotel desk unless that job is empty — and then you write that you are doing it today because nobody is in that job.",
       lanes: [
-        { kicker: "Lane 1", title: "Who we sell to, and the promise", work: "You keep one written picture of who we serve and the sentences we may say. Marketing Manager may not invent a different customer or a different promise.", result: "Ads, stalls, and partners talk about the same company.", who: "You. There is no extra brand person." },
-        { kicker: "Lane 2", title: "The monthly plan, the money, and yes or no", work: "You sign who, which services, which towns, ads or stalls or partners, how much money, and what good looks like. You say yes, no, or send back on a new service, a new town, and a new kind of hotel desk or shop.", result: "No Growth spend, and no new service or town, without your signature.", who: "You. Marketing Manager drafts the marketing slice. You sign." },
-        { kicker: "Lane 3", title: "The five people who report to you", work: "Marketing Manager brings people in. Market Intelligence Manager writes facts. Offer & Service Development Manager writes what we sell. Market Expansion Manager opens or waits on a town. Partnerships & Channels Manager signs hotel desks and shops that send us customers. You check each one hits their one result.", result: "Each job has a named person, or you have written that you are doing it today because nobody is in that job.", who: "The five people who report to you. If a job has nobody in it, you do that work and write it down." }
-      ],
-      laneLinks: [
-        { hash: "role-mkm", label: "View Marketing Manager" },
-        { hash: "role-mim", label: "View Market Intelligence Manager" },
-        { hash: "role-osd", label: "View Offer & Service Development Manager" },
-        { hash: "role-mem", label: "View Market Expansion Manager" },
-        { hash: "role-pcm", label: "View Partnerships & Channels Manager" }
+        { kicker: "Part 1", art: "lane-who.png", title: "Who we sell to, and what we may say", work: "Write who the customer is. Write the sentences ads, stalls, and hotels may use. Marketing Manager may not invent a different customer or different sentences.", result: "Ads, stalls, and hotels talk about the same company.", who: "You." },
+        { kicker: "Part 2", art: "lane-plan.png", title: "The monthly plan, the money, and yes or no", work: "Sign the month. Sign how much money Growth may spend. Sign which services, which towns, ads, stalls, and hotels. Say yes, no, or send back on a new service, a new town, and a new kind of hotel or shop.", result: "Nobody spends Growth money, and nobody opens a new service or town, without your signature.", who: "You. Marketing Manager writes the marketing page of the plan. You sign." },
+        { kicker: "Part 3", art: "lane-team.png", title: "The five people who report to you", work: "Check each person hits their one result. Marketing Manager brings people in. Market Intelligence Manager writes facts. Offer & Service Development Manager writes what we sell. Market Expansion Manager opens or waits on a town. Partnerships & Channels Manager signs hotels and shops that send us customers.", result: "Each of those five jobs has a named person — or you have written that you are doing that work today because the job is empty.", who: "Those five people. If a job is empty, you do that work today. Write that down." }
       ],
       acting: "If one of those five jobs has nobody in it, you do that work and write that you are doing it today because nobody is in that job. You do not hide it.",
       owns: [
@@ -101,13 +94,9 @@ window.PK_GROWTH = (function () {
       why: "If nobody owns the plan, Digital and Field start acting like two different companies. A customer sees one promise in an ad and a different promise on a flyer. Money is spent with no owner. Head of Growth cannot tell what is working.",
       how: "Head of Growth tells you the company’s priorities for the month. You turn that into one calendar and one marketing kit. Digital and Field work only from that written plan. If they want a new sentence, a new price, a new town, or a new face that is not in this month’s marketing kit, they stop and ask you. You do not invent new services. You do not run the ads yourself. You do not stand at the stall. You do not book the customer.",
       lanes: [
-        { kicker: "Lane 1", title: "The plan and the marketing kit", work: "You write the monthly plan: which services, which towns, which days, how much money for paid ads, how much money for stalls, which website pages Digital must keep true for search (SEO), and what we will not advertise. You also write the marketing kit: logo, colours, sentences, prices, towns, and faces that ads, search pages, and stalls may use.", result: "Digital and Field can do their work without inventing a different company.", who: "You. There is no extra planner." },
-        { kicker: "Lane 2", title: "Online marketing", work: "Paid ads (Meta, Google ads, and others). Search (SEO) — the website and Google search, so people can find us without a paid ad. App store. Social media. Videos and posts.", result: "People who saw an ad or a search page reach Operations. Operations asks how they found us and writes paid ad or search. Search numbers are not mixed into the ads money.", who: "Digital Marketing Manager. If nobody sits in that job, you do that work yourself and write that you are doing it today because nobody is in that job." },
-        { kicker: "Lane 3", title: "Field marketing", work: "Field Marketing Manager holds three ground jobs: people who visit stalls and streets, people who go in person to sign the first local workers in a town, and people who write maintenance contracts with offices and housing societies.", result: "Sales has the stall names the same day. The town has first local workers signed onto us and sent to Provider Operations. Offices and societies have a signed maintenance contract, not a verbal yes.", who: "Field Marketing Manager. If nobody sits in that job, you do that work yourself and write that you are doing it today because nobody is in that job." }
-      ],
-      laneLinks: [
-        { hash: "role-hom", label: "View Digital Marketing Manager" },
-        { hash: "role-fmm", label: "View Field Marketing Manager" }
+        { kicker: "Part 1", art: "lane-kit.png", title: "The plan and the instruction book", work: "Write the monthly plan: which services, which towns, which days, how much money for paid ads, how much money for stalls, which website pages Digital must keep true so people can find us on Google without a paid ad, and what we will not advertise. Also write the instruction book: logo, colours, sentences, prices, towns, and faces that ads, search pages, and stalls may use.", result: "Digital and Field can do their work without inventing a different company.", who: "You." },
+        { kicker: "Part 2", art: "lane-ads.png", title: "Online marketing", work: "Digital Marketing Manager runs paid ads (Meta, Google, and others), unpaid website and Google search, the app store, social media, videos, and posts.", result: "People who saw an ad or found us on Google reach Operations. Operations asks how they found us and writes paid ad or search. Search numbers are not mixed into the ads money.", who: "Digital Marketing Manager. If that job is empty, you do this work today. Write that down." },
+        { kicker: "Part 3", art: "lane-stall.png", title: "Field marketing", work: "Field Marketing Manager runs three ground jobs: visits to stalls and streets, first local workers signed in person, and maintenance contracts with offices and housing societies.", result: "Sales has the stall names the same day. The town has first local workers signed onto us and sent to Provider Operations. Offices and societies have a signed maintenance contract, not a spoken yes.", who: "Field Marketing Manager. If that job is empty, you do this work today. Write that down." }
       ],
       acting: "If nobody sits in the Marketing Manager job, Head of Growth does that work and writes that they are doing it today because nobody is in that job. If nobody sits in Digital or Field, you do that work and write on the daily note: you are doing it today because nobody is in that job.",
       owns: [
@@ -188,14 +177,11 @@ window.PK_GROWTH = (function () {
       result: "All online work of Panun Kaergar follows the signed plan. Every digital enquiry that reaches Sales has a written answer from Operations for how they found us.",
       what: "You own everything online: paid ads (Meta, Google, and any other paid ads), website search, app store, social, Reddit, Quora, and other sites. You also own the content library — videos and posts — and you give Content Maker their written work and check that result. You do not invent the offer, the town, or the price. You do not book the customer.",
       why: "If ads, posts, and search each invent their own company, the customer hears three promises and Sales cannot learn. One job must own all digital, and send the truth back: what worked and what failed.",
-      how: "Marketing Manager gives you the month: towns, services, ads money, words you may use, words you must not use, and where a lead must land. You run three lanes — paid ads, unpaid online work, and content. You publish from this month’s marketing kit (the instruction book of words, prices, towns, and faces). A new claim, new price, new town, or new face goes back to Marketing Manager first.",
+      how: "Marketing Manager gives you the month: towns, services, ads money, words you may use, words you must not use, and where a lead must land. You do three kinds of online work — paid ads, unpaid website and search work, and content. You publish from this month’s marketing kit (the instruction book of words, prices, towns, and faces). A new claim, new price, new town, or new face goes back to Marketing Manager first.",
       lanes: [
-        { kicker: "Lane 1", title: "Paid ads", work: "Meta, Google, and any other paid ads on the plan.", result: "Enquiries inside the ads budget, where Operations wrote how they found us.", who: "You. There is no extra ads manager." },
-        { kicker: "Lane 2", title: "Website, search, and unpaid posts", work: "Website search, app store, social that is not paid, Reddit, Quora, and other sites.", result: "Enquiries where Operations wrote how they found us, plus a real presence — counted on their own line, not mixed into ads spend.", who: "You." },
-        { kicker: "Lane 3", title: "Content", work: "AI videos, AI still posts, brand films, customer films, provider job films, founder films. File every file. Hand them to ads and social.", result: "A dated library of files this job approved. If it is not filed, it did not happen.", who: "Content Maker. If nobody is in that job, you do that work yourself and write that you are doing it today because nobody is in that job." }
-      ],
-      laneLinks: [
-        { hash: "role-cmc", label: "View Content Maker" }
+        { kicker: "Part 1", art: "lane-ads.png", title: "Paid ads", work: "Run the paid ads on this month’s plan — Meta, Google, and any other paid ads. Stay inside the ads money.", result: "People reach Operations from those ads. Operations wrote how they found us. Spend is inside the ads money.", who: "You. There is no extra ads person." },
+        { kicker: "Part 2", art: "lane-search.png", title: "Website, Google search, and unpaid posts", work: "Keep the website and app store true. Post on social, Reddit, Quora, and other sites without paying. Count this work on its own line. Do not mix it into ads money.", result: "People reach Operations from the website or a post. Operations wrote how they found us. These numbers sit on their own line.", who: "You." },
+        { kicker: "Part 3", art: "lane-content.png", title: "Videos and posts", work: "Content Maker makes the videos and still posts. You say yes or no. Then you file the file and hand it to ads and social. If it is not filed, it did not happen.", result: "The company folder holds only files you approved, with a date.", who: "Content Maker makes the file. You say yes. If Content Maker is empty, you do that work today. Write that down." }
       ],
       given: [
         { title: "Towns that are open this month", why: "Do not advertise a town we cannot serve." },
@@ -383,14 +369,9 @@ window.PK_GROWTH = (function () {
       why: "Kashmir still buys from people they can see. Stalls alone are not enough. A town also needs the first local workers signed onto us, and offices and housing societies on a written maintenance contract. If one person tries to do all of that without naming who visits, nobody owns the result.",
       how: "Marketing Manager writes the month: towns, the marketing kit (the instruction book of words, prices, towns, and faces), stall money, and what we will not advertise. Expansion has already opened the town. You turn that into written work for the three jobs. Field Visitor walks the market and collects names for Sales. First Provider Onboarding gets the first local workers to sign the papers, then sends the signed file to Provider Operations so Provider Operations can put them on customer jobs. Office and Society Contracts uses only the signed contract papers Offer and Finance already approved — they do not invent a price. One-off jobs still go to Sales. You do not run ads. You do not pick a new town.",
       lanes: [
-        { kicker: "Lane 1", title: "Market visits and stalls", work: "Named towns, named days, stalls, streets, follow-ups. Collect names for Sales. Do not take a booking or money.", result: "Someone actually visited the market that day, and Sales has the list the same day.", who: "Field Visitor. Full-time employee, or someone we pay on a written contract. If nobody sits there, you do that work yourself and write that you are doing it today because nobody is in that job." },
-        { kicker: "Lane 2", title: "First local workers on site", work: "Go in person to the first local workers in a named town. Get them to sign the first-worker papers. Send the signed file to Provider Operations so they can put those people on customer jobs.", result: "The town has named first local workers who have signed with us, before we keep standing at a stall there.", who: "First Provider Onboarding. If nobody sits there, you do that work yourself and write that you are doing it today because nobody is in that job." },
-        { kicker: "Lane 3", title: "Offices and societies", work: "Written maintenance contracts with offices and housing societies, from the signed contract papers Offer and Finance already approved. Named building, named services, signed price.", result: "A signed contract file, not a verbal yes. Operations may then start sending workers to that building.", who: "Office and Society Contracts. If nobody sits there, you do that work yourself and write that you are doing it today because nobody is in that job." }
-      ],
-      laneLinks: [
-        { hash: "role-fve", label: "View Field Visitor" },
-        { hash: "role-fpo", label: "View First Provider Onboarding" },
-        { hash: "role-flc", label: "View Office and Society Contracts" }
+        { kicker: "Part 1", art: "lane-stall.png", title: "Stalls and street visits", work: "Send Field Visitor to a named town on a named day. They collect names for Sales. They do not take a booking or money.", result: "Someone actually visited the market that day, and Sales has the list the same day.", who: "Field Visitor. They may be a full-time employee, or someone we pay on a written contract. If that job is empty, you do this work today. Write that down." },
+        { kicker: "Part 2", art: "lane-workers.png", title: "First local workers", work: "Send First Provider Onboarding in person to the first plumbers, electricians, and other local workers in a named town. They get those people to sign the papers, then send the signed file to Provider Operations.", result: "The town has named first local workers who have signed with us, before we keep standing at a stall there.", who: "First Provider Onboarding. If that job is empty, you do this work today. Write that down." },
+        { kicker: "Part 3", art: "lane-society.png", title: "Offices and housing societies", work: "Send Office and Society Contracts to write a maintenance contract with a named office or housing society. They use only the signed contract papers Offer and Finance already approved. Named building, named services, signed price.", result: "There is a signed contract file, not a spoken yes. Operations may then start sending workers to that building.", who: "Office and Society Contracts. If that job is empty, you do this work today. Write that down." }
       ],
       acting: "If nobody sits in the Field Marketing Manager job, Marketing Manager does that work and writes that they are doing it today because nobody is in that job. If nobody sits in Field Visitor, First Provider Onboarding, or Office and Society Contracts, you do that work and write it on the daily note: you are doing it today because nobody is in that job. A Field Visitor may be a full-time employee or someone we pay on a written contract — the job is the same either way.",
       owns: [
@@ -473,12 +454,9 @@ window.PK_GROWTH = (function () {
       why: "Kashmir still buys from people they can see. If nobody walks the market, the calendar is decoration. If you take the booking at the stall, Sales has no list and Operations cannot finish the job as a system.",
       how: "You work only from the written brief Field Marketing Manager gave you. On a visit day you stand in the named town with the approved boards. On an office day you restock, confirm the next visit, and write the weekly note. If you want a new sentence, price, town, or face, you stop and ask Field Marketing Manager. If nobody sits in this job, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job.",
       lanes: [
-        { kicker: "Lane 1", title: "Visit days", work: "Named town, named day, named pitch. Approved boards and flyers only.", result: "We stood where the plan said. If the visit did not happen, you write that the same day. You do not hide it.", who: "You. Full-time employee, or someone we pay on a written contract." },
-        { kicker: "Lane 2", title: "Collect names", work: "Name, phone, service, town. Write stall, plus the town and the date. Say Sales will call.", result: "Sales has a complete list the same day. You did not take a booking or money.", who: "You." },
-        { kicker: "Lane 3", title: "Office work", work: "Restock boards and flyers. Write the stall log. Write the weekly visit note to Field Marketing Manager.", result: "Field Marketing Manager can see which towns worked, and unused materials are named.", who: "You." }
-      ],
-      laneLinks: [
-        { hash: "role-fmm", label: "View Field Marketing Manager" }
+        { kicker: "Part 1", art: "lane-stall.png", title: "Go to the town", work: "Go to the named town on the named day. Stand where the brief says. Use only the approved boards and flyers.", result: "We stood where the plan said. If the visit did not happen, you write that the same day. You do not hide it.", who: "You. You may be a full-time employee, or someone we pay on a written contract." },
+        { kicker: "Part 2", art: "lane-names.png", title: "Collect names", work: "Write name, phone, service, and town. Write stall, plus the town and the date. Tell the person Sales will call. Do not take a booking or money.", result: "Sales has a complete list the same day.", who: "You." },
+        { kicker: "Part 3", art: "lane-restock.png", title: "Office work", work: "Restock boards and flyers. Write the stall log. Write the weekly visit note to Field Marketing Manager.", result: "Field Marketing Manager can see which towns worked. Unused boards and flyers are named.", who: "You." }
       ],
       acting: "If nobody sits in this job, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job. You do not get first local workers to sign papers. You do not write office and society contracts. You do not become Sales.",
       owns: [
@@ -561,12 +539,9 @@ window.PK_GROWTH = (function () {
       why: "A stall in a town with nobody who can do the jobs is how the brand dies in public. Ads and stalls promise a job. If nobody can do that job, the town learns to hate us. This job exists so the first local workers are signed in person, in writing, before we keep standing at a stall there.",
       how: "Field Marketing Manager names the town and gives you the signed first-worker papers. Expansion has already opened the town. You go in person. You meet the plumber, electrician, or other local worker at their shop or house. You do not sign them up from a company WhatsApp group without visiting them. If the papers are missing a price, you stop — Finance signs price. If nobody sits in this job, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job.",
       lanes: [
-        { kicker: "Lane 1", title: "Go in person", work: "Named town. Named first local workers. Meet the plumber, electrician, or other local worker at their shop or house. Do not sign them up from a company WhatsApp group without visiting them.", result: "A visit that actually happened, or a written note the same day that the visit did not happen.", who: "You." },
-        { kicker: "Lane 2", title: "Get them to sign", work: "Signed first-worker papers only. Name, phone, services they can do, towns they can cover, what we pay, what they must not do.", result: "A signed file, not a verbal yes.", who: "You." },
-        { kicker: "Lane 3", title: "Send the file to Provider Operations", work: "Send the signed file the same week. Keep a copy. Do not give them a customer job yourself.", result: "Provider Operations can put them on the list of workers and put them on customer jobs.", who: "You. Provider Operations puts them on the jobs." }
-      ],
-      laneLinks: [
-        { hash: "role-fmm", label: "View Field Marketing Manager" }
+        { kicker: "Part 1", art: "lane-workers.png", title: "Go in person", work: "Go to the named town. Meet the plumber, electrician, or other local worker at their shop or house. Do not sign them up from a company WhatsApp group without visiting them.", result: "The visit happened — or you wrote the same day that it did not happen.", who: "You." },
+        { kicker: "Part 2", art: "lane-sign.png", title: "Get them to sign", work: "Use only the signed first-worker papers. Write their name, phone, services they can do, towns they can cover, what we pay, and what they must not do.", result: "There is a signed file, not a spoken yes.", who: "You." },
+        { kicker: "Part 3", art: "lane-handoff.png", title: "Send the file to Provider Operations", work: "Send the signed file the same week. Keep a copy. Do not give them a customer job yourself.", result: "Provider Operations can put them on the list of workers and put them on customer jobs.", who: "You send the file. Provider Operations puts them on the jobs." }
       ],
       acting: "If nobody sits in this job, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job. You do not stand at stalls as Field Visitor. You do not write office and society customer contracts. You do not become Provider Operations.",
       owns: [
@@ -647,12 +622,9 @@ window.PK_GROWTH = (function () {
       why: "Offices and societies buy a written contract, not a stall flyer. A verbal yes from a secretary is not a contract. Operations cannot plan jobs from a verbal yes. Partnerships signs hotel desks and shops that send us their customers. This job is the office or housing society that buys ongoing maintenance from us.",
       how: "Field Marketing Manager names the buildings and towns and gives you the signed contract papers. You go to the building. You write the contract. Finance sends the invoice. You file the signed contract. If nobody sits in this job, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job.",
       lanes: [
-        { kicker: "Lane 1", title: "Go to the building", work: "Named office or housing society on this month’s plan. Meet the person who is allowed to sign.", result: "A visit that actually happened, or a written note the same day that the visit did not happen.", who: "You." },
-        { kicker: "Lane 2", title: "Write the contract", work: "Signed contract papers only: services in, services out, signed price, start date, who signs for them.", result: "A signed contract file. Not a WhatsApp yes.", who: "You." },
-        { kicker: "Lane 3", title: "File it so Operations can work", work: "File the signed contract. Tell Operations they may start sending workers. Do not take cash. Finance sends the invoice.", result: "Operations has a building they can serve. You did not become the person who does the jobs.", who: "You. Operations does the jobs." }
-      ],
-      laneLinks: [
-        { hash: "role-fmm", label: "View Field Marketing Manager" }
+        { kicker: "Part 1", art: "lane-society.png", title: "Go to the building", work: "Go to the named office or housing society on this month’s plan. Meet the person who is allowed to sign.", result: "The visit happened — or you wrote the same day that it did not happen.", who: "You." },
+        { kicker: "Part 2", art: "lane-sign.png", title: "Write the contract", work: "Use only the signed contract papers: services in, services out, signed price, start date, who signs for them.", result: "There is a signed contract file. Not a WhatsApp yes.", who: "You." },
+        { kicker: "Part 3", art: "lane-handoff.png", title: "File it so Operations can work", work: "File the signed contract. Tell Operations they may start sending workers. Do not take cash. Finance sends the invoice.", result: "Operations has a building they can serve. You did not become the person who does the jobs.", who: "You file it. Operations does the jobs." }
       ],
       acting: "If nobody sits in this job, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job. You do not stand at stalls as Field Visitor. You do not get first local workers to sign papers. You do not become Sales or Operations.",
       owns: [
@@ -733,9 +705,9 @@ window.PK_GROWTH = (function () {
       why: "Without this job, Growth guesses. Guessing is expensive in Kashmir’s small towns. A rumour is not a plan.",
       how: "You pull numbers from the system, not from chat. You write facts with a source and a date. You close each idea as go, no-go, or more research with a date. You never leave a row as “we might look at this later”. If nobody sits in this job, Head of Growth does that work and writes that they are doing it today because nobody is in that job.",
       lanes: [
-        { kicker: "Lane 1", title: "What people ask for, and what we sell", work: "Count enquiries and bookings by service and town from the system. Chat is not a tracker.", result: "Head of Growth can see what is real, not what someone remembers.", who: "You." },
-        { kicker: "Lane 2", title: "Competitors", work: "Keep a named list. Write what actually changed, with a source and a date. A rumour is not a competitor move.", result: "We know what a named competitor did, not what someone heard.", who: "You." },
-        { kicker: "Lane 3", title: "Ideas — go, no-go, or more research", work: "One idea, one row. Close it. If go, name Offer, Expansion, or Partnerships. Do not write the service or open the town yourself.", result: "No row left as “we might look at this later”.", who: "You. Head of Growth watches the 10-working-day limit. You own the written pack." }
+        { kicker: "Part 1", art: "lane-demand.png", title: "What people ask for, and what we sell", work: "Count enquiries and bookings by service and town from the system. A chat message is not a count.", result: "Head of Growth can see what is real, not what someone remembers.", who: "You." },
+        { kicker: "Part 2", art: "lane-competitors.png", title: "Competitors", work: "Keep a named list of competitors. Write what actually changed, with a source and a date. A rumour is not a competitor move.", result: "We know what a named competitor did, not what someone heard.", who: "You." },
+        { kicker: "Part 3", art: "lane-ideas.png", title: "Close each idea", work: "One idea, one row. Close it as go, no, or more research with a date. If it is a go, name who receives the file: Offer & Service Development Manager, Market Expansion Manager, or Partnerships & Channels Manager. Do not write the service or open the town yourself.", result: "No row is left as “we might look at this later”.", who: "You write the file. Head of Growth watches that a High idea does not sit more than 10 working days." }
       ],
       acting: "If nobody is in this job, Head of Growth does this work and must write that they are doing it today because nobody is in that job.",
       owns: [
@@ -799,9 +771,9 @@ window.PK_GROWTH = (function () {
       why: "Marketing cannot invent the product. Operations cannot guess the product. If nobody writes what is in and what is out, Sales promises one thing and the worker does another.",
       how: "You turn a need Intelligence already marked as go into a service sheet. You send it to Finance for price options and to Operations for a written yes that they can do it. Head of Growth signs. Then Marketing may use only the sentences you wrote. If nobody sits in this job, Head of Growth does that work and writes that they are doing it today because nobody is in that job.",
       lanes: [
-        { kicker: "Lane 1", title: "The live list of what we sell", work: "Keep one live list. Take off the live list any service name that has no written sheet. A name without a sheet is not a service.", result: "Sales picks from a true list, not from a messy menu.", who: "You." },
-        { kicker: "Lane 2", title: "Write the service sheet", work: "Name, who it is for, what we do, what we do not do, what the customer must prepare, what the worker must be able to do, job steps, quality bar. Finance prices. Operations says if they can do it.", result: "A complete sheet, not a slogan.", who: "You. Finance signs the price. Operations signs that they can finish the job." },
-        { kicker: "Lane 3", title: "After it is live: keep, fix, or stop", work: "Watch demand, complaints, and cancellations. Recommend keep, fix, or stop in writing. Head of Growth signs a stop.", result: "A dead service does not sit in ads.", who: "You. Marketing stops talking only after Head of Growth signs stop." }
+        { kicker: "Part 1", art: "lane-catalog.png", title: "The live list of what we sell", work: "Keep one live list. Take off any service name that has no written sheet. A name without a sheet is not a service.", result: "Sales picks from a true list, not from a messy menu.", who: "You." },
+        { kicker: "Part 2", art: "lane-sheet.png", title: "Write the service sheet", work: "Write the name, who it is for, what we do, what we do not do, what the customer must prepare, what the worker must be able to do, the job steps, and the quality bar. Finance writes the price. Operations writes that they can finish the job.", result: "There is a complete sheet, not a slogan.", who: "You write the sheet. Finance signs the price. Operations signs that they can finish the job." },
+        { kicker: "Part 3", art: "lane-review.png", title: "After it is live: keep, fix, or stop", work: "Watch how many people ask, complaints, and cancellations. Write keep, fix, or stop. Head of Growth signs a stop.", result: "A dead service does not sit in ads.", who: "You write the recommend. Marketing Manager stops talking only after Head of Growth signs stop." }
       ],
       acting: "If nobody is in this job, Head of Growth does this work and must write that they are doing it today because nobody is in that job.",
       owns: [
@@ -865,9 +837,9 @@ window.PK_GROWTH = (function () {
       why: "A new town with ads and nobody who can do the jobs is how the brand dies in public. Hope is not a plan.",
       how: "Intelligence hands you a named town with facts. You write demand, competition, whether we can finish jobs, and a rough cost to get a customer. You write enter, wait, or no. Head of Growth signs. If enter, you write the first services, what Marketing may spend, and the review date. If nobody sits in this job, Head of Growth does that work and writes that they are doing it today because nobody is in that job.",
       lanes: [
-        { kicker: "Lane 1", title: "The list of towns", work: "Keep a written list of possible towns with evidence. A mood is not a queue.", result: "Head of Growth can see what is next, or that nothing is next.", who: "You." },
-        { kicker: "Lane 2", title: "Enter, wait, or no", work: "Demand, competition, can we finish the first jobs, rough cost. Write enter, wait, or no. Head of Growth signs.", result: "A written decision, not research with no end.", who: "You. Provider Operations says if they can finish the jobs. You do not hire them." },
-        { kicker: "Lane 3", title: "After launch: grow, fix, pause, or leave", work: "Watch enquiries, bookings, and unfinished jobs. Recommend grow, fix, pause, or leave — in writing, on the review date you wrote.", result: "We do not stay forever in a dead town.", who: "You. Marketing stops spending in that town only after Head of Growth signs pause or leave." }
+        { kicker: "Part 1", art: "lane-towns.png", title: "The list of towns", work: "Keep a written list of possible towns with facts. A feeling is not a list.", result: "Head of Growth can see what is next, or that nothing is next.", who: "You." },
+        { kicker: "Part 2", art: "lane-enter.png", title: "Enter, wait, or no", work: "Write demand, competition, whether we can finish the first jobs, and a rough cost. Write enter, wait, or no. Head of Growth signs.", result: "There is a written decision, not research with no end.", who: "You write the decision. Provider Operations says if they can finish the jobs. You do not hire them." },
+        { kicker: "Part 3", art: "lane-review.png", title: "After launch: grow, fix, pause, or leave", work: "Watch enquiries, bookings, and unfinished jobs. On the review date you wrote, write grow, fix, pause, or leave.", result: "We do not stay forever in a dead town.", who: "You write the recommend. Marketing Manager stops spending in that town only after Head of Growth signs pause or leave." }
       ],
       acting: "If nobody is in this job, Head of Growth does this work and must write that they are doing it today because nobody is in that job.",
       owns: [
@@ -929,9 +901,9 @@ window.PK_GROWTH = (function () {
       why: "We cannot stand on every street. Good hotels and shops bring work we would miss. A handshake with no paper becomes a fight. A name sent straight to a plumber skips Sales and the brand.",
       how: "Market Intelligence Manager may send a written note that hotel desks, or another kind of place, are worth trying. That note is not permission. Head of Growth must write yes to that kind of place, and to how we pay them if we pay them, before you sign anyone. You write how a name is sent. You test one person into Sales. Only then do you call them live. Each month you write keep, fix, or close. If nobody sits in this job, Head of Growth does that work and writes that they are doing it today.",
       lanes: [
-        { kicker: "Lane 1", title: "Find and check", work: "Write the real kind of place we miss — hotel desk, appliance shop, and so on. Who they already serve, reputation, fit / wait / no. Do not add your uncle or a neighbour who says they know people. That is not a partner.", result: "A written fit, wait, or no — not a verbal yes.", who: "You." },
-        { kicker: "Lane 2", title: "Written terms and start", work: "How a lead is sent, what we pay if we pay, approved materials only. Test one lead into Sales. Only then call them live.", result: "No live partner without a written term sheet.", who: "You. Head of Growth has already said yes to that kind of place and how we pay them, if we pay them. Finance sees unplanned money." },
-        { kicker: "Lane 3", title: "Track: keep, fix, or close", work: "Leads, bookings, silent partners. Same-day list to Sales. Each month write keep, fix, or close.", result: "A silent partner is a closed partner, in writing.", who: "You. Sales books. You find the hotel or shop." }
+        { kicker: "Part 1", art: "lane-hotel.png", title: "Find and check the hotel or shop", work: "Write the real kind of place we miss — a hotel desk, an appliance shop, and so on. Write who they already serve, their reputation, and fit, wait, or no. Do not add your uncle or a neighbour who says they know people.", result: "There is a written fit, wait, or no — not a spoken yes.", who: "You." },
+        { kicker: "Part 2", art: "lane-terms.png", title: "Write the terms, then start", work: "Write how they send us a name, and what we pay if we pay. Use only approved materials. Test one name into Sales. Only then call them live.", result: "No hotel or shop is live without a written terms page.", who: "You. Head of Growth has already said yes to that kind of place and how we pay them, if we pay them. Finance sees money that was not in the plan." },
+        { kicker: "Part 3", art: "lane-review.png", title: "Keep, fix, or close", work: "Send every name to Sales the same day. Each month write keep, fix, or close. A hotel or shop that sends nobody is closed, in writing.", result: "A silent hotel or shop is a closed one, in writing.", who: "You find the hotel or shop. Sales books the customer." }
       ],
       acting: "If nobody is in this job, Head of Growth does this work and must write that they are doing it today because nobody is in that job.",
       owns: [
@@ -1089,10 +1061,10 @@ window.PK_GROWTH = (function () {
         copy: {
           heroKicker: "What this job is",
           defTitle: "What this job is",
-          lanesTitle: "How this job is split",
+          lanesTitle: "This job has three parts",
           definition: "You run Panun Kaergar’s marketing. You write the monthly plan Head of Growth signs, you write the marketing kit (the instruction book of words, look, prices, towns, and faces), and you split the money between paid ads and stalls. You make sure Operations asked every new person how they found us and wrote the answer — that is how we know the source, not the phone number. Two people report to you: Digital Marketing Manager (paid ads, search, social, and videos) and Field Marketing Manager (stalls, first local workers, and office and society contracts). They do the daily work. You run the plan they work from.",
           owns: "These are the six things this job owns. Do not do Sales’ job, Digital’s job, or Field’s job unless that job is empty and you have written that you are doing that job.",
-          lanes: "One result, three kinds of work. You own the plan and the marketing kit. Digital Marketing Manager owns paid ads, SEO (search), and the rest of online. Field Marketing Manager owns visits, first local workers, and office and society contracts. If either of those jobs has nobody sitting in it, you do that work and write it down.",
+          lanes: "This job has one result. The work is in three parts. Part 1 is work you do yourself — the plan and the instruction book. Part 2 is Digital Marketing Manager. Part 3 is Field Marketing Manager. If Digital or Field is empty, you do that work today. Write that down.",
           responsibilities: "These are the six parts of the job. Click a row to open the full card.",
           handoffs: "Work arrives as a written file and leaves as a written file. A chat message is not the file. The chart shows the flow. Click a row to open the full card.",
           workflow: "Every working day, do these three things in order: open the signed plan, the marketing kit, the money spent, and the list of enquiries with no source; unblock Digital and Field if they are waiting on a yes; check that Operations asked every new person where they found us. In the last week of the month, write next month’s plan (MKT-01). If an ad or stall is broken, pause it the same day (MKT-06). Click a step to open the full card.",
@@ -1852,10 +1824,10 @@ window.PK_GROWTH = (function () {
         copy: {
           heroKicker: "What this job is",
           defTitle: "What this job is",
-          lanesTitle: "How this job is split",
+          lanesTitle: "This job has three parts",
           definition: "You own everything Panun Kaergar does online: paid ads, website and Google search, the app store, social, Reddit, Quora, and other sites, plus the company folder of videos and posts. Content Maker makes the files. You say yes or no on each finished file, then you publish. You do not ask the customer how they found us — Operations asks and writes the answer, and you read those answers so you know which ads and pages work. You do not invent a new service, price, or town, and you do not book the customer.",
           owns: "These are the six things this job owns. Do not invent a new service, price, or town, and do not book the customer.",
-          lanes: "One result, three kinds of work. You own paid ads and unpaid online work (search, the app store, social, Reddit, Quora, and other sites). Content Maker makes the files. If nobody sits in Content Maker, you do that work yourself and write that you are doing it today because nobody is in that job.",
+          lanes: "This job has one result. The work is in three parts. Parts 1 and 2 are work you do yourself — paid ads, and unpaid website and search work. Part 3 is Content Maker, who makes the files. If Content Maker is empty, you do that work today. Write that down.",
           responsibilities: "These are the six pieces of online work this job owns: paid ads, unpaid website and search work (app store, unpaid social, Reddit, Quora, other sites), the company folder of videos and posts, the Content Maker job, reading the answers Operations wrote, and honest written reports back to Marketing Manager. Click a row to open the full card.",
           handoffs: "Work arrives as a written file and leaves as a written file. A chat message is not the file. The chart shows the flow. Click a row for the full file.",
           workflow: "Follow these steps every working day: open the instruction book and the calendar, approve waiting files and publish only from the company folder, read the answers Operations wrote for people from your ads and pages. DIG-01 is how a paid ad goes live — only after a dummy enquiry has reached Operations. DIG-04 is the stop when the words are not in the instruction book. Click a step to open the full card.",
@@ -2098,7 +2070,7 @@ window.PK_GROWTH = (function () {
             meta: [
               ["From", "Marketing Manager"],
               ["When", "Before the month starts, and whenever they issue a change"],
-              ["You do with it", "Run three lanes from this pack only."]
+              ["You do with it", "Do only paid ads, unpaid online work, and content from this pack."]
             ]
           },
           {
@@ -3345,10 +3317,10 @@ window.PK_GROWTH = (function () {
         copy: {
           heroKicker: "What this job is",
           defTitle: "What this job is",
-          lanesTitle: "How this job is split",
+          lanesTitle: "This job has three parts",
           definition: "You run Panun Kaergar on the ground. Three jobs report to you. Field Visitor visits stalls and streets and collects names for Sales. First Provider Onboarding goes in person to the first local workers in a town and gets them to sign the papers, then sends the file to Provider Operations. Office and Society Contracts writes maintenance contracts with named offices and housing societies. You write which town, which day, and which of those three jobs goes. You check each job hits its result, and you send Marketing Manager a weekly field report. You do not do those three jobs yourself unless that job has nobody in it — and then you write that you are doing it today because nobody is in that job.",
           owns: "These are the six things this job owns. Do not do Sales’ job, Digital’s job, or Partnerships’ job. Do not keep first local workers as your own team.",
-          lanes: "One result, three kinds of work. Field Visitor walks the market. First Provider Onboarding signs the first local workers on site. Office and Society Contracts writes the maintenance contract. If a job has nobody in it, you do that work and write that you are doing it today because nobody is in that job.",
+          lanes: "This job has one result. The work is in three parts. Each part is a job that reports to you. Field Visitor walks the market. First Provider Onboarding gets the first local workers to sign. Office and Society Contracts writes the maintenance contract. If a job is empty, you do that work today. Write that down.",
           responsibilities: "These are the six parts of the job. Click a row to open the full card.",
           handoffs: "Work arrives as a written file and leaves as a written file. A chat message is not the file. Click a row to open the full card.",
           workflow: "Every working day, open the signed calendar and check that today’s visitor, first-worker visit, or contract visit is named. Give the three jobs their written work when the month is signed (FLD-01). Check a visit day (FLD-02). Send First Provider Onboarding in person (FLD-03). Send Office and Society Contracts to write a maintenance contract from the signed papers (FLD-04). Name a town that produced nothing (FLD-05). Stop an incident the same day (FLD-06). Click a step to open the full card.",
@@ -3583,7 +3555,7 @@ window.PK_GROWTH = (function () {
               "If you covered an empty job, write that too."
             ],
             points: [
-              { title: "Three lanes, not one lump", why: "A good stall week must not hide a town with no first local workers." },
+              { title: "Three parts, not one lump", why: "A good stall week must not hide a town with no first local workers." },
               { title: "Name what failed", why: "A report with only wins is not a management system." },
               { title: "One or two written requests", why: "Reprint these boards, pause this town, or confirm next month’s days — not ten wishes." }
             ],
@@ -3857,7 +3829,7 @@ window.PK_GROWTH = (function () {
               "A good stall week must not hide a town with no first local workers or no contract movement. Town that produced nothing are named."
             ],
             points: [
-              { title: "What good looks like", why: "The weekly report has three lanes, days that did not happen, town that produced nothing, and covering notes." }
+              { title: "What good looks like", why: "The weekly report names visits, first local workers, and contracts — plus days that did not happen, towns that produced nothing, and notes of days you covered an empty job." }
             ]
           }
         ],
@@ -3967,10 +3939,10 @@ window.PK_GROWTH = (function () {
         copy: {
           heroKicker: "What this job is",
           defTitle: "What this job is",
-          lanesTitle: "How this job is split",
+          lanesTitle: "This job has three parts",
           definition: "You actually visit the market — a stall, a street, or a follow-up. Field Marketing Manager writes which town, which day, and which boards. You show up, collect name, phone, service, and town, and send that list to Sales the same day. You write stall, plus the town and the date, because you met the person. You do not take money or book the job. You may be a full-time employee or someone we pay on a written contract — the work is the same. You do not get first local workers to sign papers, and you do not write office contracts.",
           owns: "These are the six things this job owns. Do not do Sales’ job, First Provider Onboarding, or Office and Society Contracts.",
-          lanes: "One result, three kinds of work. Visit days. Collect names. Office work. If nobody sits in this job, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job.",
+          lanes: "This job has one result. You do all three parts yourself. Go to the town. Collect names. Do the office work. If this job is empty, Field Marketing Manager does this work today. They write that down.",
           responsibilities: "These are the six parts of the job. Click a row to open the full card.",
           handoffs: "Work arrives as a written file and leaves as a written file. A chat message is not the file. Click a row to open the full card.",
           workflow: "Every working day, open the written brief, the marketing kit, and the materials bag. If it is a visit day, run VIS-01 then send the list (VIS-02). If it is an office day, restock and confirm the next visit (VIS-03). If a town produced nothing after three visits, name it (VIS-05). If something goes wrong at the stall, stop it the same day (VIS-06). Click a step to open the full card.",
@@ -4299,10 +4271,10 @@ window.PK_GROWTH = (function () {
         copy: {
           heroKicker: "What this job is",
           defTitle: "What this job is",
-          lanesTitle: "How this job is split",
+          lanesTitle: "This job has three parts",
           definition: "You go in person to the first local workers in a named town — plumbers, electricians, and others who will do the jobs — and get them to sign the papers so they can work with Panun Kaergar. You take only the signed first-worker papers. After they sign, you send the file to Provider Operations the same week, so Provider Operations can put them on customer jobs. You do not hire them as your own team, and you do not give them a customer job yourself. Expansion has already opened the town. If nobody sits in this job, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job.",
           owns: "These are the six things this job owns. Do not do Provider Operations’ job, Field Visitor’s job, or People & HR’s job.",
-          lanes: "One result, three kinds of work. Go in person. Get them to sign. Send the file to Provider Operations. If nobody sits in this job, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job.",
+          lanes: "This job has one result. You do all three parts yourself. Go in person. Get them to sign. Send the file to Provider Operations. If this job is empty, Field Marketing Manager does this work today. They write that down.",
           responsibilities: "These are the six parts of the job. Click a row to open the full card.",
           handoffs: "Work arrives as a written file and leaves as a written file. A chat message is not the file. Click a row to open the full card.",
           workflow: "On a named first-worker day, go in person with the signed papers (FPO-01). If they will sign, write the file (FPO-02). Send it to Provider Operations the same week (FPO-03). If the town will not sign, name it (FPO-04). Click a step to open the full card.",
@@ -4397,10 +4369,10 @@ window.PK_GROWTH = (function () {
         copy: {
           heroKicker: "What this job is",
           defTitle: "What this job is",
-          lanesTitle: "How this job is split",
+          lanesTitle: "This job has three parts",
           definition: "You write a maintenance contract with a named office or housing society so Operations can send workers there. You go to that building, meet the person who is allowed to sign (the office manager, the society secretary, or the named owner), and use only the signed contract papers Offer and Finance already approved. After both sides sign, you file the contract and tell Operations they can start. You do not invent a price, take cash, or book a one-off job for someone in that building. Hotel desks and shops that send us their customers belong to Partnerships, not this job.",
           owns: "These are the six things this job owns. Do not do Sales’ job, Operations’ job, or Partnerships’ job.",
-          lanes: "One result, three kinds of work. Go to the building. Write the contract. File it so Operations can work. If nobody sits in this job, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job.",
+          lanes: "This job has one result. You do all three parts yourself. Go to the building. Write the contract. File it so Operations can work. If this job is empty, Field Marketing Manager does this work today. They write that down.",
           responsibilities: "These are the six parts of the job. Click a row to open the full card.",
           handoffs: "Work arrives as a written file and leaves as a written file. A chat message is not the file. Click a row to open the full card.",
           workflow: "On a named contract-visit day, go with the signed papers (OSC-01). If they will sign, write the contract (OSC-02). File it and tell Operations (OSC-03). If they will not sign, name it (OSC-04). Click a step to open the full card.",

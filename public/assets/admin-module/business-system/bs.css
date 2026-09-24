@@ -490,12 +490,6 @@
   color: var(--gold);
   border-color: var(--navy);
 }
-.os-explorer .rd-lane-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 4px 0 0;
-}
 .os-explorer .rd-back.is-gold:hover {
   background: var(--gold);
   color: var(--navy);
@@ -661,7 +655,37 @@
 }
 .os-explorer .rd-lanes {
   display: grid;
-  gap: 14px;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+.os-explorer .rd-lane-card {
+  display: grid;
+  grid-template-columns: minmax(200px, 280px) minmax(0, 1fr);
+  align-items: stretch;
+  overflow: hidden;
+  padding: 0;
+}
+.os-explorer .rd-lane-art {
+  background: #efe8d8;
+  min-height: 100%;
+}
+.os-explorer .rd-lane-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 220px;
+  object-fit: cover;
+  object-position: center 35%;
+}
+.os-explorer .rd-lane-copy {
+  padding: 18px 22px 20px;
+  min-width: 0;
+}
+.os-explorer .rd-lane-card .rd-lane-copy h3 {
+  margin: 0 0 12px;
+  font-size: 22px;
+  line-height: 1.25;
+  letter-spacing: -.02em;
 }
 .os-explorer .rd-flow,
 .os-explorer .rd-flow-pair {
@@ -1754,7 +1778,7 @@
     grid-template-columns: 1fr 1fr;
   }
   .os-explorer .rd-lanes {
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr;
   }
   .os-explorer .rd-flow-pair {
     grid-template-columns: 1fr 1fr;
@@ -2144,5 +2168,12 @@
   .os-explorer .rd-detail-art img {
     height: 180px;
     min-height: 180px;
+  }
+  .os-explorer .rd-lane-card {
+    grid-template-columns: 1fr;
+  }
+  .os-explorer .rd-lane-art img {
+    min-height: 168px;
+    height: 168px;
   }
 }
