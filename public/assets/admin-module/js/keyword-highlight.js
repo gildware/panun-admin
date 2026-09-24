@@ -19,7 +19,8 @@ window.addEventListener("load", function () {
                         parent.nodeName !== "SCRIPT" &&
                         parent.nodeName !== "STYLE" &&
                         !parent.closest("mark") &&
-                        !parent.closest(".material-icons") &&  //New Code
+                        !parent.closest(".material-icons") &&
+                        !parent.closest("button, a, input, textarea, select, label") &&
                         node.nodeValue.trim().length > 0
                     ) {
                         return NodeFilter.FILTER_ACCEPT;
