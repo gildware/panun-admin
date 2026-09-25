@@ -10,6 +10,10 @@
         (int) @filemtime(public_path('assets/admin-module/business-system/bs-growth-data.js')),
         (int) @filemtime(public_path('assets/admin-module/business-system/bs-growth-reports.js')),
         (int) @filemtime(public_path('assets/admin-module/business-system/bs-growth-heads.js')),
+        (int) @filemtime(public_path('assets/admin-module/business-system/bs-operations.js')),
+        (int) @filemtime(public_path('assets/admin-module/business-system/bs-company.js')),
+        (int) @filemtime(public_path('assets/admin-module/business-system/bs-files.js')),
+        (int) @filemtime(public_path('assets/admin-module/business-system/bs-reports.js')),
         (int) @filemtime(public_path('assets/admin-module/business-system/bs.css')),
         (int) @filemtime(public_path('assets/admin-module/operating-system/os.css'))
     ) ?: time()) . 'u2');
@@ -39,5 +43,9 @@
     <script src="{{ $bsAssetBase }}/bs-growth-data.js?v={{ $bsVersion }}"></script>
     <script src="{{ $bsAssetBase }}/bs-growth-reports.js?v={{ $bsVersion }}"></script>
     <script src="{{ $bsAssetBase }}/bs-growth-heads.js?v={{ $bsVersion }}"></script>
+    <script src="{{ $bsAssetBase }}/bs-operations.js?v={{ $bsVersion }}"></script>
+    <script src="{{ $bsAssetBase }}/bs-company.js?v={{ $bsVersion }}"></script>
+    <script src="{{ $bsAssetBase }}/bs-files.js?v={{ $bsVersion }}"></script>
+    <script src="{{ $bsAssetBase }}/bs-reports.js?v={{ $bsVersion }}"></script>
     <script src="{{ $bsAssetBase }}/bs-app.js?v={{ $bsVersion }}"></script>
 @endpush

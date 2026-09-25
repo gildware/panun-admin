@@ -90,13 +90,34 @@
     .lead-comment-actions .material-icons {
         font-size: 18px;
     }
-    .lead-comment-actions .btn-link {
+    .lead-comment-actions .btn-link,
+    .lead-comment-actions .btn-link:hover,
+    .lead-comment-actions .btn-link:focus,
+    .lead-comment-actions .btn-link:active {
         line-height: 1;
         min-width: auto;
-        color: #64748b;
+        color: #64748b !important;
+        background: transparent !important;
+        background-color: transparent !important;
+        box-shadow: none !important;
     }
-    .lead-comment-actions .btn-link:hover {
-        color: #0f172a;
+    .lead-comment-actions .btn-link:hover,
+    .lead-comment-actions .btn-link:focus {
+        color: #0f172a !important;
+    }
+    .lead-comment-actions .btn-link .material-icons {
+        color: inherit !important;
+        margin: 0;
+    }
+    .lead-comment-actions .lead-comment-delete-btn,
+    .lead-comment-actions .lead-comment-delete-btn:hover,
+    .lead-comment-actions .lead-comment-delete-btn:focus,
+    .lead-comment-actions .lead-comment-delete-btn:active {
+        color: #dc3545 !important;
+    }
+    .lead-comment-actions .lead-comment-delete-btn:hover,
+    .lead-comment-actions .lead-comment-delete-btn:focus {
+        color: #b91c1c !important;
     }
     .lead-comment-body {
         font-size: .875rem;

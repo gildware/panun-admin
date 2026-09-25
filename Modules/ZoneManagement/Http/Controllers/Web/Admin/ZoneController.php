@@ -21,6 +21,7 @@ use MatanYadaev\EloquentSpatial\Objects\Point;
 use MatanYadaev\EloquentSpatial\Objects\Polygon;
 use Modules\BusinessSettingsModule\Entities\Translation;
 use Modules\ZoneManagement\Entities\Zone;
+use Modules\ZoneManagement\Services\ZoneCategoryInheritanceService;
 use Modules\ZoneManagement\Services\ZoneGeometryService;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Stevebauman\Location\Facades\Location;
@@ -519,6 +520,13 @@ class ZoneController extends Controller
             $zone->description = is_string($desc) && trim($desc) !== '' ? trim($desc) : null;
             $zone->save();
 
+            if ($zone->parent_id) {
+                app(ZoneCategoryInheritanceService::class)->inheritParentCategorySelection(
+                    (string) $zone->id,
+                    (string) $zone->parent_id
+                );
+            }
+
             $defaultLang = str_replace('_', '-', app()->getLocale());
 
             $canonicalName = $request->name[array_search('default', $request->lang)];
@@ -755,12 +763,22 @@ class ZoneController extends Controller
             return back();
         }
 
+        $previousParentId = (string) ($zone->parent_id ?? '');
+
         $zone->name = $request->name[array_search('default', $request->lang)];
         $zone->coordinates = new Polygon([new LineString($polygon)]);
         $zone->parent_id = $request->filled('parent_id') ? $request->parent_id : null;
         $desc = $request->input('description');
         $zone->description = is_string($desc) && trim($desc) !== '' ? trim($desc) : null;
         $zone->save();
+
+        $newParentId = (string) ($zone->parent_id ?? '');
+        if ($newParentId !== '' && $newParentId !== $previousParentId) {
+            app(ZoneCategoryInheritanceService::class)->inheritParentCategorySelection(
+                (string) $zone->id,
+                $newParentId
+            );
+        }
 
         $defaultLang = str_replace('_', '-', app()->getLocale());
         $canonicalName = $request->name[array_search('default', $request->lang)];

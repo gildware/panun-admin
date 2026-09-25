@@ -61,14 +61,14 @@
   const TREE = {
     id: "ceo",
     name: "CEO",
-    line: "Sets the company direction and holds the four heads accountable. Makes the final call on priorities, hiring of heads, and what Panun Kaergar will and will not do.",
+    line: "Writes what the company will and will not do. Holds the four heads to one result each. Each week writes the money note from the records: jobs settled on both sides, growth spend against the signed amount, and cash not yet in the books.",
     iconFile: "control",
     scene: "control",
     reports: [
       {
         id: "hog",
         name: "Head of Growth",
-        line: "Owns who we sell to, what we may promise, and the numbers. Holds Marketing, Intelligence, Offer, Expansion, and Partnerships to one result each. Says yes or no on a new service, a new town, and a new kind of partner.",
+        line: "Owns who we sell to, what we may promise, and the numbers. Holds Marketing, Intelligence, Offer, Expansion, and Partnerships to one result each. If a seat is empty, the day’s note names that seat, what was done, and that the other four results were still read. The weekly review still happens.",
         iconFile: "growth",
         scene: "growth",
         tint: "g-growth",
@@ -83,7 +83,7 @@
               {
                 id: "hom",
                 name: "Digital Marketing Manager",
-                line: "Owns all online work: paid ads, website and app search, social, other sites, videos and posts. Sends digital enquiries to Sales after Operations has written how they found us.",
+                line: "Owns all online work: paid ads, website and app search, social, other sites, videos and posts. Sends digital enquiries to Customer Experience after Operations has written how they found us.",
                 iconFile: "mkt",
                 scene: "mkt",
                 reports: [
@@ -93,12 +93,12 @@
               {
                 id: "fmm",
                 name: "Field Marketing Manager",
-                line: "Runs three ground jobs: people who visit stalls, people who get the first local workers to sign papers, and people who write office and society maintenance contracts. Visitors may be full-time employees or people we pay on a written contract.",
+                line: "Runs three ground jobs: stall visits, first local workers who sign, and office and society contracts. Do not hire this seat until all three are already happening. Until then Marketing Manager writes: I am doing Field Marketing today because the seat is empty. The box stays.",
                 iconFile: "me",
                 scene: "me",
                 reports: [
-                  { id: "fve", name: "Field Visitor", line: "Actually visits the market — stall, street, or follow-up. May be a full-time employee or someone we pay on a written contract. Collects names for Sales the same day. Does not take the booking or money.", iconFile: "me", scene: "me" },
-                  { id: "fpo", name: "First Provider Onboarding", line: "Goes in person to the first local workers and gets them to sign the papers so they can work with Panun Kaergar. Sends the signed file to Provider Operations so they can put those people on customer jobs.", iconFile: "me", scene: "me" },
+                  { id: "fve", name: "Field Visitor", line: "Actually visits the market — stall, street, or follow-up. May be a full-time employee or someone we pay on a written contract. Collects names for Customer Experience the same day. Does not take the booking or money.", iconFile: "me", scene: "me" },
+                  { id: "fpo", name: "First Provider Onboarding", line: "Goes in person to the first local workers and gets them to sign the papers. Sends the signed file to the Provider Experience Manager the same day. Does not put them on customer jobs.", iconFile: "me", scene: "me" },
                   { id: "flc", name: "Office and Society Contracts", line: "Writes maintenance contracts with offices and housing societies from the signed papers Offer and Finance already approved. A verbal yes is not a contract.", iconFile: "me", scene: "me" }
                 ]
               }
@@ -106,14 +106,14 @@
           },
           { id: "mim", name: "Market Intelligence Manager", line: "Writes demand, competitors, and ideas with a source and a date. Closes each idea as go, no-go, or more research. Does not run ads, write the service, or open a town.", iconFile: "mi", scene: "mi" },
           { id: "osd", name: "Offer & Service Development Manager", line: "Writes what Panun Kaergar can sell and finish: what is in, what is out, how the job should run. Finance prices. Operations says they can do it. Head of Growth says Marketing may talk.", iconFile: "sd", scene: "sd" },
-          { id: "mem", name: "Market Expansion Manager", line: "Writes enter, wait, or leave for a named town after Provider Operations can finish the first jobs. Does not hire workers, and does not market before we can do the work.", iconFile: "me", scene: "me" },
-          { id: "pcm", name: "Partnerships & Channels Manager", line: "Signs hotel desks and shops that send us their customers. Sends named leads to Sales the same day. Does not book the customer, and does not write office maintenance contracts.", iconFile: "pc", scene: "pc" }
+          { id: "mem", name: "Market Expansion Manager", line: "Writes enter, wait, or leave for a named town only after the Provider Experience Manager says the first jobs can be finished. Does not hire workers, and does not market before we can do the work.", iconFile: "me", scene: "me" },
+          { id: "pcm", name: "Partnerships & Channels Manager", line: "Signs hotel desks and shops that send us their customers. Sends named leads to Customer Experience the same day. Does not book the customer, and does not write office maintenance contracts.", iconFile: "pc", scene: "pc" }
         ]
       },
       {
         id: "hoo",
         name: "Head of Operations",
-        line: "Owns fulfilment and day-to-day operations. Makes sure bookings are completed well and the customer never has to chase the work.",
+        line: "Sees the whole operation. If a manager is on leave and no deputy was named, names one person that morning and does not take the queue.",
         iconFile: "operations",
         scene: "operations",
         tint: "g-operations",
@@ -121,29 +121,29 @@
           {
             id: "cxm",
             name: "Customer Experience Manager",
-            line: "Owns the customer journey from first contact to a completed booking. Coaches executives and keeps response and conversion on track.",
+            line: "Assigns every customer and future-customer lead. Hot before warm before cold. Each week reads bookings taken next to those same bookings finished and settled on both sides.",
             iconFile: "cx",
             scene: "cx",
             reports: [
-              { id: "cxe", name: "Customer Experience Executive", line: "Handles leads, follow-ups and bookings every day. Keeps the customer informed and closes work to a clear outcome.", iconFile: "cx", scene: "cx" }
+              { id: "cxe", name: "Customer Experience Executive", line: "Works only the leads with your name. Hot before warm before cold. The last message on that lead is from Panun Kaergar.", iconFile: "cx", scene: "cx" }
             ]
           },
           {
             id: "pom",
-            name: "Provider Operations Manager",
-            line: "Owns provider fulfilment. Assigns jobs, watches quality on the ground and makes sure the provider side of every booking is done.",
+            name: "Provider Experience Manager",
+            line: "Assigns every service provider lead. Onboard now before write down, do later. Names a deputy before leave.",
             iconFile: "po",
             scene: "po",
             reports: [
-              { id: "poe", name: "Provider Operations Executives", line: "Coordinate providers day to day. Confirm job start, track completion and raise issues before the customer feels them.", iconFile: "po", scene: "po" }
+              { id: "poe", name: "Provider Support", line: "Works only the provider leads with your name. Onboard now before later. Does not change company prices.", iconFile: "po", scene: "po" }
             ]
           }
         ]
       },
       {
         id: "hof",
-        name: "Head of Finance & Administration",
-        line: "Owns money, people operations and administration. Keeps accounts clean and the office running so the rest of the company can work.",
+        name: "Head of Finance and People",
+        line: "Checks the books and the people files. Stops an amount that is not in a written policy. Names a deputy if a manager left the name blank.",
         iconFile: "fpc",
         scene: "fpc",
         tint: "g-control",
@@ -151,21 +151,21 @@
           {
             id: "fam",
             name: "Finance & Accounts Manager",
-            line: "Owns finance and accounts. Tracks money in and out, reviews books, and flags anything that is late, missing or off policy.",
+            line: "Assigns every open payment. The books match the booking. Does not invent a price.",
             iconFile: "fpc",
             scene: "fpc",
             reports: [
-              { id: "ace", name: "Accounts Executive", line: "Posts day-to-day accounts, invoices and receipts. Keeps records complete so the manager can close the books.", iconFile: "fpc", scene: "fpc" }
+              { id: "ace", name: "Accounts Executive", line: "Writes only the money items with your name. Sends back a blank field. Does not invent an amount.", iconFile: "fpc", scene: "fpc" }
             ]
           },
           {
             id: "hrm",
             name: "HR & Administration Manager",
-            line: "Owns people and office administration. Hiring, attendance, files and the basics that keep the team able to work.",
+            line: "Hires only from a written gap, and only when that seat’s own work is already happening. One person, one file. Does not hire Field Marketing until stall visits, first signatures, and office contracts are each already happening.",
             iconFile: "hr",
             scene: "hr",
             reports: [
-              { id: "hre", name: "HR & Administration Executive", line: "Runs daily HR and admin tasks. Onboarding, records, office support and follow-through on people requests.", iconFile: "hr", scene: "hr" }
+              { id: "hre", name: "HR & Administration Executive", line: "Files the people tasks with your name. Does not set pay. Another person can continue the file.", iconFile: "hr", scene: "hr" }
             ]
           }
         ]
@@ -173,7 +173,7 @@
       {
         id: "hot",
         name: "Head of Technology & Data",
-        line: "Owns systems, product and data. Makes sure the tools the company runs on are reliable, secure and actually used.",
+        line: "The tools are up. A change does not hide a booking or a payment. Names a deputy if the team lead left the name blank.",
         iconFile: "td",
         scene: "td",
         tint: "g-technology",
@@ -181,11 +181,11 @@
           {
             id: "set",
             name: "Software Engineer Team Lead",
-            line: "Leads the engineering team that builds and maintains the product. Breaks work down, reviews quality and ships what operations need.",
+            line: "Gives every ticket to one engineer. A broken seat comes before a new idea. Checks the release.",
             iconFile: "td",
             scene: "td",
             reports: [
-              { id: "swe", name: "Software Engineers", line: "Write, test and fix the product every day. Turn tickets into working features and keep existing flows stable.", iconFile: "td", scene: "td" }
+              { id: "swe", name: "Software Engineer", line: "Builds only the tickets with your name. Writes what changed. Stops if a live record has no written yes.", iconFile: "td", scene: "td" }
             ]
           }
         ]
@@ -217,7 +217,7 @@
   })(TREE, null);
 
   const ART = {
-    ceo: "org-ceo.png",
+    ceo: "role-ceo.png",
     hog: "role-hog.png",
     mkm: "role-mkm.png",
     hom: "role-hom.png",
@@ -230,19 +230,19 @@
     osd: "role-osd.png",
     mem: "role-mem.png",
     pcm: "role-pcm.png",
-    hoo: "org-operations.png",
-    cxm: "org-customer.png",
-    cxe: "org-cx-exec.png",
-    pom: "org-provider.png",
-    poe: "org-provider-exec.png",
-    hof: "org-finance-head.png",
-    fam: "org-accounts.png",
-    ace: "org-accounts-exec.png",
-    hrm: "org-hr.png",
-    hre: "org-hr-exec.png",
-    hot: "org-technology.png",
-    set: "org-engineering.png",
-    swe: "org-engineers.png"
+    hoo: "role-hoo.png",
+    cxm: "role-cxm.png",
+    cxe: "role-cxe.png",
+    pom: "role-pom.png",
+    poe: "role-poe.png",
+    hof: "role-hof.png",
+    fam: "role-fam.png",
+    ace: "role-ace.png",
+    hrm: "role-hrm.png",
+    hre: "role-hre.png",
+    hot: "role-hot.png",
+    set: "role-set.png",
+    swe: "role-swe.png"
   };
   function sceneFor(node) {
     return art(ART[node.id] || "org-ceo.png");
@@ -394,11 +394,23 @@
     </div>`;
   }
 
+  function systemTabs(active) {
+    const key = String(active || "");
+    const filesOn = key === "files" || key.indexOf("file-") === 0;
+    const reportsOn = key === "reports" || key.indexOf("report-") === 0;
+    return `<nav class="bs-system-tabs" role="tablist" aria-label="Business system">
+      <button type="button" class="bs-system-tab${filesOn || reportsOn ? "" : " is-on"}" data-go-home>Hierarchy</button>
+      <button type="button" class="bs-system-tab${filesOn ? " is-on" : ""}" data-go-hash="files">Files</button>
+      <button type="button" class="bs-system-tab${reportsOn ? " is-on" : ""}" data-go-hash="reports">Reports</button>
+    </nav>`;
+  }
+
   function renderOverview() {
     return `
       <div class="page page-arch org-page">
+        ${systemTabs("")}
         <div class="org-zoom-bar" role="toolbar" aria-label="Tree zoom">
-          <button type="button" class="org-zoom-fit" data-open-workflows>Growth workflows</button>
+          <button type="button" class="org-zoom-fit" data-open-workflows>Workflows</button>
           <button type="button" class="org-zoom-btn" data-zoom-out aria-label="Zoom out"><span class="mso">remove</span></button>
           <span class="org-zoom-label" data-zoom-label>100%</span>
           <button type="button" class="org-zoom-btn" data-zoom-in aria-label="Zoom in"><span class="mso">add</span></button>
@@ -715,7 +727,7 @@
     </article>`;
   }
 
-  function renderGlossary(items) {
+  function renderGlossary(items, artFile) {
     if (!items || !items.length) return "";
     const cards = items.map((term) => `
       <article class="rd-gloss-item" id="gloss-${esc(term.id)}">
@@ -725,7 +737,7 @@
       </article>`).join("");
     return `
       <section class="rd-section" id="rd-gloss">
-        ${secHead("", "", "Glossary", "Words this playbook uses with a fixed meaning. Click a dotted term anywhere on this page to jump to its definition.")}
+        ${secHead(artFile || "", artFile ? "The shelf" : "", "Glossary", "Words this playbook uses with a fixed meaning. Click a dotted term anywhere on this page to jump to its definition.")}
         <div class="rd-glossary">${cards}</div>
       </section>`;
   }
@@ -769,8 +781,9 @@
     const records = (role.records || []).map((item) => `<div class="rd-record">${glossLink(item)}</div>`).join("");
     const rules = role.rules || [];
     if (!good && !bad && !records && !rules.length) return "";
+    const pictured = picturedDept(role);
     return `<section class="rd-section" id="rd-look">
-      ${secHead("", "", "What good looks like — and what bad looks like", "You should know if this job is working without a meeting. These are the files, and the lines you do not cross even when it would be faster.")}
+      ${secHead(pictured ? "sec-look.png" : "", pictured ? "How you know" : "", "What good looks like — and what bad looks like", "You should know if this job is working without a meeting. These are the files, and the lines you do not cross even when it would be faster.")}
       ${good || bad ? `<div class="rd-looks">
         <article class="is-good"><h3>Good</h3>${good}</article>
         <article class="is-bad"><h3>Bad</h3>${bad}</article>
@@ -778,6 +791,23 @@
       ${records ? `<h3 class="rd-group">Records this role keeps</h3><div class="rd-records">${records}</div>` : ""}
       ${rules.length ? `<h3 class="rd-group">Rules</h3>${listHtml(rules, "rd-list is-rule")}` : ""}
     </section>`;
+  }
+
+  function picturedDept(role) {
+    const dept = role && role.dept;
+    return dept === "operations" || dept === "control" || dept === "technology" || dept === "company";
+  }
+
+  function workflowLink(role) {
+    const dept = (role && role.dept) || "growth";
+    const names = {
+      growth: "Growth workflows",
+      operations: "Operations workflows",
+      control: "Control workflows",
+      technology: "Technology workflows"
+    };
+    if (!names[dept] || !(G.workflows && G.workflows[dept])) return "";
+    return `<button type="button" class="rd-back is-gold" data-go-hash="workflow-${dept}"><span class="mso">account_tree</span> ${esc(names[dept])}</button>`;
   }
 
   function renderDetailedRole(role) {
@@ -790,12 +820,14 @@
     const outgoing = (d.handoffs || []).filter((item) => item.side === "out");
     const jobIs = copy.definition || role.what || "";
     const hasWhatWhy = !!(d.definition && ((d.definition.what && d.definition.what.length) || (d.definition.why && d.definition.why.length)));
+    const ops = picturedDept(role);
+    const head = (file, kicker, title, lede) => secHead(ops ? file : "", ops ? kicker : "", title, lede);
     return `
       <div class="page rd-page is-compact is-detailed">
         <div class="rd-top">
           <div class="rd-top-row">
             <button type="button" class="rd-back" data-go-home><span class="mso">arrow_back</span> Organisation</button>
-            <button type="button" class="rd-back is-gold" data-go-hash="workflow-growth"><span class="mso">account_tree</span> Growth workflows</button>
+            ${workflowLink(role)}
           </div>
           ${jumpNav(role)}
         </div>
@@ -814,17 +846,17 @@
             ${renderDefCol("Why this role exists", d.definition && d.definition.why)}
           </div>
         </section>` : ""}
-        ${renderOwnsMustNot(role)}
+        ${renderOwnsMustNot(role, ops ? "sec-owns.png" : "")}
         ${role.lanes && role.lanes.length ? `<section class="rd-section" id="rd-lanes">
-          ${secHead("", "", copy.lanesTitle || "This job has three parts", copy.lanes || "This job has one result. The work is in three parts. Each part says what you do, when it is done, and who does it. If Who is another job and that job is empty, you do that work today. Write that down.")}
+          ${head("sec-lanes.png", "Three parts", copy.lanesTitle || "This job has three parts", copy.lanes || "This job has one result. The work is in three parts. Each part says what you do, when it is done, and who does it. If Who is another job and that job is empty, you do that work today. Write that down.")}
           ${renderLanes(role.lanes)}
         </section>` : ""}
         <section class="rd-section" id="rd-do">
-          ${secHead("", "", "Responsibilities", copy.responsibilities || "Click a row to open the full card.")}
+          ${head("sec-do.png", "The work", "Responsibilities", copy.responsibilities || "Click a row to open the full card.")}
           ${renderAccordions(d.responsibilities)}
         </section>
         <section class="rd-section" id="rd-hand">
-          ${secHead("", "", "Handoffs — what you get, what you give", copy.handoffs || "Work arrives as a written pack and leaves as a written pack. Chat is not a pack.")}
+          ${head("sec-hand.png", "In and out", "Handoffs — what you get, what you give", copy.handoffs || "Work arrives as a written pack and leaves as a written pack. Chat is not a pack.")}
           ${renderHandoffChart(incoming, outgoing, role)}
           <h3 class="rd-group">What you receive</h3>
           ${renderAccordions(incoming)}
@@ -832,29 +864,29 @@
           ${renderAccordions(outgoing)}
         </section>
         <section class="rd-section" id="rd-how">
-          ${secHead("", "", "Work flow", copy.workflow || "Follow these steps in order. Click a step to open the full card.")}
+          ${head("sec-how.png", "Procedures", "Work flow", copy.workflow || "Follow these steps in order. Click a step to open the full card.")}
           ${(d.workflow && d.workflow.length) ? "" : renderSopStrip(role.procedures)}
           ${renderStepChart(d.workflow)}
           ${renderAccordions(d.workflow)}
         </section>
         <section class="rd-section" id="rd-rpt">
-          ${secHead("", "", "Reporting — daily, weekly, monthly", copy.reporting || "Packs this seat must write. Click a row to open the full pack.")}
+          ${head("sec-rpt.png", "The files", "Reporting — daily, weekly, monthly", copy.reporting || "Packs this seat must write. Click a row to open the full pack.")}
           ${renderAccordions(d.reporting, renderReportCard)}
         </section>
         <section class="rd-section" id="rd-std">
-          ${secHead("", "", "Standards", copy.standards || "The bar this seat is measured against. Click a card for the full standard.")}
+          ${head("sec-std.png", "The bar", "Standards", copy.standards || "The bar this seat is measured against. Click a card for the full standard.")}
           ${renderStdGrid(d.standards)}
         </section>
         ${renderLookShelf(role)}
         <section class="rd-section" id="rd-kpi">
-          ${secHead("", "", "KPIs", copy.kpis || "Numbers that prove the one result. Each measure has a target, a reason, and a counting rule.")}
+          ${head("sec-kpi.png", "Proof", "KPIs", copy.kpis || "Numbers that prove the one result. Each measure has a target, a reason, and a counting rule.")}
           ${renderKpiTable(d.kpis && d.kpis.length ? d.kpis : role.kpis)}
         </section>
         <section class="rd-section" id="rd-esc">
-          ${secHead("", "", "Escalations", copy.escalations || "Who gets the problem, how fast, and with what. Do not sit on it.")}
+          ${head("sec-esc.png", "When it cannot wait", "Escalations", copy.escalations || "Who gets the problem, how fast, and with what. Do not sit on it.")}
           ${renderAccordions(d.escalations)}
         </section>
-        ${renderGlossary(d.glossary)}
+        ${renderGlossary(d.glossary, ops ? "sec-rec.png" : "")}
       </div>
     `;
   }
@@ -914,7 +946,7 @@
         <div class="rd-top">
           <div class="rd-top-row">
             <button type="button" class="rd-back" data-go-home><span class="mso">arrow_back</span> Organisation</button>
-            <button type="button" class="rd-back is-gold" data-go-hash="workflow-growth"><span class="mso">account_tree</span> Growth workflows</button>
+            ${workflowLink(role)}
           </div>
           ${jumpNav(role)}
         </div>
@@ -1018,6 +1050,223 @@
     `;
   }
 
+  function fileNo(index) {
+    return "PK-0" + (index + 1);
+  }
+
+  function renderFileBody(file) {
+    const files = window.PK_FILES || [];
+    const index = files.findIndex((item) => item.id === file.id);
+    const number = fileNo(index < 0 ? 0 : index);
+    const lines = (file.current || []).map((item, i) => `
+      <div class="bs-sheet-field">
+        <span class="bs-sheet-num">${i + 1}</span>
+        <div>
+          <p class="bs-sheet-label">${esc(item.field)}</p>
+          <p class="bs-sheet-line">${esc(item.value)}</p>
+          <p class="bs-sheet-hint">${esc(item.note)}</p>
+        </div>
+      </div>`).join("");
+    const must = (file.contains || []).map((item) => `<li><b>${esc(item.title)}.</b> ${esc(item.body)}</li>`).join("");
+    const change = (file.change || []).map((step) => `<li>${esc(step)}</li>`).join("");
+    return `
+      <div class="page bs-files-page">
+        ${systemTabs("file-" + file.id)}
+        <button type="button" class="rd-back bs-files-back" data-go-hash="files"><span class="mso">arrow_back</span> Cabinet</button>
+        <div class="bs-desk">
+          <article class="bs-sheet">
+            <div class="bs-sheet-holes" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="bs-sheet-fold" aria-hidden="true"></div>
+            <header class="bs-sheet-head">
+              <div>
+                <p class="bs-sheet-brand">Panun Kaergar</p>
+                <p class="bs-sheet-kind">Company file</p>
+              </div>
+              <div class="bs-sheet-meta">
+                <p><span>File</span> ${esc(number)}</p>
+                <p><span>Status</span> Blank</p>
+                <p><span>Copy</span> Current</p>
+              </div>
+            </header>
+            <h1 class="serif">${esc(file.name)}</h1>
+            <p class="bs-sheet-lede">${esc(file.lede)}</p>
+            <dl class="bs-sheet-who">
+              <div><dt>Written by</dt><dd>${esc(file.owner)}</dd></div>
+              <div><dt>Date signed</dt><dd class="is-blank">Not written yet</dd></div>
+              <div><dt>Replaces file dated</dt><dd class="is-blank">Not written yet</dd></div>
+            </dl>
+            <section>
+              <h2>What is written on this file today</h2>
+              ${lines}
+            </section>
+            <section>
+              <h2>What a finished copy must contain</h2>
+              <ol class="bs-sheet-list">${must}</ol>
+            </section>
+            <section>
+              <h2>Who must use this copy</h2>
+              <ul class="bs-sheet-list">${(file.uses || []).map((line) => `<li>${esc(line)}</li>`).join("")}</ul>
+            </section>
+            <section>
+              <h2>How this file is replaced</h2>
+              <ol class="bs-sheet-list">${change}</ol>
+            </section>
+            <p class="bs-sheet-stop"><b>If a line is blank.</b> ${esc(file.blank)}</p>
+            <footer class="bs-sheet-sign">
+              <div>
+                <span class="bs-sheet-sign-line"></span>
+                <p>${esc(file.owner)}</p>
+              </div>
+              <div>
+                <span class="bs-sheet-sign-line"></span>
+                <p>Date</p>
+              </div>
+              <button type="button" class="bs-sheet-role" data-go-hash="role-${esc(file.ownerRole)}">Open the ${esc(file.owner)} seat</button>
+            </footer>
+          </article>
+        </div>
+      </div>`;
+  }
+
+  function renderFiles() {
+    const files = window.PK_FILES || [];
+    const folders = files.map((file, index) => `
+      <button type="button" class="bs-folder" data-go-hash="file-${esc(file.id)}">
+        <span class="bs-folder-tab"><b>${fileNo(index)}</b> ${esc(file.name)}</span>
+        <span class="bs-folder-sheet">
+          <span class="bs-folder-stamp">Blank</span>
+          <strong>${esc(file.name)}</strong>
+          <span class="bs-folder-rule"></span>
+          <span class="bs-folder-rule"></span>
+          <span class="bs-folder-rule"></span>
+          <em>Kept by ${esc(file.owner)}</em>
+        </span>
+      </button>`).join("");
+    return `
+      <div class="page bs-files-page">
+        ${systemTabs("files")}
+        <div class="bs-desk">
+          <div class="bs-drawer">
+            <p class="bs-drawer-label">Company cabinet</p>
+            <h1 class="serif">Files</h1>
+            <p class="bs-drawer-note">Five paper files. Open one. A blank line stays blank until the person named on the file writes it.</p>
+            <div class="bs-folders">${folders}</div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function reportNo(index) {
+    const n = index + 1;
+    return "R-" + (n < 10 ? "0" + n : String(n));
+  }
+
+  function renderReportBody(report) {
+    const reports = window.PK_REPORTS || [];
+    const index = reports.findIndex((item) => item.id === report.id);
+    const number = reportNo(index < 0 ? 0 : index);
+    const lines = (report.lines || []).map((line, i) => `
+      <div class="bs-sheet-field">
+        <span class="bs-sheet-num">${i + 1}</span>
+        <div>
+          <p class="bs-sheet-label">${esc(line.field)}</p>
+          <p class="bs-sheet-line is-blank"></p>
+          <p class="bs-sheet-hint">${esc(line.hint)}</p>
+        </div>
+      </div>`).join("");
+    return `
+      <div class="page bs-files-page">
+        ${systemTabs("report-" + report.id)}
+        <button type="button" class="rd-back bs-files-back" data-go-hash="reports"><span class="mso">arrow_back</span> Reports</button>
+        <div class="bs-desk">
+          <article class="bs-sheet">
+            <div class="bs-sheet-holes" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="bs-sheet-fold" aria-hidden="true"></div>
+            <header class="bs-sheet-head">
+              <div>
+                <p class="bs-sheet-brand">Panun Kaergar</p>
+                <p class="bs-sheet-kind">Report form</p>
+              </div>
+              <div class="bs-sheet-meta">
+                <p><span>Report</span> ${esc(number)}</p>
+                <p><span>Status</span> Blank form</p>
+                <p><span>Copy</span> To fill</p>
+              </div>
+            </header>
+            <h1 class="serif">${esc(report.name)}</h1>
+            <p class="bs-sheet-lede">${esc(report.rule)}</p>
+            <dl class="bs-sheet-who">
+              <div><dt>Written by</dt><dd>${esc(report.writer)}</dd></div>
+              <div><dt>When</dt><dd>${esc(report.when)}</dd></div>
+              <div><dt>Given to</dt><dd>${esc(report.to)}</dd></div>
+            </dl>
+            <section>
+              <h2>What to write on each line</h2>
+              <p class="bs-sheet-intro">The line is blank. The sentence under it says what to write and which record to copy. If you cannot point at that record, leave the line blank and send the gap back the same day. Do not type a remembered figure.</p>
+              ${lines}
+            </section>
+            <p class="bs-sheet-stop"><b>If a line is blank.</b> Send it back the same day and name the record that is missing. Do not invent the number so the report looks finished.</p>
+            <footer class="bs-sheet-sign">
+              <div>
+                <span class="bs-sheet-sign-line"></span>
+                <p>${esc(report.writer)}</p>
+              </div>
+              <div>
+                <span class="bs-sheet-sign-line"></span>
+                <p>Date</p>
+              </div>
+              <button type="button" class="bs-sheet-role" data-go-hash="role-${esc(report.writerRole)}">Open the ${esc(report.writer)} seat</button>
+            </footer>
+          </article>
+        </div>
+      </div>`;
+  }
+
+  function renderReports() {
+    const reports = window.PK_REPORTS || [];
+    const groups = [];
+    reports.forEach((report) => {
+      if (!groups.length || groups[groups.length - 1].name !== report.group) {
+        groups.push({ name: report.group, items: [] });
+      }
+      groups[groups.length - 1].items.push(report);
+    });
+    const drawers = groups.map((group) => {
+      const folders = group.items.map((report) => {
+        const index = reports.indexOf(report);
+        return `
+          <button type="button" class="bs-folder" data-go-hash="report-${esc(report.id)}">
+            <span class="bs-folder-tab"><b>${reportNo(index)}</b> ${esc(report.name)}</span>
+            <span class="bs-folder-sheet">
+              <span class="bs-folder-stamp">Form</span>
+              <strong>${esc(report.name)}</strong>
+              <span class="bs-folder-rule"></span>
+              <span class="bs-folder-rule"></span>
+              <span class="bs-folder-rule"></span>
+              <em>${esc(report.writer)}</em>
+            </span>
+          </button>`;
+      }).join("");
+      return `
+        <div class="bs-drawer">
+          <p class="bs-drawer-label">${esc(group.name)}</p>
+          <div class="bs-folders">${folders}</div>
+        </div>`;
+    }).join("");
+    return `
+      <div class="page bs-files-page">
+        ${systemTabs("reports")}
+        <div class="bs-desk">
+          <div class="bs-drawer">
+            <p class="bs-drawer-label">Report cabinet</p>
+            <h1 class="serif">Reports</h1>
+            <p class="bs-drawer-note">Open a form. Each blank line has a sentence under it that says what to write, and which record to copy it from. If that record does not exist, leave the line blank.</p>
+          </div>
+          ${drawers}
+        </div>
+      </div>`;
+  }
+
   function renderWorkflows(tabId) {
     const tabs = G.workflowTabs || [];
     const active = (G.workflows && G.workflows[tabId]) ? tabId : "growth";
@@ -1031,6 +1280,13 @@
       }
       return `<button type="button" class="wf-tab${tab.id === active ? " is-on" : ""}" data-go-hash="workflow-${tab.id}">${esc(tab.name)}</button>`;
     }).join("");
+    const heads = Object.assign({
+      rules: { file: "sec-rules.png", kicker: "Do not mix", title: "Hard rules", lede: "Growth makes the enquiry. Customer Experience books the job and finishes it. Growth does not book. If Growth also books, nobody owns the result." },
+      calendar: { file: "sec-when.png", kicker: "Rhythm", title: "When this runs", lede: "Daily handoff, weekly review, monthly signed plan. Same time so the system does not depend on mood." },
+      boundaries: { file: "sec-owns.png", kicker: "Boundaries", title: "Who owns which result", lede: "Each function has one result. Do not steal the next box." },
+      paths: { file: "sec-how.png", kicker: "The paths", title: "The three Growth paths", lede: "A new service, a new town, or the weekly engine for what we already sell. Each path has a start, a done, and a stop." },
+      seats: { file: "sec-do.png", kicker: "The seats", title: "What each Growth person does", lede: "One result each. Click through for the full playbook: reports, data, and who to pass it to." }
+    }, wf.sectionHeads || {});
     const rules = listHtml(wf.rules, "rd-list is-rule");
     const paths = (wf.paths || []).map((path, index) => `
       <article class="wf-path" id="wf-${esc(path.id)}">
@@ -1064,9 +1320,12 @@
         <p>${esc(item.does)}</p>
       </article>
     `).join("");
-    const who = (G.roleIds || []).map((id) => {
+    const who = (G.roleIds || []).filter((id) => {
       const role = G.roles[id];
-      if (!role) return "";
+      if (!role) return false;
+      return (role.dept || "growth") === active;
+    }).map((id) => {
+      const role = G.roles[id];
       return `<article class="wf-who">
         <img src="${art(role.hero)}" alt="">
         <h3>${esc(role.name)}</h3>
@@ -1092,23 +1351,23 @@
           </div>
         </header>
         <section class="rd-section">
-          ${secHead("sec-rules.png", "Do not mix", "Hard rules", "Growth makes the enquiry. Sales books. Operations finishes. If those three mix, nobody owns a result.")}
+          ${secHead(heads.rules.file, heads.rules.kicker, heads.rules.title, heads.rules.lede)}
           ${rules}
         </section>
         ${calendar ? `<section class="rd-section">
-          ${secHead("sec-when.png", "Rhythm", "When this runs", "Daily handoff, weekly review, monthly signed plan. Same time so the system does not depend on mood.")}
+          ${secHead(heads.calendar.file, heads.calendar.kicker, heads.calendar.title, heads.calendar.lede)}
           <div class="rd-when">${calendar}</div>
         </section>` : ""}
         ${boundaries ? `<section class="rd-section">
-          ${secHead("sec-owns.png", "Boundaries", "Who owns which result", "Each function has one result. Do not steal the next box.")}
+          ${secHead(heads.boundaries.file, heads.boundaries.kicker, heads.boundaries.title, heads.boundaries.lede)}
           <div class="rd-duties">${boundaries}</div>
         </section>` : ""}
         <section class="rd-section">
-          ${secHead("sec-how.png", "The paths", "The three Growth paths", "A new service, a new town, or the weekly engine for what we already sell. Each path has a start, a done, and a stop.")}
+          ${secHead(heads.paths.file, heads.paths.kicker, heads.paths.title, heads.paths.lede)}
           <div class="wf-paths">${paths}</div>
         </section>
         <section class="rd-section">
-          ${secHead("sec-do.png", "The seats", "What each Growth person does", "One result each. Click through for the full playbook: reports, data, and who to pass it to.")}
+          ${secHead(heads.seats.file, heads.seats.kicker, heads.seats.title, heads.seats.lede)}
           <div class="wf-who-grid">${who}</div>
         </section>
       </div>
@@ -1266,6 +1525,7 @@
   }
 
   function bindOverview() {
+    bindHashClicks(byId("bs-main"));
     byId("bs-main").querySelectorAll("[data-select]").forEach((card) => {
       card.addEventListener("click", () => selectCard(card.dataset.select));
       card.addEventListener("keydown", (event) => {
@@ -1498,6 +1758,38 @@
         byId("bs-main").innerHTML = renderRole(role);
         byId("bs-main").scrollTop = 0;
         bindRole();
+        return;
+      }
+    }
+    if (hash === "files") {
+      byId("bs-main").innerHTML = renderFiles();
+      byId("bs-main").scrollTop = 0;
+      bindHashClicks(byId("bs-main"));
+      return;
+    }
+    if (hash === "reports") {
+      byId("bs-main").innerHTML = renderReports();
+      byId("bs-main").scrollTop = 0;
+      bindHashClicks(byId("bs-main"));
+      return;
+    }
+    if (hash.indexOf("report-") === 0) {
+      const id = hash.slice(7);
+      const report = (window.PK_REPORTS || []).filter((item) => item.id === id)[0];
+      if (report) {
+        byId("bs-main").innerHTML = renderReportBody(report);
+        byId("bs-main").scrollTop = 0;
+        bindHashClicks(byId("bs-main"));
+        return;
+      }
+    }
+    if (hash.indexOf("file-") === 0) {
+      const id = hash.slice(5);
+      const file = (window.PK_FILES || []).filter((item) => item.id === id)[0];
+      if (file) {
+        byId("bs-main").innerHTML = renderFileBody(file);
+        byId("bs-main").scrollTop = 0;
+        bindHashClicks(byId("bs-main"));
         return;
       }
     }

@@ -38,6 +38,7 @@ class AdminModuleServiceProvider extends ServiceProvider
                 \Modules\AdminModule\Console\SyncProcessGuideMiroBoardCommand::class,
                 \Modules\AdminModule\Console\LayoutProcessGuideBoardCommand::class,
                 \Modules\AdminModule\Console\WorkflowGateTestCommand::class,
+                \Modules\AdminModule\Console\AccruePeopleLeaveCommand::class,
             ]);
         }
     }

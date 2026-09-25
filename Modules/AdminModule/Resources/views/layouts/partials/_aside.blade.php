@@ -46,6 +46,12 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                     <span class="link-title">{{translate('dashboard')}}</span>
                 </a>
             </li>
+            <li>
+                <a href="{{ route('admin.people.index') }}" class="{{ request()->is('admin/people*') ? 'active-menu' : '' }}">
+                    <span class="material-icons" title="My workspace">badge</span>
+                    <span class="link-title">My workspace</span>
+                </a>
+            </li>
             @if(! is_admin_employee())
             <li>
                 <a href="{{ route('admin.dashboard.operating-system') }}"

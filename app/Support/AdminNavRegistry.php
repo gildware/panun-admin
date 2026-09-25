@@ -38,6 +38,7 @@ class AdminNavRegistry
             self::huntingBoardItems(),
             self::bookingsItems(),
             self::taskBoardItems(),
+            self::peopleItems(),
             self::progressItems(),
             self::processGuidesItems(),
             self::reportsItems(),
@@ -199,7 +200,7 @@ class AdminNavRegistry
         $match = self::match($request);
         $groupKey = $match['group_key'] ?? null;
 
-        if (! $groupKey || $groupKey === 'dashboard' || $groupKey === 'settings' || $groupKey === 'communications' || $groupKey === 'progress' || $groupKey === 'hunting_board') {
+        if (! $groupKey || $groupKey === 'dashboard' || $groupKey === 'settings' || $groupKey === 'communications' || $groupKey === 'progress' || $groupKey === 'hunting_board' || $groupKey === 'people') {
             return self::$cachedGroupSubmenu = null;
         }
 
@@ -451,6 +452,39 @@ class AdminNavRegistry
             self::entry('bookings', $group, null, translate('verify_requests'), route('admin.booking.list.verification', ['booking_status' => 'pending', 'type' => 'pending']), ['admin/booking/list/verification*'], [], 'booking.verify'),
             self::entry('bookings', $group, null, translate('Booking_Review'), route('admin.booking.reviews.list'), ['admin/booking/reviews/list*']),
         ];
+    }
+
+    private static function peopleItems(): array
+    {
+        if (! auth()->check() || ! in_array(auth()->user()->user_type, ADMIN_USER_TYPES, true)) {
+            return [];
+        }
+
+        $items = [
+            self::entry('people', 'People', null, 'My workspace', route('admin.people.index'), [
+                'admin/people',
+                'admin/people/team*',
+            ], [
+                'admin.people.index',
+                'admin.people.team',
+            ]),
+        ];
+
+        $user = auth()->user();
+        $isHr = $user->user_type === 'super-admin'
+            || $user->roles()->where('role_name', 'like', '%hr%')->exists();
+        if ($isHr) {
+            $items[] = self::entry('people_hr', 'People & HR', null, 'People & HR', route('admin.hr.index'), [
+                'admin/hr*',
+                'admin/people/holidays*',
+                'admin/people/records*',
+            ], [
+                'admin.hr.index',
+                'admin.people.holidays',
+            ]);
+        }
+
+        return $items;
     }
 
     private static function taskBoardItems(): array
