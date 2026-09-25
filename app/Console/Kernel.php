@@ -15,6 +15,7 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
+        $schedule->command('people:accrue-leave')->dailyAt('00:20');
         $schedule->command('notifications:send-booking-reminders')->everyFiveMinutes();
         $schedule->command('notifications:send-lead-followup-reminders')->everyFiveMinutes();
         // Home-bundle cache is manual-rebuild only (admin Reset home cache).

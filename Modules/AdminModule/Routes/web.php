@@ -26,6 +26,8 @@ use Modules\AdminModule\Http\Controllers\Web\Admin\WorkflowStepController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\ImpersonationController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\MarketingHubController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\ReportsHubController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\PeopleHrController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\PeopleWorkspaceController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\SettingsHubController;
 
 
@@ -114,6 +116,65 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
 
     Route::post('impersonate/leave', [ImpersonationController::class, 'leave'])->name('impersonate.leave');
     Route::get('employee/{id}/impersonate', [ImpersonationController::class, 'start'])->name('employee.impersonate');
+
+    Route::group(['prefix' => 'people', 'as' => 'people.'], function () {
+        Route::get('/', [PeopleWorkspaceController::class, 'index'])->name('index');
+        Route::post('details', [PeopleWorkspaceController::class, 'updateDetails'])->name('details');
+        Route::post('documents', [PeopleWorkspaceController::class, 'storeDocument'])->name('documents.store');
+        Route::get('documents/{document}/view', [PeopleWorkspaceController::class, 'viewDocument'])->name('documents.view');
+        Route::get('documents/{document}/download', [PeopleWorkspaceController::class, 'downloadDocument'])->name('documents.download');
+        Route::post('leave', [PeopleWorkspaceController::class, 'storeLeave'])->name('leave.store');
+        Route::post('leave/{leaveRequest}/cancel', [PeopleWorkspaceController::class, 'cancelLeave'])->name('leave.cancel');
+        Route::post('timesheet', [PeopleWorkspaceController::class, 'storeTimesheet'])->name('timesheet.store');
+        Route::post('timesheet/day', [PeopleWorkspaceController::class, 'storeTimesheetDay'])->name('timesheet.day');
+        Route::get('payslips/{payslip}/download', [PeopleWorkspaceController::class, 'downloadPayslip'])->name('payslips.download');
+
+        Route::get('team', [PeopleWorkspaceController::class, 'team'])->name('team');
+        Route::post('team/leave/{leaveRequest}', [PeopleWorkspaceController::class, 'decideLeave'])->name('team.leave.decide');
+        Route::post('team/timesheets/{timesheet}', [PeopleWorkspaceController::class, 'decideTimesheet'])->name('team.timesheet.decide');
+
+        Route::get('records', [PeopleWorkspaceController::class, 'records'])->name('records');
+        Route::post('records/profile', [PeopleWorkspaceController::class, 'updateProfile'])->name('records.profile');
+        Route::post('records/allowances', [PeopleWorkspaceController::class, 'updateAllowances'])->name('records.allowances');
+        Route::get('holidays', [PeopleWorkspaceController::class, 'holidays'])->name('holidays');
+        Route::post('holidays', [PeopleWorkspaceController::class, 'storeHoliday'])->name('holidays.store');
+        Route::put('holidays/{holiday}', [PeopleWorkspaceController::class, 'updateHoliday'])->name('holidays.update');
+        Route::delete('holidays/{holiday}', [PeopleWorkspaceController::class, 'destroyHoliday'])->name('holidays.destroy');
+        Route::post('records/documents/{document}/verify', [PeopleWorkspaceController::class, 'verifyDocument'])->name('records.documents.verify');
+        Route::post('records/payslips', [PeopleWorkspaceController::class, 'storePayslip'])->name('records.payslips.store');
+        Route::post('records/payslips/publish', [PeopleWorkspaceController::class, 'publishPayslips'])->name('records.payslips.publish');
+    });
+
+    Route::group(['prefix' => 'hr', 'as' => 'hr.'], function () {
+        Route::get('/', [PeopleHrController::class, 'index'])->name('index');
+        Route::post('person', [PeopleHrController::class, 'updatePerson'])->name('person');
+        Route::post('departments', [PeopleHrController::class, 'storeDepartment'])->name('departments.store');
+        Route::post('departments/{department}', [PeopleHrController::class, 'updateDepartment'])->name('departments.update');
+        Route::delete('departments/{department}', [PeopleHrController::class, 'destroyDepartment'])->name('departments.destroy');
+        Route::post('documents', [PeopleHrController::class, 'storePersonDocument'])->name('documents.store');
+        Route::delete('documents/{document}', [PeopleHrController::class, 'destroyPersonDocument'])->name('documents.destroy');
+        Route::post('documents/ask', [PeopleHrController::class, 'askDocument'])->name('documents.ask');
+        Route::post('documents/{document}/reject', [PeopleHrController::class, 'rejectDocument'])->name('documents.reject');
+        Route::post('leave/{leaveRequest}/cancel', [PeopleHrController::class, 'cancelLeave'])->name('leave.cancel');
+        Route::post('leave/types', [PeopleHrController::class, 'storeLeaveType'])->name('leave.types.store');
+        Route::post('leave/types/{leaveType}', [PeopleHrController::class, 'updateLeaveType'])->name('leave.types.update');
+        Route::delete('leave/types/{leaveType}', [PeopleHrController::class, 'destroyLeaveType'])->name('leave.types.destroy');
+        Route::post('leave/policies', [PeopleHrController::class, 'storeLeavePolicy'])->name('leave.policies.store');
+        Route::post('leave/policies/{policy}', [PeopleHrController::class, 'updateLeavePolicy'])->name('leave.policies.update');
+        Route::delete('leave/policies/{policy}', [PeopleHrController::class, 'destroyLeavePolicy'])->name('leave.policies.destroy');
+        Route::post('leave/assign', [PeopleHrController::class, 'assignLeavePolicy'])->name('leave.assign');
+        Route::delete('leave/policies/{policy}/departments/{department}', [PeopleHrController::class, 'detachLeaveDepartment'])->name('leave.departments.detach');
+        Route::delete('leave/assignments/{assignment}', [PeopleHrController::class, 'unassignLeavePolicy'])->name('leave.assignments.destroy');
+        Route::post('leave/grant', [PeopleHrController::class, 'grantLeave'])->name('leave.grant');
+        Route::post('salary', [PeopleHrController::class, 'saveSalary'])->name('salary');
+        Route::post('adjustment', [PeopleHrController::class, 'saveAdjustment'])->name('adjustment');
+        Route::post('attendance/lock', [PeopleHrController::class, 'lockAttendance'])->name('attendance.lock');
+        Route::post('payroll/build', [PeopleHrController::class, 'buildPayroll'])->name('payroll.build');
+        Route::post('payroll/{payslip}/hold', [PeopleHrController::class, 'holdPayslip'])->name('payroll.hold');
+        Route::post('payroll/publish', [PeopleHrController::class, 'publishPayroll'])->name('payroll.publish');
+        Route::post('payroll/lock', [PeopleHrController::class, 'lockPayroll'])->name('payroll.lock');
+        Route::get('payroll/bank', [PeopleHrController::class, 'bankFile'])->name('bank');
+    });
 
     Route::group(['prefix' => 'employee', 'as' => 'employee.'], function () {
         Route::any('list', [EmployeeController::class, 'index'])->name('index');

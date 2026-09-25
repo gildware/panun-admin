@@ -363,6 +363,7 @@
         window.__bookingActivityFiltersBound = true;
     })();
 </script>
+@include('bookingmodule::admin.booking.partials._booking-comment-actions-scripts')
 @include('bookingmodule::admin.booking.partials._booking-comment-tagging-scripts')
 @include('bookingmodule::admin.booking.partials._booking-take-followup-scripts')
 @include('bookingmodule::admin.booking.partials._booking-edit-followup-scripts')

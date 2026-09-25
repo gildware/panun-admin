@@ -41,5 +41,9 @@ class CustomerBookingListPayloadSlimmerTest extends TestCase
         $this->assertArrayNotHasKey('provider', $slim);
         $this->assertSame('ongoing', $slim['repeats'][0]['booking_status']);
         $this->assertArrayNotHasKey('provider', $slim['repeats'][0]);
+        $this->assertSame(0, $slim['total_tax_amount']);
+        $this->assertSame(0, $slim['total_discount_amount']);
+        $this->assertSame(0, $slim['repeats'][0]['total_tax_amount']);
+        $this->assertSame(0, $slim['repeats'][0]['extra_fee']);
     }
 }

@@ -423,18 +423,25 @@ We may release future updates so it will overwrite this file. it's better and sa
         const img = $(this).siblings(".upload-file__img").find("img");
         const input = this;
 
+        const file = input.files[0];
+        $("#name_of_file").text(file.name);
+
         reader.onload = function (e) {
-            img.attr("src", e.target.result);
+            if (file.type && file.type.indexOf("image/") === 0) {
+                img.attr("src", e.target.result);
+            }
         };
 
-        reader.readAsDataURL(this.files[0]);
+        if (file.type && file.type.indexOf("image/") === 0) {
+            reader.readAsDataURL(file);
+        }
 
         reader.addEventListener("progress", (event) => {
             if (event.loaded && event.total) {
                 const percent = (event.loaded / event.total) * 100;
                 $("#uploadProgress").val(percent);
                 $("#progress-label").html(Math.round(percent) + "%");
-                $("#name_of_file").html(input.files[0].name);
+                $("#name_of_file").text(file.name);
             }
         });
 

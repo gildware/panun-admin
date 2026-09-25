@@ -26,7 +26,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
           field("Spend vs the signed monthly plan, by ads, stalls, or partners", "So you see a leak before the month is gone."),
           field("Enquiries, qualified enquiries, and bookings — by source (digital, field, partner, other)", "People with no written answer for how they found us cannot be improved. Mixing sources hides the ad or page that sends nobody."),
           field("Cost per enquiry and cost per booking vs the signed target", "Cheap noise is still noise. Enquiries that never book are not Growth."),
-          field("Lost-lead reasons from Sales, grouped", "Growth learns from why people did not book — not from likes."),
+          field("Lost-lead reasons from Customer Experience, grouped", "Growth learns from why people did not book — not from likes."),
           field("High opportunities still open, with age in working days", "A list of ideas nobody decided is not a decision."),
           field("One action for ads, stalls, or partners that are off plan", "A review without an action is a meeting.")
         ],
@@ -57,7 +57,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
           pass("CEO", "One-page copy the same day it is signed."),
           pass("Marketing Manager", "The working plan. Digital and Field may not change it without a new signature."),
           pass("Partnerships", "Which kind of hotel desk or shops and towns are open."),
-          pass("Sales", "What will be promoted, so they are not surprised.")
+          pass("Customer Experience", "What will be promoted, so they are not surprised.")
         ]
       },
       {
@@ -91,8 +91,8 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         collect: [
           field("Spend vs plan, digital and field separate", "Variance without a name is spend with no owner."),
           field("Enquiries by paid ads, by search (SEO), and by stalls", "So we can kill what is dead. Do not mix search into ads."),
-          field("Share of people with a written answer for how they found us (target 95% or more)", "Sales cannot convert a nameless lead."),
-          field("Bookings from marketing leads, if Sales has closed them", "Enquiries are not the result. Bookings are."),
+          field("Share of people with a written answer for how they found us (target 95% or more)", "Customer Experience cannot convert a nameless lead."),
+          field("Bookings from marketing leads, if Customer Experience has closed them", "Enquiries are not the result. Bookings are."),
           field("Creatives that failed the brand or fact check", "Trust dies when ads promise what the job cannot do."),
           field("One or two changes for next week — not ten", "A list of wishes is not a plan.")
         ],
@@ -101,7 +101,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
           pass("Head of Growth", "This is the marketing page of the weekly Growth review."),
           pass("Digital Marketing Manager", "Their slice: keep, pause, change."),
           pass("Field Marketing Manager", "Their slice: which towns, which days."),
-          pass("Sales", "What will arrive next week and how Operations wrote they found us.")
+          pass("Customer Experience", "What will arrive next week and how Operations wrote they found us.")
         ]
       },
       {
@@ -115,13 +115,13 @@ window.PK_GROWTH = window.PK_GROWTH || {};
           field("Approved creatives only — or a dated request for a new one", "No live file without brand and fact check."),
           field("What we will not promote", "Stops Digital ‘testing’ an unapproved service."),
           field("Field days named: town, date, materials", "Random Saturdays cannot be measured."),
-          field("Tracking check: every digital line lands somewhere Sales already uses", "Spend with no written answer for how they found us is a leak.")
+          field("Tracking check: every digital line lands somewhere Customer Experience already uses", "Spend with no written answer for how they found us is a leak.")
         ],
         mustHave: ["Month", "Line-by-line calendar", "Budget split", "Creative list", "Will-not-do", "Tracking destinations", "Head of Growth signature"],
         passTo: [
           pass("Head of Growth", "To sign. Spend does not start without this."),
           pass("Digital and Field", "Their working calendar the same day it is signed."),
-          pass("Sales", "How leads will arrive and how Operations wrote they found us.")
+          pass("Customer Experience", "How leads will arrive and how Operations wrote they found us.")
         ]
       },
       {
@@ -137,7 +137,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         ],
         mustHave: ["Date", "Lead id or phone", "Missing answer", "Owner", "Answer written by (time)", "Paused? yes/no"],
         passTo: [
-          pass("Sales", "The corrected tag the same day."),
+          pass("Customer Experience", "The corrected tag the same day."),
           pass("Head of Growth", "Only if a campaign had to be paused.")
         ]
       }
@@ -158,7 +158,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         mustHave: ["Date", "Spend today", "Spend vs plan", "New enquiries by named online place", "Pauses", "Tracking broken?", "Library same day?"],
         passTo: [
           pass("Marketing Manager", "Every working day when something moved. This is how they unblock you."),
-          pass("Sales", "Only the new enquiries — not the commentary.")
+          pass("Customer Experience", "Only the new enquiries — not the commentary.")
         ]
       },
       {
@@ -173,14 +173,14 @@ window.PK_GROWTH = window.PK_GROWTH || {};
           field("3 things that failed", "A report with only wins hides bad spend."),
           field("One written request for next week", "More money, a new video, or pause a town — not ten wishes."),
           field("Content log: what went live, where, service, town", "The library is how we learn."),
-          field("Bookings from digital leads, if Sales has closed them", "Enquiries are not the result. Bookings are."),
-          field("Sales chats handed over from comments or threads", "You generate. You do not close.")
+          field("Bookings from digital leads, if Customer Experience has closed them", "Enquiries are not the result. Bookings are."),
+          field("Booking chats handed from comments or threads to Customer Experience", "You generate. You do not close.")
         ],
         mustHave: ["Week dates", "Table by named online place", "Spend vs plan", "Cost vs ceiling", "Share of people with a written answer for how they found us", "3 wins", "3 fails", "one written request", "Content log", "Owner of the written request"],
         passTo: [
           pass("Marketing Manager", "This is the digital page of the weekly marketing report. They send it up to Growth."),
           pass("Intelligence", "Only the ‘people keep asking for X’ lines — as a signal, not a new ad."),
-          pass("Sales", "Anything still sitting in a comment or a thread.")
+          pass("Customer Experience", "Anything still sitting in a comment or a thread.")
         ]
       },
       {
@@ -188,17 +188,17 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         name: "Paid ad launch record",
         when: "Once, before spend starts on that ad.",
         owner: "Digital Marketing Manager.",
-        objective: "Prove the kit, the file, the town, the budget, and a test lead into Sales were checked — so a live ad is never a guess.",
+        objective: "Prove the kit, the file, the town, the budget, and a test lead into Customer Experience were checked — so a live ad is never a guess.",
         collect: [
           field("Town, service, words, budget — matching the signed kit and calendar", "Off-plan launches split the company in two."),
           field("Library file used", "No file from a personal phone."),
-          field("Test lead into Sales — pass or fail", "If it fails, do not launch."),
-          field("Sales told the ad is live and how leads will arrive", "Speed dies if Sales does not know.")
+          field("Test lead into Customer Experience — pass or fail", "If it fails, do not launch."),
+          field("Customer Experience told the ad is live and how leads will arrive", "Speed dies if Customer Experience does not know.")
         ],
-        mustHave: ["Calendar line", "File name", "Destination", "Test lead pass", "Budget", "Sales told", "Launch time"],
+        mustHave: ["Calendar line", "File name", "Destination", "Test lead pass", "Budget", "Customer Experience told", "Launch time"],
         passTo: [
           pass("Marketing Manager", "Filed with the ads calendar."),
-          pass("Sales", "Launch note the same hour.")
+          pass("Customer Experience", "Launch note the same hour.")
         ]
       },
       {
@@ -284,8 +284,8 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         objective: "Show visits, first local workers, and contracts separately. Name towns that produced nothing after three visits.",
         collect: [
           field("Visit days vs calendar (completed / did not happen)", "A day that did not happen is a missed town. Write it."),
-          field("Names to Sales, by town", "Towns that produced nothing must be named so the plan can change."),
-          field("First local workers who signed and whose files went to Provider Operations", "A town with a stall and nobody who can do the jobs is a brand problem."),
+          field("Names to Customer Experience, by town", "Towns that produced nothing must be named so the plan can change."),
+          field("First local workers who signed and whose files went to Provider Experience", "A town with a stall and nobody who can do the jobs is a brand problem."),
           field("Office and society contracts signed, waiting, or failed", "A verbal yes is not a contract."),
           field("Empty jobs you covered this week", "A job with no named person has no owner.")
         ],
@@ -318,15 +318,15 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         name: "Same-day stall list",
         when: "Before you leave the town. Same day as the visit. Not the next morning.",
         owner: "Field Visitor.",
-        objective: "Hand Sales a complete list so they can call. You collect names at the stall. Sales books the job. You do not take money or book the job yourself.",
+        objective: "Hand Customer Experience a complete list so they can call. You collect names at the stall. Customer Experience books the job and finishes it. You do not take money or book the job yourself.",
         collect: [
           field("Name, phone, service wanted, town", "A missing phone is not an enquiry. Do not pretend."),
           field("Source = stall + town + date", "So we can score the town, not just ‘marketing’. You write this because you met the person."),
           field("Anything people kept asking that we do not sell", "Send as a signal through Field Marketing Manager — not as a new offer you invented.")
         ],
-        mustHave: ["Date", "Town", "Pitch", "Each row: name, phone, service, town, source=stall + town + date", "Count of complete rows", "Sales received? time"],
+        mustHave: ["Date", "Town", "Pitch", "Each row: name, phone, service, town, source=stall + town + date", "Count of complete rows", "Customer Experience received? time"],
         passTo: [
-          pass("Sales", "The list the same day. Confirm they received it."),
+          pass("Customer Experience", "The list the same day. Confirm they received it."),
           pass("Field Marketing Manager", "The count, not the phone numbers.")
         ]
       },
@@ -360,7 +360,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         mustHave: ["Date", "Town", "Times", "Materials", "Enquiry count", "Incidents", "No-cash / no-booking confirmation"],
         passTo: [
           pass("Field Marketing Manager", "Filed. Incidents the same day."),
-          pass("Sales", "Do not send the stall log — send the lead list.")
+          pass("Customer Experience", "Do not send the stall log — send the lead list.")
         ]
       }
     ],
@@ -370,15 +370,15 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         name: "Signed first-provider file",
         when: "The same week as the signature.",
         owner: "First Provider Onboarding.",
-        objective: "Hand Provider Operations a complete signed pack file so they can put the person on the roster. You do not assign the first job.",
+        objective: "Hand Provider Experience a complete signed pack file so they can put the person on the roster. You do not assign the first job.",
         collect: [
           field("Name, phone, services they can do, towns they can cover, start date", "Incomplete is not signed. Do not pretend they can work with us yet."),
           field("Signed first-worker papers", "A verbal yes is not a signed file."),
-          field("Provider Operations received? date", "If they did not receive it, it did not happen.")
+          field("Provider Experience received? date", "If they did not receive it, it did not happen.")
         ],
         mustHave: ["Date", "Town", "Complete signed file", "Received date"],
         passTo: [
-          pass("Provider Operations", "The signed file the same week."),
+          pass("Provider Experience", "The signed file the same week."),
           pass("Field Marketing Manager", "The count.")
         ]
       },
@@ -390,7 +390,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         objective: "Show visits vs calendar, files signed, files handed over, and towns with a gap.",
         collect: [
           field("Visits vs calendar", "A missed visit is a missed town."),
-          field("Files signed and handed to Provider Operations", "A private list is not a system."),
+          field("Files signed and handed to Provider Experience", "A private list is not a system."),
           field("Towns with a gap", "Field Marketing Manager must stop the stall if nobody will sign.")
         ],
         mustHave: ["Week", "Visits", "Signed", "Handed", "Gaps", "Asks"],
@@ -514,7 +514,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         owner: "Offer & Service Development Manager.",
         objective: "Write what Panun Kaergar can sell and deliver: name, who it is for, in, out, job steps, quality bar. A name without a sheet is not a service.",
         collect: [
-          field("Name and who it is for", "Sales must not pick from a ghost menu."),
+          field("Name and who it is for", "Customer Experience must not pick from a ghost menu."),
           field("What we do, and what we do not do", "Inclusions and exclusions stop fights later."),
           field("What the customer must prepare", "Jobs fail when the house is not ready and nobody said so."),
           field("What the provider must be able to do", "Operations cannot guess the product."),
@@ -544,7 +544,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         passTo: [
           pass("Head of Growth", "To sign yes."),
           pass("Marketing", "Claims list only after yes."),
-          pass("Sales and Operations", "Live catalogue line.")
+          pass("Customer Experience and Operations", "Live catalogue line.")
         ]
       },
       {
@@ -570,11 +570,11 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         id: "ME-R1",
         name: "Feasibility pack (enter / wait / no)",
         when: "Within 15 working days once Intelligence hands a named town.",
-        owner: "Market Expansion Manager. Provider Operations must answer capacity. Head of Growth signs the decision.",
+        owner: "Market Expansion Manager. Provider Experience must answer capacity. Head of Growth signs the decision.",
         objective: "A written enter, wait, or no — so we do not advertise a town circled on a map with no written yes.",
         collect: [
           field("Named town, demand evidence, competition", "Hope is not a plan."),
-          field("Can we finish the first services there? (Provider Operations)", "If we cannot finish jobs, we do not advertise."),
+          field("Can we finish the first services there? (Provider Experience)", "If we cannot finish jobs, we do not advertise."),
           field("Rough cost to win a customer", "Cheap ads in a town we cannot serve are still waste."),
           field("Decision: enter, wait (with date), or no", "Research with no decision is a delay, not your job done.")
         ],
@@ -582,7 +582,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         passTo: [
           pass("Head of Growth", "To sign."),
           pass("Marketing and Partnerships", "Only after enter is signed — the towns they may spend in."),
-          pass("Provider Operations", "The capacity they already confirmed, so they can staff.")
+          pass("Provider Experience", "The capacity they already confirmed, so they can staff.")
         ]
       },
       {
@@ -601,7 +601,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         passTo: [
           pass("Head of Growth", "To sign before spend."),
           pass("Marketing and Partnerships", "Working launch list."),
-          pass("Sales and Operations", "Launch week and first services.")
+          pass("Customer Experience and Operations", "Launch week and first services.")
         ]
       },
       {
@@ -618,7 +618,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         mustHave: ["Town", "Review date", "Plan vs actual", "Recommendation", "Stop-marketing? yes/no"],
         passTo: [
           pass("Head of Growth", "To sign scale / fix / pause / leave."),
-          pass("Marketing, Sales, Operations", "The same day if the answer is pause or leave.")
+          pass("Marketing, Customer Experience, Operations", "The same day if the answer is pause or leave.")
         ]
       }
     ],
@@ -631,7 +631,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         objective: "Mark fit, wait, or no. Do not add your uncle or a neighbour who says they know people. That is not a partner. A loud partner with bad jobs hurts the brand.",
         collect: [
           field("Who they already serve, and where", "Fit with our customer, or it is vanity."),
-          field("What we want from them (leads, not cash side deals)", "You find the hotel or shop. Sales talks to the customer. Sales owns the customer."),
+          field("What we want from them (leads, not cash side deals)", "You find the hotel or shop. Customer Experience talks to the customer. Customer Experience owns the customer."),
           field("Reputation and whether we can work with them", "Stop a partner who would sell a job we do not do."),
           field("Decision: fit / wait / no", "A maybe is a wait with a date, or it is no.")
         ],
@@ -646,16 +646,16 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         name: "Partner term sheet and live file",
         when: "Before you call them live. After Head of Growth agrees the type and terms. Handshake-only deals are forbidden.",
         owner: "Partnerships & Channels Manager.",
-        objective: "Written terms, how a lead is sent, what we pay if we pay. Test one lead into Sales before go-live.",
+        objective: "Written terms, how a lead is sent, what we pay if we pay. Test one lead into Customer Experience before go-live.",
         collect: [
-          field("How a lead is sent (form, WhatsApp group with Sales, desk card)", "You never book the customer yourself. Send them to Sales. You never hand a lead to a provider."),
+          field("How a lead is sent (form, WhatsApp group with Customer Experience, desk card)", "You never book the customer yourself. Send them to Customer Experience. You never hand a lead to a provider."),
           field("What we pay, if we pay — Finance must see money we did not plan", "Do not promise payment yourself."),
           field("Approved materials only", "They must not invent a price or a service."),
-          field("Test lead into Sales — pass/fail", "Only then call them live.")
+          field("Test lead into Customer Experience — pass/fail", "Only then call them live.")
         ],
         mustHave: ["Partner", "Lead path", "Terms", "Materials", "Test lead", "Live date", "Head of Growth yes on type"],
         passTo: [
-          pass("Sales", "How their leads will arrive, before go-live."),
+          pass("Customer Experience", "How their leads will arrive, before go-live."),
           pass("Finance", "Anything that needs money we did not plan — as an ask, not a promise."),
           pass("Head of Growth", "The live file after the test lead passes.")
         ]
@@ -665,15 +665,15 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         name: "Same-day partner lead log",
         when: "Every partner enquiry, the same day.",
         owner: "Partnerships & Channels Manager.",
-        objective: "Tagged leads to Sales: partner name, service, town. Never to a provider. Never closed by you.",
+        objective: "Tagged leads to Customer Experience: partner name, service, town. Never to a provider. Never closed by you.",
         collect: [
           field("Source = partner + partner name", "People with no hotel or shop name written cannot be scored."),
-          field("Service and town", "Sales cannot convert a nameless job."),
-          field("Whether it booked, later, from Sales", "A silent partner is a closed partner — you will need this in the monthly review.")
+          field("Service and town", "Customer Experience cannot convert a nameless job."),
+          field("Whether it booked, later, from Customer Experience", "A silent partner is a closed partner — you will need this in the monthly review.")
         ],
-        mustHave: ["Date", "Partner", "Phone/name", "Service", "Town", "Sales received", "Booked? (updated)"],
+        mustHave: ["Date", "Partner", "Phone/name", "Service", "Town", "Customer Experience received", "Booked? (updated)"],
         passTo: [
-          pass("Sales", "The lead the same day."),
+          pass("Customer Experience", "The lead the same day."),
           pass("Head of Growth", "Only the monthly roll-up, unless a partner is taking money in our name — then the same day.")
         ]
       },
@@ -691,7 +691,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
         mustHave: ["Month", "Partner table", "Keep/fix/close", "Actions"],
         passTo: [
           pass("Head of Growth", "The keep / fix / close list."),
-          pass("Sales", "Partners you will close, so they are not waiting on a hotel that sends nobody."),
+          pass("Customer Experience", "Partners you will close, so they are not waiting on a hotel that sends nobody."),
           pass("Finance", "Any close that still has money attached.")
         ]
       }
@@ -704,7 +704,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
       bullet("You keep the sentences we may say this month", "Offer & Service Development Manager writes what is in and out of a service. You sign. Marketing Manager copies only those sentences into the instruction book of words, prices, towns, and faces. Nobody invents a new promise in an ad or at a stall."),
       bullet("You sign the monthly Growth plan and the money before any spend starts", "Marketing Manager drafts who, services, towns, ads or stalls or partners, money, and targets. You sign. They may not change it without a new signature. Spend without a signature is guessing, not a plan."),
       bullet("You say yes, no, or send back on a new service", "Offer & Service Development Manager brings a complete sheet. Finance has priced it. Operations has said they can do the first jobs. Yes means Marketing Manager may talk. You do not write the sheet yourself."),
-      bullet("You say yes, no, or send back on a new town, and on a new kind of hotel desk or shop", "Market Expansion Manager writes enter, wait, or no. Provider Operations must be able to finish the first jobs. Partnerships & Channels Manager waits for your yes on that kind of place and how we pay them, if we pay them. You do not hire workers and you do not sign the hotel desk yourself."),
+      bullet("You say yes, no, or send back on a new town, and on a new kind of hotel desk or shop", "Market Expansion Manager writes enter, wait, or no. Provider Experience must be able to finish the first jobs. Partnerships & Channels Manager waits for your yes on that kind of place and how we pay them, if we pay them. You do not hire workers and you do not sign the hotel desk yourself."),
       bullet("You hold the five people to one result each, and you send honest numbers to the CEO", "Marketing Manager, Market Intelligence Manager, Offer & Service Development Manager, Market Expansion Manager, and Partnerships & Channels Manager. Every week: money, enquiries, bookings, cost, why people did not book. If a job has nobody in it, you do that work and write that you are doing it today.")
     ],
     mkm: [
@@ -734,25 +734,25 @@ window.PK_GROWTH = window.PK_GROWTH || {};
     fmm: [
       bullet("You write which town, which day, and which of the three jobs goes", "Marketing Manager writes the month. Head of Growth signs it. You turn that into days for Field Visitor, First Provider Onboarding, and Office and Society Contracts. You do not pick a new town yourself."),
       bullet("You give Field Visitor their towns and days, and you check they actually went", "Field Visitor is the person who stands at a stall or walks the street. They may be a full-time employee, or an outside person paid on a written contract. The work is the same. A verbal yes with no written contract is not a Field Visitor. If nobody sits in that job, you go yourself and write that you are doing that job."),
-      bullet("You send First Provider Onboarding to sign the first local workers in a named town", "Those workers are the first plumbers, electricians, or other service people in that town who will do jobs for Panun Kaergar. After they sign, the file goes to Provider Operations, who puts them on customer jobs. You do not keep those people as your own private list."),
+      bullet("You send First Provider Onboarding to sign the first local workers in a named town", "Those workers are the first plumbers, electricians, or other service people in that town who will do jobs for Panun Kaergar. After they sign, the file goes to Provider Experience, who puts them on customer jobs. You do not keep those people as your own private list."),
       bullet("You send Office and Society Contracts to write maintenance contracts with named offices and housing societies", "They use only the signed contract papers. A verbal yes is not a contract. Hotel desks and shops that send us their customers belong to Partnerships, not this job."),
       bullet("You give out only the signed first-worker papers and the signed office-contract papers", "Offer and Finance have already signed those papers. Nobody on the ground invents a price or a payment. If a price is missing, you stop and tell Marketing Manager."),
-      bullet("You send Marketing Manager a weekly field report that names visits, first local workers, and office contracts", "Write which planned days happened, how many names went to Sales, how many first local workers signed and were sent to Provider Operations, how many office or society contracts signed, which days were missed, which towns produced nothing, and one or two written requests. Name what failed, not only what worked.")
+      bullet("You send Marketing Manager a weekly field report that names visits, first local workers, and office contracts", "Write which planned days happened, how many names went to Customer Experience, how many first local workers signed and were sent to Provider Experience, how many office or society contracts signed, which days were missed, which towns produced nothing, and one or two written requests. Name what failed, not only what worked.")
     ],
     fve: [
       bullet("You stand in the named town on the named day, with only this month’s boards and flyers", "The stall place on that street is the place Field Marketing Manager named. Use only the words, prices, and faces in this month’s instruction book. A new sentence, price, town, or face waits for a written yes from Field Marketing Manager."),
-      bullet("You write a list of every person you met: name, phone, service wanted, and town", "Because you met them, you also write stall, plus the town, plus the date. Send this list to Sales before you leave the town. A name with no phone is not an enquiry. Sales will call. You do not."),
+      bullet("You write a list of every person you met: name, phone, service wanted, and town", "Because you met them, you also write stall, plus the town, plus the date. Send this list to Customer Experience before you leave the town. A name with no phone is not an enquiry. Customer Experience will call. You do not."),
       bullet("You write a stall log before you leave: where you stood, the times, the boards you used, how many names you collected, and any incident", "Write that you took no cash and took no booking. If it is not written, the company cannot prove you stood there."),
-      bullet("You send that list to Sales the same day, before you leave the town", "Confirm Sales received it. Field Marketing Manager gets the count of names, not the phone numbers."),
+      bullet("You send that list to Customer Experience the same day, before you leave the town", "Confirm Customer Experience received it. Field Marketing Manager gets the count of names, not the phone numbers."),
       bullet("You send Field Marketing Manager a weekly visit note", "Write which planned days happened, how many people enquired in each town, which days you missed, which town produced no names after three visits, which boards need reprinting, and one or two written requests."),
       bullet("If you cannot go that day, you write it the same day", "If you write nothing, the company will think the stall happened.")
     ],
     fpo: [
       bullet("You go in person to the first local workers in a named town", "These are the first plumbers, electricians, or other service people in that town who will do jobs for Panun Kaergar. You meet them at their shop or workplace. You do not add people from a WhatsApp chat, a forwarded list, or a group you never visited. If you did not sit with that person, they are not signed onto us."),
-      bullet("You take only the signed first-worker papers with you", "Those papers already say who Panun Kaergar is, what work this person may do, what they must not do, and what we pay them. Offer, Finance, and Provider Operations have already signed that pack. You do not invent a new payment or a new service on the spot. If a price is missing, you stop and tell Field Marketing Manager."),
+      bullet("You take only the signed first-worker papers with you", "Those papers already say who Panun Kaergar is, what work this person may do, what they must not do, and what we pay them. Offer, Finance, and Provider Experience have already signed that pack. You do not invent a new payment or a new service on the spot. If a price is missing, you stop and tell Field Marketing Manager."),
       bullet("You get a signed paper from that person before you leave", "The paper must have their name, phone, which services they can do, which towns they can cover, the start date, and both signatures. A verbal yes or a WhatsApp “yes” is not enough. If a line is missing, they are not yet with us."),
-      bullet("You send that signed paper to Provider Operations the same week", "Provider Operations is the team that puts them on jobs for customers. You do not give them a customer job yourself. You do not keep their name as your own private list. You write the date Provider Operations received the file."),
-      bullet("You send Field Marketing Manager a weekly note of visits, signed papers, and towns where nobody signed", "Write which planned visits happened, how many papers were signed, how many were sent to Provider Operations, which towns had nobody who would sign, and one or two written requests."),
+      bullet("You send that signed paper to Provider Experience the same week", "Provider Experience is the team that puts them on jobs for customers. You do not give them a customer job yourself. You do not keep their name as your own private list. You write the date Provider Experience received the file."),
+      bullet("You send Field Marketing Manager a weekly note of visits, signed papers, and towns where nobody signed", "Write which planned visits happened, how many papers were signed, how many were sent to Provider Experience, which towns had nobody who would sign, and one or two written requests."),
       bullet("If a town on this month’s list has nobody who will sign, you write that down", "Write the town, the dates you visited, who you met, and why they said no. Send that to Field Marketing Manager. Do not keep visiting just to look busy. Do not pick a different town yourself.")
     ],
     flc: [
@@ -772,7 +772,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
       bullet("You send Head of Growth a weekly intelligence report built from the registers", "Demand table, competitor changes, idea counts, High ideas plus age. Not from chat. Name what you could not prove.")
     ],
     osd: [
-      bullet("You keep one live list of what we sell", "Take off the live list any service name that has no written sheet. A name without a sheet is not a service. Sales picks only from this list."),
+      bullet("You keep one live list of what we sell", "Take off the live list any service name that has no written sheet. A name without a sheet is not a service. Customer Experience picks only from this list."),
       bullet("You write the service sheet: what is in, what is out, how the job should run", "Name, who it is for, what we do, what we do not do, job steps, quality bar. Market Intelligence Manager already marked the need as go, or Head of Growth asked."),
       bullet("You send the sheet to Finance for price, and to Operations for a written yes that they can do it", "You recommend. Finance signs the price. You do not set commission. You do not do the first jobs yourself."),
       bullet("You get the launch checklist complete before Marketing talks", "Head of Growth says yes. Then you give Marketing the only sentences they may use. A draft is not a product."),
@@ -781,8 +781,8 @@ window.PK_GROWTH = window.PK_GROWTH || {};
     ],
     mem: [
       bullet("You keep a written list of towns with evidence", "A mood is not a queue. Log demand from towns we do not cover. Do not pick a town because someone was nearby."),
-      bullet("You write enter, wait, or no for one named town", "Demand, competition, whether we can finish the first jobs, rough cost. Ask Provider Operations. Head of Growth signs. Research with no decision is a delay, not your result."),
-      bullet("You write the launch only after enter is signed and Provider Operations can finish the first jobs", "First services, what Marketing may spend, launch week, review date. Marketing and Partnerships may spend only after this. You do not hire the workers."),
+      bullet("You write enter, wait, or no for one named town", "Demand, competition, whether we can finish the first jobs, rough cost. Ask Provider Experience. Head of Growth signs. Research with no decision is a delay, not your result."),
+      bullet("You write the launch only after enter is signed and Provider Experience can finish the first jobs", "First services, what Marketing may spend, launch week, review date. Marketing and Partnerships may spend only after this. You do not hire the workers."),
       bullet("You watch the launch: enquiries, bookings, and unfinished jobs", "If jobs are failing, recommend pause the same day. Do not keep the launch date if nobody can staff the town."),
       bullet("You recommend grow, fix, pause, or leave — in writing, on the review date you wrote", "Pause and leave are written, not whispered. Head of Growth signs. Then Marketing stops spending in that town."),
       bullet("You send Head of Growth a weekly town-list note", "What is in research, what is live, what is past its review date. Name the stuck town.")
@@ -790,9 +790,9 @@ window.PK_GROWTH = window.PK_GROWTH || {};
     pcm: [
       bullet("You find hotel desks, shops, and other local businesses that already meet our customers", "Write the real kind of place Head of Growth has said yes to — hotel desk, appliance shop, and so on. Do not add your uncle or a neighbour who says they know people. That is not a partner. Market Intelligence Manager may send a written note that hotel desks are worth trying. That note is not permission. Head of Growth must write yes before you sign anyone."),
       bullet("You check who they serve, reputation, and whether we can work with them", "Write fit, wait, or no. A loud partner with bad jobs hurts the brand. A verbal yes is not a partner."),
-      bullet("You write the terms, then test one lead into Sales before you call them live", "How a lead is sent, what we pay if we pay, approved materials only. Handshake-only deals become fights. Finance must see unplanned money — do not promise payment yourself."),
-      bullet("You send every partner enquiry to Sales the same day, with the partner name written", "You find the hotel or shop. Sales talks to the person they sent. You do not book. You do not send the person to a plumber."),
-      bullet("You write keep, fix, or close for every live partner each month", "A silent partner is a closed partner — write it down. Tell Sales if you will close, so they are not waiting on a hotel that sends nobody."),
+      bullet("You write the terms, then test one lead into Customer Experience before you call them live", "How a lead is sent, what we pay if we pay, approved materials only. Handshake-only deals become fights. Finance must see unplanned money — do not promise payment yourself."),
+      bullet("You send every partner enquiry to Customer Experience the same day, with the partner name written", "You find the hotel or shop. Customer Experience talks to the person they sent. You do not book. You do not send the person to a plumber."),
+      bullet("You write keep, fix, or close for every live partner each month", "A silent partner is a closed partner — write it down. Tell Customer Experience if you will close, so they are not waiting on a hotel that sends nobody."),
       bullet("You send Head of Growth a weekly partner note", "Live partners, leads, bookings, junk leads, silent partners. Name what failed.")
     ]
   };
@@ -801,13 +801,13 @@ window.PK_GROWTH = window.PK_GROWTH || {};
     hog: [
       bullet("Do not run the ads or post as the Digital person", "Then nobody owns Digital, and you have no one to hold. If nobody is in that job, you do that job and write that you are doing it today because nobody is in that job."),
       bullet("Do not stand at stalls as the Field person", "Same problem. The job must have a named person. If Field is empty, you do that job in writing."),
-      bullet("Do not close customer chats or take bookings", "That is Sales. Mixing it hides why people did not book."),
+      bullet("Do not close customer chats or take bookings", "That is Customer Experience. Mixing it hides why people did not book."),
       bullet("Do not write the service sheet as if that were this job", "That is Offer. You say yes or no on their sheet."),
-      bullet("Do not sign hotel desks or hire workers", "Partnerships signs the hotel desk. Provider Operations owns the worker list. First Provider Onboarding signs the first local workers after Expansion opens the town.")
+      bullet("Do not sign hotel desks or hire workers", "Partnerships signs the hotel desk. Provider Experience owns the worker list. First Provider Onboarding signs the first local workers after Expansion opens the town.")
     ],
     mkm: [
       bullet("Do not invent a new service, a new price, or a new town", "Offer writes what we sell. Finance signs the price. Expansion opens a town. Head of Growth says yes. You may ask them in writing. You may not put a new service or town on the marketing calendar yourself."),
-      bullet("Do not turn the enquiry into a booking", "Your job is to bring the person to Sales. Sales books the job. You do not take the booking on a chat, a comment, or a stall."),
+      bullet("Do not turn the enquiry into a booking", "Your job is to bring the person to Customer Experience. Customer Experience books the job and finishes it. You do not take the booking on a chat, a comment, or a stall."),
       bullet("Do not change what Intelligence found, or advertise a guess", "Market Intelligence writes facts with a source and a date. You may not put a rumour on the calendar as if it were a real service or town."),
       bullet("Do not spend more than the signed plan allows", "If the month must change, Head of Growth signs the change first. You do not let ads or stalls keep spending while you wait for a meeting."),
       bullet("Do not run the ads or stand at the stall as if that were your main job", "Those jobs belong to Digital Marketing Manager and Field Marketing Manager. If nobody sits there, you do that work for now and write: you are doing it today because nobody is in that job. Otherwise nobody owns that result."),
@@ -817,7 +817,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
       bullet("Do not invent a service, a price, or a new town", "Those come down on the signed plan from Marketing Manager. You do not go around them to Head of Growth."),
       bullet("Do not publish a new sentence that is not already in this month’s instruction book", "Write what you want to say and why. Ask Marketing Manager. Wait for a written yes. Then publish."),
       bullet("Do not publish a customer or provider video that did not come from Operations through the company folder", "Operations records those videos on the job. Content Maker edits them. You say yes. Then they may go live."),
-      bullet("Do not book the customer, and do not keep talking to them in a comment or chat yourself", "Send the person to Sales the same day. Sales books the job."),
+      bullet("Do not book the customer, and do not keep talking to them in a comment or chat yourself", "Send the person to Customer Experience the same day. Customer Experience books the job and finishes it."),
       bullet("Do not run paid ads when you cannot prove a test enquiry reached Operations", "Spend with no path to Operations is wasted money. Pause that ad the same day."),
       bullet("Do not take Field’s stall money without Marketing Manager", "Ads money and stall money are two different lines on one plan.")
     ],
@@ -828,27 +828,27 @@ window.PK_GROWTH = window.PK_GROWTH || {};
       bullet("Do not add a sentence, price, town, or face that is not in this month’s instruction book", "That is a change to the book. Stop. The Digital Marketing Manager asks Marketing Manager."),
       bullet("Do not put a file in the company folder before a written yes", "The company folder holds only files the Digital Marketing Manager has said yes to. A draft on a laptop is not the company copy."),
       bullet("Do not keep master files only on a personal phone or private chat", "If it is not in the review folder or the company folder, it did not happen for the company."),
-      bullet("Do not book the customer or keep talking to them in a comment or chat yourself", "Sales talks to the customer and books the job.")
+      bullet("Do not book the customer or keep talking to them in a comment or chat yourself", "Customer Experience talks to the customer and books the job.")
     ],
     fmm: [
-      bullet("Do not take a booking or money at a stall, and do not let Field Visitor do that", "Field Visitor collects names. Sales books the job. Field Visitor says Sales will call. Money at the stall has no owner in the books."),
+      bullet("Do not take a booking or money at a stall, and do not let Field Visitor do that", "Field Visitor collects names. Customer Experience books the job and finishes it. Field Visitor says Customer Experience will call. Money at the stall has no owner in the books."),
       bullet("Do not invent a price, a service, or a town", "A wrong price on a board or a contract becomes a fight later. Stop and ask Marketing Manager."),
-      bullet("Do not keep the first local workers as your own team, and do not skip Provider Operations", "First Provider Onboarding gets them to sign. Provider Operations puts them on customer jobs. You do not give them a job yourself."),
+      bullet("Do not keep the first local workers as your own team, and do not skip Provider Experience", "First Provider Onboarding gets them to sign. Provider Experience puts them on customer jobs. You do not give them a job yourself."),
       bullet("Do not sign hotel desks or shops that send us their customers", "That is Partnerships. Offices and housing societies that buy ongoing maintenance are Office and Society Contracts."),
       bullet("Do not run digital ads", "That is Digital Marketing Manager. You run the ground jobs. You do not boost a post."),
-      bullet("Do not let Field Visitor skip the same-day list to Sales, and do not let them visit a town that is not on the plan", "A list that arrives tomorrow is a person nobody called. A random Saturday stall cannot be measured.")
+      bullet("Do not let Field Visitor skip the same-day list to Customer Experience, and do not let them visit a town that is not on the plan", "A list that arrives tomorrow is a person nobody called. A random Saturday stall cannot be measured.")
     ],
     fve: [
-      bullet("Do not take a booking or money at the stall", "You collect names. Sales books the job. You say Sales will call. Money at the stall has no owner in the books."),
+      bullet("Do not take a booking or money at the stall", "You collect names. Customer Experience books the job and finishes it. You say Customer Experience will call. Money at the stall has no owner in the books."),
       bullet("Do not promise a price that is not in this month’s instruction book", "A wrong price on a board becomes a fight later. Stop and ask Field Marketing Manager."),
       bullet("Do not pick a new town yourself", "If the town has no workers who can do the jobs, you should not stand there. Field Marketing Manager changes the calendar. You do not."),
-      bullet("Do not sign hotel-desk partners, first local workers, or office maintenance contracts", "Those are other jobs under Field Marketing Manager. Your job is to visit the market and collect names for Sales."),
+      bullet("Do not sign hotel-desk partners, first local workers, or office maintenance contracts", "Those are other jobs under Field Marketing Manager. Your job is to visit the market and collect names for Customer Experience."),
       bullet("Do not run digital ads", "That is Digital Marketing Manager. You stand at the stall. You do not boost a post."),
-      bullet("Do not skip sending the list to Sales the same day, and do not visit a town that is not on your written list", "A list that arrives tomorrow is a person nobody called. A random Saturday stall cannot be measured.")
+      bullet("Do not skip sending the list to Customer Experience the same day, and do not visit a town that is not on your written list", "A list that arrives tomorrow is a person nobody called. A random Saturday stall cannot be measured.")
     ],
     fpo: [
-      bullet("Do not keep the first local workers as your own list, and do not skip Provider Operations", "You get them to sign the papers. Provider Operations puts them on customer jobs."),
-      bullet("Do not give them a customer job yourself", "That is Provider Operations. A private first job is not how the company runs."),
+      bullet("Do not keep the first local workers as your own list, and do not skip Provider Experience", "You get them to sign the papers. Provider Experience puts them on customer jobs."),
+      bullet("Do not give them a customer job yourself", "That is Provider Experience. A private first job is not how the company runs."),
       bullet("Do not invent a payment, a service, or a town", "The signed papers are the rule. If a price is missing, stop and tell Field Marketing Manager."),
       bullet("Do not hire them as company employees", "People & HR owns employees. You sign the first local workers onto Panun Kaergar so they can do jobs as providers, not as office staff."),
       bullet("Do not start work in a town Expansion has not opened", "Expansion already decided we can serve that town. You do not pick a new town yourself."),
@@ -858,7 +858,7 @@ window.PK_GROWTH = window.PK_GROWTH || {};
       bullet("Do not invent a price, a service, or a town", "The signed contract papers are the rule. If they want a different price, stop and tell Field Marketing Manager."),
       bullet("Do not take cash in the office or society", "Finance sends the invoice. Cash you collect on site has no owner in the company books."),
       bullet("Do not sign hotel desks or shops that send us their customers", "That is Partnerships. This job is the office or housing society that buys ongoing maintenance from us."),
-      bullet("Do not book a one-off job for a person in that building yourself", "If someone in the building wants a single job that the maintenance contract does not cover, that person goes to Sales. Sales books one-off work."),
+      bullet("Do not book a one-off job for a person in that building yourself", "If someone in the building wants a single job that the maintenance contract does not cover, that person goes to Customer Experience. Customer Experience books one-off work and finishes it."),
       bullet("Do not do the maintenance jobs yourself", "That is Operations. You write the contract. Operations sends the workers."),
       bullet("Do not visit a building that is not on this month’s written list", "Field Marketing Manager named the buildings. You do not pick a new one because you were nearby.")
     ],
@@ -866,8 +866,8 @@ window.PK_GROWTH = window.PK_GROWTH || {};
       bullet("Do not run ads or brief Marketing to advertise a guess", "You discover. Marketing generates. Unmet demand is a signal, not a new ad."),
       bullet("Do not write the service sheet", "Hand a go pack to Offer. You do not design the job."),
       bullet("Do not open a town", "Hand a go pack to Expansion. You do not write enter, wait, or no."),
-      bullet("Do not hire workers", "Provider Operations owns the roster. First Provider Onboarding signs the first local workers."),
-      bullet("Do not book the customer", "Sales books. You write facts.")
+      bullet("Do not hire workers", "Provider Experience owns the roster. First Provider Onboarding signs the first local workers."),
+      bullet("Do not book the customer", "Customer Experience books the job and finishes it. You write facts.")
     ],
     osd: [
       bullet("Do not advertise the service", "Marketing talks only after Head of Growth says yes. A draft is not a product."),
@@ -879,12 +879,12 @@ window.PK_GROWTH = window.PK_GROWTH || {};
     mem: [
       bullet("Do not research with no decision", "Enter, wait, or no — in writing. More research forever is a delay, not your result."),
       bullet("Do not let Marketing spend before Operations can finish the first jobs", "Ads in a town with nobody who can do the jobs kill the brand in public."),
-      bullet("Do not hire workers", "Provider Operations owns the roster. First Provider Onboarding goes in person after the town is open."),
+      bullet("Do not hire workers", "Provider Experience owns the roster. First Provider Onboarding goes in person after the town is open."),
       bullet("Do not change what we sell", "That is Offer. You decide the town, not the service sheet.")
     ],
     pcm: [
-      bullet("Do not book the partner’s customer yourself", "You find the hotel or shop. Sales talks to the person they sent."),
-      bullet("Do not send a lead straight to a plumber", "You skip the booking system and the brand. Send the person to Sales."),
+      bullet("Do not book the partner’s customer yourself", "You find the hotel or shop. Customer Experience talks to the person they sent."),
+      bullet("Do not send a lead straight to a plumber", "You skip the booking system and the brand. Send the person to Customer Experience."),
       bullet("Do not promise money Finance did not see", "Unplanned money is an ask, not a handshake."),
       bullet("Do not promise a service we do not sell", "Stop them. Write it. The live list is Offer’s list."),
       bullet("Do not write an office or society maintenance contract", "That is Office and Society Contracts under Field. A hotel desk that sends us guests is this job.")

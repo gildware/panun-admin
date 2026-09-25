@@ -102,61 +102,10 @@
 @endsection
 
 @push('script')
+    @include('bookingmodule::admin.booking.partials._booking-comment-actions-scripts')
     @include('bookingmodule::admin.booking.partials._booking-comment-tagging-scripts')
     <script>
         (function () {
-            function csrfToken() {
-                return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-            }
-
-            document.querySelectorAll('.lead-comment-pin-btn').forEach(function (btn) {
-                btn.addEventListener('click', function () {
-                    var url = btn.getAttribute('data-url');
-                    if (!url) return;
-                    btn.disabled = true;
-                    fetch(url, {
-                        method: 'PUT',
-                        headers: {
-                            'X-CSRF-TOKEN': csrfToken(),
-                            'Accept': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
-                    })
-                        .then(function (r) { return r.json(); })
-                        .then(function () { window.location.reload(); })
-                        .catch(function () {
-                            btn.disabled = false;
-                            if (typeof toastr !== 'undefined') toastr.error(@json(translate('Failed_to_update')));
-                        });
-                });
-            });
-
-            document.querySelectorAll('.lead-comment-delete-btn').forEach(function (btn) {
-                btn.addEventListener('click', function () {
-                    if (!confirm(@json(translate('Are_you_sure')))) return;
-                    var url = btn.getAttribute('data-url');
-                    if (!url) return;
-                    btn.disabled = true;
-                    fetch(url, {
-                        method: 'DELETE',
-                        headers: {
-                            'X-CSRF-TOKEN': csrfToken(),
-                            'Accept': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
-                    })
-                        .then(function (r) {
-                            if (!r.ok) throw new Error('delete failed');
-                            return r.json();
-                        })
-                        .then(function () { window.location.reload(); })
-                        .catch(function () {
-                            btn.disabled = false;
-                            if (typeof toastr !== 'undefined') toastr.error(@json(translate('Failed_to_update')));
-                        });
-                });
-            });
-
             var commentsWrap = document.getElementById('bookingCommentsListWrap');
             if (commentsWrap) {
                 commentsWrap.scrollTop = commentsWrap.scrollHeight;

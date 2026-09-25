@@ -12,54 +12,59 @@ window.PK_GROWTH = (function () {
       reportsTo: "CEO",
       hero: "role-hog.png",
       layout: "detailed",
-      result: "People who found us through Growth reach Sales as a named enquiry, at a cost the CEO signed, for work Operations can actually finish.",
+      result: "People who found us through Growth reach Customer Experience as a named enquiry, at a cost the CEO signed, for work Operations can actually finish.",
       what: "You own who Panun Kaergar sells to, what we may promise, and the numbers that prove Growth is working. Five people report to you: Marketing Manager, Market Intelligence Manager, Offer & Service Development Manager, Market Expansion Manager, and Partnerships & Channels Manager. You write the monthly Growth plan they work from, and you say yes or no on a new service, a new town, and a new kind of partner. They do the daily work. You run the plan they work from.",
       why: "If nobody owns who we sell to and what we may say, Marketing, Intelligence, Offer, Expansion, and Partnerships start acting like five companies. Money is spent with no owner. The CEO cannot tell what is working.",
-      how: "The CEO tells you the company’s priorities and the money ceiling. You turn that into one monthly Growth plan. The five people work only from that written plan. You do not run the ads, stand at a stall, write the service sheet, open a town, or sign a hotel desk unless that job is empty — and then you write that you are doing it today because nobody is in that job.",
+      how: "The CEO tells you the company’s priorities and the money ceiling. You turn that into one monthly Growth plan. The five people work only from that written plan. You do not run the ads, stand at a stall, write the service sheet, open a town, or sign a hotel desk unless that job is empty. On any day you do an empty job’s work, write a note the same day. Name which seat was empty. Write what you did in that seat. Write that you still read the other four results. The weekly Growth review still happens. Do not cancel it because one seat is empty. The empty box stays on the chart.",
       lanes: [
         { kicker: "Part 1", art: "lane-who.png", title: "Who we sell to, and what we may say", work: "Write who the customer is. Write the sentences ads, stalls, and hotels may use. Marketing Manager may not invent a different customer or different sentences.", result: "Ads, stalls, and hotels talk about the same company.", who: "You." },
         { kicker: "Part 2", art: "lane-plan.png", title: "The monthly plan, the money, and yes or no", work: "Sign the month. Sign how much money Growth may spend. Sign which services, which towns, ads, stalls, and hotels. Say yes, no, or send back on a new service, a new town, and a new kind of hotel or shop.", result: "Nobody spends Growth money, and nobody opens a new service or town, without your signature.", who: "You. Marketing Manager writes the marketing page of the plan. You sign." },
-        { kicker: "Part 3", art: "lane-team.png", title: "The five people who report to you", work: "Check each person hits their one result. Marketing Manager brings people in. Market Intelligence Manager writes facts. Offer & Service Development Manager writes what we sell. Market Expansion Manager opens or waits on a town. Partnerships & Channels Manager signs hotels and shops that send us customers.", result: "Each of those five jobs has a named person — or you have written that you are doing that work today because the job is empty.", who: "Those five people. If a job is empty, you do that work today. Write that down." }
+        { kicker: "Part 3", art: "lane-team.png", title: "The five people who report to you", work: "Check each person hits their one result. Marketing Manager brings people in. Market Intelligence Manager writes facts. Offer & Service Development Manager writes what we sell. Market Expansion Manager opens or waits on a town. Partnerships & Channels Manager signs hotels and shops that send us customers. If one seat is empty, you do that work today. The same day, write which seat was empty, what you did in it, and that you still read the other four results.", result: "Each of those five jobs has a named person, or the day’s note names the empty seat, the work you did, and that the other four results were still read. The weekly review still happens.", who: "Those five people. If a job is empty, you do that work today. The empty box stays on the chart." }
       ],
-      acting: "If one of those five jobs has nobody in it, you do that work and write that you are doing it today because nobody is in that job. You do not hide it.",
+      acting: "If one of those five jobs has nobody in it, you do that work the same day. The note names which seat was empty, what you did in that seat, and that you still read the other four results. You do not hide it. You do not cancel the weekly Growth review because one seat is empty. The empty box stays on the chart.",
       owns: [
         "Who we sell to, and why they buy",
         "The promise we are allowed to make",
         "The monthly Growth plan and budget",
         "Yes or no on a new service, a new town, and a new kind of hotel desk or shop",
-        "The five Growth people who report to you and their weekly numbers"
+        "The five Growth people who report to you and their weekly numbers",
+        "The day’s note when a seat is empty: which seat, what you did, and that the other four results were still read"
       ],
       mustNot: [
         "Run ads or post as the Digital person",
         "Stand at stalls as the Field person",
         "Close customer chats or take bookings",
         "Write the service definition as the technician",
-        "Sign partners or hire providers"
+        "Sign partners or hire providers",
+        "Do an empty seat’s work without naming the seat, what you did, and that the other four results were still read",
+        "Cancel the weekly Growth review because one seat is empty"
       ],
       responsibilities: [
         { title: "Customer and promise", what: "Keep one clear picture of who we serve and what we may say.", why: "Ads, stalls, and partners must not invent a different company." },
         { title: "Plan and money", what: "Approve the monthly plan: who, offer, town, channel, budget, target.", why: "Spend without a plan is guessing instead of following a plan, not Growth." },
         { title: "Yes and no", what: "Sign off new services, town launches, and kinds of hotel desk or shop. Stop what is not working.", why: "Only this job may turn research into market action." },
         { title: "Numbers", what: "Read enquiries, qualified enquiries, bookings, and cost by ads, stalls, or partners every week.", why: "Reach and likes are not a result." },
-        { title: "People", what: "Coach the five people who report to you. Do their job only if the job is empty — and write it down as acting owner.", why: "The org chart is the business. Jobs stay. People sit in them. If a job has nobody in it, write who is doing it today." }
+        { title: "People", what: "Coach the five people who report to you. Do their job only if the job is empty. The same day, write which seat was empty, what you did, and that you still read the other four results.", why: "The org chart is the business. Jobs stay. People sit in them. One empty seat must not hide the other four results, and it must not cancel the weekly review." }
       ],
       when: {
-        daily: ["Look at yesterday’s enquiries with a written answer for how they found us and spend vs plan.", "Unblock a yes/no that is blocking someone who reports to you.", "Escalate to the CEO only if money, brand, or a launch is at risk."],
-        weekly: ["Run the Growth review: plan vs actual, cost per enquiry, cost per booking, lost-lead reasons from Sales.", "Clear High opportunities that have sat more than 10 working days.", "Confirm Marketing is only promoting approved services in approved towns."],
+        daily: ["Look at yesterday’s enquiries with a written answer for how they found us and spend vs plan.", "Unblock a yes/no that is blocking someone who reports to you.", "If you did an empty seat’s work today, write which seat, what you did, and that you still read the other four results.", "Escalate to the CEO only if money, brand, or a launch is at risk."],
+        weekly: ["Run the Growth review even if one seat is empty: plan vs actual, cost per enquiry, cost per booking, lost-lead reasons from Customer Experience.", "If a seat was empty this week, the review names that seat, what you did, and that the other four results were still read.", "Clear High opportunities that have sat more than 10 working days.", "Confirm Marketing is only promoting approved services in approved towns."],
         monthly: ["Set next month’s plan with Marketing, using Intelligence.", "Decide grow / stop / research for each live offer and town.", "Review each of the five people against their one result."]
       },
       standards: [
         "Every enquiry Growth creates has a source: digital, field, partner, or other.",
         "Marketing may promote only an approved service in an approved area.",
         "No Growth spend without a written monthly plan.",
-        "Lost-lead reasons from Sales are read in the weekly review — not ignored.",
-        "A High opportunity is decided in 10 working days: go, no-go, or more research with a date."
+        "Lost-lead reasons from Customer Experience are read in the weekly review — not ignored.",
+        "A High opportunity is decided in 10 working days: go, no-go, or more research with a date.",
+        "A day you do an empty seat’s work has a note that names the seat, what you did, and that the other four results were still read.",
+        "The weekly Growth review still happens when a seat is empty. The empty box stays on the chart."
       ],
       procedures: [
         { id: "HOG-01", title: "Approve the monthly Growth plan", when: "Last week of each month, before spend starts.", steps: ["Read last month’s numbers and Intelligence go/no-go.", "Sit with Marketing. Choose who, offer, towns, channels, budget, and targets.", "Check Offer and Expansion: only approved items go on the plan.", "Sign the plan. Marketing may not change it without a new sign-off.", "File the plan. Send a one-page copy to the CEO."] },
         { id: "HOG-02", title: "Approve a new or changed service", when: "Offer is ready and Finance has priced it.", steps: ["Read the service sheet: what is in, what is out, where we can deliver.", "Confirm Operations can actually do the first jobs.", "Say yes, no, or send back. Yes means Marketing may talk about it.", "Tell Marketing what they may claim. Tell them what they must not say."] },
-        { id: "HOG-03", title: "Approve a new area", when: "Expansion has a written enter / wait / no pack, and Provider Operations says we can finish.", steps: ["Read demand, competition, and capacity.", "If we cannot finish jobs there, the answer is no — even if ads would be cheap.", "If yes, name the launch services, budget, and review date.", "Marketing and Partnerships may spend in that area only after this yes."] },
-        { id: "HOG-04", title: "Weekly Growth review", when: "Same weekday every week.", steps: ["Enquiries, qualified enquiries, bookings, spend — by ads, stalls, or partners.", "Cost per enquiry and cost per booking vs plan.", "Lost-lead reasons from Sales. Hand patterns to Intelligence and Marketing.", "One action each for any channel that is off plan.", "Write the review. Do not keep it in chat."] }
+        { id: "HOG-03", title: "Approve a new area", when: "Expansion has a written enter / wait / no pack, and Provider Experience says we can finish.", steps: ["Read demand, competition, and capacity.", "If we cannot finish jobs there, the answer is no — even if ads would be cheap.", "If yes, name the launch services, budget, and review date.", "Marketing and Partnerships may spend in that area only after this yes."] },
+        { id: "HOG-04", title: "Weekly Growth review", when: "Same weekday every week. Do this even if one of the five seats is empty.", steps: ["Enquiries, qualified enquiries, bookings, spend — by ads, stalls, or partners.", "Cost per enquiry and cost per booking vs plan.", "Lost-lead reasons from Customer Experience. Hand patterns to Intelligence and Marketing.", "One action each for any channel that is off plan.", "If you did an empty seat’s work this week, name the seat, what you did, and that the other four results were still read.", "Write the review. Do not keep it in chat. Do not cancel this review because one seat is empty."] }
       ],
       kpis: [
         { name: "Monthly Growth plan signed", target: "100% before month starts", why: "No plan means no system." },
@@ -67,13 +72,14 @@ window.PK_GROWTH = (function () {
         { name: "Cost per enquiry", target: "Inside the signed plan", why: "Cheap noise is still noise." },
         { name: "Cost per booking from Growth", target: "Inside the signed plan", why: "Enquiries that never book are not Growth." },
         { name: "High opportunities decided", target: "Within 10 working days", why: "A list of ideas nobody decided is not a decision." },
-        { name: "Weekly review on time", target: "100%", why: "The numbers must be a habit." }
+        { name: "Weekly review on time", target: "100%", why: "The numbers must be a habit. An empty seat does not cancel the review." },
+        { name: "Empty-seat note names the seat, the work, and the other four results", target: "Every day you do an empty seat’s work", why: "One empty seat can fill the day and hide the other four results.", how: "The note names which of the five seats was empty, what you did in that seat that day, and that you still read the other four results. The weekly review still exists that week." }
       ],
       rules: [
-        "Growth creates the enquiry. Sales books it. Operations does the job. Do not mix these.",
-        "You may do one of those five jobs if it has nobody in it — say so in writing.",
+        "Growth creates the enquiry. Customer Experience books the job and finishes it. Growth does not book. Do not mix these.",
+        "You may do one of those five jobs if it has nobody in it. The same day, write which seat was empty, what you did, and that you still read the other four results. The weekly review still happens. The empty box stays on the chart.",
         "Do not change price, payout, or catalogue without Offer and Finance.",
-        "Do not hire providers. That is Provider Operations.",
+        "Do not hire providers. That is Provider Experience.",
         "If a channel cannot name its source, stop spending on it."
       ],
       escalate: [
@@ -96,9 +102,9 @@ window.PK_GROWTH = (function () {
       lanes: [
         { kicker: "Part 1", art: "lane-kit.png", title: "The plan and the instruction book", work: "Write the monthly plan: which services, which towns, which days, how much money for paid ads, how much money for stalls, which website pages Digital must keep true so people can find us on Google without a paid ad, and what we will not advertise. Also write the instruction book: logo, colours, sentences, prices, towns, and faces that ads, search pages, and stalls may use.", result: "Digital and Field can do their work without inventing a different company.", who: "You." },
         { kicker: "Part 2", art: "lane-ads.png", title: "Online marketing", work: "Digital Marketing Manager runs paid ads (Meta, Google, and others), unpaid website and Google search, the app store, social media, videos, and posts.", result: "People who saw an ad or found us on Google reach Operations. Operations asks how they found us and writes paid ad or search. Search numbers are not mixed into the ads money.", who: "Digital Marketing Manager. If that job is empty, you do this work today. Write that down." },
-        { kicker: "Part 3", art: "lane-stall.png", title: "Field marketing", work: "Field Marketing Manager runs three ground jobs: visits to stalls and streets, first local workers signed in person, and maintenance contracts with offices and housing societies.", result: "Sales has the stall names the same day. The town has first local workers signed onto us and sent to Provider Operations. Offices and societies have a signed maintenance contract, not a spoken yes.", who: "Field Marketing Manager. If that job is empty, you do this work today. Write that down." }
+        { kicker: "Part 3", art: "lane-stall.png", title: "Field marketing", work: "Field Marketing Manager runs three ground jobs: visits to stalls and streets, first local workers signed in person, and maintenance contracts with offices and housing societies.", result: "Customer Experience has the stall names the same day. The town has first local workers signed onto us and sent to Provider Experience. Offices and societies have a signed maintenance contract, not a spoken yes.", who: "Field Marketing Manager. Do not hire a person into this seat until stall visits, first signatures, and office and society contracts are each already happening. Until then you do this work and write, the same day: I am doing Field Marketing today because the seat is empty. The box stays on the chart." }
       ],
-      acting: "If nobody sits in the Marketing Manager job, Head of Growth does that work and writes that they are doing it today because nobody is in that job. If nobody sits in Digital or Field, you do that work and write on the daily note: you are doing it today because nobody is in that job.",
+      acting: "If nobody sits in the Marketing Manager job, Head of Growth does that work and writes, the same day: I am doing Marketing today because the seat is empty. The box stays. If nobody sits in Digital or Field, you do that work and write the same kind of sentence, naming that seat. For Field, the sentence is: I am doing Field Marketing today because the seat is empty. Do not ask HR to hire a Field Marketing Manager until stall visits, first signatures, and office and society contracts are each already happening. The same wait applies to any empty seat: do not hire until that seat’s own result is already happening.",
       owns: [
         "The monthly marketing plan and day-by-day calendar",
         "The marketing kit — logo, colours, sentences, prices, towns, and faces",
@@ -113,6 +119,8 @@ window.PK_GROWTH = (function () {
         "Change what Intelligence found, or advertise a guess",
         "Spend more than the signed plan allows",
         "Run the ads or stand at the stall as if that were your main job",
+        "Ask HR to hire a Field Marketing Manager before stall visits, first signatures, and office and society contracts are each already happening",
+        "Ask HR to hire any empty seat before that seat’s own result is already happening",
         "Let Operations skip asking where they found us, or let Digital or Field make their own month"
       ],
       responsibilities: [
@@ -120,7 +128,7 @@ window.PK_GROWTH = (function () {
         { title: "Marketing kit", what: "Keep one look and one promise. If Digital or Field wants a new sentence, price, town, or face, they stop until you say yes in writing.", why: "Trust dies when an ad or a flyer promises something the job cannot do." },
         { title: "How the money is split", what: "Give Digital an ads budget for paid ads, and Field a stall budget, with a weekly target for each. SEO (search) is Digital’s work too, but those enquiries are counted on their own line — not mixed into ads spend.", why: "If money has no owner, each side takes from the other. If search hides inside ads, you cannot tell what is working." },
         { title: "Where each enquiry came from", what: "Operations asks every new person — call, WhatsApp, app, website form, or any other way they arrived — ‘How did you find us?’ and writes the answer from a short list you gave them: paid ad, search, stall, WhatsApp, app, form, or other. You check every enquiry has that answer the same day. If it is blank, Operations asks today. Digital does not ask the customer, and Digital cannot see this from the phone number. Digital reads what Operations wrote, so we know which ads and pages work. Field also writes town and date when they met the person at a stall.", why: "If Operations does not ask, nobody knows which ads, search pages, or stalls work." },
-        { title: "Digital and Field jobs", what: "Give both managers their written work. Check they hit their one result. If nobody sits in a job, do that work yourself and write that you are doing it today because nobody is in that job.", why: "A job with no name has no owner." },
+        { title: "Digital and Field jobs", what: "Give both managers their written work. Check they hit their one result. If Field is empty, do that work yourself and write, the same day: I am doing Field Marketing today because the seat is empty. Do not ask for that person to be hired until stall visits, first signatures, and office and society contracts are each already happening. Use the same wait for any other empty seat under you.", why: "A manager hired before the three ground jobs are happening is a title. The box stays. The person above does the work until the work is already happening." },
         { title: "Honest weekly numbers", what: "Each week write spend, enquiries by paid ads, by search (SEO), and by stalls, cost, bookings from marketing, three things that worked, three that failed, and one or two changes.", why: "Head of Growth needs numbers, not a story with only good news." }
       ],
       when: {
@@ -134,15 +142,16 @@ window.PK_GROWTH = (function () {
         "No live ad or flyer uses a sentence you have not put in the marketing kit.",
         "Money spent stays within 10% of the plan unless Head of Growth signs a change.",
         "Digital and Field work from the same calendar.",
-        "If Digital or Field has nobody sitting in the job, that is written down as you doing that job."
+        "If Digital or Field has nobody sitting in the job, you write the sentence the same day: I am doing that seat today because the seat is empty. For Field, the sentence is: I am doing Field Marketing today because the seat is empty.",
+        "Do not hire a Field Marketing Manager until stall visits, first signatures, and office and society contracts are each already happening. Do not hire any other empty seat until that seat’s own result is already happening. The box stays."
       ],
       procedures: [
         { id: "MKT-01", title: "Write next month’s marketing plan", when: "In the last week of the month, before any money is spent in the new month.", steps: ["Read what Intelligence found, and last month’s marketing report.", "Choose only services Head of Growth has already approved, and only towns Expansion has already opened.", "Write how much money paid ads may spend, how much stalls may spend, and which website pages Digital must keep true for search (SEO).", "Write what ‘good’ looks like for ads, for search, and for stalls.", "Write or confirm the marketing kit for the month.", "Write a list of what we will not advertise this month.", "Get Head of Growth to sign.", "Give Digital and Field their written work the same day (see MKT-05)."] },
         { id: "MKT-02", title: "Allow or refuse a new sentence, price, town, or face", when: "When Digital or Field wants to say something that is not already in the marketing kit.", steps: ["Tell them to stop. That ad or flyer must not go live yet.", "Ask them to write what they want to say and why.", "Check Offer, Finance, and Expansion: is this already approved?", "If it is a brand-new service or town, take it to Head of Growth.", "If the answer is yes, add it to the marketing kit, put the date on it, and tell both managers.", "If the answer is no, write the no. They keep doing the other work that is already allowed."] },
         { id: "MKT-03", title: "Make sure Operations asked where each person found us", when: "Every working day.", steps: ["Give Operations a short written list of answers they may write: paid ad, search, stall, WhatsApp, app, website form, or other.", "Every new person — call, WhatsApp, app, form, or any other way — Operations asks: ‘How did you find us?’ and writes one of those names.", "You check new enquiries the same day. If the answer is missing, Operations asks today.", "If they still cannot write it, put that person on your missing-source list. The goal is an empty list.", "Digital reads these answers to count ads vs search. Digital does not ask the customer.", "If Field met the person at a stall, Field also writes town and date."] },
-        { id: "MKT-04", title: "Write the weekly marketing report", when: "The same weekday every week, the day before Head of Growth’s Growth review.", steps: ["Take Digital’s weekly numbers and Field’s weekly numbers the day before.", "Write money spent against the plan, ads and stalls separately.", "Write how many people enquired, by paid ads, by search (SEO), and by stalls. Do not mix search into ads.", "Write how many of those enquiries named their source. Write how many became bookings, if Sales has closed them.", "Write three things that worked, three that failed, and one or two changes — not ten.", "Send it to Head of Growth in writing. Not a voice note."] },
+        { id: "MKT-04", title: "Write the weekly marketing report", when: "The same weekday every week, the day before Head of Growth’s Growth review.", steps: ["Take Digital’s weekly numbers and Field’s weekly numbers the day before.", "Write money spent against the plan, ads and stalls separately.", "Write how many people enquired, by paid ads, by search (SEO), and by stalls. Do not mix search into ads.", "Write how many of those enquiries named their source. Write how many became bookings, if Customer Experience has closed them.", "Write three things that worked, three that failed, and one or two changes — not ten.", "Send it to Head of Growth in writing. Not a voice note."] },
         { id: "MKT-05", title: "Give Digital and Field their written work for the month", when: "The same day Head of Growth signs the month, and whenever the plan changes.", steps: ["Give Digital: their days, the ads budget, the marketing kit, which website pages and towns SEO must cover this month, where a call, WhatsApp, app, or form must land, and what we will not advertise.", "Give Field: which towns, which days, which boards and flyers, the stall budget, which first-worker towns, which offices and societies, the signed papers, and what we will not advertise.", "Give Operations the list of source names they may write this month: paid ad, search, stall, WhatsApp, app, form, or other. They ask every person. They write one of those names.", "Save this brief as a file. A chat message is not the brief."] },
-        { id: "MKT-06", title: "Pause an ad campaign or stall days", when: "When enquiries have no source, money is running too fast, or a sentence might be untrue.", steps: ["Stop that ad or those stall days the same day.", "Write why, the time, and what is still allowed to run.", "Tell Digital or Field, and tell Sales if enquiries will stop arriving.", "If money will go past the plan, or a sentence might be untrue, tell Head of Growth before more money goes out or the file stays live."] },
+        { id: "MKT-06", title: "Pause an ad campaign or stall days", when: "When enquiries have no source, money is running too fast, or a sentence might be untrue.", steps: ["Stop that ad or those stall days the same day.", "Write why, the time, and what is still allowed to run.", "Tell Digital or Field, and tell Customer Experience if enquiries will stop arriving.", "If money will go past the plan, or a sentence might be untrue, tell Head of Growth before more money goes out or the file stays live."] },
         { id: "MKT-07", title: "Change the plan in the middle of the month", when: "When the calendar must change before the month ends.", steps: ["Write the change: which line, why, money added or taken away.", "Do not let Digital or Field start the new line yet.", "Get Head of Growth to sign.", "Then give both managers the new written brief (see MKT-05). Save the new plan."] }
       ],
       kpis: [
@@ -158,13 +167,13 @@ window.PK_GROWTH = (function () {
         "Digital and Field do not invent their own offers, their own marketing kit, or their own month.",
         "You write the marketing kit. Digital checks each video, post, and search page against it, then publishes. You do not re-check every post.",
         "Operations asks every new person where they found us — call, WhatsApp, app, form, or any other way — and writes the answer. Digital does not ask the customer.",
-        "Enquiries from partners belong to Partnerships, then Sales. You do not book those people.",
-        "If Digital or Field has nobody sitting in the job, say so in writing and do that job."
+        "Enquiries from partners belong to Partnerships, then Customer Experience. You do not book those people.",
+        "If Digital or Field has nobody sitting in the job, write the sentence the same day and do that job. For Field, the sentence is: I am doing Field Marketing today because the seat is empty. Do not hire that manager until stall visits, first signatures, and office and society contracts are each already happening. Do not hire any other empty seat until that seat’s own result is already happening. The box stays."
       ],
       escalate: [
         { when: "An ad or flyer might be untrue or off brand", to: "Head of Growth before it stays live", how: "Take it down. Show the file." },
         { when: "Spend will go past the plan", to: "Head of Growth before more money goes out", how: "Show the plan, what has been spent, and why you need a change." },
-        { when: "Sales says marketing enquiries are poor quality for two weeks in a row", to: "Head of Growth", how: "Show sample enquiries, where they came from, and what you will change." },
+        { when: "Customer Experience says marketing enquiries are poor quality for two weeks in a row", to: "Head of Growth", how: "Show sample enquiries, where they came from, and what you will change." },
         { when: "Digital or Field has missed their result for two weeks, or the job is empty and nobody wrote that down", to: "Head of Growth in the weekly report", how: "Numbers, what you tried, and whether you are doing that job today." }
       ]
     }),
@@ -174,9 +183,9 @@ window.PK_GROWTH = (function () {
       reportsTo: "Marketing Manager",
       hero: "role-hom.png",
       layout: "detailed",
-      result: "All online work of Panun Kaergar follows the signed plan. Every digital enquiry that reaches Sales has a written answer from Operations for how they found us.",
+      result: "All online work of Panun Kaergar follows the signed plan. Every digital enquiry that reaches Customer Experience has a written answer from Operations for how they found us.",
       what: "You own everything online: paid ads (Meta, Google, and any other paid ads), website search, app store, social, Reddit, Quora, and other sites. You also own the content library — videos and posts — and you give Content Maker their written work and check that result. You do not invent the offer, the town, or the price. You do not book the customer.",
-      why: "If ads, posts, and search each invent their own company, the customer hears three promises and Sales cannot learn. One job must own all digital, and send the truth back: what worked and what failed.",
+      why: "If ads, posts, and search each invent their own company, the customer hears three promises and Customer Experience cannot learn. One job must own all digital, and send the truth back: what worked and what failed.",
       how: "Marketing Manager gives you the month: towns, services, ads money, words you may use, words you must not use, and where a lead must land. You do three kinds of online work — paid ads, unpaid website and search work, and content. You publish from this month’s marketing kit (the instruction book of words, prices, towns, and faces). A new claim, new price, new town, or new face goes back to Marketing Manager first.",
       lanes: [
         { kicker: "Part 1", art: "lane-ads.png", title: "Paid ads", work: "Run the paid ads on this month’s plan — Meta, Google, and any other paid ads. Stay inside the ads money.", result: "People reach Operations from those ads. Operations wrote how they found us. Spend is inside the ads money.", who: "You. There is no extra ads person." },
@@ -189,11 +198,11 @@ window.PK_GROWTH = (function () {
         { title: "Ads budget and a cost ceiling", why: "The signed plan is the rule, not the ad account." },
         { title: "Words we may say, and words we must not say", why: "This is this month’s marketing kit. You may publish from it without asking again." },
         { title: "Brand look — logo, colours, tone", why: "One look. Not a new look every post." },
-        { title: "Where the lead must land (form, WhatsApp, or app that Sales already uses)", why: "A lead that never reaches Sales is wasted spend." },
+        { title: "Where the lead must land (form, WhatsApp, or app that Customer Experience already uses)", why: "A lead that never reaches Customer Experience is wasted spend." },
         { title: "What we will not do this month", why: "No ‘let’s just test it’ off the plan." }
       ],
       sentBack: [
-        { title: "An enquiry the same day, where Operations wrote how they found us", why: "Sales books. You do not." },
+        { title: "An enquiry the same day, where Operations wrote how they found us", why: "Customer Experience books the job and finishes it. You do not." },
         { title: "Daily note: spend, new leads, anything you paused", why: "Catch a leak the same day." },
         { title: "Weekly written report by named online place (Meta, Google, search, social, other)", why: "Show spend, enquiries, cost — and 3 things that worked plus 3 that failed." },
         { title: "Content log: what went live, where, which service and town", why: "The library is how we learn, not a folder that lives only on a personal phone." },
@@ -215,8 +224,8 @@ window.PK_GROWTH = (function () {
           { to: "Paid ads", what: "Meta, Google, other paid", rule: "Operations writes how they found us, same as every other digital enquiry." },
           { to: "Social", what: "Upload and schedule", rule: "From the library, not from a personal phone." },
           { to: "Website / app store", what: "Search pages and store listing", rule: "Same promise as the ads." },
-          { to: "Reddit, Quora, other", what: "Answers and posts", rule: "Same promise. Do not book in the thread. Hand the person to Sales." },
-          { to: "Sales", what: "The person. Operations already asked where they found us.", rule: "Same day. You do not book." }
+          { to: "Reddit, Quora, other", what: "Answers and posts", rule: "Same promise. Do not book in the thread. Hand the person to Customer Experience." },
+          { to: "Customer Experience", what: "The person. Operations already asked where they found us.", rule: "Same day. You do not book." }
         ],
         note: "New claim, new price, new town, or new face: stop and ask Marketing Manager. Everything else in this month’s marketing kit: publish, file, report."
       },
@@ -239,10 +248,10 @@ window.PK_GROWTH = (function () {
       ],
       responsibilities: [
         { title: "Paid ads", what: "Build, watch, and pause Meta, Google, and other paid ads that are on the plan.", why: "A live ad with no owner is a leak.", how: "Only what is on the signed calendar. Test a dummy enquiry so Operations actually receives it before you spend. If tracking dies, pause the same day." },
-        { title: "Website, search, and unpaid posts", what: "Keep the website and app store true to this month’s marketing kit. Post and answer on social, Reddit, and Quora using the same words.", why: "Search and other sites are not ‘free ads’. They still need a name, Operations writing how they found us, and a path that reaches Sales.", how: "Same promise as the ads. Count them on their own line in the weekly written report. Do not book in a comment or a thread." },
+        { title: "Website, search, and unpaid posts", what: "Keep the website and app store true to this month’s marketing kit. Post and answer on social, Reddit, and Quora using the same words.", why: "Search and other sites are not ‘free ads’. They still need a name, Operations writing how they found us, and a path that reaches Customer Experience.", how: "Same promise as the ads. Count them on their own line in the weekly written report. Do not book in a comment or a thread." },
         { title: "Content library", what: "Approve Content Maker files against this month’s marketing kit, then file them. Hand the right file to ads, social, and search.", why: "If a file lives only on a personal phone, it is not the company copy.", how: "Content Maker makes and edits. You approve each file. Only then does it enter the library. Every library file: name, type, service, town, date, where it went live, result." },
         { title: "Operations footage", what: "Ask Operations for customer-feedback and provider videos the file list needs. Hand the files to Content Maker to edit.", why: "Those videos are captured on the job. Content Maker cuts them.", how: "Write the need. Collect the files from Operations. Content Maker edits from this month’s marketing kit and files. Then ads and social may use them." },
-        { title: "People reach Operations. Operations asks where they found us", what: "You do not ask the customer. Operations asks — call, WhatsApp, app, form, or any other way — and writes the answer. You read those answers to see which ads and pages work.", why: "Digital cannot see the source from the phone number.", how: "Tell Operations when an ad or page is live. Each week count how many people Operations marked as paid ad vs search. Do not start the sales chat yourself." },
+        { title: "People reach Operations. Operations asks where they found us", what: "You do not ask the customer. Operations asks — call, WhatsApp, app, form, or any other way — and writes the answer. You read those answers to see which ads and pages work.", why: "Digital cannot see the source from the phone number.", how: "Tell Operations when an ad or page is live. Each week count how many people Operations marked as paid ad vs search. Do not start the booking chat yourself." },
         { title: "Honest results", what: "Send back what worked and what failed.", why: "A report with only wins is how bad spend hides.", how: "Weekly: 3 things that worked, 3 that failed, one written request. By named online place (Meta, Google, search, social, or other), not as one lump called ‘digital’." }
       ],
       when: {
@@ -257,20 +266,20 @@ window.PK_GROWTH = (function () {
         "Every live file is in the library the same day.",
         "Customer and provider films in the library are edited from Operations footage.",
         "New claim, price, town, or face waits for Marketing Manager.",
-        "Sales chats in comments go to Sales — you do not close them."
+        "A booking chat in the comments goes to Customer Experience. You do not close it."
       ],
       procedures: [
         { id: "DIG-01", title: "Start a paid ad", when: "When it is on the signed calendar.", steps: ["Check town, service, words, and budget against this month’s marketing kit.", "Pick an approved file from the library — or ask Content Maker to make it from this month’s marketing kit, then approve it before it is filed.", "Send one dummy enquiry so Operations actually receives it. If it does not arrive, do not launch.", "Tell Operations the ad is live. They ask every person where they found us. You do not.", "Launch only after that check.", "File the launch record."] },
         { id: "DIG-02", title: "Watch paid ads each day", when: "Every working day.", steps: ["Spend, enquiries, cost.", "If spend is running away, pause and tell Marketing Manager.", "If spend is on and enquiries are zero, pause and check tracking and the file.", "Write what you did."] },
-        { id: "DIG-03", title: "Publish from this month’s marketing kit", when: "Any post, AI video, search page, Reddit or Quora answer that uses only the signed words.", steps: ["Use an approved file from the library, or ask Content Maker to make one from this month’s marketing kit and approve it first.", "No new claim, price, town, or face.", "Publish.", "File: where it went live, service, town, date.", "If someone starts a sales chat, hand it to Sales."] },
+        { id: "DIG-03", title: "Publish from this month’s marketing kit", when: "Any post, AI video, search page, Reddit or Quora answer that uses only the signed words.", steps: ["Use an approved file from the library, or ask Content Maker to make one from this month’s marketing kit and approve it first.", "No new claim, price, town, or face.", "Publish.", "File: where it went live, service, town, date.", "If someone starts a booking chat, hand it to Customer Experience."] },
         { id: "DIG-04", title: "Ask before a new claim", when: "When you need words, a price, a town, or a face that is not in this month’s marketing kit.", steps: ["Stop. Do not publish.", "Write what you want to say and why.", "Send to Marketing Manager.", "Wait for a yes. If it is a new service or town, they take it to Head of Growth.", "Only then make the file and file it in the kit."] },
         { id: "DIG-05", title: "Take in Operations footage", when: "When ads or social need a customer-feedback or provider video.", steps: ["Write the file-list need: type, service, town.", "Ask Operations for the raw file.", "Hand the files to Content Maker.", "Content Maker edits from this month’s marketing kit and sends the cut to you.", "Approve it. Then it enters the library. Then ads and social may use it."] },
-        { id: "DIG-06", title: "Hand a digital lead to Sales", when: "As soon as it arrives.", steps: ["Operations already asked how they found us and wrote the answer. You copy that answer: paid ad or search, plus Facebook, Google, or the page name if they said it. You do not ask the customer.", "Add service and town if you have them.", "Do not book the job.", "If they are already chatting you, pass the thread to Sales."] },
+        { id: "DIG-06", title: "Hand a digital lead to Customer Experience", when: "As soon as it arrives.", steps: ["Operations already asked how they found us and wrote the answer. You copy that answer: paid ad or search, plus Facebook, Google, or the page name if they said it. You do not ask the customer.", "Add service and town if you have them.", "Do not book the job.", "If they are already chatting you, pass the thread to Customer Experience."] },
         { id: "DIG-07", title: "Weekly digital pack", when: "The day before the marketing weekly report.", steps: ["Split the numbers by named online place (Meta, Google, search, social, or other): Meta, Google, search, social, other.", "Spend, enquiries, cost, share of people with a written answer for how they found us.", "3 things that worked. 3 that failed. one written request.", "Content log for the week.", "Send to Marketing Manager. Not a voice note."] }
       ],
       kpis: [
-        { name: "Test lead before a paid ad goes live", target: "100%", why: "Spend with no path to Sales is waste." },
-        { name: "Digital enquiries with Operations’ written answer", target: "95% or more", why: "Sales cannot work a nameless lead." },
+        { name: "Test lead before a paid ad goes live", target: "100%", why: "Spend with no path to Customer Experience is waste." },
+        { name: "Digital enquiries with Operations’ written answer", target: "95% or more", why: "Customer Experience cannot work a nameless lead." },
         { name: "Ads spend vs plan", target: "Inside the ads line", why: "The signed plan is the rule." },
         { name: "Cost per digital enquiry", target: "Inside the signed ceiling", why: "If cost blows, pause." },
         { name: "Live files in the library same day", target: "100%", why: "A file that lives only on a personal phone is not the company copy." },
@@ -282,12 +291,12 @@ window.PK_GROWTH = (function () {
         "No private boosts from a personal page.",
         "No prices Finance has not signed.",
         "Do not mix search results into ads spend.",
-        "Do not book the customer yourself. Send them to Sales.",
+        "Do not book the customer yourself. Send them to Customer Experience.",
         "If nobody sits in the Content Maker job, say so in writing and act in it."
       ],
       escalate: [
         { when: "Ad account hacked, ad rejected, or tracking dead", to: "Marketing Manager the same day", how: "Pause. Screenshot. Write the time." },
-        { when: "A customer is angry in comments about a job", to: "Sales / CX, copy Marketing Manager", how: "Do not fight in public. Hand it over." },
+        { when: "A customer is angry in comments about a job", to: "Customer Experience, copy Marketing Manager", how: "Do not fight in public. Hand it over." },
         { when: "You need a new town, service, or price", to: "Marketing Manager — not Head of Growth", how: "Write the ask. They take it up if needed." },
         { when: "Operations has not sent footage the file list needs", to: "Marketing Manager", how: "Name the job or customer. Keep Content Maker on AI and brand work until the files arrive." }
       ]
@@ -349,7 +358,7 @@ window.PK_GROWTH = (function () {
       ],
       rules: [
         "You make and edit. The Digital Marketing Manager approves, then publishes and spends.",
-        "Sales owns the customer.",
+        "Customer Experience owns the customer.",
         "Customer feedback and provider videos come from Operations. This job collects, edits, and sends them to the Digital Marketing Manager for approval."
       ],
       escalate: [
@@ -367,13 +376,13 @@ window.PK_GROWTH = (function () {
       result: "Give Field Visitor their towns and days so they actually visit the market. Send First Provider Onboarding to get the first local workers in a town to sign the papers. Send Office and Society Contracts to get a signed maintenance contract from named offices and housing societies.",
       what: "You run Panun Kaergar on the ground. Three jobs report to you. Field Visitor actually visits the market — a stall, a street, or a follow-up. That person may be a full-time employee, or someone we pay on a written contract. The job is the same either way. First Provider Onboarding goes in person to the first local workers (plumbers, electricians, and others) and gets them to sign the papers so they can work with Panun Kaergar. Office and Society Contracts writes maintenance contracts with offices and housing societies. You write which town, which day, and which of the three jobs goes. You check that each job hits its one result. You send the weekly field report to Marketing Manager. You do not do those three jobs yourself unless that job has nobody in it — and then you write that you are doing it today because nobody is in that job.",
       why: "Kashmir still buys from people they can see. Stalls alone are not enough. A town also needs the first local workers signed onto us, and offices and housing societies on a written maintenance contract. If one person tries to do all of that without naming who visits, nobody owns the result.",
-      how: "Marketing Manager writes the month: towns, the marketing kit (the instruction book of words, prices, towns, and faces), stall money, and what we will not advertise. Expansion has already opened the town. You turn that into written work for the three jobs. Field Visitor walks the market and collects names for Sales. First Provider Onboarding gets the first local workers to sign the papers, then sends the signed file to Provider Operations so Provider Operations can put them on customer jobs. Office and Society Contracts uses only the signed contract papers Offer and Finance already approved — they do not invent a price. One-off jobs still go to Sales. You do not run ads. You do not pick a new town.",
+      how: "Marketing Manager writes the month: towns, the marketing kit (the instruction book of words, prices, towns, and faces), stall money, and what we will not advertise. Expansion has already opened the town. You turn that into written work for the three jobs. Field Visitor walks the market and collects names for Customer Experience. First Provider Onboarding gets the first local workers to sign the papers, then sends the signed file to Provider Experience so Provider Experience can put them on customer jobs. Office and Society Contracts uses only the signed contract papers Offer and Finance already approved — they do not invent a price. One-off jobs still go to Customer Experience. You do not run ads. You do not pick a new town.",
       lanes: [
-        { kicker: "Part 1", art: "lane-stall.png", title: "Stalls and street visits", work: "Send Field Visitor to a named town on a named day. They collect names for Sales. They do not take a booking or money.", result: "Someone actually visited the market that day, and Sales has the list the same day.", who: "Field Visitor. They may be a full-time employee, or someone we pay on a written contract. If that job is empty, you do this work today. Write that down." },
-        { kicker: "Part 2", art: "lane-workers.png", title: "First local workers", work: "Send First Provider Onboarding in person to the first plumbers, electricians, and other local workers in a named town. They get those people to sign the papers, then send the signed file to Provider Operations.", result: "The town has named first local workers who have signed with us, before we keep standing at a stall there.", who: "First Provider Onboarding. If that job is empty, you do this work today. Write that down." },
+        { kicker: "Part 1", art: "lane-stall.png", title: "Stalls and street visits", work: "Send Field Visitor to a named town on a named day. They collect names for Customer Experience. They do not take a booking or money.", result: "Someone actually visited the market that day, and Customer Experience has the list the same day.", who: "Field Visitor. They may be a full-time employee, or someone we pay on a written contract. If that job is empty, you do this work today. Write that down." },
+        { kicker: "Part 2", art: "lane-workers.png", title: "First local workers", work: "Send First Provider Onboarding in person to the first plumbers, electricians, and other local workers in a named town. They get those people to sign the papers, then send the signed file to Provider Experience.", result: "The town has named first local workers who have signed with us, before we keep standing at a stall there.", who: "First Provider Onboarding. If that job is empty, you do this work today. Write that down." },
         { kicker: "Part 3", art: "lane-society.png", title: "Offices and housing societies", work: "Send Office and Society Contracts to write a maintenance contract with a named office or housing society. They use only the signed contract papers Offer and Finance already approved. Named building, named services, signed price.", result: "There is a signed contract file, not a spoken yes. Operations may then start sending workers to that building.", who: "Office and Society Contracts. If that job is empty, you do this work today. Write that down." }
       ],
-      acting: "If nobody sits in the Field Marketing Manager job, Marketing Manager does that work and writes that they are doing it today because nobody is in that job. If nobody sits in Field Visitor, First Provider Onboarding, or Office and Society Contracts, you do that work and write it on the daily note: you are doing it today because nobody is in that job. A Field Visitor may be a full-time employee or someone we pay on a written contract — the job is the same either way.",
+      acting: "Do not hire a person into this seat until stall visits, first signatures, and office and society contracts are each already happening. Until then, Marketing Manager does this work and writes, the same day: I am doing Field Marketing today because the seat is empty. The box stays on the chart. If nobody sits in Field Visitor, First Provider Onboarding, or Office and Society Contracts, the person in this seat does that work and writes, the same day: I am doing [that seat] today because the seat is empty. Do not hire that person until that seat’s own result is already happening. A Field Visitor may be a full-time employee or someone we pay on a written contract — the job is the same either way.",
       owns: [
         "You write which town, which day, and which of the three jobs goes",
         "You give Field Visitor their towns and days. They may be a full-time employee or someone we pay on a written contract",
@@ -385,21 +394,21 @@ window.PK_GROWTH = (function () {
       mustNot: [
         "Do not take a booking or money at a stall, and do not let Field Visitor do that",
         "Do not invent a price, a service, or a town",
-        "Do not keep the first local workers as your own team, and do not skip Provider Operations",
+        "Do not keep the first local workers as your own team, and do not skip Provider Experience",
         "Do not sign hotel desks or shops that send us their customers — that is Partnerships",
         "Do not run digital ads",
-        "Do not let Field Visitor skip the same-day list to Sales, and do not let them visit a town that is not on the plan"
+        "Do not let Field Visitor skip the same-day list to Customer Experience, and do not let them visit a town that is not on the plan"
       ],
       responsibilities: [
         { title: "Give Field Visitor their written work and check the result", what: "Give them which towns, which days, and which boards. They visit the market — stall or street. They may be a full-time employee or someone we pay on a written contract. If nobody sits there, you visit and write that you are doing it today because nobody is in that job.", why: "A calendar with nobody walking it is decoration." },
-        { title: "Give First Provider Onboarding their written work and check the result", what: "Send them in person to the first local workers in a named town. They take only the signed first-worker papers. Then they send the signed file to Provider Operations so Provider Operations can put those people on customer jobs.", why: "A stall in a town with nobody who can do the jobs is how the brand dies in public." },
-        { title: "Give Office and Society Contracts their written work and check the result", what: "Give them the signed contract papers Offer and Finance already approved. They write maintenance contracts with named offices and housing societies. They do not invent a price. One-off jobs still go to Sales.", why: "A verbal yes from a society is not a contract. Operations cannot plan jobs from a verbal yes." },
+        { title: "Give First Provider Onboarding their written work and check the result", what: "Send them in person to the first local workers in a named town. They take only the signed first-worker papers. Then they send the signed file to Provider Experience so Provider Experience can put those people on customer jobs.", why: "A stall in a town with nobody who can do the jobs is how the brand dies in public." },
+        { title: "Give Office and Society Contracts their written work and check the result", what: "Give them the signed contract papers Offer and Finance already approved. They write maintenance contracts with named offices and housing societies. They do not invent a price. One-off jobs still go to Customer Experience.", why: "A verbal yes from a society is not a contract. Operations cannot plan jobs from a verbal yes." },
         { title: "One calendar, three jobs", what: "Write which days are stall visits, which days are first-worker visits, and which days are office and society visits. Nobody invents their own week.", why: "Otherwise three people act like three companies." },
         { title: "Written papers, not a chat message", what: "Each job gets a written brief the day the month is signed: towns, the marketing kit, the first-worker papers or office-contract papers, and what we will not advertise. A chat message is not the brief.", why: "Someone we pay on a written contract who only has a voice note will invent the company." },
-        { title: "Honest weekly numbers", what: "Each week write: visits vs calendar, names to Sales, first local workers who signed, office and society contracts signed, days that did not happen, towns that produced nothing, and one or two written requests.", why: "Marketing Manager cannot run Field without numbers they can act on." }
+        { title: "Honest weekly numbers", what: "Each week write: visits vs calendar, names to Customer Experience, first local workers who signed, office and society contracts signed, days that did not happen, towns that produced nothing, and one or two written requests.", why: "Marketing Manager cannot run Field without numbers they can act on." }
       ],
       when: {
-        daily: ["Check that today’s stall visit, first-worker visit, or contract visit is named on the calendar.", "If a job has nobody in it, write that you are doing it today because nobody is in that job, then do that job’s same-day checks.", "Check stall lists reached Sales. Check first-worker files went to Provider Operations. Check signed contracts are filed."],
+        daily: ["Check that today’s stall visit, first-worker visit, or contract visit is named on the calendar.", "If a job has nobody in it, write that you are doing it today because nobody is in that job, then do that job’s same-day checks.", "Check stall lists reached Customer Experience. Check first-worker files went to Provider Experience. Check signed contracts are filed."],
         weekly: ["Read the three weekly notes. Write the weekly field report.", "Name a town with no visits, no first local workers who signed, or no contract movement.", "Tell Marketing Manager what to keep, pause, or change."],
         monthly: ["Help Marketing Manager write next month’s field towns and days — visits, first local workers, offices and societies.", "Return unused stall money honestly.", "Renew or close written contracts with people we pay to visit, in writing."]
       },
@@ -407,34 +416,34 @@ window.PK_GROWTH = (function () {
         "Every stall visit, first-worker visit, and contract visit is a named town on the signed plan.",
         "If Field Visitor, First Provider Onboarding, or Office and Society Contracts is empty, that is written as you doing it today because nobody is in that job.",
         "A Field Visitor who is not a full-time employee has a written contract. A verbal yes is not a visitor.",
-        "First local workers are sent to Provider Operations after they sign. They are not kept as a private team.",
+        "First local workers are sent to Provider Experience after they sign. They are not kept as a private team.",
         "Office and society contracts use only the signed contract papers Offer and Finance already approved. No invented price.",
         "The weekly field report names visits, first local workers, and contracts — not only stalls."
       ],
       procedures: [
-        { id: "FLD-01", title: "Give the three jobs their written work for the month", when: "The same day Marketing Manager gives you the signed month, and whenever the plan changes.", steps: ["Give Field Visitor: towns, days, boards, flyers, where a stall list must land in Sales, and what we will not advertise.", "Give First Provider Onboarding: which towns, the signed first-worker papers, and who in Provider Operations receives the signed file.", "Give Office and Society Contracts: which towns, the signed contract papers, and where a signed contract must be filed.", "If a job is filled by someone we pay on a written contract, attach that contract. A chat is not the contract.", "Save the briefs as files."] },
-        { id: "FLD-02", title: "Check Field Visitor on a stall or market day", when: "On a named visit day.", steps: ["Confirm they have town, pitch, and boards.", "They collect names and send the list to Sales the same day (stall plus town plus date).", "They do not book. They do not take money.", "If nobody sits in that job, you visit yourself and write that you are doing it today because nobody is in that job."] },
-        { id: "FLD-03", title: "Send First Provider Onboarding in person", when: "A named town on the plan needs its first local workers.", steps: ["Check Expansion has opened the town.", "Give the signed first-worker papers: what we pay, what they must do, what they must not do.", "They go in person. They do not sign people up from a company WhatsApp group without visiting them.", "Signed file goes to Provider Operations the same week. You keep a copy.", "If the papers are missing a price, stop. Finance signs price. You do not invent it."] },
-        { id: "FLD-04", title: "Send Office and Society Contracts to write a maintenance contract", when: "A named office or housing society is on this month’s field plan.", steps: ["Give Office and Society Contracts only the signed contract papers: services, what is in, what is out, signed price.", "They name the building, the town, the start date, and who signs for them. You do not write the contract yourself unless that job has nobody in it — and then you write that you are doing it today.", "They do not take cash in the office. Finance sends the invoice.", "They file the signed contract. They tell Operations workers may start going to that building.", "One-off jobs from a person in that building still go to Sales unless the contract already covers them.", "If the building only wants to send flat owners and does not want to buy maintenance, pass that name to Partnerships & Channels Manager."] },
+        { id: "FLD-01", title: "Give the three jobs their written work for the month", when: "The same day Marketing Manager gives you the signed month, and whenever the plan changes.", steps: ["Give Field Visitor: towns, days, boards, flyers, where a stall list must land in Customer Experience, and what we will not advertise.", "Give First Provider Onboarding: which towns, the signed first-worker papers, and who in Provider Experience receives the signed file.", "Give Office and Society Contracts: which towns, the signed contract papers, and where a signed contract must be filed.", "If a job is filled by someone we pay on a written contract, attach that contract. A chat is not the contract.", "Save the briefs as files."] },
+        { id: "FLD-02", title: "Check Field Visitor on a stall or market day", when: "On a named visit day.", steps: ["Confirm they have town, pitch, and boards.", "They collect names and send the list to Customer Experience the same day (stall plus town plus date).", "They do not book. They do not take money.", "If nobody sits in that job, you visit yourself and write that you are doing it today because nobody is in that job."] },
+        { id: "FLD-03", title: "Send First Provider Onboarding in person", when: "A named town on the plan needs its first local workers.", steps: ["Check Expansion has opened the town.", "Give the signed first-worker papers: what we pay, what they must do, what they must not do.", "They go in person. They do not sign people up from a company WhatsApp group without visiting them.", "Signed file goes to Provider Experience the same week. You keep a copy.", "If the papers are missing a price, stop. Finance signs price. You do not invent it."] },
+        { id: "FLD-04", title: "Send Office and Society Contracts to write a maintenance contract", when: "A named office or housing society is on this month’s field plan.", steps: ["Give Office and Society Contracts only the signed contract papers: services, what is in, what is out, signed price.", "They name the building, the town, the start date, and who signs for them. You do not write the contract yourself unless that job has nobody in it — and then you write that you are doing it today.", "They do not take cash in the office. Finance sends the invoice.", "They file the signed contract. They tell Operations workers may start going to that building.", "One-off jobs from a person in that building still go to Customer Experience unless the contract already covers them.", "If the building only wants to send flat owners and does not want to buy maintenance, pass that name to Partnerships & Channels Manager."] },
         { id: "FLD-05", title: "Name a town that produced nothing", when: "A named town had three planned visits with no names, nobody who signed as a first local worker, and no contract movement.", steps: ["Open the three logs.", "Write town, dates, what was tried.", "Send it to Marketing Manager in the weekly report.", "Do not keep visiting to look busy. Do not pick a different town yourself."] },
         { id: "FLD-06", title: "Stop an incident on the ground", when: "A fight, a false claim, someone taking bookings or money in our name, or a board or contract that might be untrue.", steps: ["Stop that visit. Take down a board that might be untrue.", "Write what happened.", "Tell Marketing Manager the same day.", "Do not take a booking to calm someone down."] },
-        { id: "FLD-07", title: "Write the weekly field report", when: "The day before Marketing Manager’s weekly marketing report.", steps: ["Visits vs calendar, names to Sales, by town.", "First local workers who signed this week, and whose files went to Provider Operations.", "Office and society contracts signed, waiting, or failed.", "Days that did not happen. Towns that produced nothing. Materials that need reprinting.", "One or two written requests — not ten.", "Send it to Marketing Manager in writing."] }
+        { id: "FLD-07", title: "Write the weekly field report", when: "The day before Marketing Manager’s weekly marketing report.", steps: ["Visits vs calendar, names to Customer Experience, by town.", "First local workers who signed this week, and whose files went to Provider Experience.", "Office and society contracts signed, waiting, or failed.", "Days that did not happen. Towns that produced nothing. Materials that need reprinting.", "One or two written requests — not ten.", "Send it to Marketing Manager in writing."] }
       ],
       kpis: [
         { name: "Visit days vs the calendar", target: "95% or more completed, or a written note the same day that the visit did not happen" },
-        { name: "Stall names that reach Sales the same day", target: "95% or more" },
-        { name: "First local workers who signed and whose files went to Provider Operations", target: "Every named town on the plan has a dated file, or a written note that nobody signed" },
+        { name: "Stall names that reach Customer Experience the same day", target: "95% or more" },
+        { name: "First local workers who signed and whose files went to Provider Experience", target: "Every named town on the plan has a dated file, or a written note that nobody signed" },
         { name: "Office and society contracts from the signed papers only", target: "100%" },
         { name: "Empty visitor / first-worker / contracts job written as you doing it today because nobody is in that job", target: "100%" },
         { name: "Weekly field report on time — visits, first local workers, contracts", target: "100%" }
       ],
       rules: [
-        "Field Visitor collects names at the stall. Sales books the job. Field Visitor does not take money or book the job. Offices and societies need a signed contract, not a verbal yes.",
+        "Field Visitor collects names at the stall. Customer Experience books the job and finishes it. Field Visitor does not take money or book the job. Offices and societies need a signed contract, not a verbal yes.",
         "Field Visitor may be a full-time employee or someone we pay on a written contract. The job is the same either way. A verbal yes is not a visitor.",
-        "First local workers go to Provider Operations after they sign. You do not give them a customer job yourself.",
+        "First local workers go to Provider Experience after they sign. You do not give them a customer job yourself.",
         "Hotel desks and shops that send us their customers are Partnerships. Offices and societies that buy ongoing maintenance are Office and Society Contracts.",
         "You do not run ads. That is Digital Marketing Manager.",
-        "If this job is empty, Marketing Manager does that work and writes that they are doing it today because nobody is in that job."
+        "If this job is empty, Marketing Manager does that work and writes, the same day: I am doing Field Marketing today because the seat is empty. Do not hire this seat until stall visits, first signatures, and office and society contracts are each already happening. The box stays. The same wait applies to Field Visitor, First Provider Onboarding, and Office and Society Contracts: do not hire until that seat’s own result is already happening."
       ],
       escalate: [
         { when: "A fight, a false claim, or someone taking bookings in our name", to: "Marketing Manager the same day", how: "Stop. Write what happened." },
@@ -449,21 +458,21 @@ window.PK_GROWTH = (function () {
       reportsTo: "Field Marketing Manager",
       hero: "role-fve.png",
       layout: "detailed",
-      result: "Be in the named town on the named day. Collect names for Sales the same day. Do not take a booking or money.",
-      what: "You actually visit the market — a stall, a street, or a follow-up. Field Marketing Manager writes which towns, which days, and which boards. You show up. You collect name, phone, service, and town. You send that list to Sales the same day. You write stall, plus the town and the date, because you met the person. You may be a full-time employee, or someone we pay on a written contract. The job is the same either way. You do not take the booking. You do not take money. You do not pick a new town.",
-      why: "Kashmir still buys from people they can see. If nobody walks the market, the calendar is decoration. If you take the booking at the stall, Sales has no list and Operations cannot finish the job as a system.",
+      result: "Be in the named town on the named day. Collect names for Customer Experience the same day. Do not take a booking or money.",
+      what: "You actually visit the market — a stall, a street, or a follow-up. Field Marketing Manager writes which towns, which days, and which boards. You show up. You collect name, phone, service, and town. You send that list to Customer Experience the same day. You write stall, plus the town and the date, because you met the person. You may be a full-time employee, or someone we pay on a written contract. The job is the same either way. You do not take the booking. You do not take money. You do not pick a new town.",
+      why: "Kashmir still buys from people they can see. If nobody walks the market, the calendar is decoration. If you take the booking at the stall, Customer Experience has no list and Operations cannot finish the job as a system.",
       how: "You work only from the written brief Field Marketing Manager gave you. On a visit day you stand in the named town with the approved boards. On an office day you restock, confirm the next visit, and write the weekly note. If you want a new sentence, price, town, or face, you stop and ask Field Marketing Manager. If nobody sits in this job, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job.",
       lanes: [
         { kicker: "Part 1", art: "lane-stall.png", title: "Go to the town", work: "Go to the named town on the named day. Stand where the brief says. Use only the approved boards and flyers.", result: "We stood where the plan said. If the visit did not happen, you write that the same day. You do not hide it.", who: "You. You may be a full-time employee, or someone we pay on a written contract." },
-        { kicker: "Part 2", art: "lane-names.png", title: "Collect names", work: "Write name, phone, service, and town. Write stall, plus the town and the date. Tell the person Sales will call. Do not take a booking or money.", result: "Sales has a complete list the same day.", who: "You." },
+        { kicker: "Part 2", art: "lane-names.png", title: "Collect names", work: "Write name, phone, service, and town. Write stall, plus the town and the date. Tell the person Customer Experience will call. Do not take a booking or money.", result: "Customer Experience has a complete list the same day.", who: "You." },
         { kicker: "Part 3", art: "lane-restock.png", title: "Office work", work: "Restock boards and flyers. Write the stall log. Write the weekly visit note to Field Marketing Manager.", result: "Field Marketing Manager can see which towns worked. Unused boards and flyers are named.", who: "You." }
       ],
-      acting: "If nobody sits in this job, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job. You do not get first local workers to sign papers. You do not write office and society contracts. You do not become Sales.",
+      acting: "If nobody sits in this job, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job. You do not get first local workers to sign papers. You do not write office and society contracts. You do not become Customer Experience.",
       owns: [
         "You stand in the named town on the named day, with the approved boards and flyers",
         "You write a list of every person you met: name, phone, service, town, stall plus town plus date",
         "You write a stall log before you leave: where you stood and what you collected",
-        "You send that list to Sales the same day",
+        "You send that list to Customer Experience the same day",
         "You send Field Marketing Manager a weekly visit note",
         "If you cannot go that day, you write it the same day"
       ],
@@ -473,32 +482,32 @@ window.PK_GROWTH = (function () {
         "Do not pick a new town",
         "Do not sign hotel-desk partners, first local workers, or office maintenance contracts",
         "Do not run digital ads",
-        "Do not skip sending the list to Sales the same day, and do not visit a town that is not on your written list"
+        "Do not skip sending the list to Customer Experience the same day, and do not visit a town that is not on your written list"
       ],
       responsibilities: [
         { title: "Show up where the plan says", what: "Be in the named town on the named day, with the approved boards and flyers. Confirm the pitch the day before.", why: "A random Saturday stall cannot be measured." },
-        { title: "Collect names. Do not book.", what: "Write name, phone, service, and town. Write stall, plus the town and the date. Say Sales will call. Do not take money. Do not promise a job on the spot.", why: "You collect names at the stall. Sales books the job. Operations does the job. You do not take money or book the job yourself." },
+        { title: "Collect names. Do not book.", what: "Write name, phone, service, and town. Write stall, plus the town and the date. Say Customer Experience will call. Do not take money. Do not promise a job on the spot.", why: "You collect names at the stall. Customer Experience books the job and finishes it. You do not take money or book the job yourself." },
         { title: "Boards and flyers", what: "Use only what is in this month’s marketing kit (the instruction book of words, prices, towns, and faces). If you want a new sentence, price, town, or face, stop and ask Field Marketing Manager.", why: "A wrong price on a board becomes a fight later." },
-        { title: "Same-day list to Sales", what: "Send one complete list before you leave the town. Confirm Sales received it. A missing phone is not an enquiry.", why: "A list that arrives tomorrow is a person nobody called." },
+        { title: "Same-day list to Customer Experience", what: "Send one complete list before you leave the town. Confirm Customer Experience received it. A missing phone is not an enquiry.", why: "A list that arrives tomorrow is a person nobody called." },
         { title: "Stall log", what: "Write where you stood, start and end, materials used, how many names you collected, and any incident. Take no cash and no booking.", why: "If it is not written, it did not happen." },
         { title: "Honest weekly note", what: "Each week write days completed vs the calendar, enquiries by town, days that did not happen, towns that produced nothing after three visits, materials that need reprinting, and one or two written requests.", why: "Field Marketing Manager cannot run this job without numbers they can act on." }
       ],
       when: {
-        daily: ["If it is a visit day: stand in the named town, collect names, send the list to Sales, write the stall log before you leave.", "If it is an office day: restock boards and flyers, confirm the next visit, and close any list that is still sitting.", "If someone later calls Operations, Operations asks where they found us. You do not own the phone."],
+        daily: ["If it is a visit day: stand in the named town, collect names, send the list to Customer Experience, write the stall log before you leave.", "If it is an office day: restock boards and flyers, confirm the next visit, and close any list that is still sitting.", "If someone later calls Operations, Operations asks where they found us. You do not own the phone."],
         weekly: ["Write the weekly visit note: days vs calendar, enquiries by town, days that did not happen, towns that produced nothing, materials that need reprinting.", "Name a town that produced no enquiries after three visits.", "Tell Field Marketing Manager what to keep, pause, or reprint."],
         monthly: ["Help Field Marketing Manager write next month’s visit towns and days.", "Do not start a town that is not on the new signed plan."]
       },
       standards: [
         "Every visit is a named town on the signed plan.",
         "95% or more of visit days on the calendar actually happen, or you write the same day that the visit did not happen.",
-        "95% or more of stall names reach Sales the same day, with phone, town, and stall as the source.",
+        "95% or more of stall names reach Customer Experience the same day, with phone, town, and stall as the source.",
         "No cash, no booking, and no job promise at the stall.",
         "Boards and flyers match this month’s marketing kit.",
         "A town with no enquiries after three visits is named in the weekly note."
       ],
       procedures: [
-        { id: "VIS-01", title: "Run a visit day", when: "On a named visit day on the signed calendar.", steps: ["The day before: confirm town, pitch, boards, flyers, and that Expansion still serves that town.", "Set up with approved boards only. No extra handwritten price.", "Write each person: name, phone, service, town, source = stall plus town plus date.", "Do not book. Do not take money. Say Sales will call.", "If a phone number is missing, that row is not an enquiry. Do not pretend.", "Send the list to Sales before you leave the town (VIS-02).", "Write the stall log: times, materials, count, incidents.", "Write anything people kept asking that we do not sell. Send that to Field Marketing Manager, not as a new offer."] },
-        { id: "VIS-02", title: "Send the stall list to Sales", when: "The same day as the visit, before you leave the town.", steps: ["One list. Complete rows only: name, phone, service, town, stall plus town plus date.", "Send it to Sales. Write the time they received it.", "Send Field Marketing Manager the count, not the phone numbers.", "If Sales did not receive it, send it again the same day. Do not wait until morning."] },
+        { id: "VIS-01", title: "Run a visit day", when: "On a named visit day on the signed calendar.", steps: ["The day before: confirm town, pitch, boards, flyers, and that Expansion still serves that town.", "Set up with approved boards only. No extra handwritten price.", "Write each person: name, phone, service, town, source = stall plus town plus date.", "Do not book. Do not take money. Say Customer Experience will call.", "If a phone number is missing, that row is not an enquiry. Do not pretend.", "Send the list to Customer Experience before you leave the town (VIS-02).", "Write the stall log: times, materials, count, incidents.", "Write anything people kept asking that we do not sell. Send that to Field Marketing Manager, not as a new offer."] },
+        { id: "VIS-02", title: "Send the stall list to Customer Experience", when: "The same day as the visit, before you leave the town.", steps: ["One list. Complete rows only: name, phone, service, town, stall plus town plus date.", "Send it to Customer Experience. Write the time they received it.", "Send Field Marketing Manager the count, not the phone numbers.", "If Customer Experience did not receive it, send it again the same day. Do not wait until morning."] },
         { id: "VIS-03", title: "Office day — restock and confirm the next visit", when: "On a working day that is not a visit day.", steps: ["Count boards and flyers. What is torn, outdated, or missing?", "If a board or flyer is not in this month’s marketing kit, take it out of the bag.", "Confirm next visit: town, day, pitch, materials.", "If a stall list from yesterday is still sitting, send it now and write that it was late.", "Do not put up a stall because you were nearby."] },
         { id: "VIS-04", title: "Ask to change a sentence, price, town, or face", when: "When you want to say something that is not already on the approved board or flyer.", steps: ["Stop. Do not write it on the board yourself.", "Write what you want to say and why.", "Send it to Field Marketing Manager. Wait for a written yes or no.", "If it is a brand-new town or service, they take it to Marketing Manager. You do not."] },
         { id: "VIS-05", title: "Name a town that produced nothing", when: "A named town produced no real enquiries after three visits.", steps: ["Open the stall logs for those three days.", "Write: town, dates, how many people stopped, how many names you collected.", "Send it to Field Marketing Manager in the weekly note.", "Do not keep standing there to look busy. Do not pick a different town yourself."] },
@@ -507,14 +516,14 @@ window.PK_GROWTH = (function () {
       ],
       kpis: [
         { name: "Visit days vs the calendar", target: "95% or more completed, or a written note the same day that the visit did not happen" },
-        { name: "Stall names that reach Sales the same day", target: "95% or more" },
+        { name: "Stall names that reach Customer Experience the same day", target: "95% or more" },
         { name: "Enquiries per planned visit day", target: "Track by town, and improve vs last month" },
         { name: "Visits only in towns on the plan", target: "100%" },
         { name: "Weekly visit note on time", target: "100%" },
         { name: "No cash and no booking at the stall", target: "100%" }
       ],
       rules: [
-        "You collect names at the stall. Sales books the job. You do not take money or book the job yourself.",
+        "You collect names at the stall. Customer Experience books the job and finishes it. You do not take money or book the job yourself.",
         "You may be a full-time employee or someone we pay on a written contract. The job is the same either way. A verbal yes is not this job.",
         "You represent the brand. No private side deals.",
         "If Operations cannot serve that town yet, you should not be there.",
@@ -534,26 +543,26 @@ window.PK_GROWTH = (function () {
       reportsTo: "Field Marketing Manager",
       hero: "role-fpo.png",
       layout: "detailed",
-      result: "Go in person. Get the first local workers in a named town to sign the papers so they can work with Panun Kaergar. Send the signed file to Provider Operations the same week.",
-      what: "You go to the first local workers in a named town (plumbers, electricians, and others who will do the jobs) and get them to sign the papers so they can work with Panun Kaergar. You take only the signed first-worker papers: who we are, what they will do, what they will not do, what we pay. You do not hire them as a private team. You do not give them a customer job yourself. After they sign, you send the signed file to Provider Operations. Provider Operations puts them on customer jobs.",
+      result: "Go in person. Get the first local workers in a named town to sign the papers so they can work with Panun Kaergar. Send the signed file to Provider Experience the same week.",
+      what: "You go to the first local workers in a named town (plumbers, electricians, and others who will do the jobs) and get them to sign the papers so they can work with Panun Kaergar. You take only the signed first-worker papers: who we are, what they will do, what they will not do, what we pay. You do not hire them as a private team. You do not give them a customer job yourself. After they sign, you send the signed file to Provider Experience. Provider Experience puts them on customer jobs.",
       why: "A stall in a town with nobody who can do the jobs is how the brand dies in public. Ads and stalls promise a job. If nobody can do that job, the town learns to hate us. This job exists so the first local workers are signed in person, in writing, before we keep standing at a stall there.",
       how: "Field Marketing Manager names the town and gives you the signed first-worker papers. Expansion has already opened the town. You go in person. You meet the plumber, electrician, or other local worker at their shop or house. You do not sign them up from a company WhatsApp group without visiting them. If the papers are missing a price, you stop — Finance signs price. If nobody sits in this job, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job.",
       lanes: [
         { kicker: "Part 1", art: "lane-workers.png", title: "Go in person", work: "Go to the named town. Meet the plumber, electrician, or other local worker at their shop or house. Do not sign them up from a company WhatsApp group without visiting them.", result: "The visit happened — or you wrote the same day that it did not happen.", who: "You." },
         { kicker: "Part 2", art: "lane-sign.png", title: "Get them to sign", work: "Use only the signed first-worker papers. Write their name, phone, services they can do, towns they can cover, what we pay, and what they must not do.", result: "There is a signed file, not a spoken yes.", who: "You." },
-        { kicker: "Part 3", art: "lane-handoff.png", title: "Send the file to Provider Operations", work: "Send the signed file the same week. Keep a copy. Do not give them a customer job yourself.", result: "Provider Operations can put them on the list of workers and put them on customer jobs.", who: "You send the file. Provider Operations puts them on the jobs." }
+        { kicker: "Part 3", art: "lane-handoff.png", title: "Send the file to Provider Experience", work: "Send the signed file the same week. Keep a copy. Do not give them a customer job yourself.", result: "Provider Experience can put them on the list of workers and put them on customer jobs.", who: "You send the file. Provider Experience puts them on the jobs." }
       ],
-      acting: "If nobody sits in this job, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job. You do not stand at stalls as Field Visitor. You do not write office and society customer contracts. You do not become Provider Operations.",
+      acting: "If nobody sits in this job, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job. You do not stand at stalls as Field Visitor. You do not write office and society customer contracts. You do not become Provider Experience.",
       owns: [
         "You go in person to the first local workers in a named town",
         "You take only the signed first-worker papers with you",
         "You get a signed paper from that person before you leave",
-        "You send that signed paper to Provider Operations the same week",
+        "You send that signed paper to Provider Experience the same week",
         "You send Field Marketing Manager a weekly note: visits, files signed, files sent, towns where nobody signed",
         "If a town on this month’s list has nobody who will sign, you write that down"
       ],
       mustNot: [
-        "Do not keep the first local workers as your own list, and do not skip Provider Operations",
+        "Do not keep the first local workers as your own list, and do not skip Provider Experience",
         "Do not give them a customer job yourself",
         "Do not invent a payment, a service, or a town",
         "Do not hire them as company employees — that is People & HR",
@@ -563,20 +572,20 @@ window.PK_GROWTH = (function () {
       responsibilities: [
         { title: "Go in person to the first local workers", what: "Be in the named town. Meet the plumber, electrician, or other local worker at their shop or house. Do not sign them up from a company WhatsApp group without visiting them.", why: "Getting people to sign from an office, without visiting them, is not this job." },
         { title: "Use only the signed first-worker papers", what: "The papers name who we are, what they will do, what they will not do, and what we pay. A verbal yes is not enough.", why: "A made-up payment becomes a fight." },
-        { title: "Get a signed file", what: "Name, phone, services they can do, towns they can cover, start date, signed papers. Incomplete is not signed. Do not pretend they can work with us yet.", why: "Provider Operations cannot put a nameless person on a customer job." },
-        { title: "Send the file to Provider Operations the same week", what: "Send the signed file. Write the day they received it. Keep a copy. Do not give them a customer job yourself.", why: "You get them to sign the papers. Provider Operations puts them on customer jobs." },
+        { title: "Get a signed file", what: "Name, phone, services they can do, towns they can cover, start date, signed papers. Incomplete is not signed. Do not pretend they can work with us yet.", why: "Provider Experience cannot put a nameless person on a customer job." },
+        { title: "Send the file to Provider Experience the same week", what: "Send the signed file. Write the day they received it. Keep a copy. Do not give them a customer job yourself.", why: "You get them to sign the papers. Provider Experience puts them on customer jobs." },
         { title: "Name a town that will not sign", what: "If a named town has nobody who will sign after the planned visits, write it. Do not keep visiting to look busy.", why: "Field Marketing Manager must stop the stall if the town has nobody who can do the jobs." },
-        { title: "Honest weekly note", what: "Each week: visits vs calendar, files signed, files sent to Provider Operations, towns where nobody signed, one or two written requests.", why: "Field Marketing Manager cannot run this job without numbers." }
+        { title: "Honest weekly note", what: "Each week: visits vs calendar, files signed, files sent to Provider Experience, towns where nobody signed, one or two written requests.", why: "Field Marketing Manager cannot run this job without numbers." }
       ],
       when: {
-        daily: ["If it is a first-worker visit day: go in person with the signed papers, write the visit log, do not invent a payment.", "If a file is signed, send it to Provider Operations the same week — do not sit on it.", "If the papers are missing a price, stop and tell Field Marketing Manager."],
-        weekly: ["Write the weekly note: visits, signed files, files sent to Provider Operations, towns where nobody signed.", "Name a town that will not sign.", "Tell Field Marketing Manager what to keep, pause, or change."],
+        daily: ["If it is a first-worker visit day: go in person with the signed papers, write the visit log, do not invent a payment.", "If a file is signed, send it to Provider Experience the same week — do not sit on it.", "If the papers are missing a price, stop and tell Field Marketing Manager."],
+        weekly: ["Write the weekly note: visits, signed files, files sent to Provider Experience, towns where nobody signed.", "Name a town that will not sign.", "Tell Field Marketing Manager what to keep, pause, or change."],
         monthly: ["Help Field Marketing Manager name next month’s first-worker towns.", "Do not start a town that is not on the new signed plan."]
       },
       standards: [
         "Every first-worker visit is a named town on the signed plan.",
         "Every person you mark as able to work with us has a signed paper file.",
-        "100% of signed files reach Provider Operations the same week.",
+        "100% of signed files reach Provider Experience the same week.",
         "No invented payment, service, or town.",
         "A town that will not sign is named in the weekly note.",
         "You do not give people customer jobs."
@@ -584,21 +593,21 @@ window.PK_GROWTH = (function () {
       procedures: [
         { id: "FPO-01", title: "Go in person with the signed first-worker papers", when: "On a named first-worker visit day.", steps: ["Confirm the town is on the signed plan and Expansion has opened it.", "Take only the signed first-worker papers. If a price is missing, stop.", "Meet the plumber, electrician, or other local worker at their shop or house. Do not sign them up from a chat list without visiting them.", "Write the visit log: who, where, what they can do, whether they will sign.", "Do not promise a customer job today."] },
         { id: "FPO-02", title: "Get a first local worker to sign onto Panun Kaergar", when: "The person is ready to sign.", steps: ["Read the papers with them: what they will do, what they will not do, what we pay.", "Write name, phone, services, towns, start date.", "They sign. You sign. Date it.", "Incomplete is not signed. Do not pretend they can work with us yet."] },
-        { id: "FPO-03", title: "Send the signed file to Provider Operations", when: "The same week as the signature. Do not wait for month-end.", steps: ["Send the signed file to the person Field Marketing Manager named in Provider Operations.", "Write the day they received it.", "Keep a copy.", "Do not give them a customer job. Do not keep them as a private list."] },
+        { id: "FPO-03", title: "Send the signed file to Provider Experience", when: "The same week as the signature. Do not wait for month-end.", steps: ["Send the signed file to the person Field Marketing Manager named in Provider Experience.", "Write the day they received it.", "Keep a copy.", "Do not give them a customer job. Do not keep them as a private list."] },
         { id: "FPO-04", title: "Name a town that will not sign", when: "Planned visits are done and nobody signed.", steps: ["Open the visit logs.", "Write town, dates, who you met, why they would not sign.", "Send it to Field Marketing Manager in the weekly note.", "Do not keep visiting to look busy. Do not pick a different town yourself."] },
-        { id: "FPO-05", title: "Write the weekly first-worker note", when: "The day before Field Marketing Manager’s weekly field report.", steps: ["Visits vs calendar.", "Files signed this week.", "Files sent to Provider Operations.", "Towns where nobody signed.", "One or two written requests.", "Send it to Field Marketing Manager in writing."] }
+        { id: "FPO-05", title: "Write the weekly first-worker note", when: "The day before Field Marketing Manager’s weekly field report.", steps: ["Visits vs calendar.", "Files signed this week.", "Files sent to Provider Experience.", "Towns where nobody signed.", "One or two written requests.", "Send it to Field Marketing Manager in writing."] }
       ],
       kpis: [
         { name: "In-person visits vs the calendar", target: "95% or more completed, or a written note the same day that the visit did not happen" },
         { name: "People marked as able to work with us who have a signed paper file", target: "100%" },
-        { name: "Signed files sent to Provider Operations the same week", target: "100%" },
+        { name: "Signed files sent to Provider Experience the same week", target: "100%" },
         { name: "No invented payment or town", target: "100%" },
         { name: "Named towns with a written note that nobody signed, or a signed file", target: "100% of towns on the plan" },
         { name: "Weekly first-worker note on time", target: "100%" }
       ],
       rules: [
-        "You get them to sign the papers. Provider Operations puts them on customer jobs.",
-        "A verbal yes is not a first local worker. Provider Operations can only put them on jobs after they have signed.",
+        "You get them to sign the papers. Provider Experience puts them on customer jobs.",
+        "A verbal yes is not a first local worker. Provider Experience can only put them on jobs after they have signed.",
         "You do not open towns. Expansion already opened the town.",
         "You do not hire company employees. People & HR owns employees.",
         "Hotel desks and shops that send us their customers are Partnerships. This job is the people who will do the jobs.",
@@ -608,7 +617,7 @@ window.PK_GROWTH = (function () {
         { when: "The papers are missing a price or a service", to: "Field Marketing Manager the same day", how: "Stop. Do not invent it." },
         { when: "A named town will not sign", to: "Field Marketing Manager in the weekly note, same day if the stall is still standing", how: "Write who you met and why they said no." },
         { when: "Someone wants to be paid cash on the side", to: "Field Marketing Manager the same day", how: "Stop. Write it. Do not pay." },
-        { when: "Provider Operations did not receive a signed file", to: "Field Marketing Manager the same day", how: "Send it again. Write that they did not receive it." }
+        { when: "Provider Experience did not receive a signed file", to: "Field Marketing Manager the same day", how: "Send it again. Write that they did not receive it." }
       ]
     }),
     flc: role({
@@ -626,7 +635,7 @@ window.PK_GROWTH = (function () {
         { kicker: "Part 2", art: "lane-sign.png", title: "Write the contract", work: "Use only the signed contract papers: services in, services out, signed price, start date, who signs for them.", result: "There is a signed contract file. Not a WhatsApp yes.", who: "You." },
         { kicker: "Part 3", art: "lane-handoff.png", title: "File it so Operations can work", work: "File the signed contract. Tell Operations they may start sending workers. Do not take cash. Finance sends the invoice.", result: "Operations has a building they can serve. You did not become the person who does the jobs.", who: "You file it. Operations does the jobs." }
       ],
-      acting: "If nobody sits in this job, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job. You do not stand at stalls as Field Visitor. You do not get first local workers to sign papers. You do not become Sales or Operations.",
+      acting: "If nobody sits in this job, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job. You do not stand at stalls as Field Visitor. You do not get first local workers to sign papers. You do not become Customer Experience or Operations.",
       owns: [
         "You go to the named office or housing society and meet the person who is allowed to sign",
         "You take only the signed contract papers with you",
@@ -639,7 +648,7 @@ window.PK_GROWTH = (function () {
         "Do not invent a price, a service, or a town",
         "Do not take cash in the office or society",
         "Do not sign hotel desks or shops that send us their customers — that is Partnerships",
-        "Do not book a one-off job for a person in that building yourself — that is Sales",
+        "Do not book a one-off job for a person in that building yourself — that is Customer Experience",
         "Do not do the maintenance jobs — that is Operations",
         "Do not visit a building that is not on this month’s written list"
       ],
@@ -648,7 +657,7 @@ window.PK_GROWTH = (function () {
         { title: "Use only the signed contract papers", what: "Services in, services out, signed price, how we invoice. If they want a different price, stop and ask Field Marketing Manager.", why: "A made-up price becomes a fight." },
         { title: "Get a signed contract", what: "Named building, town, start date, services, price, who signs for them, who signs for us. A WhatsApp yes is not a contract.", why: "Operations cannot plan jobs from a chat." },
         { title: "File it. Do not take cash.", what: "File the signed contract. Tell Operations they may start sending workers. Finance sends the invoice. You do not collect money in the office.", why: "Cash you collect on site has no owner in the company books." },
-        { title: "One-off jobs still go to Sales", what: "A person in that building who wants a one-off job that the contract does not cover goes to Sales. You do not book them at the gate.", why: "The stall collects names. The contract is a file. Sales still books one-off work." },
+        { title: "One-off jobs still go to Customer Experience", what: "A person in that building who wants a one-off job that the contract does not cover goes to Customer Experience. You do not book them at the gate.", why: "The stall collects names. The contract is a file. Customer Experience still books one-off work." },
         { title: "Honest weekly note", what: "Each week: visits vs calendar, contracts signed, waiting, or failed, buildings Operations can now serve, one or two written requests.", why: "Field Marketing Manager cannot run this job without numbers." }
       ],
       when: {
@@ -667,7 +676,7 @@ window.PK_GROWTH = (function () {
       procedures: [
         { id: "OSC-01", title: "Visit a named office or society", when: "On a named contract-visit day.", steps: ["Confirm the building is on this month’s plan.", "Take only the signed contract papers. If a price is missing, stop.", "Meet the person who is allowed to sign. Write their name and role.", "Do not pitch a watchman and call it done.", "Write the visit log: building, who you met, whether they will sign."] },
         { id: "OSC-02", title: "Write the maintenance contract", when: "The person who is allowed to sign is ready.", steps: ["Use only the signed papers: services in, services out, price, how we invoice, start date.", "Name the building, the town, and who signs for them.", "They sign. You sign. Date it.", "A WhatsApp yes is not a contract. Do not pretend."] },
-        { id: "OSC-03", title: "File the contract and tell Operations", when: "The same week as the signature.", steps: ["File the signed contract where Field Marketing Manager named.", "Tell Operations they may start sending workers: services, start date, what is in, what is out.", "Do not take cash. Finance sends the invoice.", "One-off jobs the contract does not cover still go to Sales."] },
+        { id: "OSC-03", title: "File the contract and tell Operations", when: "The same week as the signature.", steps: ["File the signed contract where Field Marketing Manager named.", "Tell Operations they may start sending workers: services, start date, what is in, what is out.", "Do not take cash. Finance sends the invoice.", "One-off jobs the contract does not cover still go to Customer Experience."] },
         { id: "OSC-04", title: "Name a building that will not sign", when: "Planned visits are done and they will not sign.", steps: ["Open the visit logs.", "Write building, dates, who you met, why they said no.", "Send it to Field Marketing Manager in the weekly note.", "Do not keep visiting to look busy. Do not pick a different building yourself."] },
         { id: "OSC-05", title: "Write the weekly contract note", when: "The day before Field Marketing Manager’s weekly field report.", steps: ["Visits vs calendar.", "Contracts signed, waiting, or failed.", "Buildings Operations can now serve.", "One or two written requests.", "Send it to Field Marketing Manager in writing."] }
       ],
@@ -682,7 +691,7 @@ window.PK_GROWTH = (function () {
       rules: [
         "A verbal yes from a society is not a contract. Operations can only plan jobs from a signed paper.",
         "Hotel desks and shops that send us their customers are Partnerships. Offices and societies that buy ongoing maintenance are this job.",
-        "You write the contract. Finance sends the invoice. Operations does the jobs. Sales books one-off work.",
+        "You write the contract. Finance sends the invoice. Operations does the jobs. Customer Experience books one-off work and finishes it.",
         "You do not invent a price.",
         "You do not stand at stalls or get first local workers to sign papers as if that were this job.",
         "If this job is empty, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job."
@@ -768,10 +777,10 @@ window.PK_GROWTH = (function () {
       layout: "detailed",
       result: "A named service sheet Panun Kaergar can sell and finish: what is in, what is out, how the job should run, with a price Finance signed and Operations able to do the work.",
       what: "You write what Panun Kaergar can sell and finish. That means the name of the service, what is included, what is not included, how the job should run, and when to stop a dead service. Intelligence hands you a real need. Finance signs the price. Operations says they can do it. Head of Growth says Marketing may talk. You do not invent demand, run ads, or do the first jobs yourself.",
-      why: "Marketing cannot invent the product. Operations cannot guess the product. If nobody writes what is in and what is out, Sales promises one thing and the worker does another.",
+      why: "Marketing cannot invent the product. Operations cannot guess the product. If nobody writes what is in and what is out, Customer Experience promises one thing and the worker does another.",
       how: "You turn a need Intelligence already marked as go into a service sheet. You send it to Finance for price options and to Operations for a written yes that they can do it. Head of Growth signs. Then Marketing may use only the sentences you wrote. If nobody sits in this job, Head of Growth does that work and writes that they are doing it today because nobody is in that job.",
       lanes: [
-        { kicker: "Part 1", art: "lane-catalog.png", title: "The live list of what we sell", work: "Keep one live list. Take off any service name that has no written sheet. A name without a sheet is not a service.", result: "Sales picks from a true list, not from a messy menu.", who: "You." },
+        { kicker: "Part 1", art: "lane-catalog.png", title: "The live list of what we sell", work: "Keep one live list. Take off any service name that has no written sheet. A name without a sheet is not a service.", result: "Customer Experience picks from a true list, not from a messy menu.", who: "You." },
         { kicker: "Part 2", art: "lane-sheet.png", title: "Write the service sheet", work: "Write the name, who it is for, what we do, what we do not do, what the customer must prepare, what the worker must be able to do, the job steps, and the quality bar. Finance writes the price. Operations writes that they can finish the job.", result: "There is a complete sheet, not a slogan.", who: "You write the sheet. Finance signs the price. Operations signs that they can finish the job." },
         { kicker: "Part 3", art: "lane-review.png", title: "After it is live: keep, fix, or stop", work: "Watch how many people ask, complaints, and cancellations. Write keep, fix, or stop. Head of Growth signs a stop.", result: "A dead service does not sit in ads.", who: "You write the recommend. Marketing Manager stops talking only after Head of Growth signs stop." }
       ],
@@ -790,13 +799,13 @@ window.PK_GROWTH = (function () {
         "Launch without Operations ready"
       ],
       responsibilities: [
-        { title: "Catalogue", what: "Keep one live list of what we sell. Take off the live list any service name that has no written sheet.", why: "Sales must not pick from a messy menu." },
+        { title: "Catalogue", what: "Keep one live list of what we sell. Take off the live list any service name that has no written sheet.", why: "Customer Experience must not pick from a messy menu." },
         { title: "Design", what: "Write scope, in, out, and the job steps.", why: "A name without a sheet is not a service." },
         { title: "Ready to sell", what: "Providers, tools, and area must be possible before launch.", why: "Selling a job we cannot finish creates complaints." },
         { title: "After launch", what: "Watch demand, complaints, and cancellations. Recommend keep, fix, or stop.", why: "A dead service that still sits in ads wastes money." }
       ],
       when: {
-        daily: ["Catch unmet requests and complaints that look like a missing service.", "Update sheets that Sales is already using."],
+        daily: ["Catch unmet requests and complaints that look like a missing service.", "Update sheets that Customer Experience is already using."],
         weekly: ["Move opportunities. Unblock a sheet waiting on Finance or Operations.", "Report what is in design vs live."],
         monthly: ["Full catalogue pass.", "Recommend retire or fix.", "Plan next month’s design work with Head of Growth."]
       },
@@ -832,13 +841,13 @@ window.PK_GROWTH = (function () {
       reportsTo: "Head of Growth",
       hero: "role-mem.png",
       layout: "detailed",
-      result: "A written enter, wait, or leave for one named town, after Provider Operations can finish the first jobs there. Not a town circled on a map with no written yes, and not ads before we can do the work.",
-      what: "You decide where Panun Kaergar may work next. Intelligence names a town with evidence. You test whether we should enter, wait, or leave — in writing. Provider Operations must be able to finish the first jobs. Head of Growth signs. Then Marketing and Partnerships may spend there. You do not hire the workers, change what we sell, or run ads. First Provider Onboarding goes in person after the town is open. You do not do that job yourself.",
+      result: "A written enter, wait, or leave for one named town, after Provider Experience can finish the first jobs there. Not a town circled on a map with no written yes, and not ads before we can do the work.",
+      what: "You decide where Panun Kaergar may work next. Intelligence names a town with evidence. You test whether we should enter, wait, or leave — in writing. Provider Experience must be able to finish the first jobs. Head of Growth signs. Then Marketing and Partnerships may spend there. You do not hire the workers, change what we sell, or run ads. First Provider Onboarding goes in person after the town is open. You do not do that job yourself.",
       why: "A new town with ads and nobody who can do the jobs is how the brand dies in public. Hope is not a plan.",
       how: "Intelligence hands you a named town with facts. You write demand, competition, whether we can finish jobs, and a rough cost to get a customer. You write enter, wait, or no. Head of Growth signs. If enter, you write the first services, what Marketing may spend, and the review date. If nobody sits in this job, Head of Growth does that work and writes that they are doing it today because nobody is in that job.",
       lanes: [
         { kicker: "Part 1", art: "lane-towns.png", title: "The list of towns", work: "Keep a written list of possible towns with facts. A feeling is not a list.", result: "Head of Growth can see what is next, or that nothing is next.", who: "You." },
-        { kicker: "Part 2", art: "lane-enter.png", title: "Enter, wait, or no", work: "Write demand, competition, whether we can finish the first jobs, and a rough cost. Write enter, wait, or no. Head of Growth signs.", result: "There is a written decision, not research with no end.", who: "You write the decision. Provider Operations says if they can finish the jobs. You do not hire them." },
+        { kicker: "Part 2", art: "lane-enter.png", title: "Enter, wait, or no", work: "Write demand, competition, whether we can finish the first jobs, and a rough cost. Write enter, wait, or no. Head of Growth signs.", result: "There is a written decision, not research with no end.", who: "You write the decision. Provider Experience says if they can finish the jobs. You do not hire them." },
         { kicker: "Part 3", art: "lane-review.png", title: "After launch: grow, fix, pause, or leave", work: "Watch enquiries, bookings, and unfinished jobs. On the review date you wrote, write grow, fix, pause, or leave.", result: "We do not stay forever in a dead town.", who: "You write the recommend. Marketing Manager stops spending in that town only after Head of Growth signs pause or leave." }
       ],
       acting: "If nobody is in this job, Head of Growth does this work and must write that they are doing it today because nobody is in that job.",
@@ -850,7 +859,7 @@ window.PK_GROWTH = (function () {
       mustNot: [
         "Research without a decision (that is a delay, not your job done)",
         "Market before Operations is ready",
-        "Hire providers (Provider Operations does that)",
+        "Hire providers (Provider Experience does that)",
         "Change the service catalogue"
       ],
       responsibilities: [
@@ -861,7 +870,7 @@ window.PK_GROWTH = (function () {
       ],
       when: {
         daily: ["Log demand from towns we do not cover.", "Track live launch tasks."],
-        weekly: ["Move the town list. Unblock Provider Operations on capacity.", "Report to Head of Growth."],
+        weekly: ["Move the town list. Unblock Provider Experience on capacity.", "Report to Head of Growth."],
         monthly: ["Compare launched areas to their launch KPIs.", "Pick the next candidate or recommend none."]
       },
       standards: [
@@ -871,9 +880,9 @@ window.PK_GROWTH = (function () {
         "Exit and pause are written, not whispered."
       ],
       procedures: [
-        { id: "ME-01", title: "Test a town", when: "Intelligence hands a named area.", steps: ["Demand and competition.", "Can we fulfil the first services? Ask Provider Operations.", "Rough cost to get a customer.", "Write enter, wait, or no.", "Head of Growth signs."] },
+        { id: "ME-01", title: "Test a town", when: "Intelligence hands a named area.", steps: ["Demand and competition.", "Can we fulfil the first services? Ask Provider Experience.", "Rough cost to get a customer.", "Write enter, wait, or no.", "Head of Growth signs."] },
         { id: "ME-02", title: "Open a town", when: "Enter is signed and capacity is real.", steps: ["First services list.", "Marketing may-spend list.", "Launch week.", "Watch enquiries, bookings, and unfinished jobs.", "Review on the date you wrote."] },
-        { id: "ME-03", title: "Pause or leave", when: "Numbers miss the launch bar and will not recover soon.", steps: ["Write why.", "Stop new marketing there.", "Head of Growth signs.", "Tell Marketing, Sales, and Operations."] }
+        { id: "ME-03", title: "Pause or leave", when: "Numbers miss the launch bar and will not recover soon.", steps: ["Write why.", "Stop new marketing there.", "Head of Growth signs.", "Tell Marketing, Customer Experience, and Operations."] }
       ],
       kpis: [
         { name: "Feasibility on time", target: "Within 15 working days" },
@@ -887,7 +896,7 @@ window.PK_GROWTH = (function () {
       ],
       escalate: [
         { when: "A launch is live and jobs are failing", to: "Head of Growth same day — recommend pause", how: "Bookings vs finished jobs." },
-        { when: "Provider Operations cannot staff the town", to: "Head of Growth", how: "Do not keep the launch date anyway." }
+        { when: "Provider Experience cannot staff the town", to: "Head of Growth", how: "Do not keep the launch date anyway." }
       ]
     }),
     pcm: role({
@@ -896,14 +905,14 @@ window.PK_GROWTH = (function () {
       reportsTo: "Head of Growth",
       hero: "role-pcm.png",
       layout: "detailed",
-      result: "A named hotel desk, shop, or other local business sends their customers to Sales the same day, with the partner name written. You do not book the customer, and you do not send the person to a plumber yourself.",
-      what: "You find hotels and shops that already meet people we want as customers. Those places send us a name. Sales calls them. You check they fit, write the terms, and send their customers to Sales the same day with the hotel or shop name written. You do not book the customer. You do not send the person to a plumber. You do not write an office or society maintenance contract — that is Office and Society Contracts under Field.",
-      why: "We cannot stand on every street. Good hotels and shops bring work we would miss. A handshake with no paper becomes a fight. A name sent straight to a plumber skips Sales and the brand.",
-      how: "Market Intelligence Manager may send a written note that hotel desks, or another kind of place, are worth trying. That note is not permission. Head of Growth must write yes to that kind of place, and to how we pay them if we pay them, before you sign anyone. You write how a name is sent. You test one person into Sales. Only then do you call them live. Each month you write keep, fix, or close. If nobody sits in this job, Head of Growth does that work and writes that they are doing it today.",
+      result: "A named hotel desk, shop, or other local business sends their customers to Customer Experience the same day, with the partner name written. You do not book the customer, and you do not send the person to a plumber yourself.",
+      what: "You find hotels and shops that already meet people we want as customers. Those places send us a name. Customer Experience calls them. You check they fit, write the terms, and send their customers to Customer Experience the same day with the hotel or shop name written. You do not book the customer. You do not send the person to a plumber. You do not write an office or society maintenance contract — that is Office and Society Contracts under Field.",
+      why: "We cannot stand on every street. Good hotels and shops bring work we would miss. A handshake with no paper becomes a fight. A name sent straight to a plumber skips Customer Experience and the brand.",
+      how: "Market Intelligence Manager may send a written note that hotel desks, or another kind of place, are worth trying. That note is not permission. Head of Growth must write yes to that kind of place, and to how we pay them if we pay them, before you sign anyone. You write how a name is sent. You test one person into Customer Experience. Only then do you call them live. Each month you write keep, fix, or close. If nobody sits in this job, Head of Growth does that work and writes that they are doing it today.",
       lanes: [
         { kicker: "Part 1", art: "lane-hotel.png", title: "Find and check the hotel or shop", work: "Write the real kind of place we miss — a hotel desk, an appliance shop, and so on. Write who they already serve, their reputation, and fit, wait, or no. Do not add your uncle or a neighbour who says they know people.", result: "There is a written fit, wait, or no — not a spoken yes.", who: "You." },
-        { kicker: "Part 2", art: "lane-terms.png", title: "Write the terms, then start", work: "Write how they send us a name, and what we pay if we pay. Use only approved materials. Test one name into Sales. Only then call them live.", result: "No hotel or shop is live without a written terms page.", who: "You. Head of Growth has already said yes to that kind of place and how we pay them, if we pay them. Finance sees money that was not in the plan." },
-        { kicker: "Part 3", art: "lane-review.png", title: "Keep, fix, or close", work: "Send every name to Sales the same day. Each month write keep, fix, or close. A hotel or shop that sends nobody is closed, in writing.", result: "A silent hotel or shop is a closed one, in writing.", who: "You find the hotel or shop. Sales books the customer." }
+        { kicker: "Part 2", art: "lane-terms.png", title: "Write the terms, then start", work: "Write how they send us a name, and what we pay if we pay. Use only approved materials. Test one name into Customer Experience. Only then call them live.", result: "No hotel or shop is live without a written terms page.", who: "You. Head of Growth has already said yes to that kind of place and how we pay them, if we pay them. Finance sees money that was not in the plan." },
+        { kicker: "Part 3", art: "lane-review.png", title: "Keep, fix, or close", work: "Send every name to Customer Experience the same day. Each month write keep, fix, or close. A hotel or shop that sends nobody is closed, in writing.", result: "A silent hotel or shop is a closed one, in writing.", who: "You find the hotel or shop. Customer Experience books the customer and finishes the job." }
       ],
       acting: "If nobody is in this job, Head of Growth does this work and must write that they are doing it today because nobody is in that job.",
       owns: [
@@ -925,20 +934,20 @@ window.PK_GROWTH = (function () {
         { title: "Track", what: "Leads, bookings, and whether they are still sending work.", why: "A silent partner is a closed partner. Write it down." }
       ],
       when: {
-        daily: ["Follow live partner chats. Log new leads to Sales the same day.", "Chase one hotel or shop that has not finished signing."],
+        daily: ["Follow live partner chats. Log new leads to Customer Experience the same day.", "Chase one hotel or shop that has not finished signing."],
         weekly: ["Hotel and shop list, and live partner numbers.", "Fix a partner who sends junk leads."],
         monthly: ["Keep / fix / close each live partner.", "Plan new kinds of hotel desk or shop with Market Intelligence Manager and Head of Growth."]
       },
       standards: [
         "100% of partner leads with the hotel or shop name written.",
         "No live partner without a written term sheet.",
-        "Leads to Sales the same day.",
+        "Leads to Customer Experience the same day.",
         "Monthly review of every live partner."
       ],
       procedures: [
         { id: "PC-01", title: "Qualify a partner", when: "A new name appears.", steps: ["Who they already serve.", "What we want from them.", "Reputation and fit.", "Mark fit / wait / no."] },
-        { id: "PC-02", title: "Start a partner", when: "Head of Growth has agreed the kind of place and the terms.", steps: ["Write how a lead is sent.", "Give them only approved materials.", "Test one lead into Sales.", "Only then call them live."] },
-        { id: "PC-03", title: "Partner lead to Sales", when: "Every partner enquiry.", steps: ["Write partner, plus the hotel or shop name.", "Service and town.", "Assign to Sales. Do not send them to a plumber.", "Track whether it booked."] }
+        { id: "PC-02", title: "Start a partner", when: "Head of Growth has agreed the kind of place and the terms.", steps: ["Write how a lead is sent.", "Give them only approved materials.", "Test one lead into Customer Experience.", "Only then call them live."] },
+        { id: "PC-03", title: "Partner lead to Customer Experience", when: "Every partner enquiry.", steps: ["Write partner, plus the hotel or shop name.", "Service and town.", "Assign to Customer Experience. Do not send them to a plumber.", "Track whether it booked."] }
       ],
       kpis: [
         { name: "Partner names written on every person they sent", target: "100%" },
@@ -946,7 +955,7 @@ window.PK_GROWTH = (function () {
         { name: "Monthly partner review", target: "100%" }
       ],
       rules: [
-        "Sales talks to the customer. You do not.",
+        "Customer Experience talks to the customer. You do not.",
         "No cash side deals.",
         "If they sell a job we do not do, stop them."
       ],
@@ -962,10 +971,10 @@ window.PK_GROWTH = (function () {
       id: "growth",
       name: "Growth workflow",
       kicker: "How Growth works",
-      lede: "Growth makes something the market can buy, then creates enquiries with a written answer for how they found us. Sales books. Operations does the job. These three must not mix.",
+      lede: "Growth makes something the market can buy, then creates enquiries with a written answer for how they found us. Customer Experience books the job and finishes it. Growth does not book. These jobs must not mix.",
       hero: "wf-growth.png",
       rules: [
-        "Marketing generates the enquiry. Sales converts it. Operations finishes the job.",
+        "Marketing generates the enquiry. Customer Experience converts it. Operations finishes the job.",
         "Only approved services in approved towns.",
         "Every enquiry has a source: digital, field, partner, or other.",
         "Head of Growth says yes or no. Ads, stalls, and partners do not invent the company.",
@@ -982,7 +991,7 @@ window.PK_GROWTH = (function () {
             { who: "Offer & Service Development", does: "Writes the service sheet. Finance prices. Operations says if we can deliver." },
             { who: "Head of Growth", does: "Says yes. Marketing may talk about it." },
             { who: "Marketing (Digital + Field)", does: "Creates enquiries with a written answer for how they found us." },
-            { who: "Sales", does: "Books the job." },
+            { who: "Customer Experience", does: "Books the job." },
             { who: "Operations", does: "Does the job. Results go back to Intelligence and Offer." }
           ]
         },
@@ -994,10 +1003,10 @@ window.PK_GROWTH = (function () {
           steps: [
             { who: "Market Intelligence", does: "Names the town with evidence." },
             { who: "Market Expansion", does: "Writes enter, wait, or no." },
-            { who: "Provider Operations", does: "Confirms we can finish the first jobs there." },
+            { who: "Provider Experience", does: "Confirms we can finish the first jobs there." },
             { who: "Head of Growth", does: "Says yes to launch." },
             { who: "Marketing and Partnerships", does: "Create enquiries with a written answer for how they found us in that town." },
-            { who: "Sales and Operations", does: "Book and deliver. Expansion then says scale, fix, pause, or leave." }
+            { who: "Customer Experience and Operations", does: "Book and deliver. Expansion then says scale, fix, pause, or leave." }
           ]
         },
         {
@@ -1007,10 +1016,10 @@ window.PK_GROWTH = (function () {
           why: "Use this every week for services and towns we already sell.",
           steps: [
             { who: "Marketing Manager", does: "Runs the signed plan: who, offer, town, channel, budget." },
-            { who: "Digital Marketing Manager", does: "Runs the online part. Sends digital enquiries to Sales." },
-            { who: "Field Marketing Manager", does: "Holds visits, first providers on site, and office and society contracts. Hands stall names to Sales." },
-            { who: "Partnerships", does: "Adds hotels and shops that send us customers. Sends partner enquiries to Sales." },
-            { who: "Sales", does: "Books, or writes why it was lost so Growth can learn." }
+            { who: "Digital Marketing Manager", does: "Runs the online part. Sends digital enquiries to Customer Experience." },
+            { who: "Field Marketing Manager", does: "Holds visits, first providers on site, and office and society contracts. Hands stall names to Customer Experience." },
+            { who: "Partnerships", does: "Adds hotels and shops that send us customers. Sends partner enquiries to Customer Experience." },
+            { who: "Customer Experience", does: "Books, or writes why it was lost so Growth can learn." }
           ]
         }
       ]
@@ -1019,12 +1028,12 @@ window.PK_GROWTH = (function () {
 
   const extra = {
     hog: {
-      story: "You decide who Panun Kaergar sells to, which sentences we may say, and whether Growth is working. Five people report to you. You write the monthly plan they work from. You say yes or no. You do not become them unless their job has nobody in it — and then you write that down.",
+      story: "You decide who Panun Kaergar sells to, which sentences we may say, and whether Growth is working. Five people report to you. You write the monthly plan they work from. You say yes or no. If one of those five seats is empty, you do that work the same day. The note names which seat was empty, what you did, and that you still read the other four results. The weekly review still happens. The empty box stays on the chart.",
       receives: [
         { from: "CEO", what: "Company priorities, budget ceiling, and what Panun Kaergar will not do." },
         { from: "Market Intelligence", what: "Go / no-go packs with source and date. Opportunity funnel." },
         { from: "Marketing", what: "Weekly spend, enquiries with a written answer for how they found us, cost per enquiry, cost per booking." },
-        { from: "Sales", what: "Lost-lead reasons. Which sources actually book." },
+        { from: "Customer Experience", what: "Lost-lead reasons. Which sources actually book." },
         { from: "Operations", what: "Whether we can finish the jobs we are selling, by service and town." }
       ],
       gives: [
@@ -1033,9 +1042,9 @@ window.PK_GROWTH = (function () {
         { to: "Partnerships", what: "Yes or no on a kind of hotel desk or shop and how we pay them, if we pay them." },
         { to: "CEO", what: "Weekly Growth numbers and anything that risks money, brand, or a launch." }
       ],
-      records: ["Monthly Growth plan you signed before any money was spent", "Weekly Growth review sent to the CEO", "List of important ideas for High ideas", "Approved service list Offer keeps", "Approved town list Expansion keeps", "Money spent vs the signed plan, by source", "Notes of days you covered an empty job because the job was empty"],
-      good: ["You signed next month’s Growth plan before any Growth money was spent.", "Every Growth enquiry has a written source: digital, field, partner, or other.", "Marketing only talks about services and towns you have signed.", "Every High idea is go, no-go, or more research with a date, inside 10 working days.", "Cost per booking sits inside the signed plan.", "If one of those five jobs has nobody in it, you wrote that you are doing it today because nobody is in that job."],
-      bad: ["Ads are running because someone thought they might work, and you did not sign that month.", "A town went live and Provider Operations cannot finish the first jobs there.", "Why people did not book sits only in a chat, with no reason written.", "You are writing the ads or standing at a stall while five boxes sit empty and nobody wrote that down.", "The weekly review lists only good news and hides what failed.", "A High idea still says “we might look at this later” after 10 working days."]
+      records: ["Monthly Growth plan you signed before any money was spent", "Weekly Growth review sent to the CEO", "List of important ideas for High ideas", "Approved service list Offer keeps", "Approved town list Expansion keeps", "Money spent vs the signed plan, by source", "The day’s note when a seat is empty: which seat, what you did, and that the other four results were still read"],
+      good: ["You signed next month’s Growth plan before any Growth money was spent.", "Every Growth enquiry has a written source: digital, field, partner, or other.", "Marketing only talks about services and towns you have signed.", "Every High idea is go, no-go, or more research with a date, inside 10 working days.", "Cost per booking sits inside the signed plan.", "On a day you did an empty seat’s work, the note names the seat, what you did, and that the other four results were still read.", "The weekly review was written even though one seat was empty."],
+      bad: ["Ads are running because someone thought they might work, and you did not sign that month.", "A town went live and Provider Experience cannot finish the first jobs there.", "Why people did not book sits only in a chat, with no reason written.", "You did an empty seat’s work and the note does not name the seat, what you did, and that the other four results were still read.", "You cancelled the weekly review because one seat was empty.", "The weekly review lists only good news and hides what failed.", "A High idea still says “we might look at this later” after 10 working days."]
     },
     mkm: {
       story: "You run Panun Kaergar’s marketing. You write the monthly plan Head of Growth signs, you write the marketing kit, you split the money between paid ads and stalls, and you make sure Operations asked every new person where they found us and wrote the answer. Digital Marketing Manager runs paid ads, SEO (search), social, and videos. Field Marketing Manager runs the people who visit the market, get the first local workers to sign the papers on site, and write office and society contracts. You do not invent new services. You do not book the customer.",
@@ -1045,17 +1054,17 @@ window.PK_GROWTH = (function () {
         { from: "Offer", what: "The only sentences Marketing may use for a live service." },
         { from: "Expansion", what: "Which towns we can actually serve this month." },
         { from: "Digital Marketing Manager", what: "A daily note when something moved, and a weekly report: money spent, enquiries, what worked, what failed." },
-        { from: "Field Marketing Manager", what: "A weekly report: visits vs calendar, names to Sales, first local workers who signed, office and society contracts signed, towns that produced nothing, materials that need reprinting." }
+        { from: "Field Marketing Manager", what: "A weekly report: visits vs calendar, names to Customer Experience, first local workers who signed, office and society contracts signed, towns that produced nothing, materials that need reprinting." }
       ],
       gives: [
         { to: "Digital Marketing Manager", what: "Their days, the ads budget, the marketing kit, which website pages SEO must cover this month, where a call, WhatsApp, app, or form must land, and what we will not advertise." },
         { to: "Field Marketing Manager", what: "Which towns, which days, which boards and flyers, the stall budget, which first-worker towns, which offices and societies, the signed papers, and what we will not advertise." },
         { to: "Operations", what: "The short list of source names they may write this month. They ask every new person where they found us — call, WhatsApp, app, form, or any other way — and write one of those names." },
-        { to: "Sales", what: "What will arrive this week. Operations has already asked where each person found us." },
+        { to: "Customer Experience", what: "What will arrive this week. Operations has already asked where each person found us." },
         { to: "Head of Growth", what: "The weekly marketing report: money spent, enquiries, cost, bookings, what worked, and what failed." }
       ],
       records: ["Monthly marketing plan signed by Head of Growth", "Day-by-day marketing calendar", "Marketing kit for the month", "Money tracker (ads budget and stall budget)", "SEO / search page list for the month", "List of source names Operations may write", "List of enquiries that arrived with no source", "List of live ads, search pages, stall days, first-worker towns, and office contracts", "Weekly marketing report", "Notes of days you covered Digital or Field because the job was empty"],
-      good: ["Head of Growth signed the plan before the month started.", "95% of marketing enquiries name where they came from.", "Digital and Field work from the same calendar and the same marketing kit.", "No live ad or flyer uses a sentence you have not put in the kit.", "Money spent stays within 10% of the plan unless Head of Growth signed a change.", "If Digital or Field has nobody sitting in the job, that is written down as you doing that job."],
+      good: ["Head of Growth signed the plan before the month started.", "95% of marketing enquiries name where they came from.", "Digital and Field work from the same calendar and the same marketing kit.", "No live ad or flyer uses a sentence you have not put in the kit.", "Money spent stays within 10% of the plan unless Head of Growth signed a change.", "If Digital or Field has nobody sitting in the job, you wrote the sentence the same day. For Field it says: I am doing Field Marketing today because the seat is empty. You did not ask HR to hire Field Marketing until stall visits, first signatures, and office and society contracts were each already happening."],
       bad: ["An ad says one thing and a flyer says another.", "Money is spent and Operations did not ask where the person found us.", "A flyer shows a price Finance never signed.", "A person has no written answer for how they found us.", "You are running the ads or standing at the stall while those jobs sit empty and nobody wrote that down.", "A weekly report that only lists good news."],
       detailed: {
         copy: {
@@ -1063,15 +1072,15 @@ window.PK_GROWTH = (function () {
           defTitle: "What this job is",
           lanesTitle: "This job has three parts",
           definition: "You run Panun Kaergar’s marketing. You write the monthly plan Head of Growth signs, you write the marketing kit (the instruction book of words, look, prices, towns, and faces), and you split the money between paid ads and stalls. You make sure Operations asked every new person how they found us and wrote the answer — that is how we know the source, not the phone number. Two people report to you: Digital Marketing Manager (paid ads, search, social, and videos) and Field Marketing Manager (stalls, first local workers, and office and society contracts). They do the daily work. You run the plan they work from.",
-          owns: "These are the six things this job owns. Do not do Sales’ job, Digital’s job, or Field’s job unless that job is empty and you have written that you are doing that job.",
-          lanes: "This job has one result. The work is in three parts. Part 1 is work you do yourself — the plan and the instruction book. Part 2 is Digital Marketing Manager. Part 3 is Field Marketing Manager. If Digital or Field is empty, you do that work today. Write that down.",
+          owns: "These are the six things this job owns. Do not do Customer Experience’s job, Digital’s job, or Field’s job unless that job is empty and you have written that you are doing that job.",
+          lanes: "This job has one result. The work is in three parts. Part 1 is work you do yourself — the plan and the instruction book. Part 2 is Digital Marketing Manager. Part 3 is Field Marketing Manager. If Field is empty, you do that work today and write: I am doing Field Marketing today because the seat is empty. Do not hire that manager until stall visits, first signatures, and office and society contracts are each already happening. The box stays. The same wait applies to any other empty seat.",
           responsibilities: "These are the six parts of the job. Click a row to open the full card.",
           handoffs: "Work arrives as a written file and leaves as a written file. A chat message is not the file. The chart shows the flow. Click a row to open the full card.",
           workflow: "Every working day, do these three things in order: open the signed plan, the marketing kit, the money spent, and the list of enquiries with no source; unblock Digital and Field if they are waiting on a yes; check that Operations asked every new person where they found us. In the last week of the month, write next month’s plan (MKT-01). If an ad or stall is broken, pause it the same day (MKT-06). Click a step to open the full card.",
           reporting: "You write three reports. Daily: money spent, new enquiries, missing sources, anything you paused, and whether you are doing Digital or Field work today because nobody is in that job. Weekly: paid ads, search (SEO), and field (visits, first local workers, contracts) shown separately — money, enquiries, cost, three things that worked, three that failed, one or two changes. Monthly: next month’s plan and calendar, for Head of Growth to sign. Click a row to open the full report.",
           standards: "The bar this job is measured against. Click a card to read the full standard.",
           kpis: "How Head of Growth knows this job is working. Each number has a target, a reason it matters, and a counting rule so two people cannot argue about the number.",
-          escalations: "What to do when an ad might be untrue, money will go past the plan, Sales says the enquiries are poor quality, or Digital or Field has nobody in the job. Click a row to open the full steps."
+          escalations: "What to do when an ad might be untrue, money will go past the plan, Customer Experience says the enquiries are poor quality, or Digital or Field has nobody in the job. Click a row to open the full steps."
         },
         hub: {
           icon: "calendar_month",
@@ -1081,7 +1090,7 @@ window.PK_GROWTH = (function () {
           what: [
             { title: "You write the monthly plan and the marketing kit, and you split the money", why: "The plan names which services we may talk about, which towns we may work in, which days ads and stalls run, how much money each gets, which website pages Digital must keep true for search (SEO), and what we will not advertise. The marketing kit is the instruction book: logo, colours, sentences, prices, towns, and faces. Head of Growth signs the plan. You write it and run it." },
             { title: "You give Digital Marketing Manager and Field Marketing Manager one calendar and check they follow it", why: "Digital runs paid ads, SEO (the website and Google search so people find us without a paid ad), social media, and the videos. Field runs the people who visit the market, get the first local workers to sign the papers on site, and write office and society contracts. You do not become them. If nobody sits in one of those jobs, you do that job for now and write: you are doing it today because nobody is in that job." },
-            { title: "You make sure Operations asked where each person found us", why: "Every new person — call, WhatsApp, app, website form, or any other way — is asked by Operations: How did you find us? Operations writes paid ad, search, stall, WhatsApp, app, form, or other, from a short list you gave them. That is how we know. Digital cannot see it from the phone number. Digital reads what Operations wrote. If Field met the person at a stall, Field also writes town and date. You bring the person in. Sales books the job." }
+            { title: "You make sure Operations asked where each person found us", why: "Every new person — call, WhatsApp, app, website form, or any other way — is asked by Operations: How did you find us? Operations writes paid ad, search, stall, WhatsApp, app, form, or other, from a short list you gave them. That is how we know. Digital cannot see it from the phone number. Digital reads what Operations wrote. If Field met the person at a stall, Field also writes town and date. You bring the person in. Customer Experience books the job and finishes it." }
           ],
           why: [
             { title: "If nobody owns the plan, Digital and Field start acting like two companies", why: "A customer sees one promise in an ad and a different promise on a flyer. Money is spent with no owner. Head of Growth cannot tell what is working." },
@@ -1163,7 +1172,7 @@ window.PK_GROWTH = (function () {
             id: "fmm",
             term: "Field Marketing Manager",
             aliases: ["Field Marketing Manager"],
-            meaning: "The person who reports to you and holds three ground jobs: Field Visitor (full-time or someone we pay on a written contract) actually visits the market; First Provider Onboarding goes on site and signs the first service providers onto us, then hands them to Provider Operations; Office and Society Contracts writes maintenance contracts with offices and housing societies from the signed papers. They do not take bookings at a stall. They do not pick a new town. They do not sign hotel-desk referral partners — that is Partnerships."
+            meaning: "The person who reports to you and holds three ground jobs: Field Visitor visits the market; First Provider Onboarding gets the first local workers to sign, then sends the file to Provider Experience; Office and Society Contracts writes maintenance contracts with offices and housing societies. Do not hire a person into this seat until those three jobs are each already happening: stall visits with names going to Customer Experience, first signatures with files going to Provider Experience, and office and society contracts being written. Until then you do the work and write, the same day: I am doing Field Marketing today because the seat is empty. The box stays on the chart. They do not take bookings at a stall. They do not pick a new town."
           },
           {
             id: "hog",
@@ -1183,7 +1192,7 @@ window.PK_GROWTH = (function () {
             term: "Doing that job today",
             aliases: ["doing that job today", "acting owner", "acting-owner"],
             also: "Sitting in for an empty job",
-            meaning: "When nobody is sitting in Digital or Field, you do that job yourself for now. You write it on the daily note: you are doing it today because nobody is in that job. If you do the work without writing that down, Head of Growth thinks the job is filled, and nobody owns the result."
+            meaning: "When a seat under you has nobody in it, you do that work the same day and you write: I am doing [the name of the seat] today because the seat is empty. For Field Marketing the sentence is: I am doing Field Marketing today because the seat is empty. Do not ask HR to hire that person until the seat’s own result is already happening. For Field Marketing, that means stall visits, first signatures, and office and society contracts are each already happening. The box stays on the chart. If you do the work without the sentence, Head of Growth thinks the job is filled."
           }
         ],
         responsibilities: [
@@ -1203,7 +1212,7 @@ window.PK_GROWTH = (function () {
             ],
             meta: [
               ["You take from", "Head of Growth’s signed Growth plan; Intelligence; last month’s marketing report; Offer’s allowed sentences; Expansion’s open towns"],
-              ["You give to", "Digital and Field (their written work); Head of Growth (the plan to sign); Sales (how enquiries will arrive)"]
+              ["You give to", "Digital and Field (their written work); Head of Growth (the plan to sign); Customer Experience (how enquiries will arrive)"]
             ]
           },
           {
@@ -1251,25 +1260,25 @@ window.PK_GROWTH = (function () {
             art: "cmc-h-note.png",
             body: [
               "Give Operations a short list of names they may write: paid ad, search, stall, WhatsApp, app, form, or other. Every new person is asked by Operations, and the answer is written the same day. You own the list of people with no answer (MKT-03). If it is blank, Operations asks today. Digital uses these answers to count ads vs search. Digital does not ask the customer. If Field met the person at a stall, Field also writes town and date.",
-              "Enquiries from partners are not yours to label as marketing. Partnerships owns that path. You bring people to Sales. You do not book them."
+              "Enquiries from partners are not yours to label as marketing. Partnerships owns that path. You bring people to Customer Experience. You do not book them."
             ],
             points: [
               { title: "Operations asks. Operations writes.", why: "That is how we know. Not the phone number, and not Digital guessing later." },
               { title: "If it is blank, Operations asks today", why: "A missing answer makes the weekly report untrue." },
-              { title: "Do not close the chat", why: "Hand the person to Sales." }
+              { title: "Do not close the chat", why: "Hand the person to Customer Experience." }
             ],
             meta: [
-              ["You take from", "Sales (enquiries with no source); Digital and Field (their source notes)"],
-              ["You give to", "Sales (the corrected source); Head of Growth (only if an ad, search page, or stall had to pause)"]
+              ["You take from", "Customer Experience (enquiries with no source); Digital and Field (their source notes)"],
+              ["You give to", "Customer Experience (the corrected source); Head of Growth (only if an ad, search page, or stall had to pause)"]
             ]
           },
           {
             kicker: "Responsibility 5",
             title: "Hold the Digital job and the Field job",
-            lead: "Coach both managers against their one result. If nobody sits in a job, you do that work and write that you are doing it today because nobody is in that job. You do not quietly become the ads person or the stall person.",
+            lead: "Coach both managers against their one result. If Field has nobody in it, you do that work and write, the same day: I am doing Field Marketing today because the seat is empty. Do not ask HR to hire a Field Marketing Manager until stall visits, first signatures, and office and society contracts are each already happening. Use the same wait for Digital, and for any other empty seat: do not hire until that seat’s own result is already happening. The box stays.",
             art: "cmc-r-library.png",
             body: [
-              "Digital’s result: paid ads, SEO (search), and the rest of online follow the signed plan. Operations asks people from those ads and pages where they found us. Digital reads those answers — paid ad or search, not mixed together. Field’s result: people who enquire at named towns on the calendar reach Sales the same day. Give them their written work the day the plan is signed (MKT-05). Unblock a waiting yes or a stuck town the same day.",
+              "Digital’s result: paid ads, SEO (search), and the rest of online follow the signed plan. Operations asks people from those ads and pages where they found us. Digital reads those answers — paid ad or search, not mixed together. Field’s result: people who enquire at named towns on the calendar reach Customer Experience the same day. Give them their written work the day the plan is signed (MKT-05). Unblock a waiting yes or a stuck town the same day.",
               "If you run the ads or stand at the stall because nobody is in that job, write on the daily note that you are doing that job today. Two weeks of a missed result, or an empty job that nobody named, goes to Head of Growth."
             ],
             points: [
@@ -1297,8 +1306,8 @@ window.PK_GROWTH = (function () {
               { title: "One or two changes", why: "A list of ten wishes is not a plan." }
             ],
             meta: [
-              ["You take from", "Digital’s weekly report; Field’s weekly report; Sales bookings from marketing enquiries"],
-              ["You give to", "Head of Growth; Digital and Field (what to keep, pause, or change); Sales (what will arrive next week)"]
+              ["You take from", "Digital’s weekly report; Field’s weekly report; Customer Experience bookings from marketing enquiries"],
+              ["You give to", "Head of Growth; Digital and Field (what to keep, pause, or change); Customer Experience (what will arrive next week)"]
             ]
           }
         ],
@@ -1365,13 +1374,13 @@ window.PK_GROWTH = (function () {
             side: "in",
             kicker: "You receive",
             title: "Field Marketing Manager’s weekly field report",
-            lead: "Weekly: visit days vs the calendar, names to Sales, first local workers who signed and handed to Provider Operations, office and society contracts signed, towns that produced nothing, materials that need reprinting.",
+            lead: "Weekly: visit days vs the calendar, names to Customer Experience, first local workers who signed and handed to Provider Experience, office and society contracts signed, towns that produced nothing, materials that need reprinting.",
             art: "cmc-h-note.png",
             body: [
-              "This becomes the field page of your weekly report. A missed visit is a missed town. A town with no names, no first local workers, and no contract after three visits must be named so next month can change. Phone numbers go to Sales, not to you."
+              "This becomes the field page of your weekly report. A missed visit is a missed town. A town with no names, no first local workers, and no contract after three visits must be named so next month can change. Phone numbers go to Customer Experience, not to you."
             ],
             points: [
-              { title: "The count, not the phone list", why: "Sales owns the customer. You own whether the town worked." },
+              { title: "The count, not the phone list", why: "Customer Experience owns the customer. You own whether the town worked." },
               { title: "A town that produces nothing", why: "Do not keep standing there to look busy. Take it off next month’s calendar, or take it to Head of Growth." }
             ],
             meta: [
@@ -1384,18 +1393,18 @@ window.PK_GROWTH = (function () {
             side: "in",
             kicker: "You receive",
             title: "Which marketing enquiries became bookings, and why the rest did not",
-            lead: "Sales sends back results on the people Digital and Field sent them, so next week’s calendar is not a guess.",
+            lead: "Customer Experience sends back results on the people Digital and Field sent them, so next week’s calendar is not a guess.",
             art: "cmc-h-shot.png",
             body: [
               "An enquiry is not the result. A booking is. The reasons people did not book tell you which ad or which town to pause. Two weeks of poor-quality enquiries is a problem to escalate, not a shrug. Do not invent a new service from a lost enquiry — send the pattern to Intelligence."
             ],
             points: [
-              { title: "Use it in the weekly report", why: "Bookings from marketing enquiries, if Sales has closed them." }
+              { title: "Use it in the weekly report", why: "Bookings from marketing enquiries, if Customer Experience has closed them." }
             ],
             meta: [
-              ["From", "Sales"],
+              ["From", "Customer Experience"],
               ["When", "As they close bookings, rolled up for the weekly report"],
-              ["What you do", "Keep, pause, or change an ad or a stall. Do not book the customer yourself. Send them to Sales and book the person yourself."]
+              ["What you do", "Keep, pause, or change an ad or a stall. Do not book the customer yourself. Send them to Customer Experience and book the person yourself."]
             ]
           },
           {
@@ -1422,7 +1431,7 @@ window.PK_GROWTH = (function () {
             lead: "Which towns, which days, which boards and flyers, the stall budget, which first-worker towns, which offices and societies, the signed papers, and what we will not advertise. Same day the plan is signed.",
             art: "cmc-r-consent.png",
             body: [
-              "This is MKT-05 for field work. Field does not pick a new town. Boards, first-worker papers, and office contracts must match the current kit and the signed papers. Stalls collect names for Sales. First local workers go to Provider Operations. Offices and societies get a written contract. Field does not take bookings or money at a stall. Hotel desks and shops stay with Partnerships."
+              "This is MKT-05 for field work. Field does not pick a new town. Boards, first-worker papers, and office contracts must match the current kit and the signed papers. Stalls collect names for Customer Experience. First local workers go to Provider Experience. Offices and societies get a written contract. Field does not take bookings or money at a stall. Hotel desks and shops stay with Partnerships."
             ],
             points: [
               { title: "The file must name", why: "Town, day, pitch, current boards and flyers, stall budget, first-worker towns and pack, offices and societies and contract pack, what we will not advertise." }
@@ -1464,7 +1473,7 @@ window.PK_GROWTH = (function () {
             meta: [
               ["To", "File it. Send to Head of Growth only if an ad, search page, or stall paused, or spend will go past the plan."],
               ["When", "Every working day when something moved"],
-              ["Copy", "Sales gets only the corrected source notes — not the commentary"]
+              ["Copy", "Customer Experience gets only the corrected source notes — not the commentary"]
             ]
           },
           {
@@ -1482,7 +1491,7 @@ window.PK_GROWTH = (function () {
             meta: [
               ["To", "Head of Growth"],
               ["When", "The same weekday every week, the day before the Growth review"],
-              ["Also", "Digital and Field get what to keep, pause, or change. Sales gets what will arrive next week."]
+              ["Also", "Digital and Field get what to keep, pause, or change. Customer Experience gets what will arrive next week."]
             ]
           },
           {
@@ -1546,7 +1555,7 @@ window.PK_GROWTH = (function () {
             ],
             points: [
               { title: "What you produce", why: "Every new person has an answer Operations wrote, and a daily note if something moved." },
-              { title: "What you do not produce", why: "A booking. That is Sales." }
+              { title: "What you do not produce", why: "A booking. That is Customer Experience." }
             ]
           },
           {
@@ -1570,7 +1579,7 @@ window.PK_GROWTH = (function () {
             lead: "Do not keep spending while you ‘just look at it’. Head of Growth hears before the plan breaks or an untrue sentence stays live.",
             art: "cmc-e-stop.png",
             body: [
-              "Stop that ad, search page, or those stall days. Write why and the time. Tell the manager, and tell Sales if enquiries will stop arriving. If money will go past the plan, or a sentence might be untrue, take the file down and tell Head of Growth before more money goes out or the file stays live."
+              "Stop that ad, search page, or those stall days. Write why and the time. Tell the manager, and tell Customer Experience if enquiries will stop arriving. If money will go past the plan, or a sentence might be untrue, take the file down and tell Head of Growth before more money goes out or the file stays live."
             ],
             points: [
               { title: "You do", why: "Pause only that work. Keep the rest of the signed plan running." },
@@ -1587,7 +1596,7 @@ window.PK_GROWTH = (function () {
             when: "Every working day if spend jumped, an ad, search page, or stall paused, a source is missing, or you are doing Digital or Field work today because nobody is in that job. Short. Written. The goal is an empty missing-source list.",
             lead: "Catch a leak the same day — not in next week’s meeting.",
             body: [
-              "This note exists so Head of Growth never discovers a pause by accident, and so Sales never sits overnight on a marketing enquiry with no source."
+              "This note exists so Head of Growth never discovers a pause by accident, and so Customer Experience never sits overnight on a marketing enquiry with no source."
             ],
             contents: [
               { title: "Money spent today and this month, against ads budget and stall budget", why: "The signed plan is the rule, not the ad account and not a stall." },
@@ -1599,7 +1608,7 @@ window.PK_GROWTH = (function () {
             mustHave: ["Date", "Money vs plan for ads and for stalls", "New enquiries from paid ads / search / stalls", "Missing sources still open", "Pauses", "Covering Digital or Field, or both jobs filled"],
             submit: [
               { to: "File", why: "Every working day when something moved." },
-              { to: "Sales", why: "Only the corrected source notes — not the commentary." },
+              { to: "Customer Experience", why: "Only the corrected source notes — not the commentary." },
               { to: "Head of Growth", why: "Only if an ad, search page, or stall had to pause, or spend will go past the plan." }
             ]
           },
@@ -1616,8 +1625,8 @@ window.PK_GROWTH = (function () {
             contents: [
               { title: "Money spent vs plan, ads and stalls shown separately", why: "A gap with no name is spend nobody owns." },
               { title: "Enquiries by paid ads, by search (SEO), and by stalls", why: "So we can stop what is dead. Do not mix search into ads." },
-              { title: "Percent of enquiries that name their source (target 95% or more)", why: "Sales cannot work a nameless lead." },
-              { title: "Bookings from marketing enquiries, if Sales has closed them", why: "Enquiries are not the result. Bookings are." },
+              { title: "Percent of enquiries that name their source (target 95% or more)", why: "Customer Experience cannot work a nameless lead." },
+              { title: "Bookings from marketing enquiries, if Customer Experience has closed them", why: "Enquiries are not the result. Bookings are." },
               { title: "Three things that worked, three that failed, one or two changes", why: "A list of ten wishes is not a plan." }
             ],
             mustHave: ["Week dates", "Money vs plan for ads and stalls", "Enquiries by paid ads / search / stalls", "Percent with a source", "Bookings from marketing", "Anything off plan", "Next week’s changes", "Who owns each change"],
@@ -1625,7 +1634,7 @@ window.PK_GROWTH = (function () {
               { to: "Head of Growth", why: "This is the marketing page of the weekly Growth review." },
               { to: "Digital Marketing Manager", why: "What to keep, pause, or change in paid ads and in SEO (search)." },
               { to: "Field Marketing Manager", why: "Which towns and which days." },
-              { to: "Sales", why: "What will arrive next week and how it will be labelled." }
+              { to: "Customer Experience", why: "What will arrive next week and how it will be labelled." }
             ]
           },
           {
@@ -1643,13 +1652,13 @@ window.PK_GROWTH = (function () {
               { title: "Marketing kit for the month, or confirmation last month’s kit still stands", why: "No live ad or flyer without sentences you have signed." },
               { title: "What we will not advertise", why: "Stops Digital ‘testing’ an unapproved service." },
               { title: "Stall days named: town, date, boards and flyers", why: "Stalls on random Saturdays that are not on the plan cannot be measured." },
-              { title: "Check that every online line lands in a place Sales already uses", why: "Spend with no path to Sales is wasted money." }
+              { title: "Check that every online line lands in a place Customer Experience already uses", why: "Spend with no path to Customer Experience is wasted money." }
             ],
             mustHave: ["Month", "Day-by-day calendar", "Ads budget and stall budget", "SEO / search pages for the month", "Kit date", "What we will not advertise", "Where online enquiries land", "Head of Growth signature"],
             submit: [
               { to: "Head of Growth", why: "To sign. Spend does not start without this." },
               { to: "Digital and Field", why: "Their working calendar the same day it is signed." },
-              { to: "Sales", why: "How enquiries will arrive and how they will be labelled." }
+              { to: "Customer Experience", why: "How enquiries will arrive and how they will be labelled." }
             ]
           }
         ],
@@ -1720,7 +1729,7 @@ window.PK_GROWTH = (function () {
           {
             name: "Marketing enquiries that name where they came from",
             target: "95% or more",
-            why: "Enquiries with no source cannot be improved, and Sales cannot work them well.",
+            why: "Enquiries with no source cannot be improved, and Customer Experience cannot work them well.",
             how: "Count people Operations asked and wrote an answer for, divided by all new marketing people that week. A blank answer that Operations has not yet asked counts against the rate. Partner enquiries are not in this number."
           },
           {
@@ -1774,11 +1783,11 @@ window.PK_GROWTH = (function () {
             ]
           },
           {
-            title: "Sales says marketing enquiries are poor quality for two weeks in a row",
+            title: "Customer Experience says marketing enquiries are poor quality for two weeks in a row",
             lead: "Enquiries that never book are not growth. Two weeks is a pattern, not a bad day.",
             art: "cmc-h-note.png",
             body: [
-              "Pull sample enquiries, where they came from, and why Sales lost them. Pause the dead ad or town that produced nothing. Hand the pattern to Intelligence. Tell Head of Growth what you will change — one or two changes, not ten."
+              "Pull sample enquiries, where they came from, and why Customer Experience lost them. Pause the dead ad or town that produced nothing. Hand the pattern to Intelligence. Tell Head of Growth what you will change — one or two changes, not ten."
             ],
             points: [
               { title: "You do", why: "Pause the dead work. Do not invent a new service." },
@@ -1804,18 +1813,18 @@ window.PK_GROWTH = (function () {
       story: "You own all of Panun Kaergar online — ads, search, the app, social, other sites, and the videos that feed them. Marketing Manager gives you the month. You send back a written report of what worked and what failed, and you count how many people Operations marked as coming from your ads or search pages. You do not invent the offer. You do not book the customer.",
       receives: [
         { from: "Marketing Manager", what: "Towns, services, ads money, the signed kit (words and look), where a lead must land, and what we will not do this month." },
-        { from: "Sales", what: "Which digital leads booked, and why the rest were lost." },
+        { from: "Customer Experience", what: "Which digital leads booked, and why the rest were lost." },
         { from: "Operations", what: "Raw customer-feedback and provider videos for the Content Maker to edit." },
         { from: "CEO / founder", what: "Personal brand films, when they are the face." },
-        { from: "Technology", what: "Access to the website and app so search work can happen, and tracking that a test lead really lands in Sales." },
+        { from: "Technology", what: "Access to the website and app so search work can happen, and tracking that a test lead really lands in Customer Experience." },
         { from: "Content Maker", what: "Finished files, filed the same day." }
       ],
       gives: [
-        { to: "Sales", what: "Digital enquiries the same day: named online place, campaign or post, service, town. Operations has already written how they found us." },
+        { to: "Customer Experience", what: "Digital enquiries the same day: named online place, campaign or post, service, town. Operations has already written how they found us." },
         { to: "Marketing Manager", what: "Daily note if spend jumped or you paused. Weekly written report by named online place (Meta, Google, search, social, other), with 3 wins, 3 fails, and one written request." },
         { to: "Intelligence", what: "What people keep asking that we do not sell — as a signal, not as a new ad." },
         { to: "Content Maker", what: "File list, the kit, Operations footage when it arrives, and which files ads and social need next." },
-        { to: "Sales / CX", what: "Angry comments about a job — do not fight in public." }
+        { to: "Customer Experience", what: "Angry comments about a job — do not fight in public." }
       ],
       records: ["This month’s marketing kit", "Ads calendar", "Spend log", "Tracking checklist", "Content library", "File lists and Operations footage log", "Digital enquiry sources", "Daily notes", "Weekly digital report"],
       good: ["Every paid ad had a dummy enquiry reach Operations.", "Operations asked people where they found us. You counted those answers.", "The library has today’s approved files.", "The weekly written report names fails, not only wins.", "Customer and provider films were edited from Operations footage.", "New claims waited for Marketing Manager.", "If Content Maker is empty, it is written that you are doing it today because nobody is in that job."],
@@ -1838,16 +1847,16 @@ window.PK_GROWTH = (function () {
         },
         hub: {
           icon: "campaign",
-          line: "You run paid ads and unpaid website and search work. Content Maker makes the files. You say yes, then publish. Sales books the customer."
+          line: "You run paid ads and unpaid website and search work. Content Maker makes the files. You say yes, then publish. Customer Experience books the customer and finishes the job."
         },
         definition: {
           what: [
             { title: "You own all online work of Panun Kaergar", why: "Paid ads (Meta, Google, and any other paid ads), website search, the app store, unpaid social, Reddit, Quora, and other sites. One job, one promise. Operations writes how each digital enquiry found us." },
             { title: "You say yes or no on Content Maker files, then you publish from the company folder", why: "Content Maker makes AI videos, AI still posts, brand films, founder films, and edits Operations footage. You write the yes. Only then a file may go live on ads, social, search, or other sites." },
-            { title: "You send the person to Sales the same day. Operations has already written how they found us", why: "You bring the person in. Sales books the job. If Operations did not write how they found us, pause that ad or page the same day." }
+            { title: "You send the person to Customer Experience the same day. Operations has already written how they found us", why: "You bring the person in. Customer Experience books the job and finishes it. If Operations did not write how they found us, pause that ad or page the same day." }
           ],
           why: [
-            { title: "If ads, search, and social invent three companies, Sales cannot learn", why: "One job must own every named online place and send the truth back: what worked and what failed, by named online place (Meta, Google, search, social, or other), not as one lump called “digital”." },
+            { title: "If ads, search, and social invent three companies, Customer Experience cannot learn", why: "One job must own every named online place and send the truth back: what worked and what failed, by named online place (Meta, Google, search, social, or other), not as one lump called “digital”." },
             { title: "Making files and going live are two jobs", why: "Content Maker produces. You approve, file, publish, and spend. If one person does both without naming it, nobody owns the company folder." },
             { title: "The signed plan is the rule, not the ad account", why: "Towns, services, words, ads money, and the landing path come down from Marketing Manager. A new claim, price, town, or face goes back up before it goes live." }
           ]
@@ -1932,7 +1941,7 @@ window.PK_GROWTH = (function () {
             term: "Digital Marketing Manager",
             aliases: ["Digital Marketing Manager"],
             also: "This job",
-            meaning: "This job. Owns paid ads, unpaid website and search work, the company folder of videos and posts, the Content Maker job, and the answers Operations wrote for people from your ads and pages. Publishes from the library. Sends enquiry where Operations wrote how they found us to Sales."
+            meaning: "This job. Owns paid ads, unpaid website and search work, the company folder of videos and posts, the Content Maker job, and the answers Operations wrote for people from your ads and pages. Publishes from the library. Sends enquiry where Operations wrote how they found us to Customer Experience."
           }
         ],
         responsibilities: [
@@ -1942,17 +1951,17 @@ window.PK_GROWTH = (function () {
             lead: "Build, watch, and pause Meta, Google, and any other paid ads that are on the calendar, inside the ads line, with tracking that a test lead can prove.",
             art: "cmc-h-shot.png",
             body: [
-              "There is no extra ads manager. This job spends the ads money. A live ad with no owner is a leak. Before launch: town, service, and words match the kit; the file is an approved library file; a dummy lead has landed in Sales; Sales has been told the ad is live.",
+              "There is no extra ads manager. This job spends the ads money. A live ad with no owner is a leak. Before launch: town, service, and words match the kit; the file is an approved library file; a dummy lead has landed in Customer Experience; Customer Experience has been told the ad is live.",
               "Every working day: spend vs the ads line, enquiries, cost. If spend is running away, pause and tell Marketing Manager. If spend is on and enquiries are zero, pause and check tracking and the file. Write what you did."
             ],
             points: [
-              { title: "Test lead before spend", why: "If the dummy does not reach Sales, do not launch." },
+              { title: "Test lead before spend", why: "If the dummy does not reach Customer Experience, do not launch." },
               { title: "Library file only", why: "No file from a personal phone. Content Maker makes it. You approve it first." },
-              { title: "Pause the same day tracking dies", why: "Spend with no path to Sales is waste." }
+              { title: "Pause the same day tracking dies", why: "Spend with no path to Customer Experience is waste." }
             ],
             meta: [
               ["Takes from", "Signed calendar, kit, ads line, approved library file"],
-              ["Hands to", "Sales (enquiry where Operations wrote how they found us); Marketing Manager (daily note if spend jumped or you paused)"]
+              ["Hands to", "Customer Experience (enquiry where Operations wrote how they found us); Marketing Manager (daily note if spend jumped or you paused)"]
             ]
           },
           {
@@ -1961,17 +1970,17 @@ window.PK_GROWTH = (function () {
             lead: "Keep the website and app store true to this month’s marketing kit. Post and answer on unpaid social and other sites using the same words. Count them on their own line.",
             art: "cmc-h-yes.png",
             body: [
-              "Unpaid pages and posts are not free ads. It still needs the same promise, a name, a tag, and a path to Sales. Do not mix search results into ads spend. Do not book in a comment or a thread.",
-              "Use approved library files. A new claim, price, town, or face waits for Marketing Manager. If someone starts a sales chat, hand it to Sales the same day."
+              "Unpaid pages and posts are not free ads. It still needs the same promise, a name, a tag, and a path to Customer Experience. Do not mix search results into ads spend. Do not book in a comment or a thread.",
+              "Use approved library files. A new claim, price, town, or face waits for Marketing Manager. If someone starts a booking chat, hand it to Customer Experience the same day."
             ],
             points: [
               { title: "Same promise as the ads", why: "The customer must not hear a second company on Reddit or the website." },
               { title: "Own line in the weekly written report", why: "So unpaid pages that send nobody cannot hide inside ads numbers." },
-              { title: "Do not close the chat", why: "You generate. Sales books." }
+              { title: "Do not close the chat", why: "You generate. Customer Experience books the job and finishes it." }
             ],
             meta: [
               ["Takes from", "Kit; approved library files; signed calendar for which towns and services may be talked about"],
-              ["Hands to", "Sales (people Operations marked as search or unpaid posts, and comment threads); weekly written report by named online place (Meta, Google, search, social, other)"]
+              ["Hands to", "Customer Experience (people Operations marked as search or unpaid posts, and comment threads); weekly written report by named online place (Meta, Google, search, social, other)"]
             ]
           },
           {
@@ -2016,20 +2025,20 @@ window.PK_GROWTH = (function () {
           {
             kicker: "Responsibility 5",
             title: "People from your ads and pages reach Operations. Operations asks where they found us",
-            lead: "You do not ask the customer. Operations asks — call, WhatsApp, app, form, or any other way — and writes the answer. You read those answers. You do not start the sales chat.",
+            lead: "You do not ask the customer. Operations asks — call, WhatsApp, app, form, or any other way — and writes the answer. You read those answers. You do not start the booking chat.",
             art: "cmc-h-note.png",
             body: [
-              "A person with no answer from Operations cannot be counted. Tell Operations when an ad or page is live. Each day, read the answers they wrote. If someone is chatting you in comments, pass the thread to Sales.",
-              "Operations or Sales sends back which digital leads booked and why the rest were lost. That is how next week’s calendar gets smarter. You do not close."
+              "A person with no answer from Operations cannot be counted. Tell Operations when an ad or page is live. Each day, read the answers they wrote. If someone is chatting you in comments, pass the thread to Customer Experience.",
+              "Operations or Customer Experience sends back which digital leads booked and why the rest were lost. That is how next week’s calendar gets smarter. You do not close."
             ],
             points: [
               { title: "Operations asks. You read.", why: "You cannot see the source from the phone number." },
               { title: "Dummy enquiry reaches Operations, or do not launch", why: "If Operations never received the person, the ad is wasted." },
-              { title: "Comments are not yours to close", why: "Hand the person to Sales. Angry job comments go to Sales / CX." }
+              { title: "Comments are not yours to close", why: "Hand the person to Customer Experience. Angry job comments go to Customer Experience." }
             ],
             meta: [
               ["Takes from", "The answers Operations wrote"],
-              ["Hands to", "Marketing Manager (counts); Sales (the person, not a booking you closed)"]
+              ["Hands to", "Marketing Manager (counts); Customer Experience (the person, not a booking you closed)"]
             ]
           },
           {
@@ -2048,7 +2057,7 @@ window.PK_GROWTH = (function () {
             ],
             meta: [
               ["Takes from", "Spend log, lead tags, library log, Content Maker weekly written report"],
-              ["Hands to", "Marketing Manager; Intelligence (signals only); Sales (what will arrive)"]
+              ["Hands to", "Marketing Manager; Intelligence (signals only); Customer Experience (what will arrive)"]
             ]
           }
         ],
@@ -2115,25 +2124,25 @@ window.PK_GROWTH = (function () {
             side: "in",
             kicker: "You receive",
             title: "Which digital leads booked, and why the rest were lost",
-            lead: "Sales sends back results on the leads Operations wrote a source for, so next week’s calendar is not a guess.",
+            lead: "Customer Experience sends back results on the leads Operations wrote a source for, so next week’s calendar is not a guess.",
             art: "cmc-h-note.png",
             body: [
               "Enquiries are not the result. Bookings are. Lost-lead reasons tell you which ad, page, or file to pause. Do not invent a new offer from a lost lead — send ‘people keep asking for X’ to Intelligence."
             ],
             points: [
-              { title: "Use it in the weekly written report", why: "Bookings from digital leads, if Sales has closed them." }
+              { title: "Use it in the weekly written report", why: "Bookings from digital leads, if Customer Experience has closed them." }
             ],
             meta: [
-              ["From", "Sales"],
+              ["From", "Customer Experience"],
               ["When", "As they close, rolled up for the weekly written report"],
-              ["You do with it", "Keep, pause, or change an ad or page. Do not book the customer yourself. Send them to Sales and close the person yourself."]
+              ["You do with it", "Keep, pause, or change an ad or page. Do not book the customer yourself. Send them to Customer Experience and close the person yourself."]
             ]
           },
           {
             side: "in",
             kicker: "You receive",
             title: "Tracking and site access from Technology",
-            lead: "Proof that a test lead really lands in Sales, and access to the website and app store listing so search work can happen.",
+            lead: "Proof that a test lead really lands in Customer Experience, and access to the website and app store listing so search work can happen.",
             art: "cmc-r-produce.png",
             body: [
               "If tracking dies, pause paid ads the same day. If the website cannot take a lead, pause the pipes that land there. Write the time. Tell Marketing Manager."
@@ -2150,17 +2159,17 @@ window.PK_GROWTH = (function () {
           {
             side: "out",
             kicker: "You give",
-            title: "Tagged digital leads to Sales",
+            title: "Tagged digital leads to Customer Experience",
             lead: "Every digital enquiry the same working day: digital + pipe + campaign or post, service and town if you have them.",
             art: "cmc-h-note.png",
             body: [
               "Do not book the job. Do not sit on the chat. If they started in comments, pass the thread."
             ],
             points: [
-              { title: "Must contain", why: "Source tag. Destination Sales already uses." }
+              { title: "Must contain", why: "Source tag. Destination Customer Experience already uses." }
             ],
             meta: [
-              ["To", "Sales"],
+              ["To", "Customer Experience"],
               ["When", "The same working day the lead arrives"]
             ]
           },
@@ -2196,7 +2205,7 @@ window.PK_GROWTH = (function () {
             meta: [
               ["To", "Marketing Manager"],
               ["When", "Every working day when something moved"],
-              ["Copy", "Sales gets only the new enquiry where Operations wrote how they found us — not the commentary"]
+              ["Copy", "Customer Experience gets only the new enquiry where Operations wrote how they found us — not the commentary"]
             ]
           },
           {
@@ -2214,7 +2223,7 @@ window.PK_GROWTH = (function () {
             meta: [
               ["To", "Marketing Manager"],
               ["When", "The day before the marketing weekly report"],
-              ["Also", "Intelligence gets only ‘people keep asking for X’. Sales gets anything still sitting in a thread."]
+              ["Also", "Intelligence gets only ‘people keep asking for X’. Customer Experience gets anything still sitting in a thread."]
             ]
           },
           {
@@ -2258,7 +2267,7 @@ window.PK_GROWTH = (function () {
             art: "cmc-r-library.png",
             body: [
               "Open Content Maker’s same-day note and the review path. Check each file against this month’s marketing kit. Write yes or no. On a yes, put it in the library and mark the log. On a no, write what to change.",
-              "Publish only what the calendar asked for, using only library files. File where it went live. If someone starts a sales chat, hand it to Sales."
+              "Publish only what the calendar asked for, using only library files. File where it went live. If someone starts a booking chat, hand it to Customer Experience."
             ],
             points: [
               { title: "Approve", why: "Kit check. Same working day if you can." },
@@ -2277,7 +2286,7 @@ window.PK_GROWTH = (function () {
             ],
             points: [
               { title: "You create", why: "Counts from what Operations wrote, and a daily note if something moved." },
-              { title: "You do not create", why: "A booking. That is Sales." }
+              { title: "You do not create", why: "A booking. That is Customer Experience." }
             ]
           },
           {
@@ -2330,7 +2339,7 @@ window.PK_GROWTH = (function () {
             mustHave: ["Date", "Spend today", "Spend vs plan", "New enquiry where Operations wrote how they found us by named online place (Meta, Google, search, social, or other)", "Pauses", "Tracking broken?", "Library same day?", "Covering Content Maker because nobody is in that job? yes/no"],
             submit: [
               { to: "Marketing Manager", why: "Every working day when something moved." },
-              { to: "Sales", why: "Only the new enquiry where Operations wrote how they found us — not the commentary." }
+              { to: "Customer Experience", why: "Only the new enquiry where Operations wrote how they found us — not the commentary." }
             ]
           },
           {
@@ -2341,7 +2350,7 @@ window.PK_GROWTH = (function () {
             when: "The day before the marketing weekly report. Must include fails, not only wins.",
             lead: "Show, by named online place (Meta, Google, search, social, or other), whether the signed plan produced enquiry where Operations wrote how they found us — and name 3 things that worked, 3 that failed, and one written request.",
             body: [
-              "Do not hide an ad or page that sends nobody inside one lump called “digital”. Fold in Content Maker’s weekly production pack as the content page. Bookings from digital leads, if Sales has closed them. Sales chats handed over from comments."
+              "Do not hide an ad or page that sends nobody inside one lump called “digital”. Fold in Content Maker’s weekly production pack as the content page. Bookings from digital leads, if Customer Experience has closed them. Booking chats handed from comments to Customer Experience."
             ],
             contents: [
               { title: "Table by named online place (Meta, Google, search, social, or other)", why: "Meta, Google, search, social, other — spend, enquiries, cost, share of people with a written answer for how they found us." },
@@ -2406,10 +2415,10 @@ window.PK_GROWTH = (function () {
             lead: "If Operations has no answer, pause that ad or page until they ask.",
             art: "cmc-h-note.png",
             body: [
-              "You do not ask the customer. Operations asks how they found us and writes paid ad or search. You copy that answer, plus Facebook, Google, or the page name if they said it. Service and town if you have them. Same day into Sales."
+              "You do not ask the customer. Operations asks how they found us and writes paid ad or search. You copy that answer, plus Facebook, Google, or the page name if they said it. Service and town if you have them. Same day into Customer Experience."
             ],
             points: [
-              { title: "What good looks like", why: "Sales never asks ‘where did this come from?’ about a digital lead." }
+              { title: "What good looks like", why: "Customer Experience never asks ‘where did this come from?’ about a digital lead." }
             ]
           },
           {
@@ -2424,8 +2433,8 @@ window.PK_GROWTH = (function () {
             ]
           },
           {
-            title: "Sales chats in comments go to Sales — you do not close them",
-            lead: "This job generates. Sales books. Angry job comments go to Sales / CX.",
+            title: "A booking chat in the comments goes to Customer Experience. You do not close it",
+            lead: "This job generates. Customer Experience books the job and finishes it. Angry job comments go to Customer Experience.",
             art: "cmc-e-stop.png",
             body: [
               "Do not fight in public. Do not ‘already start it’. Pass the thread the same day."
@@ -2439,13 +2448,13 @@ window.PK_GROWTH = (function () {
           {
             name: "Test lead before a paid ad goes live",
             target: "100%",
-            why: "Spend with no path to Sales is waste.",
+            why: "Spend with no path to Customer Experience is waste.",
             how: "Count paid ads launched this week. A launch counts when the launch record shows a dummy enquiry reached Operations before launch time."
           },
           {
             name: "Digital enquiries with Operations’ written answer",
             target: "95% or more",
-            why: "Sales cannot work a nameless lead.",
+            why: "Customer Experience cannot work a nameless lead.",
             how: "People Operations marked as paid ad or search, divided by all digital enquiries that week. People with no answer that could not be fixed the same day pause that ad or page."
           },
           {
@@ -2482,7 +2491,7 @@ window.PK_GROWTH = (function () {
         escalations: [
           {
             title: "Ad account hacked, ad rejected, or tracking dead",
-            lead: "Paid spend is at risk, or the path to Sales is broken.",
+            lead: "Paid spend is at risk, or the path to Customer Experience is broken.",
             art: "cmc-e-stop.png",
             body: [
               "Pause. Screenshot. Write the time. Tell Marketing Manager the same day. Do not keep spending while you ‘just look at it’."
@@ -2497,11 +2506,11 @@ window.PK_GROWTH = (function () {
             lead: "This is not a marketing argument. It is a job complaint in public.",
             art: "cmc-h-note.png",
             body: [
-              "Do not fight in public. Hand the thread to Sales / CX. Copy Marketing Manager. Keep the live file up only if Marketing Manager says the claim is still true."
+              "Do not fight in public. Hand the thread to Customer Experience. Copy Marketing Manager. Keep the live file up only if Marketing Manager says the claim is still true."
             ],
             points: [
               { title: "You do", why: "Pass the thread. Do not promise a refund or a rework." },
-              { title: "You send to", why: "Sales / CX, copy Marketing Manager." }
+              { title: "You send to", why: "Customer Experience, copy Marketing Manager." }
             ]
           },
           {
@@ -2601,7 +2610,7 @@ window.PK_GROWTH = (function () {
             term: "Digital Marketing Manager",
             aliases: ["Digital Marketing Manager"],
             also: "This job's manager",
-            meaning: "The seat this role reports to. Owns all online work: paid ads, website and app search, social, other sites, videos and posts. Writes the file list, hands over this month’s marketing kit, names the review path and the company library, approves finished files, and publishes from the library. Sends digital enquiries to Sales after Operations has written how they found us."
+            meaning: "The seat this role reports to. Owns all online work: paid ads, website and app search, social, other sites, videos and posts. Writes the file list, hands over this month’s marketing kit, names the review path and the company library, approves finished files, and publishes from the library. Sends digital enquiries to Customer Experience after Operations has written how they found us."
           },
           {
             id: "mkm",
@@ -3209,7 +3218,7 @@ window.PK_GROWTH = (function () {
           {
             name: "Files on the signed kit",
             target: "100%",
-            why: "On-kit files keep the signed promise so Sales inherits one company.",
+            why: "On-kit files keep the signed promise so Customer Experience inherits one company.",
             how: "The Digital Marketing Manager spot-checks approved library files against the current kit. A file counts when its claims, prices, towns, faces, and look match the kit, including AI output."
           },
           {
@@ -3295,7 +3304,7 @@ window.PK_GROWTH = (function () {
       }
     },
     fmm: {
-      story: "You run Panun Kaergar on the ground. Three jobs report to you. Field Visitor actually visits the market — full-time or someone we pay on a written contract. First Provider Onboarding goes on site and signs the first service providers onto us, then hands them to Provider Operations. Office and Society Contracts writes maintenance contracts with offices and housing societies. You write their days, you check that each job hits its one result, and you send the truth to Marketing Manager.",
+      story: "You run Panun Kaergar on the ground. Three jobs report to you. Field Visitor actually visits the market — full-time or someone we pay on a written contract. First Provider Onboarding goes on site and signs the first service providers onto us, then hands them to Provider Experience. Office and Society Contracts writes maintenance contracts with offices and housing societies. You write their days, you check that each job hits its one result, and you send the truth to Marketing Manager.",
       receives: [
         { from: "Marketing Manager", what: "Which towns, which days, which boards, the stall budget, which first-worker towns, which offices and societies, the signed papers, and what we will not advertise." },
         { from: "Expansion", what: "Which towns we can actually serve — only through the signed plan." },
@@ -3304,22 +3313,22 @@ window.PK_GROWTH = (function () {
         { from: "Office and Society Contracts", what: "Signed contract files and the weekly contract note." }
       ],
       gives: [
-        { to: "Field Visitor", what: "Towns, days, boards, flyers, where a stall list must land in Sales, and what we will not advertise. If they are someone we pay on a written contract, a written contract." },
-        { to: "First Provider Onboarding", what: "Which towns, the signed first-worker papers, and who in Provider Operations receives the signed file." },
+        { to: "Field Visitor", what: "Towns, days, boards, flyers, where a stall list must land in Customer Experience, and what we will not advertise. If they are someone we pay on a written contract, a written contract." },
+        { to: "First Provider Onboarding", what: "Which towns, the signed first-worker papers, and who in Provider Experience receives the signed file." },
         { to: "Office and Society Contracts", what: "Which towns, which buildings, the signed contract papers, and where a signed contract must be filed." },
         { to: "Marketing Manager", what: "The weekly field report: visits, first local workers, contracts, days that did not happen, town that produced nothing." },
         { to: "Intelligence", what: "What people kept asking for that we do not sell — as a signal, not as a new offer." }
       ],
       records: ["Signed field calendar for all three jobs", "Written briefs to the three jobs", "Written contracts for people we pay to visit", "First-worker papers and office-contract papers", "Weekly field report", "Notes of days you covered an empty job"],
-      good: ["Each of the three jobs had a written brief the day the month was signed.", "Someone we pay to visit had a written contract.", "First local workers were handed to Provider Operations the same week.", "Office and society contracts used the signed papers.", "If a seat was empty, you wrote that you were doing that job.", "The weekly report named visits, first local workers, and contracts — not only stalls."],
+      good: ["Each of the three jobs had a written brief the day the month was signed.", "Someone we pay to visit had a written contract.", "First local workers were handed to Provider Experience the same week.", "Office and society contracts used the signed papers.", "If a seat was empty, you wrote that you were doing that job.", "The weekly report named visits, first local workers, and contracts — not only stalls."],
       bad: ["A visitor with only a verbal yes and no written contract.", "Keeping first local workers as a private team.", "A verbal yes from a society called a contract.", "Signing a hotel desk as if that were this job.", "Doing an empty job without writing it down.", "A weekly report that only lists good stalls."],
       detailed: {
         copy: {
           heroKicker: "What this job is",
           defTitle: "What this job is",
           lanesTitle: "This job has three parts",
-          definition: "You run Panun Kaergar on the ground. Three jobs report to you. Field Visitor visits stalls and streets and collects names for Sales. First Provider Onboarding goes in person to the first local workers in a town and gets them to sign the papers, then sends the file to Provider Operations. Office and Society Contracts writes maintenance contracts with named offices and housing societies. You write which town, which day, and which of those three jobs goes. You check each job hits its result, and you send Marketing Manager a weekly field report. You do not do those three jobs yourself unless that job has nobody in it — and then you write that you are doing it today because nobody is in that job.",
-          owns: "These are the six things this job owns. Do not do Sales’ job, Digital’s job, or Partnerships’ job. Do not keep first local workers as your own team.",
+          definition: "This seat stays on the chart. Do not hire a person into it until stall visits, first signatures, and office and society contracts are each already happening. Until that day, Marketing Manager does this work and writes: I am doing Field Marketing today because the seat is empty. When a person is in this seat, you run Panun Kaergar on the ground. Three jobs report to you. Field Visitor visits stalls and streets and collects names for Customer Experience. First Provider Onboarding goes in person to the first local workers in a town and gets them to sign the papers, then sends the file to Provider Experience. Office and Society Contracts writes maintenance contracts with named offices and housing societies. You write which town, which day, and which of those three jobs goes. You check each job hits its result, and you send Marketing Manager a weekly field report. If one of those three seats is empty, you do that work and write: I am doing that seat today because the seat is empty. Do not hire that person until that seat’s own result is already happening.",
+          owns: "These are the six things this job owns. Do not do Customer Experience’s job, Digital’s job, or Partnerships’ job. Do not keep first local workers as your own team.",
           lanes: "This job has one result. The work is in three parts. Each part is a job that reports to you. Field Visitor walks the market. First Provider Onboarding gets the first local workers to sign. Office and Society Contracts writes the maintenance contract. If a job is empty, you do that work today. Write that down.",
           responsibilities: "These are the six parts of the job. Click a row to open the full card.",
           handoffs: "Work arrives as a written file and leaves as a written file. A chat message is not the file. Click a row to open the full card.",
@@ -3335,14 +3344,14 @@ window.PK_GROWTH = (function () {
         },
         definition: {
           what: [
-            { title: "You give Field Visitor their written work — the person who actually visits the market", why: "Named town, named day. Stall, street, or follow-up. They collect names for Sales. They may be full-time or someone we pay on a written contract. A verbal yes is not a visitor. Someone we pay to visit must have a written contract." },
-            { title: "You give First Provider Onboarding and Office and Society Contracts their written work", why: "First Provider Onboarding goes in person to the first local workers, gets them to sign the papers, then sends the file to Provider Operations. Office and Society Contracts writes a maintenance contract from the signed papers Offer and Finance already approved. A verbal yes is not a contract." },
+            { title: "You give Field Visitor their written work — the person who actually visits the market", why: "Named town, named day. Stall, street, or follow-up. They collect names for Customer Experience. They may be full-time or someone we pay on a written contract. A verbal yes is not a visitor. Someone we pay to visit must have a written contract." },
+            { title: "You give First Provider Onboarding and Office and Society Contracts their written work", why: "First Provider Onboarding goes in person to the first local workers, gets them to sign the papers, then sends the file to Provider Experience. Office and Society Contracts writes a maintenance contract from the signed papers Offer and Finance already approved. A verbal yes is not a contract." },
             { title: "You write one calendar and send honest numbers up", why: "Marketing Manager cannot run Field without visits, first local workers, and contracts shown separately. If a job has nobody in it, you do that work and write that you are doing it today because nobody is in that job." }
           ],
           why: [
             { title: "Kashmir still buys from people they can see", why: "Stalls alone are not enough. A town also needs the first local workers on site, and offices and societies on a written contract. If one person tries to do all of that without naming who visits, nobody owns the result." },
-            { title: "Visiting the market, getting first local workers to sign, and writing office contracts are three jobs", why: "Field Visitor collects names at the stall. Sales books the job. Nobody takes money or books the job at the stall. First local workers are not a private team. A verbal yes from an office is not a contract. Three jobs, three results." },
-            { title: "Hotel desks are Partnerships & Channels Manager. Jobs are Provider Operations. Towns are Market Expansion Manager", why: "You do not sign hotels that send us guests. You do not put workers on customer jobs. You do not pick a new town. You get the first local workers to sign the papers, then send the file to Provider Operations." }
+            { title: "Visiting the market, getting first local workers to sign, and writing office contracts are three jobs", why: "Field Visitor collects names at the stall. Customer Experience books the job and finishes it. Nobody takes money or books the job at the stall. First local workers are not a private team. A verbal yes from an office is not a contract. Three jobs, three results." },
+            { title: "Hotel desks are Partnerships & Channels Manager. Jobs are Provider Experience. Towns are Market Expansion Manager", why: "You do not sign hotels that send us guests. You do not put workers on customer jobs. You do not pick a new town. You get the first local workers to sign the papers, then send the file to Provider Experience." }
           ]
         },
         glossary: [
@@ -3350,13 +3359,13 @@ window.PK_GROWTH = (function () {
             id: "field-visitor",
             term: "Field Visitor",
             aliases: ["Field Visitor", "visitor", "someone we pay to visit", "someone we pay to visit, on a written contract"],
-            meaning: "The person who actually visits the market — a stall, a street, a follow-up. They report to you. They may be full-time, or someone we pay on a written contract. The job is the same whether the person is a full-time employee or someone we pay on a written contract. A verbal yes is not a visitor. Someone we pay to visit must have a written contract. They collect names for Sales the same day. They do not take a booking or money."
+            meaning: "The person who actually visits the market — a stall, a street, a follow-up. They report to you. They may be full-time, or someone we pay on a written contract. The job is the same whether the person is a full-time employee or someone we pay on a written contract. A verbal yes is not a visitor. Someone we pay to visit must have a written contract. They collect names for Customer Experience the same day. They do not take a booking or money."
           },
           {
             id: "first-provider-onboarding",
             term: "First Provider Onboarding",
             aliases: ["First Provider Onboarding", "first local workers", "first local worker"],
-            meaning: "The person who goes in person to the first local workers in a named town and gets them to sign the papers so they can work with Panun Kaergar. They send the signed file to Provider Operations the same week. They do not give them a customer job. They do not keep a private team."
+            meaning: "The person who goes in person to the first local workers in a named town and gets them to sign the papers so they can work with Panun Kaergar. They send the signed file to Provider Experience the same week. They do not give them a customer job. They do not keep a private team."
           },
           {
             id: "office-society-contracts",
@@ -3368,7 +3377,7 @@ window.PK_GROWTH = (function () {
             id: "first-provider-pack",
             term: "First-worker papers",
             aliases: ["first-worker papers", "signed first-worker papers", "provider pack"],
-            meaning: "The signed papers Offer, Finance, and Provider Operations already approved: who we are, what the first local worker will do, what they will not do, and what we pay. First Provider Onboarding may not invent a payment. If a price is missing, stop."
+            meaning: "The signed papers Offer, Finance, and Provider Experience already approved: who we are, what the first local worker will do, what they will not do, and what we pay. First Provider Onboarding may not invent a payment. If a price is missing, stop."
           },
           {
             id: "contract-pack",
@@ -3386,7 +3395,7 @@ window.PK_GROWTH = (function () {
             id: "stall-list",
             term: "Stall list",
             aliases: ["stall list", "same-day stall list", "field list", "field lead list"],
-            meaning: "The written list Field Visitor sends to Sales before they leave the town. Each row: name, phone, service, town, source = stall + town + date. A missing phone is not an enquiry. You get the count, not the phone numbers."
+            meaning: "The written list Field Visitor sends to Customer Experience before they leave the town. Each row: name, phone, service, town, source = stall + town + date. A missing phone is not an enquiry. You get the count, not the phone numbers."
           },
           {
             id: "stall-budget",
@@ -3421,15 +3430,15 @@ window.PK_GROWTH = (function () {
           },
           {
             id: "sales",
-            term: "Sales",
-            aliases: ["Sales"],
-            meaning: "The people who book the customer. Field Visitor sends them the stall list the same day. One-off jobs from a person in an office still go to Sales unless the maintenance contract already covers them."
+            term: "Customer Experience",
+            aliases: ["Customer Experience"],
+            meaning: "The Customer Experience seat inside Operations. They book the customer and stay with the job until both sides are settled. Field Visitor sends them the stall list the same day. One-off jobs from a person in an office still go to them unless the maintenance contract already covers those jobs. Growth does not book."
           },
           {
             id: "provider-ops",
-            term: "Provider Operations",
-            aliases: ["Provider Operations", "Provider Operations Manager"],
-            meaning: "The people who run providers on jobs. First Provider Onboarding hands them the signed file. You do not assign the first job. You do not keep the first local workers as a private team."
+            term: "Provider Experience",
+            aliases: ["Provider Experience", "Provider Experience Manager"],
+            meaning: "Provider Experience Manager and Provider Support. First Provider Onboarding gets the signature and sends them the signed file. Provider Experience Manager assigns it. Provider Support finishes the file. You do not assign the first job, and you do not keep the first local workers as a private team."
           },
           {
             id: "partnerships",
@@ -3458,22 +3467,22 @@ window.PK_GROWTH = (function () {
             art: "cmc-h-kit.png",
             body: [
               "A calendar with nobody walking it is decoration. The day the month is signed, give Field Visitor a written brief. If they are someone we pay on a written contract, attach their written contract. A chat is not the contract.",
-              "They collect names for Sales the same day. They do not book. They do not take money. You get the count, not the phone numbers."
+              "They collect names for Customer Experience the same day. They do not book. They do not take money. You get the count, not the phone numbers."
             ],
             points: [
               { title: "Written brief, not a voice note", why: "Someone we pay to visit who only has a chat message will invent the company." },
               { title: "Empty box is written as you doing that job", why: "Silence looks like the visit happened." },
-              { title: "They send the list to Sales", why: "You run this job. You do not sit on the phones." }
+              { title: "They send the list to Customer Experience", why: "You run this job. You do not sit on the phones." }
             ],
             meta: [
               ["You take from", "The signed month from Marketing Manager"],
-              ["You give to", "Field Visitor (the brief); Sales gets the list from them"]
+              ["You give to", "Field Visitor (the brief); Customer Experience gets the list from them"]
             ]
           },
           {
             kicker: "Responsibility 2",
             title: "Give First Provider Onboarding their written work and check the result",
-            lead: "Send them on site to the first service providers in a named town. They use the signed papers. Then they hand the signed providers to Provider Operations to run on jobs.",
+            lead: "Send them on site to the first service providers in a named town. They use the signed papers. Then they hand the signed providers to Provider Experience to run on jobs.",
             art: "cmc-h-shot.png",
             body: [
               "A stall in a town with no first local workers is how the brand dies in public. Expansion has already opened the town. This job signs the first people who will do the jobs, on site, in writing.",
@@ -3481,18 +3490,18 @@ window.PK_GROWTH = (function () {
             ],
             points: [
               { title: "On site, with the signed papers", why: "A verbal yes in a tea shop is not enough. They cannot work with us until they have signed the papers." },
-              { title: "Hand to Provider Operations the same week", why: "A private list is not a system." },
-              { title: "You do not run their jobs", why: "That is Provider Operations." }
+              { title: "Hand to Provider Experience the same week", why: "A private list is not a system." },
+              { title: "You do not run their jobs", why: "That is Provider Experience." }
             ],
             meta: [
               ["You take from", "The signed month; the signed first-worker papers"],
-              ["You give to", "First Provider Onboarding (the brief); Provider Operations gets the signed file from them"]
+              ["You give to", "First Provider Onboarding (the brief); Provider Experience gets the signed file from them"]
             ]
           },
           {
             kicker: "Responsibility 3",
             title: "Give Office and Society Contracts their written work and check the result",
-            lead: "Give them the signed contract papers. They write maintenance contracts with named offices and housing societies. They do not invent a price. One-off jobs still go to Sales.",
+            lead: "Give them the signed contract papers. They write maintenance contracts with named offices and housing societies. They do not invent a price. One-off jobs still go to Customer Experience.",
             art: "cmc-h-yes.png",
             body: [
               "A verbal yes from a society is not a contract. Operations cannot plan jobs from a verbal yes. Hotel desks and shops that send us customers are Partnerships. This job is the office or housing society that buys ongoing maintenance from us.",
@@ -3548,7 +3557,7 @@ window.PK_GROWTH = (function () {
           {
             kicker: "Responsibility 6",
             title: "Send honest numbers up — visits, first local workers, and contracts",
-            lead: "Each week: visits vs calendar, names to Sales, first local workers who signed, office and society contracts signed, days that did not happen, town that produced nothing, one or two written requests.",
+            lead: "Each week: visits vs calendar, names to Customer Experience, first local workers who signed, office and society contracts signed, days that did not happen, town that produced nothing, one or two written requests.",
             art: "cmc-p-weekly.png",
             body: [
               "This is FLD-07. Marketing Manager needs this page for the weekly marketing report. Do not hide a town that produced nothing inside ‘field was busy’. Do not send only stall numbers if first local workers and contracts sat still.",
@@ -3587,7 +3596,7 @@ window.PK_GROWTH = (function () {
             side: "in",
             kicker: "You receive",
             title: "Weekly notes from the three jobs",
-            lead: "Field Visitor: visits vs calendar, names to Sales, town that produced nothing. First Provider Onboarding: signed files handed to Provider Operations. Office and Society Contracts: contracts signed, waiting, or failed.",
+            lead: "Field Visitor: visits vs calendar, names to Customer Experience, town that produced nothing. First Provider Onboarding: signed files handed to Provider Experience. Office and Society Contracts: contracts signed, waiting, or failed.",
             art: "cmc-p-weekly.png",
             body: [
               "These become the three pages of your weekly field report. If a note is late, write how many days it is late. Do not invent their numbers. If a job has nobody in it, you wrote that you are doing that job, and you pull the numbers yourself."
@@ -3621,7 +3630,7 @@ window.PK_GROWTH = (function () {
             side: "out",
             kicker: "You give",
             title: "Weekly field report to Marketing Manager",
-            lead: "Visits vs calendar, names to Sales by town, first local workers who signed and handed to Provider Operations, office and society contracts signed, days that did not happen, town that produced nothing, one or two written requests.",
+            lead: "Visits vs calendar, names to Customer Experience by town, first local workers who signed and handed to Provider Experience, office and society contracts signed, days that did not happen, town that produced nothing, one or two written requests.",
             art: "cmc-p-weekly.png",
             body: [
               "This is the field page of Marketing Manager’s weekly report. What failed must be named. Not a voice note. Not only stalls."
@@ -3653,21 +3662,21 @@ window.PK_GROWTH = (function () {
             kicker: "FLD-02 · If it is a visit day",
             fork: "yes",
             title: "Check Field Visitor on a stall or market day",
-            lead: "Confirm they have town, pitch, and boards. They collect names and send the list to Sales the same day. They do not book. They do not take money.",
+            lead: "Confirm they have town, pitch, and boards. They collect names and send the list to Customer Experience the same day. They do not book. They do not take money.",
             art: "cmc-h-shot.png",
             body: [
               "If nobody sits in that job, you visit yourself and write that you are doing that job. You still do not take a booking or money."
             ],
             points: [
               { title: "When", why: "A named visit day on the signed calendar." },
-              { title: "What you produce", why: "A visit that actually happened, or a written note that the visit did not happen, and a list in Sales." }
+              { title: "What you produce", why: "A visit that actually happened, or a written note that the visit did not happen, and a list in Customer Experience." }
             ]
           },
           {
             kicker: "FLD-03 · If the town needs first local workers",
             fork: "no",
             title: "Send First Provider Onboarding on site",
-            lead: "Approved pack. On site. Signed file to Provider Operations the same week. Do not assign the first job.",
+            lead: "Approved pack. On site. Signed file to Provider Experience the same week. Do not assign the first job.",
             art: "cmc-h-files.png",
             body: [
               "If the signed papers are missing a price, stop. Finance signs price. You do not invent it. If nobody sits in that job, you go on site yourself and write that you are doing that job."
@@ -3684,7 +3693,7 @@ window.PK_GROWTH = (function () {
             lead: "They go to the named building with named services and a signed price. No cash in the office. They file it. They tell Operations they can plan the jobs. You do that work yourself only if that job has nobody in it, and you write that down.",
             art: "cmc-h-yes.png",
             body: [
-              "One-off jobs from a person in that building still go to Sales unless the contract already covers them. Hotel desks stay with Partnerships."
+              "One-off jobs from a person in that building still go to Customer Experience unless the contract already covers them. Hotel desks stay with Partnerships."
             ],
             points: [
               { title: "What you produce", why: "A signed contract file, or a written note that the visit did not happen." },
@@ -3733,8 +3742,8 @@ window.PK_GROWTH = (function () {
             ],
             contents: [
               { title: "Visit days vs calendar (completed / missed)", why: "A day that did not happen is a missed town. Write it." },
-              { title: "Names to Sales, by town", why: "Dead stall towns must be named so the plan can change." },
-              { title: "First local workers who signed and handed to Provider Operations", why: "A town with a stall and no first local workers is a brand problem." },
+              { title: "Names to Customer Experience, by town", why: "Dead stall towns must be named so the plan can change." },
+              { title: "First local workers who signed and handed to Provider Experience", why: "A town with a stall and no first local workers is a brand problem." },
               { title: "Office and society contracts signed, waiting, or failed", why: "A verbal yes is not a contract." },
               { title: "Empty jobs you covered this week", why: "A box with no name has no owner." }
             ],
@@ -3800,14 +3809,14 @@ window.PK_GROWTH = (function () {
             ]
           },
           {
-            title: "First local workers are handed to Provider Operations after they sign",
+            title: "First local workers are handed to Provider Experience after they sign",
             lead: "They are not kept as a private team.",
             art: "cmc-h-files.png",
             body: [
-              "Signed file the same week. You do not assign the first job. You do not skip Provider Operations."
+              "Signed file the same week. You do not assign the first job. You do not skip Provider Experience."
             ],
             points: [
-              { title: "What good looks like", why: "Every signed first-provider file has a received date from Provider Operations." }
+              { title: "What good looks like", why: "Every signed first-provider file has a received date from Provider Experience." }
             ]
           },
           {
@@ -3841,16 +3850,16 @@ window.PK_GROWTH = (function () {
             how: "Count visit days on the signed calendar this month. A day counts as done if Field Visitor’s stall log exists, or your covering note exists. A miss counts if it was written the same day. An unwritten miss counts against the rate."
           },
           {
-            name: "Stall names that reach Sales the same day",
+            name: "Stall names that reach Customer Experience the same day",
             target: "95% or more",
             why: "If it is not sent the same day, it did not happen.",
-            how: "Count complete rows Sales received the same calendar day as the visit, divided by all complete rows written at visits that week. Incomplete rows (no phone) are not in either number."
+            how: "Count complete rows Customer Experience received the same calendar day as the visit, divided by all complete rows written at visits that week. Incomplete rows (no phone) are not in either number."
           },
           {
-            name: "First local workers who signed and handed to Provider Operations",
+            name: "First local workers who signed and handed to Provider Experience",
             target: "Every named town on the plan has a dated file, or a written note that nobody signed",
             why: "A stall with no first local workers trains people to hate the brand.",
-            how: "Each named first-provider town this month has either a signed file Provider Operations received, or a written note that nobody signed dated the same week the visits finished."
+            how: "Each named first-provider town this month has either a signed file Provider Experience received, or a written note that nobody signed dated the same week the visits finished."
           },
           {
             name: "Office and society contracts from the signed papers only",
@@ -3924,59 +3933,59 @@ window.PK_GROWTH = (function () {
       }
     },
     fve: {
-      story: "You actually visit the market. Field Marketing Manager writes which towns, which days, which boards. You show up. You collect names for Sales the same day. You write stall, plus the town and the date, because you met the person. You may be full-time, or someone we pay on a written contract. The job is the same whether the person is a full-time employee or someone we pay on a written contract. You do not take the booking. You do not take money.",
+      story: "You actually visit the market. Field Marketing Manager writes which towns, which days, which boards. You show up. You collect names for Customer Experience the same day. You write stall, plus the town and the date, because you met the person. You may be full-time, or someone we pay on a written contract. The job is the same whether the person is a full-time employee or someone we pay on a written contract. You do not take the booking. You do not take money.",
       receives: [
-        { from: "Field Marketing Manager", what: "Which towns, which days, which boards and flyers, where a stall list must land in Sales, and what we will not advertise. If you are someone we pay on a written contract, your written contract." }
+        { from: "Field Marketing Manager", what: "Which towns, which days, which boards and flyers, where a stall list must land in Customer Experience, and what we will not advertise. If you are someone we pay on a written contract, your written contract." }
       ],
       gives: [
-        { to: "Sales", what: "A complete stall list the same day: name, phone, service, town, stall + town + date." },
+        { to: "Customer Experience", what: "A complete stall list the same day: name, phone, service, town, stall + town + date." },
         { to: "Field Marketing Manager", what: "The count, the stall log, days that did not happen, town that produced nothing, materials that need reprinting, and the weekly visit note." }
       ],
       records: ["Written brief for the month", "Stall list for each visit day", "Stall log", "Weekly visit note", "Notes of days that did not happen", "Your written contract if you are someone we pay on a written contract"],
-      good: ["Every visit was a named town on the plan.", "Sales received the list the same day.", "No cash and no booking at the stall.", "Boards matched this month’s marketing kit.", "A day that did not happen was written the same day.", "If you are someone we pay on a written contract, you had a written contract in hand."],
+      good: ["Every visit was a named town on the plan.", "Customer Experience received the list the same day.", "No cash and no booking at the stall.", "Boards matched this month’s marketing kit.", "A day that did not happen was written the same day.", "If you are someone we pay on a written contract, you had a written contract in hand."],
       bad: ["A random Saturday stall because you were nearby.", "Taking a booking to look busy.", "A flyer with last year’s price.", "A list that arrived the next morning.", "Visiting with no written third-party contract.", "Onboarding first local workers or writing office contracts as if that were this job."],
       detailed: {
         copy: {
           heroKicker: "What this job is",
           defTitle: "What this job is",
           lanesTitle: "This job has three parts",
-          definition: "You actually visit the market — a stall, a street, or a follow-up. Field Marketing Manager writes which town, which day, and which boards. You show up, collect name, phone, service, and town, and send that list to Sales the same day. You write stall, plus the town and the date, because you met the person. You do not take money or book the job. You may be a full-time employee or someone we pay on a written contract — the work is the same. You do not get first local workers to sign papers, and you do not write office contracts.",
-          owns: "These are the six things this job owns. Do not do Sales’ job, First Provider Onboarding, or Office and Society Contracts.",
+          definition: "You actually visit the market — a stall, a street, or a follow-up. Field Marketing Manager writes which town, which day, and which boards. You show up, collect name, phone, service, and town, and send that list to Customer Experience the same day. You write stall, plus the town and the date, because you met the person. You do not take money or book the job. You may be a full-time employee or someone we pay on a written contract — the work is the same. You do not get first local workers to sign papers, and you do not write office contracts.",
+          owns: "These are the six things this job owns. Do not do Customer Experience’s job, First Provider Onboarding, or Office and Society Contracts.",
           lanes: "This job has one result. You do all three parts yourself. Go to the town. Collect names. Do the office work. If this job is empty, Field Marketing Manager does this work today. They write that down.",
           responsibilities: "These are the six parts of the job. Click a row to open the full card.",
           handoffs: "Work arrives as a written file and leaves as a written file. A chat message is not the file. Click a row to open the full card.",
           workflow: "Every working day, open the written brief, the marketing kit, and the materials bag. If it is a visit day, run VIS-01 then send the list (VIS-02). If it is an office day, restock and confirm the next visit (VIS-03). If a town produced nothing after three visits, name it (VIS-05). If something goes wrong at the stall, stop it the same day (VIS-06). Click a step to open the full card.",
-          reporting: "You write three reports. Same-day stall list to Sales. Stall log. Weekly visit note to Field Marketing Manager. Click a row to open the full report.",
+          reporting: "You write three reports. Same-day stall list to Customer Experience. Stall log. Weekly visit note to Field Marketing Manager. Click a row to open the full report.",
           standards: "The bar this job is measured against. Click a card to read the full standard.",
           kpis: "How Field Marketing Manager knows this job is working. Each number has a target, a reason it matters, and a counting rule.",
           escalations: "What to do when there is a fight, a town with no providers, a board that might be untrue, or you are someone we pay on a written contract with no written contract. Click a row to open the full steps."
         },
         hub: {
           icon: "storefront",
-          line: "You stand at the stall. You collect names. Sales books. Operations does the job."
+          line: "You stand at the stall. You collect names. Customer Experience books the job and finishes it."
         },
         definition: {
           what: [
             { title: "You stand in the named town on the named day", why: "Field Marketing Manager writes the calendar. Expansion has already opened the town. You do not pick a new town because you were nearby." },
-            { title: "You collect names for Sales. You do not book the job", why: "Name, phone, service, town. Stall, plus town and date, because you met the person. Say Sales will call. Do not take money." },
-            { title: "You send the stall list to Sales the same day, with stall plus the town and the date", why: "Sales books the job. You do not book or take money. You may be a full-time employee or someone we pay on a written contract — the work is the same. If you are paid on a contract, that written contract must be in your hand before you visit." }
+            { title: "You collect names for Customer Experience. You do not book the job", why: "Name, phone, service, town. Stall, plus town and date, because you met the person. Say Customer Experience will call. Do not take money." },
+            { title: "You send the stall list to Customer Experience the same day, with stall plus the town and the date", why: "Customer Experience books the job and finishes it. You do not book or take money. You may be a full-time employee or someone we pay on a written contract — the work is the same. If you are paid on a contract, that written contract must be in your hand before you visit." }
           ],
           why: [
             { title: "Kashmir still buys from people they can see", why: "If stalls are a mood, nobody can tell which towns work. Named town, named day, approved boards, same-day list." },
-            { title: "You collect names at the stall. Sales books the job. You do not take money or book the job yourself", why: "If you take the booking at the stall, Sales has no list, Operations cannot finish the job as a system, and Head of Growth cannot see the truth." },
+            { title: "You collect names at the stall. Customer Experience books the job and finishes it. You do not take money or book the job yourself", why: "If you take the booking at the stall, Customer Experience has no list, the job is not in the system, and Head of Growth cannot see the truth." },
             { title: "Visiting is not getting first local workers to sign papers, and is not writing office contracts", why: "Those are two other jobs under Field Marketing Manager. You walk the market." }
           ]
         },
         glossary: [
           { id: "stall-day", term: "Visit day", aliases: ["visit day", "stall day", "stall days"], meaning: "A named day on the signed calendar when you stand in a named town with approved boards and flyers. If it is not on the calendar, it is not a visit day." },
-          { id: "stall-list", term: "Stall list", aliases: ["stall list", "same-day stall list"], meaning: "The written list you send to Sales before you leave the town. Each row: name, phone, service, town, source = stall + town + date. A missing phone is not an enquiry. Field Marketing Manager gets the count, not the phone numbers." },
+          { id: "stall-list", term: "Stall list", aliases: ["stall list", "same-day stall list"], meaning: "The written list you send to Customer Experience before you leave the town. Each row: name, phone, service, town, source = stall + town + date. A missing phone is not an enquiry. Field Marketing Manager gets the count, not the phone numbers." },
           { id: "stall-log", term: "Stall log", aliases: ["stall log", "field log"], meaning: "The written proof you stood where the plan said: town, pitch, start and end, materials used, how many names you collected, incidents, and that you took no cash and no booking." },
           { id: "signed-kit", term: "Marketing kit", aliases: ["marketing kit", "signed kit"], meaning: "The instruction book for this month: logo, colours, sentences, prices, towns, and faces. Your boards and flyers must match this book. A new sentence waits for a written yes from Field Marketing Manager (VIS-04)." },
           { id: "third-party", term: "Someone we pay to visit, on a written contract", aliases: ["third party", "third-party", "contract visitor"], meaning: "This job filled by a person who is not a full-time employee, on a written contract. The job is the same whether the person is a full-time employee or someone we pay on a written contract. A verbal yes is not this job. Do not visit until the written contract is a file. Do not visit until the contract is a file." },
           { id: "fmm", term: "Field Marketing Manager", aliases: ["Field Marketing Manager"], meaning: "The person you report to. They give you the brief. They hold First Provider Onboarding and Office and Society Contracts too. If nobody is in this job, they do that work and write that you are doing it today because nobody is in that job." },
-          { id: "sales", term: "Sales", aliases: ["Sales"], meaning: "The people who book the customer. You send them the stall list the same day. You do not book at the stall." },
+          { id: "sales", term: "Customer Experience", aliases: ["Customer Experience"], meaning: "The Customer Experience seat inside Operations. They book the customer and stay with the job until both sides are settled. You send them the stall list the same day. You do not book at the stall." },
           { id: "operations-ask", term: "Operations asks where they found us", aliases: ["Operations asks where they found us", "How did you find us"], meaning: "If a person later calls, WhatsApps, uses the app, or fills a form, Operations asks how they found us and writes the answer. That is not your stall list. Your stall list is only for people you met." },
-          { id: "fve", term: "Field Visitor", aliases: ["Field Visitor"], also: "This job — you", meaning: "This job. You visit the market. You collect names for Sales. You do not book. You do not take money." }
+          { id: "fve", term: "Field Visitor", aliases: ["Field Visitor"], also: "This job — you", meaning: "This job. You visit the market. You collect names for Customer Experience. You do not book. You do not take money." }
         ],
         responsibilities: [
           {
@@ -4001,20 +4010,20 @@ window.PK_GROWTH = (function () {
           {
             kicker: "Responsibility 2",
             title: "Collect names. Do not book.",
-            lead: "Name, phone, service, town. Stall + town + date. Say Sales will call. Do not take money. Do not promise a job on the spot.",
+            lead: "Name, phone, service, town. Stall + town + date. Say Customer Experience will call. Do not take money. Do not promise a job on the spot.",
             art: "cmc-h-note.png",
             body: [
-              "You collect names at the stall. Sales books the job. You do not take money or book the job yourself. You meet the person, so you write stall, plus the town and the date. If they later call Operations, Operations asks how they found us. You do not own that call.",
+              "You collect names at the stall. Customer Experience books the job and finishes it. You do not take money or book the job yourself. You meet the person, so you write stall, plus the town and the date. If they later call Operations, Operations asks how they found us. You do not own that call.",
               "A missing phone is not an enquiry. Do not pad the list. Do not take a booking to look busy."
             ],
             points: [
-              { title: "Complete row, or it is not an enquiry", why: "Sales cannot call a name with no phone." },
-              { title: "Say Sales will call", why: "A job promise at the stall becomes a fight." },
+              { title: "Complete row, or it is not an enquiry", why: "Customer Experience cannot call a name with no phone." },
+              { title: "Say Customer Experience will call", why: "A job promise at the stall becomes a fight." },
               { title: "No cash", why: "Money at the stall has no owner in the books." }
             ],
             meta: [
               ["You take from", "People who stop at the stall"],
-              ["You give to", "Sales (the list); Field Marketing Manager (the count)"]
+              ["You give to", "Customer Experience (the list); Field Marketing Manager (the count)"]
             ]
           },
           {
@@ -4037,11 +4046,11 @@ window.PK_GROWTH = (function () {
           },
           {
             kicker: "Responsibility 4",
-            title: "Send the stall list to Sales the same day",
+            title: "Send the stall list to Customer Experience the same day",
             lead: "Before you leave the town. One list. Confirm they received it. Field Marketing Manager gets the count, not the phone numbers.",
             art: "cmc-r-consent.png",
             body: [
-              "This is VIS-02. A list that arrives tomorrow is a person nobody called. If Sales did not receive it, send it again the same day."
+              "This is VIS-02. A list that arrives tomorrow is a person nobody called. If Customer Experience did not receive it, send it again the same day."
             ],
             points: [
               { title: "Before you leave the town", why: "Morning-after lists are how names die." },
@@ -4049,7 +4058,7 @@ window.PK_GROWTH = (function () {
             ],
             meta: [
               ["You take from", "The stall"],
-              ["You give to", "Sales (the list); Field Marketing Manager (the count)"]
+              ["You give to", "Customer Experience (the list); Field Marketing Manager (the count)"]
             ]
           },
           {
@@ -4091,7 +4100,7 @@ window.PK_GROWTH = (function () {
             side: "in",
             kicker: "You receive",
             title: "The month’s written visit work from Field Marketing Manager",
-            lead: "Which towns, which days, which boards, where a stall list must land in Sales, and what we will not advertise. If you are someone we pay on a written contract, your written contract.",
+            lead: "Which towns, which days, which boards, where a stall list must land in Customer Experience, and what we will not advertise. If you are someone we pay on a written contract, your written contract.",
             art: "cmc-h-kit.png",
             body: ["You do not write your own month. You do not pick a new town. Boards must match the current marketing kit."],
             points: [{ title: "The file must name", why: "Town, day, pitch, current boards, where the list lands, what we will not advertise." }],
@@ -4100,12 +4109,12 @@ window.PK_GROWTH = (function () {
           {
             side: "out",
             kicker: "You give",
-            title: "The stall list to Sales",
+            title: "The stall list to Customer Experience",
             lead: "Name, phone, service, town, stall + town + date. Before you leave the town. Confirm they received it.",
             art: "cmc-h-note.png",
             body: ["This is VIS-02. Field Marketing Manager gets the count, not the phone numbers."],
-            points: [{ title: "The list must have", why: "Date, town, pitch, each complete row, count, time Sales received it." }],
-            meta: [["To", "Sales"], ["When", "The same day, before you leave the town"], ["Copy", "Field Marketing Manager gets the count only"]]
+            points: [{ title: "The list must have", why: "Date, town, pitch, each complete row, count, time Customer Experience received it." }],
+            meta: [["To", "Customer Experience"], ["When", "The same day, before you leave the town"], ["Copy", "Field Marketing Manager gets the count only"]]
           },
           {
             side: "out",
@@ -4134,7 +4143,7 @@ window.PK_GROWTH = (function () {
             kicker: "VIS-01 · If it is a visit day",
             fork: "yes",
             title: "Stand in the named town. Collect names. Do not book.",
-            lead: "Approved boards only. Write each person. Say Sales will call. Send the list before you leave (VIS-02). Write the stall log.",
+            lead: "Approved boards only. Write each person. Say Customer Experience will call. Send the list before you leave (VIS-02). Write the stall log.",
             art: "cmc-h-shot.png",
             body: ["Confirm town, pitch, and boards. Write name, phone, service, town, stall + town + date. A missing phone is not an enquiry. Do not take money. Do not promise a job."],
             points: [
@@ -4148,7 +4157,7 @@ window.PK_GROWTH = (function () {
             title: "Restock. Confirm the next visit. Close any list still sitting",
             lead: "Count boards and flyers. Take out anything that is not in this month’s kit. Do not put up a stall because you were nearby.",
             art: "cmc-h-files.png",
-            body: ["If yesterday’s list never reached Sales, send it now and write that it was late."],
+            body: ["If yesterday’s list never reached Customer Experience, send it now and write that it was late."],
             points: [
               { title: "You do", why: "Restock. Confirm. Close late lists." },
               { title: "You do not", why: "Invent a Saturday stall." }
@@ -4156,13 +4165,13 @@ window.PK_GROWTH = (function () {
           },
           {
             kicker: "VIS-02 · Step 3",
-            title: "Send the stall list to Sales before you leave the town",
+            title: "Send the stall list to Customer Experience before you leave the town",
             lead: "One list. Complete rows. Confirm they received it. Field Marketing Manager gets the count.",
             art: "cmc-h-note.png",
-            body: ["If Sales did not receive it, send it again the same day. Do not wait until morning."],
+            body: ["If Customer Experience did not receive it, send it again the same day. Do not wait until morning."],
             points: [
               { title: "What you produce", why: "A received list, and a count for Field Marketing Manager." },
-              { title: "What you do not produce", why: "A booking. That is Sales." }
+              { title: "What you do not produce", why: "A booking. That is Customer Experience." }
             ]
           },
           {
@@ -4182,18 +4191,18 @@ window.PK_GROWTH = (function () {
           {
             period: "Same day",
             kicker: "VIS-R1",
-            title: "Stall list to Sales",
+            title: "Stall list to Customer Experience",
             art: "cmc-h-note.png",
             when: "Before you leave the town. Same day as the visit. Not the next morning.",
-            lead: "Hand Sales a complete list so they can call. You collect names at the stall. Sales books the job. You do not take money or book the job yourself.",
+            lead: "Hand Customer Experience a complete list so they can call. You collect names at the stall. Customer Experience books the job and finishes it. You do not take money or book the job yourself.",
             body: ["Field Marketing Manager gets the count, not the phone numbers."],
             contents: [
               { title: "Name, phone, service wanted, town", why: "A missing phone is not an enquiry." },
               { title: "Source = stall + town + date", why: "So we can score the town, not just ‘marketing’." }
             ],
-            mustHave: ["Date", "Town", "Pitch", "Each row: name, phone, service, town, stall + town + date", "Count of complete rows", "Sales received? time"],
+            mustHave: ["Date", "Town", "Pitch", "Each row: name, phone, service, town, stall + town + date", "Count of complete rows", "Customer Experience received? time"],
             submit: [
-              { to: "Sales", why: "The list the same day. Confirm they received it." },
+              { to: "Customer Experience", why: "The list the same day. Confirm they received it." },
               { to: "Field Marketing Manager", why: "The count, not the phone numbers." }
             ]
           },
@@ -4219,7 +4228,7 @@ window.PK_GROWTH = (function () {
             art: "cmc-h-files.png",
             when: "Every visit day, packed with the same-day list.",
             lead: "Prove we stood where the plan said, with approved materials, and did not take money or bookings.",
-            body: ["If it is not written, it did not happen. Do not send this log to Sales — they get the list."],
+            body: ["If it is not written, it did not happen. Do not send this log to Customer Experience — they get the list."],
             contents: [
               { title: "Town, pitch, start and end", why: "If it is not written, it did not happen." },
               { title: "Incidents", why: "Stop. Write. Tell Field Marketing Manager the same day." }
@@ -4234,18 +4243,18 @@ window.PK_GROWTH = (function () {
         standards: [
           { title: "Every visit is a named town on the signed plan", lead: "If it is not on the calendar, you do not stand there.", art: "cmc-h-kit.png", body: ["You do not add a Saturday because you were nearby."], points: [{ title: "What good looks like", why: "A stranger can open the brief and see which town, which day, which boards." }] },
           { title: "95 percent or more of visit days actually happen, or the miss is written the same day", lead: "A day that did not happen that nobody wrote looks like we stood there.", art: "cmc-h-shot.png", body: ["Rain, a locked pitch, or illness is a written note that the visit did not happen. Silence is not a miss."], points: [{ title: "What good looks like", why: "Every calendar visit day has either a stall log or a written note that the visit did not happen dated the same day." }] },
-          { title: "95 percent or more of stall names reach Sales the same day", lead: "Before you leave the town. Complete rows only.", art: "cmc-h-note.png", body: ["Name, phone, service, town, stall + town + date. A missing phone is not an enquiry."], points: [{ title: "What good looks like", why: "Sales can open the list the same evening and start calling." }] },
-          { title: "No cash, no booking, and no job promise at the stall", lead: "You collect names at the stall. Sales books the job. You do not take money or book the job yourself.", art: "cmc-e-stop.png", body: ["Say Sales will call. Do not take money to hold a slot."], points: [{ title: "What good looks like", why: "The stall log says no cash and no booking, and Sales owns every person on the list." }] },
+          { title: "95 percent or more of stall names reach Customer Experience the same day", lead: "Before you leave the town. Complete rows only.", art: "cmc-h-note.png", body: ["Name, phone, service, town, stall + town + date. A missing phone is not an enquiry."], points: [{ title: "What good looks like", why: "Customer Experience can open the list the same evening and start calling." }] },
+          { title: "No cash, no booking, and no job promise at the stall", lead: "You collect names at the stall. Customer Experience books the job and finishes it. You do not take money or book the job yourself.", art: "cmc-e-stop.png", body: ["Say Customer Experience will call. Do not take money to hold a slot."], points: [{ title: "What good looks like", why: "The stall log says no cash and no booking, and Customer Experience owns every person on the list." }] },
           { title: "Boards and flyers match this month’s marketing kit", lead: "Last year’s price is a brand problem.", art: "cmc-h-yes.png", body: ["Pack only the current kit. A new sentence waits for VIS-04."], points: [{ title: "What good looks like", why: "Every live board traces to a dated line in the marketing kit." }] },
           { title: "Someone we pay to visit has a written contract before they visit", lead: "A verbal yes is not this job.", art: "cmc-h-files.png", body: ["Full-time employee or someone we pay on a written contract — the job is the same either way. The contract must be a file."], points: [{ title: "What good looks like", why: "No visit day happens without the contract in hand if you are not full-time." }] }
         ],
         kpis: [
           { name: "Visit days vs the calendar", target: "95% or more completed, or a written note the same day that the visit did not happen", why: "A missed field day is a missed town.", how: "Count visit days on the written brief this month. A day counts as done if the stall log exists. A miss counts if it was written the same day." },
-          { name: "Stall names that reach Sales the same day", target: "95% or more", why: "If it is not sent the same day, it did not happen.", how: "Complete rows Sales received the same calendar day, divided by all complete rows written that week." },
+          { name: "Stall names that reach Customer Experience the same day", target: "95% or more", why: "If it is not sent the same day, it did not happen.", how: "Complete rows Customer Experience received the same calendar day, divided by all complete rows written that week." },
           { name: "Enquiries per planned visit day", target: "Track by town, and improve vs last month", why: "Town that produced nothing must be named so the plan can change.", how: "Complete stall-list rows that week, divided by planned visit days that week, shown by town." },
           { name: "Visits only in towns on the plan", target: "100%", why: "Stalls on random Saturdays that are not on the plan cannot be measured.", how: "Every stall log town must appear on the written brief for that date." },
           { name: "Weekly visit note on time", target: "100%", why: "Field Marketing Manager needs numbers, not a story with only good towns.", how: "A written note exists the working day before the weekly field report." },
-          { name: "No cash and no booking at the stall", target: "100%", why: "You collect names at the stall. Sales books the job. You do not take money or book the job yourself.", how: "Every stall log says no cash and no booking. Any cash or booking is a miss." }
+          { name: "No cash and no booking at the stall", target: "100%", why: "You collect names at the stall. Customer Experience books the job and finishes it. You do not take money or book the job yourself.", how: "Every stall log says no cash and no booking. Any cash or booking is a miss." }
         ],
         escalations: [
           { title: "A fight, a false claim, or someone taking bookings in our name", lead: "Trust dies in the street if we look like a shop that takes cash and argues.", art: "cmc-e-stop.png", body: ["Stop that visit. Write what happened. Tell Field Marketing Manager the same day."], points: [{ title: "You do", why: "Stop. Write the time and who was there." }, { title: "You send to", why: "Field Marketing Manager the same day." }] },
@@ -4256,91 +4265,91 @@ window.PK_GROWTH = (function () {
       }
     },
     fpo: {
-      story: "You go in person to the first local workers in a named town (plumbers, electricians, and others) and get them to sign the papers so they can work with Panun Kaergar. You take only the signed first-worker papers. You send the signed file to Provider Operations the same week. You do not give them a customer job. You do not keep a private team.",
+      story: "You go in person to the first local workers in a named town (plumbers, electricians, and others) and get them to sign the papers so they can work with Panun Kaergar. You take only the signed first-worker papers. You send the signed file to Provider Experience the same week. You do not give them a customer job. You do not keep a private team.",
       receives: [
-        { from: "Field Marketing Manager", what: "Which towns, the signed first-worker papers, and who in Provider Operations receives the signed file." }
+        { from: "Field Marketing Manager", what: "Which towns, the signed first-worker papers, and who in Provider Experience receives the signed file." }
       ],
       gives: [
-        { to: "Provider Operations", what: "The signed first-worker file the same week: name, phone, services, towns, start date, signed papers." },
+        { to: "Provider Experience", what: "The signed first-worker file the same week: name, phone, services, towns, start date, signed papers." },
         { to: "Field Marketing Manager", what: "The weekly note: visits, files signed, files sent, towns where nobody signed." }
       ],
-      records: ["Written brief for the month", "First-worker papers in use", "Visit logs", "Signed first-worker files", "Received dates from Provider Operations", "Weekly first-worker note"],
-      good: ["Every visit was a named town on the plan.", "Every person you marked as able to work with us had a signed paper file.", "Provider Operations received the file the same week.", "No invented payment.", "A town that would not sign was named.", "You did not give anyone a customer job."],
+      records: ["Written brief for the month", "First-worker papers in use", "Visit logs", "Signed first-worker files", "Received dates from Provider Experience", "Weekly first-worker note"],
+      good: ["Every visit was a named town on the plan.", "Every person you marked as able to work with us had a signed paper file.", "Provider Experience received the file the same week.", "No invented payment.", "A town that would not sign was named.", "You did not give anyone a customer job."],
       bad: ["Signing people up from a company WhatsApp group without visiting them.", "Calling a verbal yes a signed worker.", "Keeping the names as a private team.", "Inventing a payment on site.", "Giving them the first job yourself.", "Starting work in a town Expansion has not opened."],
       detailed: {
         copy: {
           heroKicker: "What this job is",
           defTitle: "What this job is",
           lanesTitle: "This job has three parts",
-          definition: "You go in person to the first local workers in a named town — plumbers, electricians, and others who will do the jobs — and get them to sign the papers so they can work with Panun Kaergar. You take only the signed first-worker papers. After they sign, you send the file to Provider Operations the same week, so Provider Operations can put them on customer jobs. You do not hire them as your own team, and you do not give them a customer job yourself. Expansion has already opened the town. If nobody sits in this job, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job.",
-          owns: "These are the six things this job owns. Do not do Provider Operations’ job, Field Visitor’s job, or People & HR’s job.",
-          lanes: "This job has one result. You do all three parts yourself. Go in person. Get them to sign. Send the file to Provider Operations. If this job is empty, Field Marketing Manager does this work today. They write that down.",
+          definition: "You go in person to the first local workers in a named town — plumbers, electricians, and others who will do the jobs — and get them to sign the papers so they can work with Panun Kaergar. You take only the signed first-worker papers. After they sign, you send the file to Provider Experience the same week, so Provider Experience can put them on customer jobs. You do not hire them as your own team, and you do not give them a customer job yourself. Expansion has already opened the town. If nobody sits in this job, Field Marketing Manager does that work and writes that they are doing it today because nobody is in that job.",
+          owns: "These are the six things this job owns. Do not do Provider Experience’ job, Field Visitor’s job, or People & HR’s job.",
+          lanes: "This job has one result. You do all three parts yourself. Go in person. Get them to sign. Send the file to Provider Experience. If this job is empty, Field Marketing Manager does this work today. They write that down.",
           responsibilities: "These are the six parts of the job. Click a row to open the full card.",
           handoffs: "Work arrives as a written file and leaves as a written file. A chat message is not the file. Click a row to open the full card.",
-          workflow: "On a named first-worker day, go in person with the signed papers (FPO-01). If they will sign, write the file (FPO-02). Send it to Provider Operations the same week (FPO-03). If the town will not sign, name it (FPO-04). Click a step to open the full card.",
-          reporting: "You write the weekly first-worker note to Field Marketing Manager. The signed file goes to Provider Operations the same week. Click a row to open the full report.",
+          workflow: "On a named first-worker day, go in person with the signed papers (FPO-01). If they will sign, write the file (FPO-02). Send it to Provider Experience the same week (FPO-03). If the town will not sign, name it (FPO-04). Click a step to open the full card.",
+          reporting: "You write the weekly first-worker note to Field Marketing Manager. The signed file goes to Provider Experience the same week. Click a row to open the full report.",
           standards: "The bar this job is measured against. Click a card to read the full standard.",
           kpis: "How Field Marketing Manager knows this job is working. Each number has a target, a reason it matters, and a counting rule.",
-          escalations: "What to do when the papers are missing a price, a town will not sign, someone wants cash on the side, or Provider Operations did not receive the file. Click a row to open the full steps."
+          escalations: "What to do when the papers are missing a price, a town will not sign, someone wants cash on the side, or Provider Experience did not receive the file. Click a row to open the full steps."
         },
         hub: {
           icon: "handshake",
-          line: "You get the first local workers to sign the papers. Provider Operations puts them on customer jobs."
+          line: "You get the first local workers to sign the papers. Provider Experience puts them on customer jobs."
         },
         definition: {
           what: [
             { title: "You go in person to the first local workers", why: "Named town. Meet the plumber, electrician, or other local worker at their shop or house. Do not sign them up from a company WhatsApp group without visiting them." },
             { title: "You get them to sign onto Panun Kaergar with the signed first-worker papers", why: "Who we are, what they will do, what they will not do, what we pay. A verbal yes is not enough. They cannot work with us until they have signed." },
-            { title: "You send the signed file to Provider Operations the same week", why: "You get them to sign the papers. Provider Operations puts them on customer jobs. You do not give them the first job yourself." }
+            { title: "You send the signed file to Provider Experience the same week", why: "You get them to sign the papers. Provider Experience puts them on customer jobs. You do not give them the first job yourself." }
           ],
           why: [
             { title: "A stall with nobody who can do the jobs is how the brand dies in public", why: "Ads and stalls promise a job. If nobody can do that job, the town learns to hate us." },
-            { title: "Getting them to sign and putting them on jobs are two jobs", why: "If you keep a private team, Provider Operations has no list of workers and the customer has no system." },
+            { title: "Getting them to sign and putting them on jobs are two jobs", why: "If you keep a private team, Provider Experience has no list of workers and the customer has no system." },
             { title: "You do not open towns and you do not hire employees", why: "Expansion already opened the town. People & HR owns employees. You get the first local workers to sign so they can work with Panun Kaergar as providers, not as office staff." }
           ]
         },
         glossary: [
-          { id: "first-provider-pack", term: "First-worker papers", aliases: ["first-worker papers", "approved pack", "first-worker papers", "signed first-worker papers"], meaning: "The signed papers Offer, Finance, and Provider Operations already approved: who we are, what they will do, what they will not do, what we pay. You may not invent a payment. If a price is missing, stop." },
+          { id: "first-provider-pack", term: "First-worker papers", aliases: ["first-worker papers", "approved pack", "first-worker papers", "signed first-worker papers"], meaning: "The signed papers Offer, Finance, and Provider Experience already approved: who we are, what they will do, what they will not do, what we pay. You may not invent a payment. If a price is missing, stop." },
           { id: "signed-file", term: "Signed first-worker file", aliases: ["signed file", "first-provider file", "first-worker file"], meaning: "Name, phone, services they can do, towns they can cover, start date, signed papers. Incomplete is not signed. They cannot work with us until this file is complete." },
-          { id: "provider-ops", term: "Provider Operations", aliases: ["Provider Operations"], meaning: "The people who put providers on customer jobs. You send them the signed file. You do not give them the first job yourself." },
+          { id: "provider-ops", term: "Provider Experience", aliases: ["Provider Experience"], meaning: "The people who put providers on customer jobs. You send them the signed file. You do not give them the first job yourself." },
           { id: "fmm", term: "Field Marketing Manager", aliases: ["Field Marketing Manager"], meaning: "The person you report to. They give you the towns and the signed papers. If nobody is in this job, they do that work and write that they are doing it today because nobody is in that job." },
-          { id: "fpo", term: "First Provider Onboarding", aliases: ["First Provider Onboarding"], also: "This job — you", meaning: "This job. You go in person. You get the first local workers to sign the papers. You send the file to Provider Operations." }
+          { id: "fpo", term: "First Provider Onboarding", aliases: ["First Provider Onboarding"], also: "This job — you", meaning: "This job. You go in person. You get the first local workers to sign the papers. You send the file to Provider Experience." }
         ],
         responsibilities: [
           { kicker: "Responsibility 1", title: "Go in person to the first local workers", lead: "Be in the named town. Meet the plumber, electrician, or other local worker at their shop or house. Do not sign them up from a company WhatsApp group without visiting them.", art: "cmc-h-shot.png", body: ["Getting people to sign from an office, without visiting them, is not this job. Expansion has already opened the town."], points: [{ title: "In person", why: "A chat list is not a first local worker." }], meta: [["You take from", "The written brief"], ["You give to", "A visit log"]] },
           { kicker: "Responsibility 2", title: "Use only the signed first-worker papers", lead: "Who we are, what they will do, what they will not do, what we pay. A verbal yes is not enough.", art: "cmc-h-kit.png", body: ["If a price is missing, stop and tell Field Marketing Manager. Do not invent a payment on site."], points: [{ title: "Signed papers only", why: "A made-up payment becomes a fight." }], meta: [["You take from", "The signed first-worker papers"], ["You give to", "The signed file"]] },
-          { kicker: "Responsibility 3", title: "Get a signed file", lead: "Name, phone, services, towns, start date, signed papers. Incomplete is not signed. Do not pretend they can work with us yet.", art: "cmc-h-yes.png", body: ["They sign. You sign. Date it. Do not pretend."], points: [{ title: "Complete, or they cannot work with us yet", why: "Provider Operations cannot put a nameless person on a customer job." }], meta: [["You take from", "The person you visited"], ["You give to", "The signed file"]] },
-          { kicker: "Responsibility 4", title: "Send the file to Provider Operations the same week", lead: "Send the signed file. Write the day they received it. Keep a copy. Do not give them a customer job yourself.", art: "cmc-h-files.png", body: ["You get them to sign the papers. Provider Operations puts them on customer jobs. Do not keep a private list."], points: [{ title: "Same week", why: "A file that sits until month-end is a private team." }], meta: [["You take from", "The signed file"], ["You give to", "Provider Operations"]] },
+          { kicker: "Responsibility 3", title: "Get a signed file", lead: "Name, phone, services, towns, start date, signed papers. Incomplete is not signed. Do not pretend they can work with us yet.", art: "cmc-h-yes.png", body: ["They sign. You sign. Date it. Do not pretend."], points: [{ title: "Complete, or they cannot work with us yet", why: "Provider Experience cannot put a nameless person on a customer job." }], meta: [["You take from", "The person you visited"], ["You give to", "The signed file"]] },
+          { kicker: "Responsibility 4", title: "Send the file to Provider Experience the same week", lead: "Send the signed file. Write the day they received it. Keep a copy. Do not give them a customer job yourself.", art: "cmc-h-files.png", body: ["You get them to sign the papers. Provider Experience puts them on customer jobs. Do not keep a private list."], points: [{ title: "Same week", why: "A file that sits until month-end is a private team." }], meta: [["You take from", "The signed file"], ["You give to", "Provider Experience"]] },
           { kicker: "Responsibility 5", title: "Name a town that will not sign", lead: "If a named town has nobody who will sign after the planned visits, write it. Do not keep visiting to look busy.", art: "cmc-e-stop.png", body: ["Field Marketing Manager must stop the stall if the town has nobody who can do the jobs."], points: [{ title: "Write that nobody signed", why: "Silence looks like the town is ready." }], meta: [["You take from", "The visit logs"], ["You give to", "Field Marketing Manager"]] },
-          { kicker: "Responsibility 6", title: "Send honest numbers up", lead: "Each week: visits vs calendar, files signed, files sent to Provider Operations, towns where nobody signed, one or two written requests.", art: "cmc-p-weekly.png", body: ["Field Marketing Manager cannot run this job without numbers."], points: [{ title: "Name what failed", why: "A report with only wins is not a management system." }], meta: [["You take from", "Visit logs; signed files"], ["You give to", "Field Marketing Manager"]] }
+          { kicker: "Responsibility 6", title: "Send honest numbers up", lead: "Each week: visits vs calendar, files signed, files sent to Provider Experience, towns where nobody signed, one or two written requests.", art: "cmc-p-weekly.png", body: ["Field Marketing Manager cannot run this job without numbers."], points: [{ title: "Name what failed", why: "A report with only wins is not a management system." }], meta: [["You take from", "Visit logs; signed files"], ["You give to", "Field Marketing Manager"]] }
         ],
         handoffs: [
-          { side: "in", kicker: "You receive", title: "The month’s written first-worker work", lead: "Which towns, the signed papers, and who in Provider Operations receives the signed file.", art: "cmc-h-kit.png", body: ["You do not pick a new town. You do not invent a payment."], points: [{ title: "The file must name", why: "Towns, signed papers, receiving person in Provider Operations." }], meta: [["From", "Field Marketing Manager"], ["When", "The same day the month is signed"]] },
-          { side: "out", kicker: "You give", title: "Signed first-worker file to Provider Operations", lead: "Name, phone, services, towns, start date, signed papers. Same week as the signature.", art: "cmc-h-files.png", body: ["Write the day they received it. Keep a copy. Do not give them a customer job."], points: [{ title: "The file must have", why: "Complete rows, signed papers, received date." }], meta: [["To", "Provider Operations"], ["When", "The same week as the signature"]] },
+          { side: "in", kicker: "You receive", title: "The month’s written first-worker work", lead: "Which towns, the signed papers, and who in Provider Experience receives the signed file.", art: "cmc-h-kit.png", body: ["You do not pick a new town. You do not invent a payment."], points: [{ title: "The file must name", why: "Towns, signed papers, receiving person in Provider Experience." }], meta: [["From", "Field Marketing Manager"], ["When", "The same day the month is signed"]] },
+          { side: "out", kicker: "You give", title: "Signed first-worker file to Provider Experience", lead: "Name, phone, services, towns, start date, signed papers. Same week as the signature.", art: "cmc-h-files.png", body: ["Write the day they received it. Keep a copy. Do not give them a customer job."], points: [{ title: "The file must have", why: "Complete rows, signed papers, received date." }], meta: [["To", "Provider Experience"], ["When", "The same week as the signature"]] },
           { side: "out", kicker: "You give", title: "Weekly first-worker note", lead: "Visits, files signed, files sent, towns where nobody signed, one or two written requests.", art: "cmc-p-weekly.png", body: ["Not a voice note. Name what failed."], points: [{ title: "The note must name", why: "Week, visits, signed, sent, towns where nobody signed, written requests." }], meta: [["To", "Field Marketing Manager"], ["When", "The day before the weekly field report"]] }
         ],
         workflow: [
           { kicker: "FPO-01 · Step 1", title: "Go in person with the signed first-worker papers", lead: "Confirm the town is on the plan. If a price is missing, stop. Meet the plumber, electrician, or other local worker at their shop or house.", art: "cmc-h-shot.png", body: ["Do not sign them up from a chat list without visiting them. Do not promise a customer job today."], points: [{ title: "What you produce", why: "A visit log: who, where, whether they will sign." }] },
           { kicker: "FPO-02 · If they will sign", fork: "yes", title: "Get them to sign onto Panun Kaergar", lead: "Read the papers with them. Write name, phone, services, towns, start date. They sign. You sign. Date it.", art: "cmc-h-yes.png", body: ["Incomplete is not signed. Do not pretend they can work with us yet."], points: [{ title: "What you produce", why: "A signed file." }] },
-          { kicker: "FPO-03 · Step 3", title: "Send the signed file to Provider Operations", lead: "Same week. Write the received date. Keep a copy. Do not give them a customer job yourself.", art: "cmc-h-files.png", body: ["Do not keep them as a private list."], points: [{ title: "What you produce", why: "A received file in Provider Operations." }] },
+          { kicker: "FPO-03 · Step 3", title: "Send the signed file to Provider Experience", lead: "Same week. Write the received date. Keep a copy. Do not give them a customer job yourself.", art: "cmc-h-files.png", body: ["Do not keep them as a private list."], points: [{ title: "What you produce", why: "A received file in Provider Experience." }] },
           { kicker: "FPO-04 · If the town will not sign", fork: "no", title: "Write that nobody signed. Do not keep visiting to look busy", lead: "Write town, dates, who you met, why they said no. Send it in the weekly note.", art: "cmc-e-stop.png", body: ["Do not pick a different town yourself."], points: [{ title: "You send", why: "Field Marketing Manager." }] }
         ],
         reporting: [
-          { period: "Same week", kicker: "FPO-R1", title: "Signed first-worker file", art: "cmc-h-files.png", when: "The same week as the signature.", lead: "Send Provider Operations a complete signed paper file so they can put the person on the list of workers.", body: ["You do not give them a customer job."], contents: [{ title: "Name, phone, services, towns, start date, signed papers", why: "Incomplete is not signed." }, { title: "Received date from Provider Operations", why: "If they did not receive it, it did not happen." }], mustHave: ["Date", "Town", "Complete signed file", "Received?"], submit: [{ to: "Provider Operations", why: "The signed file the same week." }, { to: "Field Marketing Manager", why: "The count, not a private copy of the phones unless they ask." }] },
+          { period: "Same week", kicker: "FPO-R1", title: "Signed first-worker file", art: "cmc-h-files.png", when: "The same week as the signature.", lead: "Send Provider Experience a complete signed paper file so they can put the person on the list of workers.", body: ["You do not give them a customer job."], contents: [{ title: "Name, phone, services, towns, start date, signed papers", why: "Incomplete is not signed." }, { title: "Received date from Provider Experience", why: "If they did not receive it, it did not happen." }], mustHave: ["Date", "Town", "Complete signed file", "Received?"], submit: [{ to: "Provider Experience", why: "The signed file the same week." }, { to: "Field Marketing Manager", why: "The count, not a private copy of the phones unless they ask." }] },
           { period: "Weekly", kicker: "FPO-R2", title: "Weekly first-worker note", art: "cmc-p-weekly.png", when: "The day before Field Marketing Manager’s weekly field report.", lead: "Visits vs calendar, files signed, files sent, towns where nobody signed.", body: ["Name what failed."], contents: [{ title: "Visits vs calendar", why: "A missed visit is a missed town." }, { title: "Towns where nobody signed", why: "Field Marketing Manager must stop the stall if nobody will sign." }], mustHave: ["Week", "Visits", "Signed", "Sent", "Towns where nobody signed", "Written requests"], submit: [{ to: "Field Marketing Manager", why: "This is the first-worker page of the weekly field report." }] }
         ],
         standards: [
           { title: "Every first-worker visit is a named town on the signed plan", lead: "You do not open a town.", art: "cmc-h-kit.png", body: ["Expansion already opened the town."], points: [{ title: "What good looks like", why: "Every visit log town appears on the brief." }] },
           { title: "Every person you mark as able to work with us has a signed paper file", lead: "A verbal yes is not enough.", art: "cmc-h-yes.png", body: ["Incomplete is not signed."], points: [{ title: "What good looks like", why: "A stranger can open the file and see who signed, what they will do, and what we pay." }] },
-          { title: "100 percent of signed files reach Provider Operations the same week", lead: "No private team.", art: "cmc-h-files.png", body: ["Write the received date."], points: [{ title: "What good looks like", why: "Every signed file has a received date from Provider Operations." }] },
+          { title: "100 percent of signed files reach Provider Experience the same week", lead: "No private team.", art: "cmc-h-files.png", body: ["Write the received date."], points: [{ title: "What good looks like", why: "Every signed file has a received date from Provider Experience." }] },
           { title: "No invented payment, service, or town", lead: "If the papers are missing a price, stop.", art: "cmc-e-stop.png", body: ["Finance signs price. You do not."], points: [{ title: "What good looks like", why: "Every payment traces to the signed papers." }] },
           { title: "A town that will not sign is named", lead: "Do not keep visiting to look busy.", art: "cmc-p-weekly.png", body: ["Write it in the weekly note."], points: [{ title: "What good looks like", why: "The weekly note names the town, the dates, and why they said no." }] },
-          { title: "You do not give people customer jobs", lead: "Provider Operations puts them on customer jobs.", art: "cmc-h-shot.png", body: ["Get them to sign. Send the file. Stop."], points: [{ title: "What good looks like", why: "No job in the system was created by this seat." }] }
+          { title: "You do not give people customer jobs", lead: "Provider Experience puts them on customer jobs.", art: "cmc-h-shot.png", body: ["Get them to sign. Send the file. Stop."], points: [{ title: "What good looks like", why: "No job in the system was created by this seat." }] }
         ],
         kpis: [
           { name: "In-person visits vs the calendar", target: "95% or more completed, or a written note the same day that the visit did not happen", why: "Getting people to sign from an office, without visiting them, is not this job.", how: "Visit days on the brief this month with a visit log, or a written note the same day that the visit did not happen." },
           { name: "People marked as able to work with us who have a signed paper file", target: "100%", why: "A verbal yes is not enough.", how: "Every person marked as able to work with us has a complete signed paper file." },
-          { name: "Signed files sent to Provider Operations the same week", target: "100%", why: "A private list is not a system.", how: "Received date from Provider Operations is in the same calendar week as the signature." },
+          { name: "Signed files sent to Provider Experience the same week", target: "100%", why: "A private list is not a system.", how: "Received date from Provider Experience is in the same calendar week as the signature." },
           { name: "No invented payment or town", target: "100%", why: "A made-up payment becomes a fight.", how: "Every payment traces to the signed papers. Any extra town is a miss." },
           { name: "Named towns with a written note that nobody signed, or a signed file", target: "100% of towns on the plan", why: "Silence looks like the town is ready.", how: "Each named town has either a received file or a dated note that nobody signed." },
           { name: "Weekly first-worker note on time", target: "100%", why: "Field Marketing Manager needs numbers.", how: "A written note exists the working day before the weekly field report." }
@@ -4349,7 +4358,7 @@ window.PK_GROWTH = (function () {
           { title: "The papers are missing a price or a service", lead: "Do not invent it on site.", art: "cmc-h-kit.png", body: ["Stop. Tell Field Marketing Manager the same day."], points: [{ title: "You do", why: "Stop. Write that a price or service is missing." }, { title: "You send to", why: "Field Marketing Manager the same day." }] },
           { title: "A named town will not sign", lead: "The stall must not keep standing there.", art: "cmc-e-stop.png", body: ["Write who you met and why they said no."], points: [{ title: "You send to", why: "Field Marketing Manager in the weekly note, same day if the stall is still standing." }] },
           { title: "Someone wants to be paid cash on the side", lead: "Do not pay.", art: "cmc-e-stop.png", body: ["Stop. Write it. Tell Field Marketing Manager the same day."], points: [{ title: "You do", why: "Do not pay. Write it." }] },
-          { title: "Provider Operations did not receive a signed file", lead: "Send it again the same day.", art: "cmc-h-files.png", body: ["Write that they did not receive it. Tell Field Marketing Manager."], points: [{ title: "You do", why: "Send it again. Write the received date." }] }
+          { title: "Provider Experience did not receive a signed file", lead: "Send it again the same day.", art: "cmc-h-files.png", body: ["Write that they did not receive it. Tell Field Marketing Manager."], points: [{ title: "You do", why: "Send it again. Write the received date." }] }
         ]
       }
     },
@@ -4371,7 +4380,7 @@ window.PK_GROWTH = (function () {
           defTitle: "What this job is",
           lanesTitle: "This job has three parts",
           definition: "You write a maintenance contract with a named office or housing society so Operations can send workers there. You go to that building, meet the person who is allowed to sign (the office manager, the society secretary, or the named owner), and use only the signed contract papers Offer and Finance already approved. After both sides sign, you file the contract and tell Operations they can start. You do not invent a price, take cash, or book a one-off job for someone in that building. Hotel desks and shops that send us their customers belong to Partnerships, not this job.",
-          owns: "These are the six things this job owns. Do not do Sales’ job, Operations’ job, or Partnerships’ job.",
+          owns: "These are the six things this job owns. Do not do Customer Experience’s job, Operations’ job, or Partnerships’ job.",
           lanes: "This job has one result. You do all three parts yourself. Go to the building. Write the contract. File it so Operations can work. If this job is empty, Field Marketing Manager does this work today. They write that down.",
           responsibilities: "These are the six parts of the job. Click a row to open the full card.",
           handoffs: "Work arrives as a written file and leaves as a written file. A chat message is not the file. Click a row to open the full card.",
@@ -4389,12 +4398,12 @@ window.PK_GROWTH = (function () {
           what: [
             { title: "You go to the named office or housing society", why: "Meet the person who is allowed to sign — office manager, society secretary, or named owner. Do not pitch a watchman and call it a contract." },
             { title: "You write a maintenance contract from the signed papers", why: "Services in, services out, signed price, start date. A WhatsApp yes is not a contract." },
-            { title: "You file it so Operations can start sending workers", why: "Finance sends the invoice. You do not take cash. One-off jobs the contract does not cover still go to Sales." }
+            { title: "You file it so Operations can start sending workers", why: "Finance sends the invoice. You do not take cash. One-off jobs the contract does not cover still go to Customer Experience." }
           ],
           why: [
             { title: "Offices and societies buy a written contract, not a stall flyer", why: "Operations cannot plan jobs from a verbal yes from a secretary." },
             { title: "This job is the office or society that buys maintenance from us, not a hotel desk that sends us customers", why: "Hotel desks and shops that send us their customers belong to Partnerships. This job writes a maintenance contract with a named office or housing society." },
-            { title: "Writing the contract and doing the jobs are two jobs", why: "You write the file. Operations does the maintenance. Sales still books one-off work." }
+            { title: "Writing the contract and doing the jobs are two jobs", why: "You write the file. Operations does the maintenance. Customer Experience still books one-off work." }
           ]
         },
         glossary: [
@@ -4409,20 +4418,20 @@ window.PK_GROWTH = (function () {
           { kicker: "Responsibility 2", title: "Use only the signed contract papers", lead: "Services in, services out, signed price, how we invoice. If they want a different price, stop.", art: "cmc-h-kit.png", body: ["Tell Field Marketing Manager. Do not invent a price on site."], points: [{ title: "Signed papers only", why: "A made-up price becomes a fight." }], meta: [["You take from", "The signed contract papers"], ["You give to", "The draft contract"]] },
           { kicker: "Responsibility 3", title: "Get a signed contract", lead: "Named building, town, start date, services, price, who signs for them, who signs for us. A WhatsApp yes is not a contract.", art: "cmc-h-yes.png", body: ["They sign. You sign. Date it. Do not pretend."], points: [{ title: "Complete, or Operations may not send workers yet", why: "Operations cannot plan jobs from a chat." }], meta: [["You take from", "The person who is allowed to sign"], ["You give to", "The signed contract"]] },
           { kicker: "Responsibility 4", title: "File it. Do not take cash.", lead: "File the signed contract. Tell Operations they may start sending workers. Finance sends the invoice.", art: "cmc-h-files.png", body: ["Cash you collect on site has no owner in the company books."], points: [{ title: "Finance sends the invoice", why: "You do not collect money." }], meta: [["You take from", "The signed contract"], ["You give to", "File; Operations"]] },
-          { kicker: "Responsibility 5", title: "One-off jobs still go to Sales", lead: "A person in that building who wants a one-off job that the contract does not cover goes to Sales. You do not book them at the gate.", art: "cmc-h-note.png", body: ["The contract is a file. Sales still books one-off work."], points: [{ title: "Do not become Sales", why: "Mixing it hides lost-lead reasons." }], meta: [["You take from", "A person in the building"], ["You give to", "Sales"]] },
+          { kicker: "Responsibility 5", title: "One-off jobs still go to Customer Experience", lead: "A person in that building who wants a one-off job that the contract does not cover goes to Customer Experience. You do not book them at the gate.", art: "cmc-h-note.png", body: ["The contract is a file. Customer Experience still books one-off work."], points: [{ title: "Do not become Customer Experience", why: "Mixing it hides lost-lead reasons." }], meta: [["You take from", "A person in the building"], ["You give to", "Customer Experience"]] },
           { kicker: "Responsibility 6", title: "Send honest numbers up", lead: "Each week: visits vs calendar, contracts signed, waiting, or failed, buildings Operations can now serve, one or two written requests.", art: "cmc-p-weekly.png", body: ["Field Marketing Manager cannot run this job without numbers."], points: [{ title: "Name what failed", why: "A report with only wins is not a management system." }], meta: [["You take from", "Visit logs; signed files"], ["You give to", "Field Marketing Manager"]] }
         ],
         handoffs: [
           { side: "in", kicker: "You receive", title: "The month’s written contract work", lead: "Which towns, which buildings, the signed papers, and where a signed contract must be filed.", art: "cmc-h-kit.png", body: ["You do not pick a new building. You do not invent a price."], points: [{ title: "The file must name", why: "Buildings, pack, filing path." }], meta: [["From", "Field Marketing Manager"], ["When", "The same day the month is signed"]] },
           { side: "in", kicker: "You receive", title: "A hotel or shop that wants to buy monthly maintenance", lead: "Partnerships & Channels Manager met a hotel or shop that does not only send guests. They want us to maintain their own building. That is a customer who buys work. You write the maintenance contract. They keep the partner file for guests the hotel still sends.", art: "cmc-h-shot.png", body: ["Same building can be both. That is two files, not one job. You do not sign them as a partner."], points: [{ title: "The file must name", why: "Building, town, who to call, that they asked to buy maintenance, date." }], meta: [["From", "Partnerships & Channels Manager"], ["When", "The same week they ask to buy maintenance"]] },
-          { side: "out", kicker: "You give", title: "Signed contract, filed, and Operations told", lead: "Named building, services, start date, what is in, what is out. Same week as the signature. Finance sends the invoice.", art: "cmc-h-files.png", body: ["Do not take cash. One-off jobs the contract does not cover still go to Sales."], points: [{ title: "The file must have", why: "Complete signed pack, filing path, Operations told date." }], meta: [["To", "File; Operations"], ["When", "The same week as the signature"]] },
+          { side: "out", kicker: "You give", title: "Signed contract, filed, and Operations told", lead: "Named building, services, start date, what is in, what is out. Same week as the signature. Finance sends the invoice.", art: "cmc-h-files.png", body: ["Do not take cash. One-off jobs the contract does not cover still go to Customer Experience."], points: [{ title: "The file must have", why: "Complete signed pack, filing path, Operations told date." }], meta: [["To", "File; Operations"], ["When", "The same week as the signature"]] },
           { side: "out", kicker: "You give", title: "A society that only wants to send flat owners", lead: "They do not want to buy monthly maintenance. They only want people who live there to call us. That is Partnerships & Channels Manager’s job, not this one. Pass the name. Do not write a fake maintenance contract so it stays on your list.", art: "cmc-h-note.png", body: ["Head of Growth must already have said yes to housing societies as a kind of partner before Partnerships & Channels Manager signs anyone."], points: [{ title: "The file must name", why: "Building, town, who they may call, date you passed the name." }], meta: [["To", "Partnerships & Channels Manager"], ["When", "The same week you learn they will not buy maintenance"]] },
           { side: "out", kicker: "You give", title: "Weekly contract note", lead: "Visits, signed, waiting, or failed, buildings Operations can now serve, one or two written requests.", art: "cmc-p-weekly.png", body: ["Not a voice note. Name what failed."], points: [{ title: "The note must name", why: "Week, visits, signed, waiting, failed, asks." }], meta: [["To", "Field Marketing Manager"], ["When", "The day before the weekly field report"]] }
         ],
         workflow: [
           { kicker: "OSC-01 · Step 1", title: "Visit a named office or society", lead: "Confirm the building is on the plan. Take only the signed papers. Meet the person who can sign.", art: "cmc-h-shot.png", body: ["Do not pitch a watchman and call it done."], points: [{ title: "What you produce", why: "A visit log: building, who you met, whether they will sign." }] },
           { kicker: "OSC-02 · If they will sign", fork: "yes", title: "Write the maintenance contract", lead: "Approved pack only. Named building, town, start date, who signs. They sign. You sign. Date it.", art: "cmc-h-yes.png", body: ["A WhatsApp yes is not a contract."], points: [{ title: "What you produce", why: "A signed contract file." }] },
-          { kicker: "OSC-03 · Step 3", title: "File the contract and tell Operations", lead: "Same week. Do not take cash. Finance sends the invoice. One-off jobs still go to Sales.", art: "cmc-h-files.png", body: ["Tell Operations they may start sending workers to that building: services, start date, what is in, what is out."], points: [{ title: "What you produce", why: "A filed contract and an Operations note." }] },
+          { kicker: "OSC-03 · Step 3", title: "File the contract and tell Operations", lead: "Same week. Do not take cash. Finance sends the invoice. One-off jobs still go to Customer Experience.", art: "cmc-h-files.png", body: ["Tell Operations they may start sending workers to that building: services, start date, what is in, what is out."], points: [{ title: "What you produce", why: "A filed contract and an Operations note." }] },
           { kicker: "OSC-04 · If they will not sign", fork: "no", title: "Name the building. Do not keep visiting to look busy", lead: "Write building, dates, who you met, why they said no.", art: "cmc-e-stop.png", body: ["Do not pick a different building yourself."], points: [{ title: "You send", why: "Field Marketing Manager." }] }
         ],
         reporting: [
@@ -4456,7 +4465,7 @@ window.PK_GROWTH = (function () {
     mim: {
       story: "You keep one true written picture of what people ask for, what competitors do, and which ideas are real enough to hand on. Every fact has a source and a date. You close each idea as go, no-go, or more research with a date. You do not run ads, write the service, or open a town.",
       receives: [
-        { from: "CRM / Sales", what: "Enquiry and booking extracts by service and area. Lost-lead reasons." },
+        { from: "CRM / Customer Experience", what: "Enquiry and booking extracts by service and area. Lost-lead reasons." },
         { from: "Field and CX", what: "Dated notes: what people asked, what failed." },
         { from: "Public listings", what: "Competitor prices, offers, new towns — with source and date." }
       ],
@@ -4474,49 +4483,49 @@ window.PK_GROWTH = (function () {
       story: "You write what Panun Kaergar can sell and finish: the name, what is in, what is out, how the job should run. Finance prices. Operations says they can do it. Head of Growth says Marketing may talk. You do not invent demand, run ads, or do the first jobs yourself.",
       receives: [
         { from: "Intelligence", what: "Validated service needs and unmet-demand patterns." },
-        { from: "Sales and CX", what: "Requests we cannot finish, complaint patterns that look like a missing or wrong service." },
+        { from: "Customer Experience and CX", what: "Requests we cannot finish, complaint patterns that look like a missing or wrong service." },
         { from: "Operations", what: "Whether we can actually do the job, with which providers and tools." },
         { from: "Finance", what: "Price options and commission impact." }
       ],
       gives: [
         { to: "Head of Growth", what: "A complete sheet plus launch checklist, ready for yes or no." },
         { to: "Marketing", what: "The only claims they may use after yes." },
-        { to: "Sales and Operations", what: "The live catalogue: what is in, what is out." }
+        { to: "Customer Experience and Operations", what: "The live catalogue: what is in, what is out." }
       ],
       records: ["Live list of services we may sell today", "Complete service sheet for every live name", "Launch checklist (Finance signed, Operations said yes, Head of Growth said Marketing may talk)", "Price recommendation you sent to Finance — not the signed price", "Keep / fix / stop note for the month", "Retired-service file (kept, not deleted)", "Weekly design-vs-live note"],
       good: ["Every live service has a complete sheet: what is in, what is out, how the job should run.", "Marketing talks about a service only after the launch checklist is 100 percent.", "A new need marked go has a sheet sent to Finance and Operations inside 15 working days.", "What is included and what is not is written on the sheet, not implied.", "A dead service is named keep, fix, or stop in the monthly note — not left in ads.", "Every live price traces to a Finance signature, not to you."],
-      bad: ["Sales is picking from a messy menu of service names with no written sheet with no sheet.", "Marketing is selling a draft you have not finished.", "A dead service is still in ads.", "You set the final price or the commission yourself.", "You invented a service because someone asked, with no Intelligence go pack.", "You did the first customer jobs yourself instead of watching Operations do them."]
+      bad: ["Customer Experience is picking from a messy menu of service names with no written sheet with no sheet.", "Marketing is selling a draft you have not finished.", "A dead service is still in ads.", "You set the final price or the commission yourself.", "You invented a service because someone asked, with no Intelligence go pack.", "You did the first customer jobs yourself instead of watching Operations do them."]
     },
     mem: {
-      story: "You decide where Panun Kaergar may work next: enter, wait, or leave — in writing. Intelligence names a town. Provider Operations must be able to finish the first jobs. Head of Growth says yes. Then Marketing may spend. You do not hire workers. You do not run ads.",
+      story: "You decide where Panun Kaergar may work next: enter, wait, or leave — in writing. Intelligence names a town. Provider Experience must be able to finish the first jobs. Head of Growth says yes. Then Marketing may spend. You do not hire workers. You do not run ads.",
       receives: [
         { from: "Intelligence", what: "A named area with evidence." },
-        { from: "Provider Operations", what: "Whether we can finish the first jobs there." },
-        { from: "Sales", what: "Demand from towns we do not cover." }
+        { from: "Provider Experience", what: "Whether we can finish the first jobs there." },
+        { from: "Customer Experience", what: "Demand from towns we do not cover." }
       ],
       gives: [
         { to: "Head of Growth", what: "Enter / wait / no, then a launch plan with a review date." },
         { to: "Marketing and Partnerships", what: "The towns they may spend in, and when." },
-        { to: "Sales and Operations", what: "Launch week, first services, pause or leave if you call it." }
+        { to: "Customer Experience and Operations", what: "Launch week, first services, pause or leave if you call it." }
       ],
-      records: ["Town list with evidence on every row", "Enter / wait / no pack for each named town", "Launch plan with first services, spend list, and review date", "Provider Operations written yes that they can finish the first jobs", "Post-launch review on the date you wrote", "Pause or leave file", "Weekly town-list note"],
-      good: ["No ad or stall runs in a town until Head of Growth signed enter and Provider Operations said they can finish the first jobs.", "A town in research has enter, wait, or no written inside 15 working days.", "Every live town has a review date on the launch plan.", "Pause and leave are written files, and Marketing, Sales, and Operations were told.", "You did not hire a worker and you did not change what we sell.", "The weekly note names the town that is stuck, not only the towns that look good."],
-      bad: ["You kept a launch date when Provider Operations cannot staff the town.", "We stay forever in a dead town with no pause or leave file.", "Marketing spent in a town before enter was signed.", "A town sits in research with no decision and no dated delay.", "You hired the first plumber yourself, or you sent First Provider Onboarding in before the town was open.", "A town circled on a map with no written yes is being treated as open."]
+      records: ["Town list with evidence on every row", "Enter / wait / no pack for each named town", "Launch plan with first services, spend list, and review date", "Provider Experience written yes that they can finish the first jobs", "Post-launch review on the date you wrote", "Pause or leave file", "Weekly town-list note"],
+      good: ["No ad or stall runs in a town until Head of Growth signed enter and Provider Experience said they can finish the first jobs.", "A town in research has enter, wait, or no written inside 15 working days.", "Every live town has a review date on the launch plan.", "Pause and leave are written files, and Marketing, Customer Experience, and Operations were told.", "You did not hire a worker and you did not change what we sell.", "The weekly note names the town that is stuck, not only the towns that look good."],
+      bad: ["You kept a launch date when Provider Experience cannot staff the town.", "We stay forever in a dead town with no pause or leave file.", "Marketing spent in a town before enter was signed.", "A town sits in research with no decision and no dated delay.", "You hired the first plumber yourself, or you sent First Provider Onboarding in before the town was open.", "A town circled on a map with no written yes is being treated as open."]
     },
     pcm: {
-      story: "You find hotels and shops that already meet people we want as customers. Those places send us a name. Sales calls them. You write the terms. You send their customers to Sales the same day with the hotel or shop name written. You do not book the customer. You do not send the person to a plumber. If a hotel wants to buy monthly maintenance for its own building, you pass that name to Office and Society Contracts. You do not write that contract.",
+      story: "You find hotels and shops that already meet people we want as customers. Those places send us a name. Customer Experience calls them. You write the terms. You send their customers to Customer Experience the same day with the hotel or shop name written. You do not book the customer. You do not send the person to a plumber. If a hotel wants to buy monthly maintenance for its own building, you pass that name to Office and Society Contracts. You do not write that contract.",
       receives: [
         { from: "Market Intelligence Manager", what: "A written note that hotel desks, or another kind of place, are worth trying. That note is not permission." },
         { from: "Head of Growth", what: "Yes on kind of hotel desk or shop and how we pay them, if we pay them." },
         { from: "Partners", what: "Enquiries from their customers." }
       ],
       gives: [
-        { to: "Sales", what: "People a partner sent, with the hotel or shop name written the same day: partner name, service, town." },
+        { to: "Customer Experience", what: "People a partner sent, with the hotel or shop name written the same day: partner name, service, town." },
         { to: "Head of Growth", what: "Keep / fix / close each month, with numbers." },
         { to: "Finance", what: "Anything that needs money we did not plan — as an ask, not a promise." }
       ],
-      records: ["Partner list by kind (hotel desk, shop, and other types Head of Growth signed)", "Written terms for every live partner", "Partner file (who they are, towns, what they may say)", "Same-day lead tracker: partner name, service, town, Sales received", "Monthly keep / fix / close note", "Closure file, including any money still attached", "Weekly partner note"],
-      good: ["Every partner enquiry names the partner, the service, and the town, and Sales received it the same day.", "Every live partner has written terms: how a lead is sent, and what we pay if we pay.", "You did not book the customer and you did not send the person to a plumber.", "Every live partner has keep, fix, or close written this month. A silent partner is written as closed.", "No office or society maintenance contract sits in this file — that is Field.", "You did not invent a new kind of partner, or a payment, without Head of Growth."],
+      records: ["Partner list by kind (hotel desk, shop, and other types Head of Growth signed)", "Written terms for every live partner", "Partner file (who they are, towns, what they may say)", "Same-day lead tracker: partner name, service, town, Customer Experience received", "Monthly keep / fix / close note", "Closure file, including any money still attached", "Weekly partner note"],
+      good: ["Every partner enquiry names the partner, the service, and the town, and Customer Experience received it the same day.", "Every live partner has written terms: how a lead is sent, and what we pay if we pay.", "You did not book the customer and you did not send the person to a plumber.", "Every live partner has keep, fix, or close written this month. A silent partner is written as closed.", "No office or society maintenance contract sits in this file — that is Field.", "You did not invent a new kind of partner, or a payment, without Head of Growth."],
       bad: ["A handshake with no paper is being treated as a live partner.", "You promised them cash or a payment Finance never saw.", "You booked the partner’s customer yourself, or you sent the person to a plumber.", "The partner is selling a job we do not do, and you have not stopped them.", "An office or society maintenance contract is sitting in the partner file.", "A silent partner is still listed as live with no monthly decision."]
     }
   };
@@ -4556,17 +4565,17 @@ window.PK_GROWTH = (function () {
     ],
     fmm: [
       "Give Field Visitor which towns, which days, which boards. If they are someone we pay on a written contract, attach a written contract. If nobody sits there, you visit and write that you are doing that job.",
-      "Send First Provider Onboarding on site with the signed papers. Signed files go to Provider Operations the same week. You do not assign jobs.",
+      "Send First Provider Onboarding on site with the signed papers. Signed files go to Provider Experience the same week. You do not assign jobs.",
       "Give Office and Society Contracts the signed papers. Named building, signed price. No cash. Hotel desks stay with Partnerships.",
       "Write which days are visits, which days are first-worker visits, which days are office and society visits. Write the same day that the visit did not happen.",
       "Each job gets a written brief the day the month is signed. A chat is not the brief. Save the files.",
-      "The day before the marketing weekly: visits vs calendar, names to Sales, first local workers who signed, contracts signed, days that did not happen, town that produced nothing, covering notes, one or two written requests."
+      "The day before the marketing weekly: visits vs calendar, names to Customer Experience, first local workers who signed, contracts signed, days that did not happen, town that produced nothing, covering notes, one or two written requests."
     ],
     fve: [
       "Confirm the pitch and the boards the day before. Be in the named town on the named day. Write the same day that the visit did not happen if you cannot go.",
-      "Write name, phone, service, town, stall + town + date. Say Sales will call. Do not book and do not take money. A missing phone is not an enquiry.",
+      "Write name, phone, service, town, stall + town + date. Say Customer Experience will call. Do not book and do not take money. A missing phone is not an enquiry.",
       "Only this month’s marketing kit. If you want a new sentence, price, town, or face, stop and ask Field Marketing Manager (VIS-04).",
-      "Send one complete list to Sales before you leave the town. Confirm they received it. Field Marketing Manager gets the count, not the phone numbers.",
+      "Send one complete list to Customer Experience before you leave the town. Confirm they received it. Field Marketing Manager gets the count, not the phone numbers.",
       "Write the stall log before you leave: times, materials, count, incidents, no cash, no booking.",
       "The day before the weekly field report: days vs calendar, enquiries by town, days that did not happen, town that produced nothing, materials that need reprinting, one or two written requests."
     ],
@@ -4574,7 +4583,7 @@ window.PK_GROWTH = (function () {
       "Be in the named town. Meet the plumber, electrician, or other local worker at their shop or house. Do not sign them up from a company WhatsApp group without visiting them.",
       "Use only the signed papers. If a price is missing, stop and tell Field Marketing Manager.",
       "Write name, phone, services, towns, start date. They sign. You sign. Incomplete is not signed. Do not pretend they can work with us yet.",
-      "Send the signed file to Provider Operations the same week. Write the received date. Do not assign the first job.",
+      "Send the signed file to Provider Experience the same week. Write the received date. Do not assign the first job.",
       "If nobody will sign after the planned visits, write the town, dates, and why. Do not keep visiting to look busy.",
       "The day before the weekly field report: visits, files signed, files handed over, towns where nobody signed, one or two written requests."
     ],
@@ -4583,7 +4592,7 @@ window.PK_GROWTH = (function () {
       "Use only the signed papers. If they want a different price, stop and tell Field Marketing Manager.",
       "Named building, town, start date, services, price, who signs. A WhatsApp yes is not a contract.",
       "File the signed contract. Tell Operations they can plan the jobs. Finance sends the invoice. Do not take cash.",
-      "A one-off job the contract does not cover goes to Sales. You do not book them at the gate.",
+      "A one-off job the contract does not cover goes to Customer Experience. You do not book them at the gate.",
       "The day before the weekly field report: visits, signed, waiting, or failed, buildings Operations can now serve, one or two written requests."
     ],
     mim: [
@@ -4607,7 +4616,7 @@ window.PK_GROWTH = (function () {
     pcm: [
       "Name real types (hotel desk, shop). Do not add your uncle or a neighbour who says they know people. That is not a partner.",
       "Who they serve, reputation, fit / wait / no. A loud partner with bad jobs hurts the brand.",
-      "Written terms, how a lead is sent, what we pay. Test one lead into Sales before calling them live.",
+      "Written terms, how a lead is sent, what we pay. Test one lead into Customer Experience before calling them live.",
       "Leads, bookings, silent partners. Monthly keep / fix / close."
     ]
   };
@@ -4627,8 +4636,8 @@ window.PK_GROWTH = (function () {
       "A job with no name has no owner. Then you have no one whose result you can check."
     ],
     hom: [
-      "Spend with no path to Sales is waste.",
-      "Sales cannot work a nameless lead.",
+      "Spend with no path to Customer Experience is waste.",
+      "Customer Experience cannot work a nameless lead.",
       "The signed plan is the rule.",
       "If cost blows, pause.",
       "A file that lives only on a personal phone is not the company copy.",
@@ -4642,7 +4651,7 @@ window.PK_GROWTH = (function () {
     ],
     fmm: [
       "A missed field day is a missed town.",
-      "If the list is not with Sales the same day, it did not happen.",
+      "If the list is not with Customer Experience the same day, it did not happen.",
       "A stall with no first local workers trains people to hate the brand.",
       "A verbal yes is not a contract. A made-up price becomes a fight.",
       "A box with no name has no owner.",
@@ -4650,11 +4659,11 @@ window.PK_GROWTH = (function () {
     ],
     fve: [
       "A missed field day is a missed town.",
-      "If the list is not with Sales the same day, it did not happen.",
+      "If the list is not with Customer Experience the same day, it did not happen.",
       "Town that produced nothing must be named so the plan can change.",
       "Stalls on random Saturdays that are not on the plan cannot be measured.",
       "Field Marketing Manager needs numbers, not a story with only good towns.",
-      "You collect names at the stall. Sales books the job. You do not take money or book the job yourself."
+      "You collect names at the stall. Customer Experience books the job and finishes it. You do not take money or book the job yourself."
     ],
     fpo: [
       "Getting people to sign from an office, without visiting them, is not this job.",
@@ -4699,15 +4708,15 @@ window.PK_GROWTH = (function () {
     });
   });
 
-  workflows.growth.story = "E-Myth says the technician does the work, the manager runs the system, the entrepreneur sees the whole. Growth here is the system that makes something the market can buy, then creates enquiries with a written answer for how they found us. Sales books. Operations finishes. If those three mix, nobody owns a result.";
+  workflows.growth.story = "E-Myth says the technician does the work, the manager runs the system, the entrepreneur sees the whole. Growth here is the system that makes something the market can buy, then creates enquiries with a written answer for how they found us. Customer Experience books the job and finishes it. Growth does not book. If Growth also books, nobody owns the result.";
   workflows.growth.calendar = [
-    { when: "Every working day", what: "Digital, Field and Partnerships hand enquiries with a written answer for how they found us to Sales. Tracking and spend are checked. Nothing sits in a personal chat." },
+    { when: "Every working day", what: "Digital, Field and Partnerships hand enquiries with a written answer for how they found us to Customer Experience. Tracking and spend are checked. Nothing sits in a personal chat." },
     { when: "Same weekday every week", what: "Growth review: plan vs actual, cost per enquiry, cost per booking, lost-lead reasons. One action for ads, stalls, or partners that are off plan." },
     { when: "Last week of the month", what: "Head of Growth signs next month’s plan with Marketing, using Intelligence. Offer and Expansion only put approved items on it." }
   ];
   workflows.growth.boundaries = [
     { who: "Growth", does: "Creates the offer the market can buy, and brings people in with a written answer for how they found us." },
-    { who: "Sales / CX", does: "Converts the enquiry into a booking, or writes why it was lost." },
+    { who: "Customer Experience", does: "Converts the enquiry into a booking, or writes why it was lost." },
     { who: "Operations", does: "Assigns and finishes the job. Does not generate demand." },
     { who: "Finance", does: "Prices and pays. Does not invent offers." }
   ];
@@ -4727,7 +4736,7 @@ window.PK_GROWTH = (function () {
     if (path.id === "engine") {
       path.when = "Every week, for services and towns we already sell.";
       path.input = "A signed monthly plan: who, offer, town, channel, budget, KPI.";
-      path.output = "Tagged digital, field and partner enquiries in Sales the same day, plus lost-lead reasons back to Growth.";
+      path.output = "Tagged digital, field and partner enquiries in Customer Experience the same day, plus lost-lead reasons back to Growth.";
       path.fail = "Do not convert the enquiry in Marketing. Do not run off-plan campaigns. Do not skip source tags.";
     }
   });

@@ -21,6 +21,8 @@ class CustomerBookingListPayloadSlimmer
         'list_display_total',
         'payable_grand_total',
         'total_booking_amount',
+        'total_tax_amount',
+        'total_discount_amount',
         'sub_category_id',
         'is_customize_booking',
         'booking_status_display_key',
@@ -34,6 +36,15 @@ class CustomerBookingListPayloadSlimmer
         'readable_id',
         'booking_status',
         'service_schedule',
+        'total_booking_amount',
+        'total_tax_amount',
+        'total_discount_amount',
+        'total_campaign_discount_amount',
+        'total_coupon_discount_amount',
+        'additional_charge',
+        'total_referral_discount_amount',
+        'extra_fee',
+        'is_guest',
     ];
 
     public static function slimPaginator(LengthAwarePaginator $paginator): LengthAwarePaginator
@@ -72,6 +83,37 @@ class CustomerBookingListPayloadSlimmer
             }
 
             $slim[$key] = $booking[$key];
+        }
+
+        // Installed customer apps call .toString() on these. A missing key crashes
+        // the whole My Bookings list and shows the empty state.
+        $slim['total_tax_amount'] = $slim['total_tax_amount'] ?? 0;
+        $slim['total_discount_amount'] = $slim['total_discount_amount'] ?? 0;
+
+        if (isset($slim['repeats']) && is_array($slim['repeats'])) {
+            $repeatDefaults = [
+                'total_booking_amount' => 0,
+                'total_tax_amount' => 0,
+                'total_discount_amount' => 0,
+                'total_campaign_discount_amount' => 0,
+                'total_coupon_discount_amount' => 0,
+                'additional_charge' => 0,
+                'total_referral_discount_amount' => 0,
+                'extra_fee' => 0,
+                'is_guest' => 0,
+            ];
+            $slim['repeats'] = array_map(static function ($repeat) use ($repeatDefaults) {
+                if (! is_array($repeat)) {
+                    return $repeat;
+                }
+                foreach ($repeatDefaults as $key => $default) {
+                    if (! array_key_exists($key, $repeat) || $repeat[$key] === null) {
+                        $repeat[$key] = $default;
+                    }
+                }
+
+                return $repeat;
+            }, $slim['repeats']);
         }
 
         return $slim;
