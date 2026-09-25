@@ -3229,7 +3229,93 @@
     }
 
     function waTemplateSelectValue(t) {
-        return (t.name || '') + '\t' + (t.language || '');
+        return (t.name || '') + '|' + (t.language || '');
+    }
+
+    function waParseTemplateRaw(raw) {
+        raw = String(raw || '').trim();
+        if (!raw || raw === strWaSessionTplSelectPlaceholder) {
+            return { name: '', lang: '' };
+        }
+        var tab = raw.indexOf('\t');
+        if (tab !== -1) {
+            return { name: raw.slice(0, tab).trim(), lang: raw.slice(tab + 1).trim() };
+        }
+        var pipe = raw.indexOf('|');
+        if (pipe !== -1) {
+            return { name: raw.slice(0, pipe).trim(), lang: raw.slice(pipe + 1).trim() };
+        }
+        var labeled = raw.match(/^(.*) \(([^)]+)\)$/);
+        if (labeled) {
+            return { name: labeled[1].trim(), lang: labeled[2].trim() };
+        }
+        return { name: raw, lang: '' };
+    }
+
+    function waFindWabaTemplate(name, lang) {
+        name = String(name || '').trim();
+        lang = String(lang || '').trim();
+        if (!name || !waWabaTemplatesList || !waWabaTemplatesList.length) {
+            return null;
+        }
+        var exact = null;
+        var byName = [];
+        waWabaTemplatesList.forEach(function (t) {
+            if ((t.name || '') !== name) {
+                return;
+            }
+            byName.push(t);
+            if ((t.language || '') === lang) {
+                exact = t;
+            }
+        });
+        if (exact) {
+            return exact;
+        }
+        if (!lang && byName.length === 1) {
+            return byName[0];
+        }
+        return null;
+    }
+
+    function waRememberActiveWabaTemplate(sel, tpl) {
+        if (!sel) {
+            return;
+        }
+        if (!tpl) {
+            sel.removeAttribute('data-wa-active-tpl-name');
+            sel.removeAttribute('data-wa-active-tpl-lang');
+            return;
+        }
+        sel.setAttribute('data-wa-active-tpl-name', tpl.name || '');
+        sel.setAttribute('data-wa-active-tpl-lang', tpl.language || '');
+    }
+
+    function waTemplateParamCountFromDom(prefix) {
+        var n = 0;
+        while (document.getElementById(prefix + (n + 1))) {
+            n++;
+        }
+        return n;
+    }
+
+    function waSyntheticWabaTemplate(name, lang) {
+        name = String(name || '').trim();
+        if (!name || name === strWaSessionTplSelectPlaceholder) {
+            return null;
+        }
+        var host = document.getElementById('wa-waba-template-params');
+        if (!host || !host.children.length) {
+            return null;
+        }
+        return {
+            name: name,
+            language: String(lang || '').trim() || 'en',
+            header_text_placeholder_count: waTemplateParamCountFromDom('wa-waba-hdr-param-'),
+            body_placeholder_count: waTemplateParamCountFromDom('wa-waba-body-param-'),
+            header_named_param_names: [],
+            body_named_param_names: [],
+        };
     }
 
     function waDestroyWabaTemplateSelect2() {
@@ -3249,10 +3335,60 @@
         if (!sel) {
             return '';
         }
+        var nativeVal = String(sel.value || '');
         if (typeof jQuery !== 'undefined' && jQuery.fn && jQuery.fn.select2 && jQuery(sel).data('select2')) {
-            return String(jQuery(sel).val() || '');
+            var picked = jQuery(sel).val();
+            if (Array.isArray(picked)) {
+                picked = picked.length ? picked[0] : '';
+            }
+            var jqVal = picked == null ? '' : String(picked);
+            return jqVal || nativeVal;
         }
-        return String(sel.value || '');
+        return nativeVal;
+    }
+
+    function waResolveWabaTemplateForSend(sel) {
+        var candidates = [];
+        function pushCandidate(name, lang) {
+            name = String(name || '').trim();
+            lang = String(lang || '').trim();
+            if (!name || name === strWaSessionTplSelectPlaceholder) {
+                return;
+            }
+            candidates.push({ name: name, lang: lang });
+        }
+        var parsed = waParseTemplateRaw(waWabaTemplateSelectRawValue(sel));
+        pushCandidate(parsed.name, parsed.lang);
+        if (sel && sel.selectedIndex > 0) {
+            var opt = sel.options[sel.selectedIndex];
+            if (opt) {
+                pushCandidate(opt.getAttribute('data-wa-tpl-name'), opt.getAttribute('data-wa-tpl-language'));
+            }
+        }
+        var renderedParsed = { name: '', lang: '' };
+        var rendered = document.querySelector('#wa-waba-template-panel .select2-selection__rendered');
+        if (rendered) {
+            renderedParsed = waParseTemplateRaw(String(rendered.textContent || '').replace(/\s+/g, ' ').trim());
+            pushCandidate(renderedParsed.name, renderedParsed.lang);
+        }
+        if (sel && (!rendered || (renderedParsed.name && renderedParsed.lang))) {
+            pushCandidate(sel.getAttribute('data-wa-active-tpl-name'), sel.getAttribute('data-wa-active-tpl-lang'));
+        }
+        var i;
+        for (i = 0; i < candidates.length; i++) {
+            var found = waFindWabaTemplate(candidates[i].name, candidates[i].lang);
+            if (found) {
+                return found;
+            }
+        }
+        var labeled = null;
+        for (i = 0; i < candidates.length; i++) {
+            if (candidates[i].lang) {
+                labeled = candidates[i];
+            }
+        }
+        var pick = labeled || (candidates.length ? candidates[candidates.length - 1] : null);
+        return pick ? waSyntheticWabaTemplate(pick.name, pick.lang) : null;
     }
 
     function waSyncWabaTemplateSelect2Layout($nativeSelect) {
@@ -3454,19 +3590,15 @@
             return;
         }
         host.innerHTML = '';
-        var raw = waWabaTemplateSelectRawValue(sel);
-        if (!raw || !waWabaTemplatesList || !waWabaTemplatesList.length) {
-            return;
-        }
-        var parts = String(raw).split('\t');
-        var tname = parts[0];
-        var tlang = parts.length > 1 ? parts[1] : '';
-        var tpl = null;
-        waWabaTemplatesList.forEach(function (t) {
-            if ((t.name || '') === tname && (t.language || '') === tlang) {
-                tpl = t;
+        var parsed = waParseTemplateRaw(waWabaTemplateSelectRawValue(sel));
+        var tpl = waFindWabaTemplate(parsed.name, parsed.lang);
+        if (!tpl && sel && sel.selectedIndex > 0) {
+            var opt = sel.options[sel.selectedIndex];
+            if (opt) {
+                tpl = waFindWabaTemplate(opt.getAttribute('data-wa-tpl-name') || '', opt.getAttribute('data-wa-tpl-language') || '');
             }
-        });
+        }
+        waRememberActiveWabaTemplate(sel, tpl);
         if (!tpl) {
             return;
         }
@@ -3561,6 +3693,7 @@
     function waClearWabaTemplateComposer() {
         var sel = document.getElementById('wa-waba-template-select');
         if (sel) {
+            waRememberActiveWabaTemplate(sel, null);
             if (typeof jQuery !== 'undefined' && jQuery(sel).data('select2')) {
                 jQuery(sel).val('').trigger('change');
             } else {
@@ -5223,42 +5356,42 @@
     (function waBindWabaTemplateComposer() {
         var waTplSel = document.getElementById('wa-waba-template-select');
         var waTplSend = document.getElementById('wa-waba-template-send-btn');
-        if (waTplSel && !waTplSel.dataset.waBound) {
-            waTplSel.dataset.waBound = '1';
-            waTplSel.addEventListener('change', function () {
+        /* The inbox script runs twice on one page. Rebind so Send uses the run that loaded the templates. */
+        if (waTplSel) {
+            if (waTplSel._waTplChangeHandler) {
+                waTplSel.removeEventListener('change', waTplSel._waTplChangeHandler);
+            }
+            waTplSel._waTplChangeHandler = function () {
                 waRebuildWabaTemplateFields();
-            });
+            };
+            waTplSel.addEventListener('change', waTplSel._waTplChangeHandler);
         }
-        if (waTplSend && !waTplSend.dataset.waBound && sendTemplateUrl) {
-            waTplSend.dataset.waBound = '1';
-            waTplSend.addEventListener('click', function () {
+        if (waTplSend && sendTemplateUrl) {
+            if (waTplSend._waTplSendHandler) {
+                waTplSend.removeEventListener('click', waTplSend._waTplSendHandler);
+            }
+            waTplSend._waTplSendHandler = function () {
                 var sel = document.getElementById('wa-waba-template-select');
                 var phoneEl = document.getElementById('whatsapp-reply-phone');
-                var phone = phoneEl ? phoneEl.value : '';
-                var raw = waWabaTemplateSelectRawValue(sel);
-                if (!phone || !raw) {
-                    if (typeof toastr !== 'undefined') {
-                        toastr.warning({!! json_encode(translate('whatsapp_session_window_select_template')) !!});
-                    }
-                    return;
+                var phone = (phoneEl && String(phoneEl.value || '').trim()) || String(currentPhone || '').trim();
+                if (phoneEl && phone) {
+                    phoneEl.value = phone;
                 }
-                var parts = String(raw).split('\t');
-                var tname = parts[0];
-                var tlang = parts.length > 1 ? parts[1] : 'en';
-                var tpl = null;
-                if (waWabaTemplatesList && waWabaTemplatesList.length) {
-                    waWabaTemplatesList.forEach(function (t) {
-                        if ((t.name || '') === tname && (t.language || '') === tlang) {
-                            tpl = t;
-                        }
-                    });
-                }
+                var tpl = waResolveWabaTemplateForSend(sel);
                 if (!tpl) {
                     if (typeof toastr !== 'undefined') {
                         toastr.warning({!! json_encode(translate('whatsapp_session_window_select_template')) !!});
                     }
                     return;
                 }
+                if (!phone) {
+                    if (typeof toastr !== 'undefined') {
+                        toastr.warning({!! json_encode(translate('Invalid_whatsapp_phone')) !!});
+                    }
+                    return;
+                }
+                var tname = tpl.name || '';
+                var tlang = tpl.language || 'en';
                 var htc = tpl ? (parseInt(tpl.header_text_placeholder_count, 10) || 0) : 0;
                 var bpc = tpl ? (parseInt(tpl.body_placeholder_count, 10) || 0) : 0;
                 if (htc === 0 && tpl && tpl.header_named_param_names && tpl.header_named_param_names.length) {
@@ -5332,7 +5465,8 @@
                             toastr.error(strTplSentFail);
                         }
                     });
-            });
+            };
+            waTplSend.addEventListener('click', waTplSend._waTplSendHandler);
         }
     })();
 })();
