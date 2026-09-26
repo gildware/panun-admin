@@ -142,10 +142,14 @@
             }
             .wa-whatsapp-chats-split-page .wa-chats-split-layout {
                 --wa-chats-pane-bottom-gap: 0.75rem;
-                flex: 1 1 auto;
+                flex: 1 1 0%;
                 min-height: 0;
+                margin-top: 0;
                 margin-bottom: var(--wa-chats-pane-bottom-gap);
                 overflow: hidden;
+            }
+            .wa-whatsapp-chats-split-page > .container-fluid > .offcanvas {
+                position: fixed;
             }
             .wa-whatsapp-chats-split-page .wa-chats-split-layout > .wa-chats-split-col > .card {
                 margin-bottom: 0;
@@ -2334,6 +2338,24 @@
         $sel.val(activeState ? [activeState] : []).trigger('change');
     }
 
+    function waChatItemIsUnread(el) {
+        return !!(el && (el.classList.contains('bg-primary') || el.querySelector('.wa-unread-count-badge')));
+    }
+
+    function waRetainChatItemsForReadState(activeState) {
+        var itemsEl = document.getElementById('wa-active-chat-items');
+        if (!itemsEl || (activeState !== 'unread' && activeState !== 'read')) {
+            return;
+        }
+        itemsEl.querySelectorAll('.whatsapp-chat-item').forEach(function (el) {
+            var isUnread = waChatItemIsUnread(el);
+            var keep = activeState === 'unread' ? isUnread : !isUnread;
+            if (!keep) {
+                el.remove();
+            }
+        });
+    }
+
     function waApplyUnreadStateFilter(activeState) {
         var url = new URL(window.location.href);
         url.searchParams.delete('unread_state[]');
@@ -2344,10 +2366,12 @@
         window.history.replaceState({}, '', url.toString());
         waUpdateUnreadFilterButtons(activeState || '');
         waSyncUnreadFilterSelect(activeState || '');
+        waRetainChatItemsForReadState(activeState || '');
         waChatListCurrentPage = 0;
         var listContainer = document.querySelector('.whatsapp-active-list-container');
         if (listContainer) {
             listContainer.dataset.page = '0';
+            listContainer.dataset.unreadFilterApplied = '';
         }
         return waFetchActiveChatsPage(1, waChatListPerPage, 'replace');
     }
@@ -2402,6 +2426,13 @@
         });
         url.searchParams.set('page', String(page || 1));
         url.searchParams.set('per_page', String(perPage || waChatListPerPage));
+        url.searchParams.delete('unread_state[]');
+        url.searchParams.delete('unread_state');
+        var listContainer = document.querySelector('.whatsapp-active-list-container');
+        var unreadFilter = listContainer ? (listContainer.dataset.unreadFilter || '') : '';
+        if (unreadFilter === 'unread' || unreadFilter === 'read') {
+            url.searchParams.append('unread_state[]', unreadFilter);
+        }
         if (currentPhone) {
             url.searchParams.set('phone', currentPhone);
         }
@@ -2413,11 +2444,16 @@
 
     var waChatListLoading = false;
     var waChatListCurrentPage = 1;
+    var waChatListRequestSeq = 0;
 
     function waFetchActiveChatsPage(page, perPage, mode) {
-        if (!activeChatsListUrl || waChatListLoading) {
+        if (!activeChatsListUrl) {
             return Promise.resolve(null);
         }
+        if (mode !== 'replace' && waChatListLoading) {
+            return Promise.resolve(null);
+        }
+        var seq = ++waChatListRequestSeq;
         waChatListLoading = true;
         var footer = document.getElementById('wa-active-chat-list-footer');
         var loadingEl = document.getElementById('wa-active-chat-loading');
@@ -2434,11 +2470,13 @@
         })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (!waInboxAlive()) {
-                    waChatListLoading = false;
+                if (seq !== waChatListRequestSeq) {
                     return null;
                 }
                 waChatListLoading = false;
+                if (!waInboxAlive()) {
+                    return null;
+                }
                 if (!data || data.error) {
                     waUpdateActiveChatRemainingFooter({ remaining: 0 });
                     return null;
@@ -2449,16 +2487,15 @@
                     return data;
                 }
                 if (mode === 'replace') {
-                    if (!currentPhone) {
-                        if (data.html) {
-                            itemsEl.innerHTML = data.html;
-                        } else if ((data.total || 0) === 0) {
-                            itemsEl.innerHTML = '<div class="p-4 text-center text-muted wa-no-chats-msg">' + (waHumanSupportTab ? 'No human support requests' : 'No active chats') + '</div>';
-                        }
-                        bindActiveChatListClicks(listContainer);
-                        waChatListCurrentPage = Math.max(1, Math.ceil((data.loaded || 0) / waChatListPerPage));
-                        listContainer.dataset.page = String(waChatListCurrentPage);
+                    if (data.html) {
+                        itemsEl.innerHTML = data.html;
+                    } else if ((data.total || 0) === 0) {
+                        itemsEl.innerHTML = '<div class="p-4 text-center text-muted wa-no-chats-msg">' + (waHumanSupportTab ? 'No human support requests' : 'No active chats') + '</div>';
                     }
+                    bindActiveChatListClicks(listContainer);
+                    waChatListCurrentPage = Math.max(1, Math.ceil((data.loaded || 0) / waChatListPerPage));
+                    listContainer.dataset.page = String(waChatListCurrentPage);
+                    listContainer.dataset.unreadFilterApplied = listContainer.dataset.unreadFilter || '';
                     waMarkSelectedChatInList(currentPhone);
                 } else if (mode === 'append' && data.html) {
                     var wrap = document.createElement('div');
@@ -2484,6 +2521,9 @@
                 return data;
             })
             .catch(function() {
+                if (seq !== waChatListRequestSeq) {
+                    return null;
+                }
                 waChatListLoading = false;
                 waUpdateActiveChatRemainingFooter({ remaining: 0 });
                 return null;
@@ -2510,6 +2550,7 @@
         }
         waChatListCurrentPage = parseInt(listContainer.dataset.page || '1', 10) || 1;
         waUpdateUnreadFilterButtons(listContainer.dataset.unreadFilter || '');
+        listContainer.dataset.unreadFilterApplied = listContainer.dataset.unreadFilter || '';
         document.querySelectorAll('.wa-chat-read-filter-btn').forEach(function(btn) {
             if (btn.dataset.waUnreadFilterBound === '1') {
                 return;
@@ -2518,7 +2559,8 @@
             btn.addEventListener('click', function() {
                 var next = btn.getAttribute('data-unread-state') || '';
                 var current = listContainer.dataset.unreadFilter || '';
-                if (next === current) {
+                var applied = listContainer.dataset.unreadFilterApplied || '';
+                if (next === current && applied === current) {
                     return;
                 }
                 waApplyUnreadStateFilter(next);
@@ -2875,6 +2917,10 @@
                 var unreadBadge = el.querySelector('.wa-unread-count-badge');
                 if (unreadBadge && unreadBadge.parentNode) {
                     unreadBadge.parentNode.removeChild(unreadBadge);
+                }
+                var listContainer = document.querySelector('.whatsapp-active-list-container');
+                if (listContainer && (listContainer.dataset.unreadFilter || '') === 'unread') {
+                    el.remove();
                 }
             }
         });

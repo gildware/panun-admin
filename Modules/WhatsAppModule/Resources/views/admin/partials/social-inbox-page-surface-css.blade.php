@@ -25,6 +25,10 @@
     .social-inbox-page .wa-inbox-toolbar-card {
         padding: 0.4rem 0.65rem !important;
         margin-bottom: 0.75rem !important;
+        /* card-body is flex: 1 1 auto; don't let the tab bar swallow the chat panes */
+        flex: 0 0 auto !important;
+        height: auto !important;
+        min-height: 0 !important;
     }
     .social-inbox-page .wa-inbox-toolbar-row {
         gap: 0.45rem;

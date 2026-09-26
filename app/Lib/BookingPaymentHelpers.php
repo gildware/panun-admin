@@ -1340,8 +1340,10 @@ if (!function_exists('booking_on_hold_is_after_visit_from_ongoing')) {
 
 if (! function_exists('booking_admin_can_reassign_provider')) {
     /**
-     * Admin may change provider only before the booking has ever been set to ongoing.
-     * After service is ongoing (current or past in status history), reassign is blocked; close the booking and book again.
+     * Admin may change provider before the visit starts, and also while the booking
+     * is on hold after a visit (current status on_hold, including after it was ongoing).
+     * While the booking is currently ongoing, or after it is completed or canceled,
+     * reassign is blocked; close the booking and book again.
      *
      * @param  \Modules\BookingModule\Entities\Booking|\Modules\BookingModule\Entities\BookingRepeat  $booking
      */
@@ -1365,6 +1367,10 @@ if (! function_exists('booking_admin_can_reassign_provider')) {
         }
         if ($currentSt === 'ongoing') {
             return false;
+        }
+        // Hold before the visit and hold after visit may both change provider.
+        if ($currentSt === 'on_hold') {
+            return true;
         }
 
         return ! BookingStatusHistory::query()
