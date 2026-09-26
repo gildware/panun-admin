@@ -3219,6 +3219,9 @@ class WhatsAppController extends Controller
                 } catch (\Throwable $e) {
                     \Log::warning('WhatsApp pinRequestedPhoneInChatPage failed.', ['error' => $e->getMessage()]);
                 }
+                if ($unreadState !== null) {
+                    $chats = $this->applyWhatsAppUnreadStateFilter($chats, $request);
+                }
             }
 
             return [
@@ -3262,6 +3265,7 @@ class WhatsAppController extends Controller
             } catch (\Throwable $e) {
                 \Log::warning('WhatsApp pinRequestedPhoneInChatPage failed.', ['error' => $e->getMessage()]);
             }
+            $chats = $this->applyWhatsAppUnreadStateFilter($chats, $request);
         }
 
         return [
@@ -3288,6 +3292,11 @@ class WhatsAppController extends Controller
 
         $matched = $chats->first(fn ($chat) => WhatsAppThreadPhoneKeys::matches($want, (string) ($chat->phone ?? '')));
         if ($matched) {
+            if (! $this->whatsAppChatMatchesUnreadStateFilter($matched, $request)) {
+                return $chats
+                    ->reject(fn ($chat) => WhatsAppThreadPhoneKeys::matches($want, (string) ($chat->phone ?? '')))
+                    ->values();
+            }
             if ($request->ajax()) {
                 return $chats;
             }
@@ -3308,7 +3317,7 @@ class WhatsAppController extends Controller
         }
 
         $enriched = $this->enrichActiveChatRows(collect([$row]))->first();
-        if ($enriched === null) {
+        if ($enriched === null || ! $this->whatsAppChatMatchesUnreadStateFilter($enriched, $request)) {
             return $chats;
         }
 
@@ -3504,6 +3513,22 @@ class WhatsAppController extends Controller
      * @param  \Illuminate\Support\Collection<int, object>  $chats
      * @return \Illuminate\Support\Collection<int, object>
      */
+    private function whatsAppChatMatchesUnreadStateFilter(object $chat, Request $request): bool
+    {
+        $states = $this->normalizeWaUnreadStateFilter($request);
+        if ($states === []) {
+            return true;
+        }
+        $wantUnread = in_array('unread', $states, true);
+        $wantRead = in_array('read', $states, true);
+        if ($wantUnread && $wantRead) {
+            return true;
+        }
+        $n = (int) ($chat->unread_count ?? 0);
+
+        return $wantUnread ? $n > 0 : $n === 0;
+    }
+
     private function applyWhatsAppUnreadStateFilter(\Illuminate\Support\Collection $chats, Request $request): \Illuminate\Support\Collection
     {
         $states = $this->normalizeWaUnreadStateFilter($request);
@@ -3516,10 +3541,8 @@ class WhatsAppController extends Controller
             return $chats;
         }
 
-        return $chats->filter(function ($chat) use ($wantUnread) {
-            $n = (int) ($chat->unread_count ?? 0);
-
-            return $wantUnread ? $n > 0 : $n === 0;
+        return $chats->filter(function ($chat) use ($request) {
+            return $this->whatsAppChatMatchesUnreadStateFilter($chat, $request);
         })->values();
     }
 
