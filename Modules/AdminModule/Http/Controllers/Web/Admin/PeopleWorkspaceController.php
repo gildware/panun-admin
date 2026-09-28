@@ -20,6 +20,7 @@ use Modules\AdminModule\Entities\PeopleProfile;
 use Modules\AdminModule\Entities\PeopleTimesheet;
 use Modules\AdminModule\Services\PeoplePayroll;
 use Modules\AdminModule\Services\PeopleWorkspace;
+use Modules\TaskBoardModule\Entities\TaskTicket;
 use Modules\UserManagement\Entities\User;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -80,7 +81,12 @@ class PeopleWorkspaceController extends Controller
 
         Toastr::success('Your details are saved.');
 
-        return redirect()->route('admin.people.index', ['section' => 'details']);
+        $return = (string) $request->input('return_section', 'home');
+        if (! in_array($return, ['home', 'documents', 'payslips', 'timesheet'], true)) {
+            $return = 'home';
+        }
+
+        return redirect()->route('admin.people.index', ['section' => $return]);
     }
 
     public function storeDocument(Request $request): RedirectResponse
@@ -215,10 +221,9 @@ class PeopleWorkspaceController extends Controller
             'month' => ['nullable', 'date_format:Y-m'],
             'intent' => ['required', Rule::in(['submit', 'leave'])],
             'rows' => ['required_if:intent,submit', 'array', 'min:1', 'max:12'],
-            'rows.*.task' => ['nullable', 'string', 'max:120'],
-            'rows.*.code' => ['nullable', 'string', 'max:40'],
+            'rows.*.ticket_id' => ['nullable', 'string', 'max:80'],
+            'rows.*.task' => ['nullable', 'string', 'max:180'],
             'rows.*.deadline' => ['nullable', 'date'],
-            'rows.*.project_type' => ['nullable', 'string', 'max:40'],
             'rows.*.hours' => ['nullable', 'numeric', 'min:0', 'max:24'],
         ]);
 
@@ -245,14 +250,12 @@ class PeopleWorkspaceController extends Controller
 
         $rows = $data['intent'] === 'leave'
             ? [[
+                'ticket_id' => 'leave',
                 'task' => 'Leave',
-                'code' => 'LV-FL',
                 'deadline' => null,
-                'project_type' => 'Leave',
-                'billing' => 'Billable',
                 'hours' => 8,
             ]]
-            : $this->cleanTimesheetRows($data['rows'] ?? []);
+            : $this->cleanTimesheetRows($data['rows'] ?? [], $this->timesheetTasks($user));
 
         $total = round(array_sum(array_column($rows, 'hours')), 2);
         if ($rows === [] || $total <= 0 || $total > 24) {
@@ -692,7 +695,7 @@ class PeopleWorkspaceController extends Controller
             }
         }
 
-        $tasks = $this->timesheetTasks();
+        $tasks = $this->timesheetTasks($user);
         $first = $today->copy()->startOfMonth()->subMonths(11);
         $months = [];
         $pendingMonths = [];
@@ -762,18 +765,27 @@ class PeopleWorkspaceController extends Controller
     }
 
     /**
-     * @return array<int, array{task: string, code: string, project_type: string, billing: string}>
+     * Tasks assigned to this person on the task board, plus leave rows.
+     *
+     * @return array<int, array{id: string, task: string, deadline: string}>
      */
-    private function timesheetTasks(): array
+    private function timesheetTasks(User $user): array
     {
-        return [
-            ['task' => 'Customer work', 'code' => 'PK-CW', 'project_type' => 'Service', 'billing' => 'Billable'],
-            ['task' => 'Bookings', 'code' => 'PK-BK', 'project_type' => 'Service', 'billing' => 'Billable'],
-            ['task' => 'Provider follow-up', 'code' => 'PK-PF', 'project_type' => 'Service', 'billing' => 'Billable'],
-            ['task' => 'Training', 'code' => 'PK-TR', 'project_type' => 'Internal', 'billing' => 'Billable'],
-            ['task' => 'Partial Leave', 'code' => 'LV-PL', 'project_type' => 'Leave', 'billing' => 'Billable'],
-            ['task' => 'Leave', 'code' => 'LV-FL', 'project_type' => 'Leave', 'billing' => 'Billable'],
-        ];
+        $tasks = TaskTicket::query()
+            ->whereHas('assignees', fn ($query) => $query->where('users.id', $user->id))
+            ->orderBy('title')
+            ->get(['id', 'title', 'end_date'])
+            ->map(fn (TaskTicket $ticket) => [
+                'id' => (string) $ticket->id,
+                'task' => $ticket->title,
+                'deadline' => $ticket->end_date?->toDateString() ?? '',
+            ])
+            ->all();
+
+        $tasks[] = ['id' => 'partial-leave', 'task' => 'Partial Leave', 'deadline' => ''];
+        $tasks[] = ['id' => 'leave', 'task' => 'Leave', 'deadline' => ''];
+
+        return $tasks;
     }
 
     /**
@@ -823,26 +835,33 @@ class PeopleWorkspaceController extends Controller
 
     /**
      * @param  array<int, array<string, mixed>>  $rows
+     * @param  array<int, array{id: string, task: string, deadline: string}>  $tasks
      * @return array<int, array<string, mixed>>
      */
-    private function cleanTimesheetRows(array $rows): array
+    private function cleanTimesheetRows(array $rows, array $tasks): array
     {
+        $catalog = [];
+        foreach ($tasks as $task) {
+            $catalog[$task['id']] = $task;
+        }
+
         $clean = [];
         foreach ($rows as $row) {
             if (! is_array($row)) {
                 continue;
             }
-            $task = trim((string) ($row['task'] ?? ''));
+            $ticketId = trim((string) ($row['ticket_id'] ?? ''));
+            $known = $catalog[$ticketId] ?? null;
+            $task = $known['task'] ?? trim((string) ($row['task'] ?? ''));
             $hours = round((float) ($row['hours'] ?? 0), 2);
             if ($task === '' || $hours <= 0) {
                 continue;
             }
+            $deadline = $known['deadline'] ?? (string) ($row['deadline'] ?? '');
             $clean[] = [
+                'ticket_id' => $known['id'] ?? ($ticketId !== '' ? $ticketId : null),
                 'task' => $task,
-                'code' => trim((string) ($row['code'] ?? '')),
-                'deadline' => $row['deadline'] ?? null,
-                'project_type' => trim((string) ($row['project_type'] ?? '')),
-                'billing' => 'Billable',
+                'deadline' => $deadline !== '' ? $deadline : null,
                 'hours' => $hours,
             ];
         }

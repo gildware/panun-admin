@@ -16,28 +16,6 @@
         : 'You have '.$board['pendingTotal'].' pending timesheet '.($board['pendingTotal'] === 1 ? 'day' : 'days').'.';
 @endphp
 <div class="ts-app" id="ts-app">
-    <aside class="ts-side">
-        <label class="ts-month">
-            <span class="ts-sr">Month</span>
-            <select id="ts-month" aria-label="Month">
-                @foreach($board['months'] as $option)
-                    <option value="{{ $option['value'] }}" @selected($option['value'] === $board['month'])>{{ $option['label'] }}</option>
-                @endforeach
-            </select>
-        </label>
-        <article class="ts-stat ts-stat--total">
-            <strong id="ts-total">{{ $fmt($board['total']) }}</strong>
-            <span>Total Hours</span>
-        </article>
-        <form method="post" action="{{ route('admin.people.timesheet.day') }}" id="ts-leave-form">
-            @csrf
-            <input type="hidden" name="intent" value="leave">
-            <input type="hidden" name="work_date" value="{{ $board['leaveDate'] }}">
-            <input type="hidden" name="month" value="{{ $board['month'] }}">
-            <button class="ts-leave-btn" type="submit">I was on Leave</button>
-        </form>
-    </aside>
-
     <div class="ts-main">
         @if($pendingCount > 0)
             <p class="ts-alert">{{ $pendingCopy }} <button type="button" id="ts-open-pending">Click Here to view</button></p>
@@ -45,10 +23,29 @@
         <section class="ts-panel" aria-label="Timesheet">
             <header class="ts-toolbar">
                 <h2><mark>Timesheet</mark></h2>
+                <label class="ts-month">
+                    <span class="ts-sr">Month</span>
+                    <select id="ts-month" aria-label="Month">
+                        @foreach($board['months'] as $option)
+                            <option value="{{ $option['value'] }}" @selected($option['value'] === $board['month'])>{{ $option['label'] }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <article class="ts-stat ts-stat--total ts-head-hours">
+                    <strong id="ts-total">{{ $fmt($board['total']) }}</strong>
+                    <span>Total Hours</span>
+                </article>
+                <form method="post" action="{{ route('admin.people.timesheet.day') }}" id="ts-leave-form">
+                    @csrf
+                    <input type="hidden" name="intent" value="leave">
+                    <input type="hidden" name="work_date" value="{{ $board['leaveDate'] }}">
+                    <input type="hidden" name="month" value="{{ $board['month'] }}">
+                    <button class="ts-leave-btn" type="submit">I was on Leave</button>
+                </form>
                 <div class="ts-tools">
                     <label class="ts-search">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16 16l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-                        <input id="ts-search" type="search" placeholder="Search Projects" aria-label="Search projects">
+                        <input id="ts-search" type="search" placeholder="Search tasks" aria-label="Search tasks">
                     </label>
                 </div>
             </header>
@@ -60,12 +57,12 @@
                         $useOld = $open && old('work_date') === $card['date'] && is_array(old('rows'));
                         $rows = $useOld ? old('rows') : ($card['rows'] ?: [[]]);
                         $rowHours = 0.0;
-                        $projectCount = 0;
+                        $taskCount = 0;
                         foreach ($rows as $row) {
                             $amount = (float) ($row['hours'] ?? 0);
                             $rowHours += $amount;
                             if (trim((string) ($row['task'] ?? '')) !== '' && $amount > 0) {
-                                $projectCount++;
+                                $taskCount++;
                             }
                         }
                     @endphp
@@ -76,10 +73,10 @@
                         <input type="hidden" name="month" value="{{ $board['month'] }}">
                         <div class="ts-day-head">
                             <h3>{{ $card['label'] }}</h3>
-                            <p>Project <span class="ts-count"># <b data-projects>{{ $projectCount }}</b></span></p>
+                            <p>Tasks <span class="ts-count"># <b data-tasks>{{ $taskCount }}</b></span></p>
                             <p>Total Time <b class="ts-day-total {{ $open ? 'is-open' : '' }}" data-day-total>{{ $fmt($rowHours, true) }}</b></p>
                             @if($open)
-                                <button class="ts-submit" type="submit" @disabled($projectCount < 1)>Submit <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                                <button class="ts-submit" type="submit" @disabled($taskCount < 1)>Submit <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                             @elseif(($card['state'] ?? '') === 'done')
                                 <span class="ts-submitted">Submitted</span>
                             @else
@@ -90,10 +87,8 @@
                             <table class="ts-sheet">
                                 <thead>
                                     <tr>
-                                        <th>Task/Project</th>
-                                        <th>Project Code</th>
-                                        <th>Deadline</th>
-                                        <th>Project Type</th>
+                                        <th>Task</th>
+                                        <th>Due</th>
                                         <th>Hours</th>
                                     </tr>
                                 </thead>
@@ -157,7 +152,8 @@
 <script>
 (function () {
     var root = document.getElementById('ts-app');
-    if (!root) return;
+    if (!root || root.dataset.bound === '1') return;
+    root.dataset.bound = '1';
     var tpl = document.getElementById('ts-row-tpl');
     var query = '';
     var rowSeq = 1;
@@ -173,11 +169,15 @@
     function applyTask(row) {
         var select = row.querySelector('.ts-task-select');
         var option = select && select.selectedOptions ? select.selectedOptions[0] : null;
-        if (!option || !option.value) return;
-        var code = row.querySelector('.ts-code');
-        var type = row.querySelector('.ts-type');
-        if (code) code.value = option.getAttribute('data-code') || '';
-        if (type) type.value = option.getAttribute('data-type') || '';
+        var title = row.querySelector('.ts-task-title');
+        var due = row.querySelector('.ts-due');
+        if (!option || !option.value) {
+            if (title) title.value = '';
+            if (due) due.value = '';
+            return;
+        }
+        if (title) title.value = option.getAttribute('data-title') || option.textContent.trim();
+        if (due) due.value = option.getAttribute('data-deadline') || '';
     }
 
     function refresh() {
@@ -193,7 +193,7 @@
                 total += amount;
                 if (task && task.value && amount > 0) count += 1;
             });
-            var countNode = day.querySelector('[data-projects]');
+            var countNode = day.querySelector('[data-tasks]');
             var totalNode = day.querySelector('[data-day-total]');
             var submit = day.querySelector('.ts-submit');
             if (countNode) countNode.textContent = String(count);
@@ -206,9 +206,8 @@
 
     function visible(row) {
         var task = row.querySelector('.ts-task-select');
-        var code = row.querySelector('.ts-code');
-        var type = row.querySelector('.ts-type');
-        var text = [task && task.value, code && code.value, type && type.value].join(' ');
+        var option = task && task.selectedOptions ? task.selectedOptions[0] : null;
+        var text = option ? option.textContent : '';
         return !query || text.toLowerCase().indexOf(query) !== -1;
     }
 
@@ -236,7 +235,7 @@
         body.appendChild(row);
         if (preset) {
             var task = row.querySelector('.ts-task-select');
-            if (task) task.value = preset.task;
+            if (task && preset.ticket) task.value = preset.ticket;
             applyTask(row);
             var hours = row.querySelector('.ts-hours');
             if (hours && preset.hours) hours.value = String(preset.hours);
@@ -259,8 +258,8 @@
         if (add) {
             var day = add.closest('.ts-day');
             if (!day) return;
-            if (add.getAttribute('data-add') === 'leave') addRow(day, { task: 'Partial Leave', hours: 1 });
-            else addRow(day, { task: 'Training', hours: 1 });
+            if (add.getAttribute('data-add') === 'leave') addRow(day, { ticket: 'partial-leave', hours: 1 });
+            else addRow(day);
             return;
         }
         var remove = event.target.closest('.ts-remove');
@@ -328,7 +327,7 @@
             if (filled && !window.confirm('Replace this day with a full leave day?')) return;
             var body = day.querySelector('tbody');
             if (body) body.innerHTML = '';
-            addRow(day, { task: 'Leave', hours: 8 });
+            addRow(day, { ticket: 'leave', hours: 8 });
             day.scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
     }

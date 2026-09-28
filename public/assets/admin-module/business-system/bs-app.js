@@ -397,11 +397,12 @@
   function systemTabs(active) {
     const key = String(active || "");
     const filesOn = key === "files" || key.indexOf("file-") === 0;
-    const reportsOn = key === "reports" || key.indexOf("report-") === 0;
+    const reportsOn = key === "reports" || key.indexOf("reports-") === 0 || key.indexOf("report-") === 0;
+    const reportsHash = key.indexOf("reports-") === 0 ? key : "reports";
     return `<nav class="bs-system-tabs" role="tablist" aria-label="Business system">
       <button type="button" class="bs-system-tab${filesOn || reportsOn ? "" : " is-on"}" data-go-home>Hierarchy</button>
       <button type="button" class="bs-system-tab${filesOn ? " is-on" : ""}" data-go-hash="files">Files</button>
-      <button type="button" class="bs-system-tab${reportsOn ? " is-on" : ""}" data-go-hash="reports">Reports</button>
+      <button type="button" class="bs-system-tab${reportsOn ? " is-on" : ""}" data-go-hash="${reportsHash}">Reports</button>
     </nav>`;
   }
 
@@ -1161,108 +1162,307 @@
     return "R-" + (n < 10 ? "0" + n : String(n));
   }
 
-  function renderReportBody(report) {
+  function closeValue(filled, value) {
+    if (!filled) return `<span class="bs-close-blank"></span>`;
+    return esc(value);
+  }
+
+  function renderCloseSections(report, filled) {
+    return (report.sections || []).map((section) => {
+      const rows = (section.rows || []).map((row) => {
+        if (row.type === "stat") {
+          return `
+            <div class="bs-close-stat is-single">
+              <span>${esc(row.label)}</span>
+              <b>${closeValue(filled, row.example)}</b>
+              ${filled ? "" : `<em>${esc(row.hint || "")}</em>`}
+            </div>`;
+        }
+        if (row.type === "stats") {
+          const cells = (row.cells || []).map((cell) => `
+            <div class="bs-close-stat">
+              <span>${esc(cell.label)}</span>
+              <b>${closeValue(filled, cell.example)}</b>
+            </div>`).join("");
+          return `
+            <div class="bs-close-block">
+              <p class="bs-close-label">${esc(row.label)}</p>
+              <div class="bs-close-stats">${cells}</div>
+              ${filled ? "" : `<p class="bs-sheet-hint">${esc(row.hint || "")}</p>`}
+            </div>`;
+        }
+        if (row.type === "table") {
+          const columns = row.columns || [];
+          const head = columns.map((column) => `<th>${esc(column)}</th>`).join("");
+          const source = filled ? (row.example || []) : [columns.map(() => ""), columns.map(() => "")];
+          const body = source.map((cells) => `
+            <tr>${cells.map((cell) => `<td>${filled ? esc(cell) : ""}</td>`).join("")}</tr>`).join("");
+          return `
+            <div class="bs-close-block">
+              <p class="bs-close-label">${esc(row.label)}</p>
+              <div class="bs-close-scroll">
+                <table class="bs-close-table">
+                  <thead><tr>${head}</tr></thead>
+                  <tbody>${body}</tbody>
+                </table>
+              </div>
+              ${filled ? "" : `<p class="bs-sheet-hint">${esc(row.hint || "")}</p>`}
+            </div>`;
+        }
+        return `
+          <div class="bs-close-block">
+            <p class="bs-close-label">${esc(row.label)}</p>
+            <p class="bs-close-note">${closeValue(filled, row.example)}</p>
+            ${filled ? "" : `<p class="bs-sheet-hint">${esc(row.hint || "")}</p>`}
+          </div>`;
+      }).join("");
+      return `<section class="bs-close-section"><h2>${esc(section.title)}</h2>${rows}</section>`;
+    }).join("");
+  }
+
+  function exampleCopyName(report) {
+    if (report.group === "Each month") return "Example monthly report";
+    if (report.group === "Each week") return "Example weekly report";
+    return "Example daily report";
+  }
+
+  function renderReportSheet(report, mode) {
     const reports = window.PK_REPORTS || [];
     const index = reports.findIndex((item) => item.id === report.id);
     const number = reportNo(index < 0 ? 0 : index);
-    const lines = (report.lines || []).map((line, i) => `
+    const example = mode === "example" && report.example;
+    const lines = report.sections ? "" : (report.lines || []).map((line, i) => {
+      const value = example && example.lines ? (example.lines[i] || "") : "";
+      return `
       <div class="bs-sheet-field">
         <span class="bs-sheet-num">${i + 1}</span>
         <div>
           <p class="bs-sheet-label">${esc(line.field)}</p>
-          <p class="bs-sheet-line is-blank"></p>
-          <p class="bs-sheet-hint">${esc(line.hint)}</p>
+          <p class="bs-sheet-line${example ? " is-filled" : " is-blank"}">${example ? esc(value) : ""}</p>
+          ${example ? "" : `<p class="bs-sheet-hint">${esc(line.hint)}</p>`}
         </div>
-      </div>`).join("");
+      </div>`;
+    }).join("");
+    const heading = example ? exampleCopyName(report) : (report.example ? "General report" : "What to write on each line");
+    const intro = example
+      ? (report.example && report.example.intro) || ""
+      : (report.sections
+        ? "Fill the count and the tables. Add a row for each item. If a table has nothing to report, write none in the first row. Do not type a remembered figure."
+        : "The line is blank. The sentence under it says what to write and which record to copy. If you cannot point at that record, leave the line blank and send the gap back the same day. Do not type a remembered figure.");
+    const sheetBody = report.sections ? renderCloseSections(report, !!example) : lines;
+    return `
+      <article class="bs-sheet${report.sections ? " is-close" : ""}">
+        <div class="bs-sheet-holes" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="bs-sheet-fold" aria-hidden="true"></div>
+        <header class="bs-sheet-head">
+          <div>
+            <p class="bs-sheet-brand">Panun Kaergar</p>
+            <p class="bs-sheet-kind">Report form</p>
+          </div>
+          <div class="bs-sheet-meta">
+            <p><span>Report</span> ${esc(number)}</p>
+            <p><span>Status</span> ${example ? "Example" : "Blank form"}</p>
+            <p><span>Copy</span> ${example ? "Filled day" : "To fill"}</p>
+          </div>
+        </header>
+        <h1 class="serif">${esc(report.name)}</h1>
+        <p class="bs-sheet-lede">${esc(report.rule)}</p>
+        <dl class="bs-sheet-who">
+          <div><dt>Written by</dt><dd>${esc(example && example.writer ? example.writer : report.writer)}</dd></div>
+          <div><dt>When</dt><dd>${esc(example && example.when ? example.when : report.when)}</dd></div>
+          <div><dt>Given to</dt><dd>${esc(report.to)}</dd></div>
+        </dl>
+        <section>
+          <h2>${heading}</h2>
+          <p class="bs-sheet-intro">${esc(intro)}</p>
+          ${sheetBody}
+        </section>
+        ${example || report.sections ? "" : `<p class="bs-sheet-stop"><b>If a line is blank.</b> Send it back the same day and name the record that is missing. Do not invent the number so the report looks finished.</p>`}
+        <footer class="bs-sheet-sign">
+          <div>
+            <span class="bs-sheet-sign-line"></span>
+            <p>${esc(report.writer)}</p>
+          </div>
+          <div>
+            <span class="bs-sheet-sign-line"></span>
+            <p>Date</p>
+          </div>
+          <button type="button" class="bs-sheet-role" data-go-hash="role-${esc(report.writerRole)}">Open the ${esc(report.writer)} seat</button>
+        </footer>
+      </article>`;
+  }
+
+  function renderReportBody(report) {
     return `
       <div class="page bs-files-page">
         ${systemTabs("report-" + report.id)}
-        <button type="button" class="rd-back bs-files-back" data-go-hash="reports"><span class="mso">arrow_back</span> Reports</button>
+        <button type="button" class="rd-back bs-files-back" data-go-hash="reports-${esc(report.writerRole)}"><span class="mso">arrow_back</span> Reports</button>
         <div class="bs-desk">
-          <article class="bs-sheet">
-            <div class="bs-sheet-holes" aria-hidden="true"><i></i><i></i><i></i></div>
-            <div class="bs-sheet-fold" aria-hidden="true"></div>
-            <header class="bs-sheet-head">
-              <div>
-                <p class="bs-sheet-brand">Panun Kaergar</p>
-                <p class="bs-sheet-kind">Report form</p>
-              </div>
-              <div class="bs-sheet-meta">
-                <p><span>Report</span> ${esc(number)}</p>
-                <p><span>Status</span> Blank form</p>
-                <p><span>Copy</span> To fill</p>
-              </div>
-            </header>
-            <h1 class="serif">${esc(report.name)}</h1>
-            <p class="bs-sheet-lede">${esc(report.rule)}</p>
-            <dl class="bs-sheet-who">
-              <div><dt>Written by</dt><dd>${esc(report.writer)}</dd></div>
-              <div><dt>When</dt><dd>${esc(report.when)}</dd></div>
-              <div><dt>Given to</dt><dd>${esc(report.to)}</dd></div>
-            </dl>
-            <section>
-              <h2>What to write on each line</h2>
-              <p class="bs-sheet-intro">The line is blank. The sentence under it says what to write and which record to copy. If you cannot point at that record, leave the line blank and send the gap back the same day. Do not type a remembered figure.</p>
-              ${lines}
-            </section>
-            <p class="bs-sheet-stop"><b>If a line is blank.</b> Send it back the same day and name the record that is missing. Do not invent the number so the report looks finished.</p>
-            <footer class="bs-sheet-sign">
-              <div>
-                <span class="bs-sheet-sign-line"></span>
-                <p>${esc(report.writer)}</p>
-              </div>
-              <div>
-                <span class="bs-sheet-sign-line"></span>
-                <p>Date</p>
-              </div>
-              <button type="button" class="bs-sheet-role" data-go-hash="role-${esc(report.writerRole)}">Open the ${esc(report.writer)} seat</button>
-            </footer>
-          </article>
+          ${renderReportSheet(report)}
         </div>
       </div>`;
   }
 
-  function renderReports() {
+  function reportsWrittenBy(roleId) {
     const reports = window.PK_REPORTS || [];
-    const groups = [];
-    reports.forEach((report) => {
-      if (!groups.length || groups[groups.length - 1].name !== report.group) {
-        groups.push({ name: report.group, items: [] });
-      }
-      groups[groups.length - 1].items.push(report);
+    const order = { "Each working day": 0, "The day something moves": 1, "Each week": 2, "Each month": 3 };
+    return reports.filter((report) => report.writerRole === roleId).sort((a, b) => {
+      const left = order[a.group] == null ? 9 : order[a.group];
+      const right = order[b.group] == null ? 9 : order[b.group];
+      if (left !== right) return left - right;
+      return reports.indexOf(a) - reports.indexOf(b);
     });
-    const drawers = groups.map((group) => {
-      const folders = group.items.map((report) => {
-        const index = reports.indexOf(report);
-        return `
-          <button type="button" class="bs-folder" data-go-hash="report-${esc(report.id)}">
-            <span class="bs-folder-tab"><b>${reportNo(index)}</b> ${esc(report.name)}</span>
-            <span class="bs-folder-sheet">
-              <span class="bs-folder-stamp">Form</span>
-              <strong>${esc(report.name)}</strong>
-              <span class="bs-folder-rule"></span>
-              <span class="bs-folder-rule"></span>
-              <span class="bs-folder-rule"></span>
-              <em>${esc(report.writer)}</em>
-            </span>
-          </button>`;
-      }).join("");
+  }
+
+  function seatWritesOrHoldsReports(node) {
+    if (reportsWrittenBy(node.id).length) return true;
+    return (node.reports || []).some(seatWritesOrHoldsReports);
+  }
+
+  function namesWhoDoNotWrite(node) {
+    const names = [];
+    (function walk(current) {
+      (current.reports || []).forEach((child) => {
+        if (reportsWrittenBy(child.id).length || seatWritesOrHoldsReports(child)) return;
+        names.push(child.name);
+        walk(child);
+      });
+    })(node);
+    return names;
+  }
+
+  const REPORT_BRANCH = {
+    ceo: "Company",
+    hog: "Growth",
+    hoo: "Operations",
+    hof: "Finance",
+    hot: "Technology"
+  };
+
+  function writingSeats() {
+    const list = [];
+    (function walk(node, branchId) {
+      const mine = reportsWrittenBy(node.id);
+      if (mine.length) {
+        list.push({
+          node: node,
+          reports: mine,
+          branchId: branchId,
+          silent: namesWhoDoNotWrite(node)
+        });
+      }
+      (node.reports || []).forEach((child) => {
+        walk(child, node.id === "ceo" ? child.id : branchId);
+      });
+    })(TREE, "ceo");
+    return list;
+  }
+
+  function reportAccordion(report) {
+    const reports = window.PK_REPORTS || [];
+    const index = reports.indexOf(report);
+    const lines = (report.lines || []).map((line, i) => `
+      <li>
+        <b>${i + 1}. ${esc(line.field)}</b>
+        <span>${esc(line.hint)}</span>
+      </li>`).join("");
+    return `
+      <div class="bs-rep-acc">
+        <button type="button" class="bs-rep-acc-head" aria-expanded="false">
+          <span class="bs-rep-acc-no">${reportNo(index)}</span>
+          <span class="bs-rep-acc-copy">
+            <strong>${esc(report.name)}</strong>
+            <em>${esc(report.group)} · ${esc(report.when)}</em>
+          </span>
+          <span class="bs-duty-to"><span>Submit to</span> ${esc(report.to)}</span>
+          <span class="mso" aria-hidden="true">expand_more</span>
+        </button>
+        <div class="bs-rep-acc-body">
+          <p>${esc(report.rule)}</p>
+          <ol class="bs-rep-lines">${lines}</ol>
+          <button type="button" class="bs-report-open" data-open-report="${esc(report.id)}">Open the blank form</button>
+        </div>
+      </div>`;
+  }
+
+  function reportSeatLabel(node) {
+    return node.name;
+  }
+
+  function activeReportSeatId(seats) {
+    const hash = hashOf();
+    const fallback = seats[0] ? seats[0].node.id : "";
+    if (hash.indexOf("reports-") !== 0) return fallback;
+    const wanted = hash.slice("reports-".length);
+    for (let i = 0; i < seats.length; i++) {
+      if (seats[i].node.id === wanted) return wanted;
+    }
+    return fallback;
+  }
+
+  function renderReports() {
+    const seats = writingSeats();
+    const groups = [];
+    seats.forEach((seat) => {
+      let group = null;
+      for (let i = 0; i < groups.length; i++) {
+        if (groups[i].branchId === seat.branchId) group = groups[i];
+      }
+      if (!group) {
+        group = { branchId: seat.branchId, seats: [] };
+        groups.push(group);
+      }
+      group.seats.push(seat);
+    });
+    const activeId = activeReportSeatId(seats);
+    const tabs = groups.map((group) => `
+      <div class="bs-role-group">
+        <p>${esc(REPORT_BRANCH[group.branchId] || (SEATS[group.branchId] && SEATS[group.branchId].name) || group.branchId)}</p>
+        <div class="bs-role-group-tabs">
+          ${group.seats.map((seat) => {
+            const on = seat.node.id === activeId;
+            const count = seat.reports.length;
+            return `<button type="button" class="bs-role-tab${on ? " is-on" : ""}" role="tab" aria-selected="${on ? "true" : "false"}" data-report-role="${esc(seat.node.id)}">${esc(reportSeatLabel(seat.node))}<em>${count}</em></button>`;
+          }).join("")}
+        </div>
+      </div>`).join("");
+    const panels = seats.map((seat) => {
+      const bossId = SEATS[seat.node.id] && SEATS[seat.node.id].reportsTo;
+      const boss = bossId ? SEATS[bossId] : null;
+      const countLabel = seat.reports.length === 1 ? "Writes 1 report" : "Writes " + seat.reports.length + " reports";
+      const silent = seat.silent.length
+        ? `<p class="bs-report-silent">These seats report here and do not write a report of their own: ${esc(seat.silent.join(", "))}.</p>`
+        : "";
       return `
-        <div class="bs-drawer">
-          <p class="bs-drawer-label">${esc(group.name)}</p>
-          <div class="bs-folders">${folders}</div>
-        </div>`;
+        <section class="bs-role-panel${seat.node.id === activeId ? " is-on" : ""}" data-report-panel="${esc(seat.node.id)}" role="tabpanel">
+          <header class="bs-role-card">
+            <img src="${sceneFor(seat.node)}" alt="">
+            <div>
+              <p class="bs-report-kicker">${boss ? "Reports to " + esc(boss.name) : "Top of the company"}</p>
+              <h2 class="serif">${esc(reportSeatLabel(seat.node))}</h2>
+              <p class="bs-report-meta">${countLabel}</p>
+              ${silent}
+            </div>
+            <button type="button" class="bs-report-open" data-go-hash="role-${esc(seat.node.id)}">Open seat</button>
+          </header>
+          ${seat.reports.map((report) => reportAccordion(report)).join("")}
+        </section>`;
     }).join("");
     return `
-      <div class="page bs-files-page">
-        ${systemTabs("reports")}
-        <div class="bs-desk">
-          <div class="bs-drawer">
-            <p class="bs-drawer-label">Report cabinet</p>
-            <h1 class="serif">Reports</h1>
-            <p class="bs-drawer-note">Open a form. Each blank line has a sentence under it that says what to write, and which record to copy it from. If that record does not exist, leave the line blank.</p>
+      <div class="page bs-files-page bs-reports-page">
+        ${systemTabs(hashOf().indexOf("reports-") === 0 ? hashOf() : "reports")}
+        <div class="bs-reports-desk">
+          <div class="bs-reports-split">
+            <aside class="bs-role-tabs" role="tablist" aria-label="Roles">${tabs}</aside>
+            <div class="bs-reports-main">${panels}</div>
           </div>
-          ${drawers}
+        </div>
+        <div class="bs-form-modal" hidden>
+          <div class="bs-form-modal-scrim" data-close-report-form></div>
+          <div class="bs-form-modal-panel" role="dialog" aria-modal="true" aria-label="Blank report form">
+            <button type="button" class="bs-form-modal-close" data-close-report-form aria-label="Close"><span class="mso">close</span></button>
+            <div class="bs-form-modal-body"></div>
+          </div>
         </div>
       </div>`;
   }
@@ -1509,6 +1709,108 @@
     if (card) card.classList.add("is-selected");
   }
 
+  function reportFormModal() {
+    return document.querySelector(".bs-form-modal");
+  }
+
+  function closeReportForm() {
+    const modal = reportFormModal();
+    if (!modal) return;
+    const body = modal.querySelector(".bs-form-modal-body");
+    if (body) body.innerHTML = "";
+    modal.hidden = true;
+  }
+
+  function openReportForm(id) {
+    const modal = reportFormModal();
+    const body = modal && modal.querySelector(".bs-form-modal-body");
+    const report = (window.PK_REPORTS || []).filter((item) => item.id === id)[0];
+    if (!modal || !body || !report) return;
+    body.innerHTML = report.example
+      ? `<div class="bs-form-switch">
+          <div class="bs-form-tabs" role="tablist" aria-label="Report copies">
+            <button type="button" class="bs-form-tab is-on" role="tab" aria-selected="true" data-form-tab="general">General report</button>
+            <button type="button" class="bs-form-tab" role="tab" aria-selected="false" data-form-tab="example">${esc(exampleCopyName(report))}</button>
+          </div>
+          <div class="bs-form-tab-panel is-on" data-form-panel="general">${renderReportSheet(report)}</div>
+          <div class="bs-form-tab-panel" data-form-panel="example" hidden>${renderReportSheet(report, "example")}</div>
+        </div>`
+      : renderReportSheet(report);
+    bindHashClicks(body);
+    body.querySelectorAll("[data-form-tab]").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const id = tab.getAttribute("data-form-tab");
+        body.querySelectorAll("[data-form-tab]").forEach((item) => {
+          const on = item === tab;
+          item.classList.toggle("is-on", on);
+          item.setAttribute("aria-selected", on ? "true" : "false");
+        });
+        body.querySelectorAll("[data-form-panel]").forEach((panel) => {
+          const on = panel.getAttribute("data-form-panel") === id;
+          panel.hidden = !on;
+          panel.classList.toggle("is-on", on);
+        });
+        const scroller = modal.querySelector(".bs-form-modal-panel");
+        if (scroller) scroller.scrollTop = 0;
+      });
+    });
+    modal.classList.add("os-explorer");
+    if (modal.parentElement !== document.body) document.body.appendChild(modal);
+    modal.hidden = false;
+    const closeBtn = modal.querySelector(".bs-form-modal-close");
+    if (closeBtn) closeBtn.focus();
+  }
+
+  function bindReports(openId) {
+    const page = byId("bs-main");
+    bindHashClicks(page);
+    const tabs = page.querySelectorAll("[data-report-role]");
+    const onTab = page.querySelector(".bs-role-tab.is-on");
+    if (onTab && onTab.scrollIntoView) onTab.scrollIntoView({ block: "nearest", inline: "nearest" });
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        goHash("reports-" + tab.getAttribute("data-report-role"));
+      });
+    });
+    page.querySelectorAll(".bs-rep-acc-head").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const item = btn.closest(".bs-rep-acc");
+        const panel = btn.closest("[data-report-panel]");
+        const wasOpen = item.classList.contains("is-open");
+        if (panel) {
+          panel.querySelectorAll(".bs-rep-acc.is-open").forEach((openItem) => {
+            openItem.classList.remove("is-open");
+            const head = openItem.querySelector(".bs-rep-acc-head");
+            if (head) head.setAttribute("aria-expanded", "false");
+          });
+        }
+        if (!wasOpen) {
+          item.classList.add("is-open");
+          btn.setAttribute("aria-expanded", "true");
+        }
+      });
+    });
+    page.querySelectorAll("[data-open-report]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openReportForm(btn.getAttribute("data-open-report"));
+      });
+    });
+    page.querySelectorAll("[data-close-report-form]").forEach((btn) => {
+      btn.addEventListener("click", () => closeReportForm());
+    });
+    if (window.__bsReportFormKey) window.removeEventListener("keydown", window.__bsReportFormKey);
+    window.__bsReportFormKey = (event) => {
+      if (event.key !== "Escape") return;
+      const open = document.querySelector(".bs-form-modal:not([hidden])");
+      if (!open) return;
+      closeReportForm();
+    };
+    window.addEventListener("keydown", window.__bsReportFormKey);
+    if (openId) openReportForm(openId);
+  }
+
   function bindHashClicks(scope) {
     scope.querySelectorAll("[data-go-home]").forEach((btn) => {
       btn.addEventListener("click", (event) => {
@@ -1747,6 +2049,7 @@
   }
 
   function render() {
+    document.querySelectorAll("body > .bs-form-modal").forEach((modal) => modal.remove());
     setGlossary([]);
     const hash = hashOf();
     stopRoleSpy();
@@ -1767,19 +2070,21 @@
       bindHashClicks(byId("bs-main"));
       return;
     }
-    if (hash === "reports") {
+    if (hash === "reports" || hash.indexOf("reports-") === 0) {
       byId("bs-main").innerHTML = renderReports();
       byId("bs-main").scrollTop = 0;
-      bindHashClicks(byId("bs-main"));
+      bindReports();
       return;
     }
     if (hash.indexOf("report-") === 0) {
       const id = hash.slice(7);
       const report = (window.PK_REPORTS || []).filter((item) => item.id === id)[0];
       if (report) {
-        byId("bs-main").innerHTML = renderReportBody(report);
+        const roleHash = "reports-" + report.writerRole;
+        history.replaceState(null, "", location.pathname + location.search + "#" + roleHash);
+        byId("bs-main").innerHTML = renderReports();
         byId("bs-main").scrollTop = 0;
-        bindHashClicks(byId("bs-main"));
+        bindReports(report.id);
         return;
       }
     }
