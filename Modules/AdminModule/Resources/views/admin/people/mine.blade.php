@@ -9,8 +9,6 @@
 @section('content')
 @php
     $name = $workspace->displayName($actor);
-    $hour = (int) now()->format('G');
-    $greeting = $hour < 12 ? 'Good morning' : ($hour < 17 ? 'Good afternoon' : 'Good evening');
     $hours = $timesheet->hours ?? [];
     $dayLabels = ['mon' => 'Mon', 'tue' => 'Tue', 'wed' => 'Wed', 'thu' => 'Thu', 'fri' => 'Fri', 'sat' => 'Sat'];
 @endphp
@@ -20,18 +18,141 @@
             'mode' => 'mine',
             'section' => $section,
             'baseUrl' => route('admin.people.index'),
-            'links' => [
-                'home' => 'Home',
-                'details' => 'My details',
+            'links' => [],
+        ])
+
+        @php
+            $tab = in_array($section, ['documents', 'payslips', 'timesheet'], true) ? $section : 'home';
+            $detailsEditing = $section === 'details' || ($errors->any() && old('phone') !== null && ! old('starts_on'));
+            $managerName = $profile->manager ? $workspace->displayName($profile->manager) : 'Not set';
+            $mineTabs = [
+                'home' => 'Leaves',
                 'documents' => 'Documents',
                 'payslips' => 'Payslips',
                 'timesheet' => 'Timesheet',
-            ],
-        ])
+            ];
+        @endphp
+        <div class="people-file">
+            <aside class="people-file-side{{ $detailsEditing ? ' is-editing' : '' }}">
+                <div id="mine-details-view" @if($detailsEditing) hidden @endif>
+                    <article class="people-ws-card people-id-card">
+                        <div class="people-id-top">
+                            <span class="people-id-kicker">Details</span>
+                            <span class="people-id-actions">
+                                <button class="btn-pw" type="button" id="mine-details-edit">Edit</button>
+                                <span class="people-id-pill">{{ $profile->employment_type === 'contract' ? 'Contract' : 'Full time' }}</span>
+                            </span>
+                        </div>
+                        <div class="people-id-person">
+                            <img class="people-id-photo avatar-img" src="{{ admin_nav_image_src($actor->profile_image_full_path, 'profile') }}" alt="{{ $name }}">
+                            <div>
+                                <h2>{{ $name }}</h2>
+                                <p>{{ $profile->job_title ?: 'Seat not set' }}@if($profile->department) · {{ $profile->department }}@endif</p>
+                                <p class="people-id-code">{{ $profile->employee_code ?: 'No employee code' }}</p>
+                            </div>
+                        </div>
+                        <dl class="people-id-grid">
+                            <div class="people-id-wide">
+                                <dt>Email</dt>
+                                <dd class="{{ $actor->email ? '' : 'is-empty' }}">{{ $actor->email ?: 'Not set' }}</dd>
+                            </div>
+                            <div>
+                                <dt>Phone</dt>
+                                <dd class="{{ $actor->phone ? '' : 'is-empty' }}">{{ $actor->phone ?: 'Not set' }}</dd>
+                            </div>
+                            <div>
+                                <dt>Department</dt>
+                                <dd class="{{ $profile->department ? '' : 'is-empty' }}">{{ $profile->department ?: 'Not set' }}</dd>
+                            </div>
+                            <div>
+                                <dt>Manager</dt>
+                                <dd class="{{ $profile->manager ? '' : 'is-empty' }}">{{ $managerName }}</dd>
+                            </div>
+                            <div>
+                                <dt>Location</dt>
+                                <dd class="{{ $profile->work_location ? '' : 'is-empty' }}">{{ $profile->work_location ?: 'Not set' }}</dd>
+                            </div>
+                            <div>
+                                <dt>Status</dt>
+                                <dd>{{ $workspace->statusLabel($profile->employment_status ?: 'active') }}</dd>
+                            </div>
+                            <div>
+                                <dt>Seat</dt>
+                                <dd class="{{ $profile->job_title ? '' : 'is-empty' }}">{{ $profile->job_title ?: 'Not set' }}</dd>
+                            </div>
+                            <div>
+                                <dt>Type</dt>
+                                <dd>{{ $profile->employment_type === 'contract' ? 'Contract' : 'Full time' }}</dd>
+                            </div>
+                            <div>
+                                <dt>Joined</dt>
+                                <dd class="{{ $profile->joined_on ? '' : 'is-empty' }}">{{ $profile->joined_on ? $profile->joined_on->format('j M Y') : 'Not set' }}</dd>
+                            </div>
+                            <div>
+                                <dt>Date of birth</dt>
+                                <dd class="{{ $profile->date_of_birth ? '' : 'is-empty' }}">{{ $profile->date_of_birth ? $profile->date_of_birth->format('j M Y') : 'Not set' }}</dd>
+                            </div>
+                            <div>
+                                <dt>Emergency contact</dt>
+                                <dd class="{{ $profile->emergency_contact ? '' : 'is-empty' }}">{{ $profile->emergency_contact ?: 'Not set' }}</dd>
+                            </div>
+                            <div class="people-id-wide">
+                                <dt>Address</dt>
+                                <dd class="{{ $profile->address ? '' : 'is-empty' }}">{{ $profile->address ?: 'Not set' }}</dd>
+                            </div>
+                        </dl>
+                    </article>
+                </div>
+                <form class="people-ws-card" id="mine-details-form" method="post" action="{{ route('admin.people.details') }}" @if(! $detailsEditing) hidden @endif>
+                    @csrf
+                    <input type="hidden" name="return_section" value="{{ $tab }}">
+                    <div class="people-id-top">
+                        <span class="people-id-kicker">Details</span>
+                    </div>
+                    <div class="people-ws-form-grid people-ws-mt">
+                        <div class="field"><label>Full name</label><input value="{{ $name }}" readonly></div>
+                        <div class="field"><label>Employee code</label><input value="{{ $profile->employee_code }}" readonly></div>
+                        <div class="field"><label>Seat</label><input value="{{ $profile->job_title }}" readonly></div>
+                        <div class="field"><label>Manager</label><input value="{{ $managerName }}" readonly></div>
+                        <div class="field"><label for="phone">Phone</label><input id="phone" name="phone" value="{{ old('phone', $actor->phone) }}" required></div>
+                        <div class="field"><label>Email</label><input value="{{ $actor->email }}" readonly></div>
+                        <div class="field"><label>Date of joining</label><input value="{{ $profile->joined_on ? $profile->joined_on->format('j F Y') : 'Not set' }}" readonly></div>
+                        <div class="field"><label>Work location</label><input value="{{ $profile->work_location ?: 'Not set' }}" readonly></div>
+                        <div class="field"><label for="address">Address</label><input id="address" name="address" value="{{ old('address', $profile->address) }}"></div>
+                    </div>
+                    <div class="people-ws-actions">
+                        <button class="btn-pw" type="button" id="mine-details-cancel">Cancel</button>
+                        <button class="btn-pw primary" type="submit">Save my details</button>
+                    </div>
+                </form>
+                <script>
+                    (function () {
+                        var view = document.getElementById('mine-details-view');
+                        var form = document.getElementById('mine-details-form');
+                        var edit = document.getElementById('mine-details-edit');
+                        var cancel = document.getElementById('mine-details-cancel');
+                        var side = document.querySelector('.people-file-side');
+                        function showEdit(on) {
+                            if (view) view.hidden = on;
+                            if (form) form.hidden = !on;
+                            if (side) side.classList.toggle('is-editing', on);
+                        }
+                        if (edit) edit.addEventListener('click', function () { showEdit(true); });
+                        if (cancel) cancel.addEventListener('click', function () { showEdit(false); });
+                    })();
+                </script>
+            </aside>
+            <div class="people-file-main">
+                <nav class="people-ws-tabs" aria-label="My workspace">
+                    @foreach($mineTabs as $key => $label)
+                        <a class="{{ $tab === $key ? 'is-on' : '' }}" href="{{ route('admin.people.index', ['section' => $key]) }}">{{ $label }}</a>
+                    @endforeach
+                </nav>
 
-        @if($section === 'home')
+        @if($tab === 'home')
             @php
                 $leaveShort = $leaveTypes->mapWithKeys(fn ($type) => [$type->code => $type->short_name ?: strtoupper(substr($type->code, 0, 3))])->all();
+                $leaveNames = $leaveTypes->mapWithKeys(fn ($type) => [$type->code => $type->name])->all();
                 $pad = function ($n): string {
                     $n = (float) $n;
 
@@ -43,14 +164,8 @@
                     $totalAllowance += $balance->allowance($type->code);
                     $totalUsed += $balance->used($type->code);
                 }
-                $applyOpen = $errors->any() || old('starts_on');
+                $applyOpen = old('starts_on') || old('ends_on') || old('leave_type') || old('reason');
             @endphp
-            <div class="people-ws-head">
-                <div>
-                    <h1>{{ $greeting }}, {{ strtok($name, ' ') }}</h1>
-                    <p>{{ now()->format('l, j F Y') }}{{ $profile->work_location ? ' · '.$profile->work_location : '' }}</p>
-                </div>
-            </div>
             <div class="people-lh">
                 <article class="people-lh-total">
                     <div class="people-lh-total-top">
@@ -60,7 +175,12 @@
                     <div class="people-lh-fill">
                         @foreach($leaveTypes as $type)
                             <div class="people-lh-line">
-                                <em>{{ $leaveShort[$type->code] ?? strtoupper(substr($type->code, 0, 3)) }}</em>
+                                <em title="{{ $type->name }}">
+                                    @if($type->short_name)
+                                        <span class="people-lh-code">{{ $type->short_name }}</span>
+                                    @endif
+                                    <span class="people-lh-name">{{ $type->name }}</span>
+                                </em>
                                 <div class="people-lh-score">
                                     @if($type->tracks_balance)
                                         {{ $pad($balance->allowance($type->code)) }}<span>/{{ $pad($balance->used($type->code)) }}</span>
@@ -95,7 +215,7 @@
                                 <span title="{{ $leave->starts_on->format('j M Y') }}">{{ $leave->starts_on->format('j M Y') }}</span>
                                 <span title="{{ $leave->ends_on->format('j M Y') }}">{{ $leave->ends_on->format('j M Y') }}</span>
                                 <span class="people-lh-reason" title="{{ $leave->reason }}">{{ $leave->reason }}</span>
-                                <span>{{ $leaveShort[$leave->leave_type] ?? $workspace->leaveLabel($leave->leave_type) }}</span>
+                                <span class="people-lh-type" title="{{ $leaveNames[$leave->leave_type] ?? $workspace->leaveLabel($leave->leave_type) }}">{{ $leaveNames[$leave->leave_type] ?? $workspace->leaveLabel($leave->leave_type) }}</span>
                                 <span class="people-lh-pill is-{{ $leave->status }}">{{ $workspace->statusLabel($leave->status) }}</span>
                                 @if($leave->status === 'pending')
                                     <button
@@ -104,7 +224,7 @@
                                         data-bs-toggle="modal"
                                         data-bs-target="#revokeLeaveModal"
                                         data-action="{{ route('admin.people.leave.cancel', $leave) }}"
-                                        data-summary="{{ $leaveShort[$leave->leave_type] ?? $workspace->leaveLabel($leave->leave_type) }} · {{ $leave->starts_on->format('j M Y') }} – {{ $leave->ends_on->format('j M Y') }}"
+                                        data-summary="{{ $leaveNames[$leave->leave_type] ?? $workspace->leaveLabel($leave->leave_type) }} · {{ $leave->starts_on->format('j M Y') }} – {{ $leave->ends_on->format('j M Y') }}"
                                     >Revoke</button>
                                 @else
                                     <span></span>
@@ -319,27 +439,8 @@
             </article>
         @endif
 
-        @if($section === 'details')
-            <div class="people-ws-head"><div><h1>My details</h1><p>Phone and address can be updated here. The rest is kept by HR.</p></div></div>
-            <form class="people-ws-card" method="post" action="{{ route('admin.people.details') }}">
-                @csrf
-                <div class="people-ws-form-grid">
-                    <div class="field"><label>Full name</label><input value="{{ $name }}" readonly></div>
-                    <div class="field"><label>Employee code</label><input value="{{ $profile->employee_code }}" readonly></div>
-                    <div class="field"><label>Seat</label><input value="{{ $profile->job_title }}" readonly></div>
-                    <div class="field"><label>Manager</label><input value="{{ $profile->manager ? $workspace->displayName($profile->manager) : 'Not set' }}" readonly></div>
-                    <div class="field"><label for="phone">Phone</label><input id="phone" name="phone" value="{{ old('phone', $actor->phone) }}" required></div>
-                    <div class="field"><label>Email</label><input value="{{ $actor->email }}" readonly></div>
-                    <div class="field"><label>Date of joining</label><input value="{{ $profile->joined_on ? $profile->joined_on->format('j F Y') : 'Not set' }}" readonly></div>
-                    <div class="field"><label>Work location</label><input value="{{ $profile->work_location ?: 'Not set' }}" readonly></div>
-                    <div class="field" style="grid-column:1/-1"><label for="address">Address</label><input id="address" name="address" value="{{ old('address', $profile->address) }}"></div>
-                </div>
-                <button class="btn-pw primary" type="submit">Save my details</button>
-            </form>
-        @endif
-
-        @if($section === 'documents')
-            <div class="people-ws-head"><div><h1>Documents</h1><p>Upload what HR asked for. You can download anything already on your file.</p></div></div>
+        @if($tab === 'documents')
+            <p class="people-ws-note">Upload what HR asked for. You can download anything already on your file.</p>
             <div class="people-ws-card">
                 <form method="post" action="{{ route('admin.people.documents.store') }}" enctype="multipart/form-data" class="people-ws-form-grid">
                     @csrf
@@ -371,8 +472,8 @@
             </div>
         @endif
 
-        @if($section === 'payslips')
-            <div class="people-ws-head"><div><h1>Payslips</h1><p>Only slips HR has published. You cannot see anyone else’s pay.</p></div></div>
+        @if($tab === 'payslips')
+            <p class="people-ws-note">Only slips HR has published.</p>
             <article class="people-ws-card people-ws-scroll">
                 <table>
                     <thead><tr><th>Month</th><th>Paid on</th><th>Net pay</th><th>Status</th><th></th></tr></thead>
@@ -399,9 +500,11 @@
             </article>
         @endif
 
-        @if($section === 'timesheet')
+        @if($tab === 'timesheet')
             @include('adminmodule::admin.people._timesheet')
         @endif
+            </div>
+        </div>
 
         @include('adminmodule::admin.people._close')
     </div>
