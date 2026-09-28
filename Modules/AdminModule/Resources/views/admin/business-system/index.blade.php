@@ -16,7 +16,7 @@
         (int) @filemtime(public_path('assets/admin-module/business-system/bs-reports.js')),
         (int) @filemtime(public_path('assets/admin-module/business-system/bs.css')),
         (int) @filemtime(public_path('assets/admin-module/operating-system/os.css'))
-    ) ?: time()) . 'u2');
+    ) ?: time()) . 'u3');
 @endphp
 
 @push('css_or_js')
