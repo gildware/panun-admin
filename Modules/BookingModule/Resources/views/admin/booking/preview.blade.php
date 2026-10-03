@@ -222,6 +222,9 @@
                             <p class="mb-2"><strong>{{ translate('Total_Billing') }}:</strong> {{ with_currency_symbol($totalBilling) }}</p>
                         @endif
                         <p><strong>{{ translate('Payment_Method') }}:</strong> {{ $adminPaymentPreview['method_line'] ?? translate('Cash_After_Service') }}</p>
+                        @if((float) ($data['advance_paid_amount'] ?? 0) > 0)
+                            <p><strong>{{ translate('Advance_collected_by') }}:</strong> {{ (($data['advance_received_by'] ?? 'company') === 'provider') ? translate('Provider') : translate('Company') }}</p>
+                        @endif
                         <p><strong>{{ translate('Advance_Paid_Amount') }}:</strong> {{ with_currency_symbol($data['advance_paid_amount'] ?? 0) }}</p>
                         @if(!empty($data['advance_transaction_id']))
                             <p><strong>{{ translate('Advance_Payment_Transaction_ID') }}:</strong> {{ $data['advance_transaction_id'] }}</p>

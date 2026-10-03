@@ -539,7 +539,13 @@
                     @php
                         $adminAdvancePaymentMethodFieldConfig = \Modules\BookingModule\Services\AdminCompanyInflowPaymentService::fieldConfigMapFromGroups($advancePaymentMethodGroups ?? []);
                         $advancePmSelected = (string) old('advance_payment_method', request('advance_payment_method', ''));
-                        $advancePmDisabled = (float) old('advance_paid_amount', request('advance_paid_amount', 0)) <= 0;
+                        $advanceHasAmount = (float) old('advance_paid_amount', request('advance_paid_amount', 0)) > 0;
+                        $advanceReceivedBy = (string) old('advance_received_by', request('advance_received_by', 'company'));
+                        if (! in_array($advanceReceivedBy, ['company', 'provider'], true)) {
+                            $advanceReceivedBy = 'company';
+                        }
+                        $advanceCollectedByProvider = $advanceHasAmount && $advanceReceivedBy === 'provider';
+                        $advancePmDisabled = ! $advanceHasAmount;
                     @endphp
                     <div class="mb-4 border rounded-3 p-3" id="advance-payment-section">
                         <h4 class="mb-3">{{ translate('Advance_Payment') }}</h4>
@@ -558,18 +564,41 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="col-md-6 {{ $advanceHasAmount ? '' : 'd-none' }}" id="advance-collected-by-wrap">
+                                <div class="mb-3">
+                                    <label class="form-label d-block">{{ translate('Advance_collected_by') }} <span class="text-danger">*</span></label>
+                                    <div class="d-flex flex-wrap gap-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="advance_received_by" id="advance-received-by-company" value="company" @checked($advanceReceivedBy !== 'provider') @disabled(! $advanceHasAmount)>
+                                            <label class="form-check-label" for="advance-received-by-company">{{ translate('Company') }}</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="advance_received_by" id="advance-received-by-provider" value="provider" @checked($advanceReceivedBy === 'provider') @disabled(! $advanceHasAmount)>
+                                            <label class="form-check-label" for="advance-received-by-provider">{{ translate('Provider') }}</label>
+                                        </div>
+                                    </div>
+                                    @error('advance_received_by')
+                                    <span class="text-danger d-block">{{ $message }}</span>
+                                    @enderror
+                                    <small class="text-muted d-block mt-1">{{ translate('Advance_collected_by_help') }}</small>
+                                </div>
+                            </div>
                             @include('bookingmodule::admin.booking.partials._admin-company-inflow-payment-method', [
                                 'instanceId' => 'booking-create',
                                 'advancePaymentMethodGroups' => $advancePaymentMethodGroups ?? [],
                                 'advancePmDisabled' => $advancePmDisabled,
                                 'advancePmSelected' => $advancePmSelected,
+                                'hideAdvancePaymentMethod' => $advanceCollectedByProvider,
                             ])
                         </div>
-                        <p class="text-muted mb-0 small" id="advance-payment-help-no-advance">
+                        <p class="text-muted mb-0 small {{ $advanceHasAmount ? 'd-none' : '' }}" id="advance-payment-help-no-advance">
                             {{ translate('Payment_method_will_be_set_as_Cash_After_Service_and_final_payment_will_be_taken_from_customer_at_completion.') }}
                         </p>
-                        <p class="text-muted mb-0 small d-none" id="advance-payment-help-with-advance">
+                        <p class="text-muted mb-0 small {{ ($advanceHasAmount && ! $advanceCollectedByProvider) ? '' : 'd-none' }}" id="advance-payment-help-with-advance">
                             {{ translate('Advance_payment_method_help') }}
+                        </p>
+                        <p class="text-muted mb-0 small {{ $advanceCollectedByProvider ? '' : 'd-none' }}" id="advance-payment-help-provider">
+                            {{ translate('Advance_collected_by_provider_help') }}
                         </p>
                     </div>
 
@@ -1163,6 +1192,7 @@
                 customer_followup_at: @json(old('customer_followup_at', request('customer_followup_at'))),
                 provider_followup_at: @json(old('provider_followup_at', request('provider_followup_at'))),
                 advance_paid_amount: @json(old('advance_paid_amount', request('advance_paid_amount'))),
+                advance_received_by: @json(old('advance_received_by', request('advance_received_by', 'company'))),
                 advance_payment_method: @json(old('advance_payment_method', request('advance_payment_method'))),
                 advance_transaction_id: @json(old('advance_transaction_id', request('advance_transaction_id'))),
                 advance_method_fields: @json(old('advance_method_fields', request('advance_method_fields', [])) ?? []),
@@ -2113,19 +2143,35 @@
                 return id ? ("{{ translate('Additional_charge') }} · " + id) : "{{ translate('Additional_charges') }}";
             }
 
+            function advanceCollectedByProvider() {
+                return ($('#advance-payment-section input[name="advance_received_by"]:checked').val() || 'company') === 'provider';
+            }
+
             function updateAdvancePaymentMethodUi() {
                 var adv = parseFloat($('#advance-paid-amount').val()) || 0;
+                var byProvider = adv > 0 && advanceCollectedByProvider();
+                var $collected = $('#advance-collected-by-wrap');
+                var $scope = $('#advance-payment-section .pk-apm-scope');
                 var $wrap = $('#advance-payment-method-wrap-booking-create');
+                if ($collected.length) {
+                    $collected.toggleClass('d-none', adv <= 0);
+                    $collected.find('input[name="advance_received_by"]').prop('disabled', adv <= 0);
+                    if (adv <= 0) {
+                        $collected.find('input[name="advance_received_by"][value="company"]').prop('checked', true);
+                    }
+                }
+                if ($scope.length) {
+                    $scope.toggleClass('d-none', byProvider);
+                }
                 if (!$wrap.length) {
                     return;
                 }
-                $wrap.show();
                 var $allPm = $('#advance-payment-section .pk-apm-tier1, #advance-payment-section .pk-apm-tier2-digital, #advance-payment-section .pk-apm-tier2-offline');
                 if ($allPm.length) {
-                    if (adv > 0) {
+                    if (adv > 0 && !byProvider) {
                         $allPm.prop('disabled', false);
                         advancePmApplyTier2Visibility();
-                    } else {
+                    } else if (adv <= 0) {
                         $allPm.prop('disabled', true).prop('checked', false);
                         $('#advance-payment-section .pk-apm-hidden').val('');
                         $('#advance-payment-section .pk-apm-tier2-digital-wrap, #advance-payment-section .pk-apm-tier2-offline-wrap').addClass('d-none');
@@ -2134,14 +2180,14 @@
                         }
                     }
                 }
-                if (adv > 0) {
-                    $('#advance-payment-help-no-advance').addClass('d-none');
-                    $('#advance-payment-help-with-advance').removeClass('d-none');
-                } else {
-                    $('#advance-payment-help-no-advance').removeClass('d-none');
-                    $('#advance-payment-help-with-advance').addClass('d-none');
-                }
+                $('#advance-payment-help-no-advance').toggleClass('d-none', adv > 0);
+                $('#advance-payment-help-with-advance').toggleClass('d-none', !(adv > 0 && !byProvider));
+                $('#advance-payment-help-provider').toggleClass('d-none', !byProvider);
             }
+
+            $('#advance-payment-section').on('change', 'input[name="advance_received_by"]', function () {
+                updateAdvancePaymentMethodUi();
+            });
 
             function updateDueBalance() {
                 var advance = parseFloat($('#advance-paid-amount').val()) || 0;
@@ -2901,6 +2947,9 @@
             if (oldValues.advance_paid_amount !== null && oldValues.advance_paid_amount !== undefined) {
                 $('#advance-paid-amount').val(oldValues.advance_paid_amount);
             }
+            if (oldValues.advance_received_by === 'provider' || oldValues.advance_received_by === 'company') {
+                $('#advance-payment-section input[name="advance_received_by"][value="' + oldValues.advance_received_by + '"]').prop('checked', true);
+            }
             if (oldValues.advance_payment_method) {
                 var wantApm = String(oldValues.advance_payment_method);
                 if (wantApm === 'cash_after_service' && $('#pk-apm-t1-cas-booking-create').length) {
@@ -3416,7 +3465,7 @@
                         pushError('{{ translate('Advance_Paid_Amount') }}', '{{ translate('Advance_amount_cannot_exceed_total_billing_amount') }}', $('#advance-paid-amount'));
                     }
                 }
-                if (advanceAmountValid && advParsed > 0) {
+                if (advanceAmountValid && advParsed > 0 && !advanceCollectedByProvider()) {
                     if (typeof advancePmUpdateHiddenOnly === 'function') {
                         advancePmUpdateHiddenOnly();
                     }

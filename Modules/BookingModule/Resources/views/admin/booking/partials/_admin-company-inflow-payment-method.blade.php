@@ -1,11 +1,12 @@
 {{--
   Same payment method UX as admin booking create (CAS / digital gateways / wallet / offline methods).
-  Expects: $instanceId (string), $advancePaymentMethodGroups (array), $advancePmDisabled (bool), $advancePmSelected (string, optional)
+  Expects: $instanceId (string), $advancePaymentMethodGroups (array), $advancePmDisabled (bool), $advancePmSelected (string, optional), $hideAdvancePaymentMethod (bool, optional)
 --}}
 @php
     $instanceId = (string) ($instanceId ?? 'default');
     $advancePmSelected = (string) ($advancePmSelected ?? '');
     $advancePmDisabled = (bool) ($advancePmDisabled ?? false);
+    $hideAdvancePaymentMethod = (bool) ($hideAdvancePaymentMethod ?? false);
     $apmBuckets = $advancePaymentMethodGroups ?? [];
     $gCas = collect($apmBuckets)->firstWhere('id', 'cas');
     $gDig = collect($apmBuckets)->firstWhere('id', 'digital');
@@ -28,7 +29,7 @@
     $digName = '_pk_apm_dig_' . $instanceId;
     $offName = '_pk_apm_off_' . $instanceId;
 @endphp
-<div class="col-12 pk-apm-scope" data-pk-apm-instance="{{ $instanceId }}">
+<div class="col-12 pk-apm-scope {{ $hideAdvancePaymentMethod ? 'd-none' : '' }}" data-pk-apm-instance="{{ $instanceId }}">
     <div class="mb-3" id="advance-payment-method-wrap-{{ $instanceId }}">
         <p class="form-label mb-2">{{ translate('Advance_payment_method') }} <span class="text-danger">*</span></p>
         <input type="hidden" name="advance_payment_method" class="pk-apm-hidden" value="{{ $advancePmSelected }}" autocomplete="off">
