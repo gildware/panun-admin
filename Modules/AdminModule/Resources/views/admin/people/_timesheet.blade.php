@@ -15,7 +15,7 @@
         ? 'You have '.$board['lastMonthPending'].' pending timesheet '.($board['lastMonthPending'] === 1 ? 'day' : 'days').' for last month.'
         : 'You have '.$board['pendingTotal'].' pending timesheet '.($board['pendingTotal'] === 1 ? 'day' : 'days').'.';
 @endphp
-<div class="ts-app" id="ts-app">
+<div class="ts-app" id="ts-app" data-min-hours="{{ $board['minHours'] ?? 0 }}" data-leave-hours="{{ $board['leaveHours'] ?? 8 }}">
     <div class="ts-main">
         @if($pendingCount > 0)
             <p class="ts-alert">{{ $pendingCopy }} <button type="button" id="ts-open-pending">Click Here to view</button></p>
@@ -49,6 +49,9 @@
                     </label>
                 </div>
             </header>
+            @if(($board['minHours'] ?? 0) > 0)
+                <p class="ts-rule">Fill at least {{ \Modules\AdminModule\Services\PeopleWorkspace::hoursText((float) $board['minHours']) }} hours on a working day before you submit it.</p>
+            @endif
 
             <div class="ts-days" id="ts-days">
                 @forelse($board['cards'] as $card)
@@ -76,7 +79,7 @@
                             <p>Tasks <span class="ts-count"># <b data-tasks>{{ $taskCount }}</b></span></p>
                             <p>Total Time <b class="ts-day-total {{ $open ? 'is-open' : '' }}" data-day-total>{{ $fmt($rowHours, true) }}</b></p>
                             @if($open)
-                                <button class="ts-submit" type="submit" @disabled($taskCount < 1)>Submit <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                                <button class="ts-submit" type="submit" @disabled($taskCount < 1 || (($board['minHours'] ?? 0) > 0 && $rowHours + 0.001 < (float) $board['minHours']))>Submit <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                             @elseif(($card['state'] ?? '') === 'done')
                                 <span class="ts-submitted">Submitted</span>
                             @else
@@ -88,8 +91,8 @@
                                 <thead>
                                     <tr>
                                         <th>Task</th>
-                                        <th>Due</th>
                                         <th>Hours</th>
+                                        <th>Description</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -154,6 +157,8 @@
     var root = document.getElementById('ts-app');
     if (!root || root.dataset.bound === '1') return;
     root.dataset.bound = '1';
+    var minHours = Number(root.getAttribute('data-min-hours')) || 0;
+    var leaveHours = Number(root.getAttribute('data-leave-hours')) || 8;
     var tpl = document.getElementById('ts-row-tpl');
     var query = '';
     var rowSeq = 1;
@@ -164,6 +169,34 @@
         var m = total % 60;
         if (!withMinutes && m === 0) return h + 'h';
         return h + 'h ' + String(m).padStart(2, '0') + 'm';
+    }
+
+    function bindSelect(select) {
+        if (!select || select.dataset.selectBound === '1' || !window.jQuery || !jQuery.fn.select2) return;
+        select.dataset.selectBound = '1';
+        jQuery(select).select2({
+            width: '100%',
+            dropdownParent: jQuery(document.body),
+            dropdownCssClass: 'ts-task-dropdown',
+            minimumResultsForSearch: 0,
+            placeholder: 'Select task'
+        }).on('change', function () {
+            var row = select.closest('.ts-row');
+            if (row) applyTask(row);
+            applyFilters();
+        });
+    }
+
+    function bindSelects(scope) {
+        (scope || root).querySelectorAll('.ts-day .ts-task-select').forEach(bindSelect);
+    }
+
+    function setTaskValue(select, value) {
+        if (!select) return;
+        select.value = value || '';
+        if (window.jQuery && jQuery(select).data('select2')) {
+            jQuery(select).val(select.value).trigger('change');
+        }
     }
 
     function applyTask(row) {
@@ -180,25 +213,46 @@
         if (due) due.value = option.getAttribute('data-deadline') || '';
     }
 
+    function dayTotals(day) {
+        var count = 0;
+        var hours = 0;
+        day.querySelectorAll('.ts-row').forEach(function (row) {
+            var task = row.querySelector('.ts-task-select');
+            var hourInput = row.querySelector('.ts-hours');
+            var amount = hourInput ? Number(hourInput.value) || 0 : 0;
+            hours += amount;
+            if (task && task.value && amount > 0) count += 1;
+        });
+        return { count: count, hours: hours };
+    }
+
+    function dayCanSubmit(day) {
+        var totals = dayTotals(day);
+        if (totals.count < 1 || totals.hours <= 0 || totals.hours > 24) return false;
+        if (minHours > 0 && totals.hours + 0.001 < minHours) return false;
+        return true;
+    }
+
     function refresh() {
         var total = 0;
         root.querySelectorAll('.ts-day').forEach(function (day) {
-            var count = 0;
-            var hours = 0;
-            day.querySelectorAll('.ts-row').forEach(function (row) {
-                var task = row.querySelector('.ts-task-select');
-                var hourInput = row.querySelector('.ts-hours');
-                var amount = hourInput ? Number(hourInput.value) || 0 : 0;
-                hours += amount;
-                total += amount;
-                if (task && task.value && amount > 0) count += 1;
-            });
+            var totals = dayTotals(day);
+            var count = totals.count;
+            var hours = totals.hours;
+            total += hours;
             var countNode = day.querySelector('[data-tasks]');
             var totalNode = day.querySelector('[data-day-total]');
             var submit = day.querySelector('.ts-submit');
+            var short = minHours > 0 && hours + 0.001 < minHours;
             if (countNode) countNode.textContent = String(count);
-            if (totalNode) totalNode.textContent = fmt(hours, true);
-            if (submit) submit.disabled = count < 1;
+            if (totalNode) {
+                totalNode.textContent = fmt(hours, true);
+                totalNode.classList.toggle('is-short', day.getAttribute('data-open') === '1' && short);
+            }
+            if (submit) {
+                submit.disabled = !dayCanSubmit(day);
+                submit.title = short ? ('A day needs at least ' + String(minHours) + ' hours.') : '';
+            }
         });
         var totalNode = document.getElementById('ts-total');
         if (totalNode) totalNode.textContent = fmt(total, false);
@@ -233,15 +287,35 @@
         var row = holder.querySelector('.ts-row');
         if (!row) return;
         body.appendChild(row);
+        var taskSelect = row.querySelector('.ts-task-select');
+        if (preset && preset.ticket && taskSelect && !taskSelect.querySelector('option[value="' + preset.ticket + '"]')) {
+            var extra = document.createElement('option');
+            extra.value = preset.ticket;
+            extra.textContent = preset.label || preset.ticket;
+            extra.setAttribute('data-title', extra.textContent);
+            extra.setAttribute('data-deadline', '');
+            taskSelect.appendChild(extra);
+        }
+        bindSelect(taskSelect);
         if (preset) {
-            var task = row.querySelector('.ts-task-select');
-            if (task && preset.ticket) task.value = preset.ticket;
+            if (taskSelect && preset.ticket) setTaskValue(taskSelect, preset.ticket);
             applyTask(row);
             var hours = row.querySelector('.ts-hours');
             if (hours && preset.hours) hours.value = String(preset.hours);
         }
         applyFilters();
     }
+
+    root.addEventListener('submit', function (event) {
+        var form = event.target;
+        if (!form.classList || !form.classList.contains('ts-day') || form.getAttribute('data-open') !== '1') return;
+        if (dayCanSubmit(form)) return;
+        event.preventDefault();
+        var totals = dayTotals(form);
+        if (minHours > 0 && totals.hours + 0.001 < minHours) {
+            window.alert('A day needs at least ' + String(minHours) + ' hours.');
+        }
+    });
 
     root.addEventListener('change', function (event) {
         var row = event.target.closest('.ts-row');
@@ -258,7 +332,7 @@
         if (add) {
             var day = add.closest('.ts-day');
             if (!day) return;
-            if (add.getAttribute('data-add') === 'leave') addRow(day, { ticket: 'partial-leave', hours: 1 });
+            if (add.getAttribute('data-add') === 'leave') addRow(day, { ticket: 'partial-leave', label: 'Partial Leave', hours: 1 });
             else addRow(day);
             return;
         }
@@ -270,12 +344,15 @@
             if (body.querySelectorAll('.ts-row').length < 2) {
                 var task = row.querySelector('.ts-task-select');
                 var hours = row.querySelector('.ts-hours');
+                var desc = row.querySelector('.ts-desc');
                 var code = row.querySelector('.ts-code');
                 var type = row.querySelector('.ts-type');
-                if (task) task.value = '';
+                if (task) setTaskValue(task, '');
                 if (hours) hours.value = '';
+                if (desc) desc.value = '';
                 if (code) code.value = '';
                 if (type) type.value = '';
+                applyTask(row);
             } else {
                 row.remove();
             }
@@ -326,12 +403,22 @@
             day.querySelectorAll('.ts-hours').forEach(function (input) { if (Number(input.value) > 0) filled = true; });
             if (filled && !window.confirm('Replace this day with a full leave day?')) return;
             var body = day.querySelector('tbody');
-            if (body) body.innerHTML = '';
-            addRow(day, { ticket: 'leave', hours: 8 });
+            if (body) {
+                body.querySelectorAll('.ts-task-select').forEach(function (select) {
+                    if (window.jQuery && jQuery(select).data('select2')) jQuery(select).select2('destroy');
+                });
+                body.innerHTML = '';
+            }
+            addRow(day, { ticket: 'leave', label: 'Leave', hours: leaveHours });
             day.scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
     }
 
     applyFilters();
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { bindSelects(root); });
+    } else {
+        bindSelects(root);
+    }
 })();
 </script>

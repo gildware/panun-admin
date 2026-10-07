@@ -7,6 +7,7 @@ use Modules\AdminModule\Http\Controllers\Web\Admin\RoleController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\EmployeeController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\Analytics\SearchController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\Report\BookingReportController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\Report\CategoryReportController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\Report\GeographicReportController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\Report\DailyEmployeeReportController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\Report\Business\EarningReportController;
@@ -174,6 +175,10 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('payroll/publish', [PeopleHrController::class, 'publishPayroll'])->name('payroll.publish');
         Route::post('payroll/lock', [PeopleHrController::class, 'lockPayroll'])->name('payroll.lock');
         Route::get('payroll/bank', [PeopleHrController::class, 'bankFile'])->name('bank');
+        Route::post('configuration', [PeopleHrController::class, 'saveTimesheetConfiguration'])->name('configuration');
+        Route::post('configuration/tasks', [PeopleHrController::class, 'storeTimesheetTask'])->name('configuration.tasks.store');
+        Route::post('configuration/tasks/{timesheetTask}', [PeopleHrController::class, 'updateTimesheetTask'])->name('configuration.tasks.update');
+        Route::delete('configuration/tasks/{timesheetTask}', [PeopleHrController::class, 'destroyTimesheetTask'])->name('configuration.tasks.destroy');
     });
 
     Route::group(['prefix' => 'employee', 'as' => 'employee.'], function () {
@@ -205,6 +210,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('booking/drilldown', [BookingReportController::class, 'getBookingReportDrilldown'])->name('booking.drilldown');
 
         Route::get('geographic', [GeographicReportController::class, 'index'])->name('geographic');
+        Route::get('category', [CategoryReportController::class, 'index'])->name('category');
 
         Route::any('provider', [ProviderReportController::class, 'getProviderReport'])->name('provider');
         Route::any('provider/download', [ProviderReportController::class, 'getProviderReportDownload'])->name('provider.download');

@@ -3,6 +3,7 @@
     var DD = window.ReportChartDrilldown;
     var showLead = window.LeadChartDrilldown.show;
     var analytics = {!! json_encode($providerLeadAnalytics) !!};
+    var activeTab = @json($providerStatusTab ?? 'overview');
     var othersLabel = @json(translate('Others'));
     var leadsLabel = @json(translate('Leads'));
     var palette = [
@@ -115,33 +116,55 @@
         renderDonut(el, values, labels, colors, { showCenter: true, centerLabel: leadsLabel, idsBySlice: idsBySlice });
     }
 
-    var outcome = analytics.outcome_breakdown || [];
-    renderOutcomeDonut(document.querySelector('#provider-outcome-chart'), outcome, drilldown.outcome || {});
-    renderDrilldownDonut(document.querySelector('#provider-category-chart'), analytics.category_wise || [], 12, drilldown.category_wise || {});
-    renderDrilldownDonut(document.querySelector('#provider-zone-chart'), analytics.zone_wise || [], 12, drilldown.zone_wise || {});
-    renderDayDonut(
-        document.querySelector('#provider-lead-day-chart'),
-        analytics.lead_received_by_day_labels || [],
-        analytics.lead_received_by_day || [],
-        drilldown.lead_received_by_day || {}
-    );
-    renderCompactHourBars(
-        document.querySelector('#provider-lead-hour-chart'),
-        analytics.lead_received_by_hour_labels || [],
-        analytics.lead_received_by_hour || [],
-        drilldown.lead_received_by_hour || {}
-    );
+    if (activeTab === 'overview') {
+        var outcome = analytics.outcome_breakdown || [];
+        renderOutcomeDonut(document.querySelector('#provider-outcome-chart'), outcome, drilldown.outcome || {});
+        renderDrilldownDonut(document.querySelector('#provider-category-chart'), analytics.category_wise || [], 12, drilldown.category_wise || {});
+        renderDrilldownDonut(document.querySelector('#provider-zone-chart'), analytics.zone_wise || [], 12, drilldown.zone_wise || {});
+        renderDayDonut(
+            document.querySelector('#provider-lead-day-chart'),
+            analytics.lead_received_by_day_labels || [],
+            analytics.lead_received_by_day || [],
+            drilldown.lead_received_by_day || {}
+        );
+        renderCompactHourBars(
+            document.querySelector('#provider-lead-hour-chart'),
+            analytics.lead_received_by_hour_labels || [],
+            analytics.lead_received_by_hour || [],
+            drilldown.lead_received_by_hour || {}
+        );
+    }
 
-    var completed = analytics.completed || {};
-    var completedDrilldown = drilldown.completed || {};
-    renderDrilldownDonut(document.querySelector('#provider-completed-category-chart'), completed.category_wise || [], 10, completedDrilldown.category_wise || {});
-    renderDrilldownDonut(document.querySelector('#provider-completed-zone-chart'), completed.zone_wise || [], 10, completedDrilldown.zone_wise || {});
-    renderDrilldownDonut(document.querySelector('#provider-completed-subcategory-chart'), completed.subcategory_wise || [], 10, completedDrilldown.subcategory_wise || {});
+    if (activeTab === 'completed') {
+        var completed = analytics.completed || {};
+        var completedDrilldown = drilldown.completed || {};
+        renderDrilldownDonut(document.querySelector('#provider-completed-category-chart'), completed.category_wise || [], 10, completedDrilldown.category_wise || {});
+        renderDrilldownDonut(document.querySelector('#provider-completed-zone-chart'), completed.zone_wise || [], 10, completedDrilldown.zone_wise || {});
+        renderDrilldownDonut(document.querySelector('#provider-completed-subcategory-chart'), completed.subcategory_wise || [], 10, completedDrilldown.subcategory_wise || {});
+    }
 
-    var cancelled = analytics.cancelled || {};
-    var cancelledDrilldown = drilldown.cancelled || {};
-    renderDrilldownDonut(document.querySelector('#provider-cancelled-category-chart'), cancelled.category_wise || [], 10, cancelledDrilldown.category_wise || {});
-    renderDrilldownDonut(document.querySelector('#provider-cancelled-zone-chart'), cancelled.zone_wise || [], 10, cancelledDrilldown.zone_wise || {});
-    renderDrilldownDonut(document.querySelector('#provider-cancel-reason-chart'), cancelled.reasons || [], 10, cancelledDrilldown.reasons || {});
+    if (activeTab === 'cancelled') {
+        var cancelled = analytics.cancelled || {};
+        var cancelledDrilldown = drilldown.cancelled || {};
+        renderDrilldownDonut(document.querySelector('#provider-cancelled-category-chart'), cancelled.category_wise || [], 10, cancelledDrilldown.category_wise || {});
+        renderDrilldownDonut(document.querySelector('#provider-cancelled-zone-chart'), cancelled.zone_wise || [], 10, cancelledDrilldown.zone_wise || {});
+        renderDrilldownDonut(document.querySelector('#provider-cancel-reason-chart'), cancelled.reasons || [], 10, cancelledDrilldown.reasons || {});
+    }
+
+    if (activeTab === 'hold') {
+        var hold = analytics.hold || {};
+        var holdDrilldown = drilldown.hold || {};
+        renderDrilldownDonut(document.querySelector('#provider-hold-category-chart'), hold.category_wise || [], 10, holdDrilldown.category_wise || {});
+        renderDrilldownDonut(document.querySelector('#provider-hold-zone-chart'), hold.zone_wise || [], 10, holdDrilldown.zone_wise || {});
+        renderDrilldownDonut(document.querySelector('#provider-hold-reason-chart'), hold.reasons || [], 10, holdDrilldown.reasons || {});
+    }
+
+    if (activeTab === 'pending') {
+        var pendingOpen = analytics.pending_open || {};
+        var pendingDrilldown = drilldown.pending_open || {};
+        renderDrilldownDonut(document.querySelector('#provider-pending-category-chart'), pendingOpen.category_wise || [], 10, pendingDrilldown.category_wise || {});
+        renderDrilldownDonut(document.querySelector('#provider-pending-zone-chart'), pendingOpen.zone_wise || [], 10, pendingDrilldown.zone_wise || {});
+        renderDrilldownDonut(document.querySelector('#provider-pending-reason-chart'), pendingOpen.reasons || [], 10, pendingDrilldown.reasons || {});
+    }
 })();
 @endif

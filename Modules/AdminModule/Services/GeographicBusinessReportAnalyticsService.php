@@ -35,13 +35,27 @@ class GeographicBusinessReportAnalyticsService
      */
     public function build(Carbon $from, Carbon $to, array $filters = []): array
     {
+        [$leadRows, $bookingRows] = $this->filteredRows($from, $to, $filters);
+
+        return $this->aggregate($leadRows, $bookingRows, $from, $to);
+    }
+
+    /**
+     * Lead and booking rows for a date range, after zone, area, and category filters.
+     *
+     * @param  array<string, mixed>  $filters  zone_ids, area_ids, category_ids
+     * @return array{0: list<array<string, mixed>>, 1: list<array<string, mixed>>}
+     */
+    public function filteredRows(Carbon $from, Carbon $to, array $filters = []): array
+    {
         $leads = Lead::query()
             ->whereBetween('date_time_of_lead_received', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])
             ->get(['id', 'lead_type', 'date_time_of_lead_received', 'next_followup_at']);
 
         $bookings = Booking::query()
+            ->with('extra_services')
             ->whereBetween('created_at', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])
-            ->get(['id', 'zone_id', 'area_id', 'category_id', 'booking_status', 'total_booking_amount', 'created_at', 'lead_id']);
+            ->get();
 
         $leadRows = $this->mapLeads($leads);
         $bookingRows = $this->mapBookings($bookings);
@@ -66,7 +80,7 @@ class GeographicBusinessReportAnalyticsService
             $bookingRows = array_values(array_filter($bookingRows, fn (array $row) => in_array((string) $row['category_key'], $allowed, true)));
         }
 
-        return $this->aggregate($leadRows, $bookingRows, $from, $to);
+        return [$leadRows, $bookingRows];
     }
 
     /**
@@ -169,6 +183,7 @@ class GeographicBusinessReportAnalyticsService
             $bookingStatusCounts[$status] = ($bookingStatusCounts[$status] ?? 0) + 1;
 
             $amount = (float) ($booking['amount'] ?? 0);
+            $money = $this->financials($booking);
             $zoneKey = (string) ($booking['zone_key'] ?? self::UNSPECIFIED_KEY);
             $areaKey = (string) ($booking['area_key'] ?? self::UNSPECIFIED_KEY);
             if ($zoneKey === '' || $zoneKey === self::UNSPECIFIED_KEY) {
@@ -199,13 +214,13 @@ class GeographicBusinessReportAnalyticsService
 
             $this->touchGeo($zoneBuckets, $zoneKey, $zoneLabel);
             $this->touchGeo($areaBuckets, $areaKey, $areaLabel);
-            $this->applyBookingToGeo($zoneBuckets[$zoneKey], $group, $status, $amount);
-            $this->applyBookingToGeo($areaBuckets[$areaKey], $group, $status, $amount);
+            $this->applyBookingToGeo($zoneBuckets[$zoneKey], $group, $status, $amount, $money);
+            $this->applyBookingToGeo($areaBuckets[$areaKey], $group, $status, $amount, $money);
 
             $this->touchMatrix($zoneCategory, $zoneKey, $zoneLabel, $categoryKey, $categoryLabel);
             $this->touchMatrix($areaCategory, $areaKey, $areaLabel, $categoryKey, $categoryLabel);
-            $this->applyBookingToGeo($zoneCategory[$this->matrixKey($zoneKey, $categoryKey)], $group, $status, $amount);
-            $this->applyBookingToGeo($areaCategory[$this->matrixKey($areaKey, $categoryKey)], $group, $status, $amount);
+            $this->applyBookingToGeo($zoneCategory[$this->matrixKey($zoneKey, $categoryKey)], $group, $status, $amount, $money);
+            $this->applyBookingToGeo($areaCategory[$this->matrixKey($areaKey, $categoryKey)], $group, $status, $amount, $money);
         }
 
         $zoneRows = $this->finalizeGeo($zoneBuckets);
@@ -232,6 +247,10 @@ class GeographicBusinessReportAnalyticsService
                 'booking_pending' => $bookingGroupCounts['pending'],
                 'booking_completed' => $bookingGroupCounts['completed'],
                 'booking_cancelled' => $bookingGroupCounts['cancelled'],
+                'booking_amount_completed' => round(array_sum(array_column($zoneRows, 'booking_amount_completed')), 2),
+                'revenue' => round(array_sum(array_column($zoneRows, 'revenue')), 2),
+                'admin_commission' => round(array_sum(array_column($zoneRows, 'admin_commission')), 2),
+                'provider_earning' => round(array_sum(array_column($zoneRows, 'provider_earning')), 2),
                 'missing_lead_zone' => $missingLeadZone,
                 'missing_lead_area' => $missingLeadArea,
                 'missing_booking_zone' => $missingBookingZone,
@@ -323,7 +342,7 @@ class GeographicBusinessReportAnalyticsService
             if ($id = $this->normalizeId($data['area_id'] ?? null)) {
                 $areaIds[] = $id;
             }
-            foreach (['service_category', 'provider_service_category'] as $catField) {
+            foreach (['service_category', 'provider_service_category', 'service_subcategory', 'provider_service_subcategory'] as $catField) {
                 if ($id = $this->normalizeId($data[$catField] ?? null)) {
                     $categoryIds[] = $id;
                 }
@@ -335,7 +354,7 @@ class GeographicBusinessReportAnalyticsService
 
         $zones = $this->lookupZones($zoneIds);
         $areas = $this->lookupAreas($areaIds);
-        $categories = $this->lookupCategories($categoryIds);
+        $categories = $this->withParentCategories($this->lookupCategories($categoryIds));
         $statuses = $statusIds !== []
             ? CustomerLeadStatus::whereIn('id', array_unique($statusIds))->get()->keyBy(fn ($row) => (string) $row->id)
             : collect();
@@ -354,13 +373,26 @@ class GeographicBusinessReportAnalyticsService
             $zoneId = $this->normalizeId($data['zone_id'] ?? null)
                 ?? ($this->zoneIdsFromData($data)[0] ?? null);
             $areaId = $this->normalizeId($data['area_id'] ?? null);
-            $categoryId = $this->normalizeId($data['service_category'] ?? null)
-                ?? $this->normalizeId($data['provider_service_category'] ?? null);
+            $subCategoryId = $this->normalizeId($data['service_subcategory'] ?? null)
+                ?? $this->normalizeId($data['provider_service_subcategory'] ?? null);
+            $categoryId = $this->categoryIdWithParentFallback(
+                $this->normalizeId($data['service_category'] ?? null)
+                    ?? $this->normalizeId($data['provider_service_category'] ?? null),
+                $subCategoryId,
+                $categories
+            );
             $statusId = $this->normalizeId($data['customer_lead_status_id'] ?? null);
             $status = $statusId ? $statuses->get($statusId) : null;
             $baseType = strtolower((string) ($status?->base_type ?? ''));
             $bookingStatus = strtolower((string) ($data['booking_status'] ?? ''));
             $hasBooking = isset($bookingLeadMap[(string) $lead->id]) || $this->normalizeId($data['booking_id'] ?? null);
+            $customerReasonId = $this->normalizeId($data['cancellation_reason_id'] ?? null);
+            $providerReasonId = $this->normalizeId($data['provider_cancellation_reason_id'] ?? null);
+            $cancelKind = $customerReasonId ? 'customer' : ($providerReasonId ? 'provider' : '');
+            $cancelReasonId = $customerReasonId ?: ($providerReasonId ?: '');
+            $cancelRemarks = $cancelKind === 'provider'
+                ? trim((string) ($data['provider_cancellation_remarks'] ?? ''))
+                : trim((string) ($data['cancellation_remarks'] ?? ''));
 
             $rows[] = [
                 'id' => (string) $lead->id,
@@ -372,6 +404,8 @@ class GeographicBusinessReportAnalyticsService
                 'area_label' => $this->labelFrom($areaId, $areas),
                 'category_key' => $categoryId ?? self::UNSPECIFIED_KEY,
                 'category_label' => $this->labelFrom($categoryId, $categories),
+                'subcategory_key' => $subCategoryId ?? self::UNSPECIFIED_KEY,
+                'subcategory_label' => $this->labelFrom($subCategoryId, $categories),
                 'customer_status' => $this->classifyCustomerStatus(
                     (string) $lead->lead_type,
                     $baseType,
@@ -380,6 +414,9 @@ class GeographicBusinessReportAnalyticsService
                     (string) ($status?->name ?? ''),
                     $lead->next_followup_at
                 ),
+                'cancel_reason_id' => $cancelReasonId,
+                'cancel_reason_kind' => $cancelKind,
+                'cancel_remarks' => $cancelRemarks,
             ];
         }
 
@@ -409,28 +446,43 @@ class GeographicBusinessReportAnalyticsService
             if ($id = $this->normalizeId($booking->category_id)) {
                 $categoryIds[] = $id;
             }
+            if ($id = $this->normalizeId($booking->sub_category_id)) {
+                $categoryIds[] = $id;
+            }
         }
 
         $zones = $this->lookupZones($zoneIds);
         $areas = $this->lookupAreas($areaIds);
-        $categories = $this->lookupCategories($categoryIds);
+        $categories = $this->withParentCategories($this->lookupCategories($categoryIds));
 
         $rows = [];
         foreach ($bookings as $booking) {
             $zoneId = $this->normalizeId($booking->zone_id);
             $areaId = $this->normalizeId($booking->area_id);
-            $categoryId = $this->normalizeId($booking->category_id);
+            $subCategoryId = $this->normalizeId($booking->sub_category_id);
+            $categoryId = $this->categoryIdWithParentFallback(
+                $this->normalizeId($booking->category_id),
+                $subCategoryId,
+                $categories
+            );
+            $money = $this->revenueFigures($booking);
             $rows[] = [
                 'id' => (string) $booking->id,
                 'created_at' => $booking->created_at,
+                'provider_id' => $this->normalizeId($booking->provider_id) ?? '',
                 'zone_key' => $zoneId ?? self::UNSPECIFIED_KEY,
                 'zone_label' => $this->labelFrom($zoneId, $zones),
                 'area_key' => $areaId ?? self::UNSPECIFIED_KEY,
                 'area_label' => $this->labelFrom($areaId, $areas),
                 'category_key' => $categoryId ?? self::UNSPECIFIED_KEY,
                 'category_label' => $this->labelFrom($categoryId, $categories),
+                'subcategory_key' => $subCategoryId ?? self::UNSPECIFIED_KEY,
+                'subcategory_label' => $this->labelFrom($subCategoryId, $categories),
                 'status' => $this->normalizeBookingStatus((string) $booking->booking_status),
                 'amount' => (float) ($booking->total_booking_amount ?? 0),
+                'revenue' => $money['revenue'],
+                'admin_commission' => $money['admin_commission'],
+                'provider_earning' => $money['provider_earning'],
             ];
         }
 
@@ -507,6 +559,9 @@ class GeographicBusinessReportAnalyticsService
             'booking_cancelled' => 0,
             'booking_pending' => 0,
             'booking_amount_completed' => 0.0,
+            'revenue' => 0.0,
+            'admin_commission' => 0.0,
+            'provider_earning' => 0.0,
             'booking_statuses' => [],
         ];
         foreach (self::LEAD_TYPES as $type) {
@@ -522,14 +577,89 @@ class GeographicBusinessReportAnalyticsService
     /**
      * @param  array<string, mixed>  $row
      */
-    private function applyBookingToGeo(array &$row, string $group, string $status, float $amount): void
+    private function applyBookingToGeo(array &$row, string $group, string $status, float $amount, array $money): void
     {
         $row['bookings']++;
         $row['booking_'.$group]++;
         if ($group === 'completed') {
             $row['booking_amount_completed'] += $amount;
         }
+        $this->addFinancials($row, $money);
         $row['booking_statuses'][$status] = ($row['booking_statuses'][$status] ?? 0) + 1;
+    }
+
+    /**
+     * Revenue, admin commission, and provider net income for jobs that count toward company revenue:
+     * completed, canceled after the visit, and closed disputed refunds.
+     *
+     * @return array{revenue: float, admin_commission: float, provider_earning: float}
+     */
+    private function revenueFigures(Booking $booking): array
+    {
+        if (! $this->countsTowardRevenue($booking)) {
+            return ['revenue' => 0.0, 'admin_commission' => 0.0, 'provider_earning' => 0.0];
+        }
+
+        $slice = get_admin_dashboard_reporting_total_and_spare_for_booking($booking);
+        $pair = provider_payment_tab_earning_commission_pair($booking);
+
+        return [
+            'revenue' => round((float) ($slice['reported_total'] ?? 0), 2),
+            'admin_commission' => round((float) ($pair['admin_commission'] ?? 0), 2),
+            'provider_earning' => round((float) ($pair['provider_earning'] ?? 0), 2),
+        ];
+    }
+
+    private function countsTowardRevenue(Booking $booking): bool
+    {
+        $status = strtolower(trim((string) ($booking->booking_status ?? '')));
+        if ($status === 'cancelled') {
+            $status = 'canceled';
+        }
+        if ($status === 'completed') {
+            return true;
+        }
+        if ($status === 'canceled' && (bool) $booking->after_visit_cancel) {
+            return true;
+        }
+
+        $snapshot = $booking->reopen_disputed_snapshot;
+
+        return in_array($status, ['canceled', 'refunded'], true) && is_array($snapshot) && $snapshot !== [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $booking
+     * @return array{revenue: float, admin_commission: float, provider_earning: float}
+     */
+    private function financials(array $booking): array
+    {
+        return [
+            'revenue' => (float) ($booking['revenue'] ?? 0),
+            'admin_commission' => (float) ($booking['admin_commission'] ?? 0),
+            'provider_earning' => (float) ($booking['provider_earning'] ?? 0),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  array{revenue: float, admin_commission: float, provider_earning: float}  $money
+     */
+    private function addFinancials(array &$row, array $money): void
+    {
+        $row['revenue'] += $money['revenue'];
+        $row['admin_commission'] += $money['admin_commission'];
+        $row['provider_earning'] += $money['provider_earning'];
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function roundFinancials(array &$row): void
+    {
+        $row['revenue'] = round((float) ($row['revenue'] ?? 0), 2);
+        $row['admin_commission'] = round((float) ($row['admin_commission'] ?? 0), 2);
+        $row['provider_earning'] = round((float) ($row['provider_earning'] ?? 0), 2);
     }
 
     /**
@@ -554,6 +684,7 @@ class GeographicBusinessReportAnalyticsService
             $row['booking_completion_rate'] = $this->pct((int) $row['booking_completed'], (int) $row['bookings']);
             $row['booking_cancel_rate'] = $this->pct((int) $row['booking_cancelled'], (int) $row['bookings']);
             $row['booking_amount_completed'] = round((float) $row['booking_amount_completed'], 2);
+            $this->roundFinancials($row);
             ksort($row['booking_statuses']);
         }
         unset($row);
@@ -1098,6 +1229,41 @@ class GeographicBusinessReportAnalyticsService
         }
 
         return CustomerLeadArea::query()->whereIn('id', $ids)->get()->keyBy(fn ($row) => (string) $row->id);
+    }
+
+    /**
+     * @param  Collection<string, mixed>  $categories
+     * @return Collection<string, mixed>
+     */
+    private function withParentCategories(Collection $categories): Collection
+    {
+        $parentIds = [];
+        foreach ($categories as $category) {
+            $parentId = $this->normalizeId($category->parent_id ?? null);
+            if ($parentId && ! $categories->has($parentId)) {
+                $parentIds[] = $parentId;
+            }
+        }
+        if ($parentIds === []) {
+            return $categories;
+        }
+
+        return $categories->union($this->lookupCategories($parentIds));
+    }
+
+    /**
+     * @param  Collection<string, mixed>  $categories
+     */
+    private function categoryIdWithParentFallback(?string $categoryId, ?string $subCategoryId, Collection $categories): ?string
+    {
+        if ($categoryId) {
+            return $categoryId;
+        }
+        if (! $subCategoryId) {
+            return null;
+        }
+
+        return $this->normalizeId($categories->get($subCategoryId)?->parent_id ?? null);
     }
 
     /**

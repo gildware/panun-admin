@@ -73,6 +73,9 @@
                     @if(($inboundReport ?? 'general') === 'customer')
                         <input type="hidden" name="customer_status_tab" value="{{ $customerStatusTab ?? 'overview' }}">
                     @endif
+                    @if(($inboundReport ?? 'general') === 'provider')
+                        <input type="hidden" name="provider_status_tab" value="{{ $providerStatusTab ?? 'overview' }}">
+                    @endif
                     <div class="offcanvas-body pt-3 overflow-auto flex-grow-1 report-filter-body">
                         <div class="d-flex flex-column gap-3">
                             <div>
@@ -158,10 +161,18 @@
             @endif
 
             @if($inboundReport === 'provider' && !empty($providerLeadAnalytics))
-                @include('leadmanagement::admin.reports.partials.provider-insights', ['analytics' => $providerLeadAnalytics])
+                @include('leadmanagement::admin.reports.partials.provider-insights', [
+                    'analytics' => $providerLeadAnalytics,
+                    'providerStatusTab' => $providerStatusTab ?? 'overview',
+                    'queryParams' => $queryParams ?? [],
+                ])
             @endif
 
-            @if($inboundReport !== 'customer')
+            @if(in_array($inboundReport, ['invalid', 'future_customer'], true) && !empty($reasonLeadAnalytics))
+                @include('leadmanagement::admin.reports.partials.reason-lead-insights', ['analytics' => $reasonLeadAnalytics])
+            @endif
+
+            @if(!in_array($inboundReport, ['customer', 'provider'], true))
             <div class="row gy-3 pt-2">
                 <div class="col-lg-4">
                     <div class="d-flex flex-column gap-3 h-100">
@@ -321,7 +332,7 @@
             </div>
             @endif
 
-            @if(in_array($inboundReport, ['general', 'invalid', 'future_customer'], true))
+            @if($inboundReport === 'general')
             <div class="row gy-3 pt-4">
                 @if(in_array($inboundReport, ['general', 'invalid'], true))
                 <div class="col-lg-{{ in_array($inboundReport, ['general'], true) ? '6' : '12' }}">
@@ -835,7 +846,13 @@
                 'customerLeadAnalytics' => $customerLeadAnalytics ?? null,
                 'customerStatusTab' => $customerStatusTab ?? 'overview',
             ])
-            @include('leadmanagement::admin.reports.partials.provider-insights-charts')
+            @include('leadmanagement::admin.reports.partials.provider-insights-charts', [
+                'providerLeadAnalytics' => $providerLeadAnalytics ?? null,
+                'providerStatusTab' => $providerStatusTab ?? 'overview',
+            ])
+            @include('leadmanagement::admin.reports.partials.reason-lead-insights-charts', [
+                'reasonLeadAnalytics' => $reasonLeadAnalytics ?? null,
+            ])
         })();
 
         (function ($) {

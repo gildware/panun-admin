@@ -7,9 +7,12 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\LeadManagement\Entities\Lead;
+use Modules\LeadManagement\Entities\LeadFollowup;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Entities\ProviderCancellationReason;
 use Modules\LeadManagement\Entities\ProviderLeadStatus;
+use Modules\LeadManagement\Entities\Source;
+use Modules\UserManagement\Entities\User;
 use Modules\ZoneManagement\Entities\Zone;
 
 class ProviderLeadReportAnalyticsService
@@ -23,7 +26,7 @@ class ProviderLeadReportAnalyticsService
     {
         $leads = (clone $baseQuery)
             ->where('lead_type', Lead::TYPE_PROVIDER)
-            ->get(['id', 'date_time_of_lead_received', 'source_id', 'ad_source_id']);
+            ->get(['id', 'date_time_of_lead_received', 'source_id', 'ad_source_id', 'handled_by', 'phone_number', 'name', 'next_followup_at', 'remarks']);
 
         if ($leads->isEmpty()) {
             return $this->emptyPayload();
@@ -110,6 +113,8 @@ class ProviderLeadReportAnalyticsService
 
         $missingZone = 0;
         $missingCategory = 0;
+        $openContext = [];
+        $closedContext = [];
 
         foreach ($leads as $lead) {
             $leadId = (string) $lead->id;
@@ -153,6 +158,15 @@ class ProviderLeadReportAnalyticsService
                 $this->appendLeadId($completedCategoryLeads, $categoryDim['key'], $leadId);
                 $this->appendLeadId($completedZoneLeads, $zoneDim['key'], $leadId);
                 $this->appendLeadId($completedSubCategoryLeads, $subCategoryDim['key'], $leadId);
+                $closedContext[] = [
+                    'lead' => $lead,
+                    'outcome' => 'completed',
+                    'category' => $categoryDim,
+                    'zone' => $zoneDim,
+                    'subcategory' => $subCategoryDim,
+                    'reason' => ['key' => self::UNSPECIFIED_KEY, 'label' => translate('Not_Specified')],
+                    'remarks' => '',
+                ];
             } elseif ($outcome === 'cancelled') {
                 $this->incrementSimple($cancelledCategory, $categoryDim['key'], $categoryDim['label']);
                 $this->incrementSimple($cancelledZone, $zoneDim['key'], $zoneDim['label']);
@@ -162,6 +176,22 @@ class ProviderLeadReportAnalyticsService
                 $this->appendLeadId($cancelledCategoryLeads, $categoryDim['key'], $leadId);
                 $this->appendLeadId($cancelledZoneLeads, $zoneDim['key'], $leadId);
                 $this->appendLeadId($cancelReasonLeads, $reasonDim['key'], $leadId);
+                $closedContext[] = [
+                    'lead' => $lead,
+                    'outcome' => 'cancelled',
+                    'category' => $categoryDim,
+                    'zone' => $zoneDim,
+                    'subcategory' => $subCategoryDim,
+                    'reason' => $reasonDim,
+                    'remarks' => trim((string) ($data['provider_cancellation_remarks'] ?? '')),
+                ];
+            } else {
+                $openContext[] = [
+                    'lead' => $lead,
+                    'status_tab' => app(LeadOpenStatusDeepBuilder::class)->isHold($lead, (string) ($status?->name ?? '')) ? 'hold' : 'pending',
+                    'category' => $categoryDim,
+                    'zone' => $zoneDim,
+                ];
             }
 
             $receivedAt = $lead->date_time_of_lead_received;
@@ -185,6 +215,9 @@ class ProviderLeadReportAnalyticsService
         $zoneWise = $this->finalizeBuckets($zoneBuckets, $total);
         $subCategoryWise = $this->finalizeBuckets($subCategoryBuckets, $total);
 
+        $open = $this->buildOpenStatus($leads, $openContext);
+        $closed = $this->buildClosedStatus($leads, $closedContext);
+
         $insights = $this->buildInsights(
             $total,
             $completed,
@@ -206,6 +239,8 @@ class ProviderLeadReportAnalyticsService
                 'completed' => $completed,
                 'cancelled' => $cancelled,
                 'pending' => $pending,
+                'hold' => (int) ($open['hold']['summary']['total'] ?? 0),
+                'pending_action' => (int) ($open['pending']['summary']['total'] ?? 0),
                 'completion_rate' => $completionRate,
                 'cancel_rate' => $cancelRate,
                 'missing_zone' => $missingZone,
@@ -230,6 +265,31 @@ class ProviderLeadReportAnalyticsService
                 'zone_wise' => $this->finalizeSimple($cancelledZone),
                 'reasons' => $this->finalizeSimple($cancelReasonCounts),
             ],
+            'hold' => [
+                'category_wise' => $open['hold']['categories'] ?? [],
+                'zone_wise' => $open['hold']['zones'] ?? [],
+                'reasons' => $open['hold']['reasons'] ?? [],
+            ],
+            'pending_open' => [
+                'category_wise' => $open['pending']['categories'] ?? [],
+                'zone_wise' => $open['pending']['zones'] ?? [],
+                'reasons' => $open['pending']['reasons'] ?? [],
+            ],
+            'hold_deep' => $open['hold'],
+            'pending_deep' => $open['pending'],
+            'cancelled_deep' => $closed['cancelled_deep'],
+            'leads_by_tab' => [
+                'completed' => $closed['completed_rows'],
+                'cancelled' => $closed['cancelled_rows'],
+                'hold' => $open['hold']['rows'] ?? [],
+                'pending' => $open['pending']['rows'] ?? [],
+            ],
+            'tab_counts' => [
+                'completed' => $completed,
+                'cancelled' => $cancelled,
+                'hold' => (int) ($open['hold']['summary']['total'] ?? 0),
+                'pending' => (int) ($open['pending']['summary']['total'] ?? 0),
+            ],
             'drilldown' => [
                 'outcome' => $outcomeLeads,
                 'category_wise' => $categoryLeads,
@@ -247,12 +307,219 @@ class ProviderLeadReportAnalyticsService
                     'zone_wise' => $cancelledZoneLeads,
                     'reasons' => $cancelReasonLeads,
                 ],
+                'hold' => [
+                    'category_wise' => $open['hold']['category_leads'] ?? [],
+                    'zone_wise' => $open['hold']['zone_leads'] ?? [],
+                    'reasons' => $open['hold']['reason_leads'] ?? [],
+                ],
+                'pending_open' => [
+                    'category_wise' => $open['pending']['category_leads'] ?? [],
+                    'zone_wise' => $open['pending']['zone_leads'] ?? [],
+                    'reasons' => $open['pending']['reason_leads'] ?? [],
+                ],
             ],
             'lead_received_by_hour' => array_values($leadHourCounts),
             'lead_received_by_hour_labels' => $this->hourLabels(),
             'lead_received_by_day' => array_values($leadDayCounts),
             'lead_received_by_day_labels' => array_keys($leadDayCounts),
         ];
+    }
+
+    /**
+     * @param  Collection<int, Lead>  $leads
+     * @param  list<array<string, mixed>>  $openContext
+     * @return array{hold: array<string, mixed>, pending: array<string, mixed>, by_lead: array<int|string, array<string, mixed>>}
+     */
+    private function buildOpenStatus(Collection $leads, array $openContext): array
+    {
+        if ($openContext === []) {
+            return app(LeadOpenStatusDeepBuilder::class)->build([]);
+        }
+
+        $leadIds = $leads->pluck('id')->all();
+        $followupsByLead = LeadFollowup::query()
+            ->whereIn('lead_id', $leadIds)
+            ->orderBy('followup_at')
+            ->get()
+            ->groupBy('lead_id');
+
+        $sourceIds = $leads->pluck('source_id')->filter()->unique()->values()->all();
+        $sources = $sourceIds !== []
+            ? Source::whereIn('id', $sourceIds)->get(['id', 'name'])->keyBy('id')
+            : collect();
+
+        $items = [];
+        foreach ($openContext as $ctx) {
+            $lead = $ctx['lead'];
+            $source = $sources->get($lead->source_id);
+            $items[] = [
+                'lead' => $lead,
+                'status_tab' => $ctx['status_tab'],
+                'category' => $ctx['category'],
+                'zone' => $ctx['zone'],
+                'followups' => $followupsByLead->get($lead->id, collect()),
+                'source' => $source?->name ?? '—',
+            ];
+        }
+
+        return app(LeadOpenStatusDeepBuilder::class)->build($items);
+    }
+
+    /**
+     * @param  Collection<int, Lead>  $leads
+     * @param  list<array<string, mixed>>  $closedContext
+     * @return array{completed_rows: list<array<string, mixed>>, cancelled_rows: list<array<string, mixed>>, cancelled_deep: array<string, mixed>}
+     */
+    private function buildClosedStatus(Collection $leads, array $closedContext): array
+    {
+        $emptyDeep = [
+            'category_reason_matrix' => [],
+            'category_zone_matrix' => [],
+            'reason_zone_matrix' => [],
+            'remarks' => [],
+        ];
+        if ($closedContext === []) {
+            return [
+                'completed_rows' => [],
+                'cancelled_rows' => [],
+                'cancelled_deep' => $emptyDeep,
+            ];
+        }
+
+        $followupsByLead = LeadFollowup::query()
+            ->whereIn('lead_id', $leads->pluck('id')->all())
+            ->orderBy('followup_at')
+            ->get()
+            ->groupBy('lead_id');
+
+        $handlerIds = [];
+        foreach ($closedContext as $ctx) {
+            $handledBy = $ctx['lead']->handled_by ?? null;
+            if (Lead::assigneeIsHuman($handledBy)) {
+                $handlerIds[] = $handledBy;
+            }
+        }
+        $users = $handlerIds !== []
+            ? User::whereIn('id', array_values(array_unique($handlerIds)))->get(['id', 'first_name', 'last_name', 'email'])->keyBy('id')
+            : collect();
+
+        $sourceIds = $leads->pluck('source_id')->filter()->unique()->values()->all();
+        $sources = $sourceIds !== []
+            ? Source::whereIn('id', $sourceIds)->get(['id', 'name'])->keyBy('id')
+            : collect();
+
+        $builder = app(LeadOpenStatusDeepBuilder::class);
+        $completedRows = [];
+        $cancelledRows = [];
+        $categoryReason = [];
+        $categoryZone = [];
+        $reasonZone = [];
+        $remarks = [];
+
+        foreach ($closedContext as $ctx) {
+            /** @var Lead $lead */
+            $lead = $ctx['lead'];
+            $followups = $followupsByLead->get($lead->id, collect());
+            $engagement = $builder->engagement($lead, $followups);
+            $handledBy = $lead->handled_by;
+            if (!Lead::assigneeIsHuman($handledBy)) {
+                $handlerLabel = $handledBy === Lead::HANDLED_BY_AI ? translate('AI') : translate('Unassigned');
+            } else {
+                $user = $users->get($handledBy);
+                $fullName = $user ? trim(($user->first_name ?? '').' '.($user->last_name ?? '')) : '';
+                $handlerLabel = $fullName ?: ($user->email ?? (string) $handledBy);
+            }
+            $source = $sources->get($lead->source_id);
+            $category = $ctx['category'];
+            $zone = $ctx['zone'];
+            $reason = $ctx['reason'];
+            $row = [
+                'lead_id' => $lead->id,
+                'name' => $lead->name ?: '—',
+                'phone' => $lead->phone_number,
+                'category' => $category['label'],
+                'zone' => $zone['label'],
+                'subcategory' => $ctx['subcategory']['label'] ?? '—',
+                'cancel_reason' => ($ctx['outcome'] ?? '') === 'cancelled' ? $reason['label'] : '—',
+                'cancellation_remarks' => ($ctx['remarks'] ?? '') !== '' ? $ctx['remarks'] : '—',
+                'handled_by' => $handlerLabel,
+                'source' => $source?->name ?? '—',
+                'received_at' => $lead->date_time_of_lead_received?->format('d M Y, h:i A') ?? '—',
+                'followup_count' => $engagement['followup_count'] ?? 0,
+                'hours_to_first_followup' => $engagement['hours_to_first_followup'] ?? null,
+                'first_followup_on_time' => $engagement['first_followup_on_time'] ?? null,
+                'never_followed_up' => $engagement['never_followed_up'] ?? false,
+                'delayed_first_contact' => $engagement['delayed_first_contact'] ?? false,
+            ];
+
+            if (($ctx['outcome'] ?? '') === 'completed') {
+                $completedRows[] = $row;
+                continue;
+            }
+
+            $cancelledRows[] = $row;
+            $this->incrementNested($categoryReason, $category['key'], $category['label'], $reason['key'], $reason['label']);
+            $this->incrementNested($categoryZone, $category['key'], $category['label'], $zone['key'], $zone['label']);
+            $this->incrementNested($reasonZone, $reason['key'], $reason['label'], $zone['key'], $zone['label']);
+            if (($ctx['remarks'] ?? '') !== '') {
+                $remarks[] = [
+                    'category' => $category['label'],
+                    'zone' => $zone['label'],
+                    'reason' => $reason['label'],
+                    'text' => $ctx['remarks'],
+                    'followup_count' => $engagement['followup_count'] ?? 0,
+                    'hours_to_first_followup' => $engagement['hours_to_first_followup'] ?? null,
+                ];
+            }
+        }
+
+        return [
+            'completed_rows' => $completedRows,
+            'cancelled_rows' => $cancelledRows,
+            'cancelled_deep' => [
+                'category_reason_matrix' => $this->finalizeNested($categoryReason),
+                'category_zone_matrix' => $this->finalizeNested($categoryZone),
+                'reason_zone_matrix' => $this->finalizeNested($reasonZone),
+                'remarks' => array_slice($remarks, 0, 50),
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string, array{label: string, total: int, children: array<string, array{label: string, total: int}>}>  $matrix
+     */
+    private function incrementNested(array &$matrix, string $parentKey, string $parentLabel, string $childKey, string $childLabel): void
+    {
+        if (!isset($matrix[$parentKey])) {
+            $matrix[$parentKey] = ['label' => $parentLabel, 'total' => 0, 'children' => []];
+        }
+        $matrix[$parentKey]['total']++;
+        if (!isset($matrix[$parentKey]['children'][$childKey])) {
+            $matrix[$parentKey]['children'][$childKey] = ['label' => $childLabel, 'total' => 0];
+        }
+        $matrix[$parentKey]['children'][$childKey]['total']++;
+    }
+
+    /**
+     * @param  array<string, array{label: string, total: int, children: array<string, array{label: string, total: int}>}>  $matrix
+     * @return list<array<string, mixed>>
+     */
+    private function finalizeNested(array $matrix): array
+    {
+        $rows = [];
+        foreach ($matrix as $key => $row) {
+            $children = array_values($row['children'] ?? []);
+            usort($children, fn ($a, $b) => ($b['total'] ?? 0) <=> ($a['total'] ?? 0));
+            $rows[] = [
+                'key' => (string) $key,
+                'label' => $row['label'],
+                'total' => (int) $row['total'],
+                'breakdown' => $children,
+            ];
+        }
+        usort($rows, fn ($a, $b) => ($b['total'] ?? 0) <=> ($a['total'] ?? 0));
+
+        return $rows;
     }
 
     private function classifyOutcome(string $baseType): string
@@ -609,6 +876,8 @@ class ProviderLeadReportAnalyticsService
                 'completed' => 0,
                 'cancelled' => 0,
                 'pending' => 0,
+                'hold' => 0,
+                'pending_action' => 0,
                 'completion_rate' => 0,
                 'cancel_rate' => 0,
                 'missing_zone' => 0,
@@ -623,6 +892,28 @@ class ProviderLeadReportAnalyticsService
             'subcategory_wise' => [],
             'completed' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => []],
             'cancelled' => ['category_wise' => [], 'zone_wise' => [], 'reasons' => []],
+            'hold' => ['category_wise' => [], 'zone_wise' => [], 'reasons' => []],
+            'pending_open' => ['category_wise' => [], 'zone_wise' => [], 'reasons' => []],
+            'hold_deep' => [],
+            'pending_deep' => [],
+            'cancelled_deep' => [
+                'category_reason_matrix' => [],
+                'category_zone_matrix' => [],
+                'reason_zone_matrix' => [],
+                'remarks' => [],
+            ],
+            'leads_by_tab' => [
+                'completed' => [],
+                'cancelled' => [],
+                'hold' => [],
+                'pending' => [],
+            ],
+            'tab_counts' => [
+                'completed' => 0,
+                'cancelled' => 0,
+                'hold' => 0,
+                'pending' => 0,
+            ],
             'drilldown' => [
                 'outcome' => ['pending' => [], 'completed' => [], 'cancelled' => []],
                 'category_wise' => [],
@@ -632,6 +923,8 @@ class ProviderLeadReportAnalyticsService
                 'lead_received_by_hour' => array_fill_keys(array_map('strval', range(0, 23)), []),
                 'completed' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => []],
                 'cancelled' => ['category_wise' => [], 'zone_wise' => [], 'reasons' => []],
+                'hold' => ['category_wise' => [], 'zone_wise' => [], 'reasons' => []],
+                'pending_open' => ['category_wise' => [], 'zone_wise' => [], 'reasons' => []],
             ],
             'lead_received_by_hour' => array_fill(0, 24, 0),
             'lead_received_by_hour_labels' => $this->hourLabels(),

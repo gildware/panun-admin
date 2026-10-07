@@ -26,6 +26,7 @@ use Modules\BookingModule\Entities\Booking;
 use Modules\LeadManagement\Services\CustomerLeadReportAnalyticsService;
 use Modules\LeadManagement\Services\LeadCtwaDisplayService;
 use Modules\LeadManagement\Services\ProviderLeadReportAnalyticsService;
+use Modules\LeadManagement\Services\ReasonLeadReportAnalyticsService;
 use Modules\UserManagement\Entities\User;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -441,6 +442,15 @@ class LeadReportController extends Controller
             $queryParams['customer_status_tab'] = $customerStatusTab;
         }
 
+        $providerStatusTab = 'overview';
+        if ($inboundReport === 'provider') {
+            $providerStatusTab = (string) $request->input('provider_status_tab', 'overview');
+            if (!in_array($providerStatusTab, ['overview', 'completed', 'cancelled', 'hold', 'pending'], true)) {
+                $providerStatusTab = 'overview';
+            }
+            $queryParams['provider_status_tab'] = $providerStatusTab;
+        }
+
         $leadsForTable = (clone $baseQuery)
             ->with(['source', 'adSource', 'createdBy'])
             ->orderByDesc('date_time_of_lead_received')
@@ -458,6 +468,10 @@ class LeadReportController extends Controller
 
         $providerLeadAnalytics = $inboundReport === 'provider'
             ? app(ProviderLeadReportAnalyticsService::class)->build($baseQuery, $dateFrom, $dateTo)
+            : null;
+
+        $reasonLeadAnalytics = in_array($inboundReport, [Lead::TYPE_INVALID, Lead::TYPE_FUTURE_CUSTOMER], true)
+            ? app(ReasonLeadReportAnalyticsService::class)->build($baseQuery, $inboundReport)
             : null;
 
         return view('leadmanagement::admin.reports.inbound', [
@@ -498,6 +512,8 @@ class LeadReportController extends Controller
             'customerLeadAnalytics' => $customerLeadAnalytics,
             'customerStatusTab' => $customerStatusTab,
             'providerLeadAnalytics' => $providerLeadAnalytics,
+            'providerStatusTab' => $providerStatusTab,
+            'reasonLeadAnalytics' => $reasonLeadAnalytics,
         ]);
     }
 

@@ -10,7 +10,8 @@
 @php
     $name = $workspace->displayName($actor);
     $hours = $timesheet->hours ?? [];
-    $dayLabels = ['mon' => 'Mon', 'tue' => 'Tue', 'wed' => 'Wed', 'thu' => 'Thu', 'fri' => 'Fri', 'sat' => 'Sat'];
+    $dayLabels = ['mon' => 'Mon', 'tue' => 'Tue', 'wed' => 'Wed', 'thu' => 'Thu', 'fri' => 'Fri', 'sat' => 'Sat', 'sun' => 'Sun'];
+    $weekOff = $workspace->weekOffDays();
 @endphp
 <div class="main-content">
     <div class="container-fluid">
@@ -433,7 +434,7 @@
                 <p class="people-ws-note">Week of {{ $timesheet->week_starts_on->format('j F') }} · {{ $workspace->statusLabel($timesheet->status) }}</p>
                 <div class="people-ws-week people-ws-mt">
                     @foreach($dayLabels as $key => $label)
-                        <div class="people-ws-day"><strong>{{ $label }}</strong><span>{{ number_format((float) ($hours[$key] ?? 0), 1) }} hours</span></div>
+                        <div class="people-ws-day"><strong>{{ $label }}</strong><span>{{ in_array($key, $weekOff, true) ? 'Week off' : number_format((float) ($hours[$key] ?? 0), 1).' hours' }}</span></div>
                     @endforeach
                 </div>
             </article>

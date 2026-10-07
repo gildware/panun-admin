@@ -8,10 +8,12 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Modules\BookingModule\Entities\Booking;
 use Modules\CategoryManagement\Entities\Category;
+use Modules\LeadManagement\Entities\CustomerLeadArea;
 use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadCancellationReason;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
+use Modules\ServiceManagement\Entities\Service;
 use Modules\ZoneManagement\Entities\Zone;
 
 class CustomerLeadReportAnalyticsService
@@ -26,7 +28,7 @@ class CustomerLeadReportAnalyticsService
     {
         $leads = (clone $baseQuery)
             ->where('lead_type', Lead::TYPE_CUSTOMER)
-            ->get(['id', 'date_time_of_lead_received', 'source_id', 'ad_source_id', 'handled_by', 'phone_number', 'name', 'next_followup_at']);
+            ->get(['id', 'date_time_of_lead_received', 'source_id', 'ad_source_id', 'handled_by', 'phone_number', 'name', 'next_followup_at', 'remarks']);
 
         if ($leads->isEmpty()) {
             return $this->emptyPayload();
@@ -55,6 +57,8 @@ class CustomerLeadReportAnalyticsService
         $categoryIds = [];
         $subCategoryIds = [];
         $cancelReasonIds = [];
+        $serviceIds = [];
+        $areaIds = [];
 
         foreach ($histories as $history) {
             $data = is_array($history->data) ? $history->data : [];
@@ -73,6 +77,12 @@ class CustomerLeadReportAnalyticsService
             if ($id = $this->normalizeReferenceId($data['cancellation_reason_id'] ?? null)) {
                 $cancelReasonIds[] = $id;
             }
+            if ($id = $this->normalizeReferenceId($data['service_name'] ?? null)) {
+                $serviceIds[] = $id;
+            }
+            if ($id = $this->normalizeReferenceId($data['area_id'] ?? null)) {
+                $areaIds[] = $id;
+            }
         }
 
         $statuses = $statusIds !== []
@@ -90,6 +100,12 @@ class CustomerLeadReportAnalyticsService
         $cancelReasons = $cancelReasonIds !== []
             ? LeadCancellationReason::whereIn('id', array_unique($cancelReasonIds))->get()->keyBy(fn ($row) => (string) $row->id)
             : collect();
+        $services = $serviceIds !== []
+            ? Service::withTrashed()->whereIn('id', array_unique($serviceIds))->get(['id', 'name'])->keyBy(fn ($row) => (string) $row->id)
+            : collect();
+        $areas = $areaIds !== []
+            ? CustomerLeadArea::query()->whereIn('id', array_unique($areaIds))->get(['id', 'name'])->keyBy(fn ($row) => (string) $row->id)
+            : collect();
 
         $bucketKeys = ['pending', 'booked', 'cancelled'];
         $overall = array_fill_keys($bucketKeys, 0);
@@ -99,6 +115,8 @@ class CustomerLeadReportAnalyticsService
         $bookedCategory = [];
         $bookedZone = [];
         $bookedSubCategory = [];
+        $bookedService = [];
+        $bookedArea = [];
         $cancelledCategory = [];
         $cancelledZone = [];
         $cancelReasonCounts = [];
@@ -109,6 +127,8 @@ class CustomerLeadReportAnalyticsService
         $bookedCategoryLeads = [];
         $bookedZoneLeads = [];
         $bookedSubCategoryLeads = [];
+        $bookedServiceLeads = [];
+        $bookedAreaLeads = [];
         $cancelledCategoryLeads = [];
         $cancelledZoneLeads = [];
         $cancelReasonLeads = [];
@@ -160,9 +180,13 @@ class CustomerLeadReportAnalyticsService
             $categoryId = $this->normalizeReferenceId($data['service_category'] ?? null);
             $subCategoryId = $this->normalizeReferenceId($data['service_subcategory'] ?? null);
 
+            $serviceId = $this->normalizeReferenceId($data['service_name'] ?? null);
+
             $categoryDim = $this->resolveCategoryDimension($data, $categories);
             $zoneDim = $this->resolveDimension($zoneId, $zones);
             $subCategoryDim = $this->resolveDimension($subCategoryId, $subCategories);
+            $serviceDim = $this->resolveDimension($serviceId, $services);
+            $areaDim = $this->resolveAreaDimension($data, $areas);
             $reasonDim = ['key' => self::UNSPECIFIED_KEY, 'label' => translate('Not_Specified')];
 
             if (!$zoneId) {
@@ -183,9 +207,13 @@ class CustomerLeadReportAnalyticsService
                 $this->incrementSimple($bookedCategory, $categoryDim['key'], $categoryDim['label']);
                 $this->incrementSimple($bookedZone, $zoneDim['key'], $zoneDim['label']);
                 $this->incrementSimple($bookedSubCategory, $subCategoryDim['key'], $subCategoryDim['label']);
+                $this->incrementSimple($bookedService, $serviceDim['key'], $serviceDim['label']);
+                $this->incrementSimple($bookedArea, $areaDim['key'], $areaDim['label']);
                 $this->appendLeadId($bookedCategoryLeads, $categoryDim['key'], $leadId);
                 $this->appendLeadId($bookedZoneLeads, $zoneDim['key'], $leadId);
                 $this->appendLeadId($bookedSubCategoryLeads, $subCategoryDim['key'], $leadId);
+                $this->appendLeadId($bookedServiceLeads, $serviceDim['key'], $leadId);
+                $this->appendLeadId($bookedAreaLeads, $areaDim['key'], $leadId);
             } elseif ($outcome === 'cancelled') {
                 $this->incrementSimple($cancelledCategory, $categoryDim['key'], $categoryDim['label']);
                 $this->incrementSimple($cancelledZone, $zoneDim['key'], $zoneDim['label']);
@@ -220,6 +248,8 @@ class CustomerLeadReportAnalyticsService
                 'category' => $categoryDim,
                 'zone' => $zoneDim,
                 'subcategory' => $subCategoryDim,
+                'service' => $serviceDim,
+                'area' => $areaDim,
                 'status_name' => $status?->name ?? '—',
                 'cancel_reason' => $outcome === 'cancelled'
                     ? $this->resolveDimension(
@@ -317,6 +347,8 @@ class CustomerLeadReportAnalyticsService
                 'category_wise' => $this->finalizeSimple($bookedCategory),
                 'zone_wise' => $this->finalizeSimple($bookedZone),
                 'subcategory_wise' => $this->finalizeSimple($bookedSubCategory),
+                'service_wise' => $this->finalizeSimple($bookedService),
+                'area_wise' => $this->finalizeSimple($bookedArea),
             ],
             'cancelled' => [
                 'category_wise' => $this->finalizeSimple($cancelledCategory),
@@ -327,11 +359,13 @@ class CustomerLeadReportAnalyticsService
                 'category_wise' => $this->finalizeSimple($holdCategory),
                 'zone_wise' => $this->finalizeSimple($holdZone),
                 'subcategory_wise' => $this->finalizeSimple($holdSubCategory),
+                'reasons' => $deep['hold_deep']['reasons'] ?? [],
             ],
             'pending' => [
                 'category_wise' => $this->finalizeSimple($pendingCategory),
                 'zone_wise' => $this->finalizeSimple($pendingZone),
                 'subcategory_wise' => $this->finalizeSimple($pendingSubCategory),
+                'reasons' => $deep['pending_deep']['reasons'] ?? [],
             ],
             'drilldown' => [
                 'outcome' => $outcomeLeads,
@@ -345,6 +379,8 @@ class CustomerLeadReportAnalyticsService
                     'category_wise' => $bookedCategoryLeads,
                     'zone_wise' => $bookedZoneLeads,
                     'subcategory_wise' => $bookedSubCategoryLeads,
+                    'service_wise' => $bookedServiceLeads,
+                    'area_wise' => $bookedAreaLeads,
                 ],
                 'cancelled' => [
                     'category_wise' => $cancelledCategoryLeads,
@@ -355,11 +391,13 @@ class CustomerLeadReportAnalyticsService
                     'category_wise' => $holdCategoryLeads,
                     'zone_wise' => $holdZoneLeads,
                     'subcategory_wise' => $holdSubCategoryLeads,
+                    'reasons' => $deep['hold_deep']['reason_leads'] ?? [],
                 ],
                 'pending' => [
                     'category_wise' => $pendingCategoryLeads,
                     'zone_wise' => $pendingZoneLeads,
                     'subcategory_wise' => $pendingSubCategoryLeads,
+                    'reasons' => $deep['pending_deep']['reason_leads'] ?? [],
                 ],
             ],
             'lead_received_by_hour' => array_values($leadHourCounts),
@@ -371,6 +409,9 @@ class CustomerLeadReportAnalyticsService
             'booking_timeline' => $bookingTimeline,
             'booking_per_day' => $bookingPerDay,
             'cancelled_deep' => $deep['cancelled_deep'] ?? [],
+            'hold_deep' => $deep['hold_deep'] ?? [],
+            'pending_deep' => $deep['pending_deep'] ?? [],
+            'booked_deep' => $deep['booked_deep'] ?? [],
             'staff_performance' => $deep['staff_performance'] ?? [],
             'engagement' => $deep['engagement'] ?? [],
             'leads_by_tab' => $deep['leads_by_tab'] ?? [],
@@ -394,6 +435,30 @@ class CustomerLeadReportAnalyticsService
         $name = trim((string) ($data['service_category_name'] ?? ''));
         if ($name !== '') {
             return ['key' => 'name:' . strtolower($name), 'label' => $name];
+        }
+
+        return ['key' => self::UNSPECIFIED_KEY, 'label' => translate('Not_Specified')];
+    }
+
+    /**
+     * Area dropdown id, or the free-text area saved from website / app bookings.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{key: string, label: string}
+     */
+    private function resolveAreaDimension(array $data, Collection $areas): array
+    {
+        $areaId = $this->normalizeReferenceId($data['area_id'] ?? null);
+        if ($areaId) {
+            $resolved = $this->resolveDimension($areaId, $areas);
+            if ($resolved['key'] !== self::UNSPECIFIED_KEY) {
+                return $resolved;
+            }
+        }
+
+        $name = trim((string) ($data['area_text'] ?? ''));
+        if ($name !== '') {
+            return ['key' => 'name:' . mb_strtolower($name), 'label' => $name];
         }
 
         return ['key' => self::UNSPECIFIED_KEY, 'label' => translate('Not_Specified')];
@@ -780,10 +845,10 @@ class CustomerLeadReportAnalyticsService
             'category_wise' => [],
             'zone_wise' => [],
             'subcategory_wise' => [],
-            'booked' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => []],
+            'booked' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => [], 'service_wise' => [], 'area_wise' => []],
             'cancelled' => ['category_wise' => [], 'zone_wise' => [], 'reasons' => []],
-            'hold' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => []],
-            'pending' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => []],
+            'hold' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => [], 'reasons' => []],
+            'pending' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => [], 'reasons' => []],
             'drilldown' => [
                 'outcome' => ['pending' => [], 'booked' => [], 'cancelled' => []],
                 'category_wise' => [],
@@ -792,10 +857,10 @@ class CustomerLeadReportAnalyticsService
                 'lead_received_by_day' => array_fill_keys(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], []),
                 'lead_received_by_hour' => array_fill_keys(array_map('strval', range(0, 23)), []),
                 'booking_by_hour' => array_fill_keys(array_map('strval', range(0, 23)), []),
-                'booked' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => []],
+                'booked' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => [], 'service_wise' => [], 'area_wise' => []],
                 'cancelled' => ['category_wise' => [], 'zone_wise' => [], 'reasons' => []],
-                'hold' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => []],
-                'pending' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => []],
+                'hold' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => [], 'reasons' => []],
+                'pending' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => [], 'reasons' => []],
             ],
             'lead_received_by_hour' => array_fill(0, 24, 0),
             'lead_received_by_hour_labels' => $this->hourLabels(),
@@ -810,6 +875,14 @@ class CustomerLeadReportAnalyticsService
                 'category_zone_matrix' => [],
                 'reason_zone_matrix' => [],
                 'remarks' => [],
+            ],
+            'hold_deep' => [],
+            'pending_deep' => [],
+            'booked_deep' => [
+                'category_service_matrix' => [],
+                'category_area_matrix' => [],
+                'zone_area_matrix' => [],
+                'service_area_matrix' => [],
             ],
             'staff_performance' => [],
             'engagement' => [

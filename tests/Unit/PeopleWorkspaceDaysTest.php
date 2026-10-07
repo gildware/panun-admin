@@ -19,6 +19,30 @@ class PeopleWorkspaceDaysTest extends TestCase
         $this->assertSame(5, $days);
     }
 
+    public function test_working_days_follow_the_configured_week_off(): void
+    {
+        $days = PeopleWorkspace::countWorkingDays(
+            Carbon::parse('2026-09-27'),
+            Carbon::parse('2026-10-03'),
+            [],
+            ['sat', 'sun']
+        );
+
+        $this->assertSame(5, $days);
+    }
+
+    public function test_an_empty_week_off_counts_every_day(): void
+    {
+        $days = PeopleWorkspace::countWorkingDays(
+            Carbon::parse('2026-09-27'),
+            Carbon::parse('2026-10-03'),
+            [],
+            []
+        );
+
+        $this->assertSame(7, $days);
+    }
+
     public function test_a_holiday_on_its_own_is_not_a_working_day(): void
     {
         $days = PeopleWorkspace::countWorkingDays(

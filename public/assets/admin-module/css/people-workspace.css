@@ -48,6 +48,8 @@
   padding: 16px;
 }
 .people-ws-card h2 { margin: 0 0 12px; font-size: 15px; }
+.people-ws-list-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+.people-ws-list-bar h2 { margin: 0; }
 .people-ws-stat .label { color: var(--pw-muted); font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
 .people-ws-stat .value { font-size: 26px; font-weight: 750; color: var(--pw-ink); margin-top: 6px; }
 .people-ws-stat .sub { color: var(--pw-muted); font-size: 13px; margin-top: 4px; }
@@ -97,7 +99,7 @@
 .people-ws-bar span { display: block; height: 100%; background: var(--pw-brand); }
 .people-ws-balance { margin-bottom: 14px; }
 .people-ws-balance .top { display: flex; justify-content: space-between; font-size: 14px; }
-.people-ws-week { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.people-ws-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
 .people-ws-day { border: 1px solid var(--pw-line); border-radius: 10px; padding: 10px; background: #fff; }
 .people-ws-day strong { display: block; font-size: 13px; }
 .people-ws-day span { color: var(--pw-muted); font-size: 12px; }
@@ -278,6 +280,24 @@ a.people-ws-row:hover { background: #f8fafc; }
 .people-holiday-note { margin: 0; color: #334155; }
 .people-ws-row:last-child { border-bottom: 0; }
 .people-ws-note { color: var(--pw-muted); font-size: 13px; }
+.people-ws .field .people-ws-note { margin: 6px 0 0; }
+.people-ws input.people-ws-hours { max-width: 180px; }
+.people-ws-days { display: flex; flex-wrap: wrap; gap: 8px; }
+.people-ws-days label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--pw-line);
+  border-radius: 999px;
+  background: #fff;
+  cursor: pointer;
+}
+.people-ws-days label:has(input:checked) {
+  border-color: var(--pw-brand);
+  background: var(--pw-soft);
+}
 .people-ws-mt { margin-top: 12px; }
 .people-ws-head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .people-ws-year-nav { display: inline-flex; align-items: center; gap: 4px; }
@@ -446,7 +466,8 @@ body:has(#documentRemoveModal.show) .modal-backdrop.show { z-index: 20055; }
 .people-ws-dept-modal .field label input[type="checkbox"] { margin-right: 8px; }
 .people-ws-cal-day:hover { border-color: #cbd5e1; background: #fff; }
 .people-ws-cal-day strong { font-size: 10px; font-weight: 650; line-height: 1; }
-.people-ws-cal-day.is-sunday { background: transparent; color: #94a3b8; }
+.people-ws-cal-day.is-sunday,
+.people-ws-cal-day.is-off { background: transparent; color: #94a3b8; }
 .people-ws-cal-day.is-holiday { position: relative; background: #fffbeb; border-color: #fde68a; color: #b45309; }
 .people-ws-cal-day.is-holiday::after {
   content: "";
@@ -797,7 +818,7 @@ body:has(#documentRemoveModal.show) .modal-backdrop.show { z-index: 20055; }
 .ts-day-total.is-open { color: var(--ts-red); }
 .ts-submit { display: inline-flex; align-items: center; gap: 2px; border-radius: 10px; padding: 8px 12px 8px 14px; }
 .ts-submit svg { width: 16px; height: 16px; }
-.ts-submit:disabled { background: #eceff3; color: #9aa3b2; cursor: default; }
+.ts-submit:disabled { background: #eceff3; color: #9aa3b2; cursor: default; pointer-events: none; }
 .ts-submitted { background: #f3f4f6; color: #6b7280; border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 750; }
 .ts-sheet-wrap { overflow-x: auto; }
 .ts-app .ts-sheet { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 0; }
@@ -806,9 +827,18 @@ body:has(#documentRemoveModal.show) .modal-backdrop.show { z-index: 20055; }
 .ts-row[hidden] { display: none; }
 .ts-task { display: flex; align-items: center; gap: 6px; }
 .ts-app .ts-sheet input, .ts-app .ts-sheet select { width: 100%; border: 1px solid #e6e8ef; border-radius: 8px; padding: 8px 10px; background: #fff; color: var(--ts-ink); }
+.ts-app .select2-container { width: 100% !important; }
+.ts-app .select2-container--default .select2-selection--single { height: 38px; border: 1px solid #e6e8ef; border-radius: 8px; background: #fff; }
+.ts-app .select2-container--default .select2-selection--single .select2-selection__rendered { line-height: 36px; padding-left: 10px; color: var(--ts-ink); }
+.ts-app .select2-container--default .select2-selection--single .select2-selection__arrow { height: 36px; }
+.ts-app .select2-container--default.select2-container--disabled .select2-selection--single { background: #fafbfc; }
+.ts-task-dropdown { z-index: 2000; }
 .ts-app .ts-sheet input[readonly] { background: #fafbfc; color: #475467; }
-.ts-hours-wrap { display: flex; align-items: center; gap: 4px; }
-.ts-app .ts-sheet input.ts-hours { width: 72px; }
+.ts-hours-wrap, .ts-desc-wrap { display: flex; align-items: center; gap: 4px; }
+.ts-app .ts-sheet th:nth-child(2),
+.ts-app .ts-sheet td:nth-child(2) { width: 110px; }
+.ts-app .ts-sheet input.ts-hours { width: 88px; }
+.ts-app .ts-sheet input.ts-desc { min-width: 180px; flex: 1; }
 .ts-copy, .ts-remove { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; flex: none; padding: 0; }
 .ts-copy svg { width: 15px; height: 15px; }
 .ts-copy[data-copied="1"] { color: var(--ts-purple); border-color: var(--pw-brand); }
@@ -822,6 +852,8 @@ body:has(#documentRemoveModal.show) .modal-backdrop.show { z-index: 20055; }
 .ts-chip.is-done { background: var(--ts-green); color: #3f7d32; }
 .ts-chip.is-pending { background: var(--ts-pink); color: #b4234a; }
 .ts-chip.is-future, .ts-chip.is-off { background: #f4f5f7; color: #c5cad3; }
+.ts-rule { margin: 0; padding: 0 14px 8px; color: #667085; font-size: 13px; }
+.ts-day-total.is-short { color: #b42318; }
 .ts-chip.is-holiday { background: #fff4cc; color: #a16207; }
 .ts-pending { position: absolute; z-index: 4; top: 42px; right: 28px; width: min(440px, calc(100% - 40px)); max-height: min(72vh, 640px); overflow: auto; background: #fff; border-radius: 18px; box-shadow: 0 18px 50px rgba(20, 30, 60, .18); padding: 16px 16px 8px; }
 .ts-pending[hidden] { display: none !important; }

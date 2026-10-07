@@ -261,6 +261,10 @@ class EmployeeSearchAccessFilter
                 'gates' => ['report_view', 'lead_report_view'],
             ],
             [
+                'patterns' => ['admin/report/category*'],
+                'gates' => ['report_view', 'lead_report_view'],
+            ],
+            [
                 'patterns' => ['admin/report/daily-employee*'],
                 'gates' => ['report_view'],
             ],

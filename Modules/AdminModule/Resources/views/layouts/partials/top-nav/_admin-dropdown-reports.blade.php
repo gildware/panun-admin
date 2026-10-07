@@ -11,6 +11,11 @@
             'label' => translate('Zone_and_Area_Reports'),
             'active' => request()->routeIs('admin.report.geographic'),
         ])
+        @include('adminmodule::layouts.partials.top-nav._link', [
+            'href' => route('admin.report.category'),
+            'label' => translate('Category_Reports'),
+            'active' => request()->routeIs('admin.report.category'),
+        ])
     @endcanany
     @can('report_view')
         @include('adminmodule::layouts.partials.top-nav._link', [

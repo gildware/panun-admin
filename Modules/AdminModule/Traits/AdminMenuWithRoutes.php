@@ -629,6 +629,16 @@ trait AdminMenuWithRoutes
                 "sorting" => 3,
             ],
             [
+                'route_name' => 'Category_Reports',
+                'uri' => 'admin/report/category',
+                'full_route' => url('admin/report/category'),
+                "page_title" => 'Category_Reports',
+                "keywords" => 'Reports, Category, Subcategory, Providers, Booking Reports',
+                "type" => 'menu',
+                "module" => "reports",
+                "sorting" => 3,
+            ],
+            [
                 'route_name' => 'Provider_Reports',
                 'uri' => 'admin/report/provider',
                 'full_route' => url('admin/report/provider'),

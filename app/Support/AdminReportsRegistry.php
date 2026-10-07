@@ -44,6 +44,9 @@ final class AdminReportsRegistry
                 self::item(translate('Zone_and_Area_Reports'), route('admin.report.geographic'), [
                     'admin/report/geographic',
                 ], ['admin.report.geographic'], ['report_view', 'lead_report_view']),
+                self::item(translate('Category_Reports'), route('admin.report.category'), [
+                    'admin/report/category',
+                ], ['admin.report.category'], ['report_view', 'lead_report_view']),
                 self::item(translate('Business Reports'), route('admin.report.business.overview'), [
                     'admin/report/business*',
                 ], ['admin.report.business.overview'], 'report_view'),

@@ -336,7 +336,8 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         || request()->routeIs('admin.lead.reports.outbound')
                         || request()->routeIs('admin.lead.reports.index')
                         || request()->routeIs('admin.lead.reports.user')
-                        || request()->routeIs('admin.report.geographic');
+                        || request()->routeIs('admin.report.geographic')
+                        || request()->routeIs('admin.report.category');
                 @endphp
                 <li class="has-sub-item {{ $reportsMenuOpen ? 'sub-menu-opened' : '' }}">
                     <a href="#" class="{{ $reportsMenuOpen ? 'active-menu' : '' }}">
@@ -363,6 +364,12 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                                 <a href="{{ route('admin.report.geographic') }}"
                                    class="{{ request()->routeIs('admin.report.geographic') ? 'active-menu' : '' }}">
                                     {{ translate('Zone_and_Area_Reports') }}
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('admin.report.category') }}"
+                                   class="{{ request()->routeIs('admin.report.category') ? 'active-menu' : '' }}">
+                                    {{ translate('Category_Reports') }}
                                 </a>
                             </li>
                             @endcanany

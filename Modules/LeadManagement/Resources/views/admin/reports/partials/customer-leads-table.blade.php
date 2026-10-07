@@ -6,8 +6,14 @@
         'phone' => translate('Phone'),
         'category' => translate('Category'),
         'zone' => translate('Zone'),
+        'area' => translate('Area'),
         'subcategory' => translate('Sub_Category'),
+        'service' => translate('Service'),
         'reason' => translate('Cancellation_Reason'),
+        'hold_reason' => translate('Hold_reason'),
+        'pending_reason' => translate('Pending_Reason'),
+        'type_reason' => translate('Reason'),
+        'status_remarks' => translate('Remarks'),
         'remarks' => translate('Remarks'),
         'handled_by' => translate('Handled_By'),
         'source' => translate('Source'),
@@ -68,6 +74,18 @@
                                         @break
                                     @case('reason')
                                         {{ $row['cancel_reason'] ?? '—' }}
+                                        @break
+                                    @case('hold_reason')
+                                        <span class="text-wrap d-inline-block" style="max-width: 220px;">{{ $row['hold_reason'] ?? '—' }}</span>
+                                        @break
+                                    @case('pending_reason')
+                                        {{ $row['pending_reason'] ?? '—' }}
+                                        @break
+                                    @case('type_reason')
+                                        {{ $row['type_reason'] ?? '—' }}
+                                        @break
+                                    @case('status_remarks')
+                                        <span class="text-wrap d-inline-block" style="max-width: 220px;">{{ $row['status_remarks'] ?? '—' }}</span>
                                         @break
                                     @case('remarks')
                                         <span class="text-wrap d-inline-block" style="max-width: 220px;">{{ $row['cancellation_remarks'] ?? '—' }}</span>

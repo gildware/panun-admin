@@ -55,12 +55,17 @@ class CustomerLeadDeepReportAnalyticsService
         $cancelCategoryReason = [];
         $cancelCategoryZone = [];
         $cancelReasonZone = [];
+        $bookedCategoryService = [];
+        $bookedCategoryArea = [];
+        $bookedZoneArea = [];
+        $bookedServiceArea = [];
         $cancelRemarks = [];
         $staffBuckets = [];
         $engagementRows = [];
         $cancelledRows = [];
         $bookedRows = [];
         $noResponseCancelledRows = [];
+        $openItems = [];
         $leadsByTab = [
             'booked' => [],
             'cancelled' => [],
@@ -79,6 +84,8 @@ class CustomerLeadDeepReportAnalyticsService
             $category = $row['category'] ?? ['key' => self::UNSPECIFIED_KEY, 'label' => translate('Not_Specified')];
             $zone = $row['zone'] ?? ['key' => self::UNSPECIFIED_KEY, 'label' => translate('Not_Specified')];
             $subCategory = $row['subcategory'] ?? ['key' => self::UNSPECIFIED_KEY, 'label' => translate('Not_Specified')];
+            $service = $row['service'] ?? ['key' => self::UNSPECIFIED_KEY, 'label' => translate('Not_Specified')];
+            $area = $row['area'] ?? ['key' => self::UNSPECIFIED_KEY, 'label' => translate('Not_Specified')];
             $reason = $row['cancel_reason'] ?? ['key' => self::UNSPECIFIED_KEY, 'label' => translate('Not_Specified')];
 
             $followups = $followupsByLead->get($lead->id, collect());
@@ -100,6 +107,8 @@ class CustomerLeadDeepReportAnalyticsService
                 'category' => $category['label'],
                 'zone' => $zone['label'],
                 'subcategory' => $subCategory['label'],
+                'service' => $service['label'],
+                'area' => $area['label'],
                 'status_tab' => $statusTab,
                 'status_name' => $row['status_name'] ?? '—',
                 'cancel_reason' => $outcome === 'cancelled' ? $reason['label'] : '—',
@@ -116,6 +125,19 @@ class CustomerLeadDeepReportAnalyticsService
                 'is_no_response_cancel' => $engagement['is_no_response_cancel'],
             ];
             $leadsByTab[$statusTab][] = $detailRow;
+
+            if (in_array($statusTab, ['hold', 'pending'], true)) {
+                $openItems[] = [
+                    'lead' => $lead,
+                    'status_tab' => $statusTab,
+                    'category' => $category,
+                    'zone' => $zone,
+                    'followups' => $followups,
+                    'engagement' => $engagement,
+                    'handled_by' => $handlerLabel,
+                    'source' => $source?->name ?? '—',
+                ];
+            }
 
             $handlerKey = Lead::assigneeIsHuman($lead->handled_by) ? (string) $lead->handled_by : Lead::FILTER_UNASSIGNED_VALUE;
             if (!isset($staffBuckets[$handlerKey])) {
@@ -145,6 +167,10 @@ class CustomerLeadDeepReportAnalyticsService
 
             if ($outcome === 'booked') {
                 $bookedRows[] = $engagement;
+                $this->incrementNested($bookedCategoryService, $category['key'], $category['label'], $service['key'], $service['label']);
+                $this->incrementNested($bookedCategoryArea, $category['key'], $category['label'], $area['key'], $area['label']);
+                $this->incrementNested($bookedZoneArea, $zone['key'], $zone['label'], $area['key'], $area['label']);
+                $this->incrementNested($bookedServiceArea, $service['key'], $service['label'], $area['key'], $area['label']);
             }
 
             if ($outcome !== 'cancelled') {
@@ -174,6 +200,19 @@ class CustomerLeadDeepReportAnalyticsService
             }
         }
 
+        $open = app(LeadOpenStatusDeepBuilder::class)->build($openItems);
+        foreach (['hold', 'pending'] as $tab) {
+            foreach ($leadsByTab[$tab] as $index => $detailRow) {
+                $extra = $open['by_lead'][$detailRow['lead_id']] ?? null;
+                if (!$extra) {
+                    continue;
+                }
+                $leadsByTab[$tab][$index]['hold_reason'] = $extra['hold_reason'];
+                $leadsByTab[$tab][$index]['pending_reason'] = $extra['pending_reason'];
+                $leadsByTab[$tab][$index]['status_remarks'] = $extra['status_remarks'];
+            }
+        }
+
         return [
             'cancelled_deep' => [
                 'category_reason_matrix' => $this->finalizeNestedMatrix($cancelCategoryReason),
@@ -181,6 +220,14 @@ class CustomerLeadDeepReportAnalyticsService
                 'reason_zone_matrix' => $this->finalizeNestedMatrix($cancelReasonZone),
                 'remarks' => array_slice($cancelRemarks, 0, 50),
             ],
+            'booked_deep' => [
+                'category_service_matrix' => $this->finalizeNestedMatrix($bookedCategoryService),
+                'category_area_matrix' => $this->finalizeNestedMatrix($bookedCategoryArea),
+                'zone_area_matrix' => $this->finalizeNestedMatrix($bookedZoneArea),
+                'service_area_matrix' => $this->finalizeNestedMatrix($bookedServiceArea),
+            ],
+            'hold_deep' => $open['hold'],
+            'pending_deep' => $open['pending'],
             'staff_performance' => $this->finalizeStaffPerformance($staffBuckets),
             'engagement' => $this->buildEngagementSummary($engagementRows, $cancelledRows, $bookedRows, $noResponseCancelledRows),
             'leads_by_tab' => $leadsByTab,
@@ -646,6 +693,14 @@ class CustomerLeadDeepReportAnalyticsService
                 'reason_zone_matrix' => [],
                 'remarks' => [],
             ],
+            'booked_deep' => [
+                'category_service_matrix' => [],
+                'category_area_matrix' => [],
+                'zone_area_matrix' => [],
+                'service_area_matrix' => [],
+            ],
+            'hold_deep' => app(LeadOpenStatusDeepBuilder::class)->build([])['hold'],
+            'pending_deep' => app(LeadOpenStatusDeepBuilder::class)->build([])['pending'],
             'staff_performance' => [],
             'engagement' => [
                 'summary' => [],
