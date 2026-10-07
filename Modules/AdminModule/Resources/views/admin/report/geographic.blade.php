@@ -70,10 +70,47 @@
             max-height: 96px !important;
             overflow-y: auto !important;
         }
-        .report-filter-offcanvas { display: flex; flex-direction: column; }
-        .report-filter-offcanvas .report-filter-form-flex { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-        .report-filter-offcanvas .report-filter-body { flex: 1; min-height: 0; }
-        .report-filter-offcanvas .report-filter-footer { flex-shrink: 0; }
+        form.report-inline-filters {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            align-items: center !important;
+            gap: 12px;
+            overflow-x: auto;
+        }
+        form.report-inline-filters .report-inline-field {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center;
+            gap: 6px;
+            flex: 1 1 auto;
+            min-width: 180px;
+        }
+        form.report-inline-filters .report-inline-actions {
+            display: flex !important;
+            flex-direction: row !important;
+            flex: 0 0 auto;
+            gap: 8px;
+            align-items: center;
+        }
+        form.report-inline-filters .form-label {
+            display: inline-block;
+            width: auto;
+            margin: 0;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        form.report-inline-filters .form-control,
+        form.report-inline-filters .select2-container {
+            flex: 1 1 auto;
+            width: auto !important;
+            min-width: 110px;
+        }
+        form.report-inline-filters .select2-selection--multiple {
+            min-height: 38px;
+            max-height: 38px;
+            overflow: hidden;
+        }
         .geo-tt {
             min-width: 180px;
             max-width: 280px;
@@ -107,12 +144,6 @@
     @php
         $summary = $report['summary'] ?? [];
         $geoLabel = $view === 'zone' ? translate('Zone') : translate('Area');
-        $filtersAppliedCount = 0;
-        if (request()->filled('date_from')) { $filtersAppliedCount++; }
-        if (request()->filled('date_to')) { $filtersAppliedCount++; }
-        if (!empty($selectedZoneIds)) { $filtersAppliedCount++; }
-        if (!empty($selectedAreaIds)) { $filtersAppliedCount++; }
-        if (!empty($selectedCategoryIds)) { $filtersAppliedCount++; }
     @endphp
 
     <div class="main-content">
@@ -122,69 +153,6 @@
                     <h2 class="page-title mb-1">{{ translate('Zone_and_Area_Reports') }}</h2>
                     <p class="text-muted fz-12 mb-0">{{ translate('Zone_and_Area_Reports_help') }}</p>
                 </div>
-                <button type="button"
-                        class="btn btn-outline-primary d-inline-flex align-items-center gap-2 position-relative"
-                        data-bs-toggle="offcanvas"
-                        data-bs-target="#geoReportFilterDrawer"
-                        aria-controls="geoReportFilterDrawer">
-                    <span class="material-icons">filter_list</span>
-                    {{ translate('Filter') }}
-                    @if($filtersAppliedCount > 0)
-                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">{{ $filtersAppliedCount }}</span>
-                    @endif
-                </button>
-            </div>
-
-            <div class="offcanvas offcanvas-end report-filter-offcanvas" tabindex="-1" id="geoReportFilterDrawer" style="width: 560px; max-width: 95vw;">
-                <div class="offcanvas-header border-bottom">
-                    <h5 class="offcanvas-title">{{ translate('Search_Data') }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="{{ translate('Close') }}"></button>
-                </div>
-                <form action="{{ route('admin.report.geographic') }}" method="GET" class="report-filter-form-flex">
-                    <input type="hidden" name="view" value="{{ $view }}">
-                    <div class="offcanvas-body pt-3 overflow-auto flex-grow-1 report-filter-body">
-                        <div class="d-flex flex-column gap-3">
-                            <div>
-                                <label class="form-label">{{ translate('From_Date') }}</label>
-                                <input type="date" name="date_from" class="form-control" value="{{ $dateFrom }}">
-                            </div>
-                            <div>
-                                <label class="form-label">{{ translate('To_Date') }}</label>
-                                <input type="date" name="date_to" class="form-control" value="{{ $dateTo }}">
-                            </div>
-                            <div>
-                                <label class="form-label">{{ translate('Zone') }}</label>
-                                <select name="zone_ids[]" class="js-select form-select" multiple>
-                                    @foreach($zones as $zone)
-                                        <option value="{{ $zone->id }}" {{ in_array((string) $zone->id, array_map('strval', $selectedZoneIds), true) ? 'selected' : '' }}>{{ $zone->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div>
-                                <label class="form-label">{{ translate('Area') }}</label>
-                                <select name="area_ids[]" class="js-select form-select" multiple>
-                                    @foreach($areas as $area)
-                                        <option value="{{ $area->id }}" {{ in_array((string) $area->id, array_map('strval', $selectedAreaIds), true) ? 'selected' : '' }}>{{ $area->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div>
-                                <label class="form-label">{{ translate('Category') }}</label>
-                                <select name="category_ids[]" class="js-select form-select" multiple>
-                                    @foreach($categories as $category)
-                                        <option value="{{ $category->id }}" {{ in_array((string) $category->id, array_map('strval', $selectedCategoryIds), true) ? 'selected' : '' }}>{{ $category->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="report-filter-footer border-top bg-body p-3 flex-shrink-0">
-                        <div class="d-flex gap-2">
-                            <a href="{{ route('admin.report.geographic', ['view' => $view]) }}" class="btn btn--secondary flex-grow-1">{{ translate('Reset') }}</a>
-                            <button type="submit" class="btn btn--primary flex-grow-1">{{ translate('Filter') }}</button>
-                        </div>
-                    </div>
-                </form>
             </div>
 
             <ul class="nav nav--tabs mb-3">
@@ -201,6 +169,46 @@
                     </a>
                 </li>
             </ul>
+
+            <form action="{{ route('admin.report.geographic') }}" method="GET" class="report-inline-filters card border-0 shadow-sm p-3 mb-3">
+                <input type="hidden" name="view" value="{{ $view }}">
+                <div class="report-inline-field">
+                    <label class="form-label">{{ translate('From_Date') }}</label>
+                    <input type="date" name="date_from" class="form-control" value="{{ $dateFrom }}">
+                </div>
+                <div class="report-inline-field">
+                    <label class="form-label">{{ translate('To_Date') }}</label>
+                    <input type="date" name="date_to" class="form-control" value="{{ $dateTo }}">
+                </div>
+                <div class="report-inline-field">
+                    <label class="form-label">{{ translate('Zone') }}</label>
+                    <select name="zone_ids[]" class="js-select form-select" multiple>
+                        @foreach($zones as $zone)
+                            <option value="{{ $zone->id }}" {{ in_array((string) $zone->id, array_map('strval', $selectedZoneIds), true) ? 'selected' : '' }}>{{ $zone->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="report-inline-field">
+                    <label class="form-label">{{ translate('Area') }}</label>
+                    <select name="area_ids[]" class="js-select form-select" multiple>
+                        @foreach($areas as $area)
+                            <option value="{{ $area->id }}" {{ in_array((string) $area->id, array_map('strval', $selectedAreaIds), true) ? 'selected' : '' }}>{{ $area->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="report-inline-field">
+                    <label class="form-label">{{ translate('Category') }}</label>
+                    <select name="category_ids[]" class="js-select form-select" multiple>
+                        @foreach($categories as $category)
+                            <option value="{{ $category->id }}" {{ in_array((string) $category->id, array_map('strval', $selectedCategoryIds), true) ? 'selected' : '' }}>{{ $category->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="report-inline-actions">
+                    <a href="{{ route('admin.report.geographic', ['view' => $view]) }}" class="btn btn--secondary">{{ translate('Reset') }}</a>
+                    <button type="submit" class="btn btn--primary">{{ translate('Filter') }}</button>
+                </div>
+            </form>
 
             <div class="row g-3 mb-3">
                 <div class="col-lg-3 col-sm-6">
@@ -236,6 +244,31 @@
                             <span class="fz-12 text-muted">{{ translate('Cancelled') }}</span>
                             <h3 class="mb-0 mt-1">{{ ($summary['cancelled_leads'] ?? 0) }} / {{ $summary['booking_cancelled'] ?? 0 }}</h3>
                             <span class="fz-12">{{ translate('Leads') }} / {{ translate('Bookings') }} · {{ translate('completed') }}: {{ $summary['booking_completed'] ?? 0 }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-sm-6">
+                    <div class="card h-100 border-start border-4 border-success">
+                        <div class="card-body py-3">
+                            <span class="fz-12 text-muted">{{ translate('Total_Revenue') }}</span>
+                            <h3 class="mb-0 mt-1">{{ with_currency_symbol($summary['revenue'] ?? 0) }}</h3>
+                            <span class="fz-12">{{ translate('Completed_amount') }}: {{ with_currency_symbol($summary['booking_amount_completed'] ?? 0) }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-sm-6">
+                    <div class="card h-100 border-start border-4 border-primary">
+                        <div class="card-body py-3">
+                            <span class="fz-12 text-muted">{{ translate('Admin_Commission') }}</span>
+                            <h3 class="mb-0 mt-1">{{ with_currency_symbol($summary['admin_commission'] ?? 0) }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-sm-6">
+                    <div class="card h-100 border-start border-4 border-info">
+                        <div class="card-body py-3">
+                            <span class="fz-12 text-muted">{{ translate('Provider_Net_Income') }}</span>
+                            <h3 class="mb-0 mt-1">{{ with_currency_symbol($summary['provider_earning'] ?? 0) }}</h3>
                         </div>
                     </div>
                 </div>
@@ -375,6 +408,9 @@
                                 <th class="text-end">{{ translate('Bookings') }}</th>
                                 <th class="text-end">{{ translate('completed') }}</th>
                                 <th class="text-end">{{ translate('Canceled') }}</th>
+                                <th class="text-end">{{ translate('Total_Revenue') }}</th>
+                                <th class="text-end">{{ translate('Admin_Commission') }}</th>
+                                <th class="text-end">{{ translate('Provider_Net_Income') }}</th>
                                 <th class="text-end">{{ translate('conversion') }} %</th>
                                 <th class="text-end">{{ translate('completion_rate') }} %</th>
                             </tr>
@@ -393,12 +429,15 @@
                                     <td class="text-end">{{ $row['bookings'] }}</td>
                                     <td class="text-end">{{ $row['booking_completed'] }}</td>
                                     <td class="text-end">{{ $row['booking_cancelled'] }}</td>
+                                    <td class="text-end">{{ with_currency_symbol($row['revenue'] ?? 0) }}</td>
+                                    <td class="text-end">{{ with_currency_symbol($row['admin_commission'] ?? 0) }}</td>
+                                    <td class="text-end">{{ with_currency_symbol($row['provider_earning'] ?? 0) }}</td>
                                     <td class="text-end">{{ $row['lead_conversion_rate'] }}</td>
                                     <td class="text-end">{{ $row['booking_completion_rate'] }}</td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="13" class="text-center text-muted py-4">{{ translate('No_data_available') }}</td>
+                                    <td colspan="16" class="text-center text-muted py-4">{{ translate('No_data_available') }}</td>
                                 </tr>
                             @endforelse
                             </tbody>
@@ -436,6 +475,9 @@
                                 <th class="text-end">{{ translate('Bookings') }}</th>
                                 <th class="text-end">{{ translate('completed') }}</th>
                                 <th class="text-end">{{ translate('Canceled') }}</th>
+                                <th class="text-end">{{ translate('Total_Revenue') }}</th>
+                                <th class="text-end">{{ translate('Admin_Commission') }}</th>
+                                <th class="text-end">{{ translate('Provider_Net_Income') }}</th>
                                 <th class="text-end">{{ translate('conversion') }} %</th>
                             </tr>
                             </thead>
@@ -449,11 +491,14 @@
                                     <td class="text-end">{{ $row['bookings'] }}</td>
                                     <td class="text-end">{{ $row['booking_completed'] }}</td>
                                     <td class="text-end">{{ $row['booking_cancelled'] }}</td>
+                                    <td class="text-end">{{ with_currency_symbol($row['revenue'] ?? 0) }}</td>
+                                    <td class="text-end">{{ with_currency_symbol($row['admin_commission'] ?? 0) }}</td>
+                                    <td class="text-end">{{ with_currency_symbol($row['provider_earning'] ?? 0) }}</td>
                                     <td class="text-end">{{ $row['lead_conversion_rate'] }}</td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="8" class="text-center text-muted py-4">{{ translate('No_data_available') }}</td>
+                                    <td colspan="11" class="text-center text-muted py-4">{{ translate('No_data_available') }}</td>
                                 </tr>
                             @endforelse
                             </tbody>
@@ -932,18 +977,6 @@
                     }, true));
                 }
             }
-            function closeGeoFilterDrawer() {
-                var drawerEl = document.getElementById('geoReportFilterDrawer');
-                if (!drawerEl) return;
-                $('#geoReportFilterDrawer .select2-hidden-accessible').each(function () {
-                    var $el = $(this);
-                    if ($el.data('select2')) {
-                        $el.select2('close');
-                    }
-                });
-                var bs = bootstrap.Offcanvas.getInstance(drawerEl);
-                if (bs) bs.hide();
-            }
             $(document).off('click.geoReportExport').on('click.geoReportExport', '[data-geo-export]', function () {
                 var table = document.getElementById(this.getAttribute('data-geo-export'));
                 if (!table) return;
@@ -966,14 +999,6 @@
                 document.body.removeChild(link);
                 URL.revokeObjectURL(link.href);
             });
-            var geoDrawer = document.getElementById('geoReportFilterDrawer');
-            if (geoDrawer) {
-                geoDrawer.addEventListener('shown.bs.offcanvas', function () {
-                    if (typeof window.initAdminPageSelect2 === 'function') {
-                        window.initAdminPageSelect2(this, { force: true, includeSingle: true });
-                    }
-                });
-            }
             document.addEventListener('click', function (e) {
                 if (!detailCard || detailCard.hidden) return;
                 if (e.target.closest('#geo-graph-detail') || e.target.closest('.apexcharts-canvas')) return;

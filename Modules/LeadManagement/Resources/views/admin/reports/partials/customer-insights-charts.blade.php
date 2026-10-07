@@ -74,6 +74,8 @@
         renderDrilldownDonut(document.querySelector('#customer-booked-category-chart'), booked.category_wise || [], 10, bookedDrilldown.category_wise || {}, breakdownChartHeight);
         renderDrilldownDonut(document.querySelector('#customer-booked-zone-chart'), booked.zone_wise || [], 10, bookedDrilldown.zone_wise || {}, breakdownChartHeight);
         renderDrilldownDonut(document.querySelector('#customer-booked-subcategory-chart'), booked.subcategory_wise || [], 10, bookedDrilldown.subcategory_wise || {}, breakdownChartHeight);
+        renderDrilldownDonut(document.querySelector('#customer-booked-service-chart'), booked.service_wise || [], 10, bookedDrilldown.service_wise || {}, breakdownChartHeight);
+        renderDrilldownDonut(document.querySelector('#customer-booked-area-chart'), booked.area_wise || [], 10, bookedDrilldown.area_wise || {}, breakdownChartHeight);
     }
 
     if (activeTab === 'cancelled') {
@@ -89,7 +91,7 @@
         var holdDrilldown = drilldown.hold || {};
         renderDrilldownDonut(document.querySelector('#customer-hold-category-chart'), hold.category_wise || [], 10, holdDrilldown.category_wise || {}, breakdownChartHeight);
         renderDrilldownDonut(document.querySelector('#customer-hold-zone-chart'), hold.zone_wise || [], 10, holdDrilldown.zone_wise || {}, breakdownChartHeight);
-        renderDrilldownDonut(document.querySelector('#customer-hold-subcategory-chart'), hold.subcategory_wise || [], 10, holdDrilldown.subcategory_wise || {}, breakdownChartHeight);
+        renderDrilldownDonut(document.querySelector('#customer-hold-reason-chart'), hold.reasons || [], 10, holdDrilldown.reasons || {}, breakdownChartHeight);
     }
 
     if (activeTab === 'pending') {
@@ -97,7 +99,7 @@
         var pendingDrilldown = drilldown.pending || {};
         renderDrilldownDonut(document.querySelector('#customer-pending-category-chart'), pending.category_wise || [], 10, pendingDrilldown.category_wise || {}, breakdownChartHeight);
         renderDrilldownDonut(document.querySelector('#customer-pending-zone-chart'), pending.zone_wise || [], 10, pendingDrilldown.zone_wise || {}, breakdownChartHeight);
-        renderDrilldownDonut(document.querySelector('#customer-pending-subcategory-chart'), pending.subcategory_wise || [], 10, pendingDrilldown.subcategory_wise || {}, breakdownChartHeight);
+        renderDrilldownDonut(document.querySelector('#customer-pending-reason-chart'), pending.reasons || [], 10, pendingDrilldown.reasons || {}, breakdownChartHeight);
     }
 })();
 @endif

@@ -31,6 +31,8 @@
             @include('adminmodule::admin.people.hr._salary')
         @elseif($section === 'payroll')
             @include('adminmodule::admin.people.hr._payroll')
+        @elseif($section === 'configuration')
+            @include('adminmodule::admin.people.hr._configuration')
         @endif
 
         @include('adminmodule::admin.people._close')

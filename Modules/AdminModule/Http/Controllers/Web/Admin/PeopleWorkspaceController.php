@@ -20,7 +20,6 @@ use Modules\AdminModule\Entities\PeopleProfile;
 use Modules\AdminModule\Entities\PeopleTimesheet;
 use Modules\AdminModule\Services\PeoplePayroll;
 use Modules\AdminModule\Services\PeopleWorkspace;
-use Modules\TaskBoardModule\Entities\TaskTicket;
 use Modules\UserManagement\Entities\User;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -223,6 +222,7 @@ class PeopleWorkspaceController extends Controller
             'rows' => ['required_if:intent,submit', 'array', 'min:1', 'max:12'],
             'rows.*.ticket_id' => ['nullable', 'string', 'max:80'],
             'rows.*.task' => ['nullable', 'string', 'max:180'],
+            'rows.*.description' => ['nullable', 'string', 'max:500'],
             'rows.*.deadline' => ['nullable', 'date'],
             'rows.*.hours' => ['nullable', 'numeric', 'min:0', 'max:24'],
         ]);
@@ -235,8 +235,8 @@ class PeopleWorkspaceController extends Controller
 
             return $this->timesheetRedirect($request);
         }
-        if ($date->isSunday()) {
-            Toastr::error('Sunday is not a working day.');
+        if ($this->workspace->isWeekOff($date)) {
+            Toastr::error('That day is a week off.');
 
             return $this->timesheetRedirect($request);
         }
@@ -252,14 +252,21 @@ class PeopleWorkspaceController extends Controller
             ? [[
                 'ticket_id' => 'leave',
                 'task' => 'Leave',
+                'description' => null,
                 'deadline' => null,
-                'hours' => 8,
+                'hours' => $this->workspace->leaveDayHours(),
             ]]
-            : $this->cleanTimesheetRows($data['rows'] ?? [], $this->timesheetTasks($user));
+            : $this->cleanTimesheetRows($data['rows'] ?? [], $this->timesheetCatalog());
 
         $total = round(array_sum(array_column($rows, 'hours')), 2);
+        $minimum = $this->workspace->minTimesheetHours();
         if ($rows === [] || $total <= 0 || $total > 24) {
             Toastr::error('Add the hours for that day before you submit. A day cannot be more than 24 hours.');
+
+            return $this->timesheetRedirect($request)->withInput();
+        }
+        if ($minimum > 0 && $total + 0.001 < $minimum) {
+            Toastr::error('A day needs at least '.PeopleWorkspace::hoursText($minimum).' hours.');
 
             return $this->timesheetRedirect($request)->withInput();
         }
@@ -271,7 +278,7 @@ class PeopleWorkspaceController extends Controller
         ];
 
         $hours = $sheet->hours ?? array_fill_keys(PeopleWorkspace::WEEK_DAYS, 0);
-        $dayKey = PeopleWorkspace::WEEK_DAYS[$date->dayOfWeekIso - 1] ?? null;
+        $dayKey = PeopleWorkspace::DAY_KEYS[$date->dayOfWeekIso - 1] ?? null;
         if ($dayKey) {
             $hours[$dayKey] = round($total, 1);
         }
@@ -514,6 +521,7 @@ class PeopleWorkspaceController extends Controller
             'year' => $year,
             'view' => $view,
             'holidays' => $holidays,
+            'weekOff' => $this->workspace->weekOffDays(),
             'canManageTeam' => $this->workspace->isManager($actor),
             'canManageRecords' => true,
         ]);
@@ -695,7 +703,7 @@ class PeopleWorkspaceController extends Controller
             }
         }
 
-        $tasks = $this->timesheetTasks($user);
+        $tasks = $this->timesheetTasks();
         $first = $today->copy()->startOfMonth()->subMonths(11);
         $months = [];
         $pendingMonths = [];
@@ -745,8 +753,10 @@ class PeopleWorkspaceController extends Controller
         }
 
         $leaveOn = $today->copy();
-        if ($leaveOn->isSunday()) {
+        $guard = 0;
+        while ($this->workspace->isWeekOff($leaveOn) && $guard < 6) {
             $leaveOn->subDay();
+            $guard++;
         }
 
         return [
@@ -754,6 +764,8 @@ class PeopleWorkspaceController extends Controller
             'monthLabel' => $month->format('F Y'),
             'months' => $months,
             'tasks' => $tasks,
+            'minHours' => $this->workspace->minTimesheetHours(),
+            'leaveHours' => $this->workspace->leaveDayHours(),
             'cards' => array_reverse($cards),
             'statusDays' => $statusDays,
             'total' => $total,
@@ -765,23 +777,21 @@ class PeopleWorkspaceController extends Controller
     }
 
     /**
-     * Tasks assigned to this person on the task board, plus leave rows.
+     * Task names from People & HR configuration. Leave is not a task people pick here.
      *
      * @return array<int, array{id: string, task: string, deadline: string}>
      */
-    private function timesheetTasks(User $user): array
+    private function timesheetTasks(): array
     {
-        $tasks = TaskTicket::query()
-            ->whereHas('assignees', fn ($query) => $query->where('users.id', $user->id))
-            ->orderBy('title')
-            ->get(['id', 'title', 'end_date'])
-            ->map(fn (TaskTicket $ticket) => [
-                'id' => (string) $ticket->id,
-                'task' => $ticket->title,
-                'deadline' => $ticket->end_date?->toDateString() ?? '',
-            ])
-            ->all();
+        return $this->workspace->configuredTimesheetTasks();
+    }
 
+    /**
+     * @return array<int, array{id: string, task: string, deadline: string}>
+     */
+    private function timesheetCatalog(): array
+    {
+        $tasks = $this->timesheetTasks();
         $tasks[] = ['id' => 'partial-leave', 'task' => 'Partial Leave', 'deadline' => ''];
         $tasks[] = ['id' => 'leave', 'task' => 'Leave', 'deadline' => ''];
 
@@ -823,7 +833,7 @@ class PeopleWorkspaceController extends Controller
         if ($date->gt($today)) {
             return 'future';
         }
-        if ($date->isSunday()) {
+        if ($this->workspace->isWeekOff($date)) {
             return 'off';
         }
         if (in_array($key, $holidays, true)) {
@@ -852,15 +862,20 @@ class PeopleWorkspaceController extends Controller
             }
             $ticketId = trim((string) ($row['ticket_id'] ?? ''));
             $known = $catalog[$ticketId] ?? null;
-            $task = $known['task'] ?? trim((string) ($row['task'] ?? ''));
+            if (! $known) {
+                continue;
+            }
+            $task = $known['task'];
             $hours = round((float) ($row['hours'] ?? 0), 2);
             if ($task === '' || $hours <= 0) {
                 continue;
             }
-            $deadline = $known['deadline'] ?? (string) ($row['deadline'] ?? '');
+            $deadline = $known['deadline'];
+            $description = trim((string) ($row['description'] ?? ''));
             $clean[] = [
                 'ticket_id' => $known['id'] ?? ($ticketId !== '' ? $ticketId : null),
                 'task' => $task,
+                'description' => $description !== '' ? $description : null,
                 'deadline' => $deadline !== '' ? $deadline : null,
                 'hours' => $hours,
             ];
@@ -875,8 +890,11 @@ class PeopleWorkspaceController extends Controller
      */
     private function timesheetWeekComplete(Carbon $weekStart, array $entries, array $holidays): bool
     {
-        for ($i = 0; $i < 6; $i++) {
+        for ($i = 0; $i < 7; $i++) {
             $day = $weekStart->copy()->addDays($i)->startOfDay();
+            if ($this->workspace->isWeekOff($day)) {
+                continue;
+            }
             if ($day->isFuture()) {
                 return false;
             }

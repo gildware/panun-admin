@@ -6,15 +6,23 @@
             'charts' => [
                 ['chartId' => 'customer-hold-category-chart', 'title' => translate('Category_Wise')],
                 ['chartId' => 'customer-hold-zone-chart', 'title' => translate('Zone_Wise')],
-                ['chartId' => 'customer-hold-subcategory-chart', 'title' => translate('Sub_Category')],
+                ['chartId' => 'customer-hold-reason-chart', 'title' => translate('Hold_Reasons')],
             ],
         ])
     </div>
 </div>
 
+@include('leadmanagement::admin.reports.partials.open-status-deep-insights', [
+    'mode' => 'hold',
+    'tone' => 'info',
+    'title' => translate('Hold_Deep_Analysis'),
+    'help' => translate('Hold_deep_analysis_help'),
+    'deep' => $a['hold_deep'] ?? [],
+])
+
 @include('leadmanagement::admin.reports.partials.customer-leads-table', [
-    'title' => translate('Hold_Leads'),
-    'subtitle' => translate('Hold_leads_table_help'),
+    'title' => translate('All_Hold_Leads'),
+    'subtitle' => translate('Hold_leads_full_table_help'),
     'rows' => $a['leads_by_tab']['hold'] ?? [],
-    'columns' => ['id', 'name', 'phone', 'category', 'zone', 'handled_by', 'source', 'received_at', 'next_followup', 'followups'],
+    'columns' => ['id', 'name', 'phone', 'category', 'zone', 'hold_reason', 'status_remarks', 'handled_by', 'source', 'received_at', 'next_followup', 'followups', 'first_contact'],
 ])

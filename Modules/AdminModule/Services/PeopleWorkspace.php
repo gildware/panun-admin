@@ -14,6 +14,8 @@ use Modules\AdminModule\Entities\PeopleLeaveType;
 use Modules\AdminModule\Entities\PeoplePayslip;
 use Modules\AdminModule\Entities\PeopleProfile;
 use Modules\AdminModule\Entities\PeopleTimesheet;
+use Modules\AdminModule\Entities\PeopleTimesheetSetting;
+use Modules\AdminModule\Entities\PeopleTimesheetTask;
 use Modules\UserManagement\Entities\User;
 
 class PeopleWorkspace
@@ -36,6 +38,18 @@ class PeopleWorkspace
     ];
 
     public const WEEK_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+    public const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+    public const DAY_LABELS = [
+        'mon' => 'Monday',
+        'tue' => 'Tuesday',
+        'wed' => 'Wednesday',
+        'thu' => 'Thursday',
+        'fri' => 'Friday',
+        'sat' => 'Saturday',
+        'sun' => 'Sunday',
+    ];
 
     public function boot(): void
     {
@@ -77,23 +91,92 @@ class PeopleWorkspace
 
     /**
      * @param  array<int, string>  $holidayDates
+     * @param  array<int, string>  $weekOff
      */
-    public static function countWorkingDays(CarbonInterface $from, CarbonInterface $to, array $holidayDates): int
+    public static function countWorkingDays(CarbonInterface $from, CarbonInterface $to, array $holidayDates, array $weekOff = ['sun']): int
     {
         $holidays = array_flip($holidayDates);
+        $off = array_flip($weekOff);
         $days = 0;
         $cursor = Carbon::parse($from->toDateString())->startOfDay();
         $end = Carbon::parse($to->toDateString())->startOfDay();
 
         while ($cursor->lte($end)) {
             $key = $cursor->toDateString();
-            if (! $cursor->isSunday() && ! isset($holidays[$key])) {
+            $day = self::DAY_KEYS[$cursor->dayOfWeekIso - 1] ?? '';
+            if (! isset($off[$day]) && ! isset($holidays[$key])) {
                 $days++;
             }
             $cursor->addDay();
         }
 
         return $days;
+    }
+
+    public static function hoursText(float $hours): string
+    {
+        $rounded = round($hours, 1);
+        $whole = round($rounded);
+        if (abs($rounded - $whole) < 0.001) {
+            return (string) (int) $whole;
+        }
+
+        return number_format($rounded, 1, '.', '');
+    }
+
+    public function timesheetSettings(): PeopleTimesheetSetting
+    {
+        return once(fn () => PeopleTimesheetSetting::query()->firstOrCreate([], [
+            'min_hours' => 0,
+            'week_off' => ['sun'],
+        ]));
+    }
+
+    public function minTimesheetHours(): float
+    {
+        return round(max(0, (float) $this->timesheetSettings()->min_hours), 1);
+    }
+
+    public function leaveDayHours(): float
+    {
+        return min(24, max(8, $this->minTimesheetHours()));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function weekOffDays(): array
+    {
+        $days = $this->timesheetSettings()->week_off;
+        if (! is_array($days)) {
+            return ['sun'];
+        }
+
+        return array_values(array_intersect(self::DAY_KEYS, $days));
+    }
+
+    public function isWeekOff(CarbonInterface $date): bool
+    {
+        $day = self::DAY_KEYS[$date->dayOfWeekIso - 1] ?? '';
+
+        return in_array($day, $this->weekOffDays(), true);
+    }
+
+    /**
+     * @return array<int, array{id: string, task: string, deadline: string}>
+     */
+    public function configuredTimesheetTasks(): array
+    {
+        return PeopleTimesheetTask::query()
+            ->orderBy('sort')
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (PeopleTimesheetTask $task) => [
+                'id' => (string) $task->id,
+                'task' => $task->name,
+                'deadline' => '',
+            ])
+            ->all();
     }
 
     public function workingDays(CarbonInterface $from, CarbonInterface $to): int
@@ -105,7 +188,7 @@ class PeopleWorkspace
             ->map(fn ($date) => Carbon::parse($date)->toDateString())
             ->all();
 
-        return self::countWorkingDays($from, $to, $holidays);
+        return self::countWorkingDays($from, $to, $holidays, $this->weekOffDays());
     }
 
     public function ensureStaffFile(User $user): PeopleProfile

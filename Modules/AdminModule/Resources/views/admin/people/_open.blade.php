@@ -11,6 +11,7 @@
         'attendance' => ['Attendance', route('admin.hr.index', ['section' => 'attendance'])],
         'salary' => ['Salary', route('admin.hr.index', ['section' => 'salary'])],
         'payroll' => ['Payroll', route('admin.hr.index', ['section' => 'payroll'])],
+        'configuration' => ['Configuration', route('admin.hr.index', ['section' => 'configuration'])],
     ];
     $showModeTabs = $desk !== 'hr' && ! empty($canManageTeam);
 @endphp

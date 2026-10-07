@@ -25,6 +25,7 @@ use Modules\AdminModule\Entities\PeoplePayslip;
 use Modules\AdminModule\Entities\PeopleProfile;
 use Modules\AdminModule\Entities\PeopleSalaryStructure;
 use Modules\AdminModule\Entities\PeopleTimesheet;
+use Modules\AdminModule\Entities\PeopleTimesheetTask;
 use Modules\AdminModule\Services\PeopleLeaveAccrual;
 use Modules\AdminModule\Services\PeoplePayroll;
 use Modules\AdminModule\Services\PeopleWorkspace;
@@ -114,6 +115,10 @@ class PeopleHrController extends Controller
             'leaveAssignments' => $section === 'leave'
                 ? PeopleLeaveAssignment::query()->with('policy.leaveType')->whereIn('user_id', $staffIds)->get()->groupBy('user_id')
                 : collect(),
+            'timesheetTasks' => $section === 'configuration'
+                ? PeopleTimesheetTask::query()->orderBy('sort')->orderBy('name')->get()
+                : collect(),
+            'timesheetSettings' => $section === 'configuration' ? $this->workspace->timesheetSettings() : null,
         ]);
     }
 
@@ -810,6 +815,65 @@ class PeopleHrController extends Controller
         return redirect()->route('admin.hr.index', ['section' => 'departments']);
     }
 
+    public function saveTimesheetConfiguration(Request $request): RedirectResponse
+    {
+        $this->requireHr();
+        $data = $request->validate([
+            'min_hours' => ['required', 'numeric', 'min:0', 'max:24'],
+            'week_off' => ['nullable', 'array', 'max:6'],
+            'week_off.*' => ['required', Rule::in(PeopleWorkspace::DAY_KEYS)],
+        ], [
+            'week_off.max' => 'Keep at least one working day in the week.',
+        ]);
+
+        $off = array_values(array_intersect(PeopleWorkspace::DAY_KEYS, $data['week_off'] ?? []));
+        $this->workspace->timesheetSettings()->forceFill([
+            'min_hours' => round((float) $data['min_hours'], 1),
+            'week_off' => $off,
+        ])->save();
+        Toastr::success('Timesheet settings saved.');
+
+        return redirect()->route('admin.hr.index', ['section' => 'configuration']);
+    }
+
+    public function storeTimesheetTask(Request $request): RedirectResponse
+    {
+        $this->requireHr();
+        $name = $this->timesheetTaskName($request);
+        if ($name === null) {
+            return back()->withInput();
+        }
+
+        $sort = (int) PeopleTimesheetTask::query()->max('sort') + 1;
+        PeopleTimesheetTask::query()->create(['name' => $name, 'sort' => $sort]);
+        Toastr::success('Task name added.');
+
+        return redirect()->route('admin.hr.index', ['section' => 'configuration']);
+    }
+
+    public function updateTimesheetTask(Request $request, PeopleTimesheetTask $timesheetTask): RedirectResponse
+    {
+        $this->requireHr();
+        $name = $this->timesheetTaskName($request, $timesheetTask->id);
+        if ($name === null) {
+            return back()->withInput();
+        }
+
+        $timesheetTask->forceFill(['name' => $name])->save();
+        Toastr::success('Task name saved.');
+
+        return redirect()->route('admin.hr.index', ['section' => 'configuration']);
+    }
+
+    public function destroyTimesheetTask(PeopleTimesheetTask $timesheetTask): RedirectResponse
+    {
+        $this->requireHr();
+        $timesheetTask->delete();
+        Toastr::success('Task name removed.');
+
+        return redirect()->route('admin.hr.index', ['section' => 'configuration']);
+    }
+
     private function person(Request $request, $staff): ?array
     {
         $id = (string) $request->query('user', '');
@@ -835,6 +899,39 @@ class PeopleHrController extends Controller
             'adjustments' => PeoplePayAdjustment::query()->where('user_id', $user->id)->latest()->limit(12)->get(),
             'payslips' => PeoplePayslip::query()->where('user_id', $user->id)->orderByDesc('period')->get(),
         ];
+    }
+
+    private function timesheetTaskName(Request $request, ?string $ignoreId = null): ?string
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+        ]);
+        $name = trim($data['name']);
+        if ($this->reservedTimesheetTask($name)) {
+            Toastr::error('Leave and Partial Leave are already on every timesheet.');
+
+            return null;
+        }
+        if ($this->timesheetTaskNameTaken($name, $ignoreId)) {
+            Toastr::error('That task name is already on the list.');
+
+            return null;
+        }
+
+        return $name;
+    }
+
+    private function reservedTimesheetTask(string $name): bool
+    {
+        return in_array(mb_strtolower($name), ['leave', 'partial leave'], true);
+    }
+
+    private function timesheetTaskNameTaken(string $name, ?string $ignoreId = null): bool
+    {
+        return PeopleTimesheetTask::query()
+            ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))
+            ->whereRaw('lower(name) = ?', [mb_strtolower($name)])
+            ->exists();
     }
 
     private function departmentNameTaken(string $name, ?string $ignoreId = null): bool
@@ -935,7 +1032,7 @@ class PeopleHrController extends Controller
     private function section(Request $request): string
     {
         $section = (string) $request->query('section', 'home');
-        $allowed = ['home', 'people', 'person', 'departments', 'leave', 'attendance', 'salary', 'payroll'];
+        $allowed = ['home', 'people', 'person', 'departments', 'leave', 'attendance', 'salary', 'payroll', 'configuration'];
 
         return in_array($section, $allowed, true) ? $section : 'home';
     }

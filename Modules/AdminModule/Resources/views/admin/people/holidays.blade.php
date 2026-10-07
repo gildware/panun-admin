@@ -119,8 +119,9 @@
                                     $key = $date->toDateString();
                                     $holiday = $byDate->get($key);
                                     $classes = 'people-ws-cal-day';
-                                    if ($date->isSunday()) {
-                                        $classes .= ' is-sunday';
+                                    $dayKey = \Modules\AdminModule\Services\PeopleWorkspace::DAY_KEYS[$date->dayOfWeekIso - 1] ?? '';
+                                    if (in_array($dayKey, $weekOff ?? ['sun'], true)) {
+                                        $classes .= ' is-off';
                                     }
                                     if ($holiday) {
                                         $classes .= ' is-holiday';

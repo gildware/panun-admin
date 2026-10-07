@@ -9,12 +9,20 @@
                 ['chartId' => 'customer-booked-subcategory-chart', 'title' => translate('Sub_Category')],
             ],
         ])
+        @include('leadmanagement::admin.reports.partials._customer-tab-charts-row', [
+            'charts' => [
+                ['chartId' => 'customer-booked-service-chart', 'title' => translate('Service_Wise'), 'colClass' => 'col-lg-6 col-md-6'],
+                ['chartId' => 'customer-booked-area-chart', 'title' => translate('Area_Wise'), 'colClass' => 'col-lg-6 col-md-6'],
+            ],
+        ])
     </div>
 </div>
+
+@include('leadmanagement::admin.reports.partials.customer-booked-deep-insights', ['a' => $a])
 
 @include('leadmanagement::admin.reports.partials.customer-leads-table', [
     'title' => translate('Booked_Leads'),
     'subtitle' => translate('Booked_leads_table_help'),
     'rows' => $a['leads_by_tab']['booked'] ?? [],
-    'columns' => ['id', 'name', 'phone', 'category', 'zone', 'handled_by', 'source', 'received_at', 'followups', 'first_contact'],
+    'columns' => ['id', 'name', 'phone', 'category', 'service', 'zone', 'area', 'handled_by', 'source', 'received_at', 'followups', 'first_contact'],
 ])

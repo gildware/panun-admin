@@ -32,8 +32,8 @@ class GeographicBusinessReportAnalyticsServiceTest extends TestCase
                 $this->lead('5', Lead::TYPE_CUSTOMER, '2026-09-06', 'lalchowk', 'Lalchowk', 'srinagar', 'Srinagar', 'carpentry', 'Carpentry', 'cancelled'),
             ],
             [
-                $this->booking('b1', '2026-09-04', 'rajbagh', 'Rajbagh', 'srinagar', 'Srinagar', 'plumbing', 'Plumbing', 'completed', 1200),
-                $this->booking('b2', '2026-09-07', 'lalchowk', 'Lalchowk', 'srinagar', 'Srinagar', 'carpentry', 'Carpentry', 'canceled', 800),
+                $this->booking('b1', '2026-09-04', 'rajbagh', 'Rajbagh', 'srinagar', 'Srinagar', 'plumbing', 'Plumbing', 'completed', 1200, ['revenue' => 1200, 'admin_commission' => 180, 'provider_earning' => 1020]),
+                $this->booking('b2', '2026-09-07', 'lalchowk', 'Lalchowk', 'srinagar', 'Srinagar', 'carpentry', 'Carpentry', 'canceled', 800, ['revenue' => 150, 'admin_commission' => 15, 'provider_earning' => 135]),
                 $this->booking('b3', '2026-09-08', 'rajbagh', 'Rajbagh', 'srinagar', 'Srinagar', 'plumbing', 'Plumbing', 'ongoing', 500),
             ],
             $from,
@@ -51,6 +51,10 @@ class GeographicBusinessReportAnalyticsServiceTest extends TestCase
         $this->assertSame(1, $report['summary']['booking_completed']);
         $this->assertSame(1, $report['summary']['booking_cancelled']);
         $this->assertSame(1, $report['summary']['booking_pending']);
+        $this->assertSame(1200.0, $report['summary']['booking_amount_completed']);
+        $this->assertSame(1350.0, $report['summary']['revenue']);
+        $this->assertSame(195.0, $report['summary']['admin_commission']);
+        $this->assertSame(1155.0, $report['summary']['provider_earning']);
 
         $rajbagh = collect($report['area']['rows'])->firstWhere('key', 'rajbagh');
         $this->assertNotNull($rajbagh);
@@ -60,10 +64,17 @@ class GeographicBusinessReportAnalyticsServiceTest extends TestCase
         $this->assertSame(1, $rajbagh['booked']);
         $this->assertSame(2, $rajbagh['bookings']);
         $this->assertSame(1, $rajbagh['booking_completed']);
+        $this->assertSame(1200.0, $rajbagh['revenue']);
+        $this->assertSame(180.0, $rajbagh['admin_commission']);
+        $this->assertSame(1020.0, $rajbagh['provider_earning']);
 
         $srinagar = collect($report['zone']['rows'])->firstWhere('key', 'srinagar');
         $this->assertSame(5, $srinagar['leads']);
         $this->assertSame(3, $srinagar['bookings']);
+        $this->assertSame(1350.0, $srinagar['revenue']);
+        $plumbing = collect($report['area']['matrix'])->first(fn (array $row) => $row['key'] === 'rajbagh' && $row['category_key'] === 'plumbing');
+        $this->assertSame(1200.0, $plumbing['revenue']);
+        $this->assertSame(180.0, $plumbing['admin_commission']);
         $this->assertNotEmpty($report['daily']['leads']);
         $this->assertSame(5, array_sum($report['daily']['leads']));
         $this->assertSame(3, array_sum($report['daily']['bookings']));
@@ -170,9 +181,10 @@ class GeographicBusinessReportAnalyticsServiceTest extends TestCase
         string $categoryKey,
         string $categoryLabel,
         string $status,
-        float $amount
+        float $amount,
+        array $extra = []
     ): array {
-        return [
+        return array_merge([
             'id' => $id,
             'created_at' => $createdAt,
             'area_key' => $areaKey,
@@ -183,6 +195,6 @@ class GeographicBusinessReportAnalyticsServiceTest extends TestCase
             'category_label' => $categoryLabel,
             'status' => $status,
             'amount' => $amount,
-        ];
+        ], $extra);
     }
 }

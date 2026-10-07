@@ -104,7 +104,7 @@ class PeoplePayroll
             ->pluck('holiday_on')
             ->map(fn ($day) => Carbon::parse($day)->toDateString())
             ->all();
-        $workingDays = PeopleWorkspace::countWorkingDays($start, $end, $holidays);
+        $workingDays = PeopleWorkspace::countWorkingDays($start, $end, $holidays, app(PeopleWorkspace::class)->weekOffDays());
 
         $staff = User::query()
             ->whereIn('user_type', ADMIN_USER_TYPES)
@@ -208,7 +208,7 @@ class PeoplePayroll
         foreach ($requests as $request) {
             $from = $request->starts_on->greaterThan($start) ? $request->starts_on->copy() : Carbon::parse($start->toDateString());
             $to = $request->ends_on->lessThan($end) ? $request->ends_on->copy() : Carbon::parse($end->toDateString());
-            $span = PeopleWorkspace::countWorkingDays($from, $to, $holidays);
+            $span = PeopleWorkspace::countWorkingDays($from, $to, $holidays, app(PeopleWorkspace::class)->weekOffDays());
             $days += min($span, (float) $request->days);
         }
 
@@ -221,6 +221,7 @@ class PeoplePayroll
     private function unapprovedDays(string $userId, CarbonInterface $start, CarbonInterface $end, array $holidays): float
     {
         $holidayMap = array_flip($holidays);
+        $weekOff = array_flip(app(PeopleWorkspace::class)->weekOffDays());
         $sheets = PeopleTimesheet::query()
             ->where('user_id', $userId)
             ->whereDate('week_starts_on', '>=', Carbon::parse($start->toDateString())->startOfWeek(Carbon::MONDAY)->toDateString())
@@ -244,7 +245,8 @@ class PeoplePayroll
             $week = $cursor->copy()->startOfWeek(Carbon::MONDAY)->toDateString();
             $sheet = $sheets->get($week);
             $onLeave = $paidLeave->contains(fn (PeopleLeaveRequest $leave) => $cursor->betweenIncluded($leave->starts_on, $leave->ends_on));
-            if (! $cursor->isSunday() && ! isset($holidayMap[$key]) && ! $onLeave && (! $sheet || $sheet->status !== 'approved')) {
+            $dayKey = PeopleWorkspace::DAY_KEYS[$cursor->dayOfWeekIso - 1] ?? '';
+            if (! isset($weekOff[$dayKey]) && ! isset($holidayMap[$key]) && ! $onLeave && (! $sheet || $sheet->status !== 'approved')) {
                 $days++;
             }
             $cursor->addDay();
