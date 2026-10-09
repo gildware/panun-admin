@@ -846,7 +846,7 @@ a.people-ws-row:hover { background: #f8fafc; }
 .people-time-actions [data-time-done]:disabled { opacity: .4; cursor: default; }
 #applyLeaveModal #leave-hours-field[hidden] { display: none; }
 #applyLeaveModal #leave-hours-note { display: block; margin: 8px 0 0; }
-#holidayModal.show, #departmentModal.show, #leaveTypeModal.show, #leavePolicyModal.show, #leaveAdjustModal.show, #applyLeaveModal.show, #revokeLeaveModal.show, #approveLeaveModal.show, #rejectLeaveModal.show, #documentUploadModal.show, #documentPreviewModal.show, #documentRemoveModal.show, #passwordChangeModal.show, #weekOffModal.show, #payBonusModal.show { z-index: 20060; }
+#holidayModal.show, #departmentModal.show, #leaveTypeModal.show, #leavePolicyModal.show, #leaveAdjustModal.show, #applyLeaveModal.show, #revokeLeaveModal.show, #approveLeaveModal.show, #rejectLeaveModal.show, #documentUploadModal.show, #documentPreviewModal.show, #documentRemoveModal.show, #passwordChangeModal.show, #weekOffModal.show, #payBonusModal.show, #attendanceUnlockModal.show { z-index: 20060; }
 body:has(#holidayModal.show) .modal-backdrop.show,
 body:has(#departmentModal.show) .modal-backdrop.show,
 body:has(#leaveTypeModal.show) .modal-backdrop.show,
@@ -861,7 +861,8 @@ body:has(#documentPreviewModal.show) .modal-backdrop.show,
 body:has(#documentRemoveModal.show) .modal-backdrop.show,
 body:has(#passwordChangeModal.show) .modal-backdrop.show,
 body:has(#weekOffModal.show) .modal-backdrop.show,
-body:has(#payBonusModal.show) .modal-backdrop.show { z-index: 20055; }
+body:has(#payBonusModal.show) .modal-backdrop.show,
+body:has(#attendanceUnlockModal.show) .modal-backdrop.show { z-index: 20055; }
 .people-doc-toolbar { display: flex; justify-content: flex-end; margin-top: 12px; }
 .people-doc-upload { display: flex; flex-direction: column; align-items: center; text-align: center; }
 .people-doc-upload > label { align-self: stretch; text-align: left; }
@@ -2786,6 +2787,8 @@ body.nav-top .main-area:has(.ts-app) {
 .people-pay-top input[type="month"] { width: 158px; padding: 6px 8px; }
 .people-pay-calc { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .people-ws .people-pay-top .btn-pw { padding: 6px 10px; }
+.people-pay-lock { margin: 0; color: var(--pw-muted); font-size: 13px; font-weight: 650; }
+.people-pay-lock a { color: var(--pw-brand); }
 .people-ws .people-pay-check {
   display: flex;
   align-items: center;
@@ -2851,7 +2854,8 @@ body.nav-top .main-area:has(.ts-app) {
 .people-pay-inline { justify-content: flex-end; }
 .people-pay-note { color: var(--pw-muted); font-size: 12px; font-weight: 500; }
 .people-ws .people-pay-inline .btn-pw { padding: 4px 8px; }
-#payBonusModal .modal-dialog {
+#payBonusModal .modal-dialog,
+#attendanceUnlockModal .modal-dialog {
   display: flex;
   align-items: center;
   min-height: calc(100% - 2rem);
@@ -2859,7 +2863,8 @@ body.nav-top .main-area:has(.ts-app) {
   margin: 1rem auto;
   pointer-events: none;
 }
-#payBonusModal .modal-content {
+#payBonusModal .modal-content,
+#attendanceUnlockModal .modal-content {
   width: 100%;
   pointer-events: auto;
   border: 0;
@@ -2867,9 +2872,11 @@ body.nav-top .main-area:has(.ts-app) {
   background: #fff;
   box-shadow: 0 16px 40px rgba(20, 24, 50, .16);
 }
-#payBonusModal form { display: flex; flex-direction: column; }
+#payBonusModal form,
+#attendanceUnlockModal form { display: flex; flex-direction: column; }
 #payBonusModal .field { margin-bottom: 12px; }
-#payBonusModal .people-ws-note { display: block; margin: 0 0 12px; color: #64748b; }
+#payBonusModal .people-ws-note,
+#attendanceUnlockModal .people-ws-note { display: block; margin: 0; color: #64748b; }
 #payBonusModal .field label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 500; color: #44403c; }
 #payBonusModal input {
   width: 100%;
@@ -2879,9 +2886,12 @@ body.nav-top .main-area:has(.ts-app) {
   background: #fff;
   color: #1a1c38;
 }
-#payBonusModal .modal-footer { justify-content: flex-end; gap: 8px; }
-#payBonusModal .btn-pw { border: 1px solid #e7e5e4; background: #fff; border-radius: 8px; padding: 8px 12px; }
-#payBonusModal .btn-pw.primary { background: var(--pw-brand, #25274d); border-color: var(--pw-brand, #25274d); color: #fff; }
+#payBonusModal .modal-footer,
+#attendanceUnlockModal .modal-footer { justify-content: flex-end; gap: 8px; }
+#payBonusModal .btn-pw,
+#attendanceUnlockModal .btn-pw { border: 1px solid #e7e5e4; background: #fff; border-radius: 8px; padding: 8px 12px; }
+#payBonusModal .btn-pw.primary,
+#attendanceUnlockModal .btn-pw.primary { background: var(--pw-brand, #25274d); border-color: var(--pw-brand, #25274d); color: #fff; }
 .people-pay-modal-line {
   display: flex;
   align-items: center;

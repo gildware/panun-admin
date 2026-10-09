@@ -19,6 +19,7 @@
     $days = fn ($amount) => rtrim(rtrim(number_format((float) $amount, 1), '0'), '.');
     $dayLabel = fn ($amount) => $days($amount).' '.((float) $amount == 1.0 ? 'day' : 'days');
     $bonusOpen = ($errors->has('label') || $errors->has('amount')) ? (string) request('bonus') : '';
+    $attendanceLocked = (bool) ($run && $run->attendance_locked);
 @endphp
 <div class="people-pay-page">
 <div class="people-pay-top">
@@ -31,12 +32,16 @@
             <input id="payroll_period" type="month" name="period" value="{{ $period }}" aria-label="Month" onchange="this.form.submit()">
         </form>
         @unless($locked || ($run && $run->status === 'published'))
-            <form class="people-pay-calc" method="post" action="{{ route('admin.hr.payroll.build') }}">
-                @csrf
-                <input type="hidden" name="period" value="{{ $period }}">
-                <label class="people-pay-check"><input type="checkbox" name="count_missing_days" value="1"> Count each missed day as loss of pay</label>
-                <button class="btn-pw primary" type="submit">Calculate pay</button>
-            </form>
+            @if($attendanceLocked)
+                <form class="people-pay-calc" method="post" action="{{ route('admin.hr.payroll.build') }}">
+                    @csrf
+                    <input type="hidden" name="period" value="{{ $period }}">
+                    <label class="people-pay-check"><input type="checkbox" name="count_missing_days" value="1"> Count each missed day as loss of pay</label>
+                    <button class="btn-pw primary" type="submit">Calculate pay</button>
+                </form>
+            @else
+                <p class="people-pay-lock">Lock the attendance first. <a href="{{ route('admin.hr.attendance', ['period' => $period]) }}">Open attendance</a></p>
+            @endif
         @endunless
         <div class="people-ws-head-actions">
             <a class="btn-pw" href="{{ route('admin.hr.payroll.net', ['period' => $period]) }}">Download net pay</a>

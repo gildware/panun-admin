@@ -185,6 +185,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('adjustment', [PeopleHrController::class, 'saveAdjustment'])->name('adjustment');
         Route::get('attendance', [PeopleHrController::class, 'index'])->name('attendance');
         Route::post('attendance/lock', [PeopleHrController::class, 'lockAttendance'])->name('attendance.lock');
+        Route::post('attendance/unlock', [PeopleHrController::class, 'unlockAttendance'])->name('attendance.unlock');
         Route::post('attendance/marks', [PeopleHrController::class, 'saveAttendanceMarks'])->name('attendance.marks');
         Route::post('payroll/build', [PeopleHrController::class, 'buildPayroll'])->name('payroll.build');
         Route::post('payroll/{payslip}/hold', [PeopleHrController::class, 'holdPayslip'])->name('payroll.hold');

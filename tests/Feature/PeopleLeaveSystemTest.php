@@ -17,6 +17,7 @@ use Modules\AdminModule\Entities\PeopleHoliday;
 use Modules\AdminModule\Entities\PeopleLeaveType;
 use Modules\AdminModule\Entities\PeopleProfile;
 use Modules\AdminModule\Entities\PeopleStageLeavePolicy;
+use Modules\AdminModule\Entities\PeoplePayrollRun;
 use Modules\AdminModule\Entities\PeoplePayslip;
 use Modules\AdminModule\Entities\PeopleSalaryStructure;
 use Modules\AdminModule\Entities\PeopleTimesheet;
@@ -723,6 +724,17 @@ class PeopleLeaveSystemTest extends TestCase
         Carbon::setTestNow(Carbon::parse('2026-10-08 09:00:00'));
         try {
             $payroll = app(PeoplePayroll::class);
+            try {
+                $payroll->buildMonth('2026-10', false);
+                $this->fail('Pay was calculated before attendance was locked.');
+            } catch (\InvalidArgumentException $exception) {
+                $this->assertSame('Lock the attendance first.', $exception->getMessage());
+            }
+            PeoplePayrollRun::query()->create([
+                'period' => '2026-10',
+                'status' => 'draft',
+                'attendance_locked' => true,
+            ]);
             $payroll->buildMonth('2026-10', false);
             $without = (float) PeoplePayslip::query()->where('user_id', $person->user_id)->value('lop_days');
             $payroll->buildMonth('2026-10', true);

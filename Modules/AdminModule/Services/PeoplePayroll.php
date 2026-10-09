@@ -213,6 +213,9 @@ class PeoplePayroll
         if ($run && in_array($run->status, ['published', 'locked'], true)) {
             throw new \InvalidArgumentException('That month is already '.$run->status.'. It cannot be rebuilt.');
         }
+        if (! $run || ! $run->attendance_locked) {
+            throw new \InvalidArgumentException('Lock the attendance first.');
+        }
 
         $start = Carbon::createFromFormat('Y-m-d', $period.'-01')->startOfDay();
         $end = $start->copy()->endOfMonth()->startOfDay();

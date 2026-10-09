@@ -14,11 +14,20 @@
         <h1>Attendance</h1>
         <p>One row per employee for {{ $monthLabel }}. Lock the month before you run pay. A locked month cannot take new hours.</p>
     </div>
-    <form method="post" action="{{ route('admin.hr.attendance.lock') }}">
-        @csrf
-        <input type="hidden" name="period" value="{{ $period }}">
-        <button class="btn-pw primary" type="submit" @disabled($run && $run->attendance_locked)>{{ $run && $run->attendance_locked ? $monthLabel.' locked' : 'Lock '.$monthLabel }}</button>
-    </form>
+    <div class="people-ws-head-actions">
+        @if($attendanceLocked)
+            <span class="people-ws-note">{{ $monthLabel }} is locked</span>
+            @if(! $run || $run->status !== 'locked')
+                <button class="btn-pw" type="button" id="attendance-unlock-open">Unlock</button>
+            @endif
+        @else
+            <form method="post" action="{{ route('admin.hr.attendance.lock') }}">
+                @csrf
+                <input type="hidden" name="period" value="{{ $period }}">
+                <button class="btn-pw primary" type="submit">Lock {{ $monthLabel }}</button>
+            </form>
+        @endif
+    </div>
 </div>
 <article class="people-ws-card">
     <div class="people-att-bar">
@@ -126,3 +135,37 @@
         </table>
     </div>
 </article>
+@if($attendanceLocked && (! $run || $run->status !== 'locked'))
+<div class="modal fade" id="attendanceUnlockModal" tabindex="-1" aria-labelledby="attendanceUnlockModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content people-ws-dept-modal">
+            <form method="post" action="{{ route('admin.hr.attendance.unlock') }}">
+                @csrf
+                <input type="hidden" name="period" value="{{ $period }}">
+                <div class="modal-header">
+                    <h2 class="modal-title" id="attendanceUnlockModalLabel">Unlock attendance</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="people-ws-note">Unlock attendance for {{ $monthLabel }}? Marks can be changed again. Lock the month before you calculate pay.</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-pw" type="button" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn-pw primary" type="submit">Unlock</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    var open = document.getElementById('attendance-unlock-open');
+    var modal = document.getElementById('attendanceUnlockModal');
+    if (!open || !modal) return;
+    open.addEventListener('click', function () {
+        if (modal.parentElement !== document.body) document.body.appendChild(modal);
+        if (window.bootstrap) window.bootstrap.Modal.getOrCreateInstance(modal).show();
+    });
+})();
+</script>
+@endif

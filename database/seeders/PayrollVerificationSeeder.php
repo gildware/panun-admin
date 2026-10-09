@@ -12,6 +12,7 @@ use Modules\AdminModule\Entities\PeopleLeaveAssignment;
 use Modules\AdminModule\Entities\PeopleLeaveBalance;
 use Modules\AdminModule\Entities\PeopleLeavePolicy;
 use Modules\AdminModule\Entities\PeopleLeaveRequest;
+use Modules\AdminModule\Entities\PeoplePayrollRun;
 use Modules\AdminModule\Entities\PeoplePayslip;
 use Modules\AdminModule\Entities\PeopleProfile;
 use Modules\AdminModule\Entities\PeopleSalaryStructure;
@@ -64,6 +65,10 @@ class PayrollVerificationSeeder extends Seeder
         $this->approveTimesheets($workspace, $people);
         $this->markAttendance($people);
 
+        PeoplePayrollRun::query()->updateOrCreate(
+            ['period' => self::MONTH],
+            ['attendance_locked' => true]
+        );
         app(PeoplePayroll::class)->buildMonth(self::MONTH, true);
         $this->report($workspace, $people);
     }

@@ -888,6 +888,28 @@ class PeopleHrController extends Controller
         return redirect()->route('admin.hr.attendance', ['period' => $data['period']]);
     }
 
+    public function unlockAttendance(Request $request): RedirectResponse
+    {
+        $this->requireHr();
+        $data = $request->validate(['period' => ['required', 'date_format:Y-m']]);
+        $run = $this->payroll->runFor($data['period']);
+        if (! $run || ! $run->attendance_locked) {
+            Toastr::error('Attendance for that month is not locked.');
+
+            return back();
+        }
+        if ($run->status === 'locked') {
+            Toastr::error('That month is locked. Attendance stays locked.');
+
+            return back();
+        }
+
+        $run->forceFill(['attendance_locked' => false])->save();
+        Toastr::success('Attendance for that month is unlocked.');
+
+        return redirect()->route('admin.hr.attendance', ['period' => $data['period']]);
+    }
+
     public function saveAttendanceMarks(Request $request): RedirectResponse
     {
         $actor = $this->requireHr();
