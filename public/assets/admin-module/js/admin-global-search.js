@@ -7,6 +7,11 @@
         return document.getElementById('staticBackdrop');
     }
 
+    function currentWorkspace() {
+        var match = (document.body.className || '').match(/workspace-(operations|hr|training|marketing|settings|accounts)/);
+        return match ? match[1] : '';
+    }
+
     function getConfig() {
         var modal = getModal();
         if (!modal) {
@@ -70,9 +75,15 @@
         setSearchResults('<div class="text-center text-muted py-5">' + config.loadingText + '</div>');
         abortRecentSearch();
 
+        var recentUrl = config.recentUrl;
+        var workspace = currentWorkspace();
+        if (workspace) {
+            recentUrl += (recentUrl.indexOf('?') === -1 ? '?' : '&') + 'workspace=' + encodeURIComponent(workspace);
+        }
+
         recentSearchRequest = window.jQuery.ajax({
             type: 'GET',
-            url: config.recentUrl,
+            url: recentUrl,
             success: function (response) {
                 if (response && response.htmlView) {
                     setSearchResults(response.htmlView);
@@ -112,6 +123,7 @@
             url: form.getAttribute('action'),
             data: {
                 search: trimmed,
+                workspace: currentWorkspace(),
                 _token: form.querySelector('input[name="_token"]') ? form.querySelector('input[name="_token"]').value : '',
             },
             success: function (response) {

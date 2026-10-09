@@ -5,6 +5,10 @@
 @push('css_or_js')
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/dataTables/jquery.dataTables.min.css"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/dataTables/select.dataTables.min.css"/>
+    <style>
+        .employee-list-search { width: min(100%, 26rem); }
+        .employee-list-search .search-form__input_group { width: 100%; }
+    </style>
 @endpush
 
 @section('content')
@@ -29,19 +33,19 @@
                         <ul class="nav nav--tabs">
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='all'?'active':''}}"
-                                   href="{{url()->current()}}?status=all">
+                                   href="{{url()->current()}}?{{ http_build_query(array_filter(['status' => 'all', 'search' => $search])) }}">
                                     {{translate('all')}}
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='active'?'active':''}}"
-                                   href="{{url()->current()}}?status=active">
+                                   href="{{url()->current()}}?{{ http_build_query(array_filter(['status' => 'active', 'search' => $search])) }}">
                                     {{translate('active')}}
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='inactive'?'active':''}}"
-                                   href="{{url()->current()}}?status=inactive">
+                                   href="{{url()->current()}}?{{ http_build_query(array_filter(['status' => 'inactive', 'search' => $search])) }}">
                                     {{translate('inactive')}}
                                 </a>
                             </li>
@@ -56,21 +60,23 @@
                     <div class="card">
                         <div class="card-body">
                             <div class="data-table-top d-flex flex-wrap gap-10 justify-content-between">
-                                <form action="{{url()->current()}}?status={{$status}}"
-                                      class="search-form search-form_style-two"
-                                      method="POST">
-                                    @csrf
+                                <div class="search-form search-form_style-two employee-list-search">
                                     <div class="input-group search-form__input_group">
-                                    <span class="search-form__icon">
-                                        <span class="material-icons">search</span>
-                                    </span>
-                                        <input type="search" class="theme-input-style search-form__input"
-                                               value="{{$search}}" name="search"
-                                               placeholder="{{translate('search_here')}}">
+                                        <span class="search-form__icon">
+                                            <span class="material-icons">search</span>
+                                        </span>
+                                        <input type="search"
+                                               id="employee-list-search"
+                                               class="theme-input-style search-form__input"
+                                               value="{{ $search }}"
+                                               placeholder="Search name, email, or employee ID"
+                                               aria-label="Search name, email, or employee ID"
+                                               autocomplete="off"
+                                               spellcheck="false"
+                                               enterkeyhint="search"
+                                               data-status="{{ $status }}">
                                     </div>
-                                    <button type="submit"
-                                            class="btn btn--primary">{{translate('search')}}</button>
-                                </form>
+                                </div>
 
                                 <div class="d-flex flex-wrap align-items-center gap-3">
                                     <div class="dropdown">
@@ -95,11 +101,14 @@
                                 <table id="example" class="table align-middle">
                                     <thead>
                                     <tr>
-                                        <th>{{translate('SL')}}</th>
-                                        <th>{{translate('Employee_Name')}}</th>
-                                        <th>{{translate('Employee_ID')}}</th>
-                                        <th>{{translate('Role')}}</th>
-                                        <th>{{translate('Permission')}}
+                                        <th>Photo</th>
+                                        <th>Name</th>
+                                        <th>Employee type</th>
+                                        <th>Email</th>
+                                        <th>Phone</th>
+                                        <th>Roles</th>
+                                        <th>Department</th>
+                                        <th>Employee ID</th>
                                         @can('employee_manage_status')
                                             <th class="text-center">{{translate('status')}}</th>
                                         @endcan
@@ -109,305 +118,18 @@
                                     <tbody>
                                     @forelse($employees as $key => $employee)
                                         <tr>
-                                            <td data-bs-target="#exampleModal--{{$employee['id']}}"
-                                                data-bs-toggle="modal">{{$key+$employees?->firstItem()}}</td>
                                             <td>
-                                                <div data-bs-target="#exampleModal--{{$employee['id']}}"
-                                                     data-bs-toggle="modal">{{$employee->first_name}} {{$employee->last_name}}</div>
-                                                <a href="mailto:{{$employee->email}}"
-                                                   class="fz-12 fw-medium">{{$employee->email}}</a>
-
-                                                <div class="modal fade cursor-auto" tabindex="-1"
-                                                     id="exampleModal--{{$employee['id']}}" aria-hidden="true">
-                                                    <div class="modal-dialog modal-xl">
-                                                        <div class="modal-content">
-                                                            <div class="modal-body">
-                                                                <div
-                                                                    class="d-flex justify-content-between gap-3 mb-4">
-                                                                    <h3 class="text-primary">{{translate('Employee Details')}}</h3>
-                                                                    <div class="d-flex gap-3 align-items-center">
-                                                                        <p class="text-primary font-weight-bold mb-0">{{$employee->is_active? translate('Active'): translate('Inactive')}}</p>
-                                                                        @can('employee_manage_status')
-                                                                            <label class="switcher">
-                                                                                <input class="switcher_input"
-                                                                                       type="checkbox"
-                                                                                       {{$employee->is_active?'checked':''}} data-status="{{$employee->id}}">
-                                                                                <span class="switcher_control"></span>
-                                                                            </label>
-                                                                        @endcan
-                                                                    </div>
-                                                                </div>
-
-                                                                <form>
-                                                                    <div class="row gy-3">
-                                                                        <div class="col-lg-8">
-                                                                            <div
-                                                                                class="media align-items-center flex-wrap gap-xl-5 gap-4">
-                                                                                <img width="260" src="{{$employee->profile_image_full_path}}"
-                                                                                     class="dark-support shadow rounded"
-                                                                                     alt="{{translate('profile image')}}">
-                                                                                <div class="media-body">
-                                                                                    <h3 class="mb-2">{{$employee->first_name . ' ' .  $employee->last_name}}</h3>
-                                                                                    <div
-                                                                                        class="fs-12 fw-medium text-primary mb-4">
-                                                                                        {{isset($employee?->roles[0]) ? $employee?->roles[0]['role_name'] : ''}}
-                                                                                    </div>
-
-                                                                                    <ul class="list-info">
-                                                                                        <li>
-                                                                                            <span
-                                                                                                class="material-symbols-outlined">assignment_ind</span>
-                                                                                            ID:
-                                                                                            #{{$employee->id}}
-                                                                                        </li>
-                                                                                        <li>
-                                                                                            <span
-                                                                                                class="material-symbols-outlined">phone_iphone</span>
-                                                                                            <a href="tel:{{$employee->phone}}">{{$employee->phone}}</a>
-                                                                                        </li>
-                                                                                        <li>
-                                                                                            <span
-                                                                                                class="material-symbols-outlined">mail</span>
-                                                                                            <a href="mailto:{{$employee->email}}">{{$employee->email}}</a>
-                                                                                        </li>
-                                                                                        <li>
-                                                                                            <span
-                                                                                                class="material-symbols-outlined">map</span>
-                                                                                            {{$employee->addresses->value('address') ??  'not found'}}
-                                                                                        </li>
-                                                                                        <li class="text-uppercase">
-                                                                                            <span
-                                                                                                class="material-symbols-outlined">credit_card</span>
-                                                                                            {{str_replace('_', " " , $employee->identification_type)}}
-                                                                                            - {{$employee->identification_number}}
-                                                                                        </li>
-                                                                                    </ul>
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div class="col-lg-4">
-                                                                            <div class="p-3 bg-light rounded scrollY" style="--mh:70dvh;">
-                                                                                <div class="card border-0 mb-3">
-                                                                                    <div
-                                                                                        class="card-body d-flex align-items-center gap-2">
-                                                                                        <span
-                                                                                            class="material-symbols-outlined text-primary">calendar_month</span>
-                                                                                        Join: {{$employee->created_at}}
-                                                                                    </div>
-                                                                                </div>
-                                                                                @foreach(SYSTEM_MODULES as $roleName)
-                                                                                    @php
-                                                                                        $buttonPermission = ['can_add', 'can_update', 'can_delete', 'can_export', 'can_manage_status','can_download','can_assign_serviceman','can_give_feedback','can_take_backup'];
-                                                                                            $matchedRoleSectionName = Modules\UserManagement\Entities\EmployeeRoleAccess::where('employee_id', $employee['id'])->where('section_name', $roleName['key'])->first();
-                                                                                            $matchingSubmodules = false;
-                                                                                    @endphp
-                                                                                    @if(isset($roleName['submodules']))
-                                                                                        @foreach($roleName['submodules'] as $submodule)
-                                                                                            @php
-                                                                                                $matchedRoleSection = Modules\UserManagement\Entities\EmployeeRoleAccess::where('employee_id', $employee['id'])->where('section_name', $submodule['key'])->first();
-                                                                                                if($matchedRoleSection) {
-                                                                                                    $matchingSubmodules = true;
-                                                                                                    break;
-                                                                                                }
-                                                                                            @endphp
-                                                                                        @endforeach
-                                                                                        @if($matchingSubmodules)
-                                                                                            @php $tableRendered = false; @endphp
-                                                                                            <div class="card border-0  mb-3">
-                                                                                                <div class="card-body">
-                                                                                                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-                                                                                                        <div class="d-flex align-items-center gap-2">
-                                                                                                            <h4>{{ $roleName['value'] }}</h4>
-                                                                                                        </div>
-                                                                                                    </div>
-                                                                                                        @foreach($roleName['submodules'] as $submodule)
-                                                                                                            @php
-                                                                                                                $matchedRoleSection = Modules\UserManagement\Entities\EmployeeRoleAccess::where('employee_id', $employee['id'])->where('section_name', $submodule['key'])->first();
-                                                                                                            @endphp
-                                                                                                            @if($matchedRoleSection)
-                                                                                                            <div class="">
-                                                                                                                <h4 class="mt-4">{{ $submodule['value'] }}</h4>
-                                                                                                            </div>
-                                                                                                                @if($matchingSubmodules)
-                                                                                                                    @php
-                                                                                                                        $showManageAccess = false;
-
-                                                                                                                        foreach ($buttonPermission as $permission) {
-                                                                                                                            if ($permission === 'can_view') {
-                                                                                                                                continue;
-                                                                                                                            }
-
-                                                                                                                            if (isset($matchedRoleSection[$permission]) && $matchedRoleSection[$permission] === 1) {
-                                                                                                                                $showManageAccess = true;
-                                                                                                                                break;
-                                                                                                                            }
-                                                                                                                        }
-                                                                                                                    @endphp
-                                                                                                                    @if ($showManageAccess)
-                                                                                                                        <div class="">
-                                                                                                                            <h5 class="mb-3 mt-2">{{ translate('Manage Access') }}</h5>
-                                                                                                                            <div class="d-flex flex-wrap gap-2 align-items-center scrollY">
-
-                                                                                                                                @php $tableRendered = true; @endphp
-                                                                                                                                @foreach($buttonPermission as $permission)
-                                                                                                                                    @if($matchedRoleSection->$permission)
-                                                                                                                                        @php
-                                                                                                                                            $permissionWords = explode('_', $permission);
-                                                                                                                                            $formattedPermission = implode(' ', $permissionWords);
-                                                                                                                                        @endphp
-                                                                                                                                        <span class="badge bg-custom title-color">{{ ucwords($formattedPermission) }}</span>
-                                                                                                                                    @endif
-                                                                                                                                @endforeach
-                                                                                                                            </div>
-                                                                                                                        </div>
-                                                                                                                    @endif
-                                                                                                                @endif
-                                                                                                            @endif
-                                                                                                        @endforeach
-                                                                                                </div>
-                                                                                            </div>
-                                                                                        @endif
-                                                                                    @elseif($matchedRoleSectionName)
-                                                                                        <div class="card border-0  mb-3">
-                                                                                            <div class="card-body">
-                                                                                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-                                                                                                    <div class="d-flex align-items-center gap-2">
-                                                                                                        <h4>{{ $roleName['value'] }}</h4>
-                                                                                                    </div>
-                                                                                                </div>
-                                                                                                @php
-                                                                                                    $showManageAccess = false;
-
-                                                                                                    foreach ($buttonPermission as $permission) {
-                                                                                                        if ($permission === 'can_view') {
-                                                                                                            continue;
-                                                                                                        }
-
-                                                                                                        if (isset($matchedRoleSectionName[$permission]) && $matchedRoleSectionName[$permission] === 1) {
-                                                                                                            $showManageAccess = true;
-                                                                                                            break;
-                                                                                                        }
-                                                                                                    }
-                                                                                                @endphp
-                                                                                                @if ($showManageAccess)
-                                                                                                    <h5 class="mb-3 mt-4">{{ translate('Manage Access') }}</h5>
-                                                                                                    <div class="d-flex flex-wrap gap-2 align-items-center scrollY">
-                                                                                                        @foreach($buttonPermission as $permission)
-                                                                                                            @if($matchedRoleSectionName->$permission)
-                                                                                                                @php
-                                                                                                                    $permissionWords = explode('_', $permission);
-                                                                                                                    $formattedPermission = implode(' ', $permissionWords);
-                                                                                                                @endphp
-                                                                                                                <span class="badge bg-custom title-color">{{ ucwords($formattedPermission) }}</span>
-                                                                                                            @endif
-                                                                                                        @endforeach
-                                                                                                    </div>
-                                                                                                @endif
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    @endif
-                                                                                @endforeach
-                                                                            </div>
-                                                                        </div>
-                                                                        <div class="col-12">
-                                                                            <div
-                                                                                class="d-flex justify-content-end gap-3">
-                                                                                @can('employee_delete')
-                                                                                    <button type="button"
-                                                                                            data-remove="{{$employee->id}}"
-                                                                                            class="btn btn--danger remove">
-                                                                                        {{translate('Delete')}}</button>
-
-                                                                                    <form
-                                                                                        action="{{route('admin.employee.delete',[$employee->id])}}"
-                                                                                        method="post"
-                                                                                        id="delete-{{$employee->id}}"
-                                                                                        class="hidden">
-                                                                                        @csrf
-                                                                                        @method('DELETE')
-                                                                                    </form>
-                                                                                @endcan
-                                                                                @can('employee_update')
-                                                                                    <a type="text"
-                                                                                       href="{{route('admin.employee.edit', [$employee->id])}}"
-                                                                                       class="btn btn-primary">{{translate('edit')}}</a>
-                                                                                @endcan
-                                                                                @if(can_impersonate_employees() && $employee->is_active)
-                                                                                    <a href="{{ route('admin.employee.impersonate', $employee->id) }}"
-                                                                                       class="btn btn--secondary"
-                                                                                       data-turbo="false">
-                                                                                        {{ translate('View_dashboard_as') }}
-                                                                                    </a>
-                                                                                @endif
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </form>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td>{{$employee->id}}</td>
-                                            <td data-bs-target="#exampleModal--{{$employee['id']}}"
-                                                data-bs-toggle="modal">
-                                                {{isset($employee?->roles[0]) ? $employee?->roles[0]['role_name'] : ''}}
+                                                <img src="{{ $employee->profile_image_full_path }}" alt="" width="40" height="40" class="rounded-circle object-fit-cover">
                                             </td>
                                             <td>
-                                                @php
-                                                    $output = '';
-                                                @endphp
-
-                                                @foreach(SYSTEM_MODULES as $module)
-                                                    @php
-                                                        $matchedRoleBtn = Modules\UserManagement\Entities\EmployeeRoleAccess::where('employee_id', $employee['id'])->where('section_name', $module['key'])->first();
-                                                        $hasMatchingSubmodules = false;
-                                                    @endphp
-
-                                                    @if(isset($module['submodules']))
-                                                        @foreach($module['submodules'] as $submodule)
-                                                            @php
-                                                                $matchedRoleSection = Modules\UserManagement\Entities\EmployeeRoleAccess::where('employee_id', $employee['id'])->where('section_name', $submodule['key'])->first();
-                                                                if($matchedRoleSection) {
-                                                                    $hasMatchingSubmodules = true;
-                                                                    break;
-                                                                }
-                                                            @endphp
-                                                        @endforeach
-
-                                                        @if($hasMatchingSubmodules)
-                                                            @php
-                                                                $output .= $module['value'] . ' (';
-                                                                $submodulesOutput = '';
-                                                            @endphp
-
-                                                            @foreach($module['submodules'] as $submodule)
-                                                                @php
-                                                                    $matchedRoleSection = Modules\UserManagement\Entities\EmployeeRoleAccess::where('employee_id', $employee['id'])->where('section_name', $submodule['key'])->first();
-                                                                @endphp
-                                                                @if($matchedRoleSection)
-                                                                    @php
-                                                                        $submodulesOutput .= $submodule['value'] . ', ';
-                                                                    @endphp
-                                                                @endif
-                                                            @endforeach
-
-                                                            @php
-                                                                $output .= rtrim($submodulesOutput, ', ') . '), ';
-                                                            @endphp
-                                                        @endif
-                                                    @elseif($matchedRoleBtn)
-                                                        @php
-                                                            $output .= $module['value'] . ', ';
-                                                        @endphp
-                                                    @endif
-                                                @endforeach
-
-                                                <h5>{{ Str::limit(rtrim($output, ', '), 170) }}</h5>
-                                                @if(!empty($output))
-                                                    <div class="fs-12">{{translate('Edit/Delete/Export')}}</div>
-                                                @endif
+                                                <a href="{{ route('admin.employee.profile', $employee->id) }}">{{ $employee->first_name }} {{ $employee->last_name }}</a>
                                             </td>
+                                            <td>{{ ($employee->peopleProfile->employment_stage ?: 'permanent') === 'probation' ? 'Probation' : 'Permanent' }}</td>
+                                            <td>{{ $employee->email }}</td>
+                                            <td>{{ $employee->phone ?: '—' }}</td>
+                                            <td>{{ $employee->roles->pluck('role_name')->join(', ') ?: '—' }}</td>
+                                            <td>{{ $employee->peopleProfile->department ?: '—' }}</td>
+                                            <td>{{ \Modules\AdminModule\Services\PeopleWorkspace::formatCode($employee->peopleProfile->employee_code ?? null) }}</td>
 
                                         @can('employee_manage_status')
                                                 <td>
@@ -429,23 +151,14 @@
                                                         </button>
                                                         <ul class="dropdown-menu">
                                                             @can('employee_view')
-                                                                <a data-bs-target="#exampleModal--{{$employee['id']}}"
-                                                                   data-bs-toggle="modal" class="dropdown-item"
-                                                                   href="#">{{translate('View Profile')}}</a>
+                                                                <a class="dropdown-item"
+                                                                   href="{{ route('admin.employee.profile', $employee->id) }}">{{translate('View Profile')}}</a>
                                                             @endcan
                                                             @if(can_impersonate_employees() && $employee->is_active)
                                                                 <a class="dropdown-item"
                                                                    href="{{ route('admin.employee.impersonate', $employee->id) }}"
                                                                    data-turbo="false">{{ translate('View_dashboard_as') }}</a>
                                                             @endif
-                                                            @can('employee_update')
-                                                                <a class="dropdown-item"
-                                                                   href="{{route('admin.employee.edit',[$employee->id])}}">{{translate('Edit Employee')}}</a>
-                                                            @endcan
-                                                            @can('employee_update')
-                                                                <a class="dropdown-item"
-                                                                   href="{{route('admin.employee.set.permission',[$employee->id])}}">{{translate('Set Permission')}}</a>
-                                                            @endcan
                                                             @can('employee_delete')
                                                                 <button type="button" data-delete="{{$employee->id}}"
                                                                         class="dropdown-item delete-action">{{translate('Delete Employee')}}
@@ -465,7 +178,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="14"><p
+                                            <td colspan="10"><p
                                                     class="text-center">{{translate('no_data_available')}}</p></td>
                                         </tr>
                                     @endforelse
@@ -512,5 +225,62 @@
             form_alert('delete-' + itemId, '{{translate('want_to_delete_this_employee')}}?')
             @endif
         })
+
+        ;(function () {
+            var input = document.getElementById('employee-list-search');
+            if (!input) return;
+
+            var delay = 300;
+            var timer = null;
+            var composing = false;
+            var loaded = input.value.trim();
+
+            try {
+                if (sessionStorage.getItem('employeeListSearchFocus') === '1') {
+                    sessionStorage.removeItem('employeeListSearchFocus');
+                    input.focus({ preventScroll: true });
+                    var end = input.value.length;
+                    input.setSelectionRange(end, end);
+                }
+            } catch (e) {}
+
+            function visit(value) {
+                if (value === loaded) return;
+                var url = new URL(window.location.href);
+                url.searchParams.delete('page');
+                if (value) url.searchParams.set('search', value);
+                else url.searchParams.delete('search');
+                if (!url.searchParams.get('status')) {
+                    url.searchParams.set('status', input.getAttribute('data-status') || 'all');
+                }
+                try { sessionStorage.setItem('employeeListSearchFocus', '1'); } catch (e) {}
+                if (typeof window.adminPartialNavLoad === 'function') {
+                    window.adminPartialNavLoad(url.pathname + url.search);
+                    return;
+                }
+                window.location.assign(url.toString());
+            }
+
+            function schedule() {
+                clearTimeout(timer);
+                timer = setTimeout(function () {
+                    if (!composing) visit(input.value.trim());
+                }, delay);
+            }
+
+            input.addEventListener('compositionstart', function () { composing = true; });
+            input.addEventListener('compositionend', function () { composing = false; schedule(); });
+            input.addEventListener('input', schedule);
+            input.addEventListener('search', function () {
+                clearTimeout(timer);
+                visit(input.value.trim());
+            });
+            input.addEventListener('keydown', function (event) {
+                if (event.key !== 'Enter') return;
+                event.preventDefault();
+                clearTimeout(timer);
+                visit(input.value.trim());
+            });
+        })();
     </script>
 @endpush

@@ -1,24 +1,39 @@
 @php
     $task = (string) ($row['task'] ?? '');
     $ticketId = (string) ($row['ticket_id'] ?? '');
+    if ($ticketId === 'leave') {
+        $task = \Modules\AdminModule\Services\PeopleWorkspace::leaveTaskLabel($leaveName ?? '');
+    }
     $hours = $row['hours'] ?? '';
     if ($hours === 0 || $hours === '0' || $hours === 0.0) {
         $hours = '';
     }
     $deadline = (string) ($row['deadline'] ?? '');
     $description = (string) ($row['description'] ?? '');
-    $knownIds = collect($tasks)->pluck('id')->all();
+    if ($ticketId === 'leave') {
+        $reason = trim((string) ($leaveReason ?? ''));
+        if ($reason !== '') {
+            $description = $reason;
+        }
+    }
+    $kind = ($kind ?? 'task') === 'extra' ? 'extra' : 'task';
+    $options = $kind === 'extra' ? ($extras ?? []) : ($assigned ?? []);
+    $knownIds = collect($options)->pluck('id')->all();
     $matched = $ticketId !== '' && in_array($ticketId, $knownIds, true);
     if (! $matched) {
-        $matched = collect($tasks)->contains(fn ($option) => $option['task'] === $task);
+        $matched = collect($options)->contains(fn ($option) => $option['task'] === $task);
     }
+    $placeholder = $kind === 'extra' ? 'Select additional hours' : 'Select task';
+    $hoursLocked = (bool) $locked && ! ($hoursOpen ?? false);
 @endphp
 <tr class="ts-row">
     <td>
-        <select class="ts-task-select" name="rows[{{ $index }}][ticket_id]" data-task @disabled($locked)>
-            <option value="">Select task</option>
-            @foreach($tasks as $option)
-                @continue(in_array($option['id'], ['leave', 'partial-leave'], true))
+        @if($locked && ($hoursOpen ?? false))
+            <input type="hidden" name="rows[{{ $index }}][ticket_id]" value="{{ $ticketId }}">
+        @endif
+        <select class="ts-task-select" name="rows[{{ $index }}][ticket_id]" data-task data-placeholder="{{ $placeholder }}" @disabled($locked)>
+            <option value="">{{ $placeholder }}</option>
+            @foreach($options as $option)
                 <option
                     value="{{ $option['id'] }}"
                     data-title="{{ $option['task'] }}"
@@ -36,7 +51,7 @@
         <input type="hidden" class="ts-due" name="rows[{{ $index }}][deadline]" value="{{ $deadline }}">
     </td>
     <td>
-        <input class="ts-hours" name="rows[{{ $index }}][hours]" type="number" min="0" max="24" step="0.5" inputmode="decimal" placeholder="Hours" value="{{ $hours }}" @disabled($locked)>
+        <input class="ts-hours" name="rows[{{ $index }}][hours]" type="number" min="0" max="24" step="0.5" inputmode="decimal" placeholder="Hours" value="{{ $hours }}" @disabled($hoursLocked)>
     </td>
     <td>
         <div class="ts-desc-wrap">

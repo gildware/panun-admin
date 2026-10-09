@@ -12,6 +12,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Modules\AdminModule\Entities\PeopleDepartment;
 use Modules\AdminModule\Entities\PeopleDepartmentLeavePolicy;
+use Modules\AdminModule\Entities\PeopleStageLeavePolicy;
 use Modules\AdminModule\Entities\PeopleLeaveAssignment;
 use Modules\AdminModule\Entities\PeopleLeaveType;
 use Modules\AdminModule\Entities\PeopleDocument;
@@ -43,9 +44,36 @@ class PeopleHrController extends Controller
 
     public function index(Request $request)
     {
+        $section = $this->section($request);
+        if ($section === 'people') {
+            return redirect()->route('admin.employee.index');
+        }
+        if ($section === 'person') {
+            $userId = (string) $request->query('user', '');
+            if ($userId === '') {
+                return redirect()->route('admin.employee.index');
+            }
+
+            return redirect()->route('admin.employee.profile', [
+                'id' => $userId,
+                'tab' => $request->query('tab', 'profile'),
+            ]);
+        }
+        if ($redirect = $this->redirectMovedSection($request, $section)) {
+            return $redirect;
+        }
+        if ($section === 'leave' && $request->query('tab') === 'requests') {
+            return redirect()->route('admin.hr.index', ['section' => 'leave', 'tab' => 'types']);
+        }
+        if (! $request->route('section') && $request->filled('section')) {
+            return redirect()->route('admin.hr.index', array_merge(
+                ['section' => $section],
+                $request->except('section')
+            ));
+        }
+
         $actor = $this->requireHr();
         $this->workspace->boot();
-        $section = $this->section($request);
         $staff = $this->workspace->staffUsers();
         $staffIds = $staff->pluck('id');
         $period = $this->period($request);
@@ -75,7 +103,9 @@ class PeopleHrController extends Controller
             'documents' => collect(),
             'timesheets' => $section === 'attendance'
                 ? PeopleTimesheet::query()->with('user')->whereIn('user_id', $staffIds)->latest('week_starts_on')->limit(60)->get()
-                : collect(),
+                : ($section === 'home'
+                    ? PeopleTimesheet::query()->with('user')->whereIn('user_id', $staffIds)->where('status', 'pending')->get()
+                    : collect()),
             'structures' => $section === 'salary'
                 ? PeopleSalaryStructure::query()->whereIn('user_id', $staffIds)->orderByDesc('effective_from')->get()->groupBy('user_id')
                 : collect(),
@@ -112,6 +142,10 @@ class PeopleHrController extends Controller
             'policyDepartments' => $policyFocus
                 ? PeopleDepartmentLeavePolicy::query()->with('department')->where('leave_policy_id', $policyFocus->id)->get()
                 : collect(),
+            'policyStages' => $policyFocus
+                ? PeopleStageLeavePolicy::query()->where('leave_policy_id', $policyFocus->id)->get()
+                : collect(),
+            'stageCounts' => PeopleProfile::query()->pluck('employment_stage')->countBy(fn ($stage) => $stage ?: 'permanent'),
             'leaveAssignments' => $section === 'leave'
                 ? PeopleLeaveAssignment::query()->with('policy.leaveType')->whereIn('user_id', $staffIds)->get()->groupBy('user_id')
                 : collect(),
@@ -125,6 +159,32 @@ class PeopleHrController extends Controller
     public function updatePerson(Request $request): RedirectResponse
     {
         $this->requireHr();
+        if ($request->input('section') === 'bank') {
+            foreach (['bank_name', 'bank_account', 'bank_ifsc', 'pan', 'aadhaar', 'uan'] as $field) {
+                $request->merge([$field => $request->input($field) ?: null]);
+            }
+            $data = $request->validate([
+                'user_id' => ['required', 'uuid'],
+                'bank_name' => ['nullable', 'string', 'max:120'],
+                'bank_account' => ['nullable', 'string', 'max:40'],
+                'bank_ifsc' => ['nullable', 'string', 'max:20'],
+                'pan' => ['nullable', 'string', 'max:10'],
+                'aadhaar' => ['nullable', 'string', 'max:12'],
+                'uan' => ['nullable', 'string', 'max:20'],
+            ]);
+            $this->workspace->ensureStaffFile(User::query()->findOrFail($data['user_id']));
+            PeopleProfile::query()->where('user_id', $data['user_id'])->update([
+                'bank_name' => $data['bank_name'] ?? null,
+                'bank_account' => $data['bank_account'] ?? null,
+                'bank_ifsc' => $data['bank_ifsc'] ?? null,
+                'pan' => $data['pan'] ?? null,
+                'aadhaar' => $data['aadhaar'] ?? null,
+                'uan' => $data['uan'] ?? null,
+            ]);
+            Toastr::success('Bank details saved.');
+
+            return redirect()->route('admin.employee.profile', ['id' => $data['user_id'], 'tab' => 'profile']);
+        }
         $request->merge(['department' => $request->input('department') ?: null]);
         $data = $request->validate([
             'user_id' => ['required', 'uuid'],
@@ -192,12 +252,12 @@ class PeopleHrController extends Controller
 
         Toastr::success('People file saved.');
 
-        $tab = (string) $request->input('return_tab', 'documents');
-        if (! in_array($tab, ['bank', 'documents', 'leaves', 'salary', 'payslips'], true)) {
-            $tab = 'documents';
+        $tab = (string) $request->input('return_tab', 'profile');
+        if (in_array($tab, ['bank', 'documents'], true) || ! in_array($tab, ['profile', 'leaves', 'salary', 'payslips'], true)) {
+            $tab = 'profile';
         }
 
-        return redirect()->route('admin.hr.index', ['section' => 'person', 'user' => $data['user_id'], 'tab' => $tab]);
+        return redirect()->route('admin.employee.profile', ['id' => $data['user_id'], 'tab' => $tab]);
     }
 
     public function askDocument(Request $request): RedirectResponse
@@ -215,14 +275,15 @@ class PeopleHrController extends Controller
             return back();
         }
 
-        PeopleDocument::query()->create([
+        $document = PeopleDocument::query()->create([
             'user_id' => $data['user_id'],
             'title' => $data['title'],
             'status' => 'missing',
         ]);
+        $this->workspace->notifyDocumentRequested($document);
         Toastr::success('Document asked for.');
 
-        return $this->hrRedirect($request, 'people', 'documents');
+        return redirect()->route('admin.employee.profile', ['id' => $data['user_id'], 'tab' => 'profile']);
     }
 
     public function storePersonDocument(Request $request): RedirectResponse
@@ -270,7 +331,7 @@ class PeopleHrController extends Controller
 
         Toastr::success('Document uploaded.');
 
-        return redirect()->route('admin.hr.index', ['section' => 'person', 'user' => $data['user_id'], 'tab' => 'documents']);
+        return redirect()->route('admin.employee.profile', ['id' => $data['user_id'], 'tab' => 'profile']);
     }
 
     public function destroyPersonDocument(PeopleDocument $document): RedirectResponse
@@ -283,7 +344,7 @@ class PeopleHrController extends Controller
         $document->delete();
         Toastr::success('Document removed.');
 
-        return redirect()->route('admin.hr.index', ['section' => 'person', 'user' => $userId, 'tab' => 'documents']);
+        return redirect()->route('admin.employee.profile', ['id' => $userId, 'tab' => 'profile']);
     }
 
     public function rejectDocument(Request $request, PeopleDocument $document): RedirectResponse
@@ -296,9 +357,10 @@ class PeopleHrController extends Controller
             'status' => 'rejected',
             'rejection_note' => $data['rejection_note'],
         ])->save();
+        $this->workspace->notifyDocumentDecided($document);
         Toastr::success('Document sent back.');
 
-        return $this->hrRedirect($request, 'people', 'documents', $document->user_id);
+        return redirect()->route('admin.employee.profile', ['id' => $document->user_id, 'tab' => 'profile']);
     }
 
     public function storeLeaveType(Request $request): RedirectResponse
@@ -328,6 +390,7 @@ class PeopleHrController extends Controller
             'short_name' => $short,
             'code' => $this->leaveTypeCode($name),
             'tracks_balance' => $request->boolean('tracks_balance'),
+            'allows_future' => $request->boolean('allows_future'),
             'sort' => (int) PeopleLeaveType::query()->max('sort') + 1,
         ]);
         Toastr::success('Leave type added.');
@@ -361,6 +424,7 @@ class PeopleHrController extends Controller
             'name' => $name,
             'short_name' => $short,
             'tracks_balance' => $request->boolean('tracks_balance'),
+            'allows_future' => $request->boolean('allows_future'),
         ])->save();
         Toastr::success('Leave type saved.');
 
@@ -390,6 +454,7 @@ class PeopleHrController extends Controller
             'leave_type_id' => ['required', 'uuid', Rule::exists('people_leave_types', 'id')->where('tracks_balance', 1)],
             'accrual_type' => ['required', Rule::in(['monthly', 'yearly'])],
             'days' => ['required', 'numeric', 'min:0.5', 'max:365'],
+            'carry_limit' => ['nullable', 'numeric', 'min:0', 'max:365'],
         ]);
 
         PeopleLeavePolicy::query()->create([
@@ -397,6 +462,7 @@ class PeopleHrController extends Controller
             'leave_type_id' => $data['leave_type_id'],
             'accrual_type' => $data['accrual_type'],
             'days' => round((float) $data['days'], 1),
+            'carry_limit' => round((float) ($data['carry_limit'] ?? 0), 1),
         ]);
         Toastr::success('Leave policy saved.');
 
@@ -411,13 +477,21 @@ class PeopleHrController extends Controller
             'leave_type_id' => ['required', 'uuid', Rule::exists('people_leave_types', 'id')->where('tracks_balance', 1)],
             'accrual_type' => ['required', Rule::in(['monthly', 'yearly'])],
             'days' => ['required', 'numeric', 'min:0.5', 'max:365'],
+            'carry_limit' => ['nullable', 'numeric', 'min:0', 'max:365'],
         ]);
+
+        if ($data['leave_type_id'] !== $policy->leave_type_id && ($policy->assignments()->exists() || PeopleDepartmentLeavePolicy::query()->where('leave_policy_id', $policy->id)->exists() || PeopleStageLeavePolicy::query()->where('leave_policy_id', $policy->id)->exists())) {
+            Toastr::error('Take this policy off people before you change the leave type.');
+
+            return back()->withInput();
+        }
 
         $policy->forceFill([
             'name' => trim($data['name']),
             'leave_type_id' => $data['leave_type_id'],
             'accrual_type' => $data['accrual_type'],
             'days' => round((float) $data['days'], 1),
+            'carry_limit' => round((float) ($data['carry_limit'] ?? 0), 1),
         ])->save();
         Toastr::success('Leave policy saved.');
 
@@ -434,6 +508,7 @@ class PeopleHrController extends Controller
         }
 
         PeopleDepartmentLeavePolicy::query()->where('leave_policy_id', $policy->id)->delete();
+        PeopleStageLeavePolicy::query()->where('leave_policy_id', $policy->id)->delete();
         $policy->delete();
         Toastr::success('Leave policy removed.');
 
@@ -447,18 +522,33 @@ class PeopleHrController extends Controller
             'policy_id' => ['required', 'uuid', Rule::exists('people_leave_policies', 'id')],
             'user_id' => ['nullable', 'uuid'],
             'department_id' => ['nullable', 'uuid', Rule::exists('people_departments', 'id')],
+            'employment_stage' => ['nullable', Rule::in(['probation', 'permanent'])],
         ]);
 
-        if (empty($data['user_id']) && empty($data['department_id'])) {
-            Toastr::error('Choose an employee or a department.');
+        if (empty($data['user_id']) && empty($data['department_id']) && empty($data['employment_stage'])) {
+            Toastr::error('Choose an employee, a department, or an employee type.');
 
             return back();
         }
 
         $policy = PeopleLeavePolicy::query()->findOrFail($data['policy_id']);
         $when = $policy->accrual_type === 'monthly'
-            ? 'The days are on the balance now, and again one month from today.'
-            : 'The days are on the balance now, and again one year from today.';
+            ? 'The days are on the balance now. The next credit is on the 1st of next month.'
+            : 'A share of the year is on the balance now. The full amount is added on 1 January.';
+        if (! empty($data['employment_stage'])) {
+            $count = $this->leaveAccrual->attachStage($data['employment_stage'], $policy, now());
+            $label = $data['employment_stage'] === 'probation' ? 'Probation' : 'Permanent';
+            $message = $count === 0
+                ? $label.' will use this policy. No one in that employee type was updated.'
+                : 'Leave policy assigned to '.$count.' '.$label.' '.($count === 1 ? 'employee' : 'employees').'. '.$when;
+            Toastr::success($message);
+
+            return redirect()->route('admin.hr.index', [
+                'section' => 'leave',
+                'tab' => 'configure',
+                'policy' => $policy->id,
+            ]);
+        }
         if (! empty($data['department_id'])) {
             $department = PeopleDepartment::query()->findOrFail($data['department_id']);
             $count = $this->leaveAccrual->attachDepartment($department, $policy, now());
@@ -511,12 +601,28 @@ class PeopleHrController extends Controller
         ]);
     }
 
+    public function detachLeaveStage(PeopleLeavePolicy $policy, string $stage): RedirectResponse
+    {
+        $this->requireHr();
+        if (! in_array($stage, ['probation', 'permanent'], true)) {
+            abort(404);
+        }
+        $this->leaveAccrual->detachStage($stage, $policy);
+        Toastr::success(($stage === 'probation' ? 'Probation' : 'Permanent').' no longer uses this policy.');
+
+        return redirect()->route('admin.hr.index', [
+            'section' => 'leave',
+            'tab' => 'configure',
+            'policy' => $policy->id,
+        ]);
+    }
+
     public function unassignLeavePolicy(PeopleLeaveAssignment $assignment): RedirectResponse
     {
         $this->requireHr();
         $policyId = $assignment->leave_policy_id;
-        $assignment->delete();
-        Toastr::success('Policy removed from this person.');
+        $this->leaveAccrual->releaseAssignment($assignment);
+        Toastr::success('Direct assignment removed. An employee type or department policy applies again when one is set.');
 
         return redirect()->route('admin.hr.index', [
             'section' => 'leave',
@@ -528,9 +634,14 @@ class PeopleHrController extends Controller
     public function grantLeave(Request $request): RedirectResponse
     {
         $actor = $this->requireHr();
+        $request->merge([
+            'direction' => $request->input('direction') ?: 'add',
+            'note' => $request->input('note') ?: null,
+        ]);
         $data = $request->validate([
             'user_id' => ['required', 'uuid'],
             'leave_type' => ['required', Rule::exists('people_leave_types', 'code')->where('tracks_balance', 1)],
+            'direction' => ['required', Rule::in(['add', 'remove'])],
             'days' => ['required', 'numeric', 'min:0.5', 'max:365'],
             'note' => ['nullable', 'string', 'max:200'],
         ]);
@@ -543,10 +654,11 @@ class PeopleHrController extends Controller
 
         $this->workspace->ensureStaffFile(User::query()->findOrFail($data['user_id']));
         try {
-            $this->leaveAccrual->grant(
+            $this->leaveAccrual->adjust(
                 $data['user_id'],
                 $data['leave_type'],
                 (float) $data['days'],
+                $data['direction'],
                 $actor->id,
                 $data['note'] ?? null,
             );
@@ -556,9 +668,10 @@ class PeopleHrController extends Controller
             return back()->withInput();
         }
 
-        Toastr::success($this->workspace->leaveLabel($data['leave_type']).' leave added.');
+        $label = $this->workspace->leaveLabel($data['leave_type']);
+        Toastr::success($data['direction'] === 'remove' ? $label.' leave removed.' : $label.' leave added.');
 
-        return redirect()->route('admin.hr.index', ['section' => 'leave', 'tab' => 'policies']);
+        return $this->hrRedirect($request, 'leave', 'leaves', $data['user_id'], ['tab' => 'policies']);
     }
 
     public function cancelLeave(PeopleLeaveRequest $leaveRequest): RedirectResponse
@@ -642,7 +755,7 @@ class PeopleHrController extends Controller
 
         Toastr::success('Draft payroll built for '.$data['period'].'.');
 
-        return redirect()->route('admin.hr.index', ['section' => 'payroll', 'period' => $data['period']]);
+        return redirect()->route('admin.accounts.payroll', ['period' => $data['period']]);
     }
 
     public function holdPayslip(PeoplePayslip $payslip): RedirectResponse
@@ -657,7 +770,7 @@ class PeopleHrController extends Controller
         $payslip->forceFill(['held' => ! $payslip->held])->save();
         Toastr::success($payslip->held ? 'Held out of this month.' : 'Put back into this month.');
 
-        return redirect()->route('admin.hr.index', ['section' => 'payroll', 'period' => $payslip->period]);
+        return redirect()->route('admin.accounts.payroll', ['period' => $payslip->period]);
     }
 
     public function publishPayroll(Request $request): RedirectResponse
@@ -687,7 +800,7 @@ class PeopleHrController extends Controller
 
         Toastr::success($count.' payslip'.($count === 1 ? '' : 's').' published.');
 
-        return redirect()->route('admin.hr.index', ['section' => 'payroll', 'period' => $data['period']]);
+        return redirect()->route('admin.accounts.payroll', ['period' => $data['period']]);
     }
 
     public function lockAttendance(Request $request): RedirectResponse
@@ -704,7 +817,7 @@ class PeopleHrController extends Controller
         $run->forceFill(['attendance_locked' => true])->save();
         Toastr::success('Attendance for that month is locked.');
 
-        return redirect()->route('admin.hr.index', ['section' => 'attendance', 'period' => $data['period']]);
+        return redirect()->route('admin.accounts.attendance', ['period' => $data['period']]);
     }
 
     public function lockPayroll(Request $request): RedirectResponse
@@ -725,7 +838,7 @@ class PeopleHrController extends Controller
         ])->save();
         Toastr::success('Month locked. A correction is a later adjustment.');
 
-        return redirect()->route('admin.hr.index', ['section' => 'payroll', 'period' => $data['period']]);
+        return redirect()->route('admin.accounts.payroll', ['period' => $data['period']]);
     }
 
     public function bankFile(Request $request): StreamedResponse
@@ -819,17 +932,24 @@ class PeopleHrController extends Controller
     {
         $this->requireHr();
         $data = $request->validate([
-            'min_hours' => ['required', 'numeric', 'min:0', 'max:24'],
+            'starts_on' => ['required', 'date'],
+            'min_hours_full_time' => ['required', 'numeric', 'min:0', 'max:24'],
+            'min_hours_part_time' => ['required', 'numeric', 'min:0', 'max:24'],
             'week_off' => ['nullable', 'array', 'max:6'],
             'week_off.*' => ['required', Rule::in(PeopleWorkspace::DAY_KEYS)],
         ], [
             'week_off.max' => 'Keep at least one working day in the week.',
         ]);
 
+        $fullTime = round((float) $data['min_hours_full_time'], 1);
+        $partTime = round((float) $data['min_hours_part_time'], 1);
         $off = array_values(array_intersect(PeopleWorkspace::DAY_KEYS, $data['week_off'] ?? []));
         $this->workspace->timesheetSettings()->forceFill([
-            'min_hours' => round((float) $data['min_hours'], 1),
+            'min_hours' => $fullTime,
+            'min_hours_full_time' => $fullTime,
+            'min_hours_part_time' => $partTime,
             'week_off' => $off,
+            'starts_on' => Carbon::parse($data['starts_on'])->toDateString(),
         ])->save();
         Toastr::success('Timesheet settings saved.');
 
@@ -846,7 +966,7 @@ class PeopleHrController extends Controller
 
         $sort = (int) PeopleTimesheetTask::query()->max('sort') + 1;
         PeopleTimesheetTask::query()->create(['name' => $name, 'sort' => $sort]);
-        Toastr::success('Task name added.');
+        Toastr::success('Additional hours added.');
 
         return redirect()->route('admin.hr.index', ['section' => 'configuration']);
     }
@@ -860,7 +980,7 @@ class PeopleHrController extends Controller
         }
 
         $timesheetTask->forceFill(['name' => $name])->save();
-        Toastr::success('Task name saved.');
+        Toastr::success('Additional hours saved.');
 
         return redirect()->route('admin.hr.index', ['section' => 'configuration']);
     }
@@ -869,7 +989,7 @@ class PeopleHrController extends Controller
     {
         $this->requireHr();
         $timesheetTask->delete();
-        Toastr::success('Task name removed.');
+        Toastr::success('Additional hours removed.');
 
         return redirect()->route('admin.hr.index', ['section' => 'configuration']);
     }
@@ -894,6 +1014,7 @@ class PeopleHrController extends Controller
             'tab' => $tab,
             'documents' => PeopleDocument::query()->where('user_id', $user->id)->orderBy('title')->get(),
             'balance' => PeopleLeaveBalance::query()->where('user_id', $user->id)->where('year', (int) now()->year)->first(),
+            'leaveHistory' => $this->workspace->leaveHistory($user->id),
             'leaveRequests' => PeopleLeaveRequest::query()->where('user_id', $user->id)->latest()->get(),
             'structures' => PeopleSalaryStructure::query()->where('user_id', $user->id)->orderByDesc('effective_from')->get(),
             'adjustments' => PeoplePayAdjustment::query()->where('user_id', $user->id)->latest()->limit(12)->get(),
@@ -913,7 +1034,7 @@ class PeopleHrController extends Controller
             return null;
         }
         if ($this->timesheetTaskNameTaken($name, $ignoreId)) {
-            Toastr::error('That task name is already on the list.');
+            Toastr::error('That name is already on the list.');
 
             return null;
         }
@@ -946,11 +1067,14 @@ class PeopleHrController extends Controller
     {
         $userId = $userId ?: (string) $request->input('user_id');
         if ($request->input('return_to') === 'person' && $userId !== '') {
-            return redirect()->route('admin.hr.index', [
-                'section' => 'person',
-                'user' => $userId,
+            return redirect()->route('admin.employee.profile', [
+                'id' => $userId,
                 'tab' => $personTab,
             ]);
+        }
+
+        if (in_array($fallbackSection, ['attendance', 'payroll', 'salary'], true)) {
+            return redirect()->route('admin.accounts.'.$fallbackSection, $fallbackQuery);
         }
 
         return redirect()->route('admin.hr.index', array_merge(['section' => $fallbackSection], $fallbackQuery));
@@ -965,9 +1089,9 @@ class PeopleHrController extends Controller
 
     private function leaveTab(Request $request): string
     {
-        $tab = (string) $request->query('tab', 'policies');
+        $tab = (string) $request->query('tab', 'types');
 
-        return in_array($tab, ['types', 'policies', 'configure'], true) ? $tab : 'policies';
+        return in_array($tab, ['types', 'policies', 'balances', 'configure'], true) ? $tab : 'types';
     }
 
     private function leaveTypeShortTaken(string $short, ?string $ignoreId = null): bool
@@ -1031,10 +1155,32 @@ class PeopleHrController extends Controller
 
     private function section(Request $request): string
     {
-        $section = (string) $request->query('section', 'home');
+        $section = match (true) {
+            $request->routeIs('admin.accounts.attendance') => 'attendance',
+            $request->routeIs('admin.accounts.payroll') => 'payroll',
+            $request->routeIs('admin.accounts.salary') => 'salary',
+            default => (string) ($request->route('section') ?: $request->query('section', 'home')),
+        };
         $allowed = ['home', 'people', 'person', 'departments', 'leave', 'attendance', 'salary', 'payroll', 'configuration'];
 
         return in_array($section, $allowed, true) ? $section : 'home';
+    }
+
+    private function redirectMovedSection(Request $request, string $section): ?RedirectResponse
+    {
+        if ($request->routeIs('admin.accounts.*')) {
+            return null;
+        }
+
+        $query = $request->except('section');
+
+        return match ($section) {
+            'attendance' => redirect()->route('admin.accounts.attendance', $query),
+            'payroll' => redirect()->route('admin.accounts.payroll', $query),
+            'salary' => redirect()->route('admin.accounts.salary', $query),
+            'home' => redirect()->route('admin.dashboard.people'),
+            default => null,
+        };
     }
 
     private function requireHr(): User

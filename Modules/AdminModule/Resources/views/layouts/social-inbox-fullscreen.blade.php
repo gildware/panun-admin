@@ -11,15 +11,13 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ $site_direction }}">
 
 <head>
-    <title>@yield('title')</title>
+    @include('adminmodule::layouts.partials._document-head')
 
     <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
     <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    @php($favIcon = getBusinessSettingsImageFullPath(key: 'business_favicon', settingType: 'business_information', path: 'business/',  defaultPath : 'assets/placeholder.png'))
-    <link rel="shortcut icon" href="{{ $favIcon }}"/>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

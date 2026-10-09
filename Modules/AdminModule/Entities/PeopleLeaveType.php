@@ -15,11 +15,13 @@ class PeopleLeaveType extends Model
         'short_name',
         'code',
         'tracks_balance',
+        'allows_future',
         'sort',
     ];
 
     protected $casts = [
         'tracks_balance' => 'boolean',
+        'allows_future' => 'boolean',
     ];
 
     public function policies(): HasMany

@@ -3,6 +3,7 @@
 namespace Modules\AdminModule\Http\Controllers\Web\Admin;
 
 use App\Support\AdminHeaderChatCounts;
+use App\Support\AdminWorkspace;
 use App\Support\EmployeeSearchAccessFilter;
 use App\Traits\UploadSizeHelperTrait;
 use Carbon\Carbon;
@@ -437,17 +438,38 @@ class AdminController extends Controller
             return $check;
         }
 
+        $imageRule = 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key'));
+        $user = $this->user->find($request->user()->id);
+
+        if (is_admin_employee()) {
+            $request->validate([
+                'profile_image' => $imageRule,
+                'password' => 'nullable',
+                'confirm_password' => $request->filled('password') ? 'required|same:password' : 'nullable',
+            ]);
+
+            if ($request->hasFile('profile_image')) {
+                $user->profile_image = file_uploader('user/profile_image/', APPLICATION_IMAGE_FORMAT, $request->profile_image, $user->profile_image);
+            }
+            if ($request->filled('password')) {
+                $user->password = bcrypt($request->password);
+            }
+            $user->save();
+
+            Toastr::success(translate(DEFAULT_UPDATE_200['message']));
+            return back();
+        }
+
         $request->validate([
             'first_name' => 'required',
             'last_name' => 'required',
             'email' => 'required',
             'phone' => 'required',
-            'profile_image' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+            'profile_image' => $imageRule,
             'password' => '',
             'confirm_password' => !is_null($request->password) ? 'required|same:password' : '',
         ]);
 
-        $user = $this->user->find($request->user()->id);
         $user->first_name = $request->first_name;
         $user->email = $request->email;
         $user->phone = $request->phone;
@@ -473,12 +495,16 @@ class AdminController extends Controller
     {
         $user = $request->user();
         $userId = $user->id;
+        $workspace = AdminWorkspace::current();
+        if ($workspace === AdminWorkspace::HR) {
+            app(\Modules\AdminModule\Services\PeopleWorkspace::class)->notifyOutstandingApprovals();
+        }
 
         // Cache scalar unread counts only — never the rendered notification HTML.
         // Caching the template made this endpoint fail when disk cache writes failed
         // (full disk), which left all header badges stuck at CSS display:none.
         try {
-            $counts = Cache::remember("admin_header_counts:{$userId}", 30, function () use ($userId, $user, $inboxNotificationService) {
+            $counts = Cache::remember("admin_header_counts:{$userId}:{$workspace}", 30, function () use ($userId, $user, $inboxNotificationService, $workspace) {
                 $staffUnreadMessages = AdminHeaderChatCounts::staffUnreadMessages($user);
 
                 return [
@@ -486,12 +512,12 @@ class AdminController extends Controller
                     'staff_message' => $staffUnreadMessages,
                     'staff_unread_messages' => $staffUnreadMessages,
                     'customer_provider_unread_messages' => AdminHeaderChatCounts::supportUnreadMessages($user),
-                    'notification_unread_count' => $inboxNotificationService->unreadCount((string) $userId),
-                    'notification_external_unread_count' => $inboxNotificationService->unreadCount((string) $userId, UserNotification::CATEGORY_EXTERNAL),
-                    'notification_internal_unread_count' => $inboxNotificationService->unreadCount((string) $userId, UserNotification::CATEGORY_INTERNAL),
-                    'notification_read_count' => $inboxNotificationService->readCount((string) $userId),
-                    'notification_external_read_count' => $inboxNotificationService->readCount((string) $userId, UserNotification::CATEGORY_EXTERNAL),
-                    'notification_internal_read_count' => $inboxNotificationService->readCount((string) $userId, UserNotification::CATEGORY_INTERNAL),
+                    'notification_unread_count' => $inboxNotificationService->unreadCount((string) $userId, null, $workspace),
+                    'notification_external_unread_count' => $inboxNotificationService->unreadCount((string) $userId, UserNotification::CATEGORY_EXTERNAL, $workspace),
+                    'notification_internal_unread_count' => $inboxNotificationService->unreadCount((string) $userId, UserNotification::CATEGORY_INTERNAL, $workspace),
+                    'notification_read_count' => $inboxNotificationService->readCount((string) $userId, null, $workspace),
+                    'notification_external_read_count' => $inboxNotificationService->readCount((string) $userId, UserNotification::CATEGORY_EXTERNAL, $workspace),
+                    'notification_internal_read_count' => $inboxNotificationService->readCount((string) $userId, UserNotification::CATEGORY_INTERNAL, $workspace),
                 ];
             });
         } catch (\Throwable $e) {
@@ -502,12 +528,12 @@ class AdminController extends Controller
                 'staff_message' => $staffUnreadMessages,
                 'staff_unread_messages' => $staffUnreadMessages,
                 'customer_provider_unread_messages' => AdminHeaderChatCounts::supportUnreadMessages($user),
-                'notification_unread_count' => $inboxNotificationService->unreadCount((string) $userId),
-                'notification_external_unread_count' => $inboxNotificationService->unreadCount((string) $userId, UserNotification::CATEGORY_EXTERNAL),
-                'notification_internal_unread_count' => $inboxNotificationService->unreadCount((string) $userId, UserNotification::CATEGORY_INTERNAL),
-                'notification_read_count' => $inboxNotificationService->readCount((string) $userId),
-                'notification_external_read_count' => $inboxNotificationService->readCount((string) $userId, UserNotification::CATEGORY_EXTERNAL),
-                'notification_internal_read_count' => $inboxNotificationService->readCount((string) $userId, UserNotification::CATEGORY_INTERNAL),
+                'notification_unread_count' => $inboxNotificationService->unreadCount((string) $userId, null, $workspace),
+                'notification_external_unread_count' => $inboxNotificationService->unreadCount((string) $userId, UserNotification::CATEGORY_EXTERNAL, $workspace),
+                'notification_internal_unread_count' => $inboxNotificationService->unreadCount((string) $userId, UserNotification::CATEGORY_INTERNAL, $workspace),
+                'notification_read_count' => $inboxNotificationService->readCount((string) $userId, null, $workspace),
+                'notification_external_read_count' => $inboxNotificationService->readCount((string) $userId, UserNotification::CATEGORY_EXTERNAL, $workspace),
+                'notification_internal_read_count' => $inboxNotificationService->readCount((string) $userId, UserNotification::CATEGORY_INTERNAL, $workspace),
             ];
         }
 
@@ -518,7 +544,7 @@ class AdminController extends Controller
 
         $notificationExternalTemplate = view('adminmodule::admin.partials._notifications', [
             'category' => UserNotification::CATEGORY_EXTERNAL,
-            'notifications' => $inboxNotificationService->recent((string) $userId, 10, UserNotification::CATEGORY_EXTERNAL),
+            'notifications' => $inboxNotificationService->recent((string) $userId, 10, UserNotification::CATEGORY_EXTERNAL, $workspace),
             'unreadCount' => $externalUnreadCount,
             'readCount' => $externalReadCount,
             'compact' => true,
@@ -526,7 +552,7 @@ class AdminController extends Controller
 
         $notificationInternalTemplate = view('adminmodule::admin.partials._notifications', [
             'category' => UserNotification::CATEGORY_INTERNAL,
-            'notifications' => $inboxNotificationService->recent((string) $userId, 10, UserNotification::CATEGORY_INTERNAL),
+            'notifications' => $inboxNotificationService->recent((string) $userId, 10, UserNotification::CATEGORY_INTERNAL, $workspace),
             'unreadCount' => $internalUnreadCount,
             'readCount' => $internalReadCount,
             'compact' => true,
@@ -538,10 +564,16 @@ class AdminController extends Controller
             [$whatsappUnreadChats, $whatsappUnreadMessages] = WhatsAppAdminUnread::counts();
         }
 
+        $workspaceTypes = UserNotification::typesForWorkspace($workspace);
         $newNotificationAlerts = UserNotification::query()
             ->where('user_id', $userId)
             ->whereNull('read_at')
             ->where('created_at', '>=', now()->subMinutes(2))
+            ->when(
+                $workspaceTypes === [],
+                fn ($query) => $query->whereRaw('0 = 1'),
+                fn ($query) => $query->whereIn('type', $workspaceTypes),
+            )
             ->latest()
             ->take(5)
             ->get(['id', 'type', 'title', 'body', 'action_url'])
@@ -568,6 +600,7 @@ class AdminController extends Controller
                 'whatsapp_unread_chats' => $whatsappUnreadChats,
                 'whatsapp_unread_messages' => $whatsappUnreadMessages,
                 'new_notification_alerts' => $newNotificationAlerts,
+                'notification_workspace' => $workspace,
                 'presence_status' => $presenceStatus,
                 'presence_label' => $presenceLabel,
             ]),
@@ -591,7 +624,7 @@ class AdminController extends Controller
             $category = null;
         }
 
-        $inboxNotificationService->markAllAsRead((string) $request->user()->id, $category);
+        $inboxNotificationService->markAllAsRead((string) $request->user()->id, $category, AdminWorkspace::current());
 
         return response()->json([
             'status' => 1,
@@ -631,6 +664,11 @@ class AdminController extends Controller
         $modelSearchResults = $this->advanceSearchService->searchModelList($searchKeyword,"admin");
         $allRoutes = $this->advanceSearchService->sortByPriority($formattedRoutes, $modelSearchResults, $menuSearchResults, $searchKeyword);
         $allRoutes = app(EmployeeSearchAccessFilter::class)->filterGroupedResults($allRoutes);
+        $workspace = $request->input('workspace');
+        $allRoutes = \App\Support\AdminWorkspace::filterSearchGroups(
+            $allRoutes,
+            is_string($workspace) ? $workspace : null
+        );
 
         return response()->json([
             'keyword' => $searchKeyword,
@@ -753,6 +791,11 @@ class AdminController extends Controller
         });
         $result = $this->advanceSearchService->getSortRecentSearchByType($formattedResult);
         $result = app(EmployeeSearchAccessFilter::class)->filterGroupedResults($result);
+        $workspace = request()->query('workspace');
+        $result = \App\Support\AdminWorkspace::filterSearchGroups(
+            $result,
+            is_string($workspace) ? $workspace : null
+        );
 
         return response()->json([
             'keyword' => '',

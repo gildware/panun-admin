@@ -118,7 +118,7 @@ body.nav-top.open-aside-folded .main-area {
     gap: 0.5rem;
     padding: 0.45rem 0.9375rem 0.35rem;
     min-height: 2.75rem;
-    background: #1A1C38;
+    background: var(--bs-primary, #25274d);
     color: #fff;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     position: relative;
@@ -152,7 +152,7 @@ body.nav-top.open-aside-folded .main-area {
 .top-utility-scroll {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: flex-start;
     gap: 0.25rem;
     min-width: 0;
     overflow-x: auto;
@@ -168,6 +168,10 @@ body.nav-top.open-aside-folded .main-area {
 .top-utility-scroll > .top-utility-user-wrap,
 .top-utility-scroll > .home-cache-reset-wrap {
     flex-shrink: 0;
+}
+
+.top-utility-scroll > .top-utility-user-wrap {
+    margin-left: auto;
 }
 
 .top-utility-scroll::-webkit-scrollbar {
@@ -630,11 +634,11 @@ body:not(.top-chrome-auto-hide) .top-chrome-mode-option--unpin {
 }
 
 .top-utility-icon-btn .header-unread-dot {
-    border: 1.5px solid #1A1C38;
+    border: 1.5px solid var(--bs-primary, #25274d);
 }
 
 .top-utility-action-btn .header-unread-dot {
-    border: 1.5px solid #1A1C38;
+    border: 1.5px solid var(--bs-primary, #25274d);
 }
 
 .count-btn .header-unread-dot {
@@ -830,21 +834,21 @@ body:not(.top-chrome-auto-hide) .top-chrome-mode-option--unpin {
 }
 
 .top-nav-inner--employee .top-nav-trigger:hover {
-    background: rgba(26, 28, 56, 0.08);
-    color: #1A1C38;
+    background: var(--bs-primary-light-bg);
+    color: var(--bs-primary);
 }
 
 .top-nav-inner--employee .top-nav-trigger.is-active,
 .top-nav-inner--employee .top-nav-trigger.active-menu,
 .top-nav-inner--employee .top-nav-item.is-open > .top-nav-trigger {
-    background: #1A1C38;
+    background: var(--bs-primary);
     color: #fff;
 }
 
 .top-nav-inner--employee .top-nav-trigger.is-active:hover,
 .top-nav-inner--employee .top-nav-trigger.active-menu:hover,
 .top-nav-inner--employee .top-nav-item.is-open > .top-nav-trigger:hover {
-    background: #1A1C38;
+    background: var(--bs-primary-dark);
     color: #fff;
 }
 
@@ -865,6 +869,38 @@ body:not(.top-chrome-auto-hide) .top-chrome-mode-option--unpin {
     font-size: 0.78125rem;
     min-height: 2rem;
     line-height: 1.2;
+}
+
+.top-nav-inner--admin-compact .top-nav-item--corner-badge > .top-nav-trigger,
+.top-nav-inner--employee .top-nav-item--corner-badge > .top-nav-trigger {
+    position: relative;
+    overflow: visible;
+    padding-right: 1.2rem;
+}
+
+.top-nav-item--corner-badge .top-nav-label-wrap--badged {
+    gap: 0;
+}
+
+.top-nav-inner--admin-compact .top-nav-item--corner-badge > .top-nav-trigger .top-nav-count-badge,
+.top-nav-inner--employee .top-nav-item--corner-badge > .top-nav-trigger .top-nav-count-badge,
+.top-nav-inner--admin-compact .top-nav-item--corner-badge > .top-nav-trigger:hover .top-nav-count-badge,
+.top-nav-inner--admin-compact .top-nav-item--corner-badge > .top-nav-trigger.active-menu .top-nav-count-badge,
+.top-nav-inner--employee .top-nav-item--corner-badge > .top-nav-trigger:hover .top-nav-count-badge,
+.top-nav-inner--employee .top-nav-item--corner-badge > .top-nav-trigger.is-active .top-nav-count-badge,
+.top-nav-inner--employee .top-nav-item--corner-badge > .top-nav-trigger.active-menu .top-nav-count-badge {
+    position: absolute;
+    top: 1px;
+    right: 3px;
+    z-index: 2;
+    min-width: 0.95rem;
+    height: 0.95rem;
+    padding: 0 0.2rem;
+    background: #b91c1c;
+    color: #fff;
+    border: 1.5px solid #fff;
+    box-sizing: border-box;
+    line-height: 0.75rem;
 }
 
 .top-nav-inner--admin-compact .top-nav-trigger .material-icons,
@@ -1933,4 +1969,108 @@ body.nav-top .main-area > turbo-frame.admin-main-frame > footer.footer {
     .top-nav-admin-divider-label {
         display: none;
     }
+}
+
+body.workspace-operations {
+    --workspace-accent: #25274d;
+    --bs-primary: #25274d;
+    --bs-primary-rgb: 37, 39, 77;
+    --bs-primary-dark: #1a1c38;
+    --bs-primary-light: #ebebf0;
+    --bs-primary-light-bg: rgba(37, 39, 77, 0.08);
+    --btn-rgb: 37, 39, 77;
+}
+
+body.workspace-hr {
+    --workspace-accent: #c2410c;
+    --bs-primary: #c2410c;
+    --bs-primary-rgb: 194, 65, 12;
+    --bs-primary-dark: #9a3412;
+    --bs-primary-light: #ffedd5;
+    --bs-primary-light-bg: rgba(194, 65, 12, 0.1);
+    --btn-rgb: 194, 65, 12;
+}
+
+body.workspace-training {
+    --workspace-accent: #0f766e;
+    --bs-primary: #0f766e;
+    --bs-primary-rgb: 15, 118, 110;
+    --bs-primary-dark: #115e59;
+    --bs-primary-light: #ccfbf1;
+    --bs-primary-light-bg: rgba(15, 118, 110, 0.1);
+    --btn-rgb: 15, 118, 110;
+}
+
+body.workspace-marketing {
+    --workspace-accent: #6d28d9;
+    --bs-primary: #6d28d9;
+    --bs-primary-rgb: 109, 40, 217;
+    --bs-primary-dark: #5b21b6;
+    --bs-primary-light: #ede9fe;
+    --bs-primary-light-bg: rgba(109, 40, 217, 0.1);
+    --btn-rgb: 109, 40, 217;
+}
+
+body.workspace-settings {
+    --workspace-accent: #1d4ed8;
+    --bs-primary: #1d4ed8;
+    --bs-primary-rgb: 29, 78, 216;
+    --bs-primary-dark: #1e40af;
+    --bs-primary-light: #dbeafe;
+    --bs-primary-light-bg: rgba(29, 78, 216, 0.1);
+    --btn-rgb: 29, 78, 216;
+}
+
+body.workspace-accounts {
+    --workspace-accent: #15803d;
+    --bs-primary: #15803d;
+    --bs-primary-rgb: 21, 128, 61;
+    --bs-primary-dark: #166534;
+    --bs-primary-light: #dcfce7;
+    --bs-primary-light-bg: rgba(21, 128, 61, 0.1);
+    --btn-rgb: 21, 128, 61;
+}
+
+body.nav-top .top-nav-bar {
+    box-shadow: inset 0 -3px 0 var(--workspace-accent, transparent);
+}
+
+body.workspace-choosing .top-nav-bar {
+    display: none;
+}
+
+.top-utility-brand-wrap .workspace-switch {
+    flex-shrink: 0;
+}
+
+.workspace-switch-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid rgba(255, 255, 255, .2);
+    background: rgba(255, 255, 255, .08);
+    color: #fff;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.workspace-switch-btn:hover,
+.workspace-switch-btn:focus {
+    color: #fff;
+    background: rgba(255, 255, 255, .14);
+}
+
+.workspace-switch-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 99px;
+    background: var(--workspace-accent, #fff);
+    flex: 0 0 auto;
+}
+
+.workspace-switch-menu {
+    min-width: 12rem;
 }

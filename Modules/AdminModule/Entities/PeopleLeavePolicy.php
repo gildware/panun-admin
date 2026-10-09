@@ -16,10 +16,12 @@ class PeopleLeavePolicy extends Model
         'leave_type_id',
         'accrual_type',
         'days',
+        'carry_limit',
     ];
 
     protected $casts = [
         'days' => 'float',
+        'carry_limit' => 'float',
     ];
 
     public function leaveType(): BelongsTo
@@ -35,7 +37,7 @@ class PeopleLeavePolicy extends Model
     public function summary(): string
     {
         $label = strtolower($this->leaveType->name ?? 'leave');
-        $when = $this->accrual_type === 'monthly' ? 'each month' : 'each year';
+        $when = $this->accrual_type === 'monthly' ? 'on the 1st of each month' : 'on 1 January';
 
         return self::formatDays((float) $this->days).' '.$label.' '.$when;
     }

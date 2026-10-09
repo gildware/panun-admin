@@ -68,6 +68,12 @@ class AdminInboxNotificationCategoryTest extends TestCase
             UserNotification::TYPE_BOOKING_ASSIGNED,
             UserNotification::TYPE_WHATSAPP_ASSIGNED,
             UserNotification::TYPE_LEAD_FOLLOWUP_DUE,
+            UserNotification::TYPE_LEAVE_REQUEST,
+            UserNotification::TYPE_LEAVE_DECIDED,
+            UserNotification::TYPE_TIMESHEET_SUBMITTED,
+            UserNotification::TYPE_TIMESHEET_DECIDED,
+            UserNotification::TYPE_DOCUMENT_SUBMITTED,
+            UserNotification::TYPE_DOCUMENT_DECIDED,
         ];
 
         $cases = [];

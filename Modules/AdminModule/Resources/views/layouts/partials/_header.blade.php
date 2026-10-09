@@ -91,15 +91,6 @@
                     <ul class="nav justify-content-end align-items-center gap-3 gap-md-4">
                         @if(!is_admin_employee())
                         <li class="nav-item max-sm-m-0">
-                            <a href="{{ route('admin.dashboard.operating-system') }}"
-                               class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none"
-                               data-turbo="false"
-                               title="{{ translate('Operating_System') }}">
-                                <span class="material-symbols-outlined" aria-hidden="true">account_tree</span>
-                                <span class="d-none d-md-block">{{ translate('Operating_System') }}</span>
-                            </a>
-                        </li>
-                        <li class="nav-item max-sm-m-0">
                             <a href="{{ route('admin.dashboard.business-system') }}"
                                class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none"
                                data-turbo="false"
@@ -253,11 +244,13 @@
                             </div>
                         </li>
                         @endcan
+                        @if(\Modules\AdminModule\Entities\UserNotification::typesForWorkspace(admin_workspace(), \Modules\AdminModule\Entities\UserNotification::CATEGORY_EXTERNAL) !== [])
                         <li class="nav-item max-sm-m-0">
                             @include('adminmodule::layouts.partials._notification-dropdown', [
                                 'category' => \Modules\AdminModule\Entities\UserNotification::CATEGORY_EXTERNAL,
                             ])
                         </li>
+                        @endif
                         <li class="nav-item max-sm-m-0">
                             @include('adminmodule::layouts.partials._notification-dropdown', [
                                 'category' => \Modules\AdminModule\Entities\UserNotification::CATEGORY_INTERNAL,
@@ -272,8 +265,7 @@
                                          class="rounded-circle aspect-square object-fit-cover" alt="{{ translate('profile_image') }}">
                                 </a>
                                 <div class="dropdown-menu dropdown-menu-right">
-                                    <a href="{{route('admin.profile_update')}}"
-                                       class="dropdown-item-text media gap-3 align-items-center">
+                                    <div class="dropdown-item-text media gap-3 align-items-center">
                                         <div class="avatar">
                                             <img class="avatar-img rounded-circle aspect-square object-fit-cover" width="50" height="50"
                                                  src="{{auth()->user()->profile_image_full_path}}"
@@ -283,10 +275,7 @@
                                             <h5 class="card-title">{{ Str::limit(auth()->user()?->first_name, 20) }}</h5>
                                             <span class="card-text">{{ Str::limit(auth()->user()?->email, 20) }}</span>
                                         </div>
-                                    </a>
-                                    <a class="dropdown-item" href="{{route('admin.profile_update')}}">
-                                        <span class="text-truncate" title="{{translate('Settings')}}">{{translate('Settings')}}</span>
-                                    </a>
+                                    </div>
                                     <a class="dropdown-item admin-logout">
                                         <span class="text-truncate cursor-pointer" title="{{translate('Sign Out')}}">{{translate('Sign_Out')}}</span>
                                     </a>

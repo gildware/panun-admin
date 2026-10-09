@@ -12,6 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Montserrat:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Noto+Sans:wght@400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         .process-guide-page {
+            --pg-accent: var(--workspace-accent, var(--bs-primary, #0f766e));
             --pg-line: #e2e8f0;
             --pg-radius: 16px;
             --pg-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.05);
@@ -607,8 +608,8 @@
             color: #0f766e;
         }
         .process-guide-page .pg-guide-tab.is-active {
-            background: #0f172a;
-            border-color: #0f172a;
+            background: var(--pg-accent);
+            border-color: var(--pg-accent);
             color: #fff;
         }
         .process-guide-page .pg-flowchart-reference .pg-text-section {
@@ -870,12 +871,12 @@
             background: #2a2a4a;
         }
         .process-guide-page .pg-training-guide.is-presentation .pg-training-nav-btn--primary {
-            background: #e8b818;
-            border-color: #e8b818;
-            color: #121228;
+            background: var(--pg-accent);
+            border-color: var(--pg-accent);
+            color: #fff;
         }
         .process-guide-page .pg-training-guide.is-presentation .pg-training-nav-btn--primary:hover:not(:disabled) {
-            background: #f3c83a;
+            background: var(--bs-primary-dark, #115e59);
         }
         .process-guide-page .pg-training-guide.is-presentation .pg-training-nav-counter {
             color: rgba(255, 255, 255, .72);
@@ -968,8 +969,8 @@
         }
         .process-guide-page .pg-training-toc-link:hover { background: #f1f5f9; border-color: #cbd5e1; }
         .process-guide-page .pg-training-toc-link.is-active {
-            background: #1e293b;
-            border-color: #1e293b;
+            background: var(--pg-accent);
+            border-color: var(--pg-accent);
             color: #fff;
         }
         .process-guide-page .pg-training-toc-link.is-active .pg-training-toc-num {
@@ -3551,11 +3552,11 @@
             cursor: not-allowed;
         }
         .process-guide-page .pg-training-nav-btn--primary {
-            background: #1e293b;
-            border-color: #1e293b;
+            background: var(--pg-accent);
+            border-color: var(--pg-accent);
             color: #fff;
         }
-        .process-guide-page .pg-training-nav-btn--primary:hover:not(:disabled) { background: #334155; }
+        .process-guide-page .pg-training-nav-btn--primary:hover:not(:disabled) { background: var(--bs-primary-dark, #115e59); }
         .process-guide-page .pg-training-nav-counter {
             font-size: .78rem;
             font-weight: 700;
@@ -3749,9 +3750,9 @@
             --pk-navy: #0C1724;
             --pk-navy-2: #132233;
             --pk-slate: #354657;
-            --pk-teal: #3EA79D;
-            --pk-gold: #E2B44C;
-            --pk-gold-2: #F6CF6C;
+            --pk-teal: var(--pg-accent, #0f766e);
+            --pk-gold: #5eead4;
+            --pk-gold-2: #99f6e4;
             --pk-sand: #DBAE89;
             --pk-muted: #647482;
             --pk-mist: #B0BCC6;
@@ -3948,8 +3949,8 @@
             margin-top: 1.35rem;
             padding: .45rem .85rem;
             border-radius: 999px;
-            background: var(--pk-gold);
-            color: var(--pk-navy);
+            background: var(--pg-accent, #0f766e);
+            color: #fff;
             font-size: .72rem;
             font-weight: 800;
             letter-spacing: .12em;
@@ -4281,8 +4282,8 @@
             min-width: 11rem;
             padding: 1rem 1rem;
             border-radius: 16px;
-            background: var(--pk-gold);
-            color: var(--pk-navy);
+            background: var(--pg-accent, #0f766e);
+            color: #fff;
             text-align: center;
             font-size: .95rem;
             font-weight: 800;
@@ -4318,8 +4319,8 @@
             font-weight: 700;
         }
         .pg-training-guide[data-pg-deck="panun-kaergar"] .pg-pk-people-core {
-            background: var(--pk-gold);
-            color: var(--pk-navy);
+            background: var(--pg-accent, #0f766e);
+            color: #fff;
             border: 0;
             text-align: center;
         }
@@ -4381,8 +4382,8 @@
         .pg-training-guide[data-pg-deck="panun-kaergar"] .pg-pk-funnel-brand {
             padding: .7rem 1.6rem;
             border-radius: 12px;
-            background: var(--pk-gold);
-            color: var(--pk-navy);
+            background: var(--pg-accent, #0f766e);
+            color: #fff;
             font-weight: 800;
             letter-spacing: .1em;
             text-transform: uppercase;
@@ -4551,14 +4552,14 @@
             place-items: center;
             text-align: center;
             background:
-                radial-gradient(ellipse 70% 55% at 50% 42%, rgba(226,180,76,.14) 0%, rgba(12,23,36,0) 62%),
+                radial-gradient(ellipse 70% 55% at 50% 42%, rgba(15, 118, 110,.14) 0%, rgba(12,23,36,0) 62%),
                 #0C1724;
         }
         .pg-training-guide[data-pg-deck="panun-kaergar"] .pg-pk-stage--centered::before {
             content: "";
             position: absolute;
             inset: 1.1rem 1.25rem;
-            border: 1px solid rgba(226, 180, 76, .22);
+            border: 1px solid rgba(15, 118, 110, .22);
             pointer-events: none;
             z-index: 2;
         }
@@ -4579,12 +4580,12 @@
             height: 4.15rem;
             margin: 0 auto .85rem;
             border-radius: 50%;
-            border: 1px solid rgba(226, 180, 76, .55);
+            border: 1px solid rgba(15, 118, 110, .55);
             background: rgba(19, 34, 51, .9);
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 0 0 7px rgba(226, 180, 76, .08);
+            box-shadow: 0 0 0 7px rgba(15, 118, 110, .08);
         }
         .pg-training-guide[data-pg-deck="panun-kaergar"] .pg-pk-stage-logo {
             display: block;
@@ -4634,7 +4635,7 @@
             height: 0;
             margin: 1.05rem auto .95rem;
             border: 0;
-            border-top: 1px solid rgba(226, 180, 76, .42);
+            border-top: 1px solid rgba(15, 118, 110, .42);
         }
         .pg-training-guide[data-pg-deck="panun-kaergar"] .pg-pk-stage--centered .pg-pk-stage-foot {
             margin: 0;
@@ -4650,7 +4651,7 @@
             padding: .5rem 1.15rem;
             font-size: .68rem;
             letter-spacing: .18em;
-            box-shadow: 0 8px 24px rgba(226, 180, 76, .18);
+            box-shadow: 0 8px 24px rgba(15, 118, 110, .18);
         }
         .pg-training-guide[data-pg-deck="panun-kaergar"] .pg-pk-stage-lede { margin-top: .55rem; }
         .pg-training-guide[data-pg-deck="panun-kaergar"] .pg-pk-stage-support { margin-top: .55rem; }
@@ -5027,7 +5028,7 @@
             --pk-forest-2: #132233;
             --pk-cream: #F4EFE4;
             --pk-cream-2: #E8E2D6;
-            --pk-brass: #E2B44C;
+            --pk-brass: var(--pg-accent, #0f766e);
             display: grid;
             grid-template-columns: minmax(0, 0.38fr) minmax(0, 0.62fr);
             flex: 1 1 auto;
@@ -5036,7 +5037,7 @@
             min-height: 0;
             overflow: hidden;
             background:
-                radial-gradient(ellipse 65% 50% at 72% 38%, rgba(226,180,76,.1) 0%, rgba(12,23,36,0) 62%),
+                radial-gradient(ellipse 65% 50% at 72% 38%, rgba(15, 118, 110,.1) 0%, rgba(12,23,36,0) 62%),
                 var(--pk-navy);
             color: #fff;
         }
@@ -5055,7 +5056,7 @@
             background: transparent;
             color: #fff;
             gap: .85rem;
-            border-right: 1px solid rgba(226, 180, 76, .16);
+            border-right: 1px solid rgba(15, 118, 110, .16);
         }
         .pg-training-guide[data-pg-deck="panun-kaergar"] .pg-pk-who-intro-copy {
             display: flex;
@@ -5177,7 +5178,7 @@
             padding: 1rem .65rem 1.05rem;
             border-radius: 16px;
             background: var(--pk-navy-2);
-            border: 1px solid rgba(226, 180, 76, .2);
+            border: 1px solid rgba(15, 118, 110, .2);
             box-shadow: none;
             text-align: center;
         }
@@ -5190,7 +5191,7 @@
             justify-content: center;
             border: 1px solid var(--pk-gold);
             color: var(--pk-gold);
-            background: rgba(226, 180, 76, .1);
+            background: rgba(15, 118, 110, .1);
         }
         .pg-training-guide[data-pg-deck="panun-kaergar"] .pg-pk-who-node .material-symbols-outlined {
             font-size: 1.65rem;
@@ -5223,8 +5224,8 @@
             border-radius: 16px;
             background: var(--pk-navy-2);
             color: #fff;
-            border: 1px solid rgba(226, 180, 76, .45);
-            box-shadow: 0 0 0 6px rgba(226, 180, 76, .08);
+            border: 1px solid rgba(15, 118, 110, .45);
+            box-shadow: 0 0 0 6px rgba(15, 118, 110, .08);
         }
         .pg-training-guide[data-pg-deck="panun-kaergar"] .pg-pk-who-hub-logo {
             display: block;
@@ -5303,7 +5304,7 @@
             color: #fff;
             background: var(--pk-navy-2);
             border-radius: 14px;
-            border: 1px solid rgba(226, 180, 76, .18);
+            border: 1px solid rgba(15, 118, 110, .18);
         }
         .pg-training-guide[data-pg-deck="panun-kaergar"] .pg-pk-who-pillars .material-symbols-outlined {
             font-size: 1.95rem;
@@ -5333,7 +5334,7 @@
             padding: .95rem 1.15rem;
             border-radius: 12px;
             background: var(--pk-navy-2);
-            border: 1px solid rgba(226, 180, 76, .28);
+            border: 1px solid rgba(15, 118, 110, .28);
             color: #F4EFE4;
             font-size: 1.05rem;
             font-weight: 600;
@@ -5403,7 +5404,7 @@
             overflow: hidden;
             padding: 3.1cqh 3.15cqi 2.1cqh;
             background:
-                radial-gradient(ellipse 70% 55% at 78% 18%, rgba(226, 180, 76, .08) 0%, rgba(12, 23, 36, 0) 58%),
+                radial-gradient(ellipse 70% 55% at 78% 18%, rgba(15, 118, 110, .08) 0%, rgba(12, 23, 36, 0) 58%),
                 var(--pk-navy);
             color: #fff;
             font-family: Outfit, "Plus Jakarta Sans", sans-serif;
@@ -5607,7 +5608,7 @@
             padding: 1.15cqh 1.15cqi;
             border-radius: 12px;
             background: var(--pk-navy-2);
-            border: 1px solid rgba(226, 180, 76, .28);
+            border: 1px solid rgba(15, 118, 110, .28);
             border-left: 3px solid var(--pk-gold);
             font-size: clamp(1.02rem, 2.15cqi, 1.42rem);
             font-weight: 650;

@@ -3045,3 +3045,40 @@
     height: 168px;
   }
 }
+
+/* Training content uses the workspace color, not the operations navy/gold pair. */
+body.workspace-training .os-explorer {
+  --navy: var(--workspace-accent, #0f766e);
+  --navy-2: var(--bs-primary-dark, #115e59);
+  --navy-3: #134e4a;
+  --gold: #f0fdfa;
+  --gold-2: #99f6e4;
+}
+body.workspace-training .os-explorer .rd-list li::before {
+  background: var(--navy);
+}
+body.workspace-training .os-explorer .rd-sop-id {
+  color: var(--navy);
+}
+body.workspace-training .os-explorer .rd-gloss-item.is-target {
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, .28);
+}
+body.workspace-hr .os-explorer {
+  --navy: var(--workspace-accent, #c2410c);
+  --navy-2: var(--bs-primary-dark, #9a3412);
+  --navy-3: #7c2d12;
+  --gold: #fff7ed;
+  --gold-2: #fdba74;
+}
+body.workspace-hr .os-explorer .rd-list li::before {
+  background: var(--navy);
+}
+body.workspace-hr .os-explorer .rd-sop-id {
+  color: var(--navy);
+}
+body.workspace-operations .os-explorer {
+  --navy: var(--workspace-accent, #25274d);
+  --navy-2: var(--bs-primary-dark, #1a1c38);
+  --navy-3: #1a1c38;
+}

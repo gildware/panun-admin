@@ -104,7 +104,7 @@ class PeoplePayroll
             ->pluck('holiday_on')
             ->map(fn ($day) => Carbon::parse($day)->toDateString())
             ->all();
-        $workingDays = PeopleWorkspace::countWorkingDays($start, $end, $holidays, app(PeopleWorkspace::class)->weekOffDays());
+        $workspace = app(PeopleWorkspace::class);
 
         $staff = User::query()
             ->whereIn('user_type', ADMIN_USER_TYPES)
@@ -112,11 +112,14 @@ class PeoplePayroll
             ->orderBy('first_name')
             ->get();
 
-        DB::transaction(function () use ($staff, $period, $start, $end, $holidays, $workingDays, $countMissingWeeks) {
+        DB::transaction(function () use ($staff, $period, $start, $end, $holidays, $workspace, $countMissingWeeks) {
             foreach ($staff as $person) {
                 $profile = PeopleProfile::query()->where('user_id', $person->id)->first();
                 if ($profile && $profile->employment_status === 'exited') {
                     continue;
+                }
+                if ($profile) {
+                    $person->setRelation('peopleProfile', $profile);
                 }
 
                 $existing = PeoplePayslip::query()->where('user_id', $person->id)->where('period', $period)->first();
@@ -153,9 +156,10 @@ class PeoplePayroll
                     continue;
                 }
 
-                $lopDays = $this->unpaidDays($person->id, $start, $end, $holidays);
+                $workingDays = max(0, PeopleWorkspace::countWorkingDays($start, $end, $holidays, $workspace->weekOffDays($person)) - $workspace->extraWeekOffCount($person, $start, $end, $holidays));
+                $lopDays = $this->unpaidDays($person, $start, $end, $holidays, $workspace);
                 if ($countMissingWeeks) {
-                    $lopDays += $this->unapprovedDays($person->id, $start, $end, $holidays);
+                    $lopDays += $this->unapprovedDays($person, $start, $end, $holidays, $workspace);
                 }
 
                 $amounts = self::calculate([
@@ -194,12 +198,12 @@ class PeoplePayroll
     /**
      * @param  array<int, string>  $holidays
      */
-    private function unpaidDays(string $userId, CarbonInterface $start, CarbonInterface $end, array $holidays): float
+    private function unpaidDays(User $person, CarbonInterface $start, CarbonInterface $end, array $holidays, PeopleWorkspace $workspace): float
     {
         $days = 0.0;
         $requests = PeopleLeaveRequest::query()
-            ->where('user_id', $userId)
-            ->where('leave_type', 'unpaid')
+            ->where('user_id', $person->id)
+            ->whereIn('leave_type', $workspace->unpaidLeaveTypeCodes())
             ->where('status', 'approved')
             ->whereDate('starts_on', '<=', $end->toDateString())
             ->whereDate('ends_on', '>=', $start->toDateString())
@@ -208,7 +212,7 @@ class PeoplePayroll
         foreach ($requests as $request) {
             $from = $request->starts_on->greaterThan($start) ? $request->starts_on->copy() : Carbon::parse($start->toDateString());
             $to = $request->ends_on->lessThan($end) ? $request->ends_on->copy() : Carbon::parse($end->toDateString());
-            $span = PeopleWorkspace::countWorkingDays($from, $to, $holidays, app(PeopleWorkspace::class)->weekOffDays());
+            $span = PeopleWorkspace::countWorkingDays($from, $to, $holidays, $workspace->weekOffDays($person));
             $days += min($span, (float) $request->days);
         }
 
@@ -218,21 +222,21 @@ class PeoplePayroll
     /**
      * @param  array<int, string>  $holidays
      */
-    private function unapprovedDays(string $userId, CarbonInterface $start, CarbonInterface $end, array $holidays): float
+    private function unapprovedDays(User $person, CarbonInterface $start, CarbonInterface $end, array $holidays, PeopleWorkspace $workspace): float
     {
         $holidayMap = array_flip($holidays);
-        $weekOff = array_flip(app(PeopleWorkspace::class)->weekOffDays());
+        $weekOff = array_flip($workspace->weekOffDays($person));
         $sheets = PeopleTimesheet::query()
-            ->where('user_id', $userId)
+            ->where('user_id', $person->id)
             ->whereDate('week_starts_on', '>=', Carbon::parse($start->toDateString())->startOfWeek(Carbon::MONDAY)->toDateString())
             ->whereDate('week_starts_on', '<=', $end->toDateString())
             ->get()
             ->keyBy(fn (PeopleTimesheet $sheet) => $sheet->week_starts_on->toDateString());
 
         $paidLeave = PeopleLeaveRequest::query()
-            ->where('user_id', $userId)
+            ->where('user_id', $person->id)
             ->where('status', 'approved')
-            ->where('leave_type', '!=', 'unpaid')
+            ->whereNotIn('leave_type', $workspace->unpaidLeaveTypeCodes())
             ->whereDate('starts_on', '<=', $end->toDateString())
             ->whereDate('ends_on', '>=', $start->toDateString())
             ->get();
@@ -240,13 +244,19 @@ class PeoplePayroll
         $days = 0.0;
         $cursor = Carbon::parse($start->toDateString());
         $last = Carbon::parse($end->toDateString());
+        $starts = $workspace->timesheetStartsOn();
+        if ($starts && $cursor->lt($starts)) {
+            $cursor = $starts->copy();
+        }
         while ($cursor->lte($last)) {
             $key = $cursor->toDateString();
             $week = $cursor->copy()->startOfWeek(Carbon::MONDAY)->toDateString();
             $sheet = $sheets->get($week);
             $onLeave = $paidLeave->contains(fn (PeopleLeaveRequest $leave) => $cursor->betweenIncluded($leave->starts_on, $leave->ends_on));
             $dayKey = PeopleWorkspace::DAY_KEYS[$cursor->dayOfWeekIso - 1] ?? '';
-            if (! isset($weekOff[$dayKey]) && ! isset($holidayMap[$key]) && ! $onLeave && (! $sheet || $sheet->status !== 'approved')) {
+            $markedEntry = $sheet?->entries[$key] ?? null;
+            $markedOff = is_array($markedEntry) && ($markedEntry['status'] ?? null) === 'week_off';
+            if (! isset($weekOff[$dayKey]) && ! $markedOff && ! isset($holidayMap[$key]) && ! $onLeave && (! $sheet || $sheet->status !== 'approved')) {
                 $days++;
             }
             $cursor->addDay();

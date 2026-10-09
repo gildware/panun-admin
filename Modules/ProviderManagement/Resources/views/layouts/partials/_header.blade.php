@@ -116,8 +116,7 @@
                                     </div>
                                 </a>
                                 <div class="dropdown-menu dropdown-menu-right">
-                                    <a href="{{route('provider.profile_update')}}"
-                                       class="dropdown-item-text media gap-3 align-items-center">
+                                    <div class="dropdown-item-text media gap-3 align-items-center">
                                         <div class="avatar">
                                             <img class="avatar-img rounded-circle aspect-square object-fit-cover" width="50" height="50" src="{{auth()->user()->provider->logo_full_path}}"
                                                  alt="{{ translate('logo') }}">
@@ -126,10 +125,7 @@
                                             <h5 class="card-title">{{ Str::limit(auth()->user()->provider->company_name, 15) }}</h5>
                                             <span class="card-text">{{ Str::limit(auth()->user()->email, 20) }}</span>
                                         </div>
-                                    </a>
-                                    <a class="dropdown-item" href="{{route('provider.profile_update')}}">
-                                        <span class="text-truncate" title="Settings">{{translate('Settings')}}</span>
-                                    </a>
+                                    </div>
                                     <a class="dropdown-item provider-logout cursor-pointer">
                                         <span class="text-truncate" title="Sign Out">{{translate('Sign_Out')}}</span>
                                     </a>

@@ -53,20 +53,5 @@
            {!! $turboAttrs !!}>
             {{ translate('Operations') }}
         </a>
-        <a href="{{ route('admin.dashboard.finance') }}"
-           class="admin-dashboard-switcher-pill {{ $active === 'finance' ? 'is-active' : '' }}"
-           {!! $turboAttrs !!}>
-            {{ translate('Finance') }}
-        </a>
-        <a href="{{ route('admin.dashboard.operating-system') }}"
-           class="admin-dashboard-switcher-pill {{ $active === 'operating-system' ? 'is-active' : '' }}"
-           data-turbo="false">
-            {{ translate('Operating_System') }}
-        </a>
-        <a href="{{ route('admin.dashboard.business-system') }}"
-           class="admin-dashboard-switcher-pill {{ $active === 'business-system' ? 'is-active' : '' }}"
-           data-turbo="false">
-            {{ translate('Business_System') }}
-        </a>
     </nav>
 </div>

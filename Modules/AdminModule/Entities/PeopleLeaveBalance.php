@@ -56,9 +56,36 @@ class PeopleLeaveBalance extends Model
         return (float) data_get($this->extra, $type.'.used', 0);
     }
 
+    public function pending(string $type): float
+    {
+        return round((float) data_get($this->extra, $type.'.pending', 0), 1);
+    }
+
+    public function taken(string $type): float
+    {
+        return round($this->used($type) + $this->pending($type), 1);
+    }
+
     public function remaining(string $type): float
     {
-        return $this->allowance($type) - $this->used($type);
+        return round($this->allowance($type) - $this->taken($type), 1);
+    }
+
+    public function addPending(string $type, float $days): void
+    {
+        $this->adjustPending($type, round($days, 1));
+    }
+
+    public function releasePending(string $type, float $days): void
+    {
+        $this->adjustPending($type, -1 * round($days, 1));
+    }
+
+    private function adjustPending(string $type, float $days): void
+    {
+        $extra = $this->extra ?? [];
+        $extra[$type]['pending'] = max(0, round((float) ($extra[$type]['pending'] ?? 0) + $days, 1));
+        $this->extra = $extra;
     }
 
     public function addAllowance(string $type, float $days): void

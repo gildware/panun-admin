@@ -26,8 +26,7 @@
         @endif
     </div>
 </div>
-<form class="people-ws-card" method="get" action="{{ route('admin.hr.index') }}">
-    <input type="hidden" name="section" value="payroll">
+<form class="people-ws-card" method="get" action="{{ route('admin.accounts.payroll') }}">
     <div class="field"><label for="payroll_period">Month</label><input id="payroll_period" type="month" name="period" value="{{ $period }}" onchange="this.form.submit()"></div>
 </form>
 @unless($locked || ($run && $run->status === 'published'))

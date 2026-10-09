@@ -16,10 +16,12 @@
                             <form action="{{ route('admin.profile_update') }}" method="post"
                                   enctype="multipart/form-data">
                                 @csrf
+                                @php($canEditIdentity = ! is_admin_employee())
                                 <div class="row gx-2 mt-2">
                                     <div class="col-md-6">
                                         <div class="radius-10 h-100">
                                             <div class="card-body">
+                                                @if($canEditIdentity)
                                                 <h4 class="c1 mb-20">{{translate('Information')}}</h4>
                                                 <div class="row gx-2">
                                                     <div class="col-lg-6">
@@ -57,6 +59,9 @@
                                                             value="{{ auth()->user()->phone }}"
                                                             placeholder="{{translate('Phone')}}">
                                                 </div>
+                                                @else
+                                                <h4 class="c1 mb-20">{{translate('Password')}}</h4>
+                                                @endif
                                                 <div class="row gx-2">
                                                     <div class="col-lg-6">
                                                         <div class="form-floating form-floating__icon mb-30">

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Support\AdminWorkspace;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Str;
@@ -89,5 +90,31 @@ class AdminInboxNotificationServiceTest extends TestCase
 
         $this->assertSame(0, $service->unreadCount($userId, UserNotification::CATEGORY_EXTERNAL));
         $this->assertSame(1, $service->unreadCount($userId, UserNotification::CATEGORY_INTERNAL));
+    }
+
+    public function test_unread_counts_are_split_by_workspace(): void
+    {
+        $userId = (string) Str::uuid();
+        $service = app(AdminInboxNotificationService::class);
+
+        $service->notifyUser($userId, UserNotification::TYPE_LEAD, 'Lead', null, null, 'lead_created', 'lead-1');
+        $service->notifyUser($userId, UserNotification::TYPE_ADVERTISEMENT, 'Ad', null, null, 'advertisement', 'ad-1');
+        $service->notifyUser($userId, UserNotification::TYPE_WITHDRAW_REQUEST, 'Withdraw', null, null, 'withdraw_request', 'w-1');
+        $service->notifyUser($userId, UserNotification::TYPE_LEAVE_REQUEST, 'Leave', null, null, 'people_leave_request', 'leave-1');
+
+        $counts = $service->unreadCountsByWorkspace($userId);
+
+        $this->assertSame(1, $counts[AdminWorkspace::OPERATIONS]);
+        $this->assertSame(1, $counts[AdminWorkspace::MARKETING]);
+        $this->assertSame(1, $counts[AdminWorkspace::ACCOUNTS]);
+        $this->assertSame(1, $counts[AdminWorkspace::HR]);
+        $this->assertSame(0, $counts[AdminWorkspace::TRAINING]);
+        $this->assertSame(1, $service->unreadCount($userId, null, AdminWorkspace::HR));
+        $this->assertSame(0, $service->unreadCount($userId, UserNotification::CATEGORY_EXTERNAL, AdminWorkspace::HR));
+
+        $service->markAllAsRead($userId, null, AdminWorkspace::MARKETING);
+
+        $this->assertSame(0, $service->unreadCount($userId, null, AdminWorkspace::MARKETING));
+        $this->assertSame(1, $service->unreadCount($userId, null, AdminWorkspace::OPERATIONS));
     }
 }

@@ -1,15 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>{{translate('admin_login')}}</title>
+    @include('adminmodule::layouts.partials._document-head', ['pageTitle' => translate('admin_Sign_In')])
     <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
     <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <meta name="description" content=""/>
     <meta name="keywords" content=""/>
     <meta name="robots" content="nofollow, noindex ">
-    @php($favIcon = getBusinessSettingsImageFullPath(key: 'business_favicon', settingType: 'business_information', path: 'business/',  defaultPath : 'assets/admin-module/img/placeholder.png'))
-    <link rel="shortcut icon" href="{{ $favIcon }}"/>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link
@@ -23,58 +21,128 @@
 
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/style.css"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/toastr.css">
+    <style>
+        body {
+            background: #f4f6fb;
+            min-height: 100vh;
+        }
+        .login-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100dvh;
+            padding: 1.5rem;
+        }
+        .login-right-wrap {
+            width: 100%;
+            max-width: 450px;
+            border-radius: 16px;
+            box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
+        }
+        .login-right {
+            max-width: none;
+            width: 100%;
+        }
+        .login-logo {
+            max-block-size: none;
+            max-inline-size: 280px;
+            width: 100%;
+            height: auto;
+        }
+        .login-field {
+            margin-bottom: 1rem;
+        }
+        .login-field .form-control.is-invalid {
+            border-color: #dc3545 !important;
+            background-image: none;
+            box-shadow: 0 0 0 1px #dc3545;
+        }
+        .login-field .form-control.is-invalid:focus {
+            border-color: #dc3545 !important;
+            box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.16);
+        }
+        .login-error {
+            display: block;
+            color: #dc3545;
+            font-size: 0.8125rem;
+            line-height: 1.35;
+            margin-top: 0.35rem;
+        }
+        .login-error[hidden] {
+            display: none;
+        }
+        .login-form-alert {
+            background: #fdecea;
+            color: #b42318;
+            border: 1px solid #f5c2c7;
+            border-radius: 8px;
+            padding: 0.65rem 0.75rem;
+            font-size: 0.875rem;
+            line-height: 1.4;
+            margin-bottom: 1rem;
+        }
+    </style>
 </head>
 
 <body>
 <div class="preloader"></div>
-<?php
-$logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'business_information', path: 'business/',  defaultPath : 'assets/admin-module/img/placeholder.png');
-?>
 
 <div>
     <form action="{{route('admin.auth.login')}}" enctype="multipart/form-data" method="POST"
-            id="login-form">
+            id="login-form" novalidate>
         @csrf
         <div class="login-wrap">
-            <div class="login-left d-flex justify-content-center align-items-center bg-center" data-bg-img="{{asset('assets/provider-module')}}/img/media/login-bg.png">
-                <div class="tf-box d-flex flex-column gap-3 align-items-center justify-content-center p-5 mx-5 h-75">
-                    <img class="login-logo mb-2"
-                        src="{{ $logo }}"
-                        alt="{{ translate('logo') }}">
-                    <h2 class="text-center text-dark">{{ translate('Reach') }} <strong class="c1">{{ translate('Hundreds Of Customers ') }}</strong> {{ translate('with your services') }}</h2>
-                </div>
-            </div>
-
             <div class="login-right-wrap bg-white">
 
                 <div class="login-right w-100 m-auto p-3">
-                    <div class="d-flex justify-content-between align-items-start gap-2 mb-5 mt-3">
-                        <div class="d-flex flex-column gap-2">
-                            <h2 class="c1 fw-medium">{{translate('admin_Sign_In')}}</h2>
-                            <p>{{translate('sign_in_to_stay_connected')}}</p>
-                        </div>
-                        <span class="badge badge-primary fz-12 opacity-75">
-                            {{translate('Software_Version')}} : {{ env('SOFTWARE_VERSION') }}
-                        </span>
+                    <div class="d-flex flex-column align-items-center text-center gap-2 mb-5 mt-3">
+                        <img class="login-logo mb-2"
+                            src="{{ asset('assets/admin-module/img/panun-kaergar-logo.png') }}"
+                            alt="Panun Kaergar">
+                        <h2 class="c1 fw-medium mb-0">{{translate('admin_Sign_In')}}</h2>
+                        <p class="mb-0">{{translate('sign_in_to_stay_connected')}}</p>
                     </div>
 
+                    @if ($errors->has('login') || $errors->has('g-recaptcha-response'))
+                        <div class="login-form-alert" role="alert">
+                            {{ $errors->first('login') ?: $errors->first('g-recaptcha-response') }}
+                        </div>
+                    @endif
+
                     <div class="mb-4">
-                        <div class="mb-5">
+                        <div class="login-field">
                             <div class="form-floating form-floating__icon">
-                                <input type="email" name="email_or_phone" class="form-control" value="{{ request()->cookie('remember_email') }}"
-                                        placeholder="{{translate('example@gmail.com')}}" required="" id="email">
+                                <input type="email" name="email_or_phone"
+                                        class="form-control @if($errors->has('email_or_phone') || $errors->has('login')) is-invalid @endif"
+                                        value="{{ old('email_or_phone', request()->cookie('remember_email')) }}"
+                                        placeholder="{{translate('example@gmail.com')}}"
+                                        autocomplete="username"
+                                        aria-invalid="{{ $errors->has('email_or_phone') || $errors->has('login') ? 'true' : 'false' }}"
+                                        aria-describedby="email-error"
+                                        id="email">
                                 <label>{{translate('email')}}</label>
                                 <span class="material-icons">mail</span>
                             </div>
+                            <div class="login-error" id="email-error" @unless($errors->has('email_or_phone')) hidden @endunless>
+                                {{ $errors->first('email_or_phone') }}
+                            </div>
                         </div>
-                        <div class="mb-3">
+                        <div class="login-field">
                             <div class="form-floating form-floating__icon">
-                                <input type="password" name="password" class="form-control" value="{{ request()->cookie('remember_password') }}"
-                                        placeholder="{{translate('********')}}" required=""
+                                <input type="password" name="password"
+                                        class="form-control @if($errors->has('password') || $errors->has('login')) is-invalid @endif"
+                                        value="{{ $errors->any() ? '' : request()->cookie('remember_password') }}"
+                                        placeholder="{{translate('********')}}"
+                                        autocomplete="current-password"
+                                        aria-invalid="{{ $errors->has('password') || $errors->has('login') ? 'true' : 'false' }}"
+                                        aria-describedby="password-error"
                                         id="password">
                                 <label>{{translate('password')}}</label>
                                 <span class="material-icons togglePassword">visibility_off</span>
                                 <span class="material-icons">lock</span>
+                            </div>
+                            <div class="login-error" id="password-error" @unless($errors->has('password')) hidden @endunless>
+                                {{ $errors->first('password') }}
                             </div>
                         </div>
                         <div class="d-flex justify-content-between">
@@ -95,15 +163,9 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         </div>
                     @endif
 
-                    <div class="d-flex mb-4">
+                    <div class="d-flex mb-2">
                         <button class="btn btn--primary flex-grow-1 text-capitalize" id="signInBtn"
                                 type="submit">{{translate('sign_in')}}</button>
-                    </div>
-
-                    <div class="mt-3 d-flex flex-wrap gap-1 justify-content-center">
-                        {{translate('want_to_sign_in_to_your_provider_account')}} ?
-                        <a href="{{route('provider.auth.login')}}"
-                            class="c1 text-decoration-underline">{{translate('sign_in_here')}}</a>
                     </div>
                 </div>
 
@@ -141,6 +203,10 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
         $('#signInBtn').click(function (e) {
             e.preventDefault();
 
+            if (typeof window.loginFormIsValid === 'function' && !window.loginFormIsValid()) {
+                return;
+            }
+
             if (typeof grecaptcha === 'undefined') {
                 toastr.error('Invalid recaptcha key provided. Please check the recaptcha configuration.');
                 return;
@@ -170,6 +236,89 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
 
 <script>
     "use strict";
+
+    (function () {
+        var form = document.getElementById('login-form');
+        var email = document.getElementById('email');
+        var password = document.getElementById('password');
+
+        function messageFor(input) {
+            var value = input.value.trim();
+            if (input === email) {
+                if (value === '') {
+                    return 'Email is required.';
+                }
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                    return 'Enter a valid email address.';
+                }
+                return '';
+            }
+            if (value === '') {
+                return 'Password is required.';
+            }
+            return '';
+        }
+
+        function showError(input, message) {
+            var field = input.closest('.login-field');
+            var error = field.querySelector('.login-error');
+            if (message) {
+                input.classList.add('is-invalid');
+                input.setAttribute('aria-invalid', 'true');
+                error.hidden = false;
+                error.textContent = message;
+            } else {
+                input.classList.remove('is-invalid');
+                input.setAttribute('aria-invalid', 'false');
+                error.hidden = true;
+                error.textContent = '';
+            }
+        }
+
+        function validateField(input) {
+            var message = messageFor(input);
+            showError(input, message);
+            return message === '';
+        }
+
+        function validateForm() {
+            var emailOk = validateField(email);
+            var passwordOk = validateField(password);
+            if (!emailOk) {
+                email.focus();
+            } else if (!passwordOk) {
+                password.focus();
+            }
+            return emailOk && passwordOk;
+        }
+
+        [email, password].forEach(function (input) {
+            input.addEventListener('blur', function () {
+                if (input.value.trim() !== '' || input.classList.contains('is-invalid')) {
+                    validateField(input);
+                }
+            });
+            input.addEventListener('input', function () {
+                if (input.classList.contains('is-invalid')) {
+                    validateField(input);
+                }
+                var alert = form.querySelector('.login-form-alert');
+                if (alert) {
+                    alert.remove();
+                }
+            });
+        });
+
+        form.addEventListener('submit', function (event) {
+            if (!validateForm()) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+        });
+
+        window.loginFormIsValid = validateForm;
+    })();
+
     @if(env('APP_ENV')=='demo')
         $('.login-copy').on('click', function () {
             copy_cred()
@@ -183,17 +332,6 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 ProgressBar: true
             });
         }
-   @endif
-
-    @if ($errors->any())
-
-        @foreach($errors->all() as $error)
-        toastr.error('{{$error}}', Error, {
-            CloseButton: true,
-            ProgressBar: true
-        });
-        @endforeach
-
    @endif
 </script>
 </body>

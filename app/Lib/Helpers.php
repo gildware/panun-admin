@@ -76,7 +76,13 @@ if (!function_exists('admin_uses_partial_nav')) {
 if (! function_exists('admin_in_settings_module')) {
     function admin_in_settings_module(): bool
     {
-        if (is_admin_employee() || ! admin_uses_top_nav()) {
+        if (! admin_uses_top_nav()) {
+            return false;
+        }
+
+        // Personal profile is not a settings screen. Employees and admins
+        // both open it from the account menu, without the settings submenu.
+        if (request()->routeIs('admin.profile_update')) {
             return false;
         }
 
@@ -91,7 +97,7 @@ if (! function_exists('admin_in_settings_module')) {
 if (! function_exists('admin_in_marketing_module')) {
     function admin_in_marketing_module(): bool
     {
-        if (is_admin_employee() || ! admin_uses_top_nav()) {
+        if (! admin_uses_top_nav()) {
             return false;
         }
 
@@ -129,6 +135,20 @@ if (!function_exists('is_admin_employee')) {
     function is_admin_employee(): bool
     {
         return auth()->check() && auth()->user()->user_type === 'admin-employee';
+    }
+}
+
+if (!function_exists('admin_workspace')) {
+    function admin_workspace(): string
+    {
+        return \App\Support\AdminWorkspace::current();
+    }
+}
+
+if (!function_exists('admin_workspace_body_class')) {
+    function admin_workspace_body_class(): string
+    {
+        return \App\Support\AdminWorkspace::bodyClass();
     }
 }
 

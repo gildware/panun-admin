@@ -212,12 +212,35 @@
         document.dispatchEvent(new CustomEvent('admin:page-loaded', { detail: { root: root } }));
     }
 
+    function syncWorkspaceClass(doc) {
+        if (!doc || !doc.body) {
+            return;
+        }
+
+        var match = (doc.body.className || '').match(/\bworkspace-[\w-]+\b/);
+        if (!match) {
+            return;
+        }
+
+        document.body.classList.remove(
+            'workspace-operations',
+            'workspace-hr',
+            'workspace-training',
+            'workspace-marketing',
+            'workspace-settings',
+            'workspace-accounts',
+            'workspace-choosing'
+        );
+        document.body.classList.add(match[0]);
+    }
+
     function syncChromeFromHtml(html) {
         if (!html) {
             return;
         }
 
         var doc = new DOMParser().parseFromString(html, 'text/html');
+        syncWorkspaceClass(doc);
         var title = doc.querySelector('title');
         if (title && title.textContent) {
             document.title = title.textContent.trim();

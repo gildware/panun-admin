@@ -6164,6 +6164,14 @@ body.aside-folded:not(.open-aside-folded) .search--form-group {
 .form-floating__icon .material-symbols-outlined.togglePassword {
     inset-inline-start: auto;
     inset-inline-end: 10px;
+    inset-block-end: auto;
+    top: 50%;
+    width: 24px;
+    height: 24px;
+    display: grid;
+    place-items: center;
+    line-height: 1;
+    z-index: 3;
     cursor: pointer;
 }
 

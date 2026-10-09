@@ -83,7 +83,7 @@
                         @php
                             $balance = $balances->get($leave->user_id);
                             $remaining = $balance ? $balance->remaining($leave->leave_type) : 0;
-                            $after = $remaining - $leave->days;
+                            $after = $remaining;
                         @endphp
                         <tr>
                             <td>{{ $workspace->displayName($leave->user) }}</td>

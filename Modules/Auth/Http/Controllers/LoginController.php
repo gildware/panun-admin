@@ -35,7 +35,7 @@ class LoginController extends Controller
         $this->user = $user;
         $this->middleware(function ($request, $next) {
             if ($request->user() !== null && in_array($request->user()->user_type, ADMIN_USER_TYPES)) {
-                return redirect('admin/dashboard');
+                return redirect()->route('admin.workspace.choose');
             } elseif ($request->user() !== null && in_array($request->user()->user_type, PROVIDER_USER_TYPES)) {
                 return redirect('provider/dashboard');
             }
@@ -59,7 +59,18 @@ class LoginController extends Controller
      */
     public function adminLogin(Request $request): RedirectResponse
     {
-        $request->validate($this->validation_array);
+        $validator = Validator::make($request->all(), [
+            'email_or_phone' => ['required', 'email'],
+            'password' => ['required', 'string'],
+        ], [
+            'email_or_phone.required' => 'Email is required.',
+            'email_or_phone.email' => 'Enter a valid email address.',
+            'password.required' => 'Password is required.',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput($request->only('email_or_phone'));
+        }
 
         $recaptcha = business_config('recaptcha', 'third_party');
 
@@ -112,15 +123,17 @@ class LoginController extends Controller
                 }
                 app(StaffPresenceService::class)->markOnlineOnLogin(auth()->user());
                 app(\Modules\ChattingModule\Services\StaffGroupChannelService::class)->ensureGroupForUser(auth()->user());
-                return redirect()->route('admin.dashboard');
+                return redirect()->route('admin.workspace.choose');
             }
 
-            Toastr::error(translate(ACCOUNT_DISABLED['message']));
-            return back();
+            return back()
+                ->withInput($request->only('email_or_phone'))
+                ->withErrors(['login' => translate(ACCOUNT_DISABLED['message'])]);
         }
 
-        Toastr::error(translate(AUTH_LOGIN_401['message']));
-        return back();
+        return back()
+            ->withInput($request->only('email_or_phone'))
+            ->withErrors(['login' => 'The email or password is incorrect.']);
     }
 
     /**

@@ -3,6 +3,9 @@
 namespace App\Support;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Schema;
+use Modules\AdminModule\Services\PeopleWorkspace;
 use Modules\BookingModule\Entities\AppCustomRequest;
 
 class AdminNavRegistry
@@ -200,7 +203,7 @@ class AdminNavRegistry
         $match = self::match($request);
         $groupKey = $match['group_key'] ?? null;
 
-        if (! $groupKey || $groupKey === 'dashboard' || $groupKey === 'settings' || $groupKey === 'communications' || $groupKey === 'progress' || $groupKey === 'hunting_board' || $groupKey === 'people') {
+        if (! $groupKey || $groupKey === 'dashboard' || $groupKey === 'settings' || $groupKey === 'communications' || $groupKey === 'progress' || $groupKey === 'hunting_board' || $groupKey === 'people' || $groupKey === 'accounts_pay') {
             return self::$cachedGroupSubmenu = null;
         }
 
@@ -461,7 +464,7 @@ class AdminNavRegistry
         }
 
         $items = [
-            self::entry('people', 'People', null, 'My workspace', route('admin.people.index'), [
+            self::entry('people', 'People', null, 'Workspace', route('admin.people.index'), [
                 'admin/people',
                 'admin/people/team*',
             ], [
@@ -471,17 +474,38 @@ class AdminNavRegistry
         ];
 
         $user = auth()->user();
-        $isHr = $user->user_type === 'super-admin'
-            || $user->roles()->where('role_name', 'like', '%hr%')->exists();
-        if ($isHr) {
-            $items[] = self::entry('people_hr', 'People & HR', null, 'People & HR', route('admin.hr.index'), [
-                'admin/hr*',
+        if ($user && Schema::hasTable('people_profiles') && app(PeopleWorkspace::class)->canReviewApprovals($user)) {
+            $items[] = self::entry('people', 'People', null, 'Approval Request', route('admin.people.approvals'), [
+                'admin/people/approvals*',
+            ], ['admin.people.approvals']);
+        }
+
+        if (Gate::allows('people_hr')) {
+            $items[] = self::entry('people', 'People', null, 'Holidays', route('admin.people.holidays'), [
                 'admin/people/holidays*',
-                'admin/people/records*',
-            ], [
-                'admin.hr.index',
-                'admin.people.holidays',
+            ], ['admin.people.holidays']);
+            $items[] = self::entry('people', 'People', null, 'Leaves', route('admin.hr.index', ['section' => 'leave', 'tab' => 'types']), [
+                'admin/hr/leave',
             ]);
+            $items[] = self::entry('people', 'People', null, 'Departments', route('admin.hr.index', ['section' => 'departments']), [
+                'admin/hr/departments',
+            ]);
+            $items[] = self::entry('people', 'People', null, 'Configuration', route('admin.hr.index', ['section' => 'configuration']), [
+                'admin/hr/configuration',
+            ]);
+            if (Gate::allows('employee_view')) {
+                $items[] = self::entry('people', 'People', null, 'Employee list', route('admin.employee.index'), [
+                    'admin/employee/list',
+                    'admin/employee/edit/*',
+                    'admin/employee/create',
+                    'admin/employee/profile/*',
+                ], ['admin.employee.index', 'admin.employee.create', 'admin.employee.profile']);
+            }
+            if (Gate::any(['role_view', 'role_add'])) {
+                $items[] = self::entry('people', 'People', null, 'Roles and Permission', route('admin.role.index'), [
+                    'admin/role/*',
+                ], ['admin.role.index']);
+            }
         }
 
         return $items;
@@ -561,22 +585,47 @@ class AdminNavRegistry
         $group = translate('Finance');
 
         if (is_admin_employee()) {
-            return [
+            return array_merge([
                 self::entry('finance', $group, null, translate('Ledger'), route('admin.ledger.index'), ['admin/ledger*']),
                 self::entry('finance', $group, null, translate('Transactions'), route('admin.transaction.list', ['trx_type' => 'all']), ['admin/transaction/list*']),
                 self::entry('finance', $group, null, translate('Pending_provider_balances'), route('admin.transaction.pending_provider_balances.index'), ['admin/transaction/pending-provider-balances*']),
                 self::entry('finance', $group, null, translate('Withdraw Requests'), route('admin.withdraw.request.list', ['status' => 'all']), ['admin/withdraw/request*']),
-            ];
+            ], self::accountsPayItems());
         }
 
-        return [
+        return array_merge([
             self::entry('finance', $group, null, translate('All Transactions'), route('admin.transaction.list', ['trx_type' => 'all']), ['admin/transaction/list*']),
             self::entry('finance', $group, null, translate('Ledger'), route('admin.ledger.index'), ['admin/ledger*']),
             self::entry('finance', $group, null, translate('Wallet Transactions'), route('admin.customer.wallet.report'), ['admin/customer/wallet/report']),
             self::entry('finance', $group, null, translate('Loyalty Points Transactions'), route('admin.customer.loyalty-point.report'), ['admin/customer/loyalty-point/report']),
             self::entry('finance', $group, null, translate('Pending_provider_balances'), route('admin.transaction.pending_provider_balances.index'), ['admin/transaction/pending-provider-balances*']),
             self::entry('finance', $group, null, translate('Withdraw Requests'), route('admin.withdraw.request.list', ['status' => 'all']), ['admin/withdraw/request*']),
-        ];
+        ], self::accountsPayItems());
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private static function accountsPayItems(): array
+    {
+        $items = [];
+
+        if (Gate::allows('people_hr')) {
+            $items[] = self::entry('accounts_pay', 'Accounts', null, 'Attendance', route('admin.accounts.attendance'), [
+                'admin/accounts/attendance*',
+            ], ['admin.accounts.attendance']);
+            $items[] = self::entry('accounts_pay', 'Accounts', null, 'Salary', route('admin.accounts.salary'), [
+                'admin/accounts/salary*',
+            ], ['admin.accounts.salary']);
+        }
+
+        if (Gate::allows('people_hr') || Gate::allows('ledger_view')) {
+            $items[] = self::entry('accounts_pay', 'Accounts', null, 'Payroll', route('admin.accounts.payroll'), [
+                'admin/accounts/payroll*',
+            ], ['admin.accounts.payroll']);
+        }
+
+        return $items;
     }
 
     private static function marketingItems(): array

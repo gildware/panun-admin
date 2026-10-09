@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\AdminModule\Http\Controllers\Web\Admin\AccountsPayrollController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\AdminController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\EmployeeProgressReportController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\RoleController;
@@ -30,6 +31,8 @@ use Modules\AdminModule\Http\Controllers\Web\Admin\ReportsHubController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\PeopleHrController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\PeopleWorkspaceController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\SettingsHubController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\WorkspaceController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\WorkspaceDashboardController;
 
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
@@ -40,11 +43,19 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
 
     Route::post('search-routing', [AdminController::class, 'searchRouting'])->name('search.routing');
     Route::get('dashboard/finance', [AdminController::class, 'financeDashboard'])->name('dashboard.finance');
+    Route::get('accounts/attendance', [PeopleHrController::class, 'index'])->name('accounts.attendance');
+    Route::get('accounts/salary', [PeopleHrController::class, 'index'])->name('accounts.salary');
+    Route::get('accounts/payroll', [AccountsPayrollController::class, 'index'])->name('accounts.payroll');
+    Route::get('dashboard/people', [WorkspaceDashboardController::class, 'people'])->name('dashboard.people');
+    Route::get('dashboard/hr', [WorkspaceDashboardController::class, 'hr'])->name('dashboard.hr');
+    Route::get('dashboard/training', [WorkspaceDashboardController::class, 'training'])->name('dashboard.training');
     Route::get('dashboard/operations', [AdminController::class, 'operationsDashboard'])->name('dashboard.operations');
     Route::get('dashboard/operating-system', [AdminController::class, 'operatingSystem'])->name('dashboard.operating-system');
     Route::get('dashboard/business-system', [AdminController::class, 'businessSystem'])->name('dashboard.business-system');
     Route::get('dashboard/rank-marks-chart', [AdminController::class, 'rankMarksChart'])->name('dashboard.rank-marks-chart');
     Route::get('dashboard/progress-scope', [AdminController::class, 'progressScope'])->name('dashboard.progress-scope');
+    Route::get('workspace', [WorkspaceController::class, 'choose'])->name('workspace.choose');
+    Route::get('workspace/{workspace}', [WorkspaceController::class, 'enter'])->name('workspace.enter');
     Route::get('dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
     Route::get('settings/home-cache', [SettingsHubController::class, 'homeCache'])->name('settings.home-cache');
     Route::get('settings/{section?}', [SettingsHubController::class, 'index'])->name('settings.index');
@@ -131,6 +142,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('payslips/{payslip}/download', [PeopleWorkspaceController::class, 'downloadPayslip'])->name('payslips.download');
 
         Route::get('team', [PeopleWorkspaceController::class, 'team'])->name('team');
+        Route::get('approvals', [PeopleWorkspaceController::class, 'approvals'])->name('approvals');
         Route::post('team/leave/{leaveRequest}', [PeopleWorkspaceController::class, 'decideLeave'])->name('team.leave.decide');
         Route::post('team/timesheets/{timesheet}', [PeopleWorkspaceController::class, 'decideTimesheet'])->name('team.timesheet.decide');
 
@@ -147,7 +159,6 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
     });
 
     Route::group(['prefix' => 'hr', 'as' => 'hr.'], function () {
-        Route::get('/', [PeopleHrController::class, 'index'])->name('index');
         Route::post('person', [PeopleHrController::class, 'updatePerson'])->name('person');
         Route::post('departments', [PeopleHrController::class, 'storeDepartment'])->name('departments.store');
         Route::post('departments/{department}', [PeopleHrController::class, 'updateDepartment'])->name('departments.update');
@@ -165,6 +176,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::delete('leave/policies/{policy}', [PeopleHrController::class, 'destroyLeavePolicy'])->name('leave.policies.destroy');
         Route::post('leave/assign', [PeopleHrController::class, 'assignLeavePolicy'])->name('leave.assign');
         Route::delete('leave/policies/{policy}/departments/{department}', [PeopleHrController::class, 'detachLeaveDepartment'])->name('leave.departments.detach');
+        Route::delete('leave/policies/{policy}/stages/{stage}', [PeopleHrController::class, 'detachLeaveStage'])->name('leave.stages.detach');
         Route::delete('leave/assignments/{assignment}', [PeopleHrController::class, 'unassignLeavePolicy'])->name('leave.assignments.destroy');
         Route::post('leave/grant', [PeopleHrController::class, 'grantLeave'])->name('leave.grant');
         Route::post('salary', [PeopleHrController::class, 'saveSalary'])->name('salary');
@@ -179,12 +191,17 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('configuration/tasks', [PeopleHrController::class, 'storeTimesheetTask'])->name('configuration.tasks.store');
         Route::post('configuration/tasks/{timesheetTask}', [PeopleHrController::class, 'updateTimesheetTask'])->name('configuration.tasks.update');
         Route::delete('configuration/tasks/{timesheetTask}', [PeopleHrController::class, 'destroyTimesheetTask'])->name('configuration.tasks.destroy');
+        Route::get('{section?}', [PeopleHrController::class, 'index'])
+            ->where('section', 'people|person|departments|leave|configuration|attendance|payroll|salary|home')
+            ->name('index');
     });
 
     Route::group(['prefix' => 'employee', 'as' => 'employee.'], function () {
         Route::any('list', [EmployeeController::class, 'index'])->name('index');
         Route::any('create', [EmployeeController::class, 'create'])->name('create');
         Route::post('store', [EmployeeController::class, 'store'])->name('store');
+        Route::get('profile/{id}', [EmployeeController::class, 'profile'])->name('profile');
+        Route::put('profile/{id}', [EmployeeController::class, 'updateProfile'])->name('profile.update');
         Route::get('edit/{id}', [EmployeeController::class, 'edit'])->name('edit');
         Route::get('set-permission/{id}', [EmployeeController::class, 'setPermission'])->name('set.permission');
         Route::put('update/{id}', [EmployeeController::class, 'update'])->name('update');

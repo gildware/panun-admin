@@ -15,16 +15,28 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Routing\Redirector;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Modules\ProviderManagement\Http\Requests\ProviderStoreRequest;
+use Modules\AdminModule\Entities\PeopleDepartment;
+use Modules\AdminModule\Entities\PeopleDocument;
+use Modules\AdminModule\Entities\PeopleLeaveAssignment;
+use Modules\AdminModule\Entities\PeopleLeaveBalance;
+use Modules\AdminModule\Entities\PeopleLeaveRequest;
+use Modules\AdminModule\Entities\PeopleLeaveType;
+use Modules\AdminModule\Entities\PeoplePayAdjustment;
+use Modules\AdminModule\Entities\PeoplePayslip;
+use Modules\AdminModule\Entities\PeopleProfile;
+use Modules\AdminModule\Entities\PeopleSalaryStructure;
+use Modules\AdminModule\Services\PeopleLeaveAccrual;
+use Modules\AdminModule\Services\PeopleWorkspace;
 use Modules\UserManagement\Entities\EmployeeRoleAccess;
 use Modules\UserManagement\Entities\EmployeeRoleSection;
 use Modules\UserManagement\Entities\Role;
 use Modules\UserManagement\Entities\RoleAccess;
 use Modules\UserManagement\Entities\User;
 use Modules\UserManagement\Entities\UserAddress;
-use Modules\ZoneManagement\Entities\Zone;
 use OpenSpout\Common\Exception\InvalidArgumentException;
 use OpenSpout\Common\Exception\IOException;
 use OpenSpout\Common\Exception\UnsupportedTypeException;
@@ -43,7 +55,6 @@ class EmployeeController extends Controller
     protected User $employee;
     protected UserAddress $address;
     protected Role $role;
-    protected Zone $zone;
     protected EmployeeRoleSection $employeeRoleSection;
     protected EmployeeRoleAccess $employeeRoleAccess;
     protected RoleAccess $roleAccess;
@@ -51,12 +62,11 @@ class EmployeeController extends Controller
     use AuthorizesRequests;
     use UploadSizeHelperTrait;
 
-    public function __construct(User $employee, UserAddress $address, Role $role, Zone $zone, EmployeeRoleSection $employeeRoleSection, EmployeeRoleAccess $employeeRoleAccess, RoleAccess $roleAccess)
+    public function __construct(User $employee, UserAddress $address, Role $role, EmployeeRoleSection $employeeRoleSection, EmployeeRoleAccess $employeeRoleAccess, RoleAccess $roleAccess)
     {
         $this->employee = $employee;
         $this->address = $address;
         $this->role = $role;
-        $this->zone = $zone;
         $this->employeeRoleSection = $employeeRoleSection;
         $this->employeeRoleAccess = $employeeRoleAccess;
         $this->roleAccess = $roleAccess;
@@ -73,9 +83,8 @@ class EmployeeController extends Controller
     {
         $this->authorize('employee_add');
         $roles = $this->role->where(['is_active' => 1])->get();
-        $zones = $this->zone->where(['is_active' => 1])->get();
 
-        return view('adminmodule::admin.employee.create', compact('roles', 'zones'));
+        return view('adminmodule::admin.employee.create', compact('roles'));
     }
 
 
@@ -88,30 +97,25 @@ class EmployeeController extends Controller
     public function index(Request $request): Application|Factory|View
     {
         $this->authorize('employee_view');
-        $search = $request->has('search') ? $request['search'] : '';
+        $search = $this->employeeListSearchTerm($request);
         $status = $request->has('status') ? $request['status'] : 'all';
         $queryParams = ['search' => $search, 'status' => $status];
 
-        $employees = $this->employee->OfType(['admin-employee'])->with(['roles', 'zones', 'addresses'])
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                return $query->where(function ($query) use ($keys) {
-                    foreach ($keys as $key) {
-                        $query->orWhere('first_name', 'LIKE', '%' . $key . '%')
-                            ->orWhere('last_name', 'LIKE', '%' . $key . '%')
-                            ->orWhere('phone', 'LIKE', '%' . $key . '%')
-                            ->orWhere('email', 'LIKE', '%' . $key . '%')
-                            ->orWhere('id', 'LIKE', '%' . $key . '%')
-                            ->orWhereHas('roles', function ($roleQuery) use ($key) {
-                                $roleQuery->where('role_name', 'LIKE', '%' . $key . '%');
-                            });
-                    }
-                });
+        $employees = $this->employee->OfType(['admin-employee'])->with(['roles', 'peopleProfile'])
+            ->when($search !== '', function ($query) use ($search) {
+                $this->applyEmployeeListSearch($query, $search);
             })
             ->when($status != 'all', function ($query) use ($request) {
                 return $query->ofStatus(($request['status'] == 'active') ? 1 : 0);
             })
             ->latest()->paginate(pagination_limit())->appends($queryParams);
+
+        $workspace = app(PeopleWorkspace::class);
+        $employees->getCollection()->each(function (User $user) use ($workspace) {
+            if (! $user->peopleProfile) {
+                $user->setRelation('peopleProfile', $workspace->ensureStaffFile($user));
+            }
+        });
 
         return view('adminmodule::admin.employee.list', compact('employees', 'status', 'search'));
     }
@@ -127,95 +131,225 @@ class EmployeeController extends Controller
     {
         $this->authorize('employee_add');
 
-        $check = $this->validateUploadedFile($request, ['profile_image']);
-        if ($check !== true) {
-            return $check;
-        }
-
-        $request->validate([
-            'first_name' => 'required',
-            'last_name' => 'required',
-            'email' => 'required|email|unique:users,email',
-            'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone',
-            'password' => 'required|string|min:8',
-            'confirm_password' => 'required|same:password',
-            'profile_image' => 'nullable|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
-            'role_id' => 'required|uuid',
-            'zone_ids' => 'required|array',
-            'zone_ids.*' => 'uuid',
-            'address' => 'required|string'
+        $data = $request->validate([
+            'first_name' => ['required', 'string', 'max:100'],
+            'last_name' => ['required', 'string', 'max:100'],
+            'email' => ['required', 'email', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'work_schedule' => ['required', Rule::in(['full_time', 'part_time'])],
+            'role_ids' => ['required', 'array', 'min:1'],
+            'role_ids.*' => ['uuid', Rule::exists('roles', 'id')],
         ]);
-
-        if (!$request->modules){
-            Toastr::error(translate('Please select at latest one module'));
-            return back()->withInput();
-        }
 
         $employeeId = null;
 
-        DB::transaction(function () use ($request, &$employeeId) {
-
-            $employee = $this->employee;
-            $employee->first_name = $request->first_name;
-            $employee->last_name = $request->last_name;
-            $employee->email = $request->email;
-            $employee->phone = $request->phone;
-            $employee->profile_image = $request->hasFile('profile_image')
-                ? file_uploader('employee/profile/', APPLICATION_IMAGE_FORMAT, $request->file('profile_image'))
-                : 'default.png';
+        DB::transaction(function () use ($data, &$employeeId) {
+            $employee = new User();
+            $employee->first_name = $data['first_name'];
+            $employee->last_name = $data['last_name'];
+            $employee->email = $data['email'];
+            $employee->phone = null;
+            $employee->profile_image = 'default.png';
             $employee->identification_number = null;
             $employee->identification_type = 'nid';
             $employee->identification_image = [];
-            $employee->password = bcrypt($request->password);
+            $employee->password = bcrypt($data['password']);
             $employee->user_type = 'admin-employee';
             $employee->is_active = 1;
             $employee->save();
             $employeeId = $employee->id;
 
-            $employee->zones()->sync($request['zone_ids']);
-
-            $address = $this->address;
-            $address->user_id = $employee->id;
-            $address->address = $request->address;
-            $address->save();
-
-
-            $employeeRoleSection = $this->employeeRoleSection;
-            $employeeRoleSection->employee_id = $employee->id;
-            $employeeRoleSection->role_id = $request->role_id;
-            $employeeRoleSection->save();
-
-            foreach ($request->modules as $section => $values) {
-                if (isset($values['access_role'])) {
-                    foreach ($values['access_role'] as $key => $value) {
-                        EmployeeRoleAccess::create([
-                            'employee_id' => $employee->id,
-                            'role_id' => $request->role_id,
-                            'section_name' => $key,
-                            'can_add' => isset($values['can_add']) ? 1 : 0,
-                            'can_update' => isset($values['can_update']) ? 1 : 0,
-                            'can_delete' => isset($values['can_delete']) ? 1 : 0,
-                            'can_export' => isset($values['can_export']) ? 1 : 0,
-                            'can_manage_status' => isset($values['can_manage_status']) ? 1 : 0,
-                            'can_assign_serviceman' => isset($values['can_assign_serviceman']) ? 1 : 0,
-                            'can_give_feedback' => isset($values['can_give_feedback']) ? 1 : 0,
-                            'can_take_backup' => isset($values['can_take_backup']) ? 1 : 0,
-                            'can_change_status' => isset($values['can_change_status']) ? 1 : 0,
-                        ]);
-                    }
-                }
-            }
+            $this->assignRoles($employee, $data['role_ids']);
+            $profile = app(PeopleWorkspace::class)->ensureStaffFile($employee);
+            $profile->work_schedule = $data['work_schedule'];
+            $profile->save();
         });
 
-        if ($employeeId) {
-            $employee = $this->employee->find($employeeId);
-            if ($employee) {
-                app(\Modules\ChattingModule\Services\StaffGroupChannelService::class)->ensureGroupForUser($employee);
-            }
+        $employee = User::query()->find($employeeId);
+        if ($employee) {
+            app(\Modules\ChattingModule\Services\StaffGroupChannelService::class)->ensureGroupForUser($employee);
         }
 
         Toastr::success(translate(DEFAULT_STORE_200['message']));
-        return redirect('/admin/employee/list');
+
+        return redirect()->route('admin.employee.profile', $employeeId);
+    }
+
+    public function profile(string $id): Application|Factory|View
+    {
+        $this->authorize('employee_view');
+        $employee = $this->employeeRecord($id);
+        $workspace = app(PeopleWorkspace::class);
+        $workspace->boot();
+        $workspace->ensureStaffFile($employee);
+        $tab = (string) request()->query('tab', 'profile');
+        if (in_array($tab, ['documents', 'bank'], true) || ! in_array($tab, ['profile', 'leaves', 'salary', 'payslips'], true)) {
+            $tab = 'profile';
+        }
+
+        $staff = $workspace->staffUsers();
+        $assignedRoleIds = $employee->roles->pluck('id');
+
+        return view('adminmodule::admin.employee.profile', [
+            'employee' => $employee,
+            'roles' => $this->role->query()
+                ->where(function ($query) use ($assignedRoleIds) {
+                    $query->where('is_active', 1);
+                    if ($assignedRoleIds->isNotEmpty()) {
+                        $query->orWhereIn('id', $assignedRoleIds);
+                    }
+                })
+                ->orderBy('role_name')
+                ->get(),
+            'workspace' => $workspace,
+            'staff' => $staff,
+            'departments' => PeopleDepartment::query()->orderBy('name')->get(),
+            'leaveTypes' => PeopleLeaveType::query()->orderBy('sort')->orderBy('name')->get(),
+            'person' => [
+                'user' => $employee,
+                'profile' => PeopleProfile::query()->with(['manager', 'leavePolicy'])->where('user_id', $employee->id)->first(),
+                'assignments' => PeopleLeaveAssignment::query()->with('policy.leaveType')->where('user_id', $employee->id)->get(),
+                'tab' => $tab,
+                'documents' => PeopleDocument::query()->where('user_id', $employee->id)->orderBy('title')->get(),
+                'balance' => PeopleLeaveBalance::query()->where('user_id', $employee->id)->where('year', (int) now()->year)->first(),
+                'leaveHistory' => $workspace->leaveHistory($employee->id),
+                'leaveRequests' => PeopleLeaveRequest::query()->where('user_id', $employee->id)->latest()->get(),
+                'structures' => PeopleSalaryStructure::query()->where('user_id', $employee->id)->orderByDesc('effective_from')->get(),
+                'adjustments' => PeoplePayAdjustment::query()->where('user_id', $employee->id)->latest()->limit(12)->get(),
+                'payslips' => PeoplePayslip::query()->where('user_id', $employee->id)->orderByDesc('period')->get(),
+            ],
+        ]);
+    }
+
+    public function updateProfile(Request $request, string $id): RedirectResponse
+    {
+        $this->authorize('employee_update');
+        $employee = $this->employeeRecord($id);
+        $section = (string) $request->input('section');
+        if (! in_array($section, ['basic', 'operation', 'password'], true)) {
+            $section = 'basic';
+        }
+
+        if ($section === 'password') {
+            $data = $request->validate([
+                'password' => ['required', 'string', 'min:8', 'confirmed'],
+            ], [
+                'password.required' => 'Enter a new password.',
+                'password.min' => 'Use at least 8 characters.',
+                'password.confirmed' => 'The two passwords do not match.',
+            ]);
+
+            $employee->password = bcrypt($data['password']);
+            $employee->remember_token = Str::random(60);
+            $employee->save();
+            if (Schema::hasTable('oauth_access_tokens')) {
+                $employee->tokens()->update(['revoked' => true]);
+            }
+
+            Toastr::success('Password updated. The employee signs in with this password next time.');
+
+            return redirect()->route('admin.employee.profile', ['id' => $employee->id, 'tab' => 'profile']);
+        }
+
+        app(PeopleWorkspace::class)->ensureStaffFile($employee);
+        $profile = PeopleProfile::query()->where('user_id', $employee->id)->firstOrFail();
+
+        if ($section === 'basic') {
+            $request->merge([
+                'phone' => $request->input('phone') ?: null,
+                'date_of_birth' => $request->input('date_of_birth') ?: null,
+            ]);
+            $data = $request->validate([
+                'first_name' => ['required', 'string', 'max:100'],
+                'last_name' => ['required', 'string', 'max:100'],
+                'email' => ['required', 'email', Rule::unique('users', 'email')->ignore($employee->id)],
+                'phone' => ['nullable', 'regex:/^([0-9\s\-\+\(\)]*)$/', 'min:8', Rule::unique('users', 'phone')->ignore($employee->id)],
+                'employment_status' => ['required', Rule::in(['active', 'notice', 'exited'])],
+                'date_of_birth' => ['nullable', 'date'],
+                'emergency_contact' => ['nullable', 'string', 'max:120'],
+                'address' => ['nullable', 'string', 'max:500'],
+            ]);
+
+            DB::transaction(function () use ($employee, $profile, $data) {
+                $employee->first_name = $data['first_name'];
+                $employee->last_name = $data['last_name'];
+                $employee->email = $data['email'];
+                $employee->phone = $data['phone'];
+                $employee->save();
+                $profile->employment_status = $data['employment_status'];
+                $profile->date_of_birth = $data['date_of_birth'] ?? null;
+                $profile->emergency_contact = $data['emergency_contact'] ?? null;
+                $profile->address = $data['address'] ?? null;
+                $profile->save();
+            });
+            Toastr::success('Basic details saved.');
+        } else {
+            $request->merge([
+                'department' => $request->input('department') ?: null,
+                'manager_id' => $request->input('manager_id') ?: null,
+                'joined_on' => $request->input('joined_on') ?: null,
+            ]);
+            $data = $request->validate([
+                'role_ids' => ['required', 'array', 'min:1'],
+                'role_ids.*' => ['uuid', Rule::exists('roles', 'id')],
+                'department' => ['nullable', 'string', 'max:120'],
+                'work_location' => ['nullable', 'string', 'max:120'],
+                'manager_id' => ['nullable', 'uuid'],
+                'joined_on' => ['nullable', 'date'],
+                'employment_stage' => ['required', Rule::in(['probation', 'permanent'])],
+                'work_schedule' => ['required', Rule::in(['full_time', 'part_time'])],
+                'override_min_hours' => ['nullable', 'boolean'],
+                'min_hours_override' => ['nullable', 'required_if:override_min_hours,1', 'numeric', 'min:0', 'max:24'],
+                'override_week_off' => ['nullable', 'boolean'],
+                'week_off_override' => ['exclude_unless:override_week_off,1', 'nullable', 'array', 'max:6'],
+                'week_off_override.*' => ['exclude_unless:override_week_off,1', Rule::in(PeopleWorkspace::DAY_KEYS)],
+            ], [
+                'week_off_override.max' => 'Keep at least one working day in the week.',
+            ]);
+
+            if (! empty($data['manager_id']) && $data['manager_id'] === $employee->id) {
+                Toastr::error('A person cannot be their own manager.');
+
+                return back()->withInput();
+            }
+
+            $currentDepartment = (string) $profile->department;
+            $currentStage = $profile->employment_stage ?: 'permanent';
+            if (! empty($data['department']) && $data['department'] !== $currentDepartment && ! PeopleDepartment::query()->where('name', $data['department'])->exists()) {
+                Toastr::error('Choose a department from the list.');
+
+                return back()->withInput();
+            }
+
+            DB::transaction(function () use ($employee, $profile, $data, $request) {
+                $this->assignRoles($employee, $data['role_ids']);
+                $profile->department = $data['department'] ?? '';
+                $profile->work_location = $data['work_location'] ?? '';
+                $profile->manager_id = $data['manager_id'] ?: null;
+                $profile->joined_on = $data['joined_on'] ?? null;
+                $profile->employment_stage = $data['employment_stage'];
+                $profile->work_schedule = $data['work_schedule'];
+                $profile->min_hours_override = $request->boolean('override_min_hours')
+                    ? round((float) $data['min_hours_override'], 1)
+                    : null;
+                $profile->week_off_override = $request->boolean('override_week_off')
+                    ? array_values(array_intersect(PeopleWorkspace::DAY_KEYS, $data['week_off_override'] ?? []))
+                    : null;
+                $profile->save();
+            });
+
+            $nextDepartment = (string) ($data['department'] ?? '');
+            $fresh = $profile->fresh();
+            if ($currentDepartment !== $nextDepartment) {
+                app(PeopleLeaveAccrual::class)->syncPersonDepartment($fresh, $currentDepartment, $nextDepartment);
+            }
+            if ($currentStage !== $data['employment_stage']) {
+                app(PeopleLeaveAccrual::class)->syncPersonStage($fresh, $currentStage, $data['employment_stage']);
+            }
+            Toastr::success('Operation details saved.');
+        }
+
+        return redirect()->route('admin.employee.profile', ['id' => $employee->id, 'tab' => 'profile']);
     }
 
     /**
@@ -224,15 +358,11 @@ class EmployeeController extends Controller
      * @return Application|Factory|View
      * @throws AuthorizationException
      */
-    public function edit(string $id): Application|Factory|View
+    public function edit(string $id): RedirectResponse
     {
-        $this->authorize('employee_update');
-        $roleAccess = $this->employeeRoleAccess->where('employee_id', $id)->get();
-        $employee = $this->employee->with(['roles', 'zones', 'addresses'])->where(['id' => $id, 'user_type' => 'admin-employee'])->first();
-        $roles = $this->role->where(['is_active' => 1])->get();
-        $zones = $this->zone->where(['is_active' => 1])->get();
+        $this->authorize('employee_view');
 
-        return view('adminmodule::admin.employee.edit', compact('roleAccess','roles', 'zones', 'employee'));
+        return redirect()->route('admin.employee.profile', $id);
     }
 
     /**
@@ -245,10 +375,9 @@ class EmployeeController extends Controller
     {
         $this->authorize('employee_update');
         $roleAccess = $this->employeeRoleAccess->where('employee_id', $id)->get();
-        $employee = $this->employee->with(['roles', 'zones', 'addresses'])->where(['id' => $id, 'user_type' => 'admin-employee'])->first();
+        $employee = $this->employee->with(['roles', 'addresses'])->where(['id' => $id, 'user_type' => 'admin-employee'])->first();
         $roles = $this->role->where(['is_active' => 1])->get();
-        $zones = $this->zone->where(['is_active' => 1])->get();
-        return view('adminmodule::admin.employee.set-permission', compact('roleAccess', 'roles', 'zones', 'employee'));
+        return view('adminmodule::admin.employee.set-permission', compact('roleAccess', 'roles', 'employee'));
     }
 
     /**
@@ -286,8 +415,6 @@ class EmployeeController extends Controller
             'identity_images' => 'nullable|array',
             'identity_images.*' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
             'role_id' => 'required|uuid',
-            'zone_ids' => 'required|array',
-            'zone_ids.*' => 'uuid',
             'address' => 'required|string'
         ]);
 
@@ -343,7 +470,6 @@ class EmployeeController extends Controller
             $employee->save();
 
             $employee->roles()->sync([$request['role_id']]);
-            $employee->zones()->sync($request['zone_ids']);
 
             $address = $this->address->where('user_id', $id)->first();
             $address->address = $request->address;
@@ -549,17 +675,10 @@ class EmployeeController extends Controller
     public function download(Request $request): string|StreamedResponse
     {
         $this->authorize('employee_export');
-        $items = $this->employee->OfType(['admin-employee'])->with(['roles', 'zones', 'addresses'])
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                return $query->where(function ($query) use ($keys) {
-                    foreach ($keys as $key) {
-                        $query->orWhere('first_name', 'LIKE', '%' . $key . '%')
-                            ->orWhere('last_name', 'LIKE', '%' . $key . '%')
-                            ->orWhere('phone', 'LIKE', '%' . $key . '%')
-                            ->orWhere('email', 'LIKE', '%' . $key . '%');
-                    }
-                });
+        $search = $this->employeeListSearchTerm($request);
+        $items = $this->employee->OfType(['admin-employee'])->with(['roles', 'addresses'])
+            ->when($search !== '', function ($query) use ($search) {
+                $this->applyEmployeeListSearch($query, $search);
             })
             ->latest()->get();
 
@@ -585,6 +704,127 @@ class EmployeeController extends Controller
         $roleAccess = $this->roleAccess->where('role_id', $request->role_id)->get();
         $view = view('adminmodule::layouts.partials.employee-role-access', compact('roleAccess'))->render();
         return response()->json(['html' => $view], 200);
+    }
+
+    private function employeeListSearchTerm(Request $request): string
+    {
+        $search = $request->input('search', '');
+        if (! is_string($search)) {
+            return '';
+        }
+
+        return mb_substr(trim($search), 0, 120);
+    }
+
+    private function applyEmployeeListSearch($query, string $search): void
+    {
+        $tokens = preg_split('/\s+/u', $search, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        $query->where(function ($query) use ($tokens) {
+            foreach ($tokens as $token) {
+                $like = '%'.addcslashes($token, '%_\\').'%';
+                $query->where(function ($query) use ($token, $like) {
+                    $query->where('first_name', 'like', $like)
+                        ->orWhere('last_name', 'like', $like)
+                        ->orWhereRaw("CONCAT(IFNULL(first_name, ''), ' ', IFNULL(last_name, '')) LIKE ?", [$like])
+                        ->orWhere('email', 'like', $like);
+
+                    $codes = $this->employeeCodeCandidates($token);
+                    if ($codes !== []) {
+                        $query->orWhereHas('peopleProfile', function ($profile) use ($codes) {
+                            $profile->whereIn('employee_code', $codes);
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    /**
+     * Stored codes are PK006 or PK-0006. Both match the ID shown in the list.
+     *
+     * @return array<int, string>
+     */
+    private function employeeCodeCandidates(string $token): array
+    {
+        $compact = strtoupper(preg_replace('/[^A-Z0-9]/', '', $token) ?? '');
+        if (! preg_match('/^(?:PK)?(\d+)$/', $compact, $matches)) {
+            return [];
+        }
+
+        $digits = $matches[1];
+        $hasPrefix = str_starts_with($compact, 'PK');
+        $numbers = [(int) $digits];
+
+        if ($hasPrefix && strlen($digits) < 3) {
+            $numbers = range(
+                (int) str_pad($digits, 3, '0', STR_PAD_RIGHT),
+                (int) str_pad($digits, 3, '9', STR_PAD_RIGHT)
+            );
+        }
+
+        $codes = [];
+        foreach ($numbers as $number) {
+            if ($number < 1) {
+                continue;
+            }
+
+            $plain = (string) $number;
+            $codes[] = 'PK'.$plain;
+            $codes[] = 'PK-'.$plain;
+            foreach ([3, 4] as $width) {
+                $padded = str_pad($plain, $width, '0', STR_PAD_LEFT);
+                $codes[] = 'PK'.$padded;
+                $codes[] = 'PK-'.$padded;
+            }
+        }
+
+        return array_values(array_unique($codes));
+    }
+
+    private function employeeRecord(string $id): User
+    {
+        $employee = $this->employee->with('roles')->where('id', $id)->where('user_type', 'admin-employee')->first();
+        abort_unless($employee, 404);
+
+        return $employee;
+    }
+
+    /**
+     * @param  array<int, string>  $roleIds
+     */
+    private function assignRoles(User $employee, array $roleIds): void
+    {
+        $roleIds = array_values(array_unique($roleIds));
+        $employee->roles()->sync($roleIds);
+
+        EmployeeRoleAccess::query()->where('employee_id', $employee->id)->delete();
+
+        $columns = [
+            'can_view',
+            'can_add',
+            'can_update',
+            'can_delete',
+            'can_export',
+            'can_manage_status',
+            'can_approve_or_deny',
+            'can_assign_serviceman',
+            'can_give_feedback',
+            'can_take_backup',
+            'can_change_status',
+        ];
+
+        foreach ($this->roleAccess->whereIn('role_id', $roleIds)->get() as $access) {
+            $row = [
+                'employee_id' => $employee->id,
+                'role_id' => $access->role_id,
+                'section_name' => $access->section_name,
+            ];
+            foreach ($columns as $column) {
+                $row[$column] = (int) ($access->{$column} ?? 0);
+            }
+            EmployeeRoleAccess::query()->create($row);
+        }
     }
 
 }

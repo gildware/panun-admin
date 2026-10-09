@@ -2,6 +2,7 @@
 
 namespace Modules\AdminModule\Entities;
 
+use App\Support\AdminWorkspace;
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
@@ -40,6 +41,12 @@ class UserNotification extends Model
     public const TYPE_WHATSAPP_HUMAN_SUPPORT = 'whatsapp_human_support';
     public const TYPE_LEAD_FOLLOWUP_DUE = 'lead_followup_due';
     public const TYPE_HUNTING_INTEREST = 'hunting_interest';
+    public const TYPE_LEAVE_REQUEST = 'leave_request';
+    public const TYPE_LEAVE_DECIDED = 'leave_decided';
+    public const TYPE_TIMESHEET_SUBMITTED = 'timesheet_submitted';
+    public const TYPE_TIMESHEET_DECIDED = 'timesheet_decided';
+    public const TYPE_DOCUMENT_SUBMITTED = 'document_submitted';
+    public const TYPE_DOCUMENT_DECIDED = 'document_decided';
 
     protected $fillable = [
         'user_id',
@@ -72,9 +79,64 @@ class UserNotification extends Model
             self::TYPE_LEAD_ASSIGNED,
             self::TYPE_BOOKING_ASSIGNED,
             self::TYPE_WHATSAPP_ASSIGNED,
-            self::TYPE_LEAD_FOLLOWUP_DUE => self::CATEGORY_INTERNAL,
+            self::TYPE_LEAD_FOLLOWUP_DUE,
+            self::TYPE_LEAVE_REQUEST,
+            self::TYPE_LEAVE_DECIDED,
+            self::TYPE_TIMESHEET_SUBMITTED,
+            self::TYPE_TIMESHEET_DECIDED,
+            self::TYPE_DOCUMENT_SUBMITTED,
+            self::TYPE_DOCUMENT_DECIDED => self::CATEGORY_INTERNAL,
             default => self::CATEGORY_EXTERNAL,
         };
+    }
+
+    public static function workspaceForType(string $type): string
+    {
+        return match ($type) {
+            self::TYPE_ADVERTISEMENT => AdminWorkspace::MARKETING,
+            self::TYPE_WITHDRAW_REQUEST => AdminWorkspace::ACCOUNTS,
+            self::TYPE_LEAVE_REQUEST,
+            self::TYPE_LEAVE_DECIDED,
+            self::TYPE_TIMESHEET_SUBMITTED,
+            self::TYPE_TIMESHEET_DECIDED,
+            self::TYPE_DOCUMENT_SUBMITTED,
+            self::TYPE_DOCUMENT_DECIDED => AdminWorkspace::HR,
+            default => AdminWorkspace::OPERATIONS,
+        };
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function typesForWorkspace(string $workspace, ?string $category = null): array
+    {
+        $types = [];
+        foreach (self::declaredTypes() as $type) {
+            if (self::workspaceForType($type) !== $workspace) {
+                continue;
+            }
+            if ($category !== null && self::categoryForType($type) !== $category) {
+                continue;
+            }
+            $types[] = $type;
+        }
+
+        return $types;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function declaredTypes(): array
+    {
+        $types = [];
+        foreach ((new \ReflectionClass(self::class))->getConstants() as $name => $value) {
+            if (str_starts_with($name, 'TYPE_') && is_string($value)) {
+                $types[] = $value;
+            }
+        }
+
+        return $types;
     }
 
     public function isInternal(): bool
@@ -138,6 +200,9 @@ class UserNotification extends Model
             self::TYPE_WHATSAPP_HUMAN_SUPPORT => 'support_agent',
             self::TYPE_LEAD_FOLLOWUP_DUE => 'event',
             self::TYPE_HUNTING_INTEREST => 'handshake',
+            self::TYPE_LEAVE_REQUEST, self::TYPE_LEAVE_DECIDED => 'event_busy',
+            self::TYPE_TIMESHEET_SUBMITTED, self::TYPE_TIMESHEET_DECIDED => 'schedule',
+            self::TYPE_DOCUMENT_SUBMITTED, self::TYPE_DOCUMENT_DECIDED => 'description',
             default => 'notifications',
         };
     }
@@ -170,6 +235,12 @@ class UserNotification extends Model
             self::TYPE_WHATSAPP_HUMAN_SUPPORT => translate('Human_support'),
             self::TYPE_LEAD_FOLLOWUP_DUE => translate('Follow_up_due'),
             self::TYPE_HUNTING_INTEREST => translate('Open_Request'),
+            self::TYPE_LEAVE_REQUEST => translate('Leave_request'),
+            self::TYPE_LEAVE_DECIDED => translate('Leave_update'),
+            self::TYPE_TIMESHEET_SUBMITTED => translate('Timesheet_submitted'),
+            self::TYPE_TIMESHEET_DECIDED => translate('Timesheet_update'),
+            self::TYPE_DOCUMENT_SUBMITTED => translate('Document_submitted'),
+            self::TYPE_DOCUMENT_DECIDED => translate('Document_update'),
             default => translate('Notification'),
         };
     }
@@ -197,6 +268,9 @@ class UserNotification extends Model
             self::TYPE_LEAD, self::TYPE_LEAD_COMMENT, self::TYPE_LEAD_ASSIGNED, self::TYPE_LEAD_FOLLOWUP_DUE, self::TYPE_HUNTING_INTEREST => translate('View_Lead'),
             self::TYPE_TICKET_ASSIGNED, self::TYPE_TICKET_COMMENT => translate('View_Ticket'),
             self::TYPE_WHATSAPP_ASSIGNED, self::TYPE_WHATSAPP_HUMAN_SUPPORT => translate('Go_to_WhatsApp'),
+            self::TYPE_LEAVE_REQUEST, self::TYPE_LEAVE_DECIDED => translate('View_leave'),
+            self::TYPE_TIMESHEET_SUBMITTED, self::TYPE_TIMESHEET_DECIDED => translate('View_timesheet'),
+            self::TYPE_DOCUMENT_SUBMITTED, self::TYPE_DOCUMENT_DECIDED => translate('View_document'),
             default => translate('View_Details'),
         };
     }

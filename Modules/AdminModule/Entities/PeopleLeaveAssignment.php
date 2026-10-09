@@ -17,12 +17,14 @@ class PeopleLeaveAssignment extends Model
         'next_accrual_on',
         'via_employee',
         'via_department',
+        'via_stage',
     ];
 
     protected $casts = [
         'next_accrual_on' => 'date',
         'via_employee' => 'boolean',
         'via_department' => 'boolean',
+        'via_stage' => 'boolean',
     ];
 
     public function user(): BelongsTo
