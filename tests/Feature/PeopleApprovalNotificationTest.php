@@ -221,6 +221,8 @@ class PeopleApprovalNotificationTest extends TestCase
             $table->date('ends_on');
             $table->decimal('days', 6, 1);
             $table->decimal('hours', 4, 1)->nullable();
+            $table->string('from_time', 5)->nullable();
+            $table->string('to_time', 5)->nullable();
             $table->json('year_split')->nullable();
             $table->text('reason');
             $table->string('status')->default('pending');

@@ -75,6 +75,7 @@ class PeopleHrController extends Controller
         $actor = $this->requireHr();
         $this->workspace->boot();
         $staff = $this->workspace->staffUsers();
+        $this->workspace->ensureMissingStaffFiles($staff);
         $staffIds = $staff->pluck('id');
         $period = $this->period($request);
         $profiles = PeopleProfile::query()->with(['manager', 'leavePolicy'])->whereIn('user_id', $staffIds)->get()->keyBy('user_id');

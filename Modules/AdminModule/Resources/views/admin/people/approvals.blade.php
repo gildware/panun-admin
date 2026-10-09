@@ -50,9 +50,11 @@
                         <table>
                             <thead>
                                 <tr>
+                                    <th>Applied on</th>
                                     <th>Person</th>
                                     <th>Type</th>
                                     <th>Dates</th>
+                                    <th>Duration</th>
                                     <th>Reason</th>
                                     <th>Status</th>
                                     <th></th>
@@ -67,9 +69,17 @@
                                     $blocked = $leave->status === 'pending' && $tracks && $remaining < 0;
                                 @endphp
                                 <tr>
-                                    <td>{{ $leave->user ? $workspace->displayName($leave->user) : '—' }}</td>
+                                    <td>{{ $leave->created_at?->format('j M Y, g:i A') ?? '—' }}</td>
+                                    <td>
+                                        @if($leave->user)
+                                            <a class="people-ws-person-link" href="{{ route('admin.employee.profile', $leave->user->id) }}" target="_blank" rel="noopener">{{ $workspace->displayName($leave->user) }}</a>
+                                        @else
+                                            —
+                                        @endif
+                                    </td>
                                     <td>{{ $workspace->leaveLabel($leave->leave_type) }}</td>
-                                    <td>{{ $leave->starts_on->format('j M Y') }} – {{ $leave->ends_on->format('j M Y') }} · {{ $leave->days }} {{ (float) $leave->days === 1.0 ? 'day' : 'days' }}</td>
+                                    <td>{{ $leave->starts_on->format('j M Y') }} – {{ $leave->ends_on->format('j M Y') }}</td>
+                                    <td>{{ \Modules\AdminModule\Entities\PeopleLeavePolicy::formatDays((float) $leave->days) }} {{ (float) $leave->days === 1.0 ? 'day' : 'days' }}</td>
                                     <td title="{{ $leave->reason }}">
                                         {{ $leave->reason }}
                                         @if($leave->status === 'sent_back' && filled($leave->decision_note))
@@ -111,7 +121,7 @@
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="6" class="people-ws-note">{{ $selectedEmployee !== '' ? 'No leave requests for this person.' : 'No leave requests from your team.' }}</td></tr>
+                                <tr><td colspan="8" class="people-ws-note">{{ $selectedEmployee !== '' ? 'No leave requests for this person.' : 'No leave requests from your team.' }}</td></tr>
                             @endforelse
                             </tbody>
                         </table>
@@ -215,46 +225,143 @@
                 @endif
 
                 @if($tab === 'timesheet')
-                    <article class="people-ws-card people-ws-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Person</th>
-                                    <th>Week</th>
-                                    <th>Hours</th>
-                                    <th>Note</th>
-                                    <th>Status</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                            @forelse($timesheets as $sheet)
-                                <tr>
-                                    <td>{{ $sheet->user ? $workspace->displayName($sheet->user) : '—' }}</td>
-                                    <td>Week of {{ $sheet->week_starts_on->format('j M Y') }}</td>
-                                    <td>{{ number_format($sheet->totalHours(), 1) }}</td>
-                                    <td title="{{ $sheet->note }}">{{ $sheet->note ?: '—' }}</td>
-                                    <td>@include('adminmodule::admin.people._badge', ['status' => $sheet->status])</td>
-                                    <td>
-                                        @if($sheet->status === 'pending')
-                                            <form class="people-ws-actions" method="post" action="{{ route('admin.people.team.timesheet.decide', $sheet) }}">
-                                                @csrf
-                                                <input type="hidden" name="return_to" value="approvals-timesheet">
-                                                @if($selectedEmployee !== '')
-                                                    <input type="hidden" name="employee" value="{{ $selectedEmployee }}">
-                                                @endif
-                                                <button class="btn-pw good" name="decision" value="approve">Accept</button>
-                                                <button class="btn-pw danger" name="decision" value="sent_back">Deny</button>
-                                            </form>
-                                        @endif
-                                    </td>
-                                </tr>
+                    @php
+                        $reviewQuery = function (string $userId, ?string $period = null) use ($selectedEmployee) {
+                            $query = ['tab' => 'timesheet', 'view' => $userId, 'period' => $period ?? 'current'];
+                            if ($selectedEmployee !== '') {
+                                $query['employee'] = $selectedEmployee;
+                            }
+
+                            return $query;
+                        };
+                    @endphp
+                    @if($timesheetReview)
+                        <div class="people-ts-toolbar">
+                            <div>
+                                <a class="btn-pw" href="{{ route('admin.people.approvals', array_merge(['tab' => 'timesheet'], $approvalQuery)) }}">Back to approvals</a>
+                            </div>
+                            <nav class="people-ts-period" aria-label="Timesheet month">
+                                <a class="{{ $timesheetPeriod === 'current' ? 'is-on' : '' }}" href="{{ route('admin.people.approvals', $reviewQuery($viewEmployee, 'current')) }}">Current month</a>
+                                <a class="{{ $timesheetPeriod === 'last' ? 'is-on' : '' }}" href="{{ route('admin.people.approvals', $reviewQuery($viewEmployee, 'last')) }}">Last month</a>
+                            </nav>
+                        </div>
+                        <article class="people-ws-card">
+                            <h2>{{ $timesheetReview['name'] }} · sent for approval</h2>
+                            <p class="people-ws-note">{{ $timesheetReview['monthLabel'] }}. Every week sent for approval. Days from the other month are left out.</p>
+                            @forelse($timesheetReview['weeks'] as $week)
+                                <section class="people-ts-week">
+                                    <div class="people-ts-week-head">
+                                        <div>
+                                            <h3>{{ $week['label'] }}</h3>
+                                            <p>{{ number_format($week['hours'], 1) }} hours in {{ $timesheetReview['monthLabel'] }}</p>
+                                        </div>
+                                        <div class="people-ws-actions">
+                                            @include('adminmodule::admin.people._badge', ['status' => $week['sheet']->status])
+                                            @if($week['sheet']->status === 'pending')
+                                                <form method="post" action="{{ route('admin.people.team.timesheet.decide', $week['sheet']) }}">
+                                                    @csrf
+                                                    <input type="hidden" name="return_to" value="approvals-timesheet">
+                                                    <input type="hidden" name="view" value="{{ $viewEmployee }}">
+                                                    <input type="hidden" name="period" value="{{ $timesheetPeriod }}">
+                                                    @if($selectedEmployee !== '')
+                                                        <input type="hidden" name="employee" value="{{ $selectedEmployee }}">
+                                                    @endif
+                                                    <button class="btn-pw good" name="decision" value="approve">Accept</button>
+                                                    <button class="btn-pw danger" name="decision" value="sent_back">Deny</button>
+                                                </form>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    @foreach($week['days'] as $day)
+                                        <div class="people-ts-day">
+                                            <div class="people-ts-day-head">
+                                                <strong>{{ $day['label'] }}</strong>
+                                                <span>{{ $day['status'] }}@if($day['hours'] > 0) · {{ number_format($day['hours'], 1) }} h @endif</span>
+                                            </div>
+                                            @if($day['rows'] === [])
+                                                <p class="people-ws-note">No tasks on this day.</p>
+                                            @else
+                                                <table>
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Task</th>
+                                                            <th>Note</th>
+                                                            <th>Time</th>
+                                                            <th>Hours</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                    @foreach($day['rows'] as $row)
+                                                        <tr>
+                                                            <td>{{ $row['task'] }}</td>
+                                                            <td>{{ $row['note'] !== '' ? $row['note'] : '—' }}</td>
+                                                            <td>{{ $row['time'] !== '' ? $row['time'] : '—' }}</td>
+                                                            <td>{{ number_format($row['hours'], 1) }}</td>
+                                                        </tr>
+                                                    @endforeach
+                                                    </tbody>
+                                                </table>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </section>
                             @empty
-                                <tr><td colspan="6" class="people-ws-note">{{ $selectedEmployee !== '' ? 'No timesheets for this person.' : 'No timesheets from your team.' }}</td></tr>
+                                <p class="people-ws-note">No timesheets sent for approval in {{ $timesheetReview['monthLabel'] }}.</p>
                             @endforelse
-                            </tbody>
-                        </table>
-                    </article>
+                        </article>
+                    @else
+                        @if($selectedEmployee !== '')
+                            <div class="people-ts-toolbar">
+                                <p class="people-ws-note">Open every timesheet this person sent for approval.</p>
+                                <a class="btn-pw primary" href="{{ route('admin.people.approvals', $reviewQuery($selectedEmployee)) }}">View all</a>
+                            </div>
+                        @endif
+                        <article class="people-ws-card people-ws-scroll">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Person</th>
+                                        <th>Week</th>
+                                        <th>Hours</th>
+                                        <th>Note</th>
+                                        <th>Status</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                @forelse($timesheets as $sheet)
+                                    <tr>
+                                        <td>{{ $sheet->user ? $workspace->displayName($sheet->user) : '—' }}</td>
+                                        <td>Week of {{ $sheet->week_starts_on->format('j M Y') }}</td>
+                                        <td>{{ number_format($sheet->totalHours(), 1) }}</td>
+                                        <td title="{{ $sheet->note }}">{{ $sheet->note ?: '—' }}</td>
+                                        <td>@include('adminmodule::admin.people._badge', ['status' => $sheet->status])</td>
+                                        <td>
+                                            <div class="people-ws-actions">
+                                                @if($sheet->user)
+                                                    <a class="btn-pw" href="{{ route('admin.people.approvals', $reviewQuery((string) $sheet->user_id)) }}">View all</a>
+                                                @endif
+                                                @if($sheet->status === 'pending')
+                                                    <form method="post" action="{{ route('admin.people.team.timesheet.decide', $sheet) }}">
+                                                        @csrf
+                                                        <input type="hidden" name="return_to" value="approvals-timesheet">
+                                                        @if($selectedEmployee !== '')
+                                                            <input type="hidden" name="employee" value="{{ $selectedEmployee }}">
+                                                        @endif
+                                                        <button class="btn-pw good" name="decision" value="approve">Accept</button>
+                                                        <button class="btn-pw danger" name="decision" value="sent_back">Deny</button>
+                                                    </form>
+                                                @endif
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="6" class="people-ws-note">{{ $selectedEmployee !== '' ? 'No timesheets for this person.' : 'No timesheets from your team.' }}</td></tr>
+                                @endforelse
+                                </tbody>
+                            </table>
+                        </article>
+                    @endif
                 @endif
             </div>
         </div>

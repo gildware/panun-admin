@@ -675,8 +675,8 @@ class EmployeeProgressScoreService
     }
 
     /**
-     * Provider leads assigned to the employee, received in period, currently Registered.
-     * Matches the Provider Leads tab (same base query + latest status outcome).
+     * Provider leads assigned to the employee that are currently Registered,
+     * credited on the date the status became Registered.
      *
      * @param  list<string>  $employeeIds
      * @return array<string, int>
@@ -685,58 +685,193 @@ class EmployeeProgressScoreService
     {
         $counts = array_fill_keys($employeeIds, 0);
 
-        if ($employeeIds === []) {
-            return $counts;
-        }
-
-        $rangeStart = $periodStart->copy()->startOfDay();
-        $rangeEnd = $periodEnd->copy()->endOfDay();
-
-        $completedStatusIds = ProviderLeadStatus::query()
-            ->where('base_type', 'completed')
-            ->pluck('id')
-            ->map(fn ($id) => (string) $id)
-            ->all();
-
-        if ($completedStatusIds === []) {
-            return $counts;
-        }
-
-        $leads = Lead::query()
-            ->whereIn('handled_by', $employeeIds)
-            ->where('lead_type', Lead::TYPE_PROVIDER)
-            ->whereBetween('date_time_of_lead_received', [$rangeStart, $rangeEnd])
-            ->whereNotNull('handled_by')
-            ->where('handled_by', '!=', Lead::HANDLED_BY_AI)
-            ->get(['id', 'handled_by']);
-
-        if ($leads->isEmpty()) {
-            return $counts;
-        }
-
-        $histories = LeadTypeHistory::query()
-            ->whereIn('lead_id', $leads->pluck('id')->all())
-            ->where('type', Lead::TYPE_PROVIDER)
-            ->orderByDesc('created_at')
-            ->get(['lead_id', 'data'])
-            ->groupBy('lead_id')
-            ->map(fn ($group) => $group->first());
-
-        foreach ($leads as $lead) {
-            $history = $histories->get($lead->id);
-            $data = is_array($history?->data) ? $history->data : [];
-            $statusId = isset($data['provider_lead_status_id']) ? (string) $data['provider_lead_status_id'] : '';
-            if ($statusId === '' || ! in_array($statusId, $completedStatusIds, true)) {
-                continue;
-            }
-
-            $employeeId = (string) ($lead->handled_by ?? '');
+        foreach ($this->registeredProviderLeadsInPeriod($employeeIds, $periodStart, $periodEnd) as $row) {
+            $employeeId = (string) ($row['lead']->handled_by ?? '');
             if ($employeeId !== '' && array_key_exists($employeeId, $counts)) {
                 $counts[$employeeId]++;
             }
         }
 
         return $counts;
+    }
+
+    /**
+     * Currently Registered provider leads, included when registration falls in the period.
+     *
+     * @param  list<string>  $employeeIds
+     * @return Collection<int, array{lead: Lead, registered_at: Carbon}>
+     */
+    public function registeredProviderLeadsInPeriod(array $employeeIds, Carbon $periodStart, Carbon $periodEnd): Collection
+    {
+        if ($employeeIds === []) {
+            return collect();
+        }
+
+        $completedStatuses = ProviderLeadStatus::query()
+            ->where('base_type', 'completed')
+            ->get(['id', 'name']);
+
+        if ($completedStatuses->isEmpty()) {
+            return collect();
+        }
+
+        $completedStatusIds = $completedStatuses
+            ->map(fn ($status) => (string) $status->id)
+            ->all();
+        $completedStatusNames = $completedStatuses
+            ->map(fn ($status) => $this->normalizeProviderStatusLabel($status->name))
+            ->filter()
+            ->values()
+            ->all();
+
+        $leads = Lead::query()
+            ->whereIn('handled_by', $employeeIds)
+            ->where('lead_type', Lead::TYPE_PROVIDER)
+            ->whereNotNull('handled_by')
+            ->where('handled_by', '!=', Lead::HANDLED_BY_AI)
+            ->get(['id', 'name', 'phone_number', 'handled_by']);
+
+        if ($leads->isEmpty()) {
+            return collect();
+        }
+
+        $histories = LeadTypeHistory::query()
+            ->whereIn('lead_id', $leads->pluck('id')->all())
+            ->where('type', Lead::TYPE_PROVIDER)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get(['id', 'lead_id', 'data', 'created_at'])
+            ->groupBy(fn ($history) => (int) $history->lead_id)
+            ->map(fn ($group) => $group->first());
+
+        $registeredLeads = $leads->filter(function (Lead $lead) use ($histories, $completedStatusIds) {
+            $history = $histories->get((int) $lead->id);
+            $data = is_array($history?->data) ? $history->data : [];
+            $statusId = isset($data['provider_lead_status_id']) ? (string) $data['provider_lead_status_id'] : '';
+
+            return $statusId !== '' && in_array($statusId, $completedStatusIds, true);
+        })->values();
+
+        if ($registeredLeads->isEmpty()) {
+            return collect();
+        }
+
+        $registeredAtByLead = $this->providerRegisteredAtByLead(
+            $registeredLeads->pluck('id')->map(fn ($id) => (int) $id)->all(),
+            $histories,
+            $completedStatusIds,
+            $completedStatusNames,
+        );
+
+        $rangeStart = $periodStart->copy()->startOfDay();
+        $rangeEnd = $periodEnd->copy()->endOfDay();
+
+        return $registeredLeads
+            ->map(function (Lead $lead) use ($registeredAtByLead) {
+                $registeredAt = $registeredAtByLead[(int) $lead->id] ?? null;
+                if (! $registeredAt instanceof Carbon) {
+                    return null;
+                }
+
+                return [
+                    'lead' => $lead,
+                    'registered_at' => $registeredAt,
+                ];
+            })
+            ->filter(function (?array $row) use ($rangeStart, $rangeEnd) {
+                return $row !== null && $row['registered_at']->between($rangeStart, $rangeEnd);
+            })
+            ->sortByDesc(fn (array $row) => $row['registered_at']->getTimestamp())
+            ->values();
+    }
+
+    /**
+     * Latest time the lead moved into a Registered status. Older rows with no status log
+     * use the provider history created time.
+     *
+     * @param  list<int>  $leadIds
+     * @param  Collection<int, LeadTypeHistory>  $histories
+     * @param  list<string>  $completedStatusIds
+     * @param  list<string>  $completedStatusNames
+     * @return array<int, Carbon>
+     */
+    private function providerRegisteredAtByLead(
+        array $leadIds,
+        Collection $histories,
+        array $completedStatusIds,
+        array $completedStatusNames,
+    ): array {
+        $registeredAt = [];
+        if ($leadIds === []) {
+            return $registeredAt;
+        }
+
+        $completedStatusIds = array_map(
+            fn ($id) => $this->normalizeProviderStatusLabel($id),
+            $completedStatusIds,
+        );
+
+        $logs = LeadChangeLog::query()
+            ->whereIn('lead_id', $leadIds)
+            ->whereNotNull('changes->provider_lead_status_id')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get(['lead_id', 'changes', 'created_at']);
+
+        foreach ($logs as $log) {
+            $change = is_array($log->changes) ? ($log->changes['provider_lead_status_id'] ?? null) : null;
+            if (! is_array($change)) {
+                continue;
+            }
+
+            $newLabel = $this->normalizeProviderStatusLabel($change['new'] ?? '');
+            $oldLabel = $this->normalizeProviderStatusLabel($change['old'] ?? '');
+            if (! $this->providerStatusIsCompleted($newLabel, $completedStatusIds, $completedStatusNames)) {
+                continue;
+            }
+            if ($this->providerStatusIsCompleted($oldLabel, $completedStatusIds, $completedStatusNames)) {
+                continue;
+            }
+
+            $registeredAt[(int) $log->lead_id] = Carbon::parse($log->created_at);
+        }
+
+        foreach ($leadIds as $leadId) {
+            if (isset($registeredAt[$leadId])) {
+                continue;
+            }
+
+            $createdAt = $histories->get($leadId)?->created_at;
+            if ($createdAt) {
+                $registeredAt[$leadId] = Carbon::parse($createdAt);
+            }
+        }
+
+        return $registeredAt;
+    }
+
+    /**
+     * @param  list<string>  $completedStatusIds
+     * @param  list<string>  $completedStatusNames
+     */
+    private function providerStatusIsCompleted(string $label, array $completedStatusIds, array $completedStatusNames): bool
+    {
+        if ($label === '') {
+            return false;
+        }
+
+        return in_array($label, $completedStatusNames, true)
+            || in_array($label, $completedStatusIds, true);
+    }
+
+    private function normalizeProviderStatusLabel(mixed $value): string
+    {
+        $label = trim((string) $value);
+        if ($label === '' || $label === '—' || $label === '-' || $label === '–') {
+            return '';
+        }
+
+        return mb_strtolower($label);
     }
 
     /**

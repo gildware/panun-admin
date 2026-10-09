@@ -29,9 +29,9 @@
             $managerName = $profile->manager ? $workspace->displayName($profile->manager) : null;
             $mineTabs = [
                 'profile' => 'Profile',
+                'timesheet' => 'Timesheet',
                 'home' => 'Leaves',
                 'payslips' => 'Payslips',
-                'timesheet' => 'Timesheet',
             ];
             $profileDocuments = $documents->filter(fn ($document) => filled($document->file_path));
         @endphp

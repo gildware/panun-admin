@@ -183,6 +183,14 @@ class PeopleLeaveSystemTest extends TestCase
 
         $this->assertEquals(4.0, (float) $half->hours);
 
+        $timed = $this->workspace->submitLeave($user, 'casual', Carbon::parse('2026-03-06'), Carbon::parse('2026-03-06'), 'Morning', true, null, '09:00', '13:00');
+        $sheet = $sheet->fresh();
+        $this->assertSame('09:00', $timed->from_time);
+        $this->assertSame('13:00', $timed->to_time);
+        $this->assertEquals(4.0, (float) $timed->hours);
+        $this->assertSame('09:00', $sheet->entries['2026-03-06']['rows'][0]['from_time']);
+        $this->assertSame('13:00', $sheet->entries['2026-03-06']['rows'][0]['to_time']);
+
         $short = $this->workspace->submitLeave($user, 'casual', Carbon::parse('2026-03-04'), Carbon::parse('2026-03-04'), 'Two hours', true, 2);
         $long = $this->workspace->submitLeave($user, 'casual', Carbon::parse('2026-03-05'), Carbon::parse('2026-03-05'), 'Six hours', true, 6);
         $sheet = $sheet->fresh();
@@ -576,6 +584,8 @@ class PeopleLeaveSystemTest extends TestCase
             $table->date('ends_on');
             $table->decimal('days', 6, 1);
             $table->decimal('hours', 4, 1)->nullable();
+            $table->string('from_time', 5)->nullable();
+            $table->string('to_time', 5)->nullable();
             $table->json('year_split')->nullable();
             $table->text('reason');
             $table->string('status')->default('pending');

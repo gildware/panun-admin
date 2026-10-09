@@ -177,8 +177,8 @@ class EmployeeController extends Controller
 
     public function profile(string $id): Application|Factory|View
     {
-        $this->authorize('employee_view');
         $employee = $this->employeeRecord($id);
+        $this->authorizeProfileView($employee);
         $workspace = app(PeopleWorkspace::class);
         $workspace->boot();
         $workspace->ensureStaffFile($employee);
@@ -788,6 +788,17 @@ class EmployeeController extends Controller
         abort_unless($employee, 404);
 
         return $employee;
+    }
+
+    private function authorizeProfileView(User $employee): void
+    {
+        $actor = auth()->user();
+        if ($actor && $actor->can('employee_view')) {
+            return;
+        }
+
+        $managerId = PeopleProfile::query()->where('user_id', $employee->id)->value('manager_id');
+        abort_unless($actor && (string) $managerId === (string) $actor->id, 403);
     }
 
     /**

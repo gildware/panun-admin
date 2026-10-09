@@ -5,6 +5,7 @@ namespace Modules\AdminModule\Services;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Modules\AdminModule\Entities\PeopleDocument;
@@ -61,8 +62,69 @@ class PeopleWorkspace
 
     public function boot(): void
     {
-        $this->staffUsers()->each(fn (User $user) => $this->ensureStaffFile($user));
-        app(PeopleLeaveAccrual::class)->applyDue(now());
+        $this->accrueLeaveAfterResponse();
+    }
+
+    /**
+     * Leave catch-up used to run inside the page request, which held the
+     * workspace blank until every employee had been processed. The nightly
+     * command still applies credits. The first page of the day finishes
+     * anything that command missed after the response has already been sent.
+     */
+    public function accrueLeaveAfterResponse(): void
+    {
+        $key = 'people-leave-accrual:'.now()->toDateString();
+
+        try {
+            if (! Cache::add($key, 1, now()->endOfDay()->addMinute())) {
+                return;
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return;
+        }
+
+        app()->terminating(function () use ($key) {
+            try {
+                app(PeopleLeaveAccrual::class)->applyDue(now());
+            } catch (\Throwable $exception) {
+                try {
+                    Cache::forget($key);
+                } catch (\Throwable) {
+                }
+                report($exception);
+            }
+        });
+    }
+
+    /**
+     * Create a staff file only for people who do not have one yet.
+     *
+     * @param  Collection<int, User>  $users
+     */
+    public function ensureMissingStaffFiles(Collection $users): void
+    {
+        if ($users->isEmpty() || ! Schema::hasTable('people_profiles')) {
+            return;
+        }
+
+        $ids = $users->pluck('id')->map(fn ($id) => (string) $id)->all();
+        $existing = PeopleProfile::query()
+            ->whereIn('user_id', $ids)
+            ->pluck('user_id')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+        $missing = array_fill_keys(array_diff($ids, $existing), true);
+        if ($missing === []) {
+            return;
+        }
+
+        foreach ($users as $user) {
+            if (isset($missing[(string) $user->id])) {
+                $this->ensureStaffFile($user);
+            }
+        }
     }
 
     public function isHr(User $user): bool
@@ -387,6 +449,8 @@ class PeopleWorkspace
                 'task' => self::leaveTaskLabel($this->leaveLabel($request->leave_type)),
                 'description' => trim((string) $request->reason) !== '' ? trim((string) $request->reason) : null,
                 'deadline' => null,
+                'from_time' => $half ? $request->from_time : null,
+                'to_time' => $half ? $request->to_time : null,
                 'hours' => $leaveHours,
             ]], $workRows);
             $amount = round($leaveHours + array_sum(array_map(fn (array $row) => (float) ($row['hours'] ?? 0), $workRows)), 2);
@@ -823,10 +887,53 @@ class PeopleWorkspace
         return $this->canDecideFor($actor, $employee);
     }
 
-    public function submitLeave(User $user, string $type, CarbonInterface $from, CarbonInterface $to, string $reason, bool $halfDay = false, ?float $leaveHours = null): PeopleLeaveRequest
+    private function normalizeClock(?string $value): ?string
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+        if (! preg_match('/^(\d{2}):(\d{2})/', $value, $match)) {
+            throw new \InvalidArgumentException('Enter a from time and a to time.');
+        }
+        $hours = (int) $match[1];
+        $minutes = (int) $match[2];
+        if ($hours > 23 || $minutes > 59) {
+            throw new \InvalidArgumentException('Enter a from time and a to time.');
+        }
+
+        return sprintf('%02d:%02d', $hours, $minutes);
+    }
+
+    private function clockToMinutes(string $value): int
+    {
+        [$hours, $minutes] = array_map('intval', explode(':', $value));
+
+        return ($hours * 60) + $minutes;
+    }
+
+    public function submitLeave(User $user, string $type, CarbonInterface $from, CarbonInterface $to, string $reason, bool $halfDay = false, ?float $leaveHours = null, ?string $fromTime = null, ?string $toTime = null): PeopleLeaveRequest
     {
         if ($halfDay && $from->toDateString() !== $to->toDateString()) {
             throw new \InvalidArgumentException('A half day is a single date.');
+        }
+
+        $storedFrom = null;
+        $storedTo = null;
+        if ($halfDay) {
+            $storedFrom = $this->normalizeClock($fromTime);
+            $storedTo = $this->normalizeClock($toTime);
+            if ($storedFrom !== null || $storedTo !== null) {
+                if ($storedFrom === null || $storedTo === null) {
+                    throw new \InvalidArgumentException('A half day needs a from time and a to time.');
+                }
+                $start = $this->clockToMinutes($storedFrom);
+                $end = $this->clockToMinutes($storedTo);
+                if ($end <= $start) {
+                    throw new \InvalidArgumentException('To time has to be later than from time.');
+                }
+                $leaveHours = round(($end - $start) / 60, 1);
+            }
         }
 
         $leaveType = PeopleLeaveType::query()->where('code', $type)->first();
@@ -867,7 +974,7 @@ class PeopleWorkspace
             throw new \InvalidArgumentException('Those dates overlap a leave request you already sent.');
         }
 
-        $leave = DB::transaction(function () use ($user, $type, $from, $to, $days, $split, $reason, $hours) {
+        $leave = DB::transaction(function () use ($user, $type, $from, $to, $days, $split, $reason, $hours, $storedFrom, $storedTo) {
             if ($this->leaveTracksBalance($type)) {
                 foreach ($split as $year => $count) {
                     $balance = $this->balanceFor($user, (int) $year);
@@ -883,6 +990,8 @@ class PeopleWorkspace
                 'ends_on' => $to->toDateString(),
                 'days' => $days,
                 'hours' => $hours,
+                'from_time' => $storedFrom,
+                'to_time' => $storedTo,
                 'year_split' => $split,
                 'reason' => $reason,
                 'status' => 'pending',

@@ -18,6 +18,8 @@ class PeopleLeaveRequest extends Model
         'ends_on',
         'days',
         'hours',
+        'from_time',
+        'to_time',
         'year_split',
         'reason',
         'status',

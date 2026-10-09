@@ -1374,6 +1374,200 @@
 .emp-dash .progress-cards-row--admin .rank-item--card .rank-marks-table td {
     padding: 4px 5px;
 }
+.emp-dash .team-rank-table-wrap {
+    overflow: auto;
+    max-width: 100%;
+    border: 1px solid var(--wq-border);
+    border-radius: 8px;
+    background: #fff;
+}
+.emp-dash .team-rank-table {
+    width: max-content;
+    min-width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+    color: var(--wq-text);
+}
+.emp-dash .team-rank-table th,
+.emp-dash .team-rank-table td {
+    box-sizing: border-box;
+    padding: 6px 8px;
+    border-bottom: 1px solid #eef2f6;
+    border-right: 1px solid #f1f5f9;
+    vertical-align: middle;
+    background: #fff;
+    white-space: nowrap;
+}
+.emp-dash .team-rank-table thead th {
+    position: static;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-align: center;
+    color: #475569;
+    background: #f8fafc;
+}
+.emp-dash .team-rank-table-groups th {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom-color: #e2e8f0;
+}
+.emp-dash .team-rank-table-metrics th {
+    max-width: 108px;
+    min-width: 72px;
+    white-space: normal;
+    line-height: 1.25;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    vertical-align: bottom;
+}
+.emp-dash .team-rank-table thead th.team-rank-group--self,
+.emp-dash .team-rank-table thead th.team-rank-metric-head--self { color: var(--rm-green-text); background: var(--rm-green-soft); }
+.emp-dash .team-rank-table thead th.team-rank-group--helped,
+.emp-dash .team-rank-table thead th.team-rank-metric-head--helped { color: var(--rm-blue-text); background: var(--rm-blue-soft); }
+.emp-dash .team-rank-table thead th.team-rank-group--penalties,
+.emp-dash .team-rank-table thead th.team-rank-metric-head--penalties { color: var(--rm-red-text); background: var(--rm-red-soft); }
+.emp-dash .team-rank-table thead th.team-rank-group--active,
+.emp-dash .team-rank-table thead th.team-rank-metric-head--active { color: #475569; background: #f1f5f9; }
+.emp-dash .team-rank-table thead th.team-rank-group--summary,
+.emp-dash .team-rank-table thead th.team-rank-metric-head--summary { color: var(--rm-slate-text); background: #eef2f6; }
+.emp-dash .team-rank-sticky {
+    position: sticky;
+    z-index: 3;
+}
+.emp-dash .team-rank-sticky--rank {
+    left: 0;
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    text-align: center;
+}
+.emp-dash .team-rank-sticky--name {
+    left: 40px;
+    width: 196px;
+    min-width: 196px;
+    max-width: 196px;
+    text-align: left;
+}
+.emp-dash .team-rank-sticky--score {
+    left: 236px;
+    width: 72px;
+    min-width: 72px;
+    max-width: 72px;
+    padding-left: 6px;
+    padding-right: 8px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 8px 0 8px -8px rgba(15, 23, 42, 0.18);
+}
+.emp-dash .team-rank-table thead th.team-rank-group {
+    height: 28px;
+    padding: 4px 10px;
+    text-align: left;
+}
+.emp-dash .team-rank-table thead th.team-rank-sticky {
+    position: sticky;
+    z-index: 4;
+}
+.emp-dash thead .team-rank-sticky { z-index: 4; }
+.emp-dash .team-rank-num {
+    font-weight: 800;
+    color: var(--wq-brand);
+}
+.emp-dash .team-rank-person {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.emp-dash .team-rank-person .avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    font-size: 10px;
+}
+.emp-dash .team-rank-person-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 700;
+}
+.emp-dash .team-rank-report-link {
+    display: inline-flex;
+    flex: 0 0 auto;
+    margin-left: auto;
+    color: #43466e;
+    text-decoration: none;
+}
+.emp-dash .team-rank-report-link .material-symbols-outlined { font-size: 16px; }
+.emp-dash .team-rank-report-link:hover { color: #1d4ed8; }
+.emp-dash .team-rank-score,
+.emp-dash .team-rank-subtotal,
+.emp-dash .team-rank-metric,
+.emp-dash .team-rank-count {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+}
+.emp-dash .team-rank-score { font-size: 13px; }
+.emp-dash .team-rank-metric-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    color: inherit;
+    text-decoration: none;
+}
+.emp-dash .team-rank-metric-link:hover .team-rank-pts { text-decoration: underline; }
+.emp-dash .team-rank-pts { display: block; line-height: 1.15; }
+.emp-dash .team-rank-qty {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    color: #94a3b8;
+    line-height: 1.1;
+}
+.emp-dash .team-rank-metric.is-zero,
+.emp-dash .team-rank-metric.is-zero .team-rank-pts,
+.emp-dash .team-rank-subtotal.is-zero {
+    color: #94a3b8;
+    font-weight: 600;
+}
+.emp-dash .team-rank-metric.is-plus .team-rank-pts,
+.emp-dash .team-rank-subtotal.is-plus,
+.emp-dash .team-rank-score.is-plus { color: var(--rm-green); }
+.emp-dash .team-rank-metric.is-help .team-rank-pts,
+.emp-dash .team-rank-subtotal.is-help { color: var(--rm-blue); }
+.emp-dash .team-rank-metric.is-minus .team-rank-pts,
+.emp-dash .team-rank-subtotal.is-minus,
+.emp-dash .team-rank-score.is-minus { color: var(--rm-red); }
+.emp-dash .team-rank-table tbody tr.is-highlighted td,
+.emp-dash .team-rank-table tbody tr.is-highlighted th {
+    background: #fffbeb;
+}
+.emp-dash .team-rank-table tbody tr:hover td,
+.emp-dash .team-rank-table tbody tr:hover th {
+    background: #f8fafc;
+}
+.emp-dash .team-rank-table tbody tr.is-highlighted:hover td,
+.emp-dash .team-rank-table tbody tr.is-highlighted:hover th {
+    background: #fef3c7;
+}
+[data-bs-theme=dark] .emp-dash .team-rank-table-wrap {
+    background: #0f172a;
+    border-color: #334155;
+}
+[data-bs-theme=dark] .emp-dash .team-rank-table th,
+[data-bs-theme=dark] .emp-dash .team-rank-table td {
+    background: #0f172a;
+    border-color: #1e293b;
+    color: #e2e8f0;
+}
+[data-bs-theme=dark] .emp-dash .team-rank-table thead th { background: #1e293b; color: #cbd5e1; }
+[data-bs-theme=dark] .emp-dash .team-rank-table tbody tr.is-highlighted td,
+[data-bs-theme=dark] .emp-dash .team-rank-table tbody tr.is-highlighted th { background: #422006; }
 .emp-dash .progress-cards-row--metrics > [class*="col-"] {
     display: flex;
     flex-direction: column;
