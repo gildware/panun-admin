@@ -527,7 +527,7 @@
         try {
             return !!link.sheet;
         } catch (e) {
-            return false;
+            return true;
         }
     }
 
@@ -574,12 +574,19 @@
             link.rel = 'stylesheet';
             link.href = absoluteHref;
             link.setAttribute('data-admin-partial-style', '1');
-            link.addEventListener('load', function () {
-                waitForStylesheetApplied(link).then(resolve);
-            }, { once: true });
-            link.addEventListener('error', function () {
+            var settled = false;
+            function finish() {
+                if (settled) {
+                    return;
+                }
+                settled = true;
                 resolve();
+            }
+            window.setTimeout(finish, 1500);
+            link.addEventListener('load', function () {
+                waitForStylesheetApplied(link).then(finish);
             }, { once: true });
+            link.addEventListener('error', finish, { once: true });
             document.head.appendChild(link);
         });
     }
@@ -672,7 +679,7 @@
     }
 
     function waitForDocumentStyles(maxMs) {
-        maxMs = maxMs || 8000;
+        maxMs = maxMs || 1200;
 
         return new Promise(function (resolve) {
             var settled = false;
@@ -757,20 +764,13 @@
             return;
         }
 
-        var revealTimer = window.setTimeout(function () {
-            setFrameLoading(frame, false);
-            revealAdminShell();
-        }, 10000);
-
-        setFrameLoading(frame, true);
         try {
             if (frame.querySelector('link[rel="stylesheet"], style')) {
                 frame.innerHTML = await prepareFrameContent(document, frame);
             }
-            await waitForDocumentStyles();
+            await waitForDocumentStyles(400);
         } catch (e) {
         } finally {
-            window.clearTimeout(revealTimer);
             setFrameLoading(frame, false);
             revealAdminShell();
         }
@@ -849,10 +849,9 @@
             syncChromeFromHtml(html);
             runFlashToastsFromHtml(html);
 
-            setFrameLoading(frame, true);
             var frameHtml = await prepareFrameContent(parsed.doc, parsed.frame);
             frame.innerHTML = frameHtml;
-            await waitForDocumentStyles();
+            await waitForDocumentStyles(400);
             setFrameLoading(frame, false);
             revealAdminShell();
             await activateScripts(frame);
